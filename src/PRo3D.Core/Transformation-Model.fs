@@ -1,19 +1,8 @@
 namespace PRo3D.Core.Surface
 
-open System
 open Aardvark.Base
-open FSharp.Data.Adaptive
-open Aardvark.Rendering
-open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.IO.Loader
-open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.UI.Trafos
-open Aardvark.VRVis
-open Aardvark.VRVis.Opc
 
-open DevILSharp.ILU
 open Chiron
 
 open PRo3D.Base
@@ -21,6 +10,10 @@ open PRo3D.Core
 
 open Adaptify
 
+type EulerMode = XYZ | XZY | YXZ | YZX | ZXY | ZYX
+
+module EulerMode = 
+    let defaultMode = EulerMode.XYZ
 
 [<ModelType>]
 type Transformations = { 
@@ -32,6 +25,9 @@ type Transformations = {
     roll                  : NumericInput
     trafo                 : Trafo3d
     pivot                 : V3dInput 
+    refSys                : Option<Affine3d>
+    showTrafoRefSys       : bool
+    refSysSize            : NumericInput
     oldPivot              : V3d
     showPivot             : bool
     pivotChanged          : bool
@@ -41,6 +37,7 @@ type Transformations = {
     trafoChanged          : bool
     usePivot              : bool
     pivotSize             : NumericInput
+    eulerMode             : EulerMode 
 } 
 
 
@@ -96,12 +93,20 @@ module Transformations =
         let initPivotSize size = 
             {
                 value = size
-                min = 0.3
+                min = 0.001
                 max = 15.0
-                step = 0.1
-                format = "{0:0.00}"
+                step = 0.001
+                format = "{0:0.000}"
             }
 
+        let initRefSysSize size = 
+            {
+                value = size
+                min = 0.3
+                max = 999.0
+                step = 0.1
+                format = "{0:000.00}"
+            }
     let current = 6 //4 //21.12.2022 laura
     
     let read0 = 
@@ -123,6 +128,9 @@ module Transformations =
                 roll                 = Initial.roll
                 trafo                = trafo               
                 pivot                = Initial.setV3d( pivot')
+                refSys               = None
+                showTrafoRefSys      = true
+                refSysSize           = Initial.initRefSysSize 50.0
                 oldPivot             = pivot'
                 showPivot            = true
                 pivotChanged         = false
@@ -132,6 +140,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -154,6 +163,9 @@ module Transformations =
                 roll                 = Initial.roll
                 trafo                = trafo
                 pivot                = Initial.setV3d(pivot')
+                refSys               = None
+                showTrafoRefSys      = true
+                refSysSize           = Initial.initRefSysSize 50.0
                 oldPivot             = pivot'
                 showPivot            = true
                 pivotChanged         = false
@@ -163,6 +175,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -186,6 +199,9 @@ module Transformations =
                 roll                 = Initial.roll
                 trafo                = trafo               
                 pivot                = Initial.setV3d( pivot' )
+                refSys               = None
+                showTrafoRefSys      = true
+                refSysSize           = Initial.initRefSysSize 50.0
                 oldPivot             = pivot'
                 showPivot            = true
                 pivotChanged         = false
@@ -195,6 +211,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -221,6 +238,9 @@ module Transformations =
                 roll                 = roll
                 trafo                = trafo
                 pivot                = Initial.setV3d( pivot')
+                refSys               = None
+                showTrafoRefSys      = true
+                refSysSize           = Initial.initRefSysSize 50.0
                 oldPivot             = pivot'
                 showPivot            = true
                 pivotChanged         = false
@@ -230,6 +250,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -257,6 +278,9 @@ module Transformations =
                 roll                 = roll
                 trafo                = trafo
                 pivot                = pivot
+                refSys               = None
+                showTrafoRefSys      = true
+                refSysSize           = Initial.initRefSysSize 50.0
                 oldPivot             = pivot.value
                 showPivot            = showPivot
                 pivotChanged         = false
@@ -266,6 +290,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -292,6 +317,9 @@ module Transformations =
                 roll                 = roll
                 trafo                = trafo
                 pivot                = pivot
+                refSys               = None
+                showTrafoRefSys      = true
+                refSysSize           = Initial.initRefSysSize 50.0
                 oldPivot             = pivot.value
                 showPivot            = showPivot
                 pivotChanged         = false
@@ -301,6 +329,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
     
@@ -320,6 +349,17 @@ module Transformations =
             let! isSketchFab          = Json.read "isSketchFab"
             let! usePivot             = Json.read "usePivot"
             let! pivotSize            = Json.tryRead "pivotSize"
+            let! showTrafoRefSys      = Json.tryRead "showTrafoRefSys"
+            let! refSysTrafo          = Json.tryReadWith Ext.fromJson<Option<Trafo3d>,Ext> "refSys" 
+            let! refSysSize           = Json.tryRead "refSysSize"
+
+            let rfSys = match refSysTrafo with 
+                        | Some s -> 
+                                if s = Trafo3d() then
+                                    None 
+                                else 
+                                    Some (Affine3d(s.Forward.UpperLeftM33(), s.Forward.C3.XYZ))
+                        | None -> None
             
             return {
                 version              = current
@@ -330,6 +370,9 @@ module Transformations =
                 roll                 = roll
                 trafo                = trafo
                 pivot                = pivot
+                refSys               = rfSys
+                showTrafoRefSys      = match showTrafoRefSys with Some showRS -> showRS | None -> false
+                refSysSize           = match refSysSize with |Some p -> Initial.initRefSysSize p | None ->Initial.initRefSysSize 50.0
                 oldPivot             = pivot.value
                 showPivot            = showPivot
                 pivotChanged         = false
@@ -339,6 +382,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = usePivot
                 pivotSize            = match pivotSize with |Some p -> Initial.initPivotSize p | None -> Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -378,7 +422,17 @@ type Transformations with
             do! Json.write "isSketchFab" x.isSketchFab
             do! Json.write "usePivot" x.usePivot
             do! Json.write "pivotSize" x.pivotSize.value
+
+            let tRefSys =
+                match x.refSys with
+                | None -> Trafo3d()//.Identity
+                | Some rs -> (Trafo3d(rs))
+         
+            do! Json.writeWith Ext.toJson<Trafo3d,Ext> "refSys" tRefSys
+            do! Json.write "showTrafoRefSys" x.showTrafoRefSys
+            do! Json.write "refSysSize" x.refSysSize.value
         }
 
 
      
+

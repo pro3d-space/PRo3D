@@ -4,7 +4,7 @@ open System
 open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.UI.Primitives
 open Aardvark.Rendering
 
@@ -18,6 +18,7 @@ open Chiron
 
 open Aether
 open Aether.Operators
+open PRo3D.Core.Gis
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Model =    
@@ -272,10 +273,13 @@ module SceneLoader =
     let addScaleBarSegments (m:Model) = 
         m.scene.scaleBars.scaleBars
         |> HashMap.map( fun id sb -> 
-                let segments = ScaleBarUtils.updateSegments sb
+                let segments = ScaleBarUtils.updateSegments sb m.scene.referenceSystem.planet
                 { sb with scSegments = segments})
         |> (flip <| Optic.set _scaleBarsLens) m
 
+    let loadSceneSpiceKernel (m : Model) =
+        let gisApp = GisApp.loadSpiceKernel' m.scene.gisApp
+        {m with scene = {m.scene with gisApp = gisApp}}
 
     let prepareSceneObjectsModel
         (model     : SceneObjectsModel) : SceneObjectsModel =
@@ -317,8 +321,7 @@ module SceneLoader =
 
     let updateNavigation (m : Model) =
         let navigation' = 
-            { 
-                m.navigation with 
+            {                 
                     camera          = { m.navigation.camera with view = m.scene.cameraView }
                     exploreCenter   = m.scene.exploreCenter;
                     navigationMode  = m.scene.navigationMode 
@@ -344,15 +347,14 @@ module SceneLoader =
             |> resetControllerState
             |> updateNavigation
 
-
         let m = { m with frustum = setFrustum m } 
-
 
         let surfaceModel = 
             m.scene.surfacesModel 
             |> prepareSurfaceModel runtime signature scene.scenePath
 
-        let m = m |> Optic.set _surfaceModelLens surfaceModel
+        let m = 
+            m |> Optic.set _surfaceModelLens surfaceModel
 
         let fullBoundingBox = 
             surfaceModel.sgSurfaces             
@@ -395,7 +397,7 @@ module SceneLoader =
 
         applyScene scene m runtime signature
 
-    let loadSceneFromFile path m runtime signature =
+    let loadSceneFromFile runtime signature path m =
 
         let scene = 
             path
@@ -408,7 +410,6 @@ module SceneLoader =
             |> expandRelativePaths
            
         applyScene scene m runtime signature
-
     
     let loadLastScene runtime signature m =
         match Serialization.fileExists "./recent" with
@@ -418,7 +419,7 @@ module SceneLoader =
                 match m.recent.recentScenes |> List.sortByDescending (fun v -> v.writeDate) |> List.tryHead with
                 | Some (scenePath) ->
                     try
-                        loadSceneFromFile scenePath.path m runtime signature
+                        loadSceneFromFile runtime signature scenePath.path m
                     with e ->
                         Log.warn "[Scene] Error parsing last scene: %s. loading empty" scenePath.path
                         Log.error "[Scene] %A" e.Message

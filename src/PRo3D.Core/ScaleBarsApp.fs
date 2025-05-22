@@ -1,21 +1,13 @@
 namespace PRo3D.Core
 
+open System
 open Aardvark.Base
-open Aardvark.Application
 open Aardvark.UI
-open Aardvark.VRVis
 open FSharp.Data.Adaptive
-open FSharp.Data.Adaptive.Operators
-open Adaptify.FSharp.Core
-open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.Rendering
-open Aardvark.UI.Trafos  
 open PRo3D.Core.Surface
 
-open System
-open System.IO
-open System.Diagnostics
 
 open Aardvark.UI.Primitives
 
@@ -69,8 +61,9 @@ module ScaleBarProperties =
         | SetOrientation of Orientation
         | SetUnit        of PRo3D.Core.Unit
         | SetSubdivisions of Numeric.Action
+        | SetRepresentation of ScaleRepresentation
 
-    let update (model : ScaleBar) (act : Action) =
+    let update (model : ScaleVisualization) (act : Action) =
         match act with
         | SetName s ->
             { model with name = s }
@@ -93,8 +86,10 @@ module ScaleBarProperties =
             { model with unit = mode; text = text'} 
         | SetSubdivisions a ->
             { model with subdivisions = Numeric.update model.subdivisions a}
+        | SetRepresentation mode ->
+            { model with representation = mode }
           
-    let view (model : AdaptiveScaleBar) =        
+    let view (model : AdaptiveScaleVisualization) =        
       require GuiEx.semui (
         Html.table [               
           Html.row "Name:"          [Html.SemUi.textBox model.name SetName ]
@@ -106,6 +101,7 @@ module ScaleBarProperties =
           Html.row "Subdivisions:"  [Numeric.view' [NumericInputType.InputBox]   model.subdivisions  |> UI.map SetSubdivisions ]
           Html.row "Orientation:"   [Html.SemUi.dropDown model.orientation SetOrientation]
           Html.row "Unit:"          [Html.SemUi.dropDown model.unit SetUnit]
+          Html.row "Representation:" [Html.SemUi.dropDown model.representation SetRepresentation]
           //Html.row "Pivot:"         [Html.SemUi.dropDown model.alignment SetPivot]
         ]
       )
@@ -123,6 +119,9 @@ type ScaleBarsAction =
 
 module ScaleBarUtils = 
 
+    let getPlanetBasedUpVector (p:V3d) (planet:Planet) = 
+        CooTransformation.getUpVector p planet
+
     let getLengthInMeter 
         (unit : PRo3D.Core.Unit)
         (length : float)  =
@@ -136,12 +135,18 @@ module ScaleBarUtils =
 
     let getDirectionVec 
         (orientation : Orientation) 
-        (view : CameraView) =  
+        (view : CameraView) 
+        (position : V3d) 
+        (planet : Planet) =  
+            let planetUp = getPlanetBasedUpVector position planet
             match orientation with
-            | Orientation.Horizontal -> view.Right
-            | Orientation.Vertical   -> view.Up
-            | Orientation.Sky        -> view.Sky
-            |_                       -> view.Right
+            | Orientation.Horizontal_cam    -> view.Right
+            | Orientation.Vertical_cam      -> view.Up
+            | Orientation.Sky_cam           -> view.Sky
+            | Orientation.Horizontal_planet -> planetUp.Cross(view.Backward).Normalized
+            | Orientation.Sky_planet        -> planetUp
+            |_                       -> view.Right.Normalized
+
 
     let getP1
         (position : V3d) 
@@ -183,19 +188,20 @@ module ScaleBarUtils =
                     segments <- segments |> IndexList.add segment
             segments
 
-    let updateSegments (scaleBar : ScaleBar) =
-        let direction = getDirectionVec scaleBar.orientation scaleBar.view
+    let updateSegments (scaleBar : ScaleVisualization) (planet : Planet) =
+        let direction = getDirectionVec scaleBar.orientation scaleBar.view scaleBar.position planet
         let length = getLengthInMeter scaleBar.unit scaleBar.length.value
         getSegments scaleBar.position length direction scaleBar.alignment ((int)scaleBar.subdivisions.value)
 
     let mkScaleBar 
         (drawing : ScaleBarDrawing) 
         (position : V3d) 
-        (view : CameraView) =  
+        (view : CameraView) 
+        (planet : Planet) =  
 
             let subdivisions = InitScaleBarsParams.subdivisions // todo via gui
             let length = getLengthInMeter drawing.unit drawing.length.value
-            let direction = getDirectionVec drawing.orientation view
+            let direction = getDirectionVec drawing.orientation view position planet
             let segments = getSegments position length direction drawing.alignment ((int)subdivisions.value)
             let text = drawing.length.value.ToString() + drawing.unit.ToString()
 
@@ -222,47 +228,47 @@ module ScaleBarUtils =
                 transformation  = Init.transformations
                 preTransform    = Trafo3d.Identity
 
-                direction = direction
+                representation  = ScaleRepresentation.ScaleBar 
             }
 
 
-module ScaleBarTransformations = 
+//module ScaleBarTransformations = 
 
 
-    //TODO refactor: is this code duplication necessary? transformations should all work the same, shouldn't they?
-    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
-        let north = refsys.northO.Normalized
+//    //TODO refactor: is this code duplication necessary? transformations should all work the same, shouldn't they?
+//    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
+//        let north = refsys.northO.Normalized
         
-        let up = refsys.up.value.Normalized
-        let east   = north.Cross(up)
+//        let up = refsys.up.value.Normalized
+//        let east   = north.Cross(up)
               
-        let refSysRotation = 
-            Trafo3d.FromOrthoNormalBasis(north, east, up)
+//        let refSysRotation = 
+//            Trafo3d.FromOrthoNormalBasis(north, east, up)
             
-        //translation along north, east, up            
-        let trans = translation |> Trafo3d.Translation
-        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
+//        //translation along north, east, up            
+//        let trans = translation |> Trafo3d.Translation
+//        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
         
-        let originTrafo = -pivot |> Trafo3d.Translation
+//        let originTrafo = -pivot |> Trafo3d.Translation
         
-        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
+//        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
            
     
-    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
-        adaptive {
-           let! translation = tansform.translation.value
-           let! yaw = tansform.yaw.value
-           let! pivot = tansform.pivot.value
+//    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
+//        adaptive {
+//           let! translation = tansform.translation.value
+//           let! yaw = tansform.yaw.value
+//           let! pivot = tansform.pivot.value
             
-           return fullTrafo'' translation yaw pivot refsys
-        }
+//           return fullTrafo'' translation yaw pivot refsys
+//        }
 
-    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
-        let translation = tansform.translation.value
-        let yaw = tansform.yaw.value
-        let pivot = tansform.pivot.value
+//    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
+//        let translation = tansform.translation.value
+//        let yaw = tansform.yaw.value
+//        let pivot = tansform.pivot.value
             
-        fullTrafo'' translation yaw pivot refsys
+//        fullTrafo'' translation yaw pivot refsys
         
 
 module ScaleBarsApp = 
@@ -299,7 +305,7 @@ module ScaleBarsApp =
             | None, _ -> model
 
         | AddScaleBar (p,drawing, view) ->
-            let scaleBar = ScaleBarUtils.mkScaleBar drawing p view 
+            let scaleBar = ScaleBarUtils.mkScaleBar drawing p view refSys.planet
             let scaleBars' =  HashMap.add scaleBar.guid scaleBar model.scaleBars
             { model with scaleBars = scaleBars'; selectedScaleBar = Some scaleBar.guid }
 
@@ -322,7 +328,7 @@ module ScaleBarsApp =
                 match scB with
                 | Some sb ->
                     let scaleBar = (ScaleBarProperties.update sb msg)
-                    let scaleBar' = { scaleBar with scSegments = ScaleBarUtils.updateSegments scaleBar }
+                    let scaleBar' = { scaleBar with scSegments = ScaleBarUtils.updateSegments scaleBar refSys.planet}
                     let scaleBars = model.scaleBars |> HashMap.alter sb.guid (function | Some _ -> Some scaleBar' | None -> None )
                     { model with scaleBars = scaleBars} 
                 | None -> model
@@ -349,7 +355,7 @@ module ScaleBarsApp =
         
                     for scb in scaleBars do
             
-                        let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                        let infoc = sprintf "color: %s" (Html.color C4b.White)
             
                         let! scbid = scb.guid  
                         let toggleIcon = 
@@ -379,7 +385,7 @@ module ScaleBarsApp =
                             |> AttributeMap.ofAMap
             
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        let bgc = sprintf "color: %s" (Html.color c)
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
@@ -442,14 +448,17 @@ module ScaleBarsApp =
         let getSgSegmentCylinder
             (segment : AdaptivescSegment)
             (thickness : aval<float>) 
-            (translation : Trafo3d) =
+            (translation : V3d) =
             adaptive {
                 let! p1 = segment.startPoint
                 let! p2 = segment.endPoint
 
+                let p1 = p1 + translation
+                let p2 = p2 + translation
+
                 let length = Vec.Distance(p1,p2)
                 let dir = p2 - p1
-                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1) * translation))
+                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1)))
                 return Sg.cylinder 30 segment.color thickness (AVal.constant length)             
                         |> Sg.noEvents
                         |> Sg.uniform "WorldPos" (segment.startPoint)
@@ -466,14 +475,17 @@ module ScaleBarsApp =
         let getSgSegmentCylinderMask
             (segment : AdaptivescSegment)
             (thickness : aval<float>) 
-            (translation : Trafo3d) =
+            (translation : V3d) =
             adaptive {
                 let! p1 = segment.startPoint
                 let! p2 = segment.endPoint
 
+                let p1 = p1 + translation
+                let p2 = p2 + translation
+
                 let length = Vec.Distance(p1,p2)
                 let dir = p2 - p1
-                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1) * translation))
+                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1) ))
                 return Sg.cylinder 30 segment.color thickness (AVal.constant length)             
                         |> Sg.noEvents
                         |> Sg.uniform "WorldPos" (segment.startPoint)
@@ -482,8 +494,7 @@ module ScaleBarsApp =
             } |> Sg.dynamic
 
         let getSgSegmentLine
-            (segment : AdaptivescSegment) 
-            //(trafo : aval<Trafo3d>)
+            (segment : AdaptivescSegment)
             (thickness : aval<float>) =
             adaptive {
                 let! p1 = segment.startPoint
@@ -497,7 +508,8 @@ module ScaleBarsApp =
             } |> Sg.dynamic
 
         let getP1P2 
-            (scaleBar   : AdaptiveScaleBar) =
+            (scaleBar   : AdaptiveScaleVisualization) 
+            (planet     : aval<Planet>)=
             aval {
                 let! position = scaleBar.position
                 let! length = scaleBar.length.value
@@ -505,7 +517,8 @@ module ScaleBarsApp =
                 let length' = ScaleBarUtils.getLengthInMeter unit length
                 let! orientation = scaleBar.orientation
                 let! view = scaleBar.view
-                let direction = ScaleBarUtils.getDirectionVec orientation view
+                let! planet = planet
+                let direction = ScaleBarUtils.getDirectionVec orientation view position planet
                 let! alignment = scaleBar.alignment
                 let p1 = ScaleBarUtils.getP1 position length' direction alignment
                     
@@ -514,28 +527,38 @@ module ScaleBarsApp =
             }
 
         let viewSingleText
-            (scaleBar   : AdaptiveScaleBar) 
+            (scaleBar   : AdaptiveScaleVisualization) 
             (view       : aval<CameraView>)
             (near       : aval<float>)
-            (hfov       : aval<float>) =
+            (hfov       : aval<float>) 
+            //(planet     : aval<Planet>) =
+            (refSys     : AdaptiveReferenceSystem) =
 
             let labelPosition =
                 adaptive {
                     let! scaleBar = scaleBar.Current
-
                     let pos = scaleBar.position
 
+                    //translation along north, east, up 
+                    let! refsys = refSys.Current
+                    let translation = TransformationApp.translationFromReferenceSystemBasis scaleBar.transformation.translation.value refsys
+                    let newPos = pos + translation
+
+                    let direction = ScaleBarUtils.getDirectionVec scaleBar.orientation scaleBar.view newPos refsys.planet
+
                     let scaledDirection = 
-                        scaleBar.direction * ((scaleBar.length.value / 2.0) |> ScaleBarUtils.getLengthInMeter scaleBar.unit )
+                        direction * ((scaleBar.length.value / 2.0) |> ScaleBarUtils.getLengthInMeter scaleBar.unit )
 
                     match scaleBar.alignment with
-                    | Pivot.Left   -> return pos + scaledDirection
-                    | Pivot.Right  -> return pos - scaledDirection
-                    | Pivot.Middle -> return pos
-                    | _ -> return pos                    
+                    | Pivot.Left   -> return newPos + scaledDirection
+                    | Pivot.Right  -> return newPos - scaledDirection
+                    | Pivot.Middle -> return newPos
+                    | _ -> return newPos                    
                 }
 
             let isVisible = AVal.map2(fun t v -> t && v ) scaleBar.textVisible scaleBar.isVisible
+
+            //translation along north, east, up 
             
             Sg.text 
                 view 
@@ -545,13 +568,16 @@ module ScaleBarsApp =
                 (labelPosition |> AVal.map Trafo3d.Translation) 
                 scaleBar.textsize.value 
                 scaleBar.text
+                (AVal.constant C4b.White)
             |> Sg.onOff isVisible
 
         let viewTextLabels
             (scaleBarsModel : AdaptiveScaleBarsModel) 
             (view           : aval<CameraView>)
             (mbigConfig     : 'ma)
-            (minnerConfig   : MInnerConfig<'ma>) =
+            (minnerConfig   : MInnerConfig<'ma>) 
+            //(planet         : aval<Planet>) =
+            (refSys         : AdaptiveReferenceSystem) =
 
             let near = minnerConfig.getNearDistance mbigConfig
 
@@ -560,17 +586,18 @@ module ScaleBarsApp =
             
             scaleBars 
             |> AMap.map( fun id sb ->
-                viewSingleText sb view near hfov
+                viewSingleText sb view near hfov refSys
             )
             |> AMap.toASet 
             |> ASet.map snd 
             |> Sg.set
 
         let viewSingleScaleBarCylinder
-            (scaleBar   : AdaptiveScaleBar) 
+            (scaleBar   : AdaptiveScaleVisualization) 
             (view       : aval<CameraView>)
             (near       : aval<float>)
-            (selected   : aval<Option<Guid>>) =
+            (selected   : aval<Option<Guid>>) 
+            (refSys     : AdaptiveReferenceSystem) =
 
             adaptive {
                 
@@ -579,15 +606,17 @@ module ScaleBarsApp =
                     match selected' with
                     | Some sel -> sel = (scaleBar.guid |> AVal.force)
                     | None -> false
-
+                
+                let! scaleBarTrans = scaleBar.transformation.translation.value
                 //translation along north, east, up 
-                let! translation = scaleBar.transformation.translation.value
-                let trans = translation |> Trafo3d.Translation
+                let! refsys = refSys.Current
+                let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans refsys) //|> Trafo3d.Translation 
+                        
 
                 let trafo =
                     adaptive {
                         let! pos = scaleBar.position
-                        return (Trafo3d.Translation pos) * trans
+                        return (Trafo3d.Translation pos) * (translation |> Trafo3d.Translation)
                     }                
 
                 let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
@@ -596,7 +625,7 @@ module ScaleBarsApp =
                 // do this for all lineparts
                 let sgSegments = 
                     scaleBar.scSegments 
-                    |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value trans ) 
+                    |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value translation ) 
                     |> AList.toASet
                     |> Sg.set
                
@@ -615,7 +644,7 @@ module ScaleBarsApp =
                     if selected then
                         let cylinder = 
                             scaleBar.scSegments 
-                            |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value trans ) 
+                            |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value translation) 
                             |> AList.toASet
                             |> Sg.set
                         OutlineEffect.createForSg 2 RenderPass.main C4f.VRVisGreen cylinder
@@ -629,12 +658,94 @@ module ScaleBarsApp =
             
             } |> Sg.dynamic
 
+            
+        let coordinateCrossCylinders (colors : array<C4b>) (isMask : bool) (thickness : aval<float>) (length : aval<float>) =
+            length 
+            |> AVal.map (fun length ->
+                [
+                    { startPoint = V3d.Zero; endPoint = V3d.XAxis * length; color = colors[0] } 
+                    { startPoint = V3d.Zero; endPoint = V3d.YAxis * length; color = colors[1] }
+                    { startPoint = V3d.Zero; endPoint = V3d.ZAxis * length; color = colors[2] }
+                ]
+                |> List.map (fun seg -> 
+                    let aseg = seg |> AdaptivescSegment.Create 
+                    if isMask then 
+                        getSgSegmentCylinderMask aseg thickness V3d.Zero
+                    else
+                        getSgSegmentCylinder aseg thickness V3d.Zero
+                   )
+                |> Sg.ofList
+            )
+            |> Sg.dynamic
+
+
+        let viewScaleCoordinateFrame
+            (scaleBar   : AdaptiveScaleVisualization) 
+            (view       : aval<CameraView>)
+            (near       : aval<float>)
+            (selected   : aval<Option<Guid>>) 
+            (refSys     : AdaptiveReferenceSystem) =
+
+            let inRefFrame = 
+                refSys.Current 
+                |> AVal.map (fun refSys -> 
+                    TransformationApp.getReferenceSystemBasis_global refSys //TODO: local or global?
+                )
+                 
+            let fullTranslation = 
+                adaptive {
+                    let! scaleBarTrans = scaleBar.transformation.translation.value
+                    //translation along north, east, up 
+                    let! refsys = refSys.Current
+                    let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans refsys) //|> Trafo3d.Translation 
+
+                    let! pos = scaleBar.position
+                    return (Trafo3d.Translation pos) * (translation |> Trafo3d.Translation)
+                }
+
+            let selectionSg = 
+                let visible = 
+                    (scaleBar.guid, selected) ||> AVal.map2 (fun current selected -> 
+                        match selected with
+                        | Some sel when sel = current -> true
+                        | _ -> false
+                    )
+                let selectionSg = 
+                    coordinateCrossCylinders [| C4b.IndianRed; C4b.DarkGreen; C4b.DarkBlue |] true scaleBar.thickness.value scaleBar.length.value
+                    |> Sg.onOff visible
+                // does not work nicely with those cylinders
+                OutlineEffect.createForSg' (AVal.constant 2.0) 2 RenderPass.main C4f.VRVisGreen selectionSg
+                //selectionSg
+
+
+            coordinateCrossCylinders [| C4b.Red; C4b.Green; C4b.Blue |] false scaleBar.thickness.value scaleBar.length.value
+            |> Sg.andAlso selectionSg
+            |> Sg.trafo inRefFrame // for orientation
+            |> Sg.trafo fullTranslation // for translation (not happy with how it is handled currently though, part of trafo rework)
+            |> Sg.onOff scaleBar.isVisible
+
+        let viewScaleBarVisualization
+            (viewScaleModel : AdaptiveScaleVisualization) 
+            (view       : aval<CameraView>)
+            (near       : aval<float>)
+            (selected   : aval<Option<Guid>>) 
+            (refSys     : AdaptiveReferenceSystem) =
+
+            viewScaleModel.representation
+            |> AVal.map (function
+                | ScaleRepresentation.CoordinateFrame ->
+                    viewScaleCoordinateFrame viewScaleModel view near selected refSys 
+                | _ -> 
+                    viewSingleScaleBarCylinder viewScaleModel view near selected refSys
+            )
+            |> Sg.dynamic
+
         let view 
             (scaleBarsModel : AdaptiveScaleBarsModel) 
             (view           : aval<CameraView>)
             (mbigConfig     : 'ma)
             (minnerConfig   : MInnerConfig<'ma>)
-            (refsys         : AdaptiveReferenceSystem) =
+            (refSys         : AdaptiveReferenceSystem) =
 
             let near = minnerConfig.getNearDistance mbigConfig
 
@@ -643,12 +754,12 @@ module ScaleBarsApp =
             
             scaleBars 
             |> AMap.map( fun id sb ->
-                viewSingleScaleBarCylinder
+                viewScaleBarVisualization
                     sb
                     view
-                    //refsys
                     near
                     selected
+                    refSys
             )
             |> AMap.toASet 
             |> ASet.map snd 

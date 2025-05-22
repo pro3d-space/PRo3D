@@ -6,6 +6,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open PRo3D.Base.Annotation
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open PRo3D.Core
 open PRo3D.Base
 open Chiron

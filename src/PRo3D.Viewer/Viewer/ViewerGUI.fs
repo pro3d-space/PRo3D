@@ -1,32 +1,17 @@
 ﻿namespace PRo3D.Viewer
 
-open Aardvark.Service
 
 open System
-open System.Diagnostics
 open System.IO
 open System.Runtime.InteropServices
 
 
 open Aardvark.Base
-open Aardvark.Base.Geometry
-open Aardvark.Service
 open FSharp.Data.Adaptive
-open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
-open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
-open Aardvark.Rendering.Text
-
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.SgPrimitives.Sg
-open Aardvark.VRVis
-
-open MBrace.FsPickler
-open System.IO
-
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
@@ -40,6 +25,7 @@ open PRo3D.SimulatedViews
 
 open Adaptify
 open FSharp.Data.Adaptive
+open PRo3D.Core.Gis
 
 module Gui =            
     
@@ -262,25 +248,6 @@ module Gui =
             ]                              
         ]
 
-    module CustomGui =
-        let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) =
-            let names  = Enum.GetNames(typeof<'a>)
-            let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
-            let nv     = Array.zip names values
-
-            let attributes (name : string) (value : 'a) =
-                AttributeMap.ofListCond [
-                    always (attribute "value" name)
-                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
-                ]
-       
-            select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
-                for (name, value) in nv do
-                    if exclude |> HashSet.contains value |> not then
-                        let att = attributes name value
-                        yield Incremental.option att (AList.ofList [text name])
-            ] 
-
     module TopMenu =                       
 
         let jsImportOPCDialog =
@@ -292,12 +259,11 @@ module Gui =
         let jsImportglTfDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.gltf files to import', filters: [{ name: 'glTF (*.gltf)', extensions: ['gltf']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         
-
         let jsImportSceneObjectDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj or *.dae files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}, { name: 'DAE (*.dae)', extensions: ['dae']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
         let jsImportPLYDialog =
-            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.ply files to import', filters: [{ name: 'PLY (*.ply)', extensions: ['ply']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"            
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.ply files to import', filters: [{ name: 'PLY (*.ply)', extensions: ['ply']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"                    
 
         let private importSurface =
             [
@@ -351,6 +317,7 @@ module Gui =
                 ]
             ]
         
+
         let private scene (m:AdaptiveModel) =
             let jsSaveSceneDialog = 
                 "top.aardvark.dialog.showSaveDialog({ title:'Save Scene as', filters:  [{ name: 'Scene (*.pro3d)', extensions: ['pro3d'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
@@ -500,8 +467,8 @@ module Gui =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Profile (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
         let jsExportAnnotationsAsGeoJSONDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-              
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
+
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
@@ -617,6 +584,7 @@ module Gui =
                                           menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
                                           menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
                                           menuItem "Provenance" (ChangeDashboardMode DashboardModes.provenance)
+                                          menuItem "GIS" (ChangeDashboardMode DashboardModes.gis)
                                         ]   
                                 
                                 //scene objects
@@ -641,11 +609,11 @@ module Gui =
                                             clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ] [
                                             text "Import v1 Annotations (*.xml)"
                                         ]
+                                        
+                                        let jsImportTraverseDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Traverse files' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
-                                        let openM20waypointsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import M20_waypoints file' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-
-                                        div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" openM20waypointsFileDialogue ] [
-                                            text "Import Traverse (*.json)"
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" jsImportTraverseDialog ] [
+                                            text "Import Traverses (*.json)"
                                         ]
                                         //div [ clazz "ui item";
                                         //    Dialogs.onChooseFiles ImportSurfaceTrafo;
@@ -668,13 +636,20 @@ module Gui =
                                             text "3rd Party Licences"
                                         ]
 
-                                        let jsOpenPose = "top.aardvark.dialog.showOpenDialog({title:'Import Pose File' , filters: [{ name: 'Pose Data (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
-                                        div [ clazz "ui item";
-                                              Dialogs.onChooseFiles ViewerAction.LoadPoseDefinitionFile
-                                              clientEvent "onclick" jsOpenPose ] [
-                                              text "Load Pose Definition File"
+                                        let jsOpenPose = "top.aardvark.dialog.showOpenDialog({title:'Import Pose File' , filters: [{ name: 'Pose Data (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles ViewerAction.LoadPoseDefinitionFile; clientEvent "onclick" jsOpenPose ] [
+                                            text "Load Pose Definition File"
                                         ]
+
+
+                                        let jsLoadSpice = "top.aardvark.dialog.showOpenDialog({title:'Load SPICE kernel' , filters: [{ name: 'SPICE Kernel (*.spk, *.pck, *.ik, *.ck, *.tm)', extensions: ['spk','pck','ik','ck','tm']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.SetSpiceKernel p) | _ -> ViewerAction.Nop); clientEvent "onclick" jsLoadSpice ] [
+                                            text "Load SPICE kernel"
+                                        ]
+
+                                        
+
                                         //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
                                             text "Send log to maintainers"
@@ -702,11 +677,12 @@ module Gui =
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
+                    let measurementTooltip = "Measurement to adapt the size of the axis gizmo"
+                    let visibilityTooltip = "Toggle visibility of axis gizmo"
                     return Html.Layout.horizontal [
-                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ]
-                        //Html.Layout.boxH [ i [clazz "unhide icon"][] ]
-                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ]                        
-                        ] |> UI.map ReferenceSystemMessage
+                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ] |> UI.wrapToolTip DataPosition.Bottom measurementTooltip
+                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ] |> UI.wrapToolTip DataPosition.Bottom visibilityTooltip                     
+                        ] |> UI.map ReferenceSystemMessage 
                 | Interactions.PickAnnotation ->
                      return Html.Layout.horizontal [
                         Html.Layout.boxH [text "eps.:"]
@@ -765,17 +741,34 @@ module Gui =
             | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
             | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
             | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
+            | Interactions.PickSurfaceRefSys     -> sprintf "%s+click to place additional reference system for surface" ctrl
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
+            | _ -> ""
+
+        let interactionTooltip (i : Interactions) : string =
+            match i with 
+            | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
+            | Interactions.PlaceCoordinateSystem -> "Pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
+            | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
+            | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
+            | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
+            | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
+            | Interactions.SelectArea            -> ""
+            | Interactions.PlaceScaleBar         -> ""
+            | Interactions.PlaceSceneObject      -> ""
+            | Interactions.PickPivotPoint        -> ""
             | _ -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
+
+
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
             Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet model.interaction SetInteraction ]
+                Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
                 Html.Layout.boxH [ 
                     div [style "font-style:italic; width:100%; text-align:right"] [
@@ -956,6 +949,9 @@ module Gui =
     module Traverse =
         let traverseUI (m : AdaptiveModel) =
             div [] [
+                yield GuiEx.accordion "Actions" "Asterisk" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
+                ]
                 yield GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]
@@ -1086,7 +1082,10 @@ module Gui =
               ]   
               yield GuiEx.accordion "Snapshots" "Write" true [
                   SequencedBookmarksApp.UI.viewSnapshotGUI m.scene.sequencedBookmarks
-              ]                 
+              ] 
+              yield GuiEx.accordion "Depth Panoramas" "Write" true [
+                  SequencedBookmarksApp.UI.viewPanoramaDepthGUI m.scene.sequencedBookmarks
+              ]      
           ] |> UI.map SequencedBookmarkMessage
     
     //TODO refactor: two codes for resize attachments
@@ -1107,8 +1106,8 @@ module Gui =
                 let instrumentViewAttributes =
                     amap {
                         let! hor, vert = ViewPlanApp.getInstrumentResolution m.scene.viewPlans
-                        let height = "height:" + (vert/uint32(2)).ToString() + ";" ///uint32(2)
-                        let width = "width:" + (hor/uint32(2)).ToString() + ";" ///uint32(2)
+                        let height = "height:" + (vert/uint32(2)).ToString() + ";" //uint32(2)
+                        let width = "width:" + (hor/uint32(2)).ToString() + ";" //uint32(2)
                         yield onResize (fun s -> OnResize(s, id))
                         yield onFocus (fun s -> OnResize(s, id))
                         yield style ("background: #1B1C1E;" + height + width)
@@ -1271,6 +1270,15 @@ module Gui =
             //        ] )
             | Some "provenance" ->
                 require (viewerDependencies) (body bodyAttributes [ProvenanceApp.view m |> UI.map ProvenanceMessage])
+            | Some "gis" ->
+                require (viewerDependencies) (
+                    body bodyAttributes 
+                         [GisApp.view m.scene.gisApp 
+                                      m.scene.surfacesModel 
+                                      m.scene.sequencedBookmarks
+                            |> UI.map GisAppMessage
+                            |> UI.map ViewerMessage]
+                )
             | None -> 
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (

@@ -5,13 +5,13 @@ open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI
-open Aardvark.UI.Primitives
+
+open Aardvark.UI
 open Aardvark.Rendering
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.IO
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 
-open Aardvark.VRVis.Opc
+open Aardvark.Data.Opc
 
 open OpcViewer.Base
 open OpcViewer.Base.Picking
@@ -28,7 +28,6 @@ open PRo3DCompability
 
 module Files = 
        open System.IO
-       open Aardvark.Prinziple
 
        type DiscoverFolder = 
           | OpcFolder of string
@@ -227,7 +226,7 @@ module Files =
 
                  match sceneRelativePath lk.kdtreePath, sceneRelativePath lk.objectSetPath with
                  | Some kdTreeSub, Some triangleSub -> 
-                     KdTrees.LazyKdTree { 
+                     Aardvark.VRVis.Opc.KdTrees.LazyKdTree { 
                          lk with 
                              kdtreePath    = Path.Combine(path, kdTreeSub)
                              objectSetPath = Path.Combine(path, triangleSub)
@@ -239,7 +238,7 @@ module Files =
 
                  match surfaceRelativePath lk.kdtreePath, surfaceRelativePath  lk.objectSetPath with
                  | Some kdTreeSub, Some triangleSub ->
-                     KdTrees.LazyKdTree {
+                     Aardvark.VRVis.Opc.KdTrees.LazyKdTree {
                          lk with 
                              kdtreePath    = Path.Combine(surf.importPath, kdTreeSub)
                              objectSetPath = Path.Combine(surf.importPath, triangleSub)
@@ -249,7 +248,7 @@ module Files =
                      None
              | KdTrees.Level0KdTree.InCoreKdTree ik -> 
 
-                 KdTrees.InCoreKdTree ik |> Some // kdtrees can be loaded as is
+                 Aardvark.VRVis.Opc.KdTrees.InCoreKdTree ik |> Some // kdtrees can be loaded as is
          
          sgSurfaces 
           |> HashMap.choose (fun _ s -> 

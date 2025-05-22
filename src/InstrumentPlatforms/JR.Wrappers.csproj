@@ -2,6 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <AardvarkBuildReleaseNotes>../../PRODUCT_RELEASE_NOTES.md</AardvarkBuildReleaseNotes>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
@@ -9,5 +10,10 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="JR.Wrappers.Tests\**" />
+    <EmbeddedResource Remove="JR.Wrappers.Tests\**" />
+    <None Remove="JR.Wrappers.Tests\**" />
+  </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

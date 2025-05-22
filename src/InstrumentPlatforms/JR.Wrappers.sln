@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30711.63
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33110.190
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JR.Wrappers", "JR.Wrappers.csproj", "{FCB18AE4-0472-4758-A8E8-5F3298DE58FE}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "JR.Wrappers.Tests", "JR.Wrappers.Tests\JR.Wrappers.Tests.fsproj", "{5CF6015D-C795-4D82-86AB-02C1A6D73511}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{FCB18AE4-0472-4758-A8E8-5F3298DE58FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FCB18AE4-0472-4758-A8E8-5F3298DE58FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FCB18AE4-0472-4758-A8E8-5F3298DE58FE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5CF6015D-C795-4D82-86AB-02C1A6D73511}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5CF6015D-C795-4D82-86AB-02C1A6D73511}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5CF6015D-C795-4D82-86AB-02C1A6D73511}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5CF6015D-C795-4D82-86AB-02C1A6D73511}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

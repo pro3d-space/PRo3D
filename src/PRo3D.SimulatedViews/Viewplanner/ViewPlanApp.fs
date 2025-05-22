@@ -9,8 +9,10 @@ open FSharp.Data.Adaptive.Operators
 
 open Aardvark.Base
 open Aardvark.Rendering
+open Aardvark.Rendering.Text
 open Aardvark.Application
 open Aardvark.Geometry
+open Aardvark.SceneGraph
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.VRVis
 
@@ -51,6 +53,20 @@ module ViewPlanApp =
     | DepthColorLegendMessage   of FalseColorLegendApp.Action
     | SaveDepthData
     | OpenDepthDataFolder
+    | SelectImage        of Guid
+    | RemoveImage        of Guid
+    | ToggleProjectedImage
+    | LoadImage          of list<string>
+    | ImportExInTrinsics of list<string>
+    | LoadImageTest
+    | SelectDistancePoint of Guid
+    | RemoveDistancePoint of Guid
+    | LookAtPoint         of Guid
+    | ToggleText          
+    | AddDistancePoint    of V3d
+    | SetTextSize         of Numeric.Action
+    | SetDPointSize       of Numeric.Action
+    | SetPointColor       of ColorPicker.Action
 
             
     let loadRoverData 
@@ -100,6 +116,13 @@ module ViewPlanApp =
             { m with viewPlans = viewPlans |> HashMap.map (fun _ _ -> selectedVp) }
         | None -> m     
 
+    let updateVPOutput 
+         (model : ViewPlanModel) 
+         (vp : ViewPlan) 
+         outerModel =
+         let viewPlans = model.viewPlans |> HashMap.add vp.id vp
+         outerModel, {model with viewPlans = viewPlans }     
+
     let getPlaneNormalSign 
         (v1:V3d) 
         (v2:V3d) =
@@ -115,7 +138,6 @@ module ViewPlanApp =
 
         forward, right, up
 
-
     let hitF 
         (p : V3d) 
         (dir:V3d) 
@@ -127,7 +149,7 @@ module ViewPlanApp =
         let ray = FastRay3d(p, dir)  
                  
         match SurfaceIntersection.doKdTreeIntersection 
-            surfaceModel refSystem ray (fun id l surf -> l.active) cache with
+            surfaceModel refSystem (constF None) None ray (fun id l surf -> l.active) cache with
         | Some (t,_), _ -> ray.Ray.GetPointOnRay(t) |> Some
         | None, _ -> None
 
@@ -202,13 +224,15 @@ module ViewPlanApp =
         (x - plane.Normal.Dot(x - p) * plane.Normal);
     
     let calculateRoverPlacement 
-        (working:list<V3d>) 
+        //(working:list<V3d>)
+        (position : V3d)
+        (lookAt   : V3d)
         (wheels:list<V3d>) 
         (up:V3d) : Trafo3d = 
-        let forward = (working.[1] - working.[0]).Normalized        
+        let forward = (lookAt - position).Normalized        
 
         // projects intersection points along the lookAt vector onto a plane
-        let plane1 = new Plane3d(forward, working.[1]);
+        let plane1 = new Plane3d(forward, lookAt);
         let planeIntersectionPoints = wheels |> List.map(fun x -> nearestPoint x plane1) |> List.toArray
         
         // line fitting with the projected points to get right vector
@@ -221,9 +245,9 @@ module ViewPlanApp =
         | true -> 
             let newTilt = -newTiltVec
             let newRight = -newRightVec
-            trafoFromTranslatedBase working.[0] newTilt forward newRight
+            trafoFromTranslatedBase position newTilt forward newRight
         | false -> 
-            trafoFromTranslatedBase working.[0] newTiltVec forward newRightVec
+            trafoFromTranslatedBase position newTiltVec forward newRightVec
 
     let placementTrafoFromSolTrafo 
         position 
@@ -270,10 +294,29 @@ module ViewPlanApp =
             isVisible          = true
             selectedInstrument = None
             selectedAxis       = None
-            currentAngle       = angle            
+            currentAngle       = angle
+            footPrint          = FootPrint.initFootPrint
+            distancePoints     = HashMap.Empty
+            selectedDistPoint  = None
+            showDistanceText   = true
+            textSize           = ViewPlan.initTextSize 4.0
+            dPointSize         = ViewPlan.initPointSize 8.0
+            dPointColor        = {c = C4b.Orange}
         }
         
         newViewPlan    
+
+    let calcNewRoverTrafo
+        (position : V3d)
+        (lookAt   : V3d)
+        (wheelPositions  : list<V3d>)
+        (ref      : ReferenceSystem) =
+        
+            let initTrafo = initialPlacementTrafo position lookAt ref.up.value
+            if (wheelPositions.Length > 2) then
+                calculateRoverPlacement position lookAt wheelPositions ref.up.value
+            else
+                initTrafo
 
     let createViewPlanFromPlacement
         (working      : list<V3d>) 
@@ -293,9 +336,9 @@ module ViewPlanApp =
             rover.wheelPositions 
             |> List.choose(fun x -> calculateSurfaceContactPoint x ref kdTree initTrafo surfaceModel)
         
-        let placementTrafo = //initTrafo
+        let placementTrafo = 
             if (surfaceIntersectionPoints.Length > 2) then
-                calculateRoverPlacement working surfaceIntersectionPoints ref.up.value
+                calculateRoverPlacement position lookAt surfaceIntersectionPoints ref.up.value
             else
                 initTrafo
         
@@ -320,7 +363,14 @@ module ViewPlanApp =
             isVisible      = true
             selectedInstrument = None
             selectedAxis   = None
-            currentAngle   = angle            
+            currentAngle   = angle
+            footPrint      = FootPrint.initFootPrint
+            distancePoints     = HashMap.Empty
+            selectedDistPoint  = None
+            showDistanceText   = true
+            textSize           = ViewPlan.initTextSize 4.0
+            dPointSize         = ViewPlan.initPointSize 8.0
+            dPointColor        = {c = C4b.Orange}
         }
         
         newViewPlan
@@ -368,7 +418,14 @@ module ViewPlanApp =
             isVisible          = true
             selectedInstrument = None
             selectedAxis       = None
-            currentAngle       = angle         
+            currentAngle       = angle
+            footPrint          = FootPrint.initFootPrint
+            distancePoints     = HashMap.Empty
+            selectedDistPoint  = None
+            showDistanceText   = true
+            textSize           = ViewPlan.initTextSize 4.0
+            dPointSize         = ViewPlan.initPointSize 8.0
+            dPointColor        = {c = C4b.Orange}
         }
 
         { model with 
@@ -420,13 +477,15 @@ module ViewPlanApp =
             
             //Log.line "%A" model.instrumentCam.ViewTrafo
             
-            let f = FootPrint.updateFootprint i' vp.position m'
+            let f = FootPrintUtils.updateFootprint i' vp m'
             f,m'
             
         | None -> 
             fp, { model with 
                     instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
                     instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0 }
+
+        
       
     let updateRovers 
         (model      : ViewPlanModel) 
@@ -447,7 +506,7 @@ module ViewPlanApp =
                     viewPlans        = model.viewPlans |> HashMap.alter vp'.id  (Option.map(fun _ -> vp')) //id 
                     roverModel       = roverModel}
 
-        let fp, m = updateInstrumentCam vp' m fp
+        let fp, m = updateInstrumentCam vp' m fp 
         fp, m //{ m with roverModel = roverModel }
 
     let selectViewplan outerModel _footprint id model =
@@ -458,15 +517,26 @@ module ViewPlanApp =
                 outerModel, { model with selectedViewPlan = None }
             else
                 let footPrint = Optic.get _footprint outerModel
-                let footPrint, model = updateInstrumentCam a model footPrint
+                let footPrint, model = updateInstrumentCam a model footPrint 
                 let newOuterModel = Optic.set _footprint footPrint outerModel
                 newOuterModel, { model with selectedViewPlan = Some a.id }
         | Some a, None -> 
             let footPrint = Optic.get _footprint outerModel
-            let footPrint, model = updateInstrumentCam a model footPrint
+            let footPrint, model = updateInstrumentCam a model footPrint 
             let newOuterModel = Optic.set _footprint footPrint outerModel
             newOuterModel, { model with selectedViewPlan = Some a.id }
         | None, _ -> outerModel, model
+
+    let updateFootPrint 
+        (model : ViewPlanModel)
+        (selectedVp : ViewPlan) 
+        (fp' : FootPrint)
+        (_footprint  : Lens<'a,FootPrint>)
+        (outerModel  :'a) =
+        let vp' = {selectedVp with footPrint = fp'}
+        let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
+        let newOuterModel = Optic.set _footprint fp' outerModel
+        newOuterModel, {model with viewPlans = viewPlans }         
 
     //let update (model : ViewPlanModel) (camState:CameraControllerState) (action : Action) =
     let update 
@@ -475,6 +545,7 @@ module ViewPlanApp =
         (_navigation : Lens<'a,NavigationModel>)
         (_footprint  : Lens<'a,FootPrint>) 
         (scenepath   : Option<string>)
+        (refSys      : ReferenceSystem)   
         (outerModel  :'a)
         : ('a * ViewPlanModel) = 
         
@@ -567,12 +638,9 @@ module ViewPlanApp =
                 let selectedVp = model.viewPlans |> HashMap.find id
                 let newVp         = { selectedVp with selectedInstrument = i }
                 let fp            = Optic.get _footprint outerModel
-                let fp', m'       = updateInstrumentCam newVp model fp
+                let fp', m'       = updateInstrumentCam newVp model fp 
                 let newOuterModel = Optic.set _footprint fp' outerModel
-
-                let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
-
-                newOuterModel, { m' with viewPlans = viewPlans }
+                updateVPOutput m' newVp newOuterModel
             | None -> outerModel, model                                                                   
 
         | SelectAxis a       -> 
@@ -580,9 +648,7 @@ module ViewPlanApp =
             | Some id -> 
                 let selectedVp = model.viewPlans |> HashMap.find id 
                 let newVp = { selectedVp with selectedAxis = a }
-                let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
-
-                outerModel, { model with viewPlans = viewPlans }
+                updateVPOutput model newVp outerModel
             | None -> outerModel, model    
 
         | ChangeAngle (id,a) -> 
@@ -657,26 +723,28 @@ module ViewPlanApp =
             | Some vpid -> 
                 let selectedVp = model.viewPlans |> HashMap.find vpid 
                 let vp' = {selectedVp with name = t}
-                let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
-                outerModel, {model with viewPlans = viewPlans }              
+                updateVPOutput model vp' outerModel
             | None -> outerModel, model
 
-        | ToggleFootprint ->   
-            let fp = Optic.get _footprint outerModel
-            let fp' = { fp with isVisible = not fp.isVisible }
-            let newOuterModel = Optic.set _footprint fp' outerModel
-            let model' = {model with footPrint = fp'}
-            newOuterModel, model'
+        | ToggleFootprint ->  
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                let fp = Optic.get _footprint outerModel
+                let fp' = { fp with isVisible = not fp.isVisible }
+                updateFootPrint model selectedVp fp' _footprint outerModel     
+            | None -> outerModel, model
+
 
         | SaveFootPrint -> 
             match scenepath with
-            | Some sp -> outerModel, (FootPrint.createFootprintData model sp)
+            | Some sp -> outerModel, (FootPrintUtils.createFootprintData model sp)
             | None -> outerModel, model
 
         | OpenFootprintFolder ->
             match scenepath with
             | Some sp -> 
-                let fpPath = FootPrint.getDataPath sp "FootPrints"
+                let fpPath = FootPrintUtils.getDataPath sp "FootPrints"
                 if (not (Directory.Exists fpPath)) then 
                     Directory.CreateDirectory fpPath |> ignore
                 Process.Start("explorer.exe", fpPath) |> ignore
@@ -684,32 +752,192 @@ module ViewPlanApp =
             | None -> outerModel, model   
 
         | ToggleDepth ->   
-            let fp = Optic.get _footprint outerModel
-            let fp' = { fp with isDepthVisible = not fp.isDepthVisible }
-            let newOuterModel = Optic.set _footprint fp' outerModel
-            let model' = {model with footPrint = fp'}
-            newOuterModel, model'
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                let fp = Optic.get _footprint outerModel
+                let fp' = { fp with isDepthVisible = not fp.isDepthVisible }
+                updateFootPrint model selectedVp fp' _footprint outerModel   
+            | None -> outerModel, model
 
         | DepthColorLegendMessage msg -> 
-            let fp = Optic.get _footprint outerModel
-            let fp' = { fp with depthColorLegend = FalseColorLegendApp.update fp.depthColorLegend msg }
-            let newOuterModel = Optic.set _footprint fp' outerModel
-            let model' = {model with footPrint = fp'}
-            newOuterModel, model'
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                let fp = Optic.get _footprint outerModel
+                let colorUpdate = FalseColorLegendApp.update fp.depthColorLegend msg
+                let fp' = { fp with depthColorLegend = colorUpdate }
+                updateFootPrint model selectedVp fp' _footprint outerModel  
+            | None -> outerModel, model
 
         | SaveDepthData -> 
             match scenepath with
-            | Some sp -> outerModel, (FootPrint.createFootprintData model sp)
+            | Some sp -> outerModel, (FootPrintUtils.createFootprintData model sp)
             | None -> outerModel, model
 
         | OpenDepthDataFolder ->
             match scenepath with
             | Some sp -> 
-                let fpPath = FootPrint.getDataPath sp "DepthData"
+                let fpPath = FootPrintUtils.getDataPath sp "DepthData"
                 if (Directory.Exists fpPath) then Process.Start("explorer.exe", fpPath) |> ignore
                 outerModel, model
-            | None -> outerModel, model   
+            | None -> outerModel, model  
+        
+        | SelectImage id -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let fp  = Optic.get _footprint outerModel
+                let fp' = { fp with selectedImage = Some id }
+                updateFootPrint model selectedVp fp' _footprint outerModel
+            | None -> outerModel, model                 
+        | RemoveImage id -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let fp  = Optic.get _footprint outerModel
+                let fp' = { fp with images = (HashMap.remove id fp.images) }
+                updateFootPrint model selectedVp fp' _footprint outerModel
+            | None -> outerModel, model                 
+        | ToggleProjectedImage -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                let fp = Optic.get _footprint outerModel
+                //TEST
+                //let pImage = ProjectedImage.initProjectedImage "C:\Users\laura\VRVis\PRo3D\Data\mars-2020-pico-turquino-south-sol-1326-SketchFab\m1_PT_south_1x.jpg"
+                //let fp' = { fp with images = HashMap.add pImage.id pImage fp.images; useProjectedImage = not fp.useProjectedImage }
+                let fp' = { fp with useProjectedImage = not fp.useProjectedImage }
+                updateFootPrint model selectedVp fp' _footprint outerModel      
+            | None -> outerModel, model
+        | LoadImage pathList -> 
+            match pathList with
+            | filepath :: tail ->
+                match System.IO.File.Exists filepath with
+                | true ->
+                    match model.selectedViewPlan with
+                    | Some vpid -> 
+                        let selectedVp = model.viewPlans |> HashMap.find vpid 
+                        let fp = Optic.get _footprint outerModel
+                        let pImage = ProjectedImage.initProjectedImage filepath
+                        //@Laura: add ex- and intrinsics here
+                        let fp' = { fp with images = HashMap.add pImage.id pImage fp.images }
+                        updateFootPrint model selectedVp fp' _footprint outerModel
+                    | None -> outerModel, model
+                | false ->
+                    outerModel, model
+            | [] -> outerModel, model
+        | ImportExInTrinsics pathList ->
+            match pathList with
+            | filepath :: tail ->
+                match System.IO.File.Exists filepath with
+                | true ->
+                    match model.selectedViewPlan with
+                    | Some vpid -> 
+                        let selectedVp = model.viewPlans |> HashMap.find vpid 
+                        let fp = Optic.get _footprint outerModel
+                        match selectedVp.footPrint.selectedImage with
+                        | Some img ->
+                            let selectedImage = fp.images |> HashMap.find img
+                        
+                                //@Harri: add ex- and intrinsics here
 
+                            outerModel, model
+                        | None -> outerModel, model
+                    | None -> outerModel, model
+                | false ->
+                    outerModel, model
+            | [] -> outerModel, model
+
+        | LoadImageTest -> outerModel, model
+            //match pathList with
+            //| filepath :: tail ->
+            //    match System.IO.File.Exists filepath with
+            //    | true ->
+            //        match model.selectedViewPlan with
+            //        | Some vpid -> 
+            //            let selectedVp = model.viewPlans |> HashMap.find vpid 
+            //            let fp = Optic.get _footprint outerModel
+            //            let pImage = ProjectedImage.initProjectedImage filepath
+            //            //@Laura: add ex- and intrinsics here
+            //            let fp' = { fp with images = HashMap.add pImage.id pImage fp.images }
+            //            updateFootPrint model selectedVp fp' _footprint outerModel
+            //        | None -> outerModel, model
+            //    | false ->
+            //        outerModel, model
+            //| [] -> outerModel, model
+        | SelectDistancePoint id -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let vp' = {selectedVp with selectedDistPoint = Some id}
+                updateVPOutput model vp' outerModel
+            | None -> outerModel, model     
+        | RemoveDistancePoint id -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let vp' = {selectedVp with distancePoints = (HashMap.remove id selectedVp.distancePoints)}
+                updateVPOutput model vp' outerModel
+            | None -> outerModel, model     
+        | LookAtPoint         id -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let selPoint = selectedVp.distancePoints |> HashMap.find id
+                
+                let footPrint = Optic.get _footprint outerModel
+                let forward, right, up = decomposeRoverTrafo selectedVp.roverTrafo
+                let forward = (selPoint.position - selectedVp.position).Normalized
+
+                let rTrafo = initialPlacementTrafo' selectedVp.position forward up
+                let vp' = {selectedVp with roverTrafo = rTrafo}
+                let fp', m'       = updateInstrumentCam vp' model footPrint
+                let newOuterModel = Optic.set _footprint fp' outerModel
+
+                updateVPOutput m' vp' newOuterModel
+            | None -> outerModel, model   
+        | ToggleText           -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let vp' = {selectedVp with showDistanceText = not selectedVp.showDistanceText}
+                updateVPOutput model vp' outerModel
+            | None -> outerModel, model     
+        | AddDistancePoint    p -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let distance = Vec.Distance(selectedVp.position, p)
+                let forward = (p - selectedVp.position).Normalized
+                let newDP = DistancePoint.initDistancePoint p distance (Some vpid)
+                let vp' = {selectedVp with distancePoints = (selectedVp.distancePoints |> HashMap.add newDP.id newDP)}
+                updateVPOutput model vp' outerModel
+            | None -> outerModel, model   
+        | SetTextSize s -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let ts = Numeric.update selectedVp.textSize s
+                let vp' = {selectedVp with textSize = ts}
+                updateVPOutput model vp' outerModel
+            | None -> outerModel, model   
+        | SetDPointSize s -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let ds = Numeric.update selectedVp.dPointSize s
+                let vp' = {selectedVp with dPointSize = ds}
+                updateVPOutput model vp' outerModel
+            | None -> outerModel, model   
+         | SetPointColor a ->
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let vp' = {selectedVp with dPointColor = ColorPicker.update selectedVp.dPointColor a }
+                updateVPOutput model vp' outerModel
+            | None -> outerModel, model   
+            
 
     module Sg =     
         let drawWorking (model:AdaptiveViewPlanModel) =
@@ -759,6 +987,8 @@ module ViewPlanApp =
                 thickness = thickness
                 hasArrow  = ~~true
                 text      = ~~None
+                textsize  = AVal.constant 0.05
+                textcolor = AVal.constant C4b.White
                 fix       = ~~false
             }
 
@@ -845,6 +1075,8 @@ module ViewPlanApp =
                             thickness = thickness
                             hasArrow  = AVal.constant true
                             text      = AVal.constant None
+                            textsize  = AVal.constant 0.05
+                            textcolor = AVal.constant C4b.White
                             fix       = AVal.constant false
                         }
 
@@ -950,9 +1182,141 @@ module ViewPlanApp =
                 viewPlans
                 drawWorking model
             ]
-    
+        
+        let getDistancePointOffsetTransform (refSystem : AdaptiveReferenceSystem) (model : AdaptiveViewPlan) =
+            (refSystem.Current, model.Current, AVal.constant(0.5)) |||> AVal.map3 (fun refSystem current offset ->
+                match current.distancePoints |> HashMap.toList |> List.tryHead with
+                | None -> Trafo3d.Identity
+                | Some distP -> 
+                    let id, point = distP
+                    let north, up, east = PRo3D.Core.Surface.TransformationApp.getNorthAndUpFromPivot point.position refSystem
+                    Trafo3d.Translation(offset * up)
+            )
+        
+        let getTextPosition (point : aval<V3d>) (dist : aval<float>) (size : aval<float>) =
+            adaptive {
+                let! pos = point
+                let! dist = dist
+                let loc = pos + pos.Normalized * 1.5
+                let! size = size
+                let trafo = (Trafo3d.Scale((float)size)) * (Trafo3d.Translation loc)
+                let text = $"{dist}"
+                //let stableTrafo = viewTrafo |> AVal.map (fun view -> trafo * view) // stable, and a bit slow
+                return AVal.constant trafo, AVal.constant text
+            } |> AVal.force
+
+        let drawTextsFast (refSystem : AdaptiveReferenceSystem) (vp : AdaptiveViewPlan) : ISg<Action> = 
+            let contents = 
+                //let viewTrafo = view |> AVal.map CameraView.viewTrafo
+                vp.distancePoints 
+                |> AMap.map (fun _ point -> getTextPosition point.position point.distance vp.textSize.value )
+                |> AMap.toASet 
+                |> ASet.map snd 
+                        
+            let sg = 
+                let config = { Text.TextConfig.Default with renderStyle = RenderStyle.Billboard; color = C4b.White }
+                Sg.textsWithConfig config contents
+                |> Sg.noEvents
+                |> Sg.onOff vp.showDistanceText
+            sg 
+            |> Sg.trafo (getDistancePointOffsetTransform refSystem vp)
+
+        let viewText (refSystem : AdaptiveReferenceSystem) (model : AdaptiveViewPlanModel) = //(vp : AdaptiveViewPlan) =
+            let vps = model.viewPlans
+            vps 
+            |> AMap.map(fun id vp -> drawTextsFast refSystem vp )
+            |> AMap.toASet 
+            |> ASet.map snd 
+            |> Sg.set
+           
+        
+        let calcTrafo (view : aval<CameraView>) (shift : aval<Trafo3d>) (point : aval<V3d>) =
+             adaptive {
+                    let! view = view
+                    let! shift = shift
+                    let! point = point
+                    let viewTrafo = view.ViewTrafo
+                    return (Trafo3d.Translation(point) * shift * viewTrafo) 
+                    }|> AVal.force
+
+        //let viewDistanceDots (refSystem: AdaptiveReferenceSystem) (view : aval<CameraView>) (vp : AdaptiveViewPlan) =
+        //    let shift = getDistancePointOffsetTransform refSystem vp
+        //    let pointstest = 
+        //        vp.distancePoints
+        //        |> AMap.map (fun _ point -> point.position)
+        //        |> AMap.toASet 
+        //        |> ASet.map snd 
+        //        |> ASet.map (fun point -> (calcTrafo view shift point) ) 
+        //        |> ASet.toAList
+        //        |> AList.toAVal |> AVal.map IndexList.toArray 
+        //        //|> AVal.force
+        //    let solCenterTrafo = 
+        //        vp.distancePoints 
+        //            |> AMap.map (fun _ point -> (calcTrafo view shift point.position) )
+        //            |> AMap.toASet 
+        //            |> ASet.map snd 
+        //            |> ASet.toAList
+        //            |> AList.toAVal |> AVal.map IndexList.toArray
+            
+                
+        //    //let solNumbers =
+        //    //    traverse.sols 
+        //    //    |> AVal.map (fun sols -> 
+        //    //        sols |> List.toArray |> Array.map (fun s -> s.solNumber) :> Array
+        //    //    )
+
+        //    let attributes = 
+        //        Map.ofList [
+        //            ("ModelTrafo", (typeof<Trafo3d>, (pointstest)))
+        //            //("SolNumber", (typeof<int>, solNumbers))
+        //        ]
+        //    Sg.sphere 4 (AVal.constant(C4b.Orange)) ~~0.3
+        //    |> Sg.shader {
+        //        do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
+        //    }
+        //    |> Sg.viewTrafo' Trafo3d.Identity // modelTrafo = model view track trick
+        //    |> Sg.uniform "SelectionColor" ~~C4b.VRVisGreen
+        //    |> Sg.uniform "SelectedSol" (vp.selectedDistPoint |> AVal.map (Option.defaultValue (Guid.Empty)))
+        //    |> Sg.instanced' attributes
+        //    |> Sg.noEvents
+        //    //|> Sg.onOff traverse.showDots
+
+        let calcPoint (selected : option<Guid>) (position : aval<V3d>) (id : Guid) (size : aval<float>) (col : aval<C4b>): ISg<Action> =
+            adaptive {
+                let! pos = position
+                let! size = size
+                let color =
+                    match selected with
+                    | Some sel -> 
+                        if id = sel then  AVal.constant(C4b.VRVisGreen) else col
+                    | None -> col
+                return PRo3D.Core.Drawing.Sg.sphere' color ~~size ~~pos
+                } |> Sg.dynamic
+
+        let viewVPDistancePoints
+            (refSystem : AdaptiveReferenceSystem) (model : AdaptiveViewPlanModel) = //(vp : AdaptiveViewPlan) = 
+
+            let points =
+                aset {
+                    
+                    for _,vp in model.viewPlans do 
+                        let! selected = vp.selectedDistPoint
+                        let et = 
+                            vp.distancePoints
+                            |> AMap.map (fun id (point:AdaptiveDistancePoint) -> calcPoint selected point.position id vp.dPointSize.value vp.dPointColor.c)
+                            |> AMap.toASet 
+                            |> ASet.map snd 
+                            |> Sg.set
+                            |> Sg.trafo (getDistancePointOffsetTransform refSystem vp)
+                        yield et
+                    }|> Sg.set
+
+            points
+        
+        
     module UI =
 
+    
         let viewHeader (m:AdaptiveViewPlan) (id:Guid) toggleMap = 
             [
                 Incremental.text m.name; text " "
@@ -1008,7 +1372,7 @@ module ViewPlanApp =
                                       | None -> AVal.constant C4b.Gray
                                                                          
                                 let! c = color
-                                let bgc = sprintf "color: %s" (Html.ofC4b c)
+                                let bgc = sprintf "color: %s" (Html.color c)
 
                                 yield style bgc
                                 yield onClick (fun _ -> SelectViewPlan vpid)
@@ -1063,26 +1427,220 @@ module ViewPlanApp =
               | AdaptiveSome _ -> 
                 require GuiEx.semui (
                     Html.table [  
-                        Html.row "show footprint:"  [GuiEx.iconCheckBox fpVisible ToggleFootprint]
+                        Html.row "show footprint:"  [GuiEx.iconCheckBox m.footPrint.isVisible ToggleFootprint]
                         Html.row "export footprint:"  [button [clazz "ui button tiny"; onClick (fun _ -> SaveFootPrint )] []]
                         Html.row "open footprint folder:"  [button [clazz "ui button tiny"; onClick (fun _ -> OpenFootprintFolder )] []]
                     ]
                 )
               | AdaptiveNone -> div [] [])
 
-        let viewDepthColorLegendUI (m : AdaptiveViewPlanModel) = 
+        let viewImageHeader (m:AdaptiveProjectedImage) (id:Guid) = 
+            [
+                Incremental.text m.image; text " "
+
+                i [clazz "Remove icon red";                                             
+                    onClick (fun _ -> RemoveImage id)
+                ] [] |> UI.wrapToolTip DataPosition.Bottom "Remove"                                         
+            ]    
+
+
+        let viewProjedtedImages (m:AdaptiveViewPlan) = 
+            let listAttributes =
+                amap {
+                    yield clazz "ui divided list inverted segment"
+                    yield style "overflow-y : visible"
+                } |> AttributeMap.ofAMap
+
+            Incremental.div listAttributes (
+                alist { 
+                    let! selected = m.footPrint.selectedImage
+                    let images = 
+                        m.footPrint.images 
+                        |> AMap.toASetValues 
+                        |> ASet.sortBy (fun a -> a.id)
+
+                    for img in images do
+                        let imgId = img.id
+                        
+                        let itemAttributes = 
+                            amap {                                
+                                yield clazz "large cube middle aligned icon";
+
+                                let color =
+                                    match selected with
+                                      | Some sel -> 
+                                        AVal.constant (if sel = imgId then C4b.VRVisGreen else C4b.Gray) 
+                                      | None -> AVal.constant C4b.Gray
+                                                                         
+                                let! c = color
+                                let bgc = sprintf "color: %s" (Html.color c)
+
+                                yield style bgc
+                                yield onClick (fun _ -> SelectImage imgId)
+                            } |> AttributeMap.ofAMap
+
+                        yield div [clazz "item"] [
+                            Incremental.i itemAttributes AList.empty
+                            div [clazz "content"] [
+                                //Incremental.i listAttributes AList.empty
+                                div [clazz "header"] (
+                                    viewImageHeader img imgId
+                                )      
+                            ]
+                        ]
+                }
+            )
+            
+
+        let viewProjectedImagesProperties (m : AdaptiveViewPlan) = 
+            
+            let readImagesGui =
+                let attributes = 
+                    alist {
+                        yield Dialogs.onChooseFiles LoadImage;
+                        yield clientEvent "onclick" (Dialogs.jsImportImagesDialog)
+                        yield (style "word-break: break-all")
+                    } |> AttributeMap.ofAList 
+
+                let content =
+                        alist {
+                            yield i [clazz "ui button tiny"] []
+                        }
+                Incremental.div attributes content
+
+
+            let jsImportImageInfoDialog =
+                                "top.aardvark.dialog.showOpenDialog({title:'Import Imageinfo files' , filters: [{ name: '(*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+            let readImageInfoGui =
+                //let attributes = 
+                //    alist {
+                //        yield Dialogs.onChooseFiles ImportExInTrinsics;
+                //        yield clientEvent "onclick" (jsImportImageInfoDialog)
+                //        yield (style "word-break: break-all")
+                //    } |> AttributeMap.ofAList 
+
+                //let content =
+                //        alist {
+                //            yield i [clazz "ui button tiny"] []
+                //        }
+                //Incremental.div attributes content
+
+                let ui = 
+                    alist {
+                        yield
+                            div [ 
+                                clazz "ui item";
+                                Dialogs.onChooseFiles  ImportExInTrinsics;
+                                clientEvent "onclick" Dialogs.jsImportImagesDialog
+                            ] [
+                                i [clazz "ui button tiny"] [] //text "load image"
+                            ]
+                    }
+                
+                Incremental.div(AttributeMap.Empty) ui // |> UI.map this.Action
+
+            require GuiEx.semui (
+                Html.table [
+                     Html.row "use image:"  [ GuiEx.iconCheckBox m.footPrint.useProjectedImage ToggleProjectedImage ]
+                     Html.row "load image" [ readImagesGui ]
+                     Html.row "load image info"  [readImageInfoGui]
+                     Html.row "Images:" [ viewProjedtedImages m ]
+                     ] 
+                
+            )
+
+        // distance points gui
+        let viewDistancePointHeader (m:AdaptiveDistancePoint) (id:Guid) = 
+            [
+                Incremental.text (m.distance |> AVal.map string); text " "
+
+                i [clazz "home icon";                                                
+                    onClick (fun _ -> LookAtPoint id)
+                ] [] |> UI.wrapToolTip DataPosition.Bottom "LookAt"   
+
+                i [clazz "Remove icon red";                                             
+                    onClick (fun _ -> RemoveDistancePoint id)
+                ] [] |> UI.wrapToolTip DataPosition.Bottom "Remove"                                         
+            ]    
+
+
+        let viewDistancePoints (m:AdaptiveViewPlan) = 
+            let listAttributes =
+                amap {
+                    yield clazz "ui divided list inverted segment"
+                    yield style "overflow-y : visible"
+                } |> AttributeMap.ofAMap
+
+            Incremental.div listAttributes (
+                alist { 
+                    let! selected = m.selectedDistPoint
+                    let points = 
+                        m.distancePoints 
+                        |> AMap.toASetValues 
+                        |> ASet.sortBy (fun a -> a.id)
+
+                    for p in points do
+                        let pId = p.id
+
+                        let itemAttributes = 
+                            amap {                                
+                                yield clazz "large cube middle aligned icon";
+
+                                let color =
+                                    match selected with
+                                      | Some sel -> 
+                                        AVal.constant (if sel = pId then C4b.VRVisGreen else C4b.Gray) 
+                                      | None -> AVal.constant C4b.Gray
+                                                                         
+                                let! c = color
+                                let bgc = sprintf "color: %s" (Html.color c)
+
+                                yield style bgc
+                                yield onClick (fun _ -> SelectDistancePoint pId)
+                            } |> AttributeMap.ofAMap
+
+                        yield div [clazz "item"] [
+                            Incremental.i itemAttributes AList.empty
+                            div [clazz "content"] [
+                                //Incremental.i listAttributes AList.empty
+                                div [clazz "header"] (
+                                    viewDistancePointHeader p pId //toggleMap
+                                )      
+                            ]
+                        ]
+                }
+            )
+            
+
+        let viewDistancePointsProperties (m : AdaptiveViewPlan) = 
+
+            require GuiEx.semui (
+                Html.table [
+                     Html.row "show Text:" [GuiEx.iconCheckBox m.showDistanceText ToggleText ]
+                     Html.row "textsize:" [Numeric.view' [InputBox] m.textSize |> UI.map SetTextSize]
+                     Html.row "pointsize:" [Numeric.view' [InputBox] m.dPointSize |> UI.map SetDPointSize]
+                     Html.row "color:"  [ColorPicker.view m.dPointColor |> UI.map SetPointColor ]
+                     Html.row "Points:" [ viewDistancePoints m ]
+                     ] 
+                
+            )
+
+            ///////////////////////
+
+        let viewDepthColorLegendUI (m : AdaptiveViewPlan) = 
             m.footPrint.depthColorLegend
             |> FalseColorLegendApp.viewDepthLegendProperties DepthColorLegendMessage 
             |> AVal.constant
 
-        let viewDepthImageProperties (diVisible:aval<bool>) (model : AdaptiveViewPlanModel) (m : AdaptiveViewPlan) = 
+        let viewDepthImageProperties (m : AdaptiveViewPlan) = 
           m.selectedInstrument 
             |> AVal.map(fun x ->
               match x with 
               | AdaptiveSome _ -> 
                 require GuiEx.semui (
                     Html.table [  
-                        Html.row "show depth:"  [GuiEx.iconCheckBox diVisible ToggleDepth]
+                        Html.row "show depth:"  [GuiEx.iconCheckBox m.footPrint.isDepthVisible ToggleDepth]
                         ] 
                     //]
                     
@@ -1139,14 +1697,20 @@ module ViewPlanApp =
                      Html.row "Axes:" [   
                         Incremental.div AttributeMap.empty (viewAxesList r m)
                      ]
+                     Html.row "DistancePoints:" [   
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( (viewDistancePointsProperties m)|> AVal.constant ))
+                     ]
                      Html.row "Footprint:" [   
                         Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewFootprintProperties fpVisible m ))
                      ]
+                     Html.row "ProjectedImages:" [   
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( (viewProjectedImagesProperties m)|> AVal.constant ))
+                     ]
                      Html.row "Depthimage:" [   
-                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewDepthImageProperties diVisible model m ))
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewDepthImageProperties m ))
                      ]
                      Html.row "Colors:" [   
-                        Incremental.div AttributeMap.empty (AList.ofAValSingle (viewDepthColorLegendUI model))
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle (viewDepthColorLegendUI m))
                      ]
                      
                      ]
@@ -1179,5 +1743,7 @@ module ViewPlanApp =
                   | None -> return empty
                 | None -> return empty
             }  
+
+
 
        

@@ -66,11 +66,15 @@ type StartupArgs = {
     remoteApp             : bool
     enableProvenanceTracking : bool
 
+    loadScene             : Option<string>
+
     useMapping            : string
     data_samples          : Option<string>
     backgroundColor       : string
 
     isBatchRendering      : bool
+
+    defaultSpiceKernelPath : Option<string>
 
     verbose               : bool    
 
@@ -91,7 +95,9 @@ type StartupArgs = {
           port                  = None
           enableRemoteApi       = false
           enableProvenanceTracking = false
-          isBatchRendering      = false
+          isBatchRendering         = false
+          defaultSpiceKernelPath   = None
+          loadScene                = None
       }
 
 

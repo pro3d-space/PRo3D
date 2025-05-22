@@ -6,7 +6,7 @@ open FSharp.Data.Adaptive
 
 open Aardvark.Base
 open Aardvark.UI
-open Aardvark.UI.Static.Svg
+open Aardvark.UI.Primitives
 
 open PRo3D.Base
 open PRo3D.Base.Annotation
@@ -82,7 +82,7 @@ module AnnotationProperties =
                 Html.row "Projection:"  [Incremental.text (model.projection |> AVal.map (fun x -> sprintf "%A" x ))]
                 Html.row "Semantic:"    [Html.SemUi.dropDown model.semantic SetSemantic]      
                 Html.row "Thickness:"   [Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ]
-                Html.row "Color:"       [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map ChangeColor ]
+                Html.row "Color:"       [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" true model.color |> UI.map ChangeColor ]
                 Html.row "Text:"        [Html.SemUi.textBox model.text SetText ]
                 Html.row "TextSize:"    [Numeric.view' [InputBox] model.textsize |> UI.map SetTextSize ]
                 Html.row "Show Text:"   [GuiEx.iconCheckBox model.showText ToggleShowText ]

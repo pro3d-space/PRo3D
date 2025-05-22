@@ -1,10 +1,11 @@
-﻿namespace Aardvark.Opc
+﻿#nowarn "44" // allowed to use old annotations
+namespace Aardvark.Opc
 
 open System.IO
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Application
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.Application.Slim
 open Aardvark.GeoSpatial.Opc
 
@@ -27,7 +28,7 @@ open PRo3D.Base
 open Aardvark.Geometry
 
 
-
+open Aardvark.GeoSpatial.Opc.Load
 
 
 
@@ -354,7 +355,7 @@ module AnnotationViewer =
 
         let sg = 
             sg
-            |> Sg.andAlso (createAnnotationSg win view frustum showOld (AnnotationQuery.pickAnnotation hierarchies ["AccuracyMap.aara"] (Range1d(-0.1,0.1)) hit) annotations)
+            |> Sg.andAlso (createAnnotationSg win view frustum showOld (AnnotationQuery.clipToRegion hierarchies ["AccuracyMap.aara"] (Range1d(-0.1,0.1)) hit) annotations)
             |> Sg.andAlso points
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)

@@ -5,11 +5,13 @@ open Aardvark.Base
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI
+
+open Aardvark.UI.Primitives
 open Aardvark.Rendering
 open Aardvark.VRVis
 open FSharp.Data.Adaptive
 open Adaptify.FSharp.Core
-open Aardvark.SceneGraph.IO
+open Aardvark.SceneGraph.Assimp
 open Aardvark.SceneGraph.SgPrimitives
 //open Aardvark.Base.Rendering
 open Aardvark.UI.Trafos  
@@ -354,7 +356,7 @@ module GeologicSurfacesApp =
         
                     for gs in geologicSurfaces do
             
-                        let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                        let infoc = sprintf "color: %s" (Html.color C4b.White)
             
                         let! scbid = gs.guid  
                         let toggleIcon = 
@@ -384,7 +386,7 @@ module GeologicSurfacesApp =
                             |> AttributeMap.ofAMap
             
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        let bgc = sprintf "color: %s" (Html.color c)
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(

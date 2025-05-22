@@ -1,0 +1,9 @@
+﻿group Test
+
+FsCheck
+FsCheck.NUnit
+Expecto
+Expecto.FsCheck
+FSharp.Core
+
+PRo3D.SPICE

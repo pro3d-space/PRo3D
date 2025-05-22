@@ -9,9 +9,11 @@ module QueryApi =
 
     type Request =
         {
-            annotationId : string
-            queryAttributes : list<string>
-            distanceToPlane : float
+            annotationId         : string
+            queryAttributes      : list<string>
+            distanceToPlane      : float
+            outputReferenceFrame : string
+            outputGeometryType   : string
         }
 
     let v3d (v : V3d) =

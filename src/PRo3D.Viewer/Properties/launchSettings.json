@@ -2,12 +2,27 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": "",
+      "commandLineArgs": "-loadRecent",
       "nativeDebugging": true
     },
-	"PRo3D.Viewer.Provex": {
+    "PRo3D.Viewer.Provex": {
       "commandName": "Project",
       "commandLineArgs": "--disableCors --port 4321 --remoteApi --enableProvenance",
+      "nativeDebugging": true
+    },
+    "PRo3D.Viewer.CoReg": {
+      "commandName": "Project",
+      "commandLineArgs": "--disableCors --port 4321 --remoteApi --scene \"F:\\PRo3D\\AI-Mars-3D\\Co-Registration\\2025-01-07_CoRegDemo\\2025-01-07_Kodiak_CoReg_Demo_SRC_translated.pro3d",
+      "nativeDebugging": true
+    },
+    "PRo3D.RemoteApi": {
+      "commandName": "Project",
+      "commandLineArgs": "--disableCors --port 4321 --remoteApi",
+      "nativeDebugging": true
+    },
+    "PRo3D.GIS": {
+      "commandName": "Project",
+      "commandLineArgs": "--disableCors --port 4321 --remoteApi --defaultSpiceKernel \"../../../../hera/kernels/mk/hera_crema_2_0_LPC_ECP_PDP.tm\"",
       "nativeDebugging": true
     }
   }

@@ -4,6 +4,7 @@ open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open PRo3D
 open PRo3D.Base
 open Chiron
@@ -17,8 +18,8 @@ open Aether.Operators
 type ReferenceSystem = {
     version       : int
     origin        : V3d
-    north         : V3dInput
-    noffset       : NumericInput
+    north         : Aardvark.UI.Primitives.V3dInput
+    noffset       : Aardvark.UI.Primitives.NumericInput
     northO        : V3d
     up            : V3dInput
     isVisible     : bool
@@ -26,6 +27,8 @@ type ReferenceSystem = {
     scaleChart    : IndexList<string>
     selectedScale : string
     planet        : PRo3D.Base.Planet
+    textsize      : NumericInput
+    textcolor     : ColorInput
 }
 
 type ReferenceSystemConfig<'a> = {
@@ -44,6 +47,8 @@ type ReferenceSystemAction =
     | SetScale           of string
     | SetArrowSize       of double
     | SetPlanet          of Planet
+    | SetTextsize        of Numeric.Action
+    | SetTextColor       of ColorPicker.Action //C4b 
 
 type InnerConfig<'a> =
     {
@@ -60,9 +65,17 @@ type MInnerConfig<'ma> =
     }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module ReferenceSystem =    
+module ReferenceSystem = 
+
+    let text (value : float) = {
+        value   = value
+        min     = 0.001
+        max     = 5.0
+        step    = 0.001
+        format  = "{0:0.000}"
+    }
     
-    let current = 0   
+    let current = 0  
     let read0 =
         json {
             let! origin        = Json.read "origin"
@@ -75,6 +88,8 @@ module ReferenceSystem =
             let! scaleChart    = Json.read "scaleChart"
             let! selectedScale = Json.read "selectedScale"
             let! planet        = Json.read "planet"
+            let! textSize      = Json.tryRead "textsize"
+            let! textColor     = Json.tryRead "textcolor"
             
             return 
                 {
@@ -89,8 +104,16 @@ module ReferenceSystem =
                     scaleChart    = scaleChart |> IndexList.ofList
                     selectedScale = selectedScale
                     planet        = planet |> enum<Planet>
+                    textsize      = match textSize with
+                                    | Some t -> text t
+                                    | None -> text 0.05
+                    textcolor     = match textColor with
+                                    | Some tc -> let col = tc |> C4b.Parse
+                                                 { c = col }
+                                    | None -> { c = C4b.White } 
                 }
         }
+
 
     let initNum = {
         value   = 0.0
@@ -131,6 +154,8 @@ module ReferenceSystem =
         format  = "{0:0.0}"
     }
 
+    
+
     let initial = {
         version       = current
         origin        = V3d.Zero
@@ -142,7 +167,9 @@ module ReferenceSystem =
         size          = initNum2
         scaleChart = ["100km"; "10km"; "1km";"100m";"10m";"2m";"1m";"10cm";"1cm";"1mm";"0.1mm"] |> IndexList.ofList
         selectedScale = "2m"
-        planet = Planet.Mars
+        planet        = Planet.Mars
+        textsize      = text 0.05
+        textcolor     = { c = C4b.White }
     }
 
     //open ViewConfigModelLenses
@@ -179,4 +206,6 @@ type ReferenceSystem with
             do! Json.write "scaleChart" (x.scaleChart |> IndexList.toList)
             do! Json.write "selectedScale" x.selectedScale
             do! Json.write "planet" (x.planet |> int)
+            do! Json.write "textsize" x.textsize.value
+            do! Json.write "textcolor" (x.textcolor.c.ToString())
         }

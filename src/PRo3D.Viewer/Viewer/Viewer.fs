@@ -23,12 +23,13 @@ open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
 open Aardvark.Application
 
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.SceneGraph.SgPrimitives.Sg
 open Aardvark.VRVis
 
 open PRo3D
 open PRo3D.Base
+open PRo3D.Base.Gis
 open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.SequencedBookmarks
@@ -43,11 +44,13 @@ open PRo3D.SimulatedViews
 //open PRo3D.Minerva
 //open PRo3D.Linking
 open PRo3D.ViewerLenses
+
  
 open Aether
 open Aether.Operators
 open Chiron 
 open PRo3D.Core.Surface
+open Aardvark.UI.Animation.Deprecated
 
 type UserFeedback<'a> = {
     id      : string
@@ -82,8 +85,6 @@ module UserFeedback =
 module ViewerApp =         
     let dataSamples = 4
 
-
-
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d
         let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value             
@@ -114,9 +115,7 @@ module ViewerApp =
 
     let stash (model : Model) =
         { model with past = Some model.drawing; future = None }
-       
-    
-
+           
     let mrefConfig : MInnerConfig<AdaptiveViewConfigModel> =
         {
             getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
@@ -249,7 +248,7 @@ module ViewerApp =
 
         (newRenderBox, viewBox)
 
-    let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
+    let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
         | Interactions.DrawAnnotation, _ -> 
             let m = 
@@ -263,7 +262,7 @@ module ViewerApp =
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
             let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name, None)
-            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.shiftFlag m.drawing msg
+            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
         | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                   
@@ -290,7 +289,7 @@ module ViewerApp =
             let addPointMsg = ViewPlanApp.Action.AddPoint(p, ref, cache, (Optic.get _surfacesModel m))
 
             let outerModel, viewPlans = 
-                ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath m
+                ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath ref m
 
             let m' = 
                 { m with 
@@ -374,6 +373,20 @@ module ViewerApp =
                     SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
                 { m with scene = { m.scene with sceneObjectsModel = so' } }
             | _ -> m
+        | Interactions.PickSurfaceRefSys, ViewerMode.Standard -> 
+            match m.pivotType with
+            | PickPivot.SurfacePivot     -> 
+                let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedReferenceSystem p )) 
+                let surfaceModel =
+                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                { m with scene = { m.scene with surfacesModel = surfaceModel } }
+            | PickPivot.SceneObjectPivot -> m
+                //todo
+            | _ -> m
+        | Interactions.PickDistanePoint, _ ->
+            let msg = ViewPlanApp.Action.AddDistancePoint(p)
+            let outerModel, viewPlans = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
+            { m with scene = { m.scene with viewPlans = viewPlans } }
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -420,6 +433,29 @@ module ViewerApp =
                     {fm with frustum = FrustumUtils.withAspect aspect fm.frustum})
             m
 
+
+    let addFlyToSurfaceAnimation (m : Model) (id : SurfaceId) =
+        let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
+        let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
+        let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
+        let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+        let fullTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem observedSystem observerSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
+        match surface.homePosition with
+        | Some hp ->                        
+            let animationMessage = 
+                CameraAnimations.animateForwardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
+            AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+        | None ->
+            match surf with
+            | Some s ->
+                let bb = s.globalBB.Transformed(fullTrafo.Forward)
+                let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
+                let animationMessage = 
+                    CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+                let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                a'
+            | None -> m.animations
+
     let updateViewer 
         (runtime   : IRuntime) 
         (signature : IFramebufferSignature) 
@@ -429,7 +465,7 @@ module ViewerApp =
         (msg       : ViewerAction) =
         //Log.line "[Viewer_update] %A inter:%A pick:%A" msg m.interaction m.picking
         match msg, m.interaction, m.ctrlFlag with
-        | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                              
+        | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
             let nav = Navigation.update c ref navConf true m.navigation msg               
@@ -441,7 +477,7 @@ module ViewerApp =
             |> Optic.set _animationView nav.camera.view
         | NavigationMessage msg, _, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
-        | AnimationMessage msg,_,_ ->
+        | AnimationMessage msg,_,_ -> // belongs to deprecated animation
             let m = 
                 match msg with
                 | Tick t when AnimationApp.shouldAnimate m.animations -> 
@@ -524,7 +560,7 @@ module ViewerApp =
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
                 let drawing = 
-                    DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing msg
+                    DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
                 { m with drawing = drawing; } |> stash
         | SurfaceActions msg,_,_ ->
@@ -534,26 +570,8 @@ module ViewerApp =
             let animation = 
                 match msg with
                 | SurfaceAppAction.FlyToSurface id -> 
-                    let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
-                    let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
-                    let superTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
-                    match (surface.homePosition) with
-                    | Some hp ->                        
-                        let animationMessage = 
-                            CameraAnimations.animateForwardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
-                        AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
-                    | None ->
-                        match surf with
-                        | Some s ->
-                            let bb = s.globalBB.Transformed(superTrafo.Forward)
-                            let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
-                            let animationMessage = 
-                                CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
-                            let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
-                            a'
-                        | None -> m.animations
+                    addFlyToSurfaceAnimation m id
                 | _-> m.animations
-                   
             let model = { m with scene = { m.scene with surfacesModel = s}; animations = animation}
 
             let model =
@@ -645,6 +663,54 @@ module ViewerApp =
             let generateSnapshots = 
                 SequencedBookmarksApp.generateSnapshots m.scene.sequencedBookmarks
                                                         SnapshotUtils.runProcess
+            let generateDepthPanoramaJson () = 
+                let jsonDepthPanoramasPathName = Path.combine [bm.outputPathDepthImages;"panoramaInputFormat.json"]
+                let parnoamaCollection = 
+                    SnapshotAnimation.PanoramaCollection 
+                        {
+                            fieldOfView             = (m.frustum |> Frustum.horizontalFieldOfViewInDegrees)            
+                            nearplane               = m.scene.config.nearPlane.value              
+                            farplane                = m.scene.config.farPlane.value               
+                            resolution              = V2i(bm.resolutionX.value, bm.resolutionY.value)             
+                            panoramaKind            = PanoramaKind.Spherical         
+                            renderRgbWithoutOverlay = false
+                            renderDepth             = true
+                            renderRgbWithOverlay    = true
+                            snapshots               = 
+                                bm.bookmarks
+                                |> HashMap.toList
+                                |> List.choose (fun s ->
+                                    let id, sbm = s
+                                    match sbm with
+                                    | SequencedBookmark.LoadedBookmark sb ->
+                                        let snapshotCam = 
+                                                {   location = sb.cameraView.Location
+                                                    forward  = sb.cameraView.Forward
+                                                    up       = sb.cameraView.Up
+                                                    }                         
+                                        Some {
+                                            filename = sb.filename
+                                            camera   = snapshotCam
+                                        }
+                                    | SequencedBookmark.NotYetLoaded sb -> 
+                                        None
+                                )
+                        }
+                let serialised = 
+                    parnoamaCollection
+                        |> Json.serialize 
+                        |> Json.formatWith JsonFormattingOptions.Pretty 
+                try 
+                    System.IO.File.WriteAllText(jsonDepthPanoramasPathName , serialised)
+                with e ->
+                    Log.warn "[JsonChiron] Could not save %s" "panoramaInputFormat.json" 
+                    Log.warn "%s" e.Message
+
+                Log.warn "Debug Saved json to %s" (jsonDepthPanoramasPathName)
+            let generateDepthPanoramas =
+                SequencedBookmarksApp.generateDepthPanoramas m.scene.sequencedBookmarks
+                                                        SnapshotUtils.runProcess
+
             let save m =
                 let scenePath = 
                     match m.scene.scenePath with
@@ -656,7 +722,7 @@ module ViewerApp =
                 m, scenePath
 
             let m =
-                Anewmation.Animator.update (Anewmation.AnimatorMessage.RealTimeTick) m
+                Animation.Animator.update (Animation.AnimatorMessage.RealTimeTick) m
                 
             match msg with
             | SequencedBookmarksAction.StopRecording -> 
@@ -685,6 +751,13 @@ module ViewerApp =
                 generateJson ()
                 let m = shortFeedback "Saved snapshot JSON file." m
                 m
+
+            | SequencedBookmarksAction.GeneratePanoramaDepthImages -> 
+                let m, scenePath = save m
+                generateDepthPanoramaJson()
+                let m = shortFeedback "Panorama Depthimages generation started." m
+                let bm = generateDepthPanoramas scenePath
+                {m with scene = { m.scene with sequencedBookmarks = bm }}
             | _ -> m
                 
             
@@ -692,7 +765,7 @@ module ViewerApp =
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
             { m with scene = { m.scene with viewPlans = {m.scene.viewPlans with roverModel = roverModel }}}
         | ViewPlanMessage msg,_,_ ->
-            let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m
+            let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
 
             let animations = 
                 match msg with
@@ -721,7 +794,9 @@ module ViewerApp =
                 match msg with
                 | SceneObjectAction.FlyToSO id -> 
                     let sceneObj = sobjs.sceneObjects |> HashMap.find id
-                    let superTrafo = TransformationApp.fullTrafo' sceneObj.transformation m.scene.referenceSystem //SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+                    let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
+                    let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                    let superTrafo = TransformationApp.fullTrafo' sceneObj.transformation m.scene.referenceSystem observedSystem observerSystem //SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
 
                     let sgSo = sobjs.sgSceneObjects |> HashMap.find id
                     let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
@@ -923,12 +998,9 @@ module ViewerApp =
                     { m with scene = { m.scene with viewPlans = vp }}
                 | None -> Log.error "no rover selected"; m
             | None -> m     
-        | ImportTraverse tr,_,_ -> 
-            match tr |> List.tryHead with
-            | Some path ->  
-                let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverse path)
-                { m with scene = { m.scene with traverses = t }}
-            | None -> m              
+        | ImportTraverse traverseFiles,_,_ -> 
+            let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverses traverseFiles)
+            { m with scene = { m.scene with traverses = t }}
         | DeleteLast,_,_ -> 
             if File.Exists @".\last" then
                 File.Delete(@".\last") |> ignore
@@ -951,6 +1023,9 @@ module ViewerApp =
                 let fray = p.globalRay.Ray
                 let r = fray.Ray
                 let rayHash = r.GetHashCode()
+
+                let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
                 
                 if rayHash = lastHash then
                     Log.line "ray hash took over"
@@ -960,10 +1035,11 @@ module ViewerApp =
                          
                     let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
                     let onlyVisible (id : Guid) (l : Leaf) (s : SgSurface) = l.visible
+                    let visibleAndActive (id : Guid) (l : Leaf) (s : SgSurface) = l.visible && l.active
 
                     let surfaceFilter = 
                         match m.interaction with
-                        | Interactions.PickSurface -> onlyVisible
+                        | Interactions.PickSurface -> visibleAndActive
                         | _ -> onlyActive
 
                     let hitF (camLocation : V3d) (p : V3d) = 
@@ -977,14 +1053,14 @@ module ViewerApp =
                                 FastRay3d(p + (up * 5000.0), -up)  
                             | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
-                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem ray surfaceFilter cache with
+                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache with
                         | Some (t,surf), c ->                             
                             cache <- c; ray.Ray.GetPointOnRay t |> Some
                         | None, c ->
                             cache <- c; None
                                    
                     let result = 
-                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem fray surfaceFilter cache with
+                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache with
                         | Some (t,surf), c ->                         
                             cache <- c
                             let hit = r.GetPointOnRay(t)
@@ -995,7 +1071,19 @@ module ViewerApp =
                             let hitF = hitF cameraLocation
                    
                             lastHash <- rayHash
-                            matchPickingInteraction sendQueue hit hitF surf m                                    
+
+                            let observedSystem = observedSystem surf.guid
+                            let spiceTrafo = 
+                                match observedSystem, observerSystem with
+                                | Some observedSystem, Some observerSystem -> 
+                                    CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time
+                                    |> Option.map (fun t -> t.Trafo) 
+                                    |> Option.defaultValue Trafo3d.Identity
+                                | _ -> Trafo3d.Identity
+
+                            let toLocal (v : V3d) = spiceTrafo.Backward.TransformPos(v)
+
+                            matchPickingInteraction sendQueue hit observedSystem (hitF >> Option.map toLocal) surf m                                    
                         | None, _ -> 
                             Log.error "[PickSurface] no hit of %s" name
                             m
@@ -1009,8 +1097,9 @@ module ViewerApp =
             match m.picking with
             | true ->
                 let hitF _ = None
+                let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
                 match (m.scene.surfacesModel.surfaces.flat.TryFind id) with
-                | Some x -> matchPickingInteraction sendQueue p hitF (x |> Leaf.toSurface) m 
+                | Some x -> matchPickingInteraction sendQueue p observedSystem hitF (x |> Leaf.toSurface) m 
                 | None -> m
             | false -> m
         | SaveScene s, _,_ ->                 
@@ -1079,7 +1168,6 @@ module ViewerApp =
                     m.screenshotDirectory
                     _animator
                     m.viewerVersion
-                |> ProvenanceApp.emptyWithModel
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
 
@@ -1110,9 +1198,7 @@ module ViewerApp =
                     { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene" 
                     // (saveSceneAndAnnotations p m)
                 |_-> m
-                         
-          
-
+                                   
             let sensitivity = m.scene.config.navigationSensitivity.value
           
             let configAction = 
@@ -1151,7 +1237,7 @@ module ViewerApp =
                             "M20_waypoints.json"
                         ]
 
-                    let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverse waypointPath)
+                    let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverses [waypointPath])
                     { m with scene = { m.scene with traverses = t }}
                 | _ -> m
 
@@ -1170,11 +1256,11 @@ module ViewerApp =
                 match m.interaction with
                 | Interactions.DrawAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing DrawingAction.StopDrawing
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.StopDrawing
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 | Interactions.PickAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing DrawingAction.StopPicking 
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.StopPicking 
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
                 |_-> { m with ctrlFlag = false; picking = false }
@@ -1394,15 +1480,26 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No shattercone updates found."
         //        m
-        | StartDragging _,_,_ 
-        | Dragging _,_,_ 
-        //| MouseOut _,_,_
-        | EndDragging _,_,_ -> 
+        | StartDragging _,_,_ ->
+            let m' =
+                match m.multiSelectBox with
+                | Some x -> { m with multiSelectBox = None }
+                | None -> m
+            m'
+        | Dragging _,_,_ ->
+            let m' =
+                match m.multiSelectBox with
+                | Some x -> { m with multiSelectBox = None }
+                | None -> m
+            m'
+        | EndDragging (mousePos, mouseButton) ,_,_ -> 
           let m' =
                 match m.multiSelectBox with
                 | Some x -> { m with multiSelectBox = None }
                 | None -> m
-          m' //{m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
+          let m' = 
+            {m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
+          m'
         | MouseIn _,_,_ ->
             {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = true }}}
         | MouseOut _,_,_ ->
@@ -1493,14 +1590,19 @@ module ViewerApp =
             let scDrawing = ScaleBarsDrawing.update m.scaleBarsDrawing msg
             { m with scaleBarsDrawing = scDrawing }
         | ScaleBarsMessage msg,_,_->  
-            //let _scaleBars = (Model.scene_ >-> Scene.scaleBars_ >-> ScaleBarsModel.scaleBars_)
             match msg with
             | ScaleBarsAction.FlyToSB id ->
                 let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
                 match _sb with 
                 | Some sb ->
+                    let translation = (TransformationApp.translationFromReferenceSystemBasis sb.transformation.translation.value m.scene.referenceSystem) 
+                    let viewLocation = sb.view.Location + translation
+                    let viewForward = sb.position + translation
+
+                    let view = CameraView.lookAt viewLocation viewForward m.scene.referenceSystem.up.value    
+
                     let animationMessage = 
-                        CameraAnimations.animateForwardAndLocation sb.view.Location sb.view.Forward sb.view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
@@ -1566,7 +1668,7 @@ module ViewerApp =
                 match msg with 
                 | PlaceRoverAtSol (name, trafo, location, refSystem) ->
                     let vpMessage = ViewPlanApp.Action.CreateNewViewplan (name, trafo, location, refSystem)
-                    let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans vpMessage _navigation _footprint m.scene.scenePath m
+                    let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans vpMessage _navigation _footprint m.scene.scenePath refSystem m
                     { m with 
                         scene = { m.scene with viewPlans = viewPlanModel }
                         footPrint = model.footPrint
@@ -1613,6 +1715,61 @@ module ViewerApp =
                 m
         | WriteCameraMetadata (path, camera),_,_ ->
             m
+        | GisAppMessage msg, _ , _ ->
+            let m, gisApp = 
+                 Gis.GisApp.update m.scene.gisApp gisLenses m msg
+
+            let m =
+                match msg with
+                | Gis.GisAppAction.ObservationInfoMessage msg ->
+                    match Gis.GisApp.lookAtObserver gisApp with
+                    | Some newCamera -> 
+                        //let p = 
+                        //    m.scene.surfacesModel.surfaces.flat 
+                        //    |> HashMap.map (fun k v -> 
+                        //        let s = Leaf.toSurface v
+                        //        match Gis.GisApp.getSurfaceTrafo gisApp k with
+                        //        | Some trafo -> 
+                        //            //let pose = { position = pos; rotation = Rot3d.Identity; scale = V3d.III }
+                        //            //let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
+                        //            Leaf.Surfaces { 
+                        //                s with transformation = {
+                        //                    s.transformation with
+                        //                        translation = s.transformation.translation |> Optic.set V3dInput.value_ trafo.position
+                        //                }
+                        //            }
+                        //        | _ -> v
+                        //    )
+                        //let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = p }}}}
+                        { m with navigation = { m.navigation with camera = { m.navigation.camera with view = newCamera } }}
+                    | _ -> m
+                | _ -> m
+
+            let animations = 
+                match msg with
+                //| Gis.GisAppAction.ObservationInfoMessage msg ->
+                //    match Gis.GisApp.lookAtObserver gisApp with
+                //    | Some newCamera -> 
+                //        let addObserverAnimation (m : Model) =
+                //            let animationMessage = 
+                //                CameraAnimations.animateForwardAndLocation newCamera.Location newCamera.Forward V3d.OOI 2.0 "TransitionCameraToObserver"
+                //            let blub =
+                //                CameraAnimations.
+                //            AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage); AnimationAction.PushAnimation blub)
+                //        addObserverAnimation m
+                //    | _ -> 
+                //        m.animations
+
+                | Gis.GisAppAction.SurfacesMessage msg ->
+                    match msg with
+                    | SurfaceAppAction.FlyToSurface id ->
+                        addFlyToSurfaceAnimation m id
+                    | _ ->
+                        m.animations
+                | _ -> 
+                    m.animations
+            (Optic.set _gisApp gisApp m)
+            |> Optic.set ViewerLenses._animation animations
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       
@@ -1638,28 +1795,24 @@ module ViewerApp =
             //    ()
             //| _ -> 
             //    ()
-
-            Anewmation.Animator.update msg m   
+            Animation.Animator.update msg m   
 
         | ProvenanceMessage msg -> 
             ProvenanceApp.update msg m
             
     let updateWithProvenanceTracking 
-                (runtime   : IRuntime) 
-                (enableProvenance : bool)
-                (signature : IFramebufferSignature) 
-                (sendQueue : BlockingCollection<string>) 
-                (mailbox   : MessagingMailbox) 
-                (m         : Model) 
-                (msg       : ViewerAnimationAction) =
+        (runtime   : IRuntime) 
+        (enableProvenance : bool)
+        (signature : IFramebufferSignature) 
+        (sendQueue : BlockingCollection<string>) 
+        (mailbox   : MessagingMailbox) 
+        (m         : Model) 
+        (msg       : ViewerAnimationAction) =
         let newModel = updateInternal runtime signature sendQueue mailbox m msg 
         if enableProvenance then
             ProvenanceApp.track m newModel msg
         else
             newModel
-
-
-
 
     let mkBrushISg color size trafo : ISg<Message> =
       Sg.sphere 5 color size 
@@ -1714,7 +1867,7 @@ module ViewerApp =
                 )] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
                 //onResize  (fun s -> OnResize(s,id))
             AttributeMap.ofList [
-                onEvent "onRendered" [] (fun _ -> AnewmationMessage Anewmation.AnimatorMessage.RealTimeTick)                    
+                onEvent "onRendered" [] (fun _ -> AnewmationMessage Animation.AnimatorMessage.RealTimeTick)                    
             ] 
         ]            
 
@@ -1760,40 +1913,138 @@ module ViewerApp =
             | _ -> false
         ) m.ctrlFlag m.interaction
 
-    let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
-        let frustum = m.frustum 
-        let annotationsI, discsI = 
+    // overlays that occur in instrumentview + main renderview
+    let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) =
+        let refSystem =
+            Sg.view
+                m.scene.config
+                mrefConfig
+                m.scene.referenceSystem
+                view
+            |> Sg.map ReferenceSystemMessage  
+
+        let exploreCenter =
+            Navigation.Sg.view m.navigation
+            |> Sg.onOff m.scene.config.showExplorationPointGui
+          
+        let homePosition =
+            Sg.viewHomePosition m.scene.surfacesModel
+
+        let annotationTexts =
+            DrawingApp.viewTextLabels 
+                m.scene.config
+                mdrawingConfig
+                view 
+                m.drawing            
+            
+        let scaleBarTexts = 
+            ScaleBarsApp.Sg.viewTextLabels 
+                m.scene.scaleBars 
+                view 
+                m.scene.config
+                mrefConfig
+                m.scene.referenceSystem
+
+        let traverse = 
+            TraverseApp.Sg.viewText 
+                m.scene.referenceSystem
+                view
+                m.scene.config.nearPlane.value 
+                m.scene.traverses
+            |> Sg.map TraverseMessage
+
+        let distancePointsText =
+            ViewPlanApp.Sg.viewText 
+                m.scene.referenceSystem
+                m.scene.viewPlans 
+            |> Sg.map ViewPlanMessage    
+
+
+        [
+            exploreCenter; 
+            refSystem; 
+            homePosition;
+            annotationTexts |> Sg.noEvents
+            scaleBarTexts
+            traverse
+            distancePointsText
+        ] |> Sg.ofList
+                                 
+    // depthTested that occur in instrumentview + main renderview
+    let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
+        let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
-                mdrawingConfig 
-                (m.scene.viewPlans.instrumentCam)
+                mdrawingConfig
+                observer
+                view //m.navigation.camera.view 
                 frustum
                 runtime
-                ~~(V2i(2048,2048))//(m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
-                (allowAnnotationPicking m)
+                (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
+                (allowAnnotationPicking m)                 
                 m.drawing
-
-        let ioverlayed =
-            let annos = 
-                annotationsI
+         
+        let annotationSg =
+            let ds =
+                discs
                 |> Sg.map DrawingMessage
                 |> Sg.fillMode (AVal.constant FillMode.Fill)
                 |> Sg.cullMode (AVal.constant CullMode.None)
 
-            [annos] |> Sg.ofList
+            let annos = 
+                annotations
+                |> Sg.map DrawingMessage
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
+                
+            Sg.ofList [ds;annos;]
 
-        let discsInst = 
-           discsI
-             |> Sg.map DrawingMessage
-             |> Sg.fillMode (AVal.constant FillMode.Fill)
-             |> Sg.cullMode (AVal.constant CullMode.None)
+        let scaleBars =
+            ScaleBarsApp.Sg.view
+                m.scene.scaleBars
+                view //m.navigation.camera.view
+                m.scene.config
+                mrefConfig
+                m.scene.referenceSystem
+            |> Sg.map ScaleBarsMessage
+       
+        let traverses = 
+            [ 
+                TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
+                TraverseApp.Sg.view     
+                    view //m.navigation.camera.view
+                    m.scene.referenceSystem
+                    m.scene.traverses   
+            ]
+            |> Sg.ofList
+            |> Sg.map TraverseMessage
+
+        let distancePoints =
+            ViewPlanApp.Sg.viewVPDistancePoints 
+                m.scene.referenceSystem
+                m.scene.viewPlans 
+            |> Sg.map ViewPlanMessage    
+
+        [
+            scaleBars;
+            annotationSg
+            traverses
+            distancePoints
+        ] |> Sg.ofList
+
+    let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+        let frustum = m.scene.viewPlans.instrumentFrustum
+        let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
+        let icam = AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
+
+        let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam
+       
+        let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
 
         // instrument view control
-        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed depthTested m.scene.viewPlans.instrumentCam false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
                         |> AList.map ViewerUtils.mapRenderCommand
-        let icam = 
-            AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
-
+        
         //onBoot "attachResize('__ID__')" (
         //    DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         //)
@@ -1806,54 +2057,28 @@ module ViewerApp =
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
 
-        let annotations, discs = 
-            DrawingApp.view 
-                m.scene.config 
-                mdrawingConfig 
-                m.navigation.camera.view 
-                frustum
-                runtime
-                (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
-                (allowAnnotationPicking m)                 
-                m.drawing
-            
-        let annotationSg = 
-            let ds =
-                discs
-                |> Sg.map DrawingMessage
-                |> Sg.fillMode (AVal.constant FillMode.Fill)
-                |> Sg.cullMode (AVal.constant CullMode.None)
+        
+        let gisEntities = Gis.GisApp.viewGisEntities m.scene.gisApp |> Sg.noEvents
 
-            let annos = 
-                annotations
-                |> Sg.map DrawingMessage
-                |> Sg.fillMode (AVal.constant FillMode.Fill)
-                |> Sg.cullMode (AVal.constant CullMode.None)
-
-            //let _, correlationPlanes =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        m.scene.config.nearPlane.value 
-            //        m.correlationPlot 
-            //        m.drawing.dnsColorLegend
-
-            //let _, planes = 
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        m.scene.config.nearPlane.value 
-            //        m.drawing.dnsColorLegend 
-            //        m.correlationPlot 
-            //        (allowLogPicking m)
-
-            //let viewContactOfInterest = 
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
-                
-            Sg.ofList [ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
+        let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
 
         let overlayed =
                         
+            let createLabelBillboards (model : amap<string, V3d>) (view:aval<CameraView>) (near:aval<float>) =        
+                model
+                |> AMap.map(fun txt pos ->
+                   Sg.text view near 
+                      ~~60.0
+                      ~~pos
+                      ~~(Trafo3d.Translation pos)
+                      ~~20.0
+                      ~~txt
+                      ~~C4b.White
+                ) 
+                |> AMap.toASet  
+                |> ASet.map(fun x -> snd x)            
+                |> Sg.set
+
             //let alignment = 
             //    AlignmentApp.view m.alignment m.scene.navigation.camera.view
             //        |> Sg.map AlignmentActions
@@ -1862,20 +2087,17 @@ module ViewerApp =
 
             let near = m.scene.config.nearPlane.value
 
-            let refSystem =
-                Sg.view
-                    m.scene.config
-                    mrefConfig
-                    m.scene.referenceSystem
-                    m.navigation.camera.view
-                |> Sg.map ReferenceSystemMessage  
+            let overL = getOverlayed m m.navigation.camera.view
 
-            let exploreCenter =
-                Navigation.Sg.view m.navigation
-                |> Sg.onOff m.scene.config.showExplorationPointGui
-          
-            let homePosition =
-                Sg.viewHomePosition m.scene.surfacesModel
+            let leafLabels =
+                m.scene.config.showLeafLabels 
+                |> AVal.map (fun enabled -> 
+                    if enabled then
+                        Sg.viewLeafLabels ~~0.01 ~~60.0 m.navigation.camera.view m.scene.surfacesModel
+                    else 
+                        Sg.empty
+                )
+                |> Sg.dynamic
                                  
             let viewPlans =
                 ViewPlanApp.Sg.view 
@@ -1905,46 +2127,31 @@ module ViewerApp =
             //        m.correlationPlot 
             //        (allowLogPicking m)
 
-            let traverse = 
-                [ 
-                    TraverseApp.Sg.viewLines m.scene.traverses
-                    TraverseApp.Sg.viewText 
-                        m.navigation.camera.view
-                        m.scene.config.nearPlane.value 
-                        m.scene.traverses
-                ]
-                |> Sg.ofList
-                |> Sg.map TraverseMessage
+            //let traverse = 
+            //    [ 
+            //        TraverseApp.Sg.viewLines m.scene.traverses
+            //        TraverseApp.Sg.viewText 
+            //            m.navigation.camera.view
+            //            m.scene.config.nearPlane.value 
+            //            m.scene.traverses
+            //    ]
+            //    |> Sg.ofList
+            //    |> Sg.map TraverseMessage
            
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
             
             let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
 
-            let annotationTexts =
-                DrawingApp.viewTextLabels 
-                    m.scene.config
-                    mdrawingConfig
-                    m.navigation.camera.view
-                    m.drawing            
-
-            let scaleBarTexts = 
-                ScaleBarsApp.Sg.viewTextLabels 
-                    m.scene.scaleBars 
-                    m.navigation.camera.view 
-                    m.scene.config
-                    mrefConfig
-
+           
             [
-                exploreCenter; 
-                refSystem; 
+                overL;
                 viewPlans; 
-                homePosition; 
+                leafLabels;
              //   solText; 
-                annotationTexts |> Sg.noEvents
-                heightValidation
-                scaleBarTexts
-                traverse
+                heightValidation;
+                //traverse
+                //gisEntities
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         //let minervaSg =
@@ -1975,18 +2182,13 @@ module ViewerApp =
         //        m.linkingModel
         //    |> Sg.map LinkingActions
 
+        let depthTested = 
+            getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
 
-        let scaleBars =
-            ScaleBarsApp.Sg.view
-                m.scene.scaleBars
-                m.navigation.camera.view
-                m.scene.config
-                mrefConfig
-                m.scene.referenceSystem
-            |> Sg.map ScaleBarsMessage
-
+        
         let sceneObjects =
             SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
 
@@ -1995,28 +2197,37 @@ module ViewerApp =
             |> Sg.map GeologicSurfacesMessage 
 
 
-        let traverses =
-            TraverseApp.Sg.view                     
-                m.scene.referenceSystem
-                m.scene.traverses   
-            |> Sg.map TraverseMessage
+        //let traverses =
+        //    TraverseApp.Sg.view     
+        //        m.navigation.camera.view
+        //        m.scene.referenceSystem
+        //        m.scene.traverses   
+        //    |> Sg.map TraverseMessage
 
         let depthTested = 
             [
              //   linkingSg; 
-                annotationSg; 
+                depthTested; 
                 //minervaSg; 
                 heightValidationDiscs; 
-                scaleBars; 
                 sceneObjects; 
                 geologicSurfacesSg
-                traverses
+                //traverses
+                gisEntities
             ] |> Sg.ofList
 
 
         //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true false runtime m
-                        |> AList.map ViewerUtils.mapRenderCommand
+        let cmds  = 
+            ViewerUtils.renderCommands 
+                m.scene.surfacesModel.sgGrouped 
+                overlayed depthTested 
+                m.navigation.camera.view 
+                true 
+                false 
+                runtime 
+                m
+            |> AList.map ViewerUtils.mapRenderCommand
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
@@ -2030,20 +2241,19 @@ module ViewerApp =
             { kind = Script;      name = "errorReporting";  url = "./resources/errorReporting.js"  }
             { kind = Script;      name = "resize";  url = "./resources/ResizeSensor.js"  }
             { kind = Script;      name = "resizeElem";  url = "./resources/ElementQueries.js"  }
+            { kind = Script;      name = "utilities";  url = "./resources/utilities.js"  }
         ]
         
-        let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 
-            [
+        let bodyAttributes : list<Attribute<ViewerAnimationAction>> = [
             style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
             onMouseUp (fun button pos -> ViewerAnimationAction.ViewerMessage (EndDragging (pos, button)))
-            ]
+        ]
 
         page (
             fun request -> 
                 Gui.Pages.pageRouting viewerDependencies bodyAttributes m viewInstrumentView viewRenderView runtime request
         )
-        
-                   
+                           
     let threadPool (m: Model) =
         let unionMany xs = List.fold ThreadPool.union ThreadPool.empty xs
 
@@ -2070,7 +2280,7 @@ module ViewerApp =
         unionMany [drawing; animation; nav; m.scene.feedbackThreads; sBookmarks]
             |> ThreadPool.map ViewerMessage
             |> ThreadPool.union (
-                Anewmation.Animator.threads m.animator 
+                Animation.Animator.threads m.animator 
                                     |> ThreadPool.map AnewmationMessage)
         
     let loadWaypoints m = 
@@ -2080,10 +2290,15 @@ module ViewerApp =
             { m with waypoints = wp }
         | None -> m
 
+    type ViewerStartupLoad =
+        | Empty
+        | LoadLastScene
+        | LoadScene of string
+
     let start 
         (runtime             : IRuntime) 
         (signature           : IFramebufferSignature)
-        (startEmpty          : bool)
+        (startupLoad         : ViewerStartupLoad)
         (messagingMailbox    : MessagingMailbox)
         (sendQueue           : BlockingCollection<string>)
         (dumpFile            : string)
@@ -2095,11 +2310,25 @@ module ViewerApp =
         (viewerVersion       : string)
         =
 
+        let viewerInitial =
+            PRo3D.Viewer.Viewer.initial 
+                messagingMailbox 
+                StartupArgs.initArgs 
+                renderingUrl
+                dataSamples 
+                screenshotDirectory 
+                _animator 
+                viewerVersion
+                
         let m = 
-            if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
-                                            dataSamples screenshotDirectory _animator viewerVersion
-                |> ProvenanceApp.emptyWithModel
+            match startupLoad with
+            | Empty -> 
+                viewerInitial
+                |> ProvenanceApp.emptyWithModel enableProvenance
+                |> ViewerIO.loadRoverData
+            | LoadLastScene ->
+                viewerInitial
+                |> ProvenanceApp.emptyWithModel enableProvenance
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -2111,13 +2340,21 @@ module ViewerApp =
                 //|> ViewerIO.loadLinking
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+            | LoadScene path ->
+                viewerInitial
+                |> ProvenanceApp.emptyWithModel enableProvenance
+                |> SceneLoader.loadSceneFromFile runtime signature path
+                |> SceneLoader.loadLogBrush
+                |> ViewerIO.loadRoverData                
+                |> ViewerIO.loadAnnotations
+                |> ViewerIO.loadCorrelations
+                |> ViewerIO.loadLastFootPrint
+                |> ViewerIO.loadSequencedBookmarks
+                //|> ViewerIO.loadMinerva dumpFile cacheFile
+                //|> ViewerIO.loadLinking
+                |> SceneLoader.addScaleBarSegments
+                |> SceneLoader.addGeologicSurfaces
                 
-            else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
-                                            dataSamples screenshotDirectory _animator viewerVersion
-                |> ProvenanceApp.emptyWithModel
-                |> ViewerIO.loadRoverData
-
         let app = {
             unpersist = Unpersist.instance
             threads   = threadPool

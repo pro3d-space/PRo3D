@@ -5,13 +5,10 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Rendering
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.IO.Loader
+open Aardvark.Data.Opc
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.UI.Trafos
-open Aardvark.VRVis
-open Aardvark.VRVis.Opc
 
 open Chiron
 
@@ -19,6 +16,7 @@ open PRo3D.Base
 open PRo3D.Core
 
 open Adaptify
+open OpcViewer.Base
 
 #nowarn "0686"
 
@@ -605,6 +603,9 @@ module Init =
         pitch                = Transformations.Initial.pitch
         roll                 = Transformations.Initial.roll
         pivot                = initTranslation (V3d.OOO)
+        refSys               = None
+        showTrafoRefSys      = true
+        refSysSize           = Transformations.Initial.initRefSysSize 50.0
         oldPivot             = V3d.OOO
         showPivot            = false
         pivotChanged         = false
@@ -614,6 +615,7 @@ module Init =
         trafoChanged         = false
         usePivot             = false
         pivotSize            = Transformations.Initial.initPivotSize 0.4
+        eulerMode            = EulerMode.defaultMode
     }
     
 
@@ -628,13 +630,14 @@ type TransferFunction =
 module TransferFunction =
     let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0 }
 
+type SurfaceId = System.Guid
 
 [<ModelType>]
 type Surface = {
     
     version         : int
 
-    guid            : System.Guid
+    guid            : SurfaceId
     
     name            : string
     importPath      : string
@@ -676,6 +679,9 @@ type Surface = {
     radiometry      : Radiometry
 
     contourModel    : ContourLineModel
+
+    highlightSelected : bool
+    highlightAlways   : bool
 }
 
 module Surface =
@@ -781,6 +787,9 @@ module Surface =
                     filterDistance   = Initial.filterDistance 10.0
 
                     contourModel = ContourLineModel.initial
+
+                    highlightSelected = true
+                    highlightAlways   = false
                 }
         }
 
@@ -833,6 +842,9 @@ module Surface =
             let scalarLayers  = scalarLayers  |> HashMap.ofList
             let textureLayers = textureLayers |> IndexList.ofList
 
+            let! highlightSel  = Json.tryRead "highlightSelected"
+            let! highlightAl   = Json.tryRead "highlightAlways"
+
             return 
                 {
                     version         = current
@@ -870,6 +882,9 @@ module Surface =
 
                     
                     contourModel = ContourLineModel.initial
+
+                    highlightSelected = match highlightSel with |Some v -> v |None -> true
+                    highlightAlways   = match highlightAl with |Some v -> v |None -> false
                 }
         }
      
@@ -930,12 +945,19 @@ type Surface with
             
             do! Json.write "filterByDistance" x.filterByDistance
             do! Json.write "filterDistance" x.filterDistance.value
+
+            do! Json.write "highlightSelected" x.highlightSelected
+            do! Json.write "highlightAlways" x.highlightAlways
         }
 
 type Picking =
-| PickMesh of ISg
-| KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
-| NoPicking
+    | PickMesh of ISg
+    | KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
+    | NoPicking
+
+type DataSource = 
+    | OpcHierarchy of array<PatchHierarchy>
+    | Mesh
 
 [<ModelType>]
 type SgSurface = {    
@@ -946,6 +968,8 @@ type SgSurface = {
     sceneGraph  : ISg
     picking     : Picking
     opcScene    : Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>
+    [<NonAdaptive>]
+    dataSource  : DataSource
 
     [<NonAdaptive>]
     isObj       : bool

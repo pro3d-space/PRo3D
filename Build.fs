@@ -16,12 +16,17 @@ open System.IO.Compression
 open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 
-initializeContext()
-
+let ctx = initializeContext()
 
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
-let notes = ReleaseNotes.load "PRODUCT_RELEASE_NOTES.md"
+let notes = 
+    if System.Environment.GetCommandLineArgs() |> Array.contains "--test" then 
+        printfn "USING TEST RELEASE"
+        ReleaseNotes.load "TEST_RELEASE_NOTES.md"
+    else    
+        ReleaseNotes.load "PRODUCT_RELEASE_NOTES.md"
+
 printfn "%A" notes
 
 let solutionName = "src/PRo3D.sln"
@@ -232,7 +237,7 @@ let test = """let viewerVersion       = "3.1.3" """
     res
     *)
 
-let aardiumVersion = "2.0.5"
+let aardiumVersion = "2.1.1"
     //let versions = getInstalledPackageVersions()
     //match Map.tryFind "Aardium" versions with
     //| Some v -> v
@@ -351,6 +356,7 @@ Target.create "CopyToElectron" (fun _ ->
                  Configuration = DotNet.BuildConfiguration.Release
                  VersionSuffix = Some notes.NugetVersion
                  OutputPath = Some "aardium/build/build"
+                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
              }
          )
          for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/mac/") do    
@@ -365,6 +371,7 @@ Target.create "CopyToElectron" (fun _ ->
                     Configuration = DotNet.BuildConfiguration.Release
                     VersionSuffix = Some notes.NugetVersion
                     OutputPath = Some "aardium/build/build"
+                    MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
                 }
         )
         for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/linux/AMD64") do    
@@ -380,6 +387,7 @@ Target.create "CopyToElectron" (fun _ ->
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
                 OutputPath = Some "aardium/build/build"
+                MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
             }
         )
         File.Copy("data/runtime/vcruntime140.dll", "aardium/build/build/vcruntime140.dll")
@@ -411,20 +419,36 @@ Target.create "Publish" (fun _ ->
     if Directory.Exists "bin/publish" then 
         Directory.Delete("bin/publish", true)
 
-    // 1. publish exe
+    // vuewer
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some "net6.0"
             Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
-            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/win-x64"
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
         }
     )
 
-    // 1. publish exe
+    //// snapshots
+    "src/PRo3D.Snapshots/PRo3D.Snapshots.fsproj" |> DotNet.publish (fun o ->
+        { o with
+            Framework = Some "net6.0"
+            Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
+            Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
+            Configuration = DotNet.BuildConfiguration.Release
+            VersionSuffix = Some notes.NugetVersion
+            OutputPath = Some "bin/publish/win-x64"
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+            
+        }
+    )
+
+    // mac
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some "net6.0"
@@ -434,6 +458,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/mac-x64"
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
         }
     )
 
@@ -471,7 +496,7 @@ Target.create "Publish" (fun _ ->
         Shell.copyDir (Path.Combine(target, "mac-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
         Shell.copyDir (Path.Combine(target, "win-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
 
-        File.Move("bin/publish/win-x64/PRo3D.Viewer.exe", sprintf "bin/publish/win-x64/PRo3D.Viewer.%s.exe" notes.NugetVersion)
+        //File.Move("bin/publish/win-x64/PRo3D.Viewer.exe", sprintf "bin/publish/win-x64/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
 
 "Credits" ==> "Publish" |> ignore
@@ -580,7 +605,7 @@ Target.create "GitHubRelease" (fun _ ->
         try
             Branches.tag "." newVersion
             let token =
-                match Environment.environVarOrDefault "github_token" "" with
+                match Environment.environVarOrDefault "GH_TOKEN" "" with
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
@@ -588,17 +613,20 @@ Target.create "GitHubRelease" (fun _ ->
             let release = sprintf "bin/PRo3D.Viewer.%s.zip" notes.NugetVersion
             let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
-            GitHub.createClientWithToken token
-            |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
-            |> GitHub.uploadFiles (Seq.singleton release)
-            //|> GitHub.publishDraft
-            |> Async.RunSynchronously
-            |> ignore
+            let release =
+                GitHub.createClientWithToken token
+                |> GitHub.draftNewRelease "pro3d-space" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
+                |> GitHub.uploadFiles (Seq.singleton release)
+                //|> GitHub.publishDraft
+                |> Async.RunSynchronously
+
+            try Branches.pushTag "." "origin" newVersion with e -> Trace.logf "could not create tag: %A" e
+
         with e -> 
+            Trace.logf "failed to create github release: %A" e
             Branches.deleteTag "." newVersion
     finally
         ()
-        //Branches.pushTag "." "origin" newVersion
         
 )
 

@@ -67,7 +67,7 @@
 \usepackage{wrapfig}
 
 %********** Enybeling Hyperlinks *******
-\usepackage[pdfborder=000,pdftex=true]{hyperref}% this enables jumping from a reference and table of content in the pdf file to its target
+\usepackage[pdfborder=000]{hyperref}% this enables jumping from a reference and table of content in the pdf file to its target
 
 % ********* Table layout **************
 \usepackage{booktabs}	  	%design of table, has an excellent documentation
@@ -156,6 +156,9 @@
 	{[}{{{\color{delim}{[}}}}{1}
 	{]}{{{\color{delim}{]}}}}{1},
 }
+
+\providecommand{\tightlist}{%
+	\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
 %----------------------------------------------------------------------------------------
 %	BEGIN DOCUMENT
@@ -268,7 +271,12 @@
 %----------------------------------------------------------------------------------------
 \include{KeyboardShortcuts}
 %----------------------------------------------------------------------------------------
+
+\include{Appendix}
+
 %	END OF DOCUMENT
 %----------------------------------------------------------------------------------------
+
+
 \end{document}
 

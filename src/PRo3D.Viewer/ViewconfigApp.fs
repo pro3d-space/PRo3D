@@ -28,6 +28,7 @@ module ConfigProperties =
         | ToggleOrientationCube 
         | ToggleSurfaceHighlighting
         | ToggleExplorationPointGui
+        | ToggleShowLeafLabels
         
 
     let update (model : ViewConfigModel) (act : Action) =
@@ -58,6 +59,7 @@ module ConfigProperties =
         | SetPickingTolerance tolerance ->
             { model with pickingTolerance = Numeric.update model.pickingTolerance tolerance }
         | ToggleExplorationPointGui -> {model with showExplorationPointGui = not model.showExplorationPointGui}
+        | ToggleShowLeafLabels -> { model with showLeafLabels = not model.showLeafLabels }
         | Nop -> model
         | _ -> 
             Log.warn "[ConfigProperties] Unknown action %A" act
@@ -80,7 +82,11 @@ module ConfigProperties =
                 Html.row "Lod colors:"              [GuiEx.iconCheckBox model.lodColoring ToggleLodColors]
                 Html.row "Orientation Cube: "       [GuiEx.iconCheckBox model.drawOrientationCube ToggleOrientationCube]
               //  Html.row "Surface highlighting: "   [GuiEx.iconCheckBox model.useSurfaceHighlighting ToggleSurfaceHighlighting]
+                
                 Html.row "Exploration Point: "      [GuiEx.iconCheckBox model.showExplorationPointGui ToggleExplorationPointGui]
+
+                let leafLabelCheckbox = GuiEx.iconCheckBox model.showLeafLabels ToggleShowLeafLabels
+                Html.row "Show leaf labels: "       [UI.wrapToolTip DataPosition.Bottom "Shown for selected surface (only available for opcs)" leafLabelCheckbox]
             ]
         )
 

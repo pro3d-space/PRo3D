@@ -8,7 +8,7 @@ open Aardvark.Rendering
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.VRVis
 
 open PRo3D
@@ -31,10 +31,8 @@ module SurfaceProperties =
         | ToggleIsActive
         | SetQuality     of Numeric.Action
         | SetTriangleSize of Numeric.Action
-        | SetPriority    of Numeric.Action
-        //| SetScaling     of Numeric.Action
+        | SetPriority    of Numeric.Action        
         | SetScalarMap   of Option<ScalarLayer>
-
         | SetPrimaryTexture of Option<TextureLayer>
         | SetSecondaryTexture of Option<TextureLayer>
         | SetTransferFunctionMode of Option<string>
@@ -44,10 +42,12 @@ module SurfaceProperties =
         | SetTextureCombiner of TextureCombiner
         | SetBlendFactor of float
         | CountourAppMessage of ContourLineApp.Action
-
-        | SetHomePosition //of Guid //of Option<CameraView>
-        | ToggleFilterByDistance //of Guid //of Option<CameraView>
-        | SetFilterDistance of Numeric.Action //of Guid //of Option<CameraView>
+        | SetHomePosition 
+        | ToggleFilterByDistance 
+        | SetFilterDistance of Numeric.Action
+        | ToggleHighlightSelected
+        | ToggleHighlightAlways
+        | PrintIdToConsole
 
     let update (model : Surface) (act : Action) =
         match act with
@@ -82,12 +82,10 @@ module SurfaceProperties =
                 Log.error "[SurfaceProperties] %A" scs
                 { model with selectedScalar = Some s} |> Console.print //; scalarLayers = scs 
             | None -> { model with selectedScalar = None }
-
         | SetPrimaryTexture texture ->                
             { model with primaryTexture = texture } |> Console.print
         | SetSecondaryTexture texture ->                
             { model with secondaryTexture = texture } |> Console.print
-
         | SetTransferFunctionMode (Some name) -> 
             match name with
             | _ when name = ramp -> 
@@ -99,25 +97,30 @@ module SurfaceProperties =
             | _ -> 
                 Log.warn "unkonwn tf mode: %s" name
                 model
-        | SetTransferFunctionMode None -> model
-
+        | SetTransferFunctionMode None -> 
+            model
         | SetTFMin min -> 
             { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetMin min model.transferFunction.tf; } }
         | SetTFMax max -> 
             { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetMax max model.transferFunction.tf; } }
-
-        | SetColorMappingName None -> model
+        | SetColorMappingName None -> 
+            model
         | SetColorMappingName (Some name) -> 
             { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetName name model.transferFunction.tf }  }
         | SetTextureCombiner c -> 
             { model with transferFunction = { model.transferFunction with textureCombiner = c } }
         | SetBlendFactor f -> 
             { model with transferFunction = { model.transferFunction with blendFactor = f }}
-
-
         | SetHomePosition -> model
-            
-
+        | ToggleHighlightSelected ->
+            { model with highlightSelected = not model.highlightSelected }
+        | ToggleHighlightAlways ->
+            { model with highlightAlways = not model.highlightAlways }
+        | PrintIdToConsole ->
+            Log.line "\nname: %s"(model.name)
+            Log.line "id  : %s"(model.guid.ToString())
+            model
+           
     let getTextures (layers : seq<AttributeLayer>) =
         layers 
         |> Seq.choose (fun x -> match x with | TextureLayer l -> Some l | _ -> None) 
@@ -161,6 +164,8 @@ module SurfaceProperties =
                 yield Html.row "Name:"        [Html.SemUi.textBox model.name SetName ]
                 yield Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
                 yield Html.row "Active:"      [GuiEx.iconCheckBox model.isActive ToggleIsActive ]
+                yield Html.row "Highlight Selected:"   [GuiEx.iconCheckBox model.highlightSelected ToggleHighlightSelected ]
+                yield Html.row "Highlight Always:"     [GuiEx.iconCheckBox model.highlightAlways ToggleHighlightAlways ]
                 yield Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] model.priority |> UI.map SetPriority ]       
                 yield Html.row "Quality:"     [Numeric.view' [NumericInputType.Slider]   model.quality  |> UI.map SetQuality ]
                 yield Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
@@ -181,6 +186,7 @@ module SurfaceProperties =
                     match tf with
                     | ColorMaps.TF.Ramp(_,_,_) -> ramp
                     | ColorMaps.TF.Passthrough -> passthrough
+                
                 
                 
                 yield Html.row "Transfer Function" [ div [] [UI.dropDown'' (AList.ofList [ramp; passthrough]) (model.transferFunction |> AVal.map (fun tf -> Some (tfToName tf.tf))) SetTransferFunctionMode (fun a -> a)]]
@@ -226,7 +232,7 @@ module SurfaceProperties =
                     ]
                 | _ -> ()
 
-                    
+                yield Html.row ""  [button [clazz "ui button tiny"; onClick (fun _ -> PrintIdToConsole )] [text "print id"]]
             }
       )
 
@@ -269,7 +275,7 @@ module ColorCorrectionProperties =
         Html.table [  
           Html.row ""                     []
           Html.row "use color:"           [GuiEx.iconCheckBox model.useColor UseColor ]
-          Html.row "color:"               [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map SetColor ]
+          Html.row "color:"               [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" true model.color |> UI.map SetColor ]
           Html.row "grayscale:"           [GuiEx.iconCheckBox model.useGrayscale UseGrayScale ]
           Html.row "use brightness:"      [GuiEx.iconCheckBox model.useBrightn UseBrightness ]
           Html.row "set brightness:"      [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.brightness  |> UI.map SetBrightness ] 

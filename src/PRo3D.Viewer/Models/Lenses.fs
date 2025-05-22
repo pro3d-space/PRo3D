@@ -1,6 +1,6 @@
 ﻿namespace PRo3D
 
-open Aardvark.UI
+open Aardvark.UI.Primitives
 open PRo3D.Core
 
 open Aether

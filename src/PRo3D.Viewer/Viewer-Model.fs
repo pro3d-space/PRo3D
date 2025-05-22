@@ -9,9 +9,9 @@ open Aardvark.UI.Primitives
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI.Trafos
-open Aardvark.UI.Animation
+open Aardvark.UI.Animation.Deprecated
 open Aardvark.Rendering
-open Aardvark.UI.Anewmation
+open Aardvark.UI.Animation
 
 open PRo3D
 open PRo3D.Base
@@ -32,6 +32,9 @@ open Adaptify
 
 open Aether
 open Aether.Operators
+
+
+
 //open PRo3D.Minerva
 
 #nowarn "0686"
@@ -57,6 +60,7 @@ type PropertyActions =
 type PickPivot =
     | SurfacePivot      = 0
     | SceneObjectPivot  = 1
+
    // | ScaleBarPivot     = 2
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
@@ -110,7 +114,8 @@ type ViewerAction =
 | ConfigPropertiesMessage         of ConfigProperties.Action
 | DeleteLast
 | AddSg                           of ISg
-| PickSurface                     of SceneHit*string*bool
+| PickSurface                     of SceneHit * string * bool
+| PreviewPickSurface              of SceneHit * string * bool
 | PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
@@ -178,6 +183,7 @@ type ViewerAction =
 | StopGeoJsonAutoExport        
 | SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
+| GisAppMessage                  of Gis.GisAppAction
 | SBookmarksToPoseDefinition
 | Nop
 
@@ -206,7 +212,7 @@ type Scene = {
     bookmarks         : GroupsModel
     scaleBars         : ScaleBarsModel
 
-    traverses          : TraverseModel
+    traverses         : TraverseModel
 
     viewPlans         : ViewPlanModel
     dockConfig        : DockConfig
@@ -220,7 +226,7 @@ type Scene = {
     geologicSurfacesModel : GeologicSurfacesModel
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
-
+    gisApp                : PRo3D.Core.Gis.GisApp
 }
 
 module Scene =
@@ -271,6 +277,7 @@ module Scene =
 
                     comparisonApp         = ComparisonApp.init
                     screenshotModel       = ScreenshotModel.initial
+                    gisApp                = Gis.GisApp.initial None
                 }
         }
 
@@ -322,6 +329,7 @@ module Scene =
 
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
+                    gisApp                  = Gis.GisApp.initial None
                 }
         }
 
@@ -346,6 +354,7 @@ module Scene =
 
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
+
 
             return 
                 {
@@ -377,6 +386,7 @@ module Scene =
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
+                    gisApp                  = Gis.GisApp.initial None
                 }
         }
 
@@ -402,6 +412,11 @@ module Scene =
             let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
+            let! gisApp                 = Json.tryRead "gisApp"
+            let gisApp = 
+                match gisApp with
+                | Some gisApp -> gisApp
+                | None -> Gis.GisApp.initial None
             //let! viewplans     = Json.tryRead "viewplans"
 
             return 
@@ -434,6 +449,7 @@ module Scene =
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
+                    gisApp                  = gisApp
                 }
         }
 
@@ -475,6 +491,7 @@ type Scene with
             do! Json.write "traverses" x.traverses
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
             do! Json.write "screenshotModel"    x.screenshotModel
+            do! Json.write "gisApp"             x.gisApp
         }
 
 type SceneHandle = {
@@ -581,7 +598,7 @@ type Model = {
     screenshotDirectory  : string
 
     [<NonAdaptive>]
-    animator             : Anewmation.Animator<Model>
+    animator             : Animation.Animator<Model>
 
     provenanceModel      : ProvenanceModel
 } 

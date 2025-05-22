@@ -9,6 +9,7 @@ open Aardvark.Rendering
 open Aardvark.Application    
 open Aardvark.UI
 
+open Aardvark.UI.Primitives
 open PRo3D.Base
 open PRo3D.Base.Annotation
 
@@ -71,11 +72,11 @@ module ReferenceSystemApp =
         V3d(px, py, pz)
        
     let upVector (point:V3d) (planet) = 
-        CooTransformation.getUpVector point planet //point.Normalized
+        CooTransformation.getUpVector point planet |> Vec.Normalized //point.Normalized
     
     let northVector (up:V3d) =
-        let east = V3d.OOI.Cross(up)
-        up.Cross(east)
+        let east = V3d.OOI.Cross(up).Normalized
+        up.Cross(east).Normalized
     
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
         let up = upVector p planet
@@ -136,6 +137,10 @@ module ReferenceSystemApp =
         | SetPlanet p ->      
             let m' = updateCoordSystem model.origin p model
             { m' with planet = p }, bigConfig
+        | SetTextsize s ->
+            { model with textsize = Numeric.update model.textsize s}, bigConfig
+        | SetTextColor uc -> 
+            { model with textcolor = ColorPicker.update model.textcolor uc }, bigConfig
     
     module UI =
 
@@ -160,6 +165,8 @@ module ReferenceSystemApp =
                     Html.row "Latitude:"    [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.latitude.ToString("0.00")))]
                     Html.row "Altitude:"    [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.altitude.ToString("0.00")))]
                     Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
+                    Html.row "Textsize:"    [Numeric.view' [NumericInputType.InputBox] model.textsize |> UI.map SetTextsize ]  
+                    Html.row "Textcolor:"   [ColorPicker.view model.textcolor |> UI.map SetTextColor ]
                       
                 ]
             )

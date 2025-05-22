@@ -3,16 +3,17 @@
 open System
 open System.IO
 open Aardvark.Base
+open Aardvark.Rendering.Text
+open Aardvark.SceneGraph
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open Chiron
 open PRo3D.Base.Annotation.GeoJSON
 open PRo3D.Base
 open PRo3D.Core
+open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
-
-
-
         
 module Double =
     let parse x =
@@ -61,6 +62,10 @@ module TraversePropertiesApp =
             { model with tTextSize = Numeric.update model.tTextSize s}
         | SetTraverseColor tc -> 
             { model with color = ColorPicker.update model.color tc }
+        | SetLineWidth w ->
+            { model with tLineWidth = Numeric.update model.tLineWidth w}
+        | SetHeightOffset w -> 
+            { model with heightOffset = Numeric.update model.heightOffset w}
 
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -105,12 +110,14 @@ module TraversePropertiesApp =
         let viewTraverseProperties (m : AdaptiveTraverse) =
             require GuiEx.semui (
                 Html.table [
-                    Html.row "Name:"       [Html.SemUi.textBox m.tName SetTraverseName ]
+                    Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
                     Html.row "Show Lines:" [GuiEx.iconCheckBox m.showLines ToggleShowLines]
                     Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
+                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
+                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
                 ]
             )
     
@@ -143,55 +150,72 @@ module TraversePropertiesApp =
     
                         let headerText = sprintf "Sol %i" sol.solNumber                    
                 
-                        let white = sprintf "color: %s" (Html.ofC4b C4b.White)
+                        let white = sprintf "color: %s" (Html.color C4b.White)
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        let bgc = sprintf "color: %s" (Html.color c)
                             
                         //if (sol.solNumber = 238) then
                         //items
+                        //yield div [clazz "item"; style white] [
+                        //    i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
+                        //    div [clazz "content"; style white] [                     
+                        //        Incremental.div (AttributeMap.ofList [style white])(
+                        //            alist {
+                                            
+                        //                yield div [clazz "header"; style bgc] [
+                        //                    span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
+                        //                ]                
+    
+                        //                let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
+                        //                yield div [clazz "description"] [text descriptionText]
+    
+                        //                let! refSystem = refSystem.Current
+                        //                yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
+                        //                    |> UI.wrapToolTip DataPosition.Bottom "Fly to Sol"
+                        //                yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
+                        //                    |> UI.wrapToolTip DataPosition.Bottom "Make Viewplan"
+                        //            } 
+                        //        )                                     
+                        //    ]
+                        //]
+
+                        // only to be called in callback
+                        let getCurrentRefSystem () =
+                            refSystem.Current.GetValue()
+
                         yield div [clazz "item"; style white] [
                             i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
                             div [clazz "content"; style white] [                     
-                                Incremental.div (AttributeMap.ofList [style white])(
-                                    alist {
-                                            
-                                        yield div [clazz "header"; style bgc] [
-                                            span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
-                                        ]                
+                                div [style white] [
+                                    yield div [clazz "header"; style bgc] [
+                                        span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
+                                    ]                
     
-                                        let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
-                                        yield div [clazz "description"] [text descriptionText]
+                                    let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
+                                    yield div [clazz "description"] [text descriptionText]
     
-                                        let! refSystem = refSystem.Current
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
-                                            |> UI.wrapToolTip DataPosition.Bottom "Fly to Sol"
-                                        yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
-                                            |> UI.wrapToolTip DataPosition.Bottom "Make Viewplan"
-                                    } 
-                                )                                     
+                                    yield 
+                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (computeSolFlyToParameters sol refSystem))] []
+                                    yield 
+                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
+                                ]                                     
                             ]
                         ]
                 })
 
 
 module TraverseApp =
-
-
     type TraverseParseError =
-       | PropertyNotFound         of propertyName : string * feature : GeoJsonFeature
-       | PropertyHasWrongType     of propertyName : string * feature : GeoJsonFeature * expected : string * got : string * str : string
-       | GeometryTypeNotSupported of geometryType : string
+        | PropertyNotFound         of propertyName : string * feature : GeoJsonFeature
+        | PropertyHasWrongType     of propertyName : string * feature : GeoJsonFeature * expected : string * got : string * str : string
+        | GeometryTypeNotSupported of geometryType : string
     
-
-
     let (.|) (point : GeoJsonFeature) (propertyName : string) : Result<Json, TraverseParseError> =
         match point.properties |> Map.tryFind propertyName with
         | None -> PropertyNotFound(propertyName, point) |> error
         | Some v -> v |> Ok
 
     // the parsing functions are a bit verbose but focus on good error reporting....
-
-
     let parseIntProperty (feature : GeoJsonFeature) (propertyName : string) : Result<int, TraverseParseError> =
         result {
             let json = feature.|propertyName
@@ -245,7 +269,6 @@ module TraverseApp =
         | Result.Ok(e) -> Result.Error (PropertyHasWrongType(propertyName, feature, "Json.String", e.ToString(), e.ToString()))
         | Result.Error(e) -> Result.Error(e)
 
-
     let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
         let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
             r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
@@ -281,8 +304,7 @@ module TraverseApp =
                             //x ... lon
                             //y ... lat
 
-                            let! elev_goid = parseDoubleProperty x "elev_geoid"
-                        
+                            let! elev_goid = parseDoubleProperty x "elev_geoid"                        
                             let latLonAlt = 
                                 V3d (
                                     y.Y, 
@@ -291,9 +313,7 @@ module TraverseApp =
                                 )
 
                             return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-
                         | Coordinate.ThreeDim y ->
-
                             let latLonAlt =  //y.YXZ
                                 V3d (
                                     y.Y, 
@@ -302,7 +322,6 @@ module TraverseApp =
                                 )
 
                             return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-
                     | e -> 
                         return! error (GeometryTypeNotSupported (string e))
                 }
@@ -319,10 +338,10 @@ module TraverseApp =
 
             // either choose dist_total_m or dist_total - or default to zero if nothing? @ThomasOrnter - is this defaulting correct or an error?
             match parseDoubleProperty x "dist_total_m", parseDoubleProperty x "dist_total" with
-                | Result.Ok dist, _ | _, Result.Ok  dist -> 
-                    return { sol with totalDistanceM = dist }
-                | _ ->
-                    return { sol with totalDistanceM = 0.0 }
+            | Result.Ok dist, _ | _, Result.Ok  dist -> 
+                return { sol with totalDistanceM = dist }
+            | _ ->
+                return { sol with totalDistanceM = 0.0 }
         }
 
     let parseTraverse (traverse : GeoJsonFeatureCollection) = 
@@ -338,42 +357,57 @@ module TraverseApp =
                         String.concat Environment.NewLine [
                             sprintf "[Traverse] could not parse or interpret feature %d in the feature list.\n" idx 
                             sprintf "[Traverse] the detailled error is: %A" e
-                            "[Traverse] we simply skip this one..." 
+                            sprintf "[Traverse] skipping feature of type %A" feature.geometry
                         ]
                     )
                     None
             )                
 
         sols
+    
+    let compareNatural (left: AdaptiveTraverse) (right: AdaptiveTraverse) =
+        Sorting.compareNatural left.tName right.tName
+
+    let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
+        if traverses.Length > 1 then
+            let colors = ColorBrewer.twelveClassPaired |> List.map ColorBrewer.toMaxValue
+            traverses |> ColorBrewer.assignColors colors
+        else    
+            traverses |> List.map(fun x -> (x, C4b.White))
 
     let update 
         (model : TraverseModel) 
         (action : TraverseAction) : TraverseModel = 
         match action with
-        | LoadTraverse path ->
-            if System.IO.File.Exists path then
-                Log.line "[Traverse] Loading %s" path
-                let geojson = System.IO.File.ReadAllText path
-                 
-                let parsedData =
-                    geojson 
-                    |> Json.parse 
+        | LoadTraverses paths ->            
+            let traverses =             
+                paths 
+                |> List.filter(fun x ->
+                    let fileExists = File.Exists x
+                    if not fileExists then
+                        Log.warn "[Traverse] File %s does not exist." x
 
-                let deserializedData =
-                    parsedData
-                    |> Json.deserialize
-                    
-                let sols =
-                    deserializedData
-                    |> parseTraverse
+                    fileExists
+                )
+                |> assignColorsToTraverse
+                |> List.map(fun (x, color) ->
+                    Log.line "[Traverse] Loading %s" x
+                    let geojson = System.IO.File.ReadAllText x
+                     
+                    let sols =
+                        geojson 
+                        |> Json.parse 
+                        |> Json.deserialize 
+                        |> parseTraverse
 
-                let name = Path.GetFileName path
-                let traverse = Traverse.initial name sols 
-                let traverses' = HashMap.add traverse.guid traverse model.traverses
+                    let name = Path.GetFileName x
 
-                { model with traverses = traverses'; selectedTraverse = Some traverse.guid }
-            else
-                model
+                    let traverse = Traverse.initial name sols |> Traverse.withColor color
+                    traverse |> HashMap.single traverse.guid        
+                )
+                |> List.fold(fun a b -> HashMap.union a b) model.traverses            
+
+            { model with traverses = model.traverses |> HashMap.union traverses; selectedTraverse = None }
         | IsVisibleT id ->
             let traverses' =  
                 model.traverses 
@@ -427,10 +461,9 @@ module TraverseApp =
                     { model with traverses = traverses' }
                 | None -> model
             | None -> model
-
-            
+        | RemoveAllTraverses ->
+            { model with traverses = HashMap.empty; selectedTraverse = None }            
         |_-> model
-
 
     module UI =
         let viewTraverses
@@ -447,17 +480,15 @@ module TraverseApp =
                 alist {
 
                     let! selected = m.selectedTraverse
-                    let traverses = m.traverses |> AMap.toASetValues |> ASet.toAList
-
-                    
-        
+                    let traverses = m.traverses |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
+                            
                     for traverse in traverses do
                         
                         let! sols = traverse.sols
                         let fistSol = sols.[0]
-                        let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                        let infoc = sprintf "color: %s" (Html.color C4b.White)
             
-                        let! traverseID = traverse.guid  
+                        let traverseID = traverse.guid
                         let toggleIcon = 
                             AVal.map( fun toggle -> if toggle then "unhide icon" else "hide icon") traverse.isVisibleT
 
@@ -471,12 +502,11 @@ module TraverseApp =
                        
                         let color =
                             match selected with
-                              | Some sel -> 
-                                AVal.constant (if sel = (traverse.guid |> AVal.force) then C4b.VRVisGreen else C4b.Gray) 
-                              | None -> AVal.constant C4b.Gray
+                            | Some sel -> 
+                                AVal.constant (if sel = (traverse.guid) then C4b.VRVisGreen else C4b.Gray) 
+                            | None -> AVal.constant C4b.Gray
 
-                        let headerText = 
-                            AVal.map (fun a -> sprintf "%s" a) traverse.tName
+                        let headerText = traverse.tName
 
                         let headerAttributes =
                             amap {
@@ -485,14 +515,14 @@ module TraverseApp =
                             |> AttributeMap.ofAMap
             
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        let bgc = sprintf "color: %s" (Html.color c)
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
                                         //let! hc = headerColor
                                         yield div [clazz "header"; style bgc] [
-                                            Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
+                                            Incremental.span headerAttributes ([text headerText] |> AList.ofList)
                                          ]                           
                                         // fly to first sol of traverse
                                         let! refSystem = refSystem.Current
@@ -503,13 +533,25 @@ module TraverseApp =
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"     
-                                       
+                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"                                            
                                     } 
                                 )                                     
                             ]
                         ]
                 } )
+
+        let viewActions (model:AdaptiveTraverseModel) =
+            adaptive {
+                return Html.table [                            
+                    div [clazz "ui buttons inverted"] [
+                        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
+                            button [clazz "ui icon button"; onMouseClick (fun _ -> RemoveAllTraverses)] [
+                                i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Remove All"
+                        )
+                    ] 
+                ] 
+            }
+            
 
         let viewProperties (model:AdaptiveTraverseModel) =
             adaptive {
@@ -539,17 +581,17 @@ module TraverseApp =
                 | None -> return empty
             }                
        
-
     module Sg =
         let drawSolLines (model : AdaptiveTraverse) : ISg<TraverseAction> =
             adaptive {
                 let! sols = model.sols
                 let! c = model.color.c
+                let! w = model.tLineWidth.value
                 let lines = 
                     sols 
                     |> List.map(fun x -> x.location)
                     |> List.toArray
-                    |> PRo3D.Core.Drawing.Sg.lines c 2.0 
+                    |> PRo3D.Core.Drawing.Sg.lines c w 
                 
                 return lines
             }
@@ -557,48 +599,86 @@ module TraverseApp =
             |> Sg.onOff model.showLines
             |> Sg.onOff model.isVisibleT
 
-        let viewLines (traverseModel : AdaptiveTraverseModel) =
+
+        let getTraverseOffsetTransform (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) =
+            (refSystem.Current, model.Current, model.heightOffset.value) |||> AVal.map3 (fun refSystem current offset ->
+                match current.sols |> List.tryHead with
+                | None -> Trafo3d.Identity
+                | Some sol -> 
+                    let north, up, east = PRo3D.Core.Surface.TransformationApp.getNorthAndUpFromPivot sol.location refSystem
+                    Trafo3d.Translation(offset * up)
+            )
+
+        let viewLines (refSystem: AdaptiveReferenceSystem) (traverseModel : AdaptiveTraverseModel) =
 
             let traverses = traverseModel.traverses
             traverses 
             |> AMap.map( fun id traverse ->
-                drawSolLines
-                    traverse
+                drawSolLines traverse
+                |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
             )
             |> AMap.toASet 
             |> ASet.map snd 
             |> Sg.set
             
+        let drawSolTextsFast (view : aval<CameraView>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
+            let contents = 
+                let viewTrafo = view |> AVal.map CameraView.viewTrafo
+                 
+                AVal.map2 (fun sols scale -> 
+                    sols 
+                    |> List.toArray
+                    |> Array.map (fun sol -> 
+                        let loc = sol.location + sol.location.Normalized * 1.5
+                        let trafo = (Trafo3d.Scale((float)scale) ) * (Trafo3d.Translation loc)
+                        let text = $"{sol.solNumber}"
+                        //let scaleTrafo = Sg.invariantScaleTrafo view near ~~loc traverse.tTextSize.value ~~60.0
+                        //let dynamicTrafo = scaleTrafo |> AVal.map (fun scale -> scale * trafo)
+                        let stableTrafo = viewTrafo |> AVal.map (fun view -> trafo * view) // stable, and a bit slow
+                        AVal.constant trafo, AVal.constant text
+                    ) 
+                ) traverse.sols traverse.tTextSize.value
+                |> ASet.ofAVal
+            let sg = 
+                let config = { Text.TextConfig.Default with renderStyle = RenderStyle.Billboard; color = C4b.White }
+                Sg.textsWithConfig config contents
+                |> Sg.noEvents
+                |> Sg.onOff ((traverse.isVisibleT, traverse.showText) ||> AVal.map2 (&&))
+                //|> Sg.viewTrafo' Trafo3d.Identity
+            sg 
 
         let drawSolText view near (model : AdaptiveTraverse) =
             alist {
                 let! sols = model.sols
                 let! showText = model.showText
-
+     
                 if showText then
                     for sol in sols do
                         let loc = ~~(sol.location + sol.location.Normalized * 1.5)
                         let trafo = loc |> AVal.map Trafo3d.Translation
                         
-                        yield Sg.text view near (AVal.constant 60.0) loc trafo model.tTextSize.value  (~~sol.solNumber.ToString())
+                        yield Sg.text view near (AVal.constant 60.0) loc trafo model.tTextSize.value  (~~sol.solNumber.ToString()) (AVal.constant C4b.White)
             } 
             |> ASet.ofAList 
             |> Sg.set
             |> Sg.onOff model.isVisibleT
 
-        let viewText view near (traverseModel : AdaptiveTraverseModel) =
+
+        let viewText (refSystem : AdaptiveReferenceSystem) view near (traverseModel : AdaptiveTraverseModel) =
         
             let traverses = traverseModel.traverses
             traverses 
-            |> AMap.map( fun id traverse ->
-                drawSolText
+            |> AMap.map(fun id traverse ->
+                drawSolTextsFast
                     view
                     near
                     traverse
+                |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
             )
             |> AMap.toASet 
             |> ASet.map snd 
             |> Sg.set
+
 
 
         let viewCoordinateCross 
@@ -616,9 +696,98 @@ module TraverseApp =
             ] 
             |> Sg.ofList
 
+
+        module Shader =
+            open FShade
+            open FShade.Effect
+
+            type InstanceVertex = { [<Semantic("SolNumber")>] solNumber : int; [<Color>] c : V4d }
+            type UniformScope with
+                member x.SelectedSol : int = uniform?SelectedSol
+                member x.SelectionColor : V4d = uniform?SelectionColor
+
+            let selectedColor (v : InstanceVertex) =
+                vertex {
+                    let c = 
+                        if v.solNumber = uniform.SelectedSol then
+                            uniform.SelectionColor
+                        else
+                            v.c
+                    return { v with c = c }
+                }
+
+        let viewTraverseDots (refSystem: AdaptiveReferenceSystem) (view : aval<CameraView>) (traverse : AdaptiveTraverse) =
+            let shift = getTraverseOffsetTransform refSystem traverse
+            let solCenterTrafo = 
+                (traverse.sols, view, shift)
+                |||> AVal.map3 (fun sols view shift -> 
+                    let viewTrafo = view.ViewTrafo
+                    sols |> List.toArray |> Array.map (fun sol -> Trafo3d.Translation(sol.location) * shift * viewTrafo) :> Array
+                    
+                )
+                
+            let solNumbers =
+                traverse.sols 
+                |> AVal.map (fun sols -> 
+                    sols |> List.toArray |> Array.map (fun s -> s.solNumber) :> Array
+                )
+
+            let attributes = 
+                Map.ofList [
+                    ("ModelTrafo", (typeof<Trafo3d>, solCenterTrafo))
+                    ("SolNumber", (typeof<int>, solNumbers))
+                ]
+            Sg.sphere 4 traverse.color.c ~~0.3
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
+                do! Shader.selectedColor
+            }
+            |> Sg.viewTrafo' Trafo3d.Identity // modelTrafo = model view track trick
+            |> Sg.uniform "SelectionColor" ~~C4b.VRVisGreen
+            |> Sg.uniform "SelectedSol" (traverse.selectedSol |> AVal.map (Option.defaultValue (-1)))
+            |> Sg.instanced' attributes
+            |> Sg.noEvents
+            |> Sg.onOff traverse.showDots
+
+        let viewTraverseCoordinateFrames (view : aval<CameraView>) (refSystem : AdaptiveReferenceSystem)  (traverse : AdaptiveTraverse) =
+            let shift = getTraverseOffsetTransform refSystem traverse
+            let solTrafosInRefSystem = 
+                (traverse.sols, view, refSystem.Current)
+                |||> AVal.bind3 (fun sols view refSystem -> 
+                    let viewTrafo = view.ViewTrafo
+                    shift |> AVal.map (fun shift -> 
+                        sols |> List.toArray |> Array.map (fun sol -> 
+                            let rotation = TraversePropertiesApp.computeSolRotation sol refSystem
+                            let loc = sol.location + sol.location.Normalized * 0.5 // when porting to instancing kept it 0.5
+                            let shiftedSol = Trafo3d.Translation loc
+                            rotation * shiftedSol * shift * viewTrafo
+                        ) 
+                    )
+                )
+            Sg.coordinateCross ~~2.0
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
+            }
+            |> Sg.viewTrafo' Trafo3d.Identity // modelTrafo = model view track trick
+            |> Sg.instanced solTrafosInRefSystem
+            |> Sg.noEvents
+            |> Sg.onOff traverse.showDots
+            
+
+
+        let viewTraverseFast  
+            (view : aval<CameraView>)
+            (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+
+            Sg.ofList [
+                viewTraverseCoordinateFrames view refSystem model
+                viewTraverseDots refSystem view model
+            ]
+            |> Sg.onOff model.isVisibleT
+
         let viewTraverse  
-            (refSystem : AdaptiveReferenceSystem) 
-            (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+            (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+
             alist {
                 let! sols = model.sols
                 for sol in sols do
@@ -642,17 +811,19 @@ module TraverseApp =
             |> ASet.ofAList         
             |> Sg.set
             |> Sg.onOff model.isVisibleT
+            |> Sg.trafo (getTraverseOffsetTransform refSystem model)
+
+
 
         let view
+            (view           : aval<CameraView>)
             (refsys         : AdaptiveReferenceSystem) 
-            (traverseModel : AdaptiveTraverseModel) =
+            (traverseModel  : AdaptiveTraverseModel) =
 
             let traverses = traverseModel.traverses
             traverses 
-            |> AMap.map( fun id traverse ->
-                viewTraverse
-                    refsys
-                    traverse
+            |> AMap.map(fun id traverse ->
+                viewTraverseFast view refsys traverse
             )
             |> AMap.toASet 
             |> ASet.map snd 

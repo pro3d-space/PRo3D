@@ -4,11 +4,14 @@ Our current deployment mechanism is driven by `electron-builder` [see here](http
 
 In order to deploy all supported architectures using github actions is the preferred solution to build and distribute builds.
 
-# Automatic Releases
+# 1 -- Releases for the public
 
 ## TL;DR
 
-Deployments are triggered by github actions. Currently this is configured in such a way that each commit which touches one of those [files](https://github.com/pro3d-space/PRo3D/blob/bee4f8716e9fcfd94b78112f2d2777867b7685c3/.github/workflows/deploy.yml#L4) triggers a release.
+Deployments are triggered by github actions. 
+There are two release types:
+ - test releases for internal testing, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/TEST_RELEASE_NOTES.md) file and let the CI build a zip which appears on the github release page as a draft
+ - public releases, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md) and change the version number [here](https://github.com/pro3d-space/PRo3D/blob/0fc290263430b5c2ff172c18286885a8bf0b73a0/aardium/package.json#L4) and let the CI build a multiplatform build with installer, the result will appear at as a draft in the github release page
 
 ## Details
 
@@ -32,6 +35,10 @@ For development use `./build.sh CopyToElectron`, switch into the aardium directo
 
 tags and release notes taken from PRODCT_RELEASE_NOTES.md
 
+## Version numbers
+
+when creating releases from within branches suffix the version number with the name of the branch to make the version unique.
+
 ## Resources
 
 all resources should be embedded using dotnet embedded resources to allow "single file deployment"
@@ -46,11 +53,16 @@ all resources should be embedded using dotnet embedded resources to allow "singl
 - change RELEASE_NOTES.md, commit, push
 - in a commmand line use: ```SET GH_TOKEN=... && ./build.{cmd|sh} PublishToElectron```
 
-# Manual release as a zip file
+# 2 -- Internal test releases
 
+## Manual release as a zip file
+
+`build publish` or
 ```SET GH_TOKEN=... && ./build.{cmd|sh} GitHubRelease```
+to just create the release in the bin/publish folder.
 
-## Known problems
+## CI
 
-sometimes publish fails with ```Could not open file for writing (binary mode): F:\pro3d\openPro3d\src\PRo3D.Core\obj\Any CPU\Release\netcoreapp3.1\win10-x64\PRo3D.Core.dll``` on my machine. either dotnet problem or with my (often rather full) disk?
+Our electron-based workflow (above) uses click-once installers. 'Old-school' zip-releases still useful for team-internal tests and diagnostics. For this reason in early 2024 we re-introduced zip-deployments and made them CI ready via a [github workflow](https://github.com/pro3d-space/PRo3D/blob/00ace24f078b54582c9553ee39ed8d60b1c7be29/.github/workflows/testrelease.yml#L28)
 
+The `--test` flag uses `TEST_RELEASE_NOTES.md` instead of `PRODUCT_RELEASE_NOTES.md` to quickly create test releases without interrupting the official PRODUCT_RELEASE_NOTES track. plase use a `--testing` suffix for test versions.

@@ -6,15 +6,18 @@ Aardvark.Rendering
 Aardvark.Application.Slim.GL
 Aardvark.Application.Slim.Vulkan
 Aardvark.SceneGraph
-Aardvark.SceneGraph.IO
-Aardvark.SceneGraph.Opc
+Aardvark.Data.Opc 
 Aardvark.Rendering.Text
+Aardvark.SceneGraph.Assimp
+
 
 FSharp.Core
 Uncodium.Eigensystems
 
 Aardvark.GeoSpatial.Opc
 OPCViewer.Base
+
+Aardvark.PixImage.Pfim
 
 Newtonsoft.Json
 

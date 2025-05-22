@@ -13,8 +13,14 @@
   <ItemGroup>
     <Compile Include="TestViewer.fs" />
     <Compile Include="AnnotationViewer.fs" />
+    <Compile Include="Solarsystem.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="JR.Wrappers">
+      <HintPath>..\..\lib\JR.Wrappers.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />

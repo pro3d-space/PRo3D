@@ -5,56 +5,58 @@ source https://vrvis.myget.org/F/aardvark_public/api/v3/index.json
 
 storage: none
 
-nuget Aardvark.Build                        ~> 1.0.11
+nuget Aardvark.Build                        ~> 1.0.25
 
-nuget FSharp.Core                           ~> 6.0.2 lowest_matching: true
+nuget FSharp.Core                           >= 8.0.0 lowest_matching: true
 nuget FSharp.Data                           ~> 3.1.1
 
-nuget FSharp.Data.Adaptive                  ~> 1.2.13
 
-nuget Aardvark.Base                         ~> 5.2.13
-nuget Aardvark.Base.Incremental             ~> 5.2.13
-nuget Aardvark.Base.FSharp                  ~> 5.2.13
-nuget Aardvark.Geometry                     ~> 5.2.13
-nuget Aardvark.PixImage.DevIL               ~> 5.2.13
+nuget Aardvark.Base                         ~> 5.3.2
+nuget Aardvark.Base.Incremental             ~> 5.3.2
+nuget Aardvark.Base.FSharp                  ~> 5.3.2
+nuget Aardvark.Geometry                     ~> 5.3.2
 
-
-nuget Aardvark.Rendering                    ~> 5.4.0
-nuget Aardvark.Application.Slim             ~> 5.4.0
-nuget Aardvark.Application.Slim.GL          ~> 5.4.0
-nuget Aardvark.Application.Slim.Vulkan      ~> 5.4.0
-nuget Aardvark.SceneGraph                   ~> 5.4.0
-nuget Aardvark.SceneGraph.IO                ~> 5.4.0
-nuget Aardvark.SceneGraph.Opc               ~> 5.4.0
-nuget Aardvark.Rendering.Text               ~> 5.4.0
-nuget Aardvark.Rendering.Vulkan             ~> 5.4.0
-nuget Aardvark.Rendering.GL                 ~> 5.4.0
-nuget Aardvark.GPGPU                        ~> 5.4.0
-
-nuget Aardvark.Geometry.Intersection        ~> 5.2.25
-nuget Aardvark.Geometry.PointTree           ~> 5.2.25
-nuget Aardvark.Geometry.PolyMesh            ~> 5.2.25
-nuget Aardvark.Geometry.Clustering          ~> 5.2.25
-
-nuget Aardvark.Service                      ~> 5.4.0
-nuget Aardvark.UI                           ~> 5.4.0
-nuget Aardvark.UI.Primitives                ~> 5.4.0
-nuget Aardvark.Service.Giraffe              ~> 5.4.0
-
-nuget Adaptify.MSBuild                      ~> 1.1.9
-nuget Adaptify.Core                         ~> 1.1.9
+nuget Aardvark.PixImage.DevIL               
 
 
-nuget Aardvark.Data.Wavefront               ~> 5.2.25
-nuget Aardvark.GeoSpatial.Opc               ~> 5.10.8
+nuget SixLabors.ImageSharp                  ~> 2.1.9
 
-nuget Aardium                               ~> 2.0.10-prerelease0007
+nuget Aardvark.Rendering                    ~> 5.5.17
+nuget Aardvark.Application.Slim             ~> 5.5.17
+nuget Aardvark.Application.Slim.GL          ~> 5.5.17
+nuget Aardvark.Application.Slim.Vulkan      ~> 5.5.17
+nuget Aardvark.SceneGraph                   ~> 5.5.17
+nuget Aardvark.Rendering.Text               ~> 5.5.17
+nuget Aardvark.Rendering.Vulkan             ~> 5.5.17
+nuget Aardvark.Rendering.GL                 ~> 5.5.17
+nuget Aardvark.GPGPU                        ~> 5.5.17
+nuget Aardvark.SceneGraph.Assimp            ~> 5.5.17
 
-nuget OPCViewer.Base                        ~> 1.6.1
+nuget Aardvark.Geometry.Intersection        ~> 5.5.0
+nuget Aardvark.Geometry.PointTree           ~> 5.5.0
+nuget Aardvark.Geometry.PolyMesh            ~> 5.5.0
+nuget Aardvark.Geometry.Clustering          ~> 5.5.0
+
+nuget Aardvark.Service                      ~> 5.5.0
+nuget Aardvark.UI                           ~> 5.5.0
+nuget Aardvark.UI.Primitives                ~> 5.5.0
+nuget Aardvark.Service.Giraffe              ~> 5.5.0
+
+nuget Adaptify.MSBuild                      ~> 1.3.0
+nuget Adaptify.Core                         ~> 1.3.0
+
+nuget Aardvark.Data.Opc                     ~> 0.11.0
+nuget Aardvark.Data.Wavefront               ~> 5.3.10
+nuget Aardvark.GeoSpatial.Opc               ~> 5.11.2
+
+nuget Aardvark.PixImage.FreeImage           == 5.3.5
+
+nuget Aardium                               ~> 2.1.1
+
+nuget OPCViewer.Base                        ~> 1.9.2
 
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 nuget Chiron                                ~> 6.3.1
-nuget RestSharp                             ~> 106.6.9
 
 nuget Microsoft.Diagnostics.Runtime         ~> 2.0.1
 nuget Microsoft.AspNetCore.Authentication.JwtBearer ~> 6.0.10
@@ -69,12 +71,16 @@ nuget Thoth.Json.Net ~> 11.0.0
 
 nuget CommandLineParser.FSharp ~> 2.9.1
 
+nuget PRo3D.SPICE ~> 1.0.6
+
+nuget Aardvark.Data.GLTF  ~> 1.0.1
+
 
 group Test
     framework: net6.0, net6.0-windows
     source https://api.nuget.org/v3/index.json
 
-	nuget FSharp.Core                           ~> 6.0.2 lowest_matching: true
+	nuget FSharp.Core                           ~> 8.0.2 lowest_matching: true
     nuget NUnit                    ~> 3.13.3
     nuget FsUnit                   ~> 5.0.0
     nuget FsCheck                  ~> 2.16.4
@@ -84,30 +90,42 @@ group Test
     nuget Expecto                  ~> 9.0.4
     nuget Expecto.FsCheck          ~> 9.0.4
     nuget YoloDev.Expecto.TestSdk  ~> 0.12.20
+	
+	nuget FSharp.Data.Adaptive                  ~> 1.2.13
+
+	nuget Aardvark.Base                         ~> 5.2.13
+	nuget Aardvark.Base.Incremental             ~> 5.2.13
+	nuget Aardvark.Base.FSharp                  ~> 5.2.13
+												
+	nuget Aardvark.Rendering                    ~> 5.4.0
+	nuget Aardvark.Rendering.Text               ~> 5.4.0
+	nuget Aardvark.SceneGraph                   ~> 5.4.0
+	nuget Aardvark.SceneGraph.IO                ~> 5.4.0
+	nuget Aardvark.Application.Slim             ~> 5.4.0
+	nuget Aardvark.Application.Slim.GL          ~> 5.4.0
+	nuget Aardvark.Application.Slim.Vulkan      ~> 5.4.0
 
     nuget BenchmarkDotNet          ~> 0.13.1
 
+	nuget PRo3D.SPICE ~> 1.0.2
+
 
 group Build
-framework: net6.0
+framework: net8.0
 source https://api.nuget.org/v3/index.json
 
 
-nuget Fake.IO.FileSystem    
-nuget Fake.Api.GitHub          
-nuget Fake.Core.ReleaseNotes    
 nuget Octokit
-nuget Fake.Core.Target
 nuget Farmer
-nuget Fake.DotNet.Cli ~> 5.23.0
-nuget Fake.DotNet.NuGet
-nuget Fake.Tools.Git
-nuget Fake.DotNet.Paket
+nuget Fake.Core.Target      = 6.1.3
+nuget Fake.DotNet.Cli       = 6.1.3
+nuget Fake.DotNet.MSBuild   = 6.1.3
+nuget Fake.DotNet.NuGet     = 6.1.3
+nuget Fake.IO.FileSystem    = 6.1.3
+nuget Fake.Api.GitHub       = 6.1.3 
+nuget Fake.Core.ReleaseNotes = 6.1.3
+nuget Fake.Tools.Git         = 6.1.3
+nuget Fake.DotNet.Paket      = 6.1.3
 nuget fake-cli
 nuget Argu
 nuget Mono.Cecil
-
-nuget Microsoft.Build                = 17.3.2
-nuget Microsoft.Build.Framework      = 17.3.2
-nuget Microsoft.Build.Tasks.Core     = 17.3.2
-nuget Microsoft.Build.Utilities.Core = 17.3.2

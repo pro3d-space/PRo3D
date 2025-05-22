@@ -23,7 +23,7 @@ module CommandLine =
         Log.line @"--refsystem                                    show reference system"
         Log.line @"--noMagFilter                                  turn off linear texture magnification filtering"
                                                                   
-        Log.line @"--snap [path\snapshot.json]                    path to a snapshot file containing camera views (old format)"
+        //Log.line @"--snap [path\snapshot.json]                    path to a snapshot file containing camera views (old format)" // not in use anymore
         Log.line @""
         Log.line @"Examples:"
         Log.line @"PRo3D.Snapshots.exe --opc c:\Users\myname\Desktop\myOpc --asnap c:\Users\myname\Desktop\mySnapshotFile.json"
@@ -92,15 +92,12 @@ module CommandLine =
                     | _,_,_ -> Some false
                     
 
-
                 //let check = Option.map2 (fun c1 p -> c1 && (checkPath p)) check snapshot
                 let sPath, sType, snapPathValid = 
-                    match snapshot, animationSnapshot with
-                    | Some s, None -> 
-                        snapshot, Some SnapshotType.Camera, checkPath s
-                    | None, Some sa -> 
+                    match animationSnapshot with
+                    | Some sa -> 
                         animationSnapshot, Some SnapshotType.CameraAndSurface, checkPath sa
-                    | _, _ -> None, None, true
+                    | _ -> None, None, true
                 Log.line "[Arguments] Exit on finish%s" (b2str exitOnFinish)
                 Log.line "[Arguments] Render depth%s" (b2str renderDepth)
                 Log.line "[Arguments] Using linear magnification filtering%s" (b2str magFilter)

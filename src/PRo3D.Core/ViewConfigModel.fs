@@ -4,6 +4,7 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open Chiron
 
 open PRo3D.Base
@@ -79,7 +80,10 @@ type ViewConfigModel = {
     filterTexture           : bool
     //useSurfaceHighlighting  : bool
     showExplorationPointGui : bool
-    }
+
+    // labels rendered in 3D showing the individual location of patches
+    showLeafLabels          : bool
+}
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ViewConfigModel =
@@ -93,7 +97,7 @@ module ViewConfigModel =
     let initFarPlane = {
         value   = 500000.0
         min     = 1.0
-        max     = 10000000.0
+        max     = 5906380000.0 * 1000.0
         step    = 10.0
         format  = "{0:0.0}"
     }
@@ -169,6 +173,7 @@ module ViewConfigModel =
         filterTexture       = false
         //useSurfaceHighlighting = true
         showExplorationPointGui = true
+        showLeafLabels = false
     }
        
     module V0 =
@@ -202,6 +207,7 @@ module ViewConfigModel =
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = false
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
     module V1 =
@@ -236,6 +242,7 @@ module ViewConfigModel =
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = false
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
 
@@ -272,6 +279,7 @@ module ViewConfigModel =
                     pickingTolerance      = pickingTolerance
                     filterTexture         = false
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
 
@@ -306,6 +314,7 @@ module ViewConfigModel =
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = filterTexture 
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
 
@@ -341,6 +350,7 @@ module ViewConfigModel =
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = filterTexture 
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
 

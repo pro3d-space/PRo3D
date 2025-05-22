@@ -11,11 +11,7 @@ open System.Collections.Generic
 
 open Aardvark.Base
 open Aardvark.Application.Slim
-open Aardvark.SceneGraph.Opc
 open Aardvark.UI
-open Aardvark.VRVis
-open Aardvark.VRVis.Opc
-open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
 open Aardvark.Rendering
 
@@ -45,6 +41,7 @@ open FSharp.Data.Adaptive
 open System.Reflection
 open System.Runtime.InteropServices
 
+open Aardvark.GeoSpatial.Opc.Load
 
 type EmbeddedRessource = EmbeddedRessource
 
@@ -55,7 +52,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.20.0-prerelease1"
+let viewerVersion       = "4.27.0-prerelease9"
 let catchDomainErrors   = false
 
 open System.IO
@@ -79,11 +76,7 @@ let main argv =
     // ensure appdata is here
     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"
-
-    //let geojson = System.IO.File.ReadAllText @"D:\CloudStation\_WORK\_2021\20211014_AZTravels\M20_waypoints.json"
-    //let featurecollection_des : PRo3D.Base.Annotation.GeoJSON.GeoJsonFeatureCollection = geojson |> Json.parse |> Json.deserialize
-    //Log.line "%A" featurecollection_des
-
+    
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Config.configPath <- appData
 
@@ -91,7 +84,7 @@ let main argv =
 
     let logFilePath = Path.Combine(appData, "PRo3D.log")
     Aardvark.Base.Report.LogFileName <- logFilePath
-    Log.line "Running with AppData: %s" appData
+    Log.line "Running with AppData: %s" appData    
 
     // use this one to get path to self-contained exe (not temp expanded dll)
     let executeablePath = 
@@ -127,10 +120,7 @@ let main argv =
 
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
-
     Log.line "path: %s, current dir: %s" executeablePath System.Environment.CurrentDirectory
-    Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
-    Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
 
     let os = 
         if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
@@ -166,7 +156,7 @@ let main argv =
         match aardiumPath with
         | Some p when true -> 
             Log.line "init aardium at: %s" p
-            Aardium.initPath p
+            Aardium.initAt p
         | _ -> 
             Log.warn "system aardium"; 
             Aardium.init()
@@ -176,7 +166,7 @@ let main argv =
     let mutable cooTrafoInitialized = false
     let disposables = List<IDisposable>()
     try
-        CooTransformation.initCooTrafo appData
+        CooTransformation.initCooTrafo startupArgs.defaultSpiceKernelPath appData
         cooTrafoInitialized <- true
 
         //use app = new VulkanApplication()
@@ -213,7 +203,11 @@ let main argv =
         Serialization.registry.RegisterFactory (fun _ -> Init.incorePickler)
     
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
-        let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
+        let titlestr = 
+                match startupArgs.port with
+                | Some p -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH - listening: http://localhost:" + p
+                | None -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
+
         Config.title <- titlestr
     
         let signature =
@@ -282,15 +276,6 @@ let main argv =
         //    match argsKv |> HashMap.tryFind "access" with
         //    | Some file -> file
         //    | None -> failwith "need minerva access ... access=\"minervaaccount:pw\" "
-
-        Log.startTimed "[Viewer] reading json scene"
-        //let loadedScnx : Scene = 
-        //    @"E:\PRo3D\Scenes SCN\20191210_ViewPlanner.pro3d"
-        //    |> Chiron.readFromFile 
-        //    |> Json.parse 
-        //    |> Json.deserialize
-
-        //Log.line "[Viewer] scene: %A" loadedScnx
         
         let port = 
             match startupArgs.port with
@@ -304,11 +289,23 @@ let main argv =
 
         let renderingUrl = sprintf "http://localhost:%d" port
 
+        let startupLoad =
+            match startupArgs.loadScene with
+            | Some scene -> 
+                Log.line "[Viewer] loading scene %s" scene
+                ViewerApp.ViewerStartupLoad.LoadScene scene
+            | None when startEmpty -> 
+                Log.line "[Viewer] starting empty"
+                ViewerApp.ViewerStartupLoad.Empty
+            | _ -> 
+                Log.line "[Viewer] loading last scene"
+                ViewerApp.ViewerStartupLoad.LoadLastScene
+
         let (adaptiveModel, mainApp) = 
             ViewerApp.start 
                 runtime 
                 signature 
-                startEmpty 
+                startupLoad
                 messagingMailbox 
                 sendQueue 
                 dumpFile 
@@ -319,12 +316,15 @@ let main argv =
                 appData
                 viewerVersion
 
-        let s = {MailboxState.empty with update = 
-                                            (fun a -> 
-                                                let a = Seq.map ViewerMessage a
-                                                mainApp.update Guid.Empty a) 
-                }
-        MailboxAction.InitMailboxState s |> messagingMailbox.Post            
+        
+        { MailboxState.empty with 
+            update = (fun a -> 
+                let a = Seq.map ViewerMessage a
+                mainApp.update Guid.Empty a
+            ) 
+        }
+        |> InitMailboxState
+        |> messagingMailbox.Post
     
         //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
         //    let e = args.ExceptionObject :?> Exception;
@@ -341,7 +341,6 @@ let main argv =
     
         if catchDomainErrors then
             AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
-
 
         let setCORSHeaders =
             Suave.Writers.setHeader  "Access-Control-Allow-Origin" "*"
@@ -374,12 +373,19 @@ let main argv =
                 choose []
 
         let suaveServer = 
-            WebPart.startServer port [
+            let startServer = 
+                if startupArgs.enableRemoteApi then 
+                    WebPart.startServer
+                else   
+                    WebPart.startServerLocalhost
+
+            startServer port [
                 if startupArgs.disableCors then allow_cors
                 MutableApp.toWebPart' runtime false mainApp
                 path "/websocket" >=> handShake ws
                 prefix "/api" >=> remoteApi
                 Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
+                Aardvark.UI.Primitives.Resources.WebPart
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 
@@ -412,9 +418,6 @@ let main argv =
             ] 
 
         disposables.Add(suaveServer)
-
-        Log.line "serving at: %s" renderingUrl
-        Log.line "url: %s" renderingUrl
 
         
         //WebPart.startServer 4322 [
@@ -455,7 +458,7 @@ let main argv =
                 remoteApp.update Guid.Empty act
                 { result = shot.folder }
 
-            let remotePort = 12346
+            let remotePort = 12346 
             let d = WebPart.startServerLocalhost 12346 [ 
                 MutableApp.toWebPart runtime (remoteApp)
                 POST >=> path "/shots" >=> mapJson takeScreenshot
@@ -467,11 +470,9 @@ let main argv =
         else   
             Log.warn "no remote app started"
     
-
+        System.Threading.Thread.Sleep(1000)
         // do not change this line. full url with url needs to be printed for mac deployment!
         Log.line "full url: %s" renderingUrl
-
-        System.Threading.Thread.Sleep(100)
 
         if startupArgs.serverMode then  
             Log.line "running server mode. Press Key to close >"
@@ -483,11 +484,6 @@ let main argv =
                 height 800
                 debug true
                 title titlestr
-                
-
-                windowoptions {|  minWidth = 180; minHeight = 180; title = titlestr;|}
-                hideDock true
-                autoclose true
             }
 
     finally

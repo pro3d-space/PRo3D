@@ -1,24 +1,20 @@
 namespace PRo3D.Core
 
+open System
+open System.IO
+
 open Aardvark.Base
-open Aardvark.Application
 open Aardvark.UI
-open Aardvark.VRVis
+open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
-open Adaptify.FSharp.Core
-open Aardvark.SceneGraph.IO
-open Aardvark.SceneGraph.SgPrimitives
+open Aardvark.SceneGraph.Assimp
 open Aardvark.Rendering
 open Aardvark.UI.Trafos  
 open PRo3D.Core.Surface
 
-open System
-open System.IO
-open System.Diagnostics
-
-open Aardvark.UI.Primitives
 
 open PRo3D.Base
+open PRo3D.Base.Gis
 //open CSharpUtils
 
 type SceneObjectAction =
@@ -32,41 +28,41 @@ type SceneObjectAction =
     | ChangeSOImportDirectories of list<string>
 
 
-module SceneObjectTransformations = 
+//module SceneObjectTransformations = 
 
-    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
-        let north = refsys.northO.Normalized
+//    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
+//        let north = refsys.northO.Normalized
         
-        let up = refsys.up.value.Normalized
-        let east   = north.Cross(up)
+//        let up = refsys.up.value.Normalized
+//        let east   = north.Cross(up)
               
-        let refSysRotation = 
-            Trafo3d.FromOrthoNormalBasis(north, east, up)
+//        let refSysRotation = 
+//            Trafo3d.FromOrthoNormalBasis(north, east, up)
             
-        //translation along north, east, up            
-        let trans = translation |> Trafo3d.Translation
-        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
+//        //translation along north, east, up            
+//        let trans = translation |> Trafo3d.Translation
+//        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
         
-        let originTrafo = -pivot |> Trafo3d.Translation //
+//        let originTrafo = -pivot |> Trafo3d.Translation //
         
-        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
+//        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
            
     
-    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
-        adaptive {
-           let! translation = tansform.translation.value
-           let! yaw = tansform.yaw.value
-           let! pivot = tansform.pivot.value
+//    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
+//        adaptive {
+//           let! translation = tansform.translation.value
+//           let! yaw = tansform.yaw.value
+//           let! pivot = tansform.pivot.value
             
-           return fullTrafo'' translation yaw pivot refsys
-        }
+//           return fullTrafo'' translation yaw pivot refsys
+//        }
 
-    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
-        let translation = tansform.translation.value
-        let yaw = tansform.yaw.value
-        let pivot = tansform.pivot.value
+//    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
+//        let translation = tansform.translation.value
+//        let yaw = tansform.yaw.value
+//        let pivot = tansform.pivot.value
             
-        fullTrafo'' translation yaw pivot refsys
+//        fullTrafo'' translation yaw pivot refsys
 
 module SceneObjectsUtils = 
 
@@ -118,6 +114,7 @@ module SceneObjectsUtils =
             picking     = Picking.NoPicking 
             isObj       = true 
             opcScene    = None
+            dataSource  = Mesh
         }
 
              
@@ -284,7 +281,7 @@ module SceneObjectsApp =
         
                     for so in sceneObjects do
             
-                        let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                        let infoc = sprintf "color: %s" (Html.color C4b.White)
             
                         let! soid = so.guid  
                         let toggleIcon = 
@@ -314,7 +311,7 @@ module SceneObjectsApp =
                             |> AttributeMap.ofAMap
 
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        let bgc = sprintf "color: %s" (Html.color c)
 
                 
                                      
@@ -361,6 +358,8 @@ module SceneObjectsApp =
             (sgSurf     : AdaptiveSgSurface) 
             (sceneObjs  : amap<Guid,AdaptiveSceneObject>) 
             (refsys     : AdaptiveReferenceSystem) 
+            (observedSystem : aval<Option<SpiceReferenceSystem>>)
+            (observerSystem : aval<Option<ObserverSystem>>)
             (selected   : aval<Option<Guid>>) =
 
             adaptive {
@@ -382,7 +381,9 @@ module SceneObjectsApp =
                             let! rSys = refsys.Current
                             let! t = s.preTransform
                             let! so = s.Current
-                            let fullTrafo = TransformationApp.fullTrafo' so.transformation rSys 
+                            let! observedSystem = observedSystem
+                            let! observerSystem = observerSystem
+                            let fullTrafo = TransformationApp.fullTrafo' so.transformation rSys observedSystem observerSystem
                             
                             //let! sc = s.transformation.scaling.value // s.scaling.value
                             let! flipZ = s.transformation.flipZ
@@ -422,7 +423,8 @@ module SceneObjectsApp =
                         |> Sg.andAlso ( 
                             // pivot point
                             so.transformation 
-                            |> TransformationApp.Sg.view
+                            |> TransformationApp.Sg.viewObjectSpace
+                            |> Sg.trafo trafo
                             )     
                                                         
                     return surfaceSg
@@ -441,6 +443,8 @@ module SceneObjectsApp =
                         sgsobj
                         sceneObjs
                         refsys
+                        (AVal.constant None)
+                        (AVal.constant None)
                         selected
                     )
                     |> AMap.toASet 

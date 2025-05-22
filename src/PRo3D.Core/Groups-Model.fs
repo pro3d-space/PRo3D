@@ -7,7 +7,7 @@ open Adaptify
 
 open Aardvark.VRVis
 open Aardvark.Geometry
-open Aardvark.SceneGraph.Opc 
+open Aardvark.Data.Opc
 
 open PRo3D
 open PRo3D.Base

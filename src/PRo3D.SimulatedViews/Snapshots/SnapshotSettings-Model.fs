@@ -3,6 +3,7 @@
 
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open Adaptify
 open Chiron
 open PRo3D.Base

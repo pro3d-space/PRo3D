@@ -625,7 +625,134 @@ with
     }
 
 [<ModelType>]
+type ProjectedImage  = {
+    version         : int
+    [<NonAdaptive>]
+    id              : Guid
+    intrinsics      : Option<Intrinsics>
+    extrinsics      : Option<Extrinsics>
+    image           : string
+
+}
+
+module ProjectedImage  =
+    let current = 0
+
+    let initProjectedImage (path : string) = {
+        version    = current
+        id         = Guid.NewGuid()
+        intrinsics = None 
+        extrinsics = None
+        image      = path
+    }
+
+    let read0 =
+        json {
+            
+            let! id         = Json.read "id"
+            let! intrinsics = Json.tryRead "intrinsics"
+            let! extrinsics = Json.tryRead "extrinsics"
+            let! image      = Json.read "image"
+            return 
+                {
+                    version    = current
+                    id         = id |> Guid
+                    intrinsics = match intrinsics with |Some i -> Some i |None -> None
+                    extrinsics = match extrinsics with |Some i -> Some i |None -> None
+                    image      = image
+                }
+        }
+
+type ProjectedImage  with
+    static member FromJson(_ : ProjectedImage ) =
+        json {
+            let! v = Json.read "version"
+            match v with 
+            | 0 -> return! ProjectedImage .read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of ProjectedImage "
+                |> Json.error
+        }
+    static member ToJson(x : ProjectedImage ) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "id" x.id
+            do! Json.write "intrinsics" x.intrinsics
+            do! Json.write "extrinsics" x.extrinsics   
+            do! Json.write "image" x.image 
+        } 
+
+[<ModelType>]
+type DistancePoint  = {
+    version     : int
+    [<NonAdaptive>]
+    id          : Guid
+    vpId        : option<Guid>
+    position    : V3d
+    distance    : float
+
+    //view        : CameraView
+
+    //intrinsics      : Option<Intrinsics>
+    //extrinsics      : Option<Extrinsics>
+}
+
+module DistancePoint  =
+    let current = 0
+
+    let initDistancePoint 
+        (position : V3d)
+        (dist: float) 
+        (vp  : option<Guid>) = 
+        {
+        version    = current
+        id         = Guid.NewGuid()
+        vpId       = vp
+        position   = position
+        distance   = dist
+    }
+
+    let read0 =
+        json {
+            
+            let! id       = Json.read "id"
+            let! vpId     = Json.tryRead "vpId"
+            let! position = Json.read "position"
+            let! distance = Json.read "distance"
+            return 
+                {
+                    version     = current
+                    id          = id |> Guid
+                    vpId        = vpId 
+                    position    = position |> V3d.Parse
+                    distance    = distance
+                }
+        }
+
+type DistancePoint  with
+    static member FromJson(_ : DistancePoint ) =
+        json {
+            let! v = Json.read "version"
+            match v with 
+            | 0 -> return! DistancePoint .read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of DistancePoint "
+                |> Json.error
+        }
+    static member ToJson(x : DistancePoint ) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "id" x.id
+            do! Json.write "vpId" x.vpId
+            do! Json.write "position" (x.position.ToString())
+            do! Json.write "distance" x.distance
+        } 
+
+[<ModelType>]
 type FootPrint = {
+    version             : int
     vpId                : option<Guid>
     isVisible           : bool
     projectionMatrix    : M44d
@@ -635,8 +762,91 @@ type FootPrint = {
     depthTexture        : option<IBackendTexture>
     isDepthVisible      : bool
     depthColorLegend    : FalseColorsModel
+
+    // @Harri: stuff for image projection
+    useProjectedImage   : bool
+    images              : HashMap<Guid,ProjectedImage>
+    selectedImage       : Option<Guid>
+
 }
 
+module FootPrint =
+    let current = 0
+
+    let initPixTex = 
+        let res = V2i((int)1024, (int)1024)
+        let pi = PixImage<byte>(Col.Format.RGBA, res)
+        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
+        PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
+
+    let initFootPrint = {
+        version             = current
+        vpId                = None
+        isVisible           = false
+        projectionMatrix    = M44d.Identity
+        instViewMatrix      = M44d.Identity
+        projTex             = initPixTex
+        globalToLocalPos    = V3d.OOO
+        depthTexture        = None
+        isDepthVisible      = false
+        depthColorLegend    = FalseColorsModel.initDepthLegend
+        useProjectedImage   = false
+        images              = HashMap.Empty
+        selectedImage       = None
+    }
+
+    let read0 =
+        json {
+            
+            let! isVisible          = Json.read "isVisible"
+            let! isDepthVisible     = Json.read "isDepthVisible"
+            let! depthColorLegend   = Json.tryRead "depthColorLegend"
+            let! useProjectedImage  = Json.tryRead "useProjectedImage"
+            let! images             = Json.tryRead "images"
+            let images              = match images with
+                                        | Some i -> i|> List.map(fun (a : ProjectedImage) -> (a.id, a)) |> HashMap.ofList
+                                        | None -> HashMap.Empty
+            let! selectedImage      = Json.tryRead "selectedImage"
+            return 
+                {
+                    version             = current
+                    vpId                = None
+                    isVisible           = isVisible
+                    projectionMatrix    = M44d.Identity
+                    instViewMatrix      = M44d.Identity
+                    projTex             = initPixTex
+                    globalToLocalPos    = V3d.OOO
+                    depthTexture        = None
+                    isDepthVisible      = isDepthVisible
+                    depthColorLegend    = match depthColorLegend with | Some dcl -> dcl | None -> FalseColorsModel.initDepthLegend 
+                    useProjectedImage   = match useProjectedImage with | Some pi -> pi | None -> false
+                    images              = images
+                    selectedImage       = selectedImage
+                }
+        }
+
+type FootPrint with
+    static member FromJson(_ : FootPrint) =
+        json {
+            let! v = Json.read "version"
+            match v with 
+            | 0 -> return! FootPrint.read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of FootPrint"
+                |> Json.error
+        }
+    static member ToJson(x : FootPrint) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "isVisible" x.isVisible 
+            do! Json.write "isDepthVisible" x.isDepthVisible 
+            do! Json.write "depthColorLegend" x.depthColorLegend
+            do! Json.write "useProjectedImage" x.useProjectedImage 
+            do! Json.write "images" (x.images |> HashMap.toList |> List.map snd)
+            if x.selectedImage.IsSome then
+                do! Json.write "selectedImage" (x.selectedImage.Value.ToString())
+        }
 
 [<ModelType>]
 type ViewPlan = {
@@ -654,6 +864,15 @@ type ViewPlan = {
     selectedInstrument  : option<Instrument>
     selectedAxis        : option<Axis>
     currentAngle        : NumericInput    
+
+    // laura 6.3.2025 place fp for each vp
+    footPrint           : FootPrint
+    distancePoints      : HashMap<Guid,DistancePoint>
+    selectedDistPoint   : Option<Guid>
+    showDistanceText    : bool
+    textSize            : NumericInput
+    dPointSize          : NumericInput
+    dPointColor         : ColorInput
 }
 
 module ViewPlan =
@@ -666,6 +885,24 @@ module ViewPlan =
         step = 0.1
         format = "{0:0.0}"
     }
+
+    let initTextSize size = 
+        {
+            value = size
+            min = 0.3
+            max = 15.0
+            step = 0.1
+            format = "{0:0.00}"
+        }
+
+    let initPointSize size = 
+        {
+            value = size
+            min = 0.3
+            max = 15.0
+            step = 0.1
+            format = "{0:0.00}"
+        }
 
     let read0 =
         json {
@@ -687,26 +924,45 @@ module ViewPlan =
             let! selectedAxis        = Json.read "selectedAxis"
             let! currentAngle   = Json.readWith Ext.fromJson<NumericInput,Ext> "currentAngle"
 
+            let! footPrint      = Json.tryRead "footPrint"
+            let! distancePoints = Json.tryRead "distancePoints"
+            let distancePoints  = match distancePoints with
+                                    | Some i -> i|> List.map(fun (a : DistancePoint) -> (a.id, a)) |> HashMap.ofList
+                                    | None -> HashMap.Empty
+            let! selectedDistPoint  = Json.tryRead "selectedDistPoint"
+            let! showDistanceText   = Json.tryRead "showDistanceText"
+            let! textSize           = Json.tryRead "textSize"
+            let! dPointSize         = Json.tryRead "dPointSize"
+            let! c                  = Json.tryRead "dPointColor"   //Json.readWith Ext.fromJson<ColorInput,Ext> "dPointColor"  
+            let dPointColor         = match c with |Some col -> col |> C4b.Parse | None -> C4b.Orange
+
             return 
                 {
-                    version         = current
-                    id            = id |> Guid
-                    name            = name
+                    version             = current
+                    id                  = id |> Guid
+                    name                = name
 
-                    position    = position |> V3d.Parse
-                    lookAt      = lookAt |> V3d.Parse
-                    viewerState = viewerState
-                    rover       = rover
-                    roverTrafo  = roverTrafo |> Trafo3d.Parse
+                    position            = position |> V3d.Parse
+                    lookAt              = lookAt |> V3d.Parse
+                    viewerState         = viewerState
+                    rover               = rover
+                    roverTrafo          = roverTrafo |> Trafo3d.Parse
 
-                    isVisible   = isVisible
+                    isVisible           = isVisible
 
-                    vectorsVisible = vectorsVisible
+                    vectorsVisible      = vectorsVisible
 
-                    selectedInstrument = selectedInstrument
-                    selectedAxis       = selectedAxis
+                    selectedInstrument  = selectedInstrument
+                    selectedAxis        = selectedAxis
 
-                    currentAngle = currentAngle
+                    currentAngle        = currentAngle
+                    footPrint           = match footPrint with | Some fp -> fp  | None -> FootPrint.initFootPrint 
+                    distancePoints      = distancePoints
+                    selectedDistPoint   = selectedDistPoint
+                    showDistanceText    = match showDistanceText with | Some sd -> sd  | None -> true
+                    textSize            = match textSize with |Some p -> initTextSize p | None -> initTextSize 4.0
+                    dPointSize          = match dPointSize with |Some p -> initPointSize p | None -> initPointSize 8.0
+                    dPointColor         = {c = dPointColor}
                 }
         }
 
@@ -742,6 +998,14 @@ type ViewPlan with
             do! Json.write "selectedInstrument" x.selectedInstrument
             do! Json.write "selectedAxis" x.selectedAxis  
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "currentAngle" x.currentAngle
+            do! Json.write "footPrint"  x.footPrint
+            do! Json.write "distancePoints" (x.distancePoints |> HashMap.toList |> List.map snd)
+            if x.selectedDistPoint.IsSome then
+                do! Json.write "selectedDistPoint" (x.selectedDistPoint.Value.ToString())
+            do! Json.write "showDistanceText" x.showDistanceText 
+            do! Json.write "textSize" x.textSize.value
+            do! Json.write "dPointSize" x.dPointSize.value
+            do! Json.write "dPointColor" (x.dPointColor.c.ToString())
         }
 
     //let initial = {
@@ -771,30 +1035,12 @@ type ViewPlanModel = {
     roverModel          : RoverModel
     instrumentCam       : CameraView
     instrumentFrustum   : Frustum
-    footPrint           : FootPrint
+    //footPrint           : FootPrint
     
 }
 
 module ViewPlanModel = 
     let current = 1 
-           
-    let initPixTex = 
-        let res = V2i((int)1024, (int)1024)
-        let pi = PixImage<byte>(Col.Format.RGBA, res)
-        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
-        PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
-
-    let initFootPrint = {
-        vpId                = None
-        isVisible           = false
-        projectionMatrix    = M44d.Identity
-        instViewMatrix      = M44d.Identity
-        projTex             = initPixTex
-        globalToLocalPos    = V3d.OOO
-        depthTexture        = None
-        isDepthVisible      = false
-        depthColorLegend    = FalseColorsModel.initDepthLegend
-    }
 
     let initial = {
         version           = current
@@ -804,7 +1050,7 @@ module ViewPlanModel =
         roverModel        = RoverModel.initial
         instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
         instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-        footPrint         = initFootPrint        
+        //footPrint         = FootPrint.initFootPrint        
     }
 
     let readV0 = 
@@ -820,7 +1066,7 @@ module ViewPlanModel =
                 roverModel        = RoverModel.initial
                 instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
                 instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-                footPrint         = initFootPrint                
+                //footPrint         = FootPrint.initFootPrint                
             }
         }    
 
@@ -829,16 +1075,17 @@ module ViewPlanModel =
 
             let! viewPlans = Json.read "viewPlans"
             let viewPlans = viewPlans |> List.map(fun (a : ViewPlan) -> (a.id, a)) |> HashMap.ofList
+            let! selectedVp = Json.tryRead "selectedViewPlan"
 
             return {
                 version           = current
                 viewPlans         = viewPlans 
-                selectedViewPlan  = None
+                selectedViewPlan  = selectedVp //None
                 working           = list.Empty
                 roverModel        = RoverModel.initial
                 instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
                 instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-                footPrint         = initFootPrint                
+                //footPrint         = FootPrint.initFootPrint                
             }
         }    
 
@@ -854,10 +1101,12 @@ type ViewPlanModel with
     static member ToJson (x : ViewPlanModel) =
         json {
             do! Json.write "version"             x.version
-            do! Json.write "viewPlans"       (x.viewPlans |> HashMap.toList |> List.map snd)
+            do! Json.write "viewPlans"           (x.viewPlans |> HashMap.toList |> List.map snd)
+            if x.selectedViewPlan.IsSome then
+                do! Json.write "selectedViewPlan" (x.selectedViewPlan.Value.ToString())
         }
 
-module FootPrint = 
+module FootPrintUtils = 
         
     let getDataPath (scenePath:string) (dirName:string) =
         let path = Path.GetDirectoryName scenePath
@@ -926,7 +1175,9 @@ module FootPrint =
             //let task : IRenderTask =  runtimeInstance.CompileRender(signature, render2TextureSg)
             //let taskclear : IRenderTask = runtimeInstance.CompileClear(signature,Mod.constant C4f.Black,Mod.constant 1.0)
             //let realTask = RenderTask.ofList [taskclear; task]
-            { vp with footPrint = {vp.footPrint with depthTexture = Some depth}}
+            let updatedVp = {selectedVp with footPrint = {selectedVp.footPrint with depthTexture = Some depth}}
+            let viewPlans = vp.viewPlans |> HashMap.alter updatedVp.id (function | Some _ -> Some selectedVp | None -> None )
+            { vp with viewPlans = viewPlans}
         | None -> vp
 
         
@@ -1035,7 +1286,7 @@ module FootPrint =
             vp
         | None -> vp
     
-    let updateFootprint (instrument:Instrument) (roverpos:V3d) (model:ViewPlanModel) =
+    let updateFootprint (instrument:Instrument) (vp: ViewPlan) (model:ViewPlanModel) =
         
         let res = V2i((int)instrument.intrinsics.horizontalResolution, (int)instrument.intrinsics.verticalResolution)
         //let image = PixImage<byte>(Col.Format.RGB,res).ToPixImage(Col.Format.RGB)
@@ -1050,15 +1301,20 @@ module FootPrint =
 
         let fp = 
             { 
+                version          = vp.footPrint.version
                 vpId             = model.selectedViewPlan
-                isVisible        = model.footPrint.isVisible //true
+                isVisible        = vp.footPrint.isVisible //true
                 projectionMatrix = (model.instrumentFrustum |> Frustum.projTrafo).Forward
                 instViewMatrix   = model.instrumentCam.ViewTrafo.Forward
                 projTex          = DefaultTextures.blackTex.GetValue()
-                globalToLocalPos = roverpos //transformenExt.position
+                globalToLocalPos = vp.position
                 depthTexture     = None
-                isDepthVisible   = model.footPrint.isDepthVisible
-                depthColorLegend = model.footPrint.depthColorLegend //FalseColorsModel.initDepthLegend
+                isDepthVisible   = vp.footPrint.isDepthVisible
+                depthColorLegend = vp.footPrint.depthColorLegend //FalseColorsModel.initDepthLegend
+
+                useProjectedImage   = vp.footPrint.useProjectedImage //false
+                images              = vp.footPrint.images //HashMap.Empty
+                selectedImage       = vp.footPrint.selectedImage 
             }
         fp //{ model with footPrint = fp }
     

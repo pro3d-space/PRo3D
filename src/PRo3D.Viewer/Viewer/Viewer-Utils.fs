@@ -4,33 +4,26 @@ open System
 open System.IO
 
 open Aardvark.Base
-open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open FShade
-open Aardvark.Rendering.Effects
 open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.UI.Trafos
-open Aardvark.UI.Animation
-open Aardvark.Rendering.Text
-
-
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.SgPrimitives.Sg
-open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
 
 open PRo3D
 open PRo3D.Base
+open PRo3D.Base.Gis
 open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Viewer
 open PRo3D.SimulatedViews
 
 open Adaptify.FSharp.Core
+open Aardvark.GeoSpatial.Opc
 
 module ViewerUtils =    
     type Self = Self
@@ -197,14 +190,16 @@ module ViewerUtils =
             |> Sg.uniform "endC"           ((C4b.Red |> AVal.constant)  |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H)))  
             |> Sg.uniform "interval"       fp.depthColorLegend.interval.value
             |> Sg.uniform "inverted"       (false |> AVal.constant)
-            |> Sg.uniform "lowerBound"     fp.depthColorLegend.lowerBound.value 
-            |> Sg.uniform "upperBound"     fp.depthColorLegend.upperBound.value
-            |> Sg.uniform "MinMax"         (AVal.constant(V2d(0.0,1.0)))
+            |> Sg.uniform "lowerBound"     (AVal.constant(0.0)) //fp.depthColorLegend.lowerBound.value //
+            |> Sg.uniform "upperBound"     fp.depthColorLegend.upperBound.value //
+            |> Sg.uniform "MinMax"         (AVal.constant(3000.0)) //(AVal.constant(V2d(0.0,1.0)))
             |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
     let getLodParameters 
         (surf:aval<AdaptiveSurface>) 
         (refsys:AdaptiveReferenceSystem) 
+        (observedSystem : aval<Option<SpiceReferenceSystem>>) 
+        (observerSystem : aval<Option<ObserverSystem>>)
         (frustum : aval<Frustum>) =
         adaptive {
             let! s = surf
@@ -212,7 +207,7 @@ module ViewerUtils =
             let sizes = V2i(1024,768)
             let! quality = s.quality.value
             //let! trafo = AVal.map2(fun a b -> a * b) s.preTransform s.transformation.trafo //combine pre and current transform
-            let! trafo =  TransformationApp.fullTrafo s.transformation refsys //SurfaceTransformations.fullTrafo surf refsys
+            let! trafo =  TransformationApp.fullTrafo s.transformation refsys observedSystem observerSystem //SurfaceTransformations.fullTrafo surf refsys
             
             return { frustum = frustum; size = sizes; factor = quality; trafo = trafo }
         }
@@ -278,6 +273,8 @@ module ViewerUtils =
         (surfacePicking  : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
+        (observedSystem  : aval<Option<SpiceReferenceSystem>>) 
+        (observerSystem  : aval<Option<ObserverSystem>>)
         (fp              : AdaptiveFootPrint) 
         (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
@@ -291,12 +288,16 @@ module ViewerUtils =
             | Some (AdaptiveSurfaces surf) -> 
 
                 let isSelected = 
-                    (selectedId, useHighlighting) ||> AVal.map2(fun x y ->
-                        match x with
-                        | Some id -> (id = surface.surface) && y
-                        | None -> false
-                    )
-                
+                    adaptive {
+                        let! selId = selectedId
+                        let! selectedH = surf.highlightSelected
+                        let! alwaysH = surf.highlightAlways
+
+                        match selId with
+                        | Some id -> return (((id = surface.surface) && selectedH) || alwaysH)
+                        | None -> return false
+                    }
+                   
                 let createSg (sg : ISg) =
                     sg 
                     |> Sg.noEvents 
@@ -307,7 +308,7 @@ module ViewerUtils =
 
                 let trafo =
                     adaptive {
-                        let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys
+                        let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys observedSystem observerSystem
                         let! preTransform = surf.preTransform
                         let! flipZ = surf.transformation.flipZ
                         let! sketchFab = surf.transformation.isSketchFab
@@ -341,7 +342,7 @@ module ViewerUtils =
                     
 
                 let samplerDescription : aval<SamplerState -> SamplerState> = 
-                    filterTexture 
+                    (AVal.constant(true)) //filterTexture 
                     |> AVal.map (fun filterTexture ->  
                         fun (x : SamplerState) -> 
                             match filterTexture with
@@ -412,9 +413,6 @@ module ViewerUtils =
                             return false
                     }               
 
-                //let! texTest = depthTexture
-                let! texTest = DefaultTextures.checkerboard 
-                
                 let surfaceSg =
                     surface.sceneGraph
                     |> AVal.map createSg
@@ -431,14 +429,14 @@ module ViewerUtils =
                     |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
                     |> addImageCorrectionParameters  surf
                     |> addRadiometryParameters surf
-                    |> Sg.uniform "DepthVisible" depthVisible
+                    |> Sg.uniform "DepthVisible" depthVisible //(AVal.constant(true)) //
                     |> Sg.uniform "FootprintVisible" footprintVisible
                     |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
                     |> Sg.applyFootprint footprintViewProj
                     |> Sg.noEvents
                     |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
-                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
+                    |> Sg.LodParameters ( getLodParameters  (AVal.constant surf) refsys observedSystem observerSystem frustum  )
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
                     
                     |> SecondaryTexture.Sg.applySecondaryTextureId (
@@ -494,12 +492,19 @@ module ViewerUtils =
 
 
                     |> Sg.withEvents [
+                        SceneEventKind.Move, (
+                            fun sceneHit -> 
+                                let name  = surf.name |> AVal.force        
+                                let surfacePicking = surfacePicking |> AVal.force
+                                true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                        )
                         SceneEventKind.Click, (
                            fun sceneHit -> 
                              let name  = surf.name |> AVal.force        
                              let surfacePicking = surfacePicking |> AVal.force
                              //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)])
+                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)]
+                         )
                        ]  
                     // handle surface visibility
                     |> Sg.onOff (surf.isVisible) // on off variant
@@ -515,7 +520,14 @@ module ViewerUtils =
                     )
                     // pivot point
                     |> Sg.andAlso (
-                        surf.transformation |> TransformationApp.Sg.view
+                        TransformationApp.Sg.viewObjectSpace surf.transformation
+                        |> Sg.trafo trafo
+                        //|> Sg.dynamic
+                    )    
+                    // surface reference system (global coords)
+                    |> Sg.andAlso (
+                        TransformationApp.Sg.viewTrafoRefSys surf.transformation
+                        //|> Sg.trafo trafo
                         //|> Sg.dynamic
                     )    
                 return surfaceSg
@@ -528,7 +540,9 @@ module ViewerUtils =
         (surface         : AdaptiveSgSurface) 
         (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>)
-        (refsys          : AdaptiveReferenceSystem) =
+        (refsys          : AdaptiveReferenceSystem)
+        (observedSystem : aval<Option<SpiceReferenceSystem>>) 
+        (observerSystem : aval<Option<ObserverSystem>>)=
 
         adaptive {
             match! AMap.tryFind surface.surface surfacesMap with
@@ -544,7 +558,7 @@ module ViewerUtils =
 
                 let trafo =
                         adaptive {
-                            let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys
+                            let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys observedSystem observerSystem
                             let! preTransform = surf.preTransform
                             let! flipZ = surf.transformation.flipZ
                             let! sketchFab = surf.transformation.isSketchFab
@@ -592,7 +606,7 @@ module ViewerUtils =
                     |> Sg.trafo trafo 
                     |> Sg.uniform "TriangleSize"   triangleFilter 
                     |> Sg.onOff (surf.isVisible)
-                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
+                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys  observedSystem observerSystem frustum )
                     |> Sg.noEvents 
                     |> Sg.effect [
                         triangleFilterX     |> toEffect
@@ -604,15 +618,22 @@ module ViewerUtils =
                 return Sg.empty
         } |> Sg.dynamic
 
+    let getObserverSystem (m : AdaptiveModel) =
+        Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
+
     let getSimpleSurfacesSg 
         (m:AdaptiveModel) =  
         let sgGrouped = m.scene.surfacesModel.sgGrouped 
         let surfs = m.scene.surfacesModel.surfaces.flat
         let refSystem = m.scene.referenceSystem
+        let observerSystem = getObserverSystem m
             
         let surfacesToSg surfaces =
             surfaces
-              |> AMap.map (fun guid sf -> getSimpleSingleSurfaceSg sf surfs m.frustum refSystem)
+              |> AMap.map (fun guid sf -> 
+                    let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
+                    getSimpleSingleSurfaceSg sf surfs m.frustum refSystem observationSystem observerSystem
+               )
               |> AMap.toASet 
               |> ASet.map snd    
               |> Sg.set
@@ -850,6 +871,17 @@ module ViewerUtils =
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
         ]
+        //Effect.compose [
+            
+        //    Shader.stableTrafo       |> toEffect
+           
+
+        //    PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
+        //    PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
+
+
+        //    OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
+        //]
 
     let isViewPlanVisible (m:AdaptiveModel) =
         adaptive {
@@ -863,8 +895,9 @@ module ViewerUtils =
             | None -> return false
         }
 
+
     //TODO TO refactor screenshot specific
-    let getSurfacesScenegraphs (runtime : IRuntime) (m:AdaptiveModel) =
+    let getSurfacesScenegraphs (runtime : IRuntime) (m : AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
         
       //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
@@ -873,13 +906,14 @@ module ViewerUtils =
         let refSystem = m.scene.referenceSystem
         let vpVisible = isViewPlanVisible m
         let view = m.navigation.camera.view
+        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
 
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
-                    |> AMap.map(fun _ sf -> 
+                    |> AMap.map(fun guid sf -> 
                         let surfaces = m.scene.surfacesModel.surfaces.flat
-
+                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         viewSingleSurfaceSg 
                             sf 
                             surfaces 
@@ -888,6 +922,8 @@ module ViewerUtils =
                             m.ctrlFlag 
                             sf.globalBB 
                             refSystem 
+                            observationSystem
+                            observerSystem
                             m.footPrint 
                             vpVisible
                             usehighlighting m.filterTexture
@@ -931,13 +967,14 @@ module ViewerUtils =
             |> (camera |> Sg.camera)
 
     let renderCommands 
-        (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
-        overlayed 
-        depthTested 
+        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
+        (overlayed      : ISg<ViewerAction>)
+        (depthTested    : ISg<ViewerAction>)
+        (view           : aval<CameraView>)
         (allowFootprint : bool) 
         (allowDepthview : bool) 
-        (runtime : IRuntime) 
-        (m:AdaptiveModel)  =
+        (runtime        : IRuntime) 
+        (m              : AdaptiveModel)  =
 
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
@@ -954,11 +991,13 @@ module ViewerUtils =
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
-        let view = m.navigation.camera.view
+        //let view = m.navigation.camera.view
+        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
-                    |> AMap.map(fun _ surface ->   
+                    |> AMap.map(fun guid surface ->   
+                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         let s =
                             viewSingleSurfaceSg 
                                 surface 
@@ -968,6 +1007,8 @@ module ViewerUtils =
                                 surfacePicking
                                 surface.globalBB
                                 refSystem 
+                                observationSystem
+                                observerSystem
                                 m.footPrint 
                                 vpVisible
                                 usehighlighting filterTexture
@@ -992,33 +1033,46 @@ module ViewerUtils =
                 )                 
             )
 
+        // TODO Laura: test depthTested outside the loop
+
         //grouped   
         let last = grouped |> AList.tryLast
-        
+
+
+
         alist {                    
             for set in grouped do  
-                let sg = set|> Sg.set
+                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+
+                let sg = set |> Sg.set
                     //|> Sg.effect [surfaceEffect] 
                     //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                     //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
-                yield RenderCommand.SceneGraph (sg)
+                yield RenderCommand.SceneGraph sg
 
-                //if i = c then //now gets rendered multiple times
-                 // assign priorities globally, or for each anno and make sets
-                let depthTested =
-                    last 
-                    |> AVal.map (function 
-                        | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
-                        | _ -> Sg.empty
-                    )
-                yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
-
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+            yield RenderCommand.SceneGraph (depthTested)
+            yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
 
             yield RenderCommand.SceneGraph overlayed
 
         }
+
+        //alist {
+        //    for set in grouped do
+        //        let sg = set|> Sg.set
+        //            |> Sg.effect [surfaceEffect]
+        //            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+        //            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+
+        //        yield RenderCommand.SceneGraph sg
+
+        //    yield RenderCommand.SceneGraph depthTested
+        //    yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+
+        //    yield RenderCommand.SceneGraph overlayed
+
+        //}
 
 
 module Jezero =

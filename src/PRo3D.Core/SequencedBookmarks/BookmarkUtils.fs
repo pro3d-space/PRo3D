@@ -3,30 +3,51 @@
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 
 open Aardvark.Rendering
-open Aardvark.UI.Anewmation
+open Aardvark.UI.Animation
 
 open System
 open System.IO
+open System.Runtime.InteropServices
 open PRo3D.Base
-open PRo3D.Core.SequencedBookmarks
 open Chiron
-open Aardvark.UI.Anewmation
+open Aardvark.UI.Animation
+open PRo3D.Core.SequencedBookmarks
+open PRo3D.Core.Surface
 open Aether
 open Aether.Operators
 
 module BookmarkUtils =
+
+    // paths could come from windows (via a copied scene file), Path.GetFileNameWithoutExtension won't be able to
+    // deconstruct this properly on osx/linux. Here we try get around this one..
+    // see here: https://github.com/pro3d-space/PRo3D/issues/390
+    let private workaroundForWindowsPaths (s : string) = 
+        if s.Contains("\\") then
+            s.Replace("\\", string Path.DirectorySeparatorChar)
+        else
+            s
+
     /// Returns a path to a folder with the same name as the scene file,
     /// which lies inside the same folder as the scene file.
     /// This path is used to store sequenced bookmarks as individual files
     /// when saving the scene.
     let basePathFromScenePath (scenePath : string) =
-        Path.combine [Path.GetDirectoryName scenePath; 
-                        Path.GetFileNameWithoutExtension scenePath]
+        let sceneDirectory = Path.GetDirectoryName scenePath
+        if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
+            Path.combine [sceneDirectory; Path.GetFileNameWithoutExtension scenePath]
+        else
+            // paths could come from windows (via a copied scene file), Path.GetFileNameWithoutExtension won't be able to
+            // deconstruct this properly on osx/linux. Here we try get around this one..
+            // see here: https://github.com/pro3d-space/PRo3D/issues/390
+            let scenPathSlash = workaroundForWindowsPaths scenePath
+            Path.combine [sceneDirectory; Path.GetFileNameWithoutExtension scenPathSlash]
+            
 
     /// Links the animation to a field in the model by registering
     /// a callback that uses the given lens to modify its value as the animation progresses.
@@ -40,9 +61,49 @@ module BookmarkUtils =
         HashMap.tryFind id m.bookmarks
         |> Option.bind SequencedBookmark.tryLoad
 
+    let getValidState (sceneState : SceneState) =
+        let validSurfaces = 
+            (sceneState.stateSurfaces.flat |> Leaf.toSurfaces)
+            |> HashMap.filter(fun _ s ->
+                let isobj = Path.GetExtension s.importPath = ".obj"
+                let isValid = (Directory.Exists s.importPath) || (isobj && (File.Exists s.importPath)) 
+                isValid
+            )
+            |> HashMap.map(fun _ x -> Leaf.Surfaces x)
+        {sceneState with stateSurfaces = {sceneState.stateSurfaces with flat = validSurfaces}}
+
+
+    /// ensures that all surfaces in sceneState are currently available
+    let checkAndUpdateSurfacesInSceneState (sBookmark : SequencedBookmark) =
+        match sBookmark with
+        | SequencedBookmark.LoadedBookmark bm ->  
+            match bm.sceneState with 
+            | Some sceneState -> 
+                let sState = getValidState sceneState
+                {bm with sceneState = Some sState} |> SequencedBookmark.LoadedBookmark
+            | None -> {bm with sceneState = None} |> SequencedBookmark.LoadedBookmark
+        | SequencedBookmark.NotYetLoaded bm ->
+            sBookmark
+
+    
+
+    /// ensures that all surfaces in sceneState are currently available
+    //let checkAndUpdateSurfacesInSceneStateSBM (sBookmark : SequencedBookmarkModel) =
+    //    let validSurfaces = 
+    //            (sceneState.stateSurfaces.flat |> Leaf.toSurfaces)
+    //            |> HashMap.filter(fun _ s ->
+    //                let dirExists = Directory.Exists s.importPath
+    //                dirExists
+    //            )
+    //            |> HashMap.map(fun _ x -> Leaf.Surfaces x)
+    //    let sState = {sceneState with stateSurfaces = {sceneState.stateSurfaces with flat = validSurfaces}}
+    //    {sBookmark with sceneState = Some sState}
+        
+
     let getNewSBookmark (navigation : NavigationModel) 
                         (sceneState : SceneState)
-                        (bookmarkCount:int) =
+                        (bookmarkCount:int) 
+                        (observationInfo) =
          
         let name = sprintf "Bookmark_%d" bookmarkCount //todo to make useful unique names
         let bookmark = 
@@ -65,6 +126,7 @@ module BookmarkUtils =
                 duration            = SequencedBookmarkDefaults.initDuration 3.0
                 delay               = SequencedBookmarkDefaults.initDelay 0.0
                 basePath            = None
+                observationInfo     = observationInfo
             }
         sequencedBookmark
 
@@ -160,6 +222,7 @@ module BookmarkUtils =
         let bookmarks = 
             m.bookmarks
             |> HashMap.map (fun guid bm -> SequencedBookmark.tryLoad' bm)
+            |> HashMap.map (fun guid bm -> checkAndUpdateSurfacesInSceneState bm)
         {m with bookmarks = bookmarks}
 
     /// after unloading, all bookmarks are if the type
@@ -183,7 +246,7 @@ module BookmarkUtils =
             | None -> ()
             SequencedBookmark.LoadedBookmark {loaded with basePath = Some basePath}
         | SequencedBookmarks.NotYetLoaded notLoaded ->
-            let newPath = Path.combine [basePath;Path.GetFileName notLoaded.path]
+            let newPath = Path.combine [basePath;Path.GetFileName (workaroundForWindowsPaths notLoaded.path)]
             if String.equals notLoaded.path newPath then
                 SequencedBookmarks.NotYetLoaded notLoaded
             else

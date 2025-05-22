@@ -188,8 +188,9 @@ module Helpers =
     open Fake.Tools.Git
 
     let initializeContext () =
-        let execContext = Context.FakeExecutionContext.Create false "build.fsx" [ ]
+        let execContext = Context.FakeExecutionContext.Create false "build.fsx" (System.Environment.GetCommandLineArgs() |> Array.toList)
         Context.setExecutionContext (Context.RuntimeContext.Fake execContext)
+        execContext
 
     module Proc =
         module Parallel =
@@ -280,9 +281,9 @@ module Helpers =
 
     let runOrDefault args =
         try
-            match args with
-            | [| target |] -> Target.runOrDefault target
-            | _ -> Target.runOrDefault "Run"
+            match args |> Array.toList with
+            | target :: _ -> Target.runOrDefaultWithArguments target
+            | _ -> Target.runOrDefaultWithArguments "Run"
             0
         with e ->
             printfn "%A" e

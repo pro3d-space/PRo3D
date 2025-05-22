@@ -4,13 +4,7 @@ open System
 
 open Aardvark.Base
 open PRo3D.Core.GroupsApp
-open Aardvark.Application
-open Aardvark.Geometry
-open Aardvark.UI
-open Aardvark.UI.Trafos
 open FSharp.Data.Adaptive
-open Aardvark.SceneGraph
-open Aardvark.VRVis.Opc
 
 open PRo3D.Base
 open PRo3D

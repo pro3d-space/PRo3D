@@ -3,7 +3,7 @@
 open FSharp.Data.Adaptive
 
 open Aardvark.Base
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.Rendering
 
 open Adaptify.FSharp

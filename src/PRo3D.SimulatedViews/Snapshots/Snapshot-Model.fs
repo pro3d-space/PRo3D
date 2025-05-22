@@ -13,9 +13,9 @@ open PRo3D.Core
 #nowarn "0686"
 
 type SnapshotType = 
-  | Camera
   | CameraAndSurface
   | Bookmark
+  | Panomarama
 
 type SnapshotCamera = {
         location      : V3d
@@ -105,6 +105,124 @@ with
       do! PRo3D.Base.Json.writeOption "translation" x.translation
     }
 
+/// Defines different types of panoramas
+type PanoramaKind =
+    | Perspective
+    | Spherical
+    | Cylindric
+with 
+    static member parse str =
+        match str with
+        | str when str = "Perspective" -> PanoramaKind.Perspective
+        | str when str = "Spherical"   -> PanoramaKind.Spherical
+        | str when str = "Cylindric"   -> PanoramaKind.Cylindric
+        | _ ->
+            PanoramaKind.Spherical
+
+/// A Snapshot type for panomaramas see 
+/// https://github.com/pro3d-space/PRo3D/issues/412
+type PanoramaSnapshot = {
+    filename      : string
+    camera        : SnapshotCamera
+} with    
+    static member FromJson(_ : PanoramaSnapshot) = 
+        json {
+            let! filename = Json.read "filename"
+            let! camera   = Json.read "camera"
+
+            return {
+                filename = filename 
+                camera   = camera   
+            }
+        }
+    static member ToJson (x : PanoramaSnapshot) =
+        json {
+            do! Json.write "filename" x.filename
+            do! Json.write "camera"   x.camera
+        }
+    static member dummyData =
+        {
+            filename = "panorama001"
+            camera   = {location = V3d.OOO; forward = V3d.IOO; up = V3d.OIO}
+        }
+
+
+/// A type for batch rendering multiple panoramas with the given settings
+/// see https://github.com/pro3d-space/PRo3D/issues/412
+type PanoramaSnapshotCollection = {
+    fieldOfView             : float
+    nearplane               : float
+    farplane                : float
+    resolution              : V2i    
+    panoramaKind            : PanoramaKind
+    renderRgbWithoutOverlay : bool
+    renderDepth             : bool
+    renderRgbWithOverlay    : bool
+    snapshots               : list<PanoramaSnapshot>
+} with
+    static member dummyData : PanoramaSnapshotCollection = {
+        fieldOfView              = 0.0
+        nearplane                = 0.0
+        farplane                 = 0.0
+        resolution               = V2i.II
+        panoramaKind             = PanoramaKind.Spherical
+        renderRgbWithoutOverlay  = true
+        renderDepth              = true
+        renderRgbWithOverlay     = true
+        snapshots                = [PanoramaSnapshot.dummyData]
+    }
+        
+    static member private readV0 = 
+        json {
+            let! fieldOfView    = Json.read "fieldOfView"
+            let! resolution     = Json.read "resolution"
+            let! nearplane      = Json.read "nearplane"
+            let! farplane       = Json.read "farplane"
+            let! snapshots      = Json.read "snapshots"
+            let! panoramaKindString   = Json.read "panoramaKind"
+            let  panoramaKind = PanoramaKind.parse panoramaKindString
+            let! renderRgbWithoutOverlay = Json.read "renderRgbWithoutOverlay"
+            let! renderDepth             = Json.read "renderDepth"
+            let! renderRgbWithOverlay    = Json.read "renderRgbWithOverlay"
+
+            let a : PanoramaSnapshotCollection = 
+                {
+                    fieldOfView = fieldOfView
+                    resolution  = resolution |> V2i.Parse
+                    nearplane   = nearplane
+                    farplane    = farplane
+                    snapshots   = snapshots
+                    panoramaKind = panoramaKind
+                    renderRgbWithoutOverlay = renderRgbWithoutOverlay
+                    renderDepth             = renderDepth            
+                    renderRgbWithOverlay    = renderRgbWithOverlay   
+                }
+            return a
+      }
+    static member FromJson(_ : PanoramaSnapshotCollection) = 
+      json {
+          let! v = Json.read "version"
+          match v with            
+              | 0 -> return! PanoramaSnapshotCollection.readV0
+              | _ -> return! v |> sprintf "don't know version %A  of HeraAnimation" |> Json.error
+      }
+    static member ToJson (x : PanoramaSnapshotCollection) =
+      json {
+          do! Json.write "version"        0
+          do! Json.write "fieldOfView"    x.fieldOfView
+          do! Json.write "resolution"     (x.resolution.ToString ())
+          do! Json.write "nearplane"      x.nearplane
+          do! Json.write "farplane"       x.farplane
+          do! Json.write "panoramaKind"   (x.panoramaKind.ToString ())
+          
+          do! Json.write "renderRgbWithoutOverlay" x.renderRgbWithoutOverlay
+          do! Json.write "renderDepth"             x.renderDepth
+          do! Json.write "renderRgbWithOverlay"    x.renderRgbWithOverlay
+          
+          do! Json.write "snapshots"      x.snapshots
+      }  
+
+
 /// a snapshot that uses camera and surface updates
 type SurfaceSnapshot = {
   filename       : string
@@ -116,6 +234,17 @@ type SurfaceSnapshot = {
   renderMask     : option<bool>
 }
 with 
+  static member fromNameAndCamera filename camera =
+    {
+        filename             = filename
+        camera               = camera
+        sunPosition          = None
+        lightDirection       = None
+        surfaceUpdates       = None
+        placementParameters  = None
+        renderMask           = None
+
+    }
   static member TestData =
     {
         filename        = "testname"
@@ -208,7 +337,6 @@ with
             Json.write "Camera" x
         | BookmarkTransformation.Configuration x -> 
             Json.write "Configuration" x
-
     static member FromJson(_ : BookmarkTransformation) = 
         json { 
             let! camera = Json.tryRead "Camera"
@@ -224,7 +352,14 @@ with
                     let! bookmark = Json.read "Bookmark"
                     return BookmarkTransformation.Bookmark bookmark
         }
-
+    member this.camera =
+        match this with
+        | BookmarkTransformation.Bookmark x -> 
+            SnapshotCamera.fromCamera x.cameraView
+        | BookmarkTransformation.Camera x -> 
+            x
+        | BookmarkTransformation.Configuration x -> 
+            x.camera
 type BookmarkSnapshot = {
     filename       : string
     transformation : BookmarkTransformation
@@ -306,6 +441,7 @@ module BookmarkSnapshotAnimation =
 type Snapshot =
     | Bookmark of BookmarkSnapshot
     | Surface of SurfaceSnapshot
+    | Panorama of PanoramaSnapshot
 with 
     static member ToJson x =
         match x with
@@ -313,6 +449,8 @@ with
             Json.write "Bookmark" x
         | Snapshot.Surface x -> 
             Json.write "Surface" x
+        | Snapshot.Panorama x -> 
+            Json.write "Panorama" x
 
     static member FromJson(_ : Snapshot) = 
         json { 
@@ -321,8 +459,13 @@ with
             | Some surface -> 
                 return Snapshot.Surface surface
             | None ->
-                let! bookmark = Json.read "Bookmark"
-                return Snapshot.Bookmark bookmark
+                let! bookmark = Json.tryRead "Bookmark"
+                match bookmark with
+                | Some bookmark -> 
+                    return Snapshot.Bookmark bookmark
+                | None ->
+                    let! panorama = Json.read "Panorama"
+                    return Snapshot.Panorama panorama
         }
 
 /// Camera and Surface animation
@@ -336,9 +479,38 @@ type CameraSnapshotAnimation = {
   snapshots     : list<SurfaceSnapshot>
 }
 with 
-  static member defaultNearplane = 0.1
-  static member defaultFarplane  = 100000.0
+  static member defaultNearplane = 0.001
+  static member defaultFarplane  = 10000000.0
   static member defaultFoV = 30.0
+  static member fromPanoramaCollection (pc : PanoramaSnapshotCollection) =
+    {
+        fieldOfView   = Some pc.fieldOfView  
+        resolution    = pc.resolution   
+        nearplane     = Some pc.nearplane    
+        farplane      = Some pc.farplane     
+        lightLocation = None
+        renderMask    = None
+        snapshots     = 
+            pc.snapshots    
+            |> List.collect (fun p -> 
+                // Mars3D-AI: create 6 camera snapshots in each direction for each panorama entry
+                let cam v postfix =
+                    SurfaceSnapshot.fromNameAndCamera 
+                        (p.filename + postfix)
+                        (SnapshotCamera.fromCamera (CameraView.withForward v p.camera.view))
+
+                let letstry = p.camera.view.Orientation //normalized quaternion
+                    
+                let directions = [ 
+                     cam p.camera.forward "_FORWARD"                                                    
+                     cam p.camera.view.Backward "_BACKWARD"
+                     cam p.camera.view.Up "_UP"
+                     cam p.camera.view.Down "_DOWN"
+                     cam p.camera.view.Left "_LEFT"
+                     cam p.camera.view.Right "_RIGHT"
+                    ]
+                directions)
+    }
   member  snapshotAnimation.Frustum = 
       let resolution = V3i (snapshotAnimation.resolution.X, snapshotAnimation.resolution.Y, 1)
 
@@ -413,169 +585,10 @@ with
           do! Json.write              "snapshots"      x.snapshots
       }  
 
-
-
-/// The functionality of this format can be achieved with the new Snapshot format. As long as users still use this older format it should be maintained.
-type LegacySnapshot = {
-    location      : V3d
-    forward       : V3d
-    up            : V3d
-    filename      : string
-}
-  with
-  member this.view = 
-    CameraView.look this.location this.forward.Normalized this.up.Normalized
-  member this.toSnapshot () =
-      {
-          filename       = this.filename
-          camera         = {
-                              location = this.location
-                              forward  = this.forward
-                              up       = this.up
-                           }
-          sunPosition    = None
-          lightDirection = None
-          surfaceUpdates = None
-          placementParameters   = None
-          renderMask     = None
-      }
-  member this.toSCPlacement () =
-      let plain = 
-          {
-              filename       = this.filename
-              camera         = {
-                                  location = this.location
-                                  forward  = this.forward
-                                  up       = this.up
-                               }
-              sunPosition    = None //Some (V3d(0.1842, -0.93675, -0.29759))
-              lightDirection = Some (V3d(0.1842, -0.93675, -0.29759))
-              surfaceUpdates = None
-              placementParameters   = 
-                   [{
-                      name         = "02-Presqu-ile-LF"
-                      count        = 1
-                      color        = None
-                      contrast     = None
-                      brightness   = None
-                      gamma        = None
-                      scale        = Some (V2i(1,3))
-                      xRotation    = None
-                      yRotation    = None 
-                      zRotation    = Some (V2i(90,90)) //Some (V2i(0,360))
-                      maxDistance  = None
-                      subsurface   = None
-                      maskColor    = None
-                   }] |> Some
-              renderMask     = None
-          }
-      let mask =
-          {
-              filename       = sprintf "%s_mask" this.filename
-              camera         = {
-                                  location = this.location
-                                  forward  = this.forward
-                                  up       = this.up
-                               }
-              lightDirection = Some (V3d(0.1842, -0.93675, -0.29759))
-              sunPosition    = None
-              surfaceUpdates = None
-              placementParameters   = None
-              renderMask     = Some true
-          }
-      [plain; mask]
-        
-  static member current = 0
-  static member private readV0 = 
-      json {
-        let! location    = Json.read "location"
-        let! forward     = Json.read "forward"
-        let! up          = Json.read "up"
-        let! filename    = Json.read "filename"
-  
-        return {
-          location    = location |> V3d.Parse
-          forward     = forward  |> V3d.Parse
-          up          = up       |> V3d.Parse
-          filename    = filename
-        }
-      }
-  static member FromJson(_ : LegacySnapshot) = 
-    json {
-        return! LegacySnapshot.readV0
-        //let! v = Json.read "version"
-        //match v with            
-        //  | 0 -> return! ArnoldSnapshot.readV0
-        //  | _ -> return! v |> sprintf "don't know version %A  of ArnoldSnapshot" |> Json.error
-    }
-  static member ToJson (x : LegacySnapshot) =
-    json {
-      do! Json.write      "location"  (x.location.ToString())
-      do! Json.write      "forward"   (x.forward.ToString())
-      do! Json.write      "up"        (x.up.ToString())
-      do! Json.write      "filename"  (x.filename.ToString())
-    }
-
-/// The functionality of this format can be achieved with the new SnapshotAnimation format. As long as users still use this older format it should be maintained.
-type LegacyAnimation = {
-    fieldOfView   : double
-    resolution    : V2i
-    snapshots     : list<LegacySnapshot>
-}
-with 
-  member this.toSnapshotAnimation () : CameraSnapshotAnimation =
-    {
-        fieldOfView   = Some this.fieldOfView
-        resolution    = this.resolution
-        nearplane     = None
-        farplane      = None
-        lightLocation = None
-        snapshots     = this.snapshots |> List.map (fun x -> x.toSnapshot ())
-        renderMask    = None
-    }
-  member this.generateAnimation () : CameraSnapshotAnimation =
-    {
-        fieldOfView   = Some this.fieldOfView
-        resolution    = this.resolution
-        nearplane     = None
-        farplane      = None
-        lightLocation = Some (V3d (0.1842, -0.93675, -0.29759))
-        renderMask    = None
-        snapshots     = [for s in this.snapshots do yield! s.toSCPlacement ()]
-    }
-  static member current = 0
-  static member private readV0 = 
-      json {
-        let! fieldOfView    = Json.read "fieldOfView"
-        let! resolution     = Json.read "resolution"
-        let! snapshots      = Json.read "snapshots"
-
-        //let snapshots' = snapshots |> List.map 
-  
-        return {
-          fieldOfView    = fieldOfView
-          resolution     = resolution |> V2i.Parse
-          snapshots      = snapshots  //|> Serialization.jsonSerializer.UnPickleOfString
-        }
-      }
-  static member FromJson(_ : LegacyAnimation) = 
-    json {
-        let! v = Json.read "version"
-        match v with            
-          | 0 -> return! LegacyAnimation.readV0
-          | _ -> return! v |> sprintf "don't know version %A  of ArnoldAnimation" |> Json.error
-    }
-  static member ToJson (x : LegacyAnimation) =
-    json {
-        do! Json.write      "version"        0
-        do! Json.write      "fieldOfView"  (x.fieldOfView)
-        do! Json.write      "resolution"   (x.resolution.ToString())
-        do! Json.write      "snapshots"    (x.snapshots)
-    }
-
 type SnapshotAnimation =
     | BookmarkAnimation of BookmarkSnapshotAnimation
     | CameraAnimation   of CameraSnapshotAnimation
+    | PanoramaCollection of PanoramaSnapshotCollection
     //| LegacyAnimation   of LegacyAnimation
 with 
     static member ToJson x =
@@ -584,6 +597,8 @@ with
             Json.write "BookmarkAnimation" x
         | SnapshotAnimation.CameraAnimation x -> 
             Json.write "CameraAnimation" x
+        | SnapshotAnimation.PanoramaCollection x -> 
+            Json.write "PanoramaCollection" x
         //| SnapshotAnimation.LegacyAnimation x ->
         //    Json.write "LegacyAnimation" x
 
@@ -594,12 +609,47 @@ with
             //| Some legacy -> 
             //    return SnapshotAnimation.LegacyAnimation legacy
             //| None ->
-            let! camera = Json.tryRead "CameraAnimation"
-            match camera with
-            | Some bookmark ->
-                return SnapshotAnimation.CameraAnimation bookmark
+            let! animation = Json.tryRead "CameraAnimation"
+            match animation with
+            | Some cameraAnimation ->
+                return SnapshotAnimation.CameraAnimation cameraAnimation
             | None ->
-                let! bookmark = Json.read "BookmarkAnimation"
-                return SnapshotAnimation.BookmarkAnimation bookmark
-                    
+                let! bookmarkAnimation = Json.tryRead "BookmarkAnimation"
+                match bookmarkAnimation with
+                | Some bookmarkAnimation ->
+                    return SnapshotAnimation.BookmarkAnimation bookmarkAnimation
+                | None ->
+                    let! panorama = Json.read "PanoramaCollection"
+                    return 
+                        SnapshotAnimation.PanoramaCollection panorama
+        }
+
+// image pose output for panorama computation
+type PanoramaPose =
+    {
+        panoramaPose   : Affine3d
+        fieldOfView    : float
+        principalPoint : V2d
+        //euclidPose    : Euclidean3d
+    } 
+    static member ToJson (x : PanoramaPose) = 
+        json {
+          do! Json.writeWith Ext.toJson<Affine3d,Ext> "panoramaPose"   x.panoramaPose
+          do! Json.write                              "fieldOfView"    x.fieldOfView
+          do! Json.write                              "principalPoint" (x.principalPoint.ToString ())
+          //do! Json.writeWith Ext.toJson<Euclidean3d,Ext> "euclideanPose" x.euclidPose
+        }
+    static member FromJson (x : PanoramaPose) =
+        json {
+             let! panoramaPose   = Json.readWith Ext.fromJson<Affine3d,Ext> "panoramaPose"
+             let! fieldOfView    = Json.read "fieldOfView"
+             let! principalPoint = Json.read "principalPoint"
+             //let! euclidPose = Json.readWith Ext.fromJson<Euclidean3d,Ext> "euclideanPose"
+
+            return {
+                panoramaPose    = panoramaPose 
+                fieldOfView     = fieldOfView
+                principalPoint  = principalPoint |> V2d.Parse
+                //euclidPose = euclidPose
+            }
         }

@@ -1,7 +1,7 @@
 namespace PRo3D.Base
 
 open System
-
+open System.Text.RegularExpressions
 open FSharp.Data.Adaptive
 
 open Aardvark.Base
@@ -10,11 +10,13 @@ open Aardvark.SceneGraph
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.``Sg Picking Extensions``
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open Aardvark.Rendering.Text
 open OpcViewer.Base
 open OpcViewer.Base.Shader
 open FShade
 open System.IO
+open Aardvark.Base.Fonts
 
 
 type Self = Self
@@ -767,9 +769,24 @@ module Shader =
             return color
         }
 
+    //let panoramaDepth (v : FootPrintVertex) =
+    //    fragment {     
+            
+    //        if uniform?CalcPanoramaDepth then
+    //            let depth = v.tc0.Z 
+    //            let screenW = uniform?xRes
+    //            let screenH = uniform?yRes
+
+    //            let 
+
+    //            let hue = mapFalseColors depth 
+    //            let c = hsv2rgb ((clamp 0.0 255.0 hue)/ 255.0 ) 1.0 1.0 
+    //            let texColor = v.c * V4d(c.X, c.Y, c.Z, 1.0)
+    //            color <- texColor
+
+    //        return color
+    //    }
     
-
-
 module Sg =    
 
     let colorPointsEffect = 
@@ -1126,7 +1143,7 @@ module Sg =
         |> Sg.trafo trafo
 
     //## TEXT ##
-    let private invariantScaleTrafo 
+    let invariantScaleTrafo 
         (view : aval<CameraView>) 
         (near : aval<float>) 
         (pos  : aval<V3d>) 
@@ -1173,6 +1190,8 @@ module Sg =
     let stableTrafoShader = 
         Effect.compose [toEffect Shader.StableTrafo.stableTrafo]
 
+    let consolasFont = Font.create "Consolas" FontStyle.Regular
+
     let text 
         (view       : aval<CameraView>) 
         (near       : aval<float>) 
@@ -1180,7 +1199,8 @@ module Sg =
         (pos        : aval<V3d>) 
         (modelTrafo : aval<Trafo3d>) 
         (size       : aval<double>) 
-        (text       : aval<string>) =
+        (text       : aval<string>) 
+        (color      : aval<C4b>) =
 
         let billboardTrafo = 
             adaptive {
@@ -1188,12 +1208,13 @@ module Sg =
                 let! v = view
                 return screenAlignedTrafo v.Forward v.Up modelt
             }
-      
-        Sg.text (Font.create "Consolas" FontStyle.Regular) C4b.White text
-        |> Sg.noEvents
-        |> Sg.effect [stableTrafoShader]         
-        |> Sg.trafo (invariantScaleTrafo view near pos size hfov)  // fixed pixel size scaling
-        |> Sg.trafo billboardTrafo
+        color |> AVal.map( fun c ->
+            Sg.text consolasFont c text
+            |> Sg.noEvents
+            |> Sg.effect [stableTrafoShader]         
+            |> Sg.trafo (invariantScaleTrafo view near pos size hfov)  // fixed pixel size scaling
+            |> Sg.trafo billboardTrafo
+            ) |> Sg.dynamic
 
     let billboardText (view: aval<CameraView>) (pos: aval<V3d>) (text: aval<string>) =
         // new implementation with same result, but does not require CameraView
@@ -1202,7 +1223,7 @@ module Sg =
             { 
                 TextConfig.Default with
                     renderStyle = RenderStyle.Billboard
-                    font = Font.create "Consolas" FontStyle.Regular
+                    font = consolasFont
                     color = C4b.White
                     align = TextAlignment.Center
             }
@@ -1221,7 +1242,7 @@ module Sg =
                 return screenAlignedTrafo v.Forward v.Up modelt
             }
     
-        Sg.text (Font.create "Consolas" FontStyle.Regular) C4b.White text
+        Sg.text consolasFont C4b.White text
         |> Sg.noEvents
         |> Sg.effect [stableTrafoShader]      
         |> Sg.trafo (0.1 |> Trafo3d.Scale |> AVal.constant )
@@ -1255,6 +1276,77 @@ module Formatting =
             elif x.Nanometer  > 1.0 then sprintf "%.0fnm" x.Nanometer
             elif meter        > 0.0 then sprintf "%.0f"   x.Angstrom
             else "0" 
+
+module ColorBrewer =
+
+    let twelveClassSet3 = [
+        C4b(141,211,199);
+        C4b(255,255,179);
+        C4b(190,186,218);
+        C4b(251,128,114);
+        C4b(128,177,211);
+        C4b(253,180,98);
+        C4b(179,222,105);
+        C4b(252,205,229);
+        C4b(217,217,217);
+        C4b(188,128,189);
+        C4b(204,235,197);
+        C4b(255,237,111)
+    ]
+
+    let twelveClassPaired = [
+        C4b(166,206,227);
+        C4b(31,120,180);
+        C4b(178,223,138);
+        C4b(51,160,44);
+        C4b(251,154,153);
+        C4b(227,26,28);
+        C4b(253,191,111);
+        C4b(255,127,0);
+        C4b(202,178,214);
+        C4b(106,61,154);
+        C4b(255,255,153);
+        C4b(177,89,40)
+    ]    
+
+    let toMaxValue (color : C4b) : C4b =
+        let hsv = HSVf.FromC3f (color.ToC3f())
+        HSVf(hsv.H, hsv.S, 1.0f).ToC3f().ToC4b()        
+
+    let assignColors (colors : list<C4b>) (objects: 'a list) =
+        objects
+        |> List.mapi (fun i obj -> (obj, colors.[i % colors.Length]))
+
+module Sorting =
+// Function to split the string into chunks of numbers and non-numbers
+    let private splitString (input: string) =
+        Regex.Matches(input, @"\D+|\d+")
+        |> Seq.cast<Match>
+        |> Seq.map (fun m -> m.Value)
+        |> Seq.toList
+    
+    // Function to compare two strings with natural sorting
+    let compareNatural (left: string) (right: string) =        
+
+        let rec compareParts (parts1: string list) (parts2: string list) =
+            match parts1, parts2 with
+            | [], [] -> 0
+            | [], _ -> -1
+            | _, [] -> 1
+            | h1::t1, h2::t2 ->
+                let isNum1 = Int32.TryParse(h1)
+                let isNum2 = Int32.TryParse(h2)
+                match isNum1, isNum2 with
+                | (true, num1), (true, num2) -> 
+                    // Compare as numbers
+                    let cmp = compare num1 num2
+                    if cmp <> 0 then cmp else compareParts t1 t2
+                | _ -> 
+                    // Compare as strings
+                    let cmp = compare h1 h2
+                    if cmp <> 0 then cmp else compareParts t1 t2
+    
+        compareParts (splitString left) (splitString right)
 
 module AList =
     let pairwise (input : alist<'a>) = 
@@ -1298,6 +1390,7 @@ module Copy =
 [<AutoOpen>]
 module ScreenshotUtilities = 
     module Utilities =
+        open System.Net.Http
 
         type ClientStatistics =
           {
@@ -1310,10 +1403,10 @@ module ScreenshotUtilities =
               frameTime       : float
           }
 
-        let downloadClientStatistics baseAddress (webClient : System.Net.WebClient) =
+        let downloadClientStatistics baseAddress (httpClient : HttpClient) =
             let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
             Log.line "[Screenshot] querying rendering stats at: %s" path
-            let result = webClient.DownloadString(path)
+            let result = httpClient.GetStringAsync(path).Result
 
             let clientBla : list<ClientStatistics> =
                 Pickler.unpickleOfJson  result
@@ -1336,20 +1429,20 @@ module ScreenshotUtilities =
             Path.combine [folder; name + "_" + clientStats.name + format]
 
         let takeScreenshotFromAllViews baseAddress (width:int) (height:int) name folder format =
-              let wc = new System.Net.WebClient()
-              let clientStatistics = downloadClientStatistics baseAddress wc
+              let httpClient = new HttpClient()
+              let clientStatistics = downloadClientStatistics baseAddress httpClient
 
               for cs in clientStatistics do
                   let screenshot = getScreenshotUrl baseAddress cs width height
                   let filename = getScreenshotFilename folder name cs format
-                  wc.DownloadFile(screenshot, filename)
+                  httpClient.DownloadFile(screenshot, filename)
                   let fullpath =
                       try System.IO.Path.GetFullPath(filename) with e -> filename
                   Log.line "[Screenshot] saved to %s" fullpath
 
         let takeScreenshot baseAddress (width:int) (height:int) name folder format =
-            let wc = new System.Net.WebClient()
-            let clientStatistics = downloadClientStatistics baseAddress wc
+            let httpClient = new HttpClient()
+            let clientStatistics = downloadClientStatistics baseAddress httpClient
             
             let cs =
                 match clientStatistics.Length with
@@ -1359,8 +1452,7 @@ module ScreenshotUtilities =
                 
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format
-            wc.DownloadFile(screenshot,filename)        
-
+            httpClient.DownloadFile(screenshot,filename)        
 
 module JsInterop = 
     let escapePath (s : string) =

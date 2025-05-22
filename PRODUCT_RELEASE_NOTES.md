@@ -1,8 +1,50 @@
+## 5.0.5
+- first official 5.0 release
+
+## 5.0.4
+- updated PRo3d.SPICE/fixed osx cootrafo build (again)
+
+## 5.0.3
+- updated PRo3d.SPICE/fixed osx cootrafo build (again)
+
+## 5.0.2 
+- updated PRo3d.SPICE/fixed osx cootrafo build
+
+## 5.0.0 
+- next major release preparation
+
+## 4.26.0-prerelease1
+- fixed surface priority
+- improved handling of large trajectories
+ 
+## 4.25.0-prerelease7
+- distance- and trianglefilter fix
+- fixed problem with sequenced bookmarks performance problem when a traverse is loaded
+- fixed obj not being rendered with batch rendering
+
+## 4.21.0-prerelease3
+- bugfix contour lines
+
+## 4.21.0-prerelease2
+- Bugfix Entity creation
+- Added new default Entities
+- Spice Kernel is now loaded when a scene is loaded and a spice kernel is defined in GisApp
+
+## 4.21.0-prerelease1
+- added readme to opc-tool
+
+## 4.24.0
+- streamlined up kdtree loading
+
+## 4.23.2   
+- fixed sequenced bookmark loading in cross-platform scenarios https://github.com/pro3d-space/PRo3D/pull/391
+
 ## 4.23.1
 - tweaked kdtree split limit epsilon for smaller kdtrees
 
 ## 4.23.0
 - tweaked kdtree split limit epsilon for smaller kdtrees
+
 
 ## 4.22.0
 - further improved kdtree loading on NTFS/macbook

@@ -4,6 +4,7 @@
 open System
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open Adaptify
 open PRo3D.Base
@@ -55,6 +56,7 @@ type SequencedBookmarksAction =
     | SaveSceneState
     | RestoreSceneState
     | AddSBookmark  
+    | AddGisBookmark
     | Play
     | Pause
     | Stop
@@ -74,6 +76,10 @@ type SequencedBookmarksAction =
     | UpdateJson
     | ToggleUpdateJsonBeforeRendering
     | SaveAnimation
+    | GeneratePanoramaDepthImages
+    | CancelPanoramas
+    | SetOutputPathPanoramas of list<string>
+    | CheckDepthPanoramaProcess of string
 
 
 /// a reduced version of SceneConfigModel that is saved and restore with sequenced bookmarks
@@ -144,6 +150,8 @@ type SceneStateReferenceSystem =
         isVisible     : bool
         size          : float
         selectedScale : string
+        textsize      : float
+        textcolor     : C4b
     } with
     static member fromReferenceSystem (refSystem : ReferenceSystem) 
         : SceneStateReferenceSystem =
@@ -152,6 +160,8 @@ type SceneStateReferenceSystem =
             isVisible     = refSystem.isVisible    
             size          = refSystem.size.value         
             selectedScale = refSystem.selectedScale
+            textsize      = refSystem.textsize.value
+            textcolor     = refSystem.textcolor.c
         }
     static member FromJson(_ : SceneStateReferenceSystem) = 
         json {
@@ -159,12 +169,20 @@ type SceneStateReferenceSystem =
             let! isVisible     = Json.read "isVisible"    
             let! size          = Json.read "size"         
             let! selectedScale = Json.read "selectedScale"
+            let! textSize      = Json.tryRead "textsize"
+            let! textColor     = Json.tryRead "textcolor"
 
             return {
                     origin        = origin |> V3d.Parse       
                     isVisible     = isVisible    
                     size          = size         
                     selectedScale = selectedScale 
+                    textsize      = match textSize with
+                                    | Some t -> t
+                                    | None -> 0.05
+                    textcolor     = match textColor with
+                                    | Some tc -> tc |> C4b.Parse
+                                    | None -> C4b.White 
             }
         }
     static member ToJson(x : SceneStateReferenceSystem) =
@@ -172,7 +190,9 @@ type SceneStateReferenceSystem =
             do! Json.write "origin"         (string x.origin)
             do! Json.write "isVisible"      x.isVisible          
             do! Json.write "size"           x.size               
-            do! Json.write "selectedScale"  x.selectedScale      
+            do! Json.write "selectedScale"  x.selectedScale  
+            do! Json.write "textsize"       x.textsize
+            do! Json.write "textcolor"      (x.textcolor.ToString())
         }
 
 /// state of various scene elements for use with animations
@@ -375,6 +395,8 @@ type SequencedBookmarkModel = {
     ///how long an animation rests on this bookmark before proceeding to the next one
     delay               : NumericInput
     duration            : NumericInput
+
+    observationInfo     : option<Gis.ObservationInfo>
 } with 
     static member _sceneState =
         (
@@ -449,6 +471,7 @@ module SequencedBookmarkModel =
             delay               = SequencedBookmarkDefaults.initDelay 0.0
             duration            = SequencedBookmarkDefaults.initDuration 5.0
             basePath            = None
+            observationInfo     = None
         }
 
     let init' bookmark sceneState frustumParameters 
@@ -463,6 +486,7 @@ module SequencedBookmarkModel =
             delay               = SequencedBookmarkDefaults.initDelay 0.0
             duration            = SequencedBookmarkDefaults.initDuration 5.0
             basePath            = None
+            observationInfo     = None
         }
 
     let read0 = 
@@ -475,6 +499,7 @@ module SequencedBookmarkModel =
             let! delay      = Json.read "delay"
             let! duration   = Json.read "duration"
             let! metadata   = Json.tryRead "metadata"
+            let! observationInfo = Json.tryRead "observationInfo"
 
             return {
                 version                 = 0              
@@ -486,6 +511,7 @@ module SequencedBookmarkModel =
                 delay                   = SequencedBookmarkDefaults.initDelay delay                
                 duration                = SequencedBookmarkDefaults.initDuration duration             
                 basePath                = None
+                observationInfo         = observationInfo
             }
         }
 
@@ -584,7 +610,7 @@ type SequencedBookmark =
         | LoadedBookmark _ -> true
         | NotYetLoaded _   -> false
 
-module SequencedBookmark =
+module SequencedBookmark =        
     let isLoaded m =
         match m with
         | LoadedBookmark _ -> true
@@ -604,7 +630,7 @@ module SequencedBookmark =
                         |> Json.deserialize
                 Some loadedBookmark
             with e ->
-                Log.error "[SequencedBookmarks] Error Loading Bookmark %s" m.path
+                Log.error "[SequencedBookmarks] Error Loading Bookmark %s. When copying or moving a scene in the file system, make sure to also copy the folder with the same name as your scene. The sequenced bookmarks are stored in that folder." m.path
                 Log.error "%s" e.Message
                 None
         | SequencedBookmark.LoadedBookmark m ->
@@ -757,6 +783,14 @@ type SequencedBookmarks = {
     [<NonAdaptive>]
     snapshotThreads   : ThreadPool<SequencedBookmarksAction>
     updateJsonBeforeRendering : bool
+
+    // panorama depth images
+    isGeneratingDepthImages      : bool
+    isCancelledDepthImages       : bool
+    outputPathDepthImages        : string
+
+    [<NonAdaptive>]
+    panoramaThreads   : ThreadPool<SequencedBookmarksAction>
   }
 
 type BookmarkLenses<'a> = {
@@ -767,6 +801,7 @@ type BookmarkLenses<'a> = {
     selectedBookmark_   : Lens<'a, option<Guid>>
     savedTimeSteps_     : Lens<'a, list<AnimationTimeStep>>
     lastStart_          : Lens<'a, option<TimeSpan>>
+    defaultObservationInfo_ : Lens<'a, Gis.ObservationInfo>
 }
                 
 module SequencedBookmarks =
@@ -860,6 +895,13 @@ module SequencedBookmarks =
                     AnimationSettings.init
 
             let! (sceneState : option<SceneState>) = Json.tryRead "originalSceneState"
+
+            let! (outputPathDepthImages : option<string>) = Json.tryRead "outputPathDepthImages"
+            let outputPathDepthImages = 
+                match outputPathDepthImages with
+                | Some p -> 
+                    if p = "" then defaultOutputPath () else p
+                | None -> defaultOutputPath ()
                 
             return 
                 {
@@ -885,6 +927,10 @@ module SequencedBookmarks =
                     lastStart           = None
                     fpsSetting          = fpsSetting
                     updateJsonBeforeRendering = updateJsonBeforeRendering
+                    isCancelledDepthImages  = false
+                    isGeneratingDepthImages = false
+                    outputPathDepthImages = outputPathDepthImages
+                    panoramaThreads     = ThreadPool.Empty
                 }
         }  
 
@@ -949,6 +995,13 @@ module SequencedBookmarks =
                     AnimationSettings.init
 
             let! (sceneState : option<SceneState>) = Json.tryRead "originalSceneState"
+
+            let! (outputPathDepthImages : option<string>) = Json.tryRead "outputPathDepthImages"
+            let outputPathDepthImages = 
+                match outputPathDepthImages with
+                | Some p -> 
+                    if p = "" then defaultOutputPath () else p
+                | None -> defaultOutputPath ()
                 
             return 
                 {
@@ -974,6 +1027,10 @@ module SequencedBookmarks =
                     lastStart           = None
                     fpsSetting          = fpsSetting
                     updateJsonBeforeRendering = updateJsonBeforeRendering
+                    isCancelledDepthImages  = false
+                    isGeneratingDepthImages = false
+                    outputPathDepthImages = outputPathDepthImages
+                    panoramaThreads     = ThreadPool.Empty
                 }
         }  
 
@@ -1003,6 +1060,10 @@ module SequencedBookmarks =
             lastStart           = None
             fpsSetting          = FPSSetting.Full
             updateJsonBeforeRendering = true
+            isCancelledDepthImages  = false
+            isGeneratingDepthImages = false
+            outputPathDepthImages = defaultOutputPath ()
+            panoramaThreads     = ThreadPool.Empty
         }
 
 type SequencedBookmarks with

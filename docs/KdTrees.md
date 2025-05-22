@@ -37,3 +37,29 @@ KdTrees can be constructed:
  ![alt text](./images/createKdTree.png)
  - the [library](https://www.nuget.org/packages/OPCViewer.Base) and in [particular](https://github.com/aardvark-platform/OpcViewer/blob/7fdf368e1e59a2c33c0cc7e5ca3e20b8c18a42a0/src/OPCViewer.Base/KdTrees.fs#L307).
  - the OPC command-line tool. see [here](./OpcTool.md).
+
+## Behavior as of June 2024 (version 4.24.0)
+
+
+## Loading behavior 
+
+| OPC | KdTree Kind | Loads as-is | Recommendation | Remark for PRo3D developers |
+| --- | ----------- | ----------- | -------------- | ----- |
+| OPC_JezeroTest1m_nokdtree | No kd Tree | Yes, no picking, prints `WARNING: [KdTrees] Kdtree not available, please build it manually using opc-tool or pro3d.` | Create KdTree using PRo3D or opc-tool ![alt text](images/createKdTree2.png) and reload the hierarchy. | - |
+| OPC_JezeroTest1m_v2021 | OPC created using per patch kd trees | Yes, picking available fast loading, low memory | None | - |
+| OPC_JezeroTest1m | OPC created without per patch kdTrees, but with master kd tree file (mostly late 2023) | Yes loads, but takes lot of memory since kdtree for whole opc is loaded. Also PRo3D reports this line in stdout `WARNING: Found master kdtree - loading incore. THIS NEEDS A LOT OF MEMORY. CONSIDER CREATING PER-PATCH KD TREES..` | Delete `*.aakd` and create new kd trees using PRo3D or opc-tool. Note that PRo3D never deletes the master kdtree file as whis would be cumbersome. Users confronted with this situation currently really need to delete unwanted huge kd tree files. | This beharior could be changed to [ignore the master kd tree](https://github.com/aardvark-platform/OpcViewer/blob/7fdf368e1e59a2c33c0cc7e5ca3e20b8c18a42a0/src/OPCViewer.Base/KdTrees.fs#L212) |
+
+
+## File system behavior
+
+Since OPCs with inconsistent `Patches` vs `patches` and `images` vs `Images` are in the wild, we introduced a mechanism to deal with those transparent to the user. This was a bad decision since it is overly complex. 
+Relevant parts are:
+ - [Probing paths](https://github.com/aardvark-platform/aardvark.rendering/blob/3a3044847739d07bf57eadae02923868357c3b4f/src/Aardvark.SceneGraph.Opc/OpcPaths.fs#L53)
+ - And several repair paths, [here](https://github.com/aardvark-platform/OpcViewer/blob/e401124e7636133a2e2ac26b5316d1662a0a1d0c/src/OPCViewer.Base/KdTrees.fs#L51), [here](https://github.com/aardvark-platform/OpcViewer/blob/e401124e7636133a2e2ac26b5316d1662a0a1d0c/src/OPCViewer.Base/KdTrees.fs#L66), and [here](https://github.com/aardvark-platform/OpcViewer/blob/e401124e7636133a2e2ac26b5316d1662a0a1d0c/src/OPCViewer.Base/KdTrees.fs#L80)
+
+There are some dead-ends, of this approach, which happens concerned with .cache files. While wrong paths in .cache files can be fixed using [this](https://github.com/aardvark-platform/OpcViewer/blob/e401124e7636133a2e2ac26b5316d1662a0a1d0c/src/OPCViewer.Base/KdTrees.fs#L108), this might fail (especially when also path separators change and capitalization is completely messed up on case-sensitive systems with case insensitive external disks). Then the caches get rebuilt. Currently PRo3D tries to write the caches, even if the file system is readonly (like sometimes when mounting NTFS on mac). See relevant code [here](https://github.com/aardvark-platform/OpcViewer/blob/e401124e7636133a2e2ac26b5316d1662a0a1d0c/src/OPCViewer.Base/KdTrees.fs#L337).
+
+
+## Partially currupt/deleted kd trees
+
+Generally by using the `validateKdTrees` flag all sub-kdtrees would be verified and rebuilt if needed. For WSYWYG however this validation/repair does not take place automatically. Another reason for not repairing broken OPC directories is that it disables a fast path when cache files are broken. Generally we could change this. Relevant parts are [here](https://github.com/aardvark-platform/OpcViewer/blob/fb94d0c74f9759a3ab07a71dcccac82f8186e776/src/OPCViewer.Base/KdTrees.fs#L297).

@@ -1,30 +1,16 @@
 ﻿namespace PRo3D.SimulatedViews
 
 open System
-open System.IO
 
 open Aardvark.Base
-open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
-open Aardvark.Rendering.Effects
-open Aardvark.SceneGraph
 open Aardvark.UI
-open Aardvark.UI.Primitives
-open Aardvark.UI.Trafos
-open Aardvark.UI.Animation
-open Aardvark.Rendering.Text
-
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.SgPrimitives.Sg
-open Aardvark.GeoSpatial.Opc
-open OpcViewer.Base
-
-open Adaptify.FSharp.Core
 
 open PRo3D.Core
 open PRo3D.Core.Surface
+open PRo3D.Base.Gis
 
 
 
@@ -75,6 +61,8 @@ module HaltonPlacement =
         (interaction : Interactions) 
         (surfaces    : SurfaceModel) 
         (refSystem   : ReferenceSystem) 
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
         (cameraLocation : V3d ) 
         (ray : Ray3d) = 
 
@@ -98,14 +86,14 @@ module HaltonPlacement =
                     let dir = (p-camLocation).Normalized
                     FastRay3d(camLocation, dir)
                 
-                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem ray surfaceFilter cache with
+                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem observedSystem observerSystem ray surfaceFilter cache with
                 | Some (t,surf), c ->                             
                     cache <- c; ray.Ray.GetPointOnRay t |> Some
                 | None, c ->
                     cache <- c; None
                                   
             let result = 
-                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem (FastRay3d(ray)) surfaceFilter cache with
+                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem observedSystem observerSystem (FastRay3d(ray)) surfaceFilter cache with
                 | Some (t,surf), c ->                         
                     cache <- c
                     let hit = ray.GetPointOnRay(t)
@@ -126,22 +114,26 @@ module HaltonPlacement =
         (interaction : Interactions) 
         (surfaces    : SurfaceModel)
         (refSystem   : ReferenceSystem) 
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
         (camLocation : V3d )
         (rays        : list<Ray3d>) =
 
-        rays |> List.choose( fun ray -> getSinglePointOnSurface interaction surfaces refSystem camLocation ray)
+        rays |> List.choose( fun ray -> getSinglePointOnSurface interaction surfaces refSystem  observedSystem observerSystem camLocation ray)
         
     let getHaltonRandomTrafos
         (interaction : Interactions) 
         (surfaces    : SurfaceModel) 
         (refSystem   : ReferenceSystem) 
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
         (parameters : ObjectPlacementParameters) 
         (frustum : Frustum) 
         (view : CameraView) =
 
         let haltonSeries = create2DHaltonRandomSeries
         let rays = computeSCRayRaster parameters.count view frustum haltonSeries
-        let points = getPointsOnSurfaces interaction surfaces refSystem view.Location rays
+        let points = getPointsOnSurfaces interaction surfaces refSystem observedSystem observerSystem view.Location rays
         let hsScaling = 
             match parameters.scale with
             | Some s -> 

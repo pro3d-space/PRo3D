@@ -2,7 +2,6 @@
 
 open System.Threading
 open System.Threading.Tasks
-open Giraffe
 
 open Aardvark.Base
 open Aardvark.Rendering
@@ -14,8 +13,9 @@ open Aardium
 open PRo3D.Lite
 open PRo3D.Base
 
-open Aardvark.UI.Giraffe
-open Aardvark.Service.Giraffe
+open Aardvark.UI
+open Aardvark.Service
+open Suave
 
 type Self = Self
 
@@ -25,7 +25,7 @@ let main argv =
     Aardium.init()
     
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
-    CooTransformation.initCooTrafo appData
+    CooTransformation.initCooTrafo None appData
 
     let useVulkan = false
 
@@ -56,7 +56,7 @@ let main argv =
             MutableApp.toWebPart runtime instance
         ]
     use cts = new CancellationTokenSource()
-    let server = Server.startServer "http://localhost:4321" cts.Token webApp 
+    let server = Server.StartWebPart 4321 webApp 
 
 
     Aardium.run {

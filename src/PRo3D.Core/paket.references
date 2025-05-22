@@ -8,10 +8,9 @@ Aardvark.Application.Slim.GL
 Aardvark.Rendering.Text
 Aardvark.UI.Primitives
 Aardvark.SceneGraph
-Aardvark.SceneGraph.IO
-Aardvark.SceneGraph.Opc
+Aardvark.SceneGraph.Assimp
+Aardvark.Data.Opc 
 
-Adaptify.MSBuild
 Adaptify.Core
 
 Aardvark.Geometry
@@ -30,7 +29,6 @@ FSharp.Data
 
 Aardvark.GeoSpatial.Opc
 OPCViewer.Base
-RestSharp
 
 Aardvark.Data.Wavefront
 

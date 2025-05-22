@@ -8,6 +8,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <GenerateLenses>True</GenerateLenses>
     <IncludeAllContentForSelfExtract>True</IncludeAllContentForSelfExtract>
+    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
 
     <PropertyGroup>
@@ -44,28 +45,15 @@
     <EmbeddedResource Include="resources\ElementQueries.js" />
     <EmbeddedResource Include="resources\errorReporting.js" />
     <EmbeddedResource Include="resources\ResizeSensor.js" />
-    <EmbeddedResource Include="resources\HueColorMap.png">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </EmbeddedResource>
-    <EmbeddedResource Include="resources\spectrum.js">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
-    <EmbeddedResource Include="resources\spectrum.css">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
-    <EmbeddedResource Include="resources\jscolor.min.js">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
+    <EmbeddedResource Include="resources\HueColorMap.png"></EmbeddedResource>
     <EmbeddedResource Include="resources\semui-overrides.css" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Reactive" Version="5.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
-    <ProjectReference Include="..\PRo3D.Minerva\PRo3D.Minerva.fsproj" />
     <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
     <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />
   </ItemGroup>

@@ -5,19 +5,19 @@ Aardvark.Base.FSharp
 Aardvark.Rendering
 Aardvark.Application.Slim.GL
 Aardvark.SceneGraph
-Aardvark.SceneGraph.IO
-Aardvark.SceneGraph.Opc
+Aardvark.SceneGraph.Assimp
+Aardvark.Data.Opc 
 Aardvark.Rendering.Text
 Aardvark.Geometry 
 Aardvark.Geometry.Intersection
 Aardvark.Geometry.PointTree
 
 Aardvark.PixImage.DevIL
+Aardvark.PixImage.FreeImage
 
 Aardvark.UI.Primitives
 Aardvark.Service
       
-Adaptify.MSBuild
 Adaptify.Core
 
 FSharp.Core

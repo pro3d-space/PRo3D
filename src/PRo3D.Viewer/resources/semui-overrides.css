@@ -83,6 +83,14 @@ input {
     color: black;
 }
 
+div.fullwidth.textcontainer {
+    width: 100%;
+}
+
+div.fullwidth.textcontainer > input {
+    width: 100%;
+}
+
 .ui.vertical.menu {
     width: 5rem
 }

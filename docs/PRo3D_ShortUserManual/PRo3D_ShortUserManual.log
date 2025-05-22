@@ -1,608 +1,595 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (MiKTeX 2.9.7250 64-bit) (preloaded format=pdflatex 2020.1.22)  29 JUL 2022 10:02
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.3) (preloaded format=pdflatex 2025.4.7)  7 APR 2025 11:50
 entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
 **./PRo3D_ShortUserManual.tex
 (PRo3D_ShortUserManual.tex
-LaTeX2e <2019-10-01> patch level 3
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\article.cls"
-Document Class: article 2019/10/25 v1.4k Standard LaTeX document class
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\size12.clo"
-File: size12.clo 2019/10/25 v1.4k Standard LaTeX file (size option)
+LaTeX2e <2024-11-01> patch level 2
+L3 programming layer <2025-01-18>
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/base\article.cls
+Document Class: article 2024/06/29 v1.4n Standard LaTeX document class
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/base\size12.clo
+File: size12.clo 2024/06/29 v1.4n Standard LaTeX file (size option)
 )
-\c@part=\count80
-\c@section=\count81
-\c@subsection=\count82
-\c@subsubsection=\count83
-\c@paragraph=\count84
-\c@subparagraph=\count85
-\c@figure=\count86
-\c@table=\count87
-\abovecaptionskip=\skip41
-\belowcaptionskip=\skip42
-\bibindent=\dimen102
+\c@part=\count196
+\c@section=\count197
+\c@subsection=\count198
+\c@subsubsection=\count199
+\c@paragraph=\count266
+\c@subparagraph=\count267
+\c@figure=\count268
+\c@table=\count269
+\abovecaptionskip=\skip49
+\belowcaptionskip=\skip50
+\bibindent=\dimen141
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/vmargin\vmargin.s
-ty"
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/vmargin\vmargin.sty
 Package: vmargin 2004/07/15 V2.5 set document margins (VK)
 
 Package: vmargin 2004/07/15 V2.5 set document margins (VK)
-\PaperWidth=\dimen103
-\PaperHeight=\dimen104
-) ("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\t1enc.sty"
+\PaperWidth=\dimen142
+\PaperHeight=\dimen143
+) (C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/base\t1enc.sty
 Package: t1enc 1994/06/01 Standard LaTeX package
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\inputenc.sty
-"
-Package: inputenc 2018/08/11 v1.3c Input encoding file
-\inpenc@prehook=\toks14
-\inpenc@posthook=\toks15
- ("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\latin1.def"
-File: latin1.def 2018/08/11 v1.3c Input encoding file
-))
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\times.sty"
-Package: times 2005/04/12 PSNFSS-v9.2a (SPQR) 
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/fancyhdr\fancyhdr
-.sty"
-Package: fancyhdr 2019/01/31 v3.10 Extensive control of page headers and footer
-s
-\f@nch@headwidth=\skip43
-\f@nch@O@elh=\skip44
-\f@nch@O@erh=\skip45
-\f@nch@O@olh=\skip46
-\f@nch@O@orh=\skip47
-\f@nch@O@elf=\skip48
-\f@nch@O@erf=\skip49
-\f@nch@O@olf=\skip50
-\f@nch@O@orf=\skip51
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/xcolor\xcolor.sty
-"
-Package: xcolor 2016/05/11 v2.12 LaTeX color extensions (UK)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/base\inputenc.sty
+Package: inputenc 2024/02/08 v1.3d Input encoding file
+\inpenc@prehook=\toks17
+\inpenc@posthook=\toks18
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics-cfg\colo
-r.cfg"
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/base\latin1.def
+File: latin1.def 2024/02/08 v1.3d Input encoding file
+))
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\times.sty
+Package: times 2020/03/25 PSNFSS-v9.3 (SPQR) 
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/fancyhdr\fancyhdr.sty
+Package: fancyhdr 2025/02/07 v5.2 Extensive control of page headers and footers
+
+\f@nch@headwidth=\skip51
+\f@nch@offset@elh=\skip52
+\f@nch@offset@erh=\skip53
+\f@nch@offset@olh=\skip54
+\f@nch@offset@orh=\skip55
+\f@nch@offset@elf=\skip56
+\f@nch@offset@erf=\skip57
+\f@nch@offset@olf=\skip58
+\f@nch@offset@orf=\skip59
+\f@nch@height=\skip60
+\f@nch@footalignment=\skip61
+\f@nch@widthL=\skip62
+\f@nch@widthC=\skip63
+\f@nch@widthR=\skip64
+\@temptokenb=\toks19
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/xcolor\xcolor.sty
+Package: xcolor 2024/09/29 v3.02 LaTeX color extensions (UK)
+
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/graphics-cfg\color.cfg
 File: color.cfg 2016/01/02 v1.6 sample color configuration
 )
-Package xcolor Info: Driver file: pdftex.def on input line 225.
+Package xcolor Info: Driver file: pdftex.def on input line 274.
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics-def\pdft
-ex.def"
-File: pdftex.def 2018/01/08 v1.0l Graphics/color driver for pdftex
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/graphics-def\pdftex.def
+File: pdftex.def 2024/04/13 v1.2c Graphics/color driver for pdftex
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/colortbl\colortbl
-.sty"
-Package: colortbl 2018/12/12 v1.0d Color table columns (DPC)
-
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/tools\array.sty"
-Package: array 2019/08/31 v2.4l Tabular extension package (FMi)
-\col@sep=\dimen105
-\ar@mcellbox=\box27
-\extrarowheight=\dimen106
-\NC@list=\toks16
-\extratabsurround=\skip52
-\backup@length=\skip53
-\ar@cellbox=\box28
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/graphics\mathcolor.ltx)
+Package xcolor Info: Model `cmy' substituted by `cmy0' on input line 1349.
+Package xcolor Info: Model `hsb' substituted by `rgb' on input line 1353.
+Package xcolor Info: Model `RGB' extended on input line 1365.
+Package xcolor Info: Model `HTML' substituted by `rgb' on input line 1367.
+Package xcolor Info: Model `Hsb' substituted by `hsb' on input line 1368.
+Package xcolor Info: Model `tHsb' substituted by `hsb' on input line 1369.
+Package xcolor Info: Model `HSB' substituted by `hsb' on input line 1370.
+Package xcolor Info: Model `Gray' substituted by `gray' on input line 1371.
+Package xcolor Info: Model `wave' substituted by `hsb' on input line 1372.
+) (C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/colortbl\colortbl.sty
+Package: colortbl 2024/07/06 v1.0i Color table columns (DPC)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/tools\array.sty
+Package: array 2024/10/17 v2.6g Tabular extension package (FMi)
+\col@sep=\dimen144
+\ar@mcellbox=\box52
+\extrarowheight=\dimen145
+\NC@list=\toks20
+\extratabsurround=\skip65
+\backup@length=\skip66
+\ar@cellbox=\box53
 )
-\everycr=\toks17
-\minrowclearance=\skip54
+\everycr=\toks21
+\minrowclearance=\skip67
+\rownum=\count270
 )
-\rownum=\count88
-Package xcolor Info: Model `cmy' substituted by `cmy0' on input line 1348.
-Package xcolor Info: Model `hsb' substituted by `rgb' on input line 1352.
-Package xcolor Info: Model `RGB' extended on input line 1364.
-Package xcolor Info: Model `HTML' substituted by `rgb' on input line 1366.
-Package xcolor Info: Model `Hsb' substituted by `hsb' on input line 1367.
-Package xcolor Info: Model `tHsb' substituted by `hsb' on input line 1368.
-Package xcolor Info: Model `HSB' substituted by `hsb' on input line 1369.
-Package xcolor Info: Model `Gray' substituted by `gray' on input line 1370.
-Package xcolor Info: Model `wave' substituted by `hsb' on input line 1371.
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/tools\longtable.sty
+Package: longtable 2024-10-27 v4.22 Multi-page Table package (DPC)
+\LTleft=\skip68
+\LTright=\skip69
+\LTpre=\skip70
+\LTpost=\skip71
+\LTchunksize=\count271
+\LTcapwidth=\dimen146
+\LT@head=\box54
+\LT@firsthead=\box55
+\LT@foot=\box56
+\LT@lastfoot=\box57
+\LT@gbox=\box58
+\LT@cols=\count272
+\LT@rows=\count273
+\c@LT@tables=\count274
+\c@LT@chunks=\count275
+\LT@p@ftn=\toks22
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/tools\longtable.s
-ty"
-Package: longtable 2019/02/06 v4.12 Multi-page Table package (DPC)
-\LTleft=\skip55
-\LTright=\skip56
-\LTpre=\skip57
-\LTpost=\skip58
-\LTchunksize=\count89
-\LTcapwidth=\dimen107
-\LT@head=\box29
-\LT@firsthead=\box30
-\LT@foot=\box31
-\LT@lastfoot=\box32
-\LT@cols=\count90
-\LT@rows=\count91
-\c@LT@tables=\count92
-\c@LT@chunks=\count93
-\LT@p@ftn=\toks18
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/booktabs\booktabs
-.sty"
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/booktabs\booktabs.sty
 Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
-\heavyrulewidth=\dimen108
-\lightrulewidth=\dimen109
-\cmidrulewidth=\dimen110
-\belowrulesep=\dimen111
-\belowbottomsep=\dimen112
-\aboverulesep=\dimen113
-\abovetopsep=\dimen114
-\cmidrulesep=\dimen115
-\cmidrulekern=\dimen116
-\defaultaddspace=\dimen117
-\@cmidla=\count94
-\@cmidlb=\count95
-\@aboverulesep=\dimen118
-\@belowrulesep=\dimen119
-\@thisruleclass=\count96
-\@lastruleclass=\count97
-\@thisrulewidth=\dimen120
+\heavyrulewidth=\dimen147
+\lightrulewidth=\dimen148
+\cmidrulewidth=\dimen149
+\belowrulesep=\dimen150
+\belowbottomsep=\dimen151
+\aboverulesep=\dimen152
+\abovetopsep=\dimen153
+\cmidrulesep=\dimen154
+\cmidrulekern=\dimen155
+\defaultaddspace=\dimen156
+\@cmidla=\count276
+\@cmidlb=\count277
+\@aboverulesep=\dimen157
+\@belowrulesep=\dimen158
+\@thisruleclass=\count278
+\@lastruleclass=\count279
+\@thisrulewidth=\dimen159
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/tools\tabularx.st
-y"
-Package: tabularx 2016/02/03 v2.11b `tabularx' package (DPC)
-\TX@col@width=\dimen121
-\TX@old@table=\dimen122
-\TX@old@col=\dimen123
-\TX@target=\dimen124
-\TX@delta=\dimen125
-\TX@cols=\count98
-\TX@ftn=\toks19
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/tools\tabularx.sty
+Package: tabularx 2023/12/11 v2.12a `tabularx' package (DPC)
+\TX@col@width=\dimen160
+\TX@old@table=\dimen161
+\TX@old@col=\dimen162
+\TX@target=\dimen163
+\TX@delta=\dimen164
+\TX@cols=\count280
+\TX@ftn=\toks23
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/wallpaper\wallpap
-er.sty"
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/wallpaper\wallpaper.sty
 Package: wallpaper 2005/01/18, v1.01 easy wallpaper formatting (MHFW)
-
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\ifthen.sty"
-Package: ifthen 2014/09/29 v1.1c Standard LaTeX ifthen package (DPC)
-) ("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/tools\calc.sty"
-Package: calc 2017/05/25 v4.3 Infix arithmetic (KKT,FJ)
-\calc@Acount=\count99
-\calc@Bcount=\count100
-\calc@Adimen=\dimen126
-\calc@Bdimen=\dimen127
-\calc@Askip=\skip59
-\calc@Bskip=\skip60
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/base\ifthen.sty
+Package: ifthen 2024/03/16 v1.1e Standard LaTeX ifthen package (DPC)
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/tools\calc.sty
+Package: calc 2023/07/08 v4.3 Infix arithmetic (KKT,FJ)
+\calc@Acount=\count281
+\calc@Bcount=\count282
+\calc@Adimen=\dimen165
+\calc@Bdimen=\dimen166
+\calc@Askip=\skip72
+\calc@Bskip=\skip73
 LaTeX Info: Redefining \setlength on input line 80.
 LaTeX Info: Redefining \addtolength on input line 81.
-\calc@Ccount=\count101
-\calc@Cskip=\skip61
+\calc@Ccount=\count283
+\calc@Cskip=\skip74
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/eso-pic\eso-pic.s
-ty"
-Package: eso-pic 2018/04/12 v2.0h eso-pic (RN)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/eso-pic\eso-pic.sty
+Package: eso-pic 2023/05/03 v3.0c eso-pic (RN)
+\ESO@tempdima=\dimen167
+\ESO@tempdimb=\dimen168
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/atbegshi\atbegs
-hi.sty"
-Package: atbegshi 2019/12/05 v1.19 At begin shipout hook (HO)
-
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/infwarerr\infwa
-rerr.sty"
-Package: infwarerr 2019/12/03 v1.5 Providing info/warning/error messages (HO)
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/ltxcmds\ltxcmds
-.sty"
-Package: ltxcmds 2019/12/15 v1.24 LaTeX kernel commands for general use (HO)
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/iftex\iftex.sty
-"
-Package: iftex 2019/11/07 v1.0c TeX engine tests
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/graphics\keyval.sty
+Package: keyval 2022/05/29 v1.15 key=value parser (DPC)
+\KV@toks@=\toks24
 ))
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics\keyval.s
-ty"
-Package: keyval 2014/10/28 v1.15 key=value parser (DPC)
-\KV@toks@=\toks20
-))
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics\graphicx
-.sty"
-Package: graphicx 2017/06/01 v1.1a Enhanced LaTeX Graphics (DPC,SPQR)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphicx.sty
+Package: graphicx 2021/09/16 v1.2d Enhanced LaTeX Graphics (DPC,SPQR)
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics\graphics
-.sty"
-Package: graphics 2019/11/01 v1.3d Standard LaTeX Graphics (DPC,SPQR)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphics.sty
+Package: graphics 2024/08/06 v1.4g Standard LaTeX Graphics (DPC,SPQR)
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics\trig.sty
-"
-Package: trig 2016/01/03 v1.10 sin cos tan (DPC)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/graphics\trig.sty
+Package: trig 2023/12/02 v1.11 sin cos tan (DPC)
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics-cfg\grap
-hics.cfg"
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/graphics-cfg\graphics.c
+fg
 File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
 )
-Package graphics Info: Driver file: pdftex.def on input line 105.
+Package graphics Info: Driver file: pdftex.def on input line 106.
 )
-\Gin@req@height=\dimen128
-\Gin@req@width=\dimen129
+\Gin@req@height=\dimen169
+\Gin@req@width=\dimen170
 )
-\wpXoffset=\skip62
-\wpYoffset=\skip63
-\tileXoffset=\skip64
-\tileYoffset=\skip65
-\tilewidth=\skip66
-\tileheight=\skip67
-\tileX=\skip68
-\tileY=\skip69
+\wpXoffset=\skip75
+\wpYoffset=\skip76
+\tileXoffset=\skip77
+\tileYoffset=\skip78
+\tilewidth=\skip79
+\tileheight=\skip80
+\tileX=\skip81
+\tileY=\skip82
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\listings
-.sty"
-\lst@mode=\count102
-\lst@gtempboxa=\box33
-\lst@token=\toks21
-\lst@length=\count103
-\lst@currlwidth=\dimen130
-\lst@column=\count104
-\lst@pos=\count105
-\lst@lostspace=\dimen131
-\lst@width=\dimen132
-\lst@newlines=\count106
-\lst@lineno=\count107
-\lst@maxwidth=\dimen133
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/listings\listings.sty
+\lst@mode=\count284
+\lst@gtempboxa=\box59
+\lst@token=\toks25
+\lst@length=\count285
+\lst@currlwidth=\dimen171
+\lst@column=\count286
+\lst@pos=\count287
+\lst@lostspace=\dimen172
+\lst@width=\dimen173
+\lst@newlines=\count288
+\lst@lineno=\count289
+\lst@maxwidth=\dimen174
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\lstmisc.
-sty"
-File: lstmisc.sty 2020/03/24 1.8d (Carsten Heinz)
-\c@lstnumber=\count108
-\lst@skipnumbers=\count109
-\lst@framebox=\box34
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstpatch.sty
+File: lstpatch.sty 2024/09/23 1.10c (Carsten Heinz)
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\listings
-.cfg"
-File: listings.cfg 2020/03/24 1.8d listings configuration
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstmisc.sty
+File: lstmisc.sty 2024/09/23 1.10c (Carsten Heinz)
+\c@lstnumber=\count290
+\lst@skipnumbers=\count291
+\lst@framebox=\box60
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/listings\listings.cfg
+File: listings.cfg 2024/09/23 1.10c listings configuration
 ))
-Package: listings 2020/03/24 1.8d (Carsten Heinz)
-
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\lstlang1
-.sty"
-File: lstlang1.sty 2020/03/24 1.8d listings language file
+Package: listings 2024/09/23 1.10c (Carsten Heinz)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstlang1.sty
+File: lstlang1.sty 2024/09/23 1.10c listings language file
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\lstmisc.
-sty"
-File: lstmisc.sty 2020/03/24 1.8d (Carsten Heinz)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstmisc.sty
+File: lstmisc.sty 2024/09/23 1.10c (Carsten Heinz)
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/ms\everyshi.sty"
-Package: everyshi 2001/05/15 v3.00 EveryShipout Package (MS)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/everyshi\everyshi.sty
+Package: everyshi 2020/11/18 v4.00 EveryShipout Package
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/wrapfig\wrapfig.s
-ty"
-\wrapoverhang=\dimen134
-\WF@size=\dimen135
-\c@WF@wrappedlines=\count110
-\WF@box=\box35
-\WF@everypar=\toks22
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/wrapfig\wrapfig.sty
+\wrapoverhang=\dimen175
+\WF@size=\dimen176
+\c@WF@wrappedlines=\count292
+\WF@box=\box61
+\WF@everypar=\toks26
 Package: wrapfig 2003/01/31  v 3.6
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hyperref\hyperref
-.sty"
-Package: hyperref 2019/11/10 v7.00c Hypertext links for LaTeX
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\hyperref.sty
+Package: hyperref 2024-11-05 v7.01l Hypertext links for LaTeX
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/pdftexcmds\pdftex
-cmds.sty"
-Package: pdftexcmds 2019/11/24 v0.31 Utility functions of pdfTeX for LuaTeX (HO
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/iftex\iftex.sty
+Package: iftex 2024/12/12 v1.0g TeX engine tests
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/kvsetkeys\kvsetkeys.sty
+Package: kvsetkeys 2022-10-05 v1.19 Key value parser (HO)
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/kvdefinekeys\kvdefine
+keys.sty
+Package: kvdefinekeys 2019-12-19 v1.6 Define keys (HO)
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/pdfescape\pdfescape.s
+ty
+Package: pdfescape 2019/12/09 v1.15 Implements pdfTeX's escape features (HO)
+
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/ltxcmds\ltxcmds.sty
+Package: ltxcmds 2023-12-04 v1.26 LaTeX kernel commands for general use (HO)
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/pdftexcmds\pdftexcmds
+.sty
+Package: pdftexcmds 2020-06-27 v0.33 Utility functions of pdfTeX for LuaTeX (HO
+)
+
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/infwarerr\infwarerr.s
+ty
+Package: infwarerr 2019/12/03 v1.5 Providing info/warning/error messages (HO)
 )
 Package pdftexcmds Info: \pdf@primitive is available.
 Package pdftexcmds Info: \pdf@ifprimitive is available.
 Package pdftexcmds Info: \pdfdraftmode found.
+))
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/hycolor\hycolor.sty
+Package: hycolor 2020-01-27 v1.10 Color options for hyperref/bookmark (HO)
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/kvsetkeys\kvset
-keys.sty"
-Package: kvsetkeys 2019/12/15 v1.18 Key value parser (HO)
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/kvdefinekeys\kv
-definekeys.sty"
-Package: kvdefinekeys 2019-12-19 v1.6 Define keys (HO)
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/pdfescape\pdfes
-cape.sty"
-Package: pdfescape 2019/12/09 v1.15 Implements pdfTeX's escape features (HO)
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hycolor\hycolor.s
-ty"
-Package: hycolor 2019/12/15 v1.9 Color options for hyperref/bookmark (HO)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\nameref.sty
+Package: nameref 2023-11-26 v2.56 Cross-referencing by name of section
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hycolor\xcolor-pa
-tch.sty"
-Package: xcolor-patch 2019/12/15 xcolor patch
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/refcount\refcount.sty
+Package: refcount 2019/12/15 v3.6 Data extraction from label references (HO)
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/gettitlestring\gettit
+lestring.sty
+Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/oberdiek\hopatch.
-sty"
-Package: hopatch 2016/05/16 v1.3 Wrapper for package hooks (HO)
-)))
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/letltxmacro\letlt
-xmacro.sty"
-Package: letltxmacro 2019/12/03 v1.6 Let assignment for LaTeX macros (HO)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/kvoptions\kvoptions.sty
+Package: kvoptions 2022-06-15 v3.15 Key value format for package options (HO)
+))
+\c@section@level=\count293
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/auxhook\auxhook.s
-ty"
-Package: auxhook 2019-12-17 v1.6 Hooks for auxiliary files (HO)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/etoolbox\etoolbox.sty
+Package: etoolbox 2025/02/11 v2.5l e-TeX tools for LaTeX (JAW)
+\etb@tempcnta=\count294
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/kvoptions\kvoptio
-ns.sty"
-Package: kvoptions 2019/11/29 v3.13 Key value format for package options (HO)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\stringenc.s
+ty
+Package: stringenc 2019/11/29 v1.12 Convert strings between diff. encodings (HO
 )
-\@linkdim=\dimen136
-\Hy@linkcounter=\count111
-\Hy@pagecounter=\count112
-
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hyperref\pd1enc.d
-ef"
-File: pd1enc.def 2019/11/10 v7.00c Hyperref: PDFDocEncoding definition (HO)
+)
+\@linkdim=\dimen177
+\Hy@linkcounter=\count295
+\Hy@pagecounter=\count296
+ (C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\pd1enc.def
+File: pd1enc.def 2024-11-05 v7.01l Hyperref: PDFDocEncoding definition (HO)
 Now handling font encoding PD1 ...
 ... no UTF-8 mapping file for font encoding PD1
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/intcalc\intcalc
-.sty"
+) (C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/intcalc\intcalc.sty
 Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/etexcmds\etexcm
-ds.sty"
-Package: etexcmds 2019/12/15 v1.7 Avoid name clashes with e-TeX commands (HO)
-)
-\Hy@SavedSpaceFactor=\count113
-
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/00miktex\hyperref
-.cfg"
-File: hyperref.cfg 2002/06/06 v1.2 hyperref configuration of TeXLive
+\Hy@SavedSpaceFactor=\count297
+ (C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\puenc.def
+File: puenc.def 2024-11-05 v7.01l Hyperref: PDF Unicode definition (HO)
+Now handling font encoding PU ...
+... no UTF-8 mapping file for font encoding PU
 )
 
 Package hyperref Warning: Invalid value `000'
 (hyperref)                for option `pdfborder'.
-(hyperref)                Option setting is ignored on input line 4409.
+(hyperref)                Option setting is ignored on input line 4040.
 
-
-Package hyperref Warning: Unexpected value for option `pdftex'
-(hyperref)                is ignored on input line 4409.
-
-Package hyperref Info: Hyper figures OFF on input line 4535.
-Package hyperref Info: Link nesting OFF on input line 4540.
-Package hyperref Info: Hyper index ON on input line 4543.
-Package hyperref Info: Plain pages OFF on input line 4550.
-Package hyperref Info: Backreferencing OFF on input line 4555.
+Package hyperref Info: Hyper figures OFF on input line 4157.
+Package hyperref Info: Link nesting OFF on input line 4162.
+Package hyperref Info: Hyper index ON on input line 4165.
+Package hyperref Info: Plain pages OFF on input line 4172.
+Package hyperref Info: Backreferencing OFF on input line 4177.
 Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
-Package hyperref Info: Bookmarks ON on input line 4788.
-\c@Hy@tempcnt=\count114
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/url\url.sty"
-\Urlmuskip=\muskip10
+Package hyperref Info: Bookmarks ON on input line 4424.
+\c@Hy@tempcnt=\count298
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/url\url.sty
+\Urlmuskip=\muskip17
 Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
 )
-LaTeX Info: Redefining \url on input line 5147.
-\XeTeXLinkMargin=\dimen137
+LaTeX Info: Redefining \url on input line 4763.
+\XeTeXLinkMargin=\dimen178
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/bitset\bitset.s
-ty"
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/bitset\bitset.sty
 Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/bigintcalc\bigi
-ntcalc.sty"
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/bigintcalc\bigintcalc
+.sty
 Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO
 )
 ))
-\Fld@menulength=\count115
-\Field@Width=\dimen138
-\Fld@charsize=\dimen139
-Package hyperref Info: Hyper figures OFF on input line 6418.
-Package hyperref Info: Link nesting OFF on input line 6423.
-Package hyperref Info: Hyper index ON on input line 6426.
-Package hyperref Info: backreferencing OFF on input line 6433.
-Package hyperref Info: Link coloring OFF on input line 6438.
-Package hyperref Info: Link coloring with OCG OFF on input line 6443.
-Package hyperref Info: PDF/A mode OFF on input line 6448.
-LaTeX Info: Redefining \ref on input line 6488.
-LaTeX Info: Redefining \pageref on input line 6492.
-\Hy@abspage=\count116
-\c@Item=\count117
-\c@Hfootnote=\count118
+\Fld@menulength=\count299
+\Field@Width=\dimen179
+\Fld@charsize=\dimen180
+Package hyperref Info: Hyper figures OFF on input line 6042.
+Package hyperref Info: Link nesting OFF on input line 6047.
+Package hyperref Info: Hyper index ON on input line 6050.
+Package hyperref Info: backreferencing OFF on input line 6057.
+Package hyperref Info: Link coloring OFF on input line 6062.
+Package hyperref Info: Link coloring with OCG OFF on input line 6067.
+Package hyperref Info: PDF/A mode OFF on input line 6072.
+
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/base\atbegshi-ltx.sty
+Package: atbegshi-ltx 2021/01/10 v1.0c Emulation of the original atbegshi
+package with kernel methods
 )
-Package hyperref Info: Driver: hpdftex.
-
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hyperref\hpdftex.
-def"
-File: hpdftex.def 2019/11/10 v7.00c Hyperref driver for pdfTeX
-
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/atveryend\atverye
-nd.sty"
-Package: atveryend 2019-12-11 v1.11 Hooks at the very end of document (HO)
-Package atveryend Info: \enddocument detected (standard20110627).
+\Hy@abspage=\count300
+\c@Item=\count301
+\c@Hfootnote=\count302
 )
-\Fld@listcount=\count119
-\c@bookmark@seq@number=\count120
+Package hyperref Info: Driver (autodetected): hpdftex.
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\hpdftex.def
+File: hpdftex.def 2024-11-05 v7.01l Hyperref driver for pdfTeX
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/rerunfilecheck\re
-runfilecheck.sty"
-Package: rerunfilecheck 2019/12/05 v1.9 Rerun checks for auxiliary files (HO)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/base\atveryend-ltx.sty
+Package: atveryend-ltx 2020/08/19 v1.0a Emulation of the original atveryend pac
+kage
+with kernel methods
+)
+\Fld@listcount=\count303
+\c@bookmark@seq@number=\count304
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/uniquecounter\u
-niquecounter.sty"
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/rerunfilecheck\rerunfil
+echeck.sty
+Package: rerunfilecheck 2022-07-10 v1.10 Rerun checks for auxiliary files (HO)
+
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/generic/uniquecounter\uniquec
+ounter.sty
 Package: uniquecounter 2019/12/15 v1.4 Provide unlimited unique counter (HO)
 )
 Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
-86.
-)
-\Hy@SectionHShift=\skip70
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/multirow\multirow
-.sty"
-Package: multirow 2019/05/31 v2.5 Span multiple rows of a table
-\multirow@colwidth=\skip71
-\multirow@cntb=\count121
-\multirow@dima=\skip72
-\bigstrutjot=\dimen140
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/ccaption\ccaption
-.sty"
-Package: ccaption 2011/08/07 v3.2c Extended captioning and new floats
-\@contcwidth=\skip73
-\@contindw=\skip74
-\abovelegendskip=\skip75
-\belowlegendskip=\skip76
-\c@newflo@tctr=\count122
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\helvet.sty
-"
-Package: helvet 2005/04/12 PSNFSS-v9.2a (WaS) 
-)
-Package hyperref Info: Option `colorlinks' set `true' on input line 94.
- (PRo3D_ShortUserManual.aux (Introduction.aux) (Start.aux) (ViewerActions.aux) 
-(ViewerFeatures.aux) (Minerva.aux) (CommandLine.aux) (SurfaceComparison.aux)
-(KeyboardShortcuts.aux))
-\openout1 = `PRo3D_ShortUserManual.aux'.
-
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 173.
-LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 173.
-LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 173.
-LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 173.
-LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 173.
-LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 173.
-LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 173.
-LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Trying to load font information for T1+phv on input line 17
-3.
-
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\t1phv.fd"
-File: t1phv.fd 2001/06/04 scalable font definitions for T1/phv.
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/context/base/mkii\supp-
-pdf.mkii"
-[Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count123
-\scratchdimen=\dimen141
-\scratchbox=\box36
-\nofMPsegments=\count124
-\nofMParguments=\count125
-\everyMPshowfont=\toks23
-\MPscratchCnt=\count126
-\MPscratchDim=\dimen142
-\MPnumerator=\count127
-\makeMPintoPDFobject=\count128
-\everyMPtoPDFconversion=\toks24
-)
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/epstopdf-pkg\epst
-opdf-base.sty"
-Package: epstopdf-base 2019-12-09 v2.10 Base part for package epstopdf
-Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 85.
 )
-\AtBeginShipoutBox=\box37
-\c@lstlisting=\count129
- ABD: EveryShipout initializing macros
-Package hyperref Info: Link coloring ON on input line 173.
+\Hy@SectionHShift=\skip83
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/multirow\multirow.sty
+Package: multirow 2024/11/12 v2.9 Span multiple rows of a table
+\multirow@colwidth=\skip84
+\multirow@cntb=\count305
+\multirow@dima=\skip85
+\bigstrutjot=\dimen181
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/ccaption\ccaption.sty
+Package: ccaption 2011/08/07 v3.2c Extended captioning and new floats
+\@contcwidth=\skip86
+\@contindw=\skip87
+\abovelegendskip=\skip88
+\belowlegendskip=\skip89
+\c@newflo@tctr=\count306
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\helvet.sty
+Package: helvet 2020/03/25 PSNFSS-v9.3 (WaS) 
+)
+Package hyperref Info: Option `colorlinks' set `true' on input line 94.
+LaTeX Font Info:    Trying to load font information for T1+phv on input line 17
+6.
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hyperref\nameref.
-sty"
-Package: nameref 2019/09/16 v2.46 Cross-referencing by name of section
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\t1phv.fd
+File: t1phv.fd 2020/03/25 scalable font definitions for T1/phv.
+)
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/l3backend\l3backend-pdf
+tex.def
+File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
+\l__color_backend_stack_int=\count307
+\l__pdf_internal_box=\box62
+) (PRo3D_ShortUserManual.aux (Introduction.aux) (Start.aux)
+(ViewerActions.aux) (ViewerFeatures.aux) (Minerva.aux) (CommandLine.aux)
+(SurfaceComparison.aux) (KeyboardShortcuts.aux) (Appendix.aux
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/refcount\refcount
-.sty"
-Package: refcount 2019/12/15 v3.6 Data extraction from label references (HO)
+LaTeX Warning: Label `lst:json1' multiply defined.
+
+))
+\openout1 = `PRo3D_ShortUserManual.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 176.
+LaTeX Font Info:    ... okay on input line 176.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 176.
+LaTeX Font Info:    ... okay on input line 176.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 176.
+LaTeX Font Info:    ... okay on input line 176.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 176.
+LaTeX Font Info:    ... okay on input line 176.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 176.
+LaTeX Font Info:    ... okay on input line 176.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 176.
+LaTeX Font Info:    ... okay on input line 176.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 176.
+LaTeX Font Info:    ... okay on input line 176.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 176.
+LaTeX Font Info:    ... okay on input line 176.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 176.
+LaTeX Font Info:    ... okay on input line 176.
+
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/context/base/mkii\supp-pdf.mk
+ii
+[Loading MPS to PDF converter (version 2006.09.02).]
+\scratchcounter=\count308
+\scratchdimen=\dimen182
+\scratchbox=\box63
+\nofMPsegments=\count309
+\nofMParguments=\count310
+\everyMPshowfont=\toks27
+\MPscratchCnt=\count311
+\MPscratchDim=\dimen183
+\MPnumerator=\count312
+\makeMPintoPDFobject=\count313
+\everyMPtoPDFconversion=\toks28
 )
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/gettitlestring\
-gettitlestring.sty"
-Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
-)
-\c@section@level=\count130
-)
-LaTeX Info: Redefining \ref on input line 173.
-LaTeX Info: Redefining \pageref on input line 173.
-LaTeX Info: Redefining \nameref on input line 173.
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/epstopdf-pkg\epstopdf-b
+ase.sty
+Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
+Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
+85.
+
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/00miktex\epstopdf-sys.c
+fg
+File: epstopdf-sys.cfg 2021/03/18 v2.0 Configuration of epstopdf for MiKTeX
+))
+\c@lstlisting=\count314
+Package hyperref Info: Link coloring ON on input line 176.
  (PRo3D_ShortUserManual.out) (PRo3D_ShortUserManual.out)
 \@outlinefile=\write3
 \openout3 = `PRo3D_ShortUserManual.out'.
 
-LaTeX Font Info:    Font shape `T1/phv/bx/sc' in size <24.88> not available
-(Font)              Font shape `T1/phv/b/sc' tried instead on input line 180.
-<pics/CoverPic.png, id=191, 933.4875pt x 944.7797pt>
+<pics/CoverPic.png, id=243, 933.4875pt x 944.7797pt>
 File: pics/CoverPic.png Graphic file (type png)
 <use pics/CoverPic.png>
-Package pdftex.def Info: pics/CoverPic.png  used on input line 183.
+Package pdftex.def Info: pics/CoverPic.png  used on input line 186.
 (pdftex.def)             Requested size: 418.25542pt x 423.31609pt.
+
 
 [1
 
-{C:/Users/rnowak/AppData/Local/MiKTeX/2.9/pdftex/config/pdftex.map} <./pics/Cov
-erPic.png>]
-LaTeX Font Info:    Font shape `T1/phv/bx/n' in size <17.28> not available
-(Font)              Font shape `T1/phv/b/n' tried instead on input line 234.
- (PRo3D_ShortUserManual.toc
-LaTeX Font Info:    Font shape `T1/phv/bx/n' in size <12> not available
-(Font)              Font shape `T1/phv/b/n' tried instead on input line 1.
+{C:/Users/laura/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users/laur
+a/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/base/8r.enc} <./pics/CoverPic.p
+ng>] (PRo3D_ShortUserManual.toc
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <12> on input line 2.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <8> on input line 2.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <6> on input line 2.
-<pics/logosSUM.png, id=241, 212.795pt x 39.14626pt>
+
+
+<pics/logosSUM.png, id=295, 212.795pt x 39.14626pt>
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 41.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 47.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
 
-Package Fancyhdr Warning: \headheight is too small (30.0pt): 
-Make it at least 34.35004pt.
-We now make it that large for the rest of the document.
-This may cause the page layout to be inconsistent, however.
 
 pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has 
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.41 ...rguments and Features}{37}{subsection.6.2}
+l.47 ...ne {5.1}Start Minerva}{45}{subsection.5.1}
                                                   % [1 <./pics/logosSUM.png>])
 \tf@toc=\write4
 \openout4 = `PRo3D_ShortUserManual.toc'.
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 237.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 240.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
 
 [2]
 \openout2 = `Introduction.aux'.
 
  (Introduction.tex
-<pics/Features.png, id=258, 1304.7144pt x 339.669pt>
+<pics/Features.png, id=323, 1304.7144pt x 339.669pt>
 File: pics/Features.png Graphic file (type png)
 <use pics/Features.png>
 Package pdftex.def Info: pics/Features.png  used on input line 8.
 (pdftex.def)             Requested size: 418.25542pt x 108.88806pt.
-LaTeX Font Info:    Font shape `T1/phv/bx/n' in size <14.4> not available
-(Font)              Font shape `T1/phv/b/n' tried instead on input line 17.
-LaTeX Font Info:    Trying to load font information for OMS+phv on input line 3
+LaTeX Font Info:    Trying to load font information for TS1+phv on input line 3
 3.
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\omsphv.fd"
-File: omsphv.fd 
+(C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\ts1phv.fd
+File: ts1phv.fd 2020/03/25 scalable font definitions for TS1/phv.
 )
-LaTeX Font Info:    Font shape `OMS/phv/m/n' in size <12> not available
-(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 33.
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 35.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [3
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[3
 
  <./pics/Features.png>])
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 241.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 244.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [4]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[4]
 \openout2 = `Start.aux'.
 
  (Start.tex
-<pics/startAI.png, id=270, 952.0368pt x 593.0958pt>
+<pics/startAI.png, id=334, 952.0368pt x 593.0958pt>
 File: pics/startAI.png Graphic file (type png)
 <use pics/startAI.png>
 Package pdftex.def Info: pics/startAI.png  used on input line 10.
 (pdftex.def)             Requested size: 418.25542pt x 260.55571pt.
-LaTeX Font Info:    Font shape `T1/phv/bx/n' in size <10> not available
-(Font)              Font shape `T1/phv/b/n' tried instead on input line 11.
-<pics/AddSurface.png, id=276, 947.79094pt x 595.47469pt>
+<pics/AddSurface.png, id=340, 947.79094pt x 595.47469pt>
 File: pics/AddSurface.png Graphic file (type png)
 <use pics/AddSurface.png>
 Package pdftex.def Info: pics/AddSurface.png  used on input line 42.
@@ -611,23 +598,33 @@ Package pdftex.def Info: pics/AddSurface.png  used on input line 42.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/saveScene.png, id=280, 952.30782pt x 595.47469pt>
+<pics/saveScene.png, id=344, 952.30782pt x 595.47469pt>
 File: pics/saveScene.png Graphic file (type png)
 <use pics/saveScene.png>
 Package pdftex.def Info: pics/saveScene.png  used on input line 54.
 (pdftex.def)             Requested size: 418.25542pt x 261.53719pt.
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 57.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
 [5
+
 
 
  <./pics/startAI.png>]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/OpenScene.png, id=293, 949.29657pt x 593.21625pt>
+<pics/OpenScene.png, id=357, 949.29657pt x 593.21625pt>
 File: pics/OpenScene.png Graphic file (type png)
 <use pics/OpenScene.png>
 Package pdftex.def Info: pics/OpenScene.png  used on input line 71.
@@ -635,7 +632,7 @@ Package pdftex.def Info: pics/OpenScene.png  used on input line 71.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/NewSurfaceAI.png, id=294, 1431.9096pt x 718.8456pt>
+<pics/NewSurfaceAI.png, id=358, 1431.9096pt x 718.8456pt>
 File: pics/NewSurfaceAI.png Graphic file (type png)
 <use pics/NewSurfaceAI.png>
 Package pdftex.def Info: pics/NewSurfaceAI.png  used on input line 81.
@@ -644,30 +641,54 @@ Package pdftex.def Info: pics/NewSurfaceAI.png  used on input line 81.
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 )
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 245.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 248.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [6 <./pics/AddSurface.png>]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[6 <./pics/AddSurface.png>]
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 245.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 248.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [7 <./pics/saveScene.png> <./pics/OpenScene.png>]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[7 <./pics/saveScene.png> <./pics/OpenScene.png>]
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 245.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 248.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
 [8 <./pics/NewSurfaceAI.png>]
 \openout2 = `ViewerActions.aux'.
 
  (ViewerActions.tex
-<pics/Interactions.png, id=310, 597.73312pt x 247.67531pt>
+<pics/Interactions.png, id=374, 597.73312pt x 247.67531pt>
 File: pics/Interactions.png Graphic file (type png)
 <use pics/Interactions.png>
 Package pdftex.def Info: pics/Interactions.png  used on input line 8.
 (pdftex.def)             Requested size: 418.25542pt x 173.31105pt.
-<pics/exploreCenterAI.png, id=313, 834.9594pt x 746.79pt>
+<pics/exploreCenterAI.png, id=377, 834.9594pt x 746.79pt>
 File: pics/exploreCenterAI.png Graphic file (type png)
 <use pics/exploreCenterAI.png>
 Package pdftex.def Info: pics/exploreCenterAI.png  used on input line 28.
@@ -676,15 +697,25 @@ Package pdftex.def Info: pics/exploreCenterAI.png  used on input line 28.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 45.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
 [9
 
 
+
  <./pics/Interactions.png>]
-<pics/CoordinateSystem.png, id=321, 663.22781pt x 593.96906pt>
+<pics/CoordinateSystem.png, id=385, 663.22781pt x 593.96906pt>
 File: pics/CoordinateSystem.png Graphic file (type png)
 <use pics/CoordinateSystem.png>
 Package pdftex.def Info: pics/CoordinateSystem.png  used on input line 50.
@@ -693,55 +724,98 @@ Package pdftex.def Info: pics/CoordinateSystem.png  used on input line 50.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/drawAnnotationsAI.png, id=325, 658.6206pt x 587.3142pt>
+<pics/drawAnnotationsAI.png, id=389, 658.6206pt x 587.3142pt>
 File: pics/drawAnnotationsAI.png Graphic file (type png)
 <use pics/drawAnnotationsAI.png>
 Package pdftex.def Info: pics/drawAnnotationsAI.png  used on input line 67.
 (pdftex.def)             Requested size: 418.25542pt x 372.98518pt.
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 70.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
 [10 <./pics/exploreCenterAI.png (PNG copy)>]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 LaTeX Font Info:    Font shape `T1/phv/m/it' in size <12> not available
 (Font)              Font shape `T1/phv/m/sl' tried instead on input line 74.
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 79.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
 [11 <./pics/CoordinateSystem.png>]
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 86.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [12 <./pics/drawAnnotationsAI.png (PNG copy)>]
-<pics/projectionAI.png, id=351, 1024.7886pt x 315.0972pt>
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[12 <./pics/drawAnnotationsAI.png (PNG copy)>]
+<pics/projectionAI.png, id=415, 1024.7886pt x 315.0972pt>
 File: pics/projectionAI.png Graphic file (type png)
 <use pics/projectionAI.png>
 Package pdftex.def Info: pics/projectionAI.png  used on input line 91.
 (pdftex.def)             Requested size: 418.25542pt x 128.59929pt.
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 125.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [13 <./pics/projectionAI.png>])
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[13 <./pics/projectionAI.png>])
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 249.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 252.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [14]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[14]
 \openout2 = `ViewerFeatures.aux'.
 
  (ViewerFeatures.tex
-<pics/SurfacesAI.png, id=372, 1442.5092pt x 709.2096pt>
+<pics/SurfacesAI.png, id=436, 1442.5092pt x 709.2096pt>
 File: pics/SurfacesAI.png Graphic file (type png)
 <use pics/SurfacesAI.png>
 Package pdftex.def Info: pics/SurfacesAI.png  used on input line 8.
 (pdftex.def)             Requested size: 418.25542pt x 205.63304pt.
-<pics/SurfaceTranslation.png, id=376, 1438.6247pt x 503.63156pt>
+<pics/SurfaceTranslation.png, id=440, 1438.6247pt x 503.63156pt>
 File: pics/SurfaceTranslation.png Graphic file (type png)
 <use pics/SurfaceTranslation.png>
 Package pdftex.def Info: pics/SurfaceTranslation.png  used on input line 38.
@@ -750,11 +824,21 @@ Package pdftex.def Info: pics/SurfaceTranslation.png  used on input line 38.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 45.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
 [15
+
 
 
  <./pics/SurfacesAI.png (PNG copy)>]
@@ -768,10 +852,19 @@ Underfull \hbox (badness 10000) in paragraph at lines 61--62
 
  []
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 64.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
 [16 <./pics/SurfaceTranslation.png>]
 Underfull \hbox (badness 10000) in paragraph at lines 64--65
 
@@ -782,232 +875,756 @@ Overfull \hbox (6.0pt too wide) in paragraph at lines 67--68
  [][][][][][] 
  []
 
-<pics/SurfaceColorCorrection.png, id=394, 1442.38875pt x 684.30656pt>
+<pics/SurfaceColorCorrection.png, id=458, 1442.38875pt x 684.30656pt>
 File: pics/SurfaceColorCorrection.png Graphic file (type png)
 <use pics/SurfaceColorCorrection.png>
 Package pdftex.def Info: pics/SurfaceColorCorrection.png  used on input line 72
 .
 (pdftex.def)             Requested size: 418.25542pt x 198.42293pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 77--78
+Underfull \hbox (badness 10000) in paragraph at lines 77--79
 
  []
 
-<pics/SurfaceColorLegend.png, id=396, 1440.88312pt x 719.68875pt>
+<pics/radiometry.png, id=461, 757.6305pt x 410.7345pt>
+File: pics/radiometry.png Graphic file (type png)
+<use pics/radiometry.png>
+Package pdftex.def Info: pics/radiometry.png  used on input line 82.
+(pdftex.def)             Requested size: 418.25542pt x 226.74448pt.
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<pics/SurfaceColorLegend.png, id=462, 1440.88312pt x 719.68875pt>
 File: pics/SurfaceColorLegend.png Graphic file (type png)
 <use pics/SurfaceColorLegend.png>
-Package pdftex.def Info: pics/SurfaceColorLegend.png  used on input line 81.
+Package pdftex.def Info: pics/SurfaceColorLegend.png  used on input line 89.
 (pdftex.def)             Requested size: 418.25542pt x 208.90205pt.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 97.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 105.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
 [17 <./pics/SurfaceColorCorrection.png>]
-<pics/AnnotationsAI.png, id=406, 1482.4986pt x 743.4174pt>
+<pics/AnnotationsAI.png, id=473, 1482.4986pt x 743.4174pt>
 File: pics/AnnotationsAI.png Graphic file (type png)
 <use pics/AnnotationsAI.png>
-Package pdftex.def Info: pics/AnnotationsAI.png  used on input line 103.
+Package pdftex.def Info: pics/AnnotationsAI.png  used on input line 111.
 (pdftex.def)             Requested size: 418.25542pt x 209.73221pt.
-File: pics/logosSUM.png Graphic file (type png)
-<use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 113.
-(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [18 <./pics/SurfaceColorLegend.png> <./pics/AnnotationsAI.png (PNG copy)>]
-Overfull \hbox (2.0279pt too wide) in paragraph at lines 119--120
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+Overfull \hbox (2.0279pt too wide) in paragraph at lines 127--128
 []\T1/phv/m/n/12 The prop-er-ties of the se-lected an-no-ta-tion (click on an-n
 o-ta-tion's name) are shown
  []
 
 
-Overfull \hbox (11.39845pt too wide) in paragraph at lines 129--130
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 133.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[18 <./pics/radiometry.png>]
+Overfull \hbox (11.39845pt too wide) in paragraph at lines 137--138
 \T1/phv/m/n/12 and Strike in-for-ma-tion (Sec-tion [][]3.3[][]) is avail-able. 
 The DnS is vis-i-ble (checked)
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 132--133
+Underfull \hbox (badness 10000) in paragraph at lines 140--141
 
  []
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 146.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 153.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[19]
-<pics/DnsAI.png, id=428, 1441.0638pt x 721.2546pt>
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[19 <./pics/SurfaceColorLegend.png>]
+<pics/DnsAI.png, id=495, 1441.0638pt x 721.2546pt>
 File: pics/DnsAI.png Graphic file (type png)
 <use pics/DnsAI.png>
-Package pdftex.def Info: pics/DnsAI.png  used on input line 151.
+Package pdftex.def Info: pics/DnsAI.png  used on input line 159.
 (pdftex.def)             Requested size: 418.25542pt x 209.33455pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 156--157
+Underfull \hbox (badness 10000) in paragraph at lines 164--165
 
  []
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 198.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 168.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[20 <./pics/DnsAI.png (PNG copy)>]
-<pics/SequencedBookmarks_tabUpper.PNG, id=438, 422.32782pt x 603.0028pt>
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[20 <./pics/AnnotationsAI.png (PNG copy)> <./pics/DnsAI.png (PNG copy)>]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 179.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[21]
+<pics/scaleBars.png, id=508, 755.82375pt x 421.575pt>
+File: pics/scaleBars.png Graphic file (type png)
+<use pics/scaleBars.png>
+Package pdftex.def Info: pics/scaleBars.png  used on input line 185.
+(pdftex.def)             Requested size: 418.25542pt x 233.28859pt.
+
+Underfull \hbox (badness 10000) in paragraph at lines 209--210
+
+ []
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 210.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[22 <./pics/scaleBars.png>]
+<pics/SequencedBookmarks_tabUpper.PNG, id=518, 422.32782pt x 603.0028pt>
 File: pics/SequencedBookmarks_tabUpper.PNG Graphic file (type png)
 <use pics/SequencedBookmarks_tabUpper.PNG>
 Package pdftex.def Info: pics/SequencedBookmarks_tabUpper.PNG  used on input li
-ne 201.
+ne 259.
 (pdftex.def)             Requested size: 209.1277pt x 298.60233pt.
-<pics/SequencedBookmarks_list.png, id=439, 404.26031pt x 170.88844pt>
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 266.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[23]
+<pics/SequencedBookmarks_list.png, id=524, 404.26031pt x 170.88844pt>
 File: pics/SequencedBookmarks_list.png Graphic file (type png)
 <use pics/SequencedBookmarks_list.png>
 Package pdftex.def Info: pics/SequencedBookmarks_list.png  used on input line 2
-12.
+70.
 (pdftex.def)             Requested size: 334.6056pt x 141.44623pt.
-File: pics/logosSUM.png Graphic file (type png)
-<use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 218.
-(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [21 <./pics/SequencedBookmarks_tabUpper.PNG> <./pics/SequencedBookmarks_list.p
-ng>]
-<pics/SequencedBookmarks_properties.png, id=449, 418.56375pt x 188.20313pt>
+<pics/SequencedBookmarks_properties.png, id=526, 418.56375pt x 188.20313pt>
 File: pics/SequencedBookmarks_properties.png Graphic file (type png)
 <use pics/SequencedBookmarks_properties.png>
 Package pdftex.def Info: pics/SequencedBookmarks_properties.png  used on input 
-line 223.
+line 281.
 (pdftex.def)             Requested size: 334.6056pt x 150.45068pt.
-<pics/SequencedBookmarks_animation.png, id=451, 417.81094pt x 188.95593pt>
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 289.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[24 <./pics/SequencedBookmarks_tabUpper.PNG> <./pics/SequencedBookmarks_list.pn
+g>]
+<pics/SequencedBookmarks_animation.png, id=537, 417.81094pt x 188.95593pt>
 File: pics/SequencedBookmarks_animation.png Graphic file (type png)
 <use pics/SequencedBookmarks_animation.png>
 Package pdftex.def Info: pics/SequencedBookmarks_animation.png  used on input l
-ine 234.
+ine 292.
 (pdftex.def)             Requested size: 334.6056pt x 151.33505pt.
-File: pics/logosSUM.png Graphic file (type png)
-<use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 246.
-(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [22 <./pics/SequencedBookmarks_properties.png> <./pics/SequencedBookmarks_anim
-ation.png>]
-<pics/SequencedBookmarks_tabSnapshots.png, id=460, 420.06938pt x 275.52937pt>
-File: pics/SequencedBookmarks_tabSnapshots.png Graphic file (type png)
-<use pics/SequencedBookmarks_tabSnapshots.png>
-Package pdftex.def Info: pics/SequencedBookmarks_tabSnapshots.png  used on inpu
-t line 266.
-(pdftex.def)             Requested size: 334.6056pt x 219.47363pt.
 
-
-LaTeX Warning: Reference `fig:SequencedBookmarks_tabSnapshots' on page 23 undef
-ined on input line 271.
-
-LaTeX Font Info:    Font shape `T1/phv/bx/it' in size <12> not available
-(Font)              Font shape `T1/phv/b/it' tried instead on input line 275.
-LaTeX Font Info:    Font shape `T1/phv/b/it' in size <12> not available
-(Font)              Font shape `T1/phv/b/sl' tried instead on input line 275.
-File: pics/logosSUM.png Graphic file (type png)
-<use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 276.
-(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[23 <./pics/SequencedBookmarks_tabSnapshots.png>]
-Overfull \hbox (3.26283pt too wide) in paragraph at lines 277--278
-[]\T1/phv/b/sl/12 Image Res-o-lu-tion \T1/phv/m/n/12 Res-o-lu-tion of out-put i
-m-ages. Larger im-ages take longer
- []
 
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 309.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[24]
-LaTeX Font Info:    Trying to load font information for T1+pcr on input line 33
-6.
 
-("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\t1pcr.fd"
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[25 <./pics/SequencedBookmarks_properties.png> <./pics/SequencedBookmarks_anima
+tion.png>]
+<pics/SequencedBookmarks_tabSnapshots.png, id=545, 420.06938pt x 275.52937pt>
+File: pics/SequencedBookmarks_tabSnapshots.png Graphic file (type png)
+<use pics/SequencedBookmarks_tabSnapshots.png>
+Package pdftex.def Info: pics/SequencedBookmarks_tabSnapshots.png  used on inpu
+t line 324.
+(pdftex.def)             Requested size: 334.6056pt x 219.47363pt.
+
+
+LaTeX Warning: Reference `fig:SequencedBookmarks_tabSnapshots' on page 26 undef
+ined on input line 329.
+
+LaTeX Font Info:    Font shape `T1/phv/b/it' in size <12> not available
+(Font)              Font shape `T1/phv/b/sl' tried instead on input line 333.
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 335.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[26 <./pics/SequencedBookmarks_tabSnapshots.png>]
+Overfull \hbox (3.26283pt too wide) in paragraph at lines 335--336
+[]\T1/phv/b/sl/12 Image Res-o-lu-tion \T1/phv/m/n/12 Res-o-lu-tion of out-put i
+m-ages. Larger im-ages take longer
+ []
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 369.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[27]
+LaTeX Font Info:    Trying to load font information for T1+pcr on input line 39
+4.
+ (C:\Users\laura\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\t1pcr.fd
 File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
 )
-File: pics/logosSUM.png Graphic file (type png)
-<use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 337.
-(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[25]
-<pics/screenshots.PNG, id=494, 271.76532pt x 140.02313pt>
+<pics/screenshots.PNG, id=574, 271.76532pt x 140.02313pt>
 File: pics/screenshots.PNG Graphic file (type png)
 <use pics/screenshots.PNG>
-Package pdftex.def Info: pics/screenshots.PNG  used on input line 340.
+Package pdftex.def Info: pics/screenshots.PNG  used on input line 398.
 (pdftex.def)             Requested size: 250.9558pt x 129.30783pt.
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 387.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 422.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [26 <./pics/screenshots.PNG>]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[28]
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 393.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 451.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [27]
-<pics/ViewPlanner1.png, id=506, 1425.1644pt x 744.8628pt>
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[29 <./pics/screenshots.PNG>]
+<pics/ViewPlanner1.png, id=586, 1425.1644pt x 744.8628pt>
 File: pics/ViewPlanner1.png Graphic file (type png)
 <use pics/ViewPlanner1.png>
-Package pdftex.def Info: pics/ViewPlanner1.png  used on input line 399.
+Package pdftex.def Info: pics/ViewPlanner1.png  used on input line 457.
 (pdftex.def)             Requested size: 418.25542pt x 218.59605pt.
-LaTeX Font Info:    Font shape `T1/pcr/bx/n' in size <12> not available
-(Font)              Font shape `T1/pcr/b/n' tried instead on input line 403.
-<pics/ViewPlannerGuiAi.png, id=512, 1429.9824pt x 744.8628pt>
+<pics/ViewPlannerGuiAi.png, id=592, 1429.9824pt x 744.8628pt>
 File: pics/ViewPlannerGuiAi.png Graphic file (type png)
 <use pics/ViewPlannerGuiAi.png>
-Package pdftex.def Info: pics/ViewPlannerGuiAi.png  used on input line 418.
+Package pdftex.def Info: pics/ViewPlannerGuiAi.png  used on input line 476.
 (pdftex.def)             Requested size: 418.25542pt x 217.85728pt.
 
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 429.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 487.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[28 <./pics/ViewPlanner1.png>]
-<pics/InstrumentView.png, id=524, 1440.13031pt x 743.02594pt>
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[30 <./pics/ViewPlanner1.png>]
+<pics/InstrumentView.png, id=605, 1440.13031pt x 743.02594pt>
 File: pics/InstrumentView.png Graphic file (type png)
 <use pics/InstrumentView.png>
-Package pdftex.def Info: pics/InstrumentView.png  used on input line 436.
+Package pdftex.def Info: pics/InstrumentView.png  used on input line 494.
 (pdftex.def)             Requested size: 418.25542pt x 215.78946pt.
 
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-)
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 253.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 502.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [29 <./pics/ViewPlannerGuiAi.png>]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[31 <./pics/ViewPlannerGuiAi.png>]
+Underfull \hbox (badness 10000) in paragraph at lines 525--527
+
+ []
+
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 253.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 545.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [30 <./pics/InstrumentView.png>]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[32 <./pics/InstrumentView.png>]
+<./pics/gis-view.png, id=624, 1050.92625pt x 572.89032pt>
+File: ./pics/gis-view.png Graphic file (type png)
+<use ./pics/gis-view.png>
+Package pdftex.def Info: ./pics/gis-view.png  used on input line 559.
+(pdftex.def)             Requested size: 334.6056pt x 182.40204pt.
+<pics/loadKernel.png, id=625, 353.06906pt x 503.63156pt>
+File: pics/loadKernel.png Graphic file (type png)
+<use pics/loadKernel.png>
+Package pdftex.def Info: pics/loadKernel.png  used on input line 573.
+(pdftex.def)             Requested size: 167.2996pt x 238.64343pt.
+<pics/loadedKernel.png, id=626, 484.05844pt x 365.11406pt>
+File: pics/loadedKernel.png Graphic file (type png)
+<use pics/loadedKernel.png>
+Package pdftex.def Info: pics/loadedKernel.png  used on input line 590.
+(pdftex.def)             Requested size: 334.6056pt x 252.39694pt.
+
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 606.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[33 <./pics/gis-view.png> <./pics/loadKernel.png>]
+<pics/currentObservationSettings.png, id=641, 420.82219pt x 134.75343pt>
+File: pics/currentObservationSettings.png Graphic file (type png)
+<use pics/currentObservationSettings.png>
+Package pdftex.def Info: pics/currentObservationSettings.png  used on input lin
+e 612.
+(pdftex.def)             Requested size: 334.6056pt x 107.14696pt.
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 637.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[34 <./pics/loadedKernel.png> <./pics/currentObservationSettings.png>]
+<pics/surfaces.png, id=651, 1442.38875pt x 709.14937pt>
+File: pics/surfaces.png Graphic file (type png)
+<use pics/surfaces.png>
+Package pdftex.def Info: pics/surfaces.png  used on input line 646.
+(pdftex.def)             Requested size: 418.25542pt x 205.6264pt.
+
+Underfull \hbox (badness 10000) in paragraph at lines 651--656
+
+ []
+
+<pics/entities.png, id=652, 421.575pt x 224.33812pt>
+File: pics/entities.png Graphic file (type png)
+<use pics/entities.png>
+Package pdftex.def Info: pics/entities.png  used on input line 669.
+(pdftex.def)             Requested size: 250.9558pt x 133.54616pt.
+<pics/editEntities.png, id=653, 421.575pt x 224.33812pt>
+File: pics/editEntities.png Graphic file (type png)
+<use pics/editEntities.png>
+Package pdftex.def Info: pics/editEntities.png  used on input line 681.
+(pdftex.def)             Requested size: 250.9558pt x 133.54616pt.
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 688.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[35 <./pics/surfaces.png> <./pics/entities.png>]
+Overfull \hbox (1.5844pt too wide) in paragraph at lines 688--691
+[]\T1/phv/m/n/12 Each en-tity can be as-signed a ref-er-ence frame in the col-u
+mn ``Ref-er-ence Frame''.
+ []
+
+<pics/editEntity.png, id=663, 421.575pt x 176.91093pt>
+File: pics/editEntity.png Graphic file (type png)
+<use pics/editEntity.png>
+Package pdftex.def Info: pics/editEntity.png  used on input line 705.
+(pdftex.def)             Requested size: 250.9558pt x 105.31325pt.
+<pics/exampleMoonTexture.png, id=664, 1443.14156pt x 867.24pt>
+File: pics/exampleMoonTexture.png Graphic file (type png)
+<use pics/exampleMoonTexture.png>
+Package pdftex.def Info: pics/exampleMoonTexture.png  used on input line 733.
+(pdftex.def)             Requested size: 418.25542pt x 251.3476pt.
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 745.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[36 <./pics/editEntities.png> <./pics/editEntity.png>]
+<pics/referenceFrames.png, id=675, 420.06938pt x 182.93344pt>
+File: pics/referenceFrames.png Graphic file (type png)
+<use pics/referenceFrames.png>
+Package pdftex.def Info: pics/referenceFrames.png  used on input line 748.
+(pdftex.def)             Requested size: 250.9558pt x 109.28638pt.
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 767.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[37 <./pics/exampleMoonTexture.png> <./pics/referenceFrames.png>]
+<pics/observe.png, id=685, 422.32782pt x 133.24782pt>
+File: pics/observe.png Graphic file (type png)
+<use pics/observe.png>
+Package pdftex.def Info: pics/observe.png  used on input line 770.
+(pdftex.def)             Requested size: 250.9558pt x 79.18074pt.
+<./pics/MarsProperties.png, id=686, 420.06938pt x 208.52907pt>
+File: ./pics/MarsProperties.png Graphic file (type png)
+<use ./pics/MarsProperties.png>
+Package pdftex.def Info: ./pics/MarsProperties.png  used on input line 778.
+(pdftex.def)             Requested size: 250.9558pt x 124.57747pt.
+<./pics/visibleMars.png, id=687, 422.32782pt x 200.24812pt>
+File: ./pics/visibleMars.png Graphic file (type png)
+<use ./pics/visibleMars.png>
+Package pdftex.def Info: ./pics/visibleMars.png  used on input line 784.
+(pdftex.def)             Requested size: 250.9558pt x 118.9948pt.
+<./pics/farplane.png, id=688, 1050.92625pt x 572.89032pt>
+File: ./pics/farplane.png Graphic file (type png)
+<use ./pics/farplane.png>
+Package pdftex.def Info: ./pics/farplane.png  used on input line 793.
+(pdftex.def)             Requested size: 418.25542pt x 227.99817pt.
+
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+<./pics/textured.png, id=689, 1050.92625pt x 572.89032pt>
+File: ./pics/textured.png Graphic file (type png)
+<use ./pics/textured.png>
+Package pdftex.def Info: ./pics/textured.png  used on input line 804.
+(pdftex.def)             Requested size: 418.25542pt x 227.99817pt.
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+<pics/surfaceRefFrame.png, id=690, 950.04938pt x 543.53062pt>
+File: pics/surfaceRefFrame.png Graphic file (type png)
+<use pics/surfaceRefFrame.png>
+Package pdftex.def Info: pics/surfaceRefFrame.png  used on input line 815.
+(pdftex.def)             Requested size: 418.25542pt x 239.2869pt.
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+<pics/molaObservation.png, id=691, 951.555pt x 572.89032pt>
+File: pics/molaObservation.png Graphic file (type png)
+<use pics/molaObservation.png>
+Package pdftex.def Info: pics/molaObservation.png  used on input line 824.
+(pdftex.def)             Requested size: 418.25542pt x 251.81902pt.
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 828.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[38 <./pics/observe.png> <./pics/MarsProperties.png> <./pics/visibleMars.png>]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 850.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[39 <./pics/farplane.png> <./pics/textured.png>]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 850.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[40 <./pics/surfaceRefFrame.png> <./pics/molaObservation.png>]
+<pics/contourTeaser.png, id=720, 529.22719pt x 404.26031pt>
+File: pics/contourTeaser.png Graphic file (type png)
+<use pics/contourTeaser.png>
+Package pdftex.def Info: pics/contourTeaser.png  used on input line 856.
+(pdftex.def)             Requested size: 334.6056pt x 255.59828pt.
+<pics/multitexture-ui.png, id=721, 417.81094pt x 210.03468pt>
+File: pics/multitexture-ui.png Graphic file (type png)
+<use pics/multitexture-ui.png>
+Package pdftex.def Info: pics/multitexture-ui.png  used on input line 864.
+(pdftex.def)             Requested size: 250.9558pt x 126.15958pt.
+<pics/contour1.png, id=722, 416.30531pt x 268.00125pt>
+File: pics/contour1.png Graphic file (type png)
+<use pics/contour1.png>
+Package pdftex.def Info: pics/contour1.png  used on input line 872.
+(pdftex.def)             Requested size: 250.9558pt x 161.55441pt.
+
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+<pics/contour0.png, id=723, 1445.4pt x 781.41937pt>
+File: pics/contour0.png Graphic file (type png)
+<use pics/contour0.png>
+Package pdftex.def Info: pics/contour0.png  used on input line 878.
+(pdftex.def)             Requested size: 418.25542pt x 226.11694pt.
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 886.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[41 <./pics/contourTeaser.png> <./pics/multitexture-ui.png>]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 886.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[42 <./pics/contour1.png> <./pics/contour0.png>]
+<pics/AccuracyMap.png, id=737, 369.63094pt x 343.2825pt>
+File: pics/AccuracyMap.png Graphic file (type png)
+<use pics/AccuracyMap.png>
+Package pdftex.def Info: pics/AccuracyMap.png  used on input line 897.
+(pdftex.def)             Requested size: 250.9558pt x 233.06757pt.
+<pics/FilteredElevation.png, id=738, 431.36156pt x 318.43968pt>
+File: pics/FilteredElevation.png Graphic file (type png)
+<use pics/FilteredElevation.png>
+Package pdftex.def Info: pics/FilteredElevation.png  used on input line 905.
+(pdftex.def)             Requested size: 250.9558pt x 185.25879pt.
+<pics/MultitexControls.png, id=739, 271.0125pt x 220.57407pt>
+File: pics/MultitexControls.png Graphic file (type png)
+<use pics/MultitexControls.png>
+Package pdftex.def Info: pics/MultitexControls.png  used on input line 913.
+(pdftex.def)             Requested size: 250.9558pt x 204.25667pt.
+
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 919.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[43
+
+ <./pics/AccuracyMap.png> <./pics/FilteredElevation.png>])
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 256.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[44 <./pics/MultitexControls.png>]
 \openout2 = `Minerva.aux'.
 
-
-(Minerva.tex
-<pics/MinervaAI.png, id=536, 1459.3722pt x 742.4538pt>
+ (Minerva.tex
+<pics/MinervaAI.png, id=754, 1459.3722pt x 742.4538pt>
 File: pics/MinervaAI.png Graphic file (type png)
 <use pics/MinervaAI.png>
 Package pdftex.def Info: pics/MinervaAI.png  used on input line 8.
 (pdftex.def)             Requested size: 418.25542pt x 212.77974pt.
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 40.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [31
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[45
+
 
 
  <./pics/MinervaAI.png>]
-<pics/QueryApp.png, id=549, 1431.09656pt x 743.77875pt>
+<pics/QueryApp.png, id=767, 1431.09656pt x 743.77875pt>
 File: pics/QueryApp.png Graphic file (type png)
 <use pics/QueryApp.png>
 Package pdftex.def Info: pics/QueryApp.png  used on input line 48.
 (pdftex.def)             Requested size: 418.25542pt x 217.38133pt.
-<pics/ListingAI.png, id=550, 1429.0188pt x 743.8992pt>
+<pics/ListingAI.png, id=768, 1429.0188pt x 743.8992pt>
 File: pics/ListingAI.png Graphic file (type png)
 <use pics/ListingAI.png>
 Package pdftex.def Info: pics/ListingAI.png  used on input line 68.
@@ -1016,27 +1633,45 @@ Package pdftex.def Info: pics/ListingAI.png  used on input line 68.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 75.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[32 <./pics/QueryApp.png>]
-<pics/MultiSelAI.png, id=559, 1275.8064pt x 468.3096pt>
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[46 <./pics/QueryApp.png>]
+<pics/MultiSelAI.png, id=777, 1275.8064pt x 468.3096pt>
 File: pics/MultiSelAI.png Graphic file (type png)
 <use pics/MultiSelAI.png>
 Package pdftex.def Info: pics/MultiSelAI.png  used on input line 78.
 (pdftex.def)             Requested size: 418.25542pt x 153.52794pt.
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 88.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [33 <./pics/ListingAI.png (PNG copy)> <./pics/MultiSelAI.png>]
-<pics/PropertiesAI.png, id=569, 1429.0188pt x 743.8992pt>
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[47 <./pics/ListingAI.png (PNG copy)> <./pics/MultiSelAI.png>]
+<pics/PropertiesAI.png, id=787, 1429.0188pt x 743.8992pt>
 File: pics/PropertiesAI.png Graphic file (type png)
 <use pics/PropertiesAI.png>
 Package pdftex.def Info: pics/PropertiesAI.png  used on input line 99.
 (pdftex.def)             Requested size: 418.25542pt x 217.723pt.
-<pics/PickMinervaFilter.png, id=572, 1428.83812pt x 740.7675pt>
+<pics/PickMinervaFilter.png, id=790, 1428.83812pt x 740.7675pt>
 File: pics/PickMinervaFilter.png Graphic file (type png)
 <use pics/PickMinervaFilter.png>
 Package pdftex.def Info: pics/PickMinervaFilter.png  used on input line 120.
@@ -1045,7 +1680,7 @@ Package pdftex.def Info: pics/PickMinervaFilter.png  used on input line 120.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/PickLinking1.png, id=573, 1431.84938pt x 741.52031pt>
+<pics/PickLinking1.png, id=791, 1431.84938pt x 741.52031pt>
 File: pics/PickLinking1.png Graphic file (type png)
 <use pics/PickLinking1.png>
 Package pdftex.def Info: pics/PickLinking1.png  used on input line 127.
@@ -1064,22 +1699,46 @@ Overfull \hbox (13.72725pt too wide) in paragraph at lines 138--139
 c-tions menu and press CTRL+LMB
  []
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 139.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[34 <./pics/PropertiesAI.png (PNG copy)>])
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[48 <./pics/PropertiesAI.png (PNG copy)>])
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 257.
-(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [35 <./pics/PickMinervaFilter.png>]
-File: pics/logosSUM.png Graphic file (type png)
-<use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 257.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 260.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 
-[36 <./pics/PickLinking1.png>]
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[49 <./pics/PickMinervaFilter.png>]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 260.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[50 <./pics/PickLinking1.png>]
 \openout2 = `CommandLine.aux'.
 
  (CommandLine.tex
@@ -1087,11 +1746,21 @@ Overfull \hbox (2.53877pt too wide) in paragraph at lines 20--38
 [][]
  []
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 60.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[37
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[51
+
 
 
 ]
@@ -1104,53 +1773,94 @@ Overfull \hbox (3.08594pt too wide) in paragraph at lines 74--92
 [][] 
  []
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 101.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[38] (snapshot.JSON
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[52]
+Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
+nput line 102.
+ (snapshot.JSON
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 35.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [39]) (snapshot2.JSON) (snapshot3.JSON
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[53]) (snapshot2.JSON) (snapshot3.JSON
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 9.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [40]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[54]
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 42.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [41]))
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[55]))
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 261.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 264.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [42]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[56]
 \openout2 = `SurfaceComparison.aux'.
 
-
-(SurfaceComparison.tex
-<pics/surfaceComparison.PNG, id=748, 418.56375pt x 254.45062pt>
+ (SurfaceComparison.tex
+<pics/surfaceComparison.PNG, id=966, 418.56375pt x 254.45062pt>
 File: pics/surfaceComparison.PNG Graphic file (type png)
 <use pics/surfaceComparison.PNG>
 Package pdftex.def Info: pics/surfaceComparison.PNG  used on input line 10.
 (pdftex.def)             Requested size: 250.9558pt x 152.55894pt.
-<pics/surfaceComparisonAreaExpButton.PNG, id=751, 422.32782pt x 69.25874pt>
+<pics/surfaceComparisonAreaExpButton.PNG, id=969, 422.32782pt x 69.25874pt>
 File: pics/surfaceComparisonAreaExpButton.PNG Graphic file (type png)
 <use pics/surfaceComparisonAreaExpButton.PNG>
 Package pdftex.def Info: pics/surfaceComparisonAreaExpButton.PNG  used on input
  line 19.
 (pdftex.def)             Requested size: 250.9558pt x 41.15608pt.
-LaTeX Font Info:    Font shape `T1/phv/bx/it' in size <10> not available
-(Font)              Font shape `T1/phv/b/it' tried instead on input line 20.
 LaTeX Font Info:    Font shape `T1/phv/b/it' in size <10> not available
 (Font)              Font shape `T1/phv/b/sl' tried instead on input line 20.
 LaTeX Font Info:    Font shape `T1/phv/m/it' in size <10> not available
 (Font)              Font shape `T1/phv/m/sl' tried instead on input line 20.
-<pics/surfaceComparisonSelectArea.PNG, id=753, 376.40625pt x 29.35968pt>
+<pics/surfaceComparisonSelectArea.PNG, id=971, 376.40625pt x 29.35968pt>
 File: pics/surfaceComparisonSelectArea.PNG Graphic file (type png)
 <use pics/surfaceComparisonSelectArea.PNG>
 Package pdftex.def Info: pics/surfaceComparisonSelectArea.PNG  used on input li
@@ -1160,39 +1870,58 @@ ne 30.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 36.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[43
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[57
+
 
 
  <./pics/surfaceComparison.PNG> <./pics/surfaceComparisonAreaExpButton.PNG>]
-<pics/surfaceComparisonAreaSphere.PNG, id=766, 348.55219pt x 228.10219pt>
+<pics/surfaceComparisonAreaSphere.PNG, id=984, 348.55219pt x 228.10219pt>
 File: pics/surfaceComparisonAreaSphere.PNG Graphic file (type png)
 <use pics/surfaceComparisonAreaSphere.PNG>
 Package pdftex.def Info: pics/surfaceComparisonAreaSphere.PNG  used on input li
 ne 39.
 (pdftex.def)             Requested size: 250.9558pt x 164.23343pt.
-<pics/surfaceComparisonAreaGui.PNG, id=768, 421.575pt x 362.85562pt>
+<pics/surfaceComparisonAreaGui.PNG, id=986, 421.575pt x 362.85562pt>
 File: pics/surfaceComparisonAreaGui.PNG Graphic file (type png)
 <use pics/surfaceComparisonAreaGui.PNG>
 Package pdftex.def Info: pics/surfaceComparisonAreaGui.PNG  used on input line 
 48.
 (pdftex.def)             Requested size: 250.9558pt x 216.0042pt.
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 58.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[44 <./pics/surfaceComparisonSelectArea.PNG> <./pics/surfaceComparisonAreaSpher
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[58 <./pics/surfaceComparisonSelectArea.PNG> <./pics/surfaceComparisonAreaSpher
 e.PNG> <./pics/surfaceComparisonAreaGui.PNG>]
-<pics/surfaceComparisonAreaUpdButton.PNG, id=779, 422.32782pt x 68.50594pt>
+<pics/surfaceComparisonAreaUpdButton.PNG, id=997, 422.32782pt x 68.50594pt>
 File: pics/surfaceComparisonAreaUpdButton.PNG Graphic file (type png)
 <use pics/surfaceComparisonAreaUpdButton.PNG>
 Package pdftex.def Info: pics/surfaceComparisonAreaUpdButton.PNG  used on input
  line 68.
 (pdftex.def)             Requested size: 250.9558pt x 40.70874pt.
-<pics/surfaceComparisonArea3DView1.PNG, id=780, 1455.93938pt x 856.70062pt>
+<pics/surfaceComparisonArea3DView1.PNG, id=998, 1455.93938pt x 856.70062pt>
 File: pics/surfaceComparisonArea3DView1.PNG Graphic file (type png)
 <use pics/surfaceComparisonArea3DView1.PNG>
 Package pdftex.def Info: pics/surfaceComparisonArea3DView1.PNG  used on input l
@@ -1202,7 +1931,7 @@ ine 75.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/surfaceComparisonArea3DView2.PNG, id=782, 850.67813pt x 687.31781pt>
+<pics/surfaceComparisonArea3DView2.PNG, id=1000, 850.67813pt x 687.31781pt>
 File: pics/surfaceComparisonArea3DView2.PNG Graphic file (type png)
 <use pics/surfaceComparisonArea3DView2.PNG>
 Package pdftex.def Info: pics/surfaceComparisonArea3DView2.PNG  used on input l
@@ -1211,43 +1940,77 @@ ine 84.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 93.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[45 <./pics/surfaceComparisonAreaUpdButton.PNG>]
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[59 <./pics/surfaceComparisonAreaUpdButton.PNG>]
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 93.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [46 <./pics/surfaceComparisonArea3DView1.PNG> <./pics/surfaceComparisonArea3DV
-iew2.PNG>]
-<pics/surfaceComparisonSurfaceMeasurements.PNG, id=798, 423.08063pt x 517.935pt
->
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[60 <./pics/surfaceComparisonArea3DView1.PNG> <./pics/surfaceComparisonArea3DVi
+ew2.PNG>]
+<pics/surfaceComparisonSurfaceMeasurements.PNG, id=1018, 423.08063pt x 517.935p
+t>
 File: pics/surfaceComparisonSurfaceMeasurements.PNG Graphic file (type png)
 <use pics/surfaceComparisonSurfaceMeasurements.PNG>
 Package pdftex.def Info: pics/surfaceComparisonSurfaceMeasurements.PNG  used on
  input line 104.
 (pdftex.def)             Requested size: 250.9558pt x 307.21492pt.
+
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 109.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [47
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[61
 
  <./pics/surfaceComparisonSurfaceMeasurements.PNG>]
-<pics/surfaceComparisonBookmarkMode.PNG, id=806, 316.93407pt x 27.10126pt>
+<pics/surfaceComparisonBookmarkMode.PNG, id=1026, 316.93407pt x 27.10126pt>
 File: pics/surfaceComparisonBookmarkMode.PNG Graphic file (type png)
 <use pics/surfaceComparisonBookmarkMode.PNG>
 Package pdftex.def Info: pics/surfaceComparisonBookmarkMode.PNG  used on input 
 line 116.
 (pdftex.def)             Requested size: 292.77751pt x 25.03766pt.
 )
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 265.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 268.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [48
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[62
 
  <./pics/surfaceComparisonBookmarkMode.PNG>]
 \openout2 = `KeyboardShortcuts.aux'.
@@ -1258,50 +2021,157 @@ Overfull \hbox (3.08594pt too wide) in paragraph at lines 9--25
  []
 
 )
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 269.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 272.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [49
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[63
+
 
 
 ]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 273.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 273.
- (PRo3D_ShortUserManual.aux (Introduction.aux) (Start.aux)
+\openout2 = `Appendix.aux'.
+
+ (Appendix.tex (currentlyAvailableData.json
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 46.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[64
+
+
+
+]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 95.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[65]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 144.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[66]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 193.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[67]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 242.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[68]
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 291.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[69]))
+
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 275.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+
+Package fancyhdr Warning: \headheight is too small (30.0pt): 
+(fancyhdr)                Make it at least 34.35004pt, for example:
+(fancyhdr)                \setlength{\headheight}{34.35004pt}.
+(fancyhdr)                You might also make \topmargin smaller:
+(fancyhdr)                \addtolength{\topmargin}{-4.35004pt}.
+
+[70] (PRo3D_ShortUserManual.aux (Introduction.aux) (Start.aux)
 (ViewerActions.aux) (ViewerFeatures.aux) (Minerva.aux) (CommandLine.aux)
-(SurfaceComparison.aux) (KeyboardShortcuts.aux))
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 273.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 273.
-Package rerunfilecheck Info: File `PRo3D_ShortUserManual.out' has not changed.
-(rerunfilecheck)             Checksum: B3FB921FB92ADE91859C6BA4983967C1;3032.
+(SurfaceComparison.aux) (KeyboardShortcuts.aux) (Appendix.aux))
+ ***********
+LaTeX2e <2024-11-01> patch level 2
+L3 programming layer <2025-01-18>
+ ***********
 
 
 LaTeX Warning: There were undefined references.
 
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 273.
+
+LaTeX Warning: There were multiply-defined labels.
+
+Package rerunfilecheck Info: File `PRo3D_ShortUserManual.out' has not changed.
+(rerunfilecheck)             Checksum: E45CD85566604DE3C98EF5E27B42ECFC;8083.
  ) 
 Here is how much of TeX's memory you used:
- 9210 strings out of 492448
- 141974 string characters out of 3119512
- 607630 words of memory out of 3000000
- 12980 multiletter control sequences out of 15000+200000
- 66681 words of font info for 65 fonts, out of 3000000 for 9000
+ 13925 strings out of 473522
+ 229244 string characters out of 5714610
+ 1212815 words of memory out of 5000000
+ 36209 multiletter control sequences out of 15000+600000
+ 622191 words of font info for 88 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 43i,16n,45p,927b,1974s stack positions out of 5000i,500n,10000p,200000b,50000s
-{C:/Users/rnowak/AppData/Local/Programs/MiKTeX 2.9/fonts/enc/dvips/base/8r.en
-c}<C:/Users/rnowak/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/public/amsfont
-s/cm/cmmi12.pfb><C:/Users/rnowak/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/
-public/amsfonts/cm/cmsy10.pfb><C:/Users/rnowak/AppData/Local/Programs/MiKTeX 2.
-9/fonts/type1/urw/courier/ucrb8a.pfb><C:/Users/rnowak/AppData/Local/Programs/Mi
-KTeX 2.9/fonts/type1/urw/courier/ucrr8a.pfb><C:/Users/rnowak/AppData/Local/Prog
-rams/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvb8a.pfb><C:/Users/rnowak/AppData/Lo
-cal/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvbo8a.pfb><C:/Users/rnowak/A
-ppData/Local/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvr8a.pfb><C:/Users/
-rnowak/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvro8a.pfb>
-Output written on PRo3D_ShortUserManual.pdf (50 pages, 21426205 bytes).
+ 75i,16n,79p,936b,2116s stack positions out of 10000i,1000n,20000p,200000b,200000s
+<C:/Users/laura/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/
+cmmi12.pfb><C:/Users/laura/AppData/Local/Programs/MiKTeX/fonts/type1/public/ams
+fonts/cm/cmsy10.pfb><C:/Users/laura/AppData/Local/Programs/MiKTeX/fonts/type1/u
+rw/courier/ucrb8a.pfb><C:/Users/laura/AppData/Local/Programs/MiKTeX/fonts/type1
+/urw/courier/ucrr8a.pfb><C:/Users/laura/AppData/Local/Programs/MiKTeX/fonts/typ
+e1/urw/helvetic/uhvb8a.pfb><C:/Users/laura/AppData/Local/Programs/MiKTeX/fonts/
+type1/urw/helvetic/uhvbo8a.pfb><C:/Users/laura/AppData/Local/Programs/MiKTeX/fo
+nts/type1/urw/helvetic/uhvr8a.pfb><C:/Users/laura/AppData/Local/Programs/MiKTeX
+/fonts/type1/urw/helvetic/uhvro8a.pfb>
+Output written on PRo3D_ShortUserManual.pdf (71 pages, 26852057 bytes).
 PDF statistics:
- 908 PDF objects out of 1000 (max. 8388607)
- 277 named destinations out of 1000 (max. 500000)
- 602 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1551 PDF objects out of 1728 (max. 8388607)
+ 667 named destinations out of 1000 (max. 500000)
+ 836 words of extra memory for PDF output out of 10000 (max. 10000000)
 

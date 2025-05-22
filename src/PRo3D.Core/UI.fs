@@ -4,7 +4,10 @@ open System
 
 module UI =
     open Aardvark.UI
+
+    open Aardvark.UI.Primitives    
     open FSharp.Data.Adaptive
+
     let mutable enabletoolTips = false
 
     let toAlignmentString (alignment : DataPosition) =
@@ -28,14 +31,18 @@ module UI =
                 |> AttributeMap.ofList
                     //|> AttributeMap.union dom.                
                 
-            
-            onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
+            // we call 'refresh' to place the tooltip after the DOM elements are rendered to ensure
+            // that the tooltip is at the right position
+            onBoot "$('#__ID__').popup({inline:true,hoverable:true}).popup('refresh');" (       
                 dom.WithAttributes attr     
             ) 
         else
             dom
 
-    let dropDown'' (values : alist<'a>)(selected : aval<Option<'a>>) (change : Option<'a> -> 'msg) (f : 'a ->string)  =
+    let dropDownWithEmptyText
+                   (values : alist<'a>)(selected : aval<Option<'a>>)
+                   (change : Option<'a> -> 'msg) (f : 'a ->string) 
+                   (emptyText : string) =
 
         let attributes (name : string) =
             AttributeMap.ofListCond [
@@ -46,7 +53,7 @@ module UI =
                         fun x -> 
                             match x with
                             | Some s -> name = f s
-                            | None   -> name = "-None-"
+                            | None   -> name = emptyText
                     )) (attribute "selected" "selected")
             ]
 
@@ -60,10 +67,14 @@ module UI =
         Incremental.select (AttributeMap.ofList [ortisOnChange; style "color:black"]) 
             (
                 alist {
-                    yield Incremental.option (attributes "-None-") (AList.ofList [text "-None-"])
+                    yield Incremental.option (attributes emptyText) (AList.ofList [text emptyText])
                     yield! values |> AList.mapi(fun i x -> Incremental.option (attributes (f x)) (AList.ofList [text (f x)]))
                 }
             )
+
+    let dropDown'' (values : alist<'a>)(selected : aval<Option<'a>>)
+                   (change : Option<'a> -> 'msg) (f : 'a ->string)  =
+        dropDownWithEmptyText values selected change f "-None-"
 
     module Dialogs =    
   

@@ -14,8 +14,8 @@ open Aardvark.UI.Primitives
 
 open PRo3D.Navigation
 open PRo3D.Viewer
-open Aardvark.UI.Anewmation
 open Aardvark.UI.Animation
+open Aardvark.UI.Animation.Deprecated
 
 module ProvenanceApp =
 
@@ -90,23 +90,25 @@ module ProvenanceApp =
         }
 
     
-    let emptyWithModel (m : Model) = 
+    let emptyWithModel (enabled : bool) (m : Model) = 
+        if enabled then
+            let i = { id = ProvenanceModel.newNodeId(); model = reduceModel m |> Some }
         
-        let i = { id = ProvenanceModel.newNodeId(); model = reduceModel m |> Some }
-        
-        let pm = { 
-            nodes = HashMap.ofList [i.id, i]
-            edges = HashMap.empty; lastEdge = None
-            automaticRecording = false
-            currentTrail = []
-            selectedNode = None
-            initialNode = Some i.id
-        }
+            let pm = { 
+                nodes = HashMap.ofList [i.id, i]
+                edges = HashMap.empty; lastEdge = None
+                automaticRecording = false
+                currentTrail = []
+                selectedNode = None
+                initialNode = Some i.id
+            }
 
 
-        { m with 
-            provenanceModel = pm
-        }
+            { m with 
+                provenanceModel = pm
+            }
+        else    
+            m
 
     let track (oldModel : Model) (newModel : Model) (msg : ViewerAnimationAction) : Model =
         if newModel.provenanceModel.automaticRecording then

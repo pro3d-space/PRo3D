@@ -19,6 +19,8 @@ open PRo3D.Bookmarkings
 open PRo3D.Viewer
 open Aether
 open Aether.Operators
+open PRo3D.Core.Gis
+open Aardvark.UI.Animation.Deprecated
 
 module ViewerLenses =
     // surfaces
@@ -66,12 +68,16 @@ module ViewerLenses =
     // sequenced bookmarks
     let _sequencedBookmarks = Model.scene_ >-> Scene.sequencedBookmarks_ 
 
+    // GIS
+    let _gisApp = Model.scene_ >-> Scene.gisApp_
+    let _observationInfo = _gisApp >-> GisApp.defaultObservationInfo_
+
     // scene state for saving the state of the scene with sequenced bookmarks
     let _sceneState : ((Model -> SceneState) * (SceneState -> Model -> Model)) =
         let inline haveSameKeys (a : HashMap<'a, 'b>) (b : HashMap<'a, 'c>) =
             if a.Count <> b.Count then false
             else
-                a.ToKeyList () |> List.sort = (a.ToKeyList () |> List.sort)
+                a.ToKeyList () |> List.sort = (b.ToKeyList () |> List.sort)
 
         (fun m -> 
             {
@@ -93,16 +99,18 @@ module ViewerLenses =
         (fun state m ->
             let state = // check surfaces
                 if haveSameKeys state.stateSurfaces.flat
-                                m.scene.surfacesModel.sgSurfaces then state
+                                m.scene.surfacesModel.sgSurfaces then 
+                                state
                 else
                     Log.warn "[ViewerLenses] Surfaces have been added or removed making this scene state invalid. 
-                                Not applying surfaces for this scene state."
-                    {state with stateSurfaces = m.scene.surfacesModel.surfaces}
-
+                                Not applying surfaces for this scene state. Update Scene State for this bookmark
+                                or delete and create new bookmark."
+                    let newState = {state with stateSurfaces = m.scene.surfacesModel.surfaces}
+                    BookmarkUtils.getValidState newState
             let scaleBars = // check scale bars; using old segments for performance reasons
                 if haveSameKeys state.stateScaleBars.scaleBars
                                 m.scene.scaleBars.scaleBars then 
-                    let inline update (newBar : ScaleBar) = 
+                    let inline update (newBar : ScaleVisualization) = 
                         let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
                         match current with
                         | Some current ->
@@ -134,44 +142,62 @@ module ViewerLenses =
                         state.stateConfig.farPlane
                 | true ->
                         state.stateConfig.frustumModel.frustum
-            {m with
-                drawing = {m.drawing with annotations = state.stateAnnoatations}
-                scene   = 
-                    {m.scene with
-                        surfacesModel           = {m.scene.surfacesModel with surfaces = state.stateSurfaces}
-                        sceneObjectsModel       = state.stateSceneObjects
-                        scaleBars               = scaleBars
-                        geologicSurfacesModel   = state.stateGeologicSurfaces
-                        config                  = 
-                            {m.scene.config with
-                                nearPlane           = 
-                                    {m.scene.config.nearPlane with value = state.stateConfig.nearPlane}
-                                farPlane            = 
-                                    {m.scene.config.farPlane with value = state.stateConfig.farPlane}
-                                frustumModel        = state.stateConfig.frustumModel       
-                                arrowLength         = 
-                                    {m.scene.config.arrowLength with value = state.stateConfig.arrowLength}
-                                arrowThickness      = 
-                                    {m.scene.config.arrowLength with value = state.stateConfig.arrowThickness}
-                                dnsPlaneSize        = 
-                                    {m.scene.config.dnsPlaneSize with value = state.stateConfig.dnsPlaneSize}
-                                lodColoring         = state.stateConfig.lodColoring        
-                                drawOrientationCube = state.stateConfig.drawOrientationCube
-                            }
-                        referenceSystem         = 
-                            {m.scene.referenceSystem with
-                                origin        = state.stateReferenceSystem.origin       
-                                isVisible     = state.stateReferenceSystem.isVisible    
-                                size          = 
-                                    {m.scene.referenceSystem.size with 
-                                        value = state.stateReferenceSystem.size}
-                                selectedScale = state.stateReferenceSystem.selectedScale
-                            }
-                        traverses               = traverses
-                        
+            let m = 
+                let refSysState = 
+                    /// UPDATING REF SYSTEM HERE LEADS TO TRAVERSE CALCULATIONS BERING TRIGGERED, EVEN IF THE REF SYSTEM DOES NOT CHANGE!
+                    /// so we check manually if the reference system has changed, and only assign it if there is a change
+                    {m.scene.referenceSystem with
+                        origin        = state.stateReferenceSystem.origin       
+                        isVisible     = state.stateReferenceSystem.isVisible    
+                        size          = 
+                            {m.scene.referenceSystem.size with 
+                                value = state.stateReferenceSystem.size}
+                        selectedScale = state.stateReferenceSystem.selectedScale
+
+                        textsize      = ReferenceSystem.text state.stateReferenceSystem.textsize
+                        textcolor     = { c = state.stateReferenceSystem.textcolor }
                     }
-                frustum = frustum
-            }
+                if m.scene.referenceSystem <> refSysState then
+                    {m with scene   = 
+                            {m.scene with
+                                    referenceSystem = refSysState
+                            }
+                    }
+                else
+                    m
+
+            let m = 
+                {m with
+                    drawing = {m.drawing with annotations = state.stateAnnoatations}
+                    scene   = 
+                        {m.scene with
+                            surfacesModel           = {m.scene.surfacesModel with surfaces = state.stateSurfaces}
+                            sceneObjectsModel       = state.stateSceneObjects
+                            scaleBars               = scaleBars
+                            geologicSurfacesModel   = state.stateGeologicSurfaces
+                            config                  = 
+                                {m.scene.config with
+                                    nearPlane           = 
+                                        {m.scene.config.nearPlane with value = state.stateConfig.nearPlane}
+                                    farPlane            = 
+                                        {m.scene.config.farPlane with value = state.stateConfig.farPlane}
+                                    frustumModel        = state.stateConfig.frustumModel       
+                                    arrowLength         = 
+                                        {m.scene.config.arrowLength with value = state.stateConfig.arrowLength}
+                                    arrowThickness      = 
+                                        {m.scene.config.arrowLength with value = state.stateConfig.arrowThickness}
+                                    dnsPlaneSize        = 
+                                        {m.scene.config.dnsPlaneSize with value = state.stateConfig.dnsPlaneSize}
+                                    lodColoring         = state.stateConfig.lodColoring        
+                                    drawOrientationCube = state.stateConfig.drawOrientationCube
+                                }
+                            traverses               = traverses
+                        
+                        }
+                    frustum = frustum
+                }
+
+            m
         )
 
     let _savedTimeSteps =
@@ -200,8 +226,6 @@ module ViewerLenses =
         ),
         (fun sb m ->
             let update (sb : SequencedBookmarkModel) = 
-                // update camera to bookmark's camera
-                let m = Optic.set _view sb.cameraView m
 
                 // update the scene state if the bookmark contains one
                 let inline updateSceneState sb m =
@@ -209,7 +233,43 @@ module ViewerLenses =
                     | Some state ->
                         Optic.set _sceneState state m
                     | None -> m
-                updateSceneState sb m            
+                let m = updateSceneState sb m            
+
+                let m = 
+                    match sb.observationInfo with
+                    | Some info ->
+                        match info.valuesIfComplete with
+                        | Some (t, o, r) ->
+                            // call spice function and transform surfaces here!
+                            Log.line "[debug] call to spice function with 
+                                        target: %s observer: %s reference frame:  %s 
+                                        time: %s" 
+                                     t.Value o.Value r.Value (string info.time.date)
+                            let observationInfo =
+                                {
+                                    target         = Some t
+                                    observer       = Some o
+                                    time           = {m.scene.gisApp.defaultObservationInfo.time with
+                                                            date = info.time.date}
+                                    referenceFrame = Some r
+                                }
+                            let m = Optic.set _observationInfo observationInfo m
+                            let c = GisApp.lookAtObserver' observationInfo
+                            let m = 
+                                match c with 
+                                | Some c -> 
+                                    Optic.set _view c m
+                                | _ -> m
+                            m
+                        | None ->
+                            m
+                    | None ->
+                        //update camera to bookmark's camera
+                        let m = Optic.set _view sb.cameraView m
+                        m
+                   
+                m
+
             match sb with
             | SequencedBookmark.LoadedBookmark loaded ->
                 update loaded
@@ -230,7 +290,18 @@ module ViewerLenses =
             sequencedBookmarks_ = Model.scene_ >-> Scene.sequencedBookmarks_
             savedTimeSteps_   = _savedTimeSteps
             lastStart_        = Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.lastStart_
+            defaultObservationInfo_ = Model.scene_ 
+                                      >-> Scene.gisApp_
+                                      >-> GisApp.defaultObservationInfo_
         }
 
+    let gisLenses : Gis.GisApp.GisLenses<Model> =
+        {
+            surfacesModel   = _surfacesModel 
+            bookmarks       = _sequencedBookmarks
+            scenePath       = Model.scene_ >-> Scene.scenePath_
+            navigation      = Model.navigation_
+            referenceSystem = Model.scene_ >-> Scene.referenceSystem_
+        }
 
 
