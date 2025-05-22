@@ -71,7 +71,7 @@ nuget Thoth.Json.Net ~> 11.0.0
 
 nuget CommandLineParser.FSharp ~> 2.9.1
 
-nuget PRo3D.SPICE ~> 1.0.3
+nuget PRo3D.SPICE ~> 1.0.6
 
 nuget Aardvark.Data.GLTF  ~> 1.0.1
 

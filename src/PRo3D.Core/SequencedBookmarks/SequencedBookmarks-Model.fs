@@ -325,7 +325,7 @@ type SceneState with
             do! Json.write "stateGeologicSurfaces" x.stateGeologicSurfaces
             do! Json.write "stateConfig"           x.stateConfig
             do! Json.write "stateReferenceSystem"  x.stateReferenceSystem
-            //do! Json.write "stateTraverse"         x.stateTraverses
+            do! Json.write "stateTraverse"         x.stateTraverses
         }
 
 type FrustumParameters = {
