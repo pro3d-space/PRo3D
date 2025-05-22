@@ -1,4 +1,5 @@
 ﻿open System
+open System.Threading
 open System.Threading.Tasks
 open System.IO
 open System.Threading
@@ -11,6 +12,8 @@ open Aardvark.GeoSpatial.Opc.PatchLod
 open Aardvark.Data.Opc
 open CommandLine
 open Aardvark.Data
+open OpcViewer.Base.KdTrees
+open Aardvark.Geometry
 
 
 let logo = """                    
@@ -112,8 +115,22 @@ let generateKdTrees (degreeOfParallelism : Option<int>) (forceKdTreeRebuild : bo
             Log.stop()
 
 
+        let parameters = 
+            {
+                // retrieved from 2016 TextureConverter tool
+                flags = 
+                    KdIntersectionTree.BuildFlags.Hierarchical 
+                    ||| KdIntersectionTree.BuildFlags.FastBuild 
+                    ||| KdIntersectionTree.BuildFlags.SlowIntersection 
+                    //||| KdIntersectionTree.BuildFlags.NoMultithreading
+                relativeMinCellSize = OpcViewer.Base.KdTrees.KdTreeParameters.legacyDefault.relativeMinCellSize
+                splitPlaneEpsilon = 1E-07
+                setObjectSetToNull = true
+            } 
+
+
         let kdTrees =
-            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ serializer forceKdTreeRebuild ignoreMasterKdTree PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false false OpcViewer.Base.KdTrees.KdTreeParameters.legacyDefault
+            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ serializer forceKdTreeRebuild ignoreMasterKdTree PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false false parameters
 
         for (bb,kdTree) in kdTrees do
             match kdTree with
@@ -124,10 +141,15 @@ let generateKdTrees (degreeOfParallelism : Option<int>) (forceKdTreeRebuild : bo
         
         Log.stop()
  
-    patchHierarchies 
-    |> Seq.toList
-    |> List.iter createKdTreesForHierarchy
-
+    match degreeOfParallelism with
+    | None -> 
+        patchHierarchies
+        |> Seq.toList
+        |> List.iter createKdTreesForHierarchy
+    | Some degreeOfParallelism -> 
+        let options = ParallelOptions(MaxDegreeOfParallelism = degreeOfParallelism)
+        let r = Parallel.ForEach(patchHierarchies, options, createKdTreesForHierarchy)
+        ()
     Log.line "Done."
 
 
@@ -161,6 +183,9 @@ type options = {
 
   [<Option(HelpText = "Overwrite DDS")>] 
   overwritedds : bool
+
+  [<Option(HelpText = "Degree of paralellism (0 for single threaded)", Required = false)>] 
+  degreesOfParallelism : int
 
   [<CommandLine.Value(0, HelpText = "Surface Directory")>] 
   surfaceDirectory: string
@@ -197,10 +222,13 @@ let main args =
         Log.line "arguments: %A" parsed.Value
         Log.line "directories: %A" directories
 
+        let degresOfParallelism = if parsed.Value.degreesOfParallelism = 0 then None else Some parsed.Value.degreesOfParallelism
+        Log.line "degrees of parallelism: %A" parsed.Value.degreesOfParallelism
+
         Aardvark.Init()
         PixImageDevil.InitDevil()
 
-        runForDirectories None parsed.Value.forcekdtreerebuild  parsed.Value.generatedds parsed.Value.overwritedds parsed.Value.ignoreMasterKdTree parsed.Value.skipPatchValidation directories
+        runForDirectories degresOfParallelism parsed.Value.forcekdtreerebuild  parsed.Value.generatedds parsed.Value.overwritedds parsed.Value.ignoreMasterKdTree parsed.Value.skipPatchValidation directories
         0
     | :? NotParsed<options> as notParsed -> 
         ()
