@@ -1,3 +1,4 @@
+#nowarn "0044"
 namespace PRo3D.Navigation2
 
 open FSharp.Data.Adaptive

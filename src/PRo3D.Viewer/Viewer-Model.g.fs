@@ -1,5 +1,5 @@
-//4172fa6e-5f7a-2733-9449-73b345d99810
-//2044358d-8a9f-d107-f4aa-e8d327dadce8
+//8151f96a-5dbc-13a5-2c65-d841064239f1
+//3d22f19c-4cf3-5039-c9bf-8c00877e0281
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -178,6 +178,7 @@ type AdaptiveModel(value : Model) =
     let _renderingUrl_ = FSharp.Data.Adaptive.cval(value.renderingUrl)
     let _screenshotDirectory_ = FSharp.Data.Adaptive.cval(value.screenshotDirectory)
     let _provenanceModel_ = AdaptiveProvenanceModel(value.provenanceModel)
+    let _surfaceIntersection_ = FSharp.Data.Adaptive.cval(value.surfaceIntersection)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Model) = AdaptiveModel(value)
@@ -224,6 +225,7 @@ type AdaptiveModel(value : Model) =
             _renderingUrl_.Value <- value.renderingUrl
             _screenshotDirectory_.Value <- value.screenshotDirectory
             _provenanceModel_.Update(value.provenanceModel)
+            _surfaceIntersection_.Value <- value.surfaceIntersection
     member __.Current = __adaptive
     member __.viewerVersion = _viewerVersion_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.startupArgs = _startupArgs_ :> FSharp.Data.Adaptive.aval<PRo3D.StartupArgs>
@@ -264,6 +266,7 @@ type AdaptiveModel(value : Model) =
     member __.screenshotDirectory = _screenshotDirectory_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.animator = __value.animator
     member __.provenanceModel = _provenanceModel_
+    member __.surfaceIntersection = _surfaceIntersection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<SurfaceIntersection>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ModelLenses = 
     type Model with
@@ -306,4 +309,5 @@ module ModelLenses =
         static member screenshotDirectory_ = ((fun (self : Model) -> self.screenshotDirectory), (fun (value : Microsoft.FSharp.Core.string) (self : Model) -> { self with screenshotDirectory = value }))
         static member animator_ = ((fun (self : Model) -> self.animator), (fun (value : Aardvark.UI.Animation.Animator<Model>) (self : Model) -> { self with animator = value }))
         static member provenanceModel_ = ((fun (self : Model) -> self.provenanceModel), (fun (value : ProvenanceModel) (self : Model) -> { self with provenanceModel = value }))
+        static member surfaceIntersection_ = ((fun (self : Model) -> self.surfaceIntersection), (fun (value : Microsoft.FSharp.Core.Option<SurfaceIntersection>) (self : Model) -> { self with surfaceIntersection = value }))
 

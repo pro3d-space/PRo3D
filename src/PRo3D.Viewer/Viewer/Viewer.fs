@@ -1007,6 +1007,16 @@ module ViewerApp =
                 m
             else 
                 m
+        | ViewerAction.PreviewPickSurface (p,name,true), _ ,_ ->
+            Log.line "preview"
+            match Picking.pickRay m p name with
+            | Some (p, hitPosOnRay) -> 
+                let info = p.GetIntersectionRayHitInfo()
+                let normal = if info.HasValidNormal then Some info.Normal else None
+                { m with surfaceIntersection = Some { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }}
+            | _ -> 
+                Log.line "no hit"
+                m
         | ViewerAction.PickSurface (p,name,true), _ ,true ->
             let fray = p.globalRay.Ray
             let r = fray.Ray
@@ -1055,7 +1065,7 @@ module ViewerApp =
                    
                         match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache with
                         | Some (t,surf), c ->                             
-                            cache <- c; ray.Ray.GetPointOnRay t |> Some
+                            cache <- c; ray.Ray.GetPointOnRay t.RayHit.T |> Some
                         | None, c ->
                             cache <- c; None
                                    
@@ -1063,7 +1073,7 @@ module ViewerApp =
                         match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache with
                         | Some (t,surf), c ->                         
                             cache <- c
-                            let hit = r.GetPointOnRay(t)
+                            let hit = r.GetPointOnRay(t.RayHit.T)
 
                             Log.line "[PickSurface] surface hit at %A" hit
 
@@ -2025,11 +2035,16 @@ module ViewerApp =
                 m.scene.viewPlans 
             |> Sg.map ViewPlanMessage    
 
+        let surfaceIntersection = 
+            Picking.pickVisualization m
+            |> Sg.noEvents
+
         [
             scaleBars;
             annotationSg
             traverses
             distancePoints
+            surfaceIntersection
         ] |> Sg.ofList
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 

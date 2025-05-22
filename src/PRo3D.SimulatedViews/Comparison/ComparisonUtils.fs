@@ -98,7 +98,7 @@ module ComparisonUtils =
         match intersected with
         | Some (t,surf), c ->       
             cache <- c
-            let hit = ray.GetPointOnRay(t) 
+            let hit = ray.GetPointOnRay(t.RayHit.T) 
             //Log.warn "ray in direction %s hit surface at %s" (direction.ToString ()) (string hit) // rno debug
             hit |> Some
         |  None, c ->

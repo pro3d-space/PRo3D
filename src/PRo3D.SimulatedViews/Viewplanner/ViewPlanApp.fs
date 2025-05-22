@@ -150,7 +150,7 @@ module ViewPlanApp =
                  
         match SurfaceIntersection.doKdTreeIntersection 
             surfaceModel refSystem (constF None) None ray (fun id l surf -> l.active) cache with
-        | Some (t,_), _ -> ray.Ray.GetPointOnRay(t) |> Some
+        | Some (t,_), _ -> ray.Ray.GetPointOnRay(t.RayHit.T) |> Some
         | None, _ -> None
 
     let getInstrumentResolution (vp:AdaptiveViewPlanModel) =

@@ -88,7 +88,7 @@ module HaltonPlacement =
                 
                 match SurfaceIntersection.doKdTreeIntersection surfaces refSystem observedSystem observerSystem ray surfaceFilter cache with
                 | Some (t,surf), c ->                             
-                    cache <- c; ray.Ray.GetPointOnRay t |> Some
+                    cache <- c; ray.Ray.GetPointOnRay t.RayHit.T |> Some
                 | None, c ->
                     cache <- c; None
                                   
@@ -96,7 +96,7 @@ module HaltonPlacement =
                 match SurfaceIntersection.doKdTreeIntersection surfaces refSystem observedSystem observerSystem (FastRay3d(ray)) surfaceFilter cache with
                 | Some (t,surf), c ->                         
                     cache <- c
-                    let hit = ray.GetPointOnRay(t)
+                    let hit = ray.GetPointOnRay(t.RayHit.T)
                    
                     lastHash <- rayHash
                     match hitF cameraLocation hit with

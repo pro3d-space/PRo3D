@@ -532,6 +532,8 @@ type MultiSelectionBox =
         selectionBox: Box3d
     }
 
+type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
+
 [<ModelType>]
 type Model = { 
     viewerVersion        : string
@@ -601,6 +603,8 @@ type Model = {
     animator             : Animation.Animator<Model>
 
     provenanceModel      : ProvenanceModel
+
+    surfaceIntersection : Option<SurfaceIntersection>
 } 
 
 type ViewerAnimationAction =

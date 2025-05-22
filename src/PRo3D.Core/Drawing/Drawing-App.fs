@@ -718,7 +718,7 @@ module DrawingApp =
             pickRenderTarget.Acquire()
             let packedLines = 
                 let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
-                    kind, fun evt -> false, Seq.delay (fun () -> (f evt))
+                    kind, fun evt -> true, Seq.delay (fun () -> (f evt))
                 PackedRendering.packedRender lines 
                 |> Sg.noEvents
                 |> Sg.pickable' (bb |> AVal.map PickShape.Box)
