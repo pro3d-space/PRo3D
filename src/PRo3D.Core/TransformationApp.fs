@@ -315,6 +315,8 @@ module TransformationApp =
         | SetRefSysSize s ->    
             let ps = Numeric.update model.refSysSize s
             { model with refSysSize = ps }
+        | SetEulerMode m -> 
+            { model with eulerMode = m }
    
     module UI =
         

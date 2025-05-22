@@ -1106,8 +1106,8 @@ module Gui =
                 let instrumentViewAttributes =
                     amap {
                         let! hor, vert = ViewPlanApp.getInstrumentResolution m.scene.viewPlans
-                        let height = "height:" + (vert/uint32(2)).ToString() + ";" ///uint32(2)
-                        let width = "width:" + (hor/uint32(2)).ToString() + ";" ///uint32(2)
+                        let height = "height:" + (vert/uint32(2)).ToString() + ";" //uint32(2)
+                        let width = "width:" + (hor/uint32(2)).ToString() + ";" //uint32(2)
                         yield onResize (fun s -> OnResize(s, id))
                         yield onFocus (fun s -> OnResize(s, id))
                         yield style ("background: #1B1C1E;" + height + width)
