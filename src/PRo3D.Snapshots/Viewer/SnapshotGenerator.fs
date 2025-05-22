@@ -296,7 +296,7 @@ module SnapshotGenerator =
                         verbose             = args.verbose
                     }
                 SnapshotApp.executeAnimation snapshotApp
-                Log.warn "[SnapshotGenerator] Panoramas are not yet implemented!"
+                //Log.warn "[SnapshotGenerator] Panoramas are not yet implemented!"
             | None -> 
                 Log.error "[SNAPSHOT] Could not load data."
         | false -> 
