@@ -147,6 +147,7 @@ module SnapshotSg =
                                 usehighlighting filterTexture
                                 allowFootprint
                                 false
+                                (AVal.constant None)
                                 view
                         match surface.isObj with
                         | true -> 
@@ -243,7 +244,7 @@ module SnapshotSg =
                 |> Sg.fillMode (AVal.constant FillMode.Fill)
                 |> Sg.cullMode (AVal.constant CullMode.None)
 
-            Sg.ofList[ds;annos;]
+            Sg.ofList [ds; annos]
 
         let overlayed =
 

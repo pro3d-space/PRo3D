@@ -281,6 +281,7 @@ module ViewerUtils =
         (filterTexture   : aval<bool>)
         (allowFootprint  : bool)  
         (allowDepthview  : bool) 
+        (cursorWorldSpace : aval<Option<V3d>>)
         (view            : aval<CameraView>) =
 
         adaptive {
@@ -411,7 +412,16 @@ module ViewerUtils =
                             return! surf.filterByDistance 
                         | None ->
                             return false
-                    }               
+                    }  
+                    
+                let cusorViewSpace = 
+                    (view, cursorWorldSpace) ||> AVal.map2 (fun view p -> 
+                        match p with
+                        | None -> V4d.Zero
+                        | Some p -> 
+                            let vp = (CameraView.viewTrafo view).Forward.TransformPos p
+                            V4d(vp, 1.0) // w for indication if valid
+                    )
 
                 let surfaceSg =
                     surface.sceneGraph
@@ -427,6 +437,12 @@ module ViewerUtils =
                     |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
                     |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
+
+
+                    |> Sg.uniform "CursorViewSpace" cusorViewSpace
+                    |> Sg.uniform "CursorWorldSizeSquared" (V4f(2.0, 2.1, 2.2, 2.3)  |> AVal.constant)
+                    |> Sg.uniform "CursorShaderEnabled" (AVal.constant true)
+
                     |> addImageCorrectionParameters  surf
                     |> addRadiometryParameters surf
                     |> Sg.uniform "DepthVisible" depthVisible //(AVal.constant(true)) //
@@ -843,9 +859,10 @@ module ViewerUtils =
     let surfaceEffect =
         Effect.compose [
             
+            Shaders.donutVertex |> toEffect
             Shader.footprintV        |> toEffect 
             Shader.stableTrafo       |> toEffect
-            Shader.triangleFilterX   |> toEffect
+            //Shader.triangleFilterX   |> toEffect
            
            
             Shader.fixAlpha |> toEffect
@@ -864,7 +881,9 @@ module ViewerUtils =
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
             Shader.secondaryTexture |> toEffect 
+
             Shader.contourLines |> toEffect
+            Shaders.donutFragment |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
@@ -929,6 +948,7 @@ module ViewerUtils =
                             usehighlighting m.filterTexture
                             true
                             false
+                            (AVal.constant None)
                             view)
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -993,6 +1013,9 @@ module ViewerUtils =
         let refSystem = m.scene.referenceSystem
         //let view = m.navigation.camera.view
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
+
+        let cursorWorldPos = m.surfaceIntersection |> AVal.map (Option.map (fun s -> s.hitPoint))
+
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -1014,6 +1037,7 @@ module ViewerUtils =
                                 usehighlighting filterTexture
                                 allowFootprint
                                 allowDepthview
+                                cursorWorldPos
                                 view
 
                         match surface.isObj with

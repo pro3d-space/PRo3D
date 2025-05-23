@@ -144,7 +144,7 @@ module ViewerLenses =
                         state.stateConfig.frustumModel.frustum
             let m = 
                 let refSysState = 
-                    /// UPDATING REF SYSTEM HERE LEADS TO TRAVERSE CALCULATIONS BERING TRIGGERED, EVEN IF THE REF SYSTEM DOES NOT CHANGE!
+                    // UPDATING REF SYSTEM HERE LEADS TO TRAVERSE CALCULATIONS BERING TRIGGERED, EVEN IF THE REF SYSTEM DOES NOT CHANGE!
                     /// so we check manually if the reference system has changed, and only assign it if there is a change
                     {m.scene.referenceSystem with
                         origin        = state.stateReferenceSystem.origin       
