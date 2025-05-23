@@ -1,5 +1,5 @@
-//8151f96a-5dbc-13a5-2c65-d841064239f1
-//3d22f19c-4cf3-5039-c9bf-8c00877e0281
+//ea6b8b58-aa03-1b6d-365c-599e2d6d0bcc
+//0eaf4200-3da2-4846-8dc5-b2559de278e7
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -139,6 +139,44 @@ module RecentLenses =
     type Recent with
         static member recentScenes_ = ((fun (self : Recent) -> self.recentScenes), (fun (value : Microsoft.FSharp.Collections.list<SceneHandle>) (self : Recent) -> { self with recentScenes = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type AdaptiveEllipseModel(value : EllipseModel) =
+    let _firstWorldPick_ = FSharp.Data.Adaptive.cval(value.firstWorldPick)
+    let _currentWorldPos_ = FSharp.Data.Adaptive.cval(value.currentWorldPos)
+    let _secondWorldPick_ = FSharp.Data.Adaptive.cval(value.secondWorldPick)
+    let _boundaryVertices_ = FSharp.Data.Adaptive.cval(value.boundaryVertices)
+    let _projectionPlane_ = FSharp.Data.Adaptive.cval(value.projectionPlane)
+    let _projectedEllipse_ = FSharp.Data.Adaptive.cval(value.projectedEllipse)
+    let mutable __value = value
+    let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
+    static member Create(value : EllipseModel) = AdaptiveEllipseModel(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : EllipseModel) -> AdaptiveEllipseModel(value)) (fun (adaptive : AdaptiveEllipseModel) (value : EllipseModel) -> adaptive.Update(value))
+    member __.Update(value : EllipseModel) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<EllipseModel>.ShallowEquals(value, __value))) then
+            __value <- value
+            __adaptive.MarkOutdated()
+            _firstWorldPick_.Value <- value.firstWorldPick
+            _currentWorldPos_.Value <- value.currentWorldPos
+            _secondWorldPick_.Value <- value.secondWorldPick
+            _boundaryVertices_.Value <- value.boundaryVertices
+            _projectionPlane_.Value <- value.projectionPlane
+            _projectedEllipse_.Value <- value.projectedEllipse
+    member __.Current = __adaptive
+    member __.firstWorldPick = _firstWorldPick_ :> FSharp.Data.Adaptive.aval<SurfaceIntersection>
+    member __.currentWorldPos = _currentWorldPos_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<SurfaceIntersection>>
+    member __.secondWorldPick = _secondWorldPick_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<SurfaceIntersection>>
+    member __.boundaryVertices = _boundaryVertices_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<(Aardvark.Base.V3d)[]>>
+    member __.projectionPlane = _projectionPlane_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Base.Plane3d>>
+    member __.projectedEllipse = _projectedEllipse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<ProjectedEllipse>>
+[<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+module EllipseModelLenses = 
+    type EllipseModel with
+        static member firstWorldPick_ = ((fun (self : EllipseModel) -> self.firstWorldPick), (fun (value : SurfaceIntersection) (self : EllipseModel) -> { self with firstWorldPick = value }))
+        static member currentWorldPos_ = ((fun (self : EllipseModel) -> self.currentWorldPos), (fun (value : Microsoft.FSharp.Core.Option<SurfaceIntersection>) (self : EllipseModel) -> { self with currentWorldPos = value }))
+        static member secondWorldPick_ = ((fun (self : EllipseModel) -> self.secondWorldPick), (fun (value : Microsoft.FSharp.Core.Option<SurfaceIntersection>) (self : EllipseModel) -> { self with secondWorldPick = value }))
+        static member boundaryVertices_ = ((fun (self : EllipseModel) -> self.boundaryVertices), (fun (value : Microsoft.FSharp.Core.Option<(Aardvark.Base.V3d)[]>) (self : EllipseModel) -> { self with boundaryVertices = value }))
+        static member projectionPlane_ = ((fun (self : EllipseModel) -> self.projectionPlane), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Base.Plane3d>) (self : EllipseModel) -> { self with projectionPlane = value }))
+        static member projectedEllipse_ = ((fun (self : EllipseModel) -> self.projectedEllipse), (fun (value : Microsoft.FSharp.Core.Option<ProjectedEllipse>) (self : EllipseModel) -> { self with projectedEllipse = value }))
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveModel(value : Model) =
     let _viewerVersion_ = FSharp.Data.Adaptive.cval(value.viewerVersion)
     let _startupArgs_ = FSharp.Data.Adaptive.cval(value.startupArgs)
@@ -179,6 +217,14 @@ type AdaptiveModel(value : Model) =
     let _screenshotDirectory_ = FSharp.Data.Adaptive.cval(value.screenshotDirectory)
     let _provenanceModel_ = AdaptiveProvenanceModel(value.provenanceModel)
     let _surfaceIntersection_ = FSharp.Data.Adaptive.cval(value.surfaceIntersection)
+    let _ellipseModel_ =
+        let inline __arg2 (o : System.Object) (v : EllipseModel) =
+            (unbox<AdaptiveEllipseModel> o).Update(v)
+            o
+        let inline __arg5 (o : System.Object) (v : EllipseModel) =
+            (unbox<AdaptiveEllipseModel> o).Update(v)
+            o
+        Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Viewer.EllipseModel, PRo3D.Viewer.AdaptiveEllipseModel, PRo3D.Viewer.AdaptiveEllipseModel>(value.ellipseModel, (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o), (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o))
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Model) = AdaptiveModel(value)
@@ -226,6 +272,7 @@ type AdaptiveModel(value : Model) =
             _screenshotDirectory_.Value <- value.screenshotDirectory
             _provenanceModel_.Update(value.provenanceModel)
             _surfaceIntersection_.Value <- value.surfaceIntersection
+            _ellipseModel_.Update(value.ellipseModel)
     member __.Current = __adaptive
     member __.viewerVersion = _viewerVersion_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.startupArgs = _startupArgs_ :> FSharp.Data.Adaptive.aval<PRo3D.StartupArgs>
@@ -267,6 +314,7 @@ type AdaptiveModel(value : Model) =
     member __.animator = __value.animator
     member __.provenanceModel = _provenanceModel_
     member __.surfaceIntersection = _surfaceIntersection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<SurfaceIntersection>>
+    member __.ellipseModel = _ellipseModel_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<EllipseModel, AdaptiveEllipseModel, AdaptiveEllipseModel>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ModelLenses = 
     type Model with
@@ -310,4 +358,5 @@ module ModelLenses =
         static member animator_ = ((fun (self : Model) -> self.animator), (fun (value : Aardvark.UI.Animation.Animator<Model>) (self : Model) -> { self with animator = value }))
         static member provenanceModel_ = ((fun (self : Model) -> self.provenanceModel), (fun (value : ProvenanceModel) (self : Model) -> { self with provenanceModel = value }))
         static member surfaceIntersection_ = ((fun (self : Model) -> self.surfaceIntersection), (fun (value : Microsoft.FSharp.Core.Option<SurfaceIntersection>) (self : Model) -> { self with surfaceIntersection = value }))
+        static member ellipseModel_ = ((fun (self : Model) -> self.ellipseModel), (fun (value : Microsoft.FSharp.Core.Option<EllipseModel>) (self : Model) -> { self with ellipseModel = value }))
 

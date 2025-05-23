@@ -24,6 +24,7 @@ type Interactions =
     | PickPivotPoint        = 18
     | PickSurfaceRefSys     = 19
     | PickDistanePoint      = 20
+    
 
 module Interactions =
     // excludes interactions from dropdown in topmenu

@@ -24,10 +24,8 @@ module Picking =
 
     let mutable cache = HashMap.Empty
 
-    let pickRay (m : Model) (p : SceneHit) (surfaceName : string) =
-        let fray = p.globalRay.Ray
-        let r = fray.Ray
-
+    let pickRay (m : Model) (r : FastRay3d) (surfaceName : string) =
+        let ray = r.Ray
         let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
         let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
                 
@@ -44,11 +42,11 @@ module Picking =
                       
 
         let hit = 
-            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache with
+            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem r surfaceFilter cache with
             | Some (hit,surf), c ->                         
                 cache <- c
                 let t = hit.RayHit.T
-                let hitPosOnRay = r.GetPointOnRay(t)
+                let hitPosOnRay = ray.GetPointOnRay(t)
 
                 Log.line "[PickSurface] surface hit at (new method) %A" hit
 

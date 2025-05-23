@@ -1009,100 +1009,141 @@ module ViewerApp =
                 m
         | ViewerAction.PreviewPickSurface (p,name,true), _ ,_ ->
             Log.line "preview"
-            match Picking.pickRay m p name with
+            let project p = failwith ""
+            let fray = p.globalRay.Ray
+            let r = fray.Ray
+            match Picking.pickRay m fray name with
             | Some (p, hitPosOnRay) -> 
                 let info = p.GetIntersectionRayHitInfo()
+                let project p = 
+                    let up = m.scene.referenceSystem.up.value
+                    let fr = FastRay3d(p + (up * 5000.0), -up)  
+                    match Picking.pickRay m fr name with
+                    | Some (p, hitPosOnRay) -> 
+                        hitPosOnRay
+                    | _ -> 
+                        Log.warn "could not project"
+                        p
                 let normal = if info.HasValidNormal then Some info.Normal else None
-                { m with surfaceIntersection = Some { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }}
+                let s = { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }
+                { m with 
+                    surfaceIntersection = Some { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }
+                    ellipseModel = EllipseAnnotations.App.update m.scene.referenceSystem.up.value  project (EllipseAnnotations.SetPreviewPoint s) m.ellipseModel
+                }
             | _ -> 
                 Log.line "no hit"
                 m
         | ViewerAction.PickSurface (p,name,true), _ ,true ->
             let fray = p.globalRay.Ray
             let r = fray.Ray
-            let rayHash = r.GetHashCode()              
-
-            let computeExactPick = true // CHECK-merge
-
-            if computeExactPick then    // CHECK-merge
-
-                //// hack
-                //let pp = m.navigation.exploreCenter
-                //let navigation' = 
-                //    Navigation.update m.scene.config m.scene.referenceSystem navConf true m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick pp))
+            if m.drawing.geometry = Geometry.Ellipse then
+                match Picking.pickRay m fray name with
+                | Some (p, hitPosOnRay) -> 
+                    let info = p.GetIntersectionRayHitInfo()
+                    let project p = 
+                        let up = m.scene.referenceSystem.up.value
+                        let fr = FastRay3d(p + (up * 5000.0), -up)  
+                        match Picking.pickRay m fr name with
+                        | Some (p, hitPosOnRay) -> 
+                            hitPosOnRay
+                        | _ -> 
+                            Log.warn "could not project"
+                            p
+                    let normal = if info.HasValidNormal then Some info.Normal else None
+                    let s = { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }
+                    { m with 
+                        ellipseModel = 
+                            EllipseAnnotations.App.update m.scene.referenceSystem.up.value project (EllipseAnnotations.PickPoint s) m.ellipseModel 
+                    }
+                | _ -> 
+                    m
+            else
                 let fray = p.globalRay.Ray
                 let r = fray.Ray
-                let rayHash = r.GetHashCode()
+                let rayHash = r.GetHashCode()              
 
-                let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
-                let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+                let computeExactPick = true // CHECK-merge
+
+                if computeExactPick then    // CHECK-merge
+
+                    //// hack
+                    //let pp = m.navigation.exploreCenter
+                    //let navigation' = 
+                    //    Navigation.update m.scene.config m.scene.referenceSystem navConf true m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick pp))
+                    let fray = p.globalRay.Ray
+                    let r = fray.Ray
+                    let rayHash = r.GetHashCode()
+
+                    let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                    let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
                 
-                if rayHash = lastHash then
-                    Log.line "ray hash took over"
-                    m
-                else          
-                    Log.startTimed "[PickSurface] try intersect kdtree of %s" name       
+                    if rayHash = lastHash then
+                        Log.line "ray hash took over"
+                        m
+                    else          
+                        Log.startTimed "[PickSurface] try intersect kdtree of %s" name       
                          
-                    let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
-                    let onlyVisible (id : Guid) (l : Leaf) (s : SgSurface) = l.visible
-                    let visibleAndActive (id : Guid) (l : Leaf) (s : SgSurface) = l.visible && l.active
+                        let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
+                        let onlyVisible (id : Guid) (l : Leaf) (s : SgSurface) = l.visible
+                        let visibleAndActive (id : Guid) (l : Leaf) (s : SgSurface) = l.visible && l.active
 
-                    let surfaceFilter = 
-                        match m.interaction with
-                        | Interactions.PickSurface -> visibleAndActive
-                        | _ -> onlyActive
+                        let surfaceFilter = 
+                            match m.interaction with
+                            | Interactions.PickSurface -> visibleAndActive
+                            | _ -> onlyActive
 
-                    let hitF (camLocation : V3d) (p : V3d) = 
-                        let ray =
-                            match m.drawing.projection with
-                            | Projection.Viewpoint -> 
-                                let dir = (p-camLocation).Normalized
-                                FastRay3d(camLocation, dir)  
-                            | Projection.Sky -> 
-                                let up = m.scene.referenceSystem.up.value
-                                FastRay3d(p + (up * 5000.0), -up)  
-                            | _ -> Log.error "projection started without proj mode"; FastRay3d()
+                        let hitF (camLocation : V3d) (p : V3d) = 
+                            let ray =
+                                match m.drawing.projection with
+                                | Projection.Viewpoint -> 
+                                    let dir = (p-camLocation).Normalized
+                                    FastRay3d(camLocation, dir)  
+                                | Projection.Sky -> 
+                                    let up = m.scene.referenceSystem.up.value
+                                    FastRay3d(p + (up * 5000.0), -up)  
+                                | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
-                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache with
-                        | Some (t,surf), c ->                             
-                            cache <- c; ray.Ray.GetPointOnRay t.RayHit.T |> Some
-                        | None, c ->
-                            cache <- c; None
+                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache with
+                            | Some (t,surf), c ->                             
+                                cache <- c; ray.Ray.GetPointOnRay t.RayHit.T |> Some
+                            | None, c ->
+                                cache <- c; None
                                    
-                    let result = 
-                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache with
-                        | Some (t,surf), c ->                         
-                            cache <- c
-                            let hit = r.GetPointOnRay(t.RayHit.T)
+                        let result = 
+                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache with
+                            | Some (t,surf), c ->                         
+                                cache <- c
+                                let hit = r.GetPointOnRay(t.RayHit.T)
 
-                            Log.line "[PickSurface] surface hit at %A" hit
+                                Log.line "[PickSurface] surface hit at %A" hit
 
-                            let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
-                            let hitF = hitF cameraLocation
+                                let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
+                                let hitF = hitF cameraLocation
                    
-                            lastHash <- rayHash
+                                lastHash <- rayHash
 
-                            let observedSystem = observedSystem surf.guid
-                            let spiceTrafo = 
-                                match observedSystem, observerSystem with
-                                | Some observedSystem, Some observerSystem -> 
-                                    CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time
-                                    |> Option.map (fun t -> t.Trafo) 
-                                    |> Option.defaultValue Trafo3d.Identity
-                                | _ -> Trafo3d.Identity
+                                let observedSystem = observedSystem surf.guid
+                                let spiceTrafo = 
+                                    match observedSystem, observerSystem with
+                                    | Some observedSystem, Some observerSystem -> 
+                                        CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time
+                                        |> Option.map (fun t -> t.Trafo) 
+                                        |> Option.defaultValue Trafo3d.Identity
+                                    | _ -> Trafo3d.Identity
 
-                            let toLocal (v : V3d) = spiceTrafo.Backward.TransformPos(v)
+                                let toLocal (v : V3d) = spiceTrafo.Backward.TransformPos(v)
 
-                            matchPickingInteraction sendQueue hit observedSystem (hitF >> Option.map toLocal) surf m                                    
-                        | None, _ -> 
-                            Log.error "[PickSurface] no hit of %s" name
-                            m
+                                matchPickingInteraction sendQueue hit observedSystem (hitF >> Option.map toLocal) surf m                                    
+                            | None, _ -> 
+                                Log.error "[PickSurface] no hit of %s" name
+                                m
 
-                    Log.stop()
-                    Log.line "[PickSurface] done intersecting"
+                        Log.stop()
+                        Log.line "[PickSurface] done intersecting"
                      
-                    result
-            else m
+                        result
+                else m
+
         | PickObject (p,id), _ ,_ ->  
             match m.picking with
             | true ->
@@ -2039,12 +2080,21 @@ module ViewerApp =
             Picking.pickVisualization m
             |> Sg.noEvents
 
+        let ellipseDrawing = 
+            m.ellipseModel |> AVal.map (function
+                | AdaptiveNone -> Sg.empty
+                | AdaptiveSome m -> 
+                    EllipseAnnotations.App.viewDepthTested m
+            )
+            |> Sg.dynamic
+
         [
             scaleBars;
             annotationSg
             traverses
             distancePoints
             surfaceIntersection
+            ellipseDrawing
         ] |> Sg.ofList
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
@@ -2158,6 +2208,15 @@ module ViewerApp =
             
             let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
 
+            let ellipsePreview = 
+                m.ellipseModel |> AVal.map (function 
+                    | AdaptiveNone -> 
+                        Sg.empty 
+                    | AdaptiveSome m -> 
+                        EllipseAnnotations.App.viewOverlayed m 
+                )
+                |> Sg.dynamic
+
            
             [
                 overL;
@@ -2165,6 +2224,7 @@ module ViewerApp =
                 leafLabels;
              //   solText; 
                 heightValidation;
+                ellipsePreview
                 //traverse
                 //gisEntities
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText

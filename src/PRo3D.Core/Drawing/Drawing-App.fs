@@ -79,7 +79,7 @@ module DrawingApp =
                             manualDipAngle   = { w.manualDipAngle   with value = 0.0 }
                             manualDipAzimuth = { w.manualDipAzimuth with value = 0.0 }
                     }
-                | _-> w 
+                | _ -> w 
         
             let dns = 
                 match w.geometry with 
@@ -119,10 +119,13 @@ module DrawingApp =
                 let annotation = { w with points = w.points |> IndexList.add p }
                 Log.line "working contains %d points" annotation.points.Count
                 
+                // do not generate segments for ellipses as they are sampled when the ellipse is fully constructed (after having the ellipse we know its outline).
+                let allowSegmentGeneration = w.geometry <> Geometry.Ellipse
+
                 //fetch current drawing segment (projected, polyline or polygon)
                 let result = 
                     match w.projection with
-                    | Projection.Viewpoint | Projection.Sky | Projection.Bookmark ->                     
+                    | Projection.Viewpoint | Projection.Sky | Projection.Bookmark when allowSegmentGeneration ->                     
                         match IndexList.tryAt (IndexList.count w.points-1) w.points with
                         | None -> 
                             annotation, None
@@ -175,6 +178,8 @@ module DrawingApp =
             Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
             finishAndAppend up north planet view model, None
         | Geometry.TT, 2 | Geometry.Line, 2 -> 
+            finishAndAppend up north planet view model, None
+        | Geometry.Ellipse, 3 -> 
             finishAndAppend up north planet view model, None
         | _ -> 
             model, newSegment 

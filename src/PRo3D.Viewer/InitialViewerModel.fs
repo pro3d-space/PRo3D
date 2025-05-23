@@ -177,6 +177,7 @@ module Viewer =
 
             provenanceModel = ProvenanceModel.invalid
             surfaceIntersection   = None
+            ellipseModel = None
         } |> applyProvenaceIfEnabled
 
 

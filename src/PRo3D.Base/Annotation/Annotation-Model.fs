@@ -29,6 +29,7 @@ type Geometry =
 | Polygon   = 3 
 | DnS       = 4
 | TT        = 5
+| Ellipse   = 6
 
 type Semantic = 
 | Horizon0 = 0 

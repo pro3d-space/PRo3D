@@ -70,6 +70,7 @@
     <Compile Include="Drawing\Drawing.Sg.fs" />
     <Compile Include="Drawing\Drawing.IO.fs" />
     <Compile Include="Drawing\PackedRendering.fs" />
+    <Compile Include="Drawing\EllipseDrawing.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="GisApp-Model.fs" />
     <Compile Include="GisApp-Model.g.fs" />

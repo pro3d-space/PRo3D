@@ -534,6 +534,30 @@ type MultiSelectionBox =
 
 type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
 
+type ProjectedEllipse = 
+    {
+        surfaceProjectedPoints : Option<array<V3d>>
+        approximatePoints : array<V3d>
+        ellipse : Ellipse2d
+    }
+
+[<ModelType>]
+type EllipseModel = 
+    {
+        firstWorldPick : SurfaceIntersection
+        currentWorldPos : Option<SurfaceIntersection>
+        secondWorldPick : Option<SurfaceIntersection>
+        boundaryVertices : Option<V3d[]>
+        projectionPlane  : Option<Plane3d>
+        projectedEllipse : Option<ProjectedEllipse>
+    }
+
+module EllipseModel = 
+    let initial (p : SurfaceIntersection) = 
+        {   firstWorldPick = p; currentWorldPos = None; secondWorldPick = None; 
+            boundaryVertices = None; projectionPlane = None; projectedEllipse = None 
+        }
+
 [<ModelType>]
 type Model = { 
     viewerVersion        : string
@@ -605,6 +629,7 @@ type Model = {
     provenanceModel      : ProvenanceModel
 
     surfaceIntersection : Option<SurfaceIntersection>
+    ellipseModel        : Option<EllipseModel>
 } 
 
 type ViewerAnimationAction =
