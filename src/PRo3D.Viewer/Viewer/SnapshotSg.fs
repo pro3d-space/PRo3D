@@ -131,6 +131,13 @@ module SnapshotSg =
                 fun x -> ( x 
                     |> AMap.map(fun guid surface ->              
                         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
+                        let priority = 
+                            AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
+                            |> AVal.bind (function
+                                | (Some (AdaptiveSurfaces s)) -> 
+                                    s.priority.value |> AVal.map (int >> Some) 
+                                | _ -> AVal.constant None
+                            )
                         let s = 
                             viewSingleSurfaceSg 
                                 surface 
@@ -148,17 +155,25 @@ module SnapshotSg =
                                 allowFootprint
                                 false
                                 view
-                        match surface.isObj with
-                        | true -> 
-                            s 
-                            |> Sg.effect [
-                                objEffect
-                            ] 
-                        | false -> 
-                            s
-                            |> Sg.effect [surfaceEffect] 
-                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+                        let surface = 
+                            match surface.isObj with
+                            | true -> 
+                                s 
+                                |> Sg.effect [
+                                    objEffect
+                                ] 
+                            | false -> 
+                                s
+                                |> Sg.effect [surfaceEffect] 
+                                |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                                |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+
+
+                        let depthComposed = 
+                            TraverseApp.Sg.view view refSystem m.scene.traverses priority
+                            |> Sg.map ViewerAction.TraverseMessage
+
+                        Sg.ofList [surface; depthComposed]
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
