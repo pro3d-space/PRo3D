@@ -66,6 +66,8 @@ module TraversePropertiesApp =
             { model with tLineWidth = Numeric.update model.tLineWidth w}
         | SetHeightOffset w -> 
             { model with heightOffset = Numeric.update model.heightOffset w}
+        | SetPriority p ->
+            { model with priority = Numeric.update model.priority p }
 
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -118,6 +120,7 @@ module TraversePropertiesApp =
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ]    
                 ]
             )
     
@@ -621,23 +624,37 @@ module TraverseApp =
             |> ASet.map snd 
             |> Sg.set
             
-        let drawSolTextsFast (view : aval<CameraView>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
+        let drawSolTextsFast (view : aval<CameraView>) (horizontalFovInDegrees : aval<float>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
             let contents = 
                 let viewTrafo = view |> AVal.map CameraView.viewTrafo
                  
-                AVal.map2 (fun sols scale -> 
+                AVal.custom (fun token -> 
+                    let sols = traverse.sols.GetValue(token)
+                    let view = view.GetValue(token)
+                    let size = traverse.tTextSize.value.GetValue(token)
+                    let hfov = horizontalFovInDegrees.GetValue(token)
                     sols 
-                    |> List.toArray
+                    |> Seq.toArray
                     |> Array.map (fun sol -> 
+
+                        let scaleTrafo = 
+                            let screenSpaceScaling = true
+                            if screenSpaceScaling then
+                                let distance = Vec.distance sol.location view.Location
+                                let scaling = size * 2.0 * distance * Math.Tan(Conversion.RadiansFromDegrees hfov)
+                                Trafo3d.Scale(scaling)
+                            else
+                                Trafo3d.Scale(size) 
+                                
                         let loc = sol.location + sol.location.Normalized * 1.5
-                        let trafo = (Trafo3d.Scale((float)scale) ) * (Trafo3d.Translation loc)
+                        let trafo = scaleTrafo * (Trafo3d.Translation loc)
                         let text = $"{sol.solNumber}"
                         //let scaleTrafo = Sg.invariantScaleTrafo view near ~~loc traverse.tTextSize.value ~~60.0
                         //let dynamicTrafo = scaleTrafo |> AVal.map (fun scale -> scale * trafo)
                         let stableTrafo = viewTrafo |> AVal.map (fun view -> trafo * view) // stable, and a bit slow
                         AVal.constant trafo, AVal.constant text
-                    ) 
-                ) traverse.sols traverse.tTextSize.value
+                    )
+                )
                 |> ASet.ofAVal
             let sg = 
                 let config = { Text.TextConfig.Default with renderStyle = RenderStyle.Billboard; color = C4b.White }
@@ -664,7 +681,8 @@ module TraverseApp =
             |> Sg.onOff model.isVisibleT
 
 
-        let viewText (refSystem : AdaptiveReferenceSystem) view near (traverseModel : AdaptiveTraverseModel) =
+        let viewText (refSystem : AdaptiveReferenceSystem) (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>) 
+                    (near : aval<float>) (traverseModel : AdaptiveTraverseModel) =
         
             let traverses = traverseModel.traverses
             traverses 
@@ -672,6 +690,7 @@ module TraverseApp =
                 drawSolTextsFast
                     view
                     near
+                    horiztonalFieldOfViewInDegrees
                     traverse
                 |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
             )
@@ -818,10 +837,19 @@ module TraverseApp =
         let view
             (view           : aval<CameraView>)
             (refsys         : AdaptiveReferenceSystem) 
-            (traverseModel  : AdaptiveTraverseModel) =
+            (traverseModel  : AdaptiveTraverseModel)
+            //(filterPriority : Option<int>) // if Some, only render traverses with this priority
+            = 
 
             let traverses = traverseModel.traverses
             traverses 
+            //|> AMap.filterA (fun k v -> 
+            //    v.priority.value |> AVal.map (fun p -> 
+            //        match filterPriority with
+            //        | None -> true
+            //        | Some priority -> p.value = priority
+            //    )
+            //)
             |> AMap.map(fun id traverse ->
                 viewTraverseFast view refsys traverse
             )

@@ -1914,7 +1914,7 @@ module ViewerApp =
         ) m.ctrlFlag m.interaction
 
     // overlays that occur in instrumentview + main renderview
-    let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) =
+    let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) (frustum : aval<Frustum>) =
         let refSystem =
             Sg.view
                 m.scene.config
@@ -1950,6 +1950,7 @@ module ViewerApp =
                 m.scene.referenceSystem
                 view
                 m.scene.config.nearPlane.value 
+                (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
                 m.scene.traverses
             |> Sg.map TraverseMessage
 
@@ -2037,7 +2038,7 @@ module ViewerApp =
         let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let icam = AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
 
-        let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam
+        let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam frustum
        
         let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
 
@@ -2087,7 +2088,7 @@ module ViewerApp =
 
             let near = m.scene.config.nearPlane.value
 
-            let overL = getOverlayed m m.navigation.camera.view
+            let overL = getOverlayed m m.navigation.camera.view frustum
 
             let leafLabels =
                 m.scene.config.showLeafLabels 

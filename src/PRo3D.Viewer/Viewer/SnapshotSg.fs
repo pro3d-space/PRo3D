@@ -279,6 +279,7 @@ module SnapshotSg =
                     TraverseApp.Sg.viewText m.scene.referenceSystem
                         m.navigation.camera.view
                         m.scene.config.nearPlane.value 
+                        (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
                         m.scene.traverses
                 ]
                 |> Sg.ofList
