@@ -492,12 +492,12 @@ module ViewerUtils =
 
 
                     |> Sg.withEvents [
-                        SceneEventKind.Move, (
-                            fun sceneHit -> 
-                                let name  = surf.name |> AVal.force        
-                                let surfacePicking = surfacePicking |> AVal.force
-                                true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
-                        )
+                        //SceneEventKind.Move, (
+                        //    fun sceneHit -> 
+                        //        let name  = surf.name |> AVal.force        
+                        //        let surfacePicking = surfacePicking |> AVal.force
+                        //        true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                        //)
                         SceneEventKind.Click, (
                            fun sceneHit -> 
                              let name  = surf.name |> AVal.force        
@@ -997,6 +997,14 @@ module ViewerUtils =
             sgGrouped |> AList.map(
                 fun x -> ( x 
                     |> AMap.map(fun guid surface ->   
+                        let priority = 
+                            AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
+                            |> AVal.bind (function
+                                | (Some (AdaptiveSurfaces s)) -> 
+                                    s.priority.value |> AVal.map (int >> Some) 
+                                | _ -> AVal.constant None
+                            )
+
                         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         let s =
                             viewSingleSurfaceSg 
@@ -1016,17 +1024,25 @@ module ViewerUtils =
                                 allowDepthview
                                 view
 
-                        match surface.isObj with
-                        | true -> 
-                            s 
-                            |> Sg.effect [
-                                objEffect
-                            ] 
-                        | false -> 
-                            s
-                            |> Sg.effect [surfaceEffect] 
-                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+
+                        let surfaceSg = 
+                            match surface.isObj with
+                            | true -> 
+                                s 
+                                |> Sg.effect [
+                                    objEffect
+                                ] 
+                            | false -> 
+                                s
+                                |> Sg.effect [surfaceEffect] 
+                                |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                                |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+
+                        let depthComposed = 
+                            TraverseApp.Sg.view view refSystem m.scene.traverses priority
+                            |> Sg.map ViewerAction.TraverseMessage
+
+                        Sg.ofList [surfaceSg; depthComposed]
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     

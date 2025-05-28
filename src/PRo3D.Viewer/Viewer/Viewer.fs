@@ -2009,16 +2009,19 @@ module ViewerApp =
                 m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
        
+        //let traverses = 
+        //    [ 
+        //        //TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
+        //        TraverseApp.Sg.view     
+        //            view //m.navigation.camera.view
+        //            m.scene.referenceSystem
+        //            m.scene.traverses   
+        //            (AVal.constant None)
+        //    ]
+        //    |> Sg.ofList
+        //    |> Sg.map TraverseMessage
         let traverses = 
-            [ 
-                TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
-                TraverseApp.Sg.view     
-                    view //m.navigation.camera.view
-                    m.scene.referenceSystem
-                    m.scene.traverses   
-            ]
-            |> Sg.ofList
-            |> Sg.map TraverseMessage
+            Sg.empty
 
         let distancePoints =
             ViewPlanApp.Sg.viewVPDistancePoints 

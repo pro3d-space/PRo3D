@@ -838,20 +838,22 @@ module TraverseApp =
             (view           : aval<CameraView>)
             (refsys         : AdaptiveReferenceSystem) 
             (traverseModel  : AdaptiveTraverseModel)
-            //(filterPriority : Option<int>) // if Some, only render traverses with this priority
+            (filterPriority : aval<Option<int>>) // if Some, only render traverses with this priority
             = 
 
             let traverses = traverseModel.traverses
             traverses 
-            //|> AMap.filterA (fun k v -> 
-            //    v.priority.value |> AVal.map (fun p -> 
-            //        match filterPriority with
-            //        | None -> true
-            //        | Some priority -> p.value = priority
-            //    )
-            //)
+            |> AMap.filterA (fun k v -> 
+                (filterPriority, v.priority.value) ||> AVal.map2 (fun filterPriority p -> 
+                    match filterPriority with
+                    | None -> true
+                    | Some priority -> int p = priority
+                )
+            )
             |> AMap.map(fun id traverse ->
-                viewTraverseFast view refsys traverse
+                let dots = viewTraverseFast view refsys traverse
+                let lines = viewLines refsys traverseModel
+                Sg.ofList [dots; lines]
             )
             |> AMap.toASet 
             |> ASet.map snd 
