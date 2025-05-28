@@ -22,6 +22,7 @@ type TraversePropertiesAction =
     | SetTraverseColor of ColorPicker.Action
     | SetHeightOffset of Numeric.Action
     | SetPriority of Numeric.Action
+    | TogglePriorityRenderingEnabled
 
 type TraverseAction =
     | SelectSol of int
@@ -154,6 +155,7 @@ type Traverse =
         color: ColorInput;
         heightOffset : NumericInput
         priority : NumericInput
+        priorityEnabled : bool
     }
 
 module Traverse =
@@ -203,6 +205,7 @@ module Traverse =
         color = { c = C4b.White }
         heightOffset = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
         priority = initialPriority
+        priorityEnabled = false
     }
     let initial name sols =
         { empty with tName = name; sols = sols }
@@ -247,6 +250,7 @@ module Traverse =
             let! isVisibleT = Json.read "isVisibleT"
             let! color = Json.readWith Ext.fromJson<ColorInput, Ext> "color"
             let! heightOffset = Json.tryRead "heightOffset"
+            let! priorityEnabled = Json.tryRead "priorityEnabled"
 
             let tLineWidth = 
                 match tLWidth with
@@ -271,6 +275,7 @@ module Traverse =
                     color = color
                     heightOffset = { empty.heightOffset with value = Option.defaultValue 0.0 heightOffset }
                     priority = { empty.priority with value = Option.defaultValue 0.0 priority }
+                    priorityEnabled = priorityEnabled |> Option.defaultValue false
                 }
         }
 
@@ -301,6 +306,7 @@ type Traverse with
             do! Json.write "tLineWidth" x.tLineWidth.value
             do! Json.write "heightOffset" x.heightOffset.value
             do! Json.write "priority" x.priority.value
+            do! Json.write "priorityEnabled" x.priorityEnabled
         }
 
 [<ModelType>]

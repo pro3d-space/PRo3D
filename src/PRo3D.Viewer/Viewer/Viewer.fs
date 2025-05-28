@@ -1946,13 +1946,24 @@ module ViewerApp =
                 m.scene.referenceSystem
 
         let traverse = 
-            TraverseApp.Sg.viewText 
-                m.scene.referenceSystem
-                view
-                m.scene.config.nearPlane.value 
-                (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
-                m.scene.traverses
-            |> Sg.map TraverseMessage
+            let text = 
+                TraverseApp.Sg.viewText 
+                    m.scene.referenceSystem
+                    view
+                    m.scene.config.nearPlane.value 
+                    (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+                    m.scene.traverses
+                |> Sg.map TraverseMessage
+
+            let traverse = 
+                TraverseApp.Sg.view     
+                    m.navigation.camera.view //m.navigation.camera.view
+                    m.scene.referenceSystem
+                    m.scene.traverses   
+                    (AVal.constant None)
+                |> Sg.map TraverseMessage
+
+            Sg.ofList [text; traverse]
 
         let distancePointsText =
             ViewPlanApp.Sg.viewText 
@@ -2141,6 +2152,7 @@ module ViewerApp =
             //    ]
             //    |> Sg.ofList
             //    |> Sg.map TraverseMessage
+
            
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
@@ -2154,7 +2166,6 @@ module ViewerApp =
                 leafLabels;
              //   solText; 
                 heightValidation;
-                //traverse
                 //gisEntities
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 

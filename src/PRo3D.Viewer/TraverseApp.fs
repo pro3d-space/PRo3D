@@ -68,6 +68,8 @@ module TraversePropertiesApp =
             { model with heightOffset = Numeric.update model.heightOffset w}
         | SetPriority p ->
             { model with priority = Numeric.update model.priority p }
+        | TogglePriorityRenderingEnabled ->             
+            { model with priorityEnabled = not model.priorityEnabled }
 
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -120,7 +122,8 @@ module TraversePropertiesApp =
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
-                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ]    
+                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ] 
+                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
                 ]
             )
     
@@ -844,10 +847,17 @@ module TraverseApp =
             let traverses = traverseModel.traverses
             traverses 
             |> AMap.filterA (fun k v -> 
-                (filterPriority, v.priority.value) ||> AVal.map2 (fun filterPriority p -> 
-                    match filterPriority with
-                    | None -> true
-                    | Some priority -> int p = priority
+                (filterPriority, v.priority.value, v.priorityEnabled) 
+                |||> AVal.map3 (fun filterPriority p enabled -> 
+                    match filterPriority, enabled with
+                    | Some priority, true-> // we have it priorities enabled and we are in a surface pass. check if this is the right prio
+                        int p = priority 
+                    | Some _, false -> // we are in a surface pass here, but priorty rendering is not enabled => skip
+                        false
+                    | None, true -> // we are in overlay pass here.
+                        false       // but it has priority enabled -> it was already rendered with the surfaces
+                    | None, false ->  // we are in overlay pass here and prios are not enabled => we need to render it now.
+                        true
                 )
             )
             |> AMap.map(fun id traverse ->

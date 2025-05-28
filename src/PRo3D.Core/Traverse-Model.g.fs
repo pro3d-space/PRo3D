@@ -1,5 +1,5 @@
-//1c2954fb-cfdb-8d57-7fde-b892f98c72e3
-//4f4be450-03db-df7c-1d48-01cebef1086f
+//7ae5be9a-b8fa-192f-a19d-53282d6fee46
+//500d4ef2-4d77-7181-6060-e536c527097e
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -24,6 +24,7 @@ type AdaptiveTraverse(value : Traverse) =
     let _color_ = Aardvark.UI.AdaptiveColorInput(value.color)
     let _heightOffset_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.heightOffset)
     let _priority_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.priority)
+    let _priorityEnabled_ = FSharp.Data.Adaptive.cval(value.priorityEnabled)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Traverse) = AdaptiveTraverse(value)
@@ -44,6 +45,7 @@ type AdaptiveTraverse(value : Traverse) =
             _color_.Update(value.color)
             _heightOffset_.Update(value.heightOffset)
             _priority_.Update(value.priority)
+            _priorityEnabled_.Value <- value.priorityEnabled
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = __value.guid
@@ -59,6 +61,7 @@ type AdaptiveTraverse(value : Traverse) =
     member __.color = _color_
     member __.heightOffset = _heightOffset_
     member __.priority = _priority_
+    member __.priorityEnabled = _priorityEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseLenses = 
     type Traverse with
@@ -76,6 +79,7 @@ module TraverseLenses =
         static member color_ = ((fun (self : Traverse) -> self.color), (fun (value : Aardvark.UI.ColorInput) (self : Traverse) -> { self with color = value }))
         static member heightOffset_ = ((fun (self : Traverse) -> self.heightOffset), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with heightOffset = value }))
         static member priority_ = ((fun (self : Traverse) -> self.priority), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with priority = value }))
+        static member priorityEnabled_ = ((fun (self : Traverse) -> self.priorityEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with priorityEnabled = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverseModel(value : TraverseModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
