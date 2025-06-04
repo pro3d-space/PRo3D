@@ -1914,7 +1914,7 @@ module ViewerApp =
         ) m.ctrlFlag m.interaction
 
     // overlays that occur in instrumentview + main renderview
-    let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) =
+    let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) (frustum : aval<Frustum>) =
         let refSystem =
             Sg.view
                 m.scene.config
@@ -1945,13 +1945,25 @@ module ViewerApp =
                 mrefConfig
                 m.scene.referenceSystem
 
-        let traverse = 
-            TraverseApp.Sg.viewText 
-                m.scene.referenceSystem
-                view
-                m.scene.config.nearPlane.value 
-                m.scene.traverses
-            |> Sg.map TraverseMessage
+        //let traverse = 
+        //    let text = 
+        //        TraverseApp.Sg.viewText 
+        //            m.scene.referenceSystem
+        //            view
+        //            m.scene.config.nearPlane.value 
+        //            (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+        //            m.scene.traverses
+        //        |> Sg.map TraverseMessage
+
+        //    let traverse = 
+        //        TraverseApp.Sg.view     
+        //            m.navigation.camera.view //m.navigation.camera.view
+        //            m.scene.referenceSystem
+        //            m.scene.traverses   
+        //            (AVal.constant None)
+        //        |> Sg.map TraverseMessage
+
+        //    Sg.ofList [text; traverse]
 
         let distancePointsText =
             ViewPlanApp.Sg.viewText 
@@ -1966,7 +1978,7 @@ module ViewerApp =
             homePosition;
             annotationTexts |> Sg.noEvents
             scaleBarTexts
-            traverse
+            //traverse
             distancePointsText
         ] |> Sg.ofList
                                  
@@ -2008,16 +2020,50 @@ module ViewerApp =
                 m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
        
-        let traverses = 
-            [ 
-                TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
+        //let traverses = 
+        //    [ 
+        //        //TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
+        //        TraverseApp.Sg.view     
+        //            view //m.navigation.camera.view
+        //            m.scene.referenceSystem
+        //            m.scene.traverses   
+        //            (AVal.constant None)
+        //    ]
+        //    |> Sg.ofList
+        //    |> Sg.map TraverseMessage
+        let traverses =
+        
+            let isThereASurfaceWithPriority (p : int) = 
+                m.scene.surfacesModel.surfaces.flat
+                |> AMap.toASetValues
+                |> ASet.existsA (fun e -> 
+                    match e with
+                    | AdaptiveSurfaces s -> s.priority.value |> AVal.map (fun pS -> int pS = p) 
+                    | _ -> AVal.constant false
+                )
+
+            //let text = 
+            //    TraverseApp.Sg.viewText 
+            //        m.scene.referenceSystem
+            //        view
+            //        m.scene.config.nearPlane.value 
+            //        (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+            //        m.scene.traverses
+            //    |> Sg.map TraverseMessage
+
+            let traverse = 
                 TraverseApp.Sg.view     
-                    view //m.navigation.camera.view
+                    view 
+                    m.scene.config.nearPlane.value 
+                    (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
                     m.scene.referenceSystem
                     m.scene.traverses   
-            ]
-            |> Sg.ofList
-            |> Sg.map TraverseMessage
+                    (AVal.constant None)
+                    isThereASurfaceWithPriority
+                |> Sg.map TraverseMessage
+
+            //Sg.ofList [text; traverse]
+            traverse
 
         let distancePoints =
             ViewPlanApp.Sg.viewVPDistancePoints 
@@ -2037,7 +2083,7 @@ module ViewerApp =
         let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let icam = AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
 
-        let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam
+        let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam frustum
        
         let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
 
@@ -2087,7 +2133,7 @@ module ViewerApp =
 
             let near = m.scene.config.nearPlane.value
 
-            let overL = getOverlayed m m.navigation.camera.view
+            let overL = getOverlayed m m.navigation.camera.view frustum
 
             let leafLabels =
                 m.scene.config.showLeafLabels 
@@ -2137,6 +2183,7 @@ module ViewerApp =
             //    ]
             //    |> Sg.ofList
             //    |> Sg.map TraverseMessage
+
            
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
@@ -2150,7 +2197,6 @@ module ViewerApp =
                 leafLabels;
              //   solText; 
                 heightValidation;
-                //traverse
                 //gisEntities
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 

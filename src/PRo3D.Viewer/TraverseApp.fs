@@ -66,6 +66,10 @@ module TraversePropertiesApp =
             { model with tLineWidth = Numeric.update model.tLineWidth w}
         | SetHeightOffset w -> 
             { model with heightOffset = Numeric.update model.heightOffset w}
+        | SetPriority p ->
+            { model with priority = Numeric.update model.priority p }
+        | TogglePriorityRenderingEnabled ->             
+            { model with priorityEnabled = not model.priorityEnabled }
 
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -118,6 +122,8 @@ module TraversePropertiesApp =
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ] 
+                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
                 ]
             )
     
@@ -621,23 +627,37 @@ module TraverseApp =
             |> ASet.map snd 
             |> Sg.set
             
-        let drawSolTextsFast (view : aval<CameraView>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
+        let drawSolTextsFast (view : aval<CameraView>) (horizontalFovInDegrees : aval<float>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
             let contents = 
                 let viewTrafo = view |> AVal.map CameraView.viewTrafo
                  
-                AVal.map2 (fun sols scale -> 
+                AVal.custom (fun token -> 
+                    let sols = traverse.sols.GetValue(token)
+                    let view = view.GetValue(token)
+                    let size = traverse.tTextSize.value.GetValue(token)
+                    let hfov = horizontalFovInDegrees.GetValue(token)
                     sols 
-                    |> List.toArray
+                    |> Seq.toArray
                     |> Array.map (fun sol -> 
+
+                        let scaleTrafo = 
+                            let screenSpaceScaling = true
+                            if screenSpaceScaling then
+                                let distance = Vec.distance sol.location view.Location
+                                let scaling = size * 2.0 * distance * Math.Tan(Conversion.RadiansFromDegrees hfov)
+                                Trafo3d.Scale(scaling)
+                            else
+                                Trafo3d.Scale(size) 
+                                
                         let loc = sol.location + sol.location.Normalized * 1.5
-                        let trafo = (Trafo3d.Scale((float)scale) ) * (Trafo3d.Translation loc)
+                        let trafo = scaleTrafo * (Trafo3d.Translation loc)
                         let text = $"{sol.solNumber}"
                         //let scaleTrafo = Sg.invariantScaleTrafo view near ~~loc traverse.tTextSize.value ~~60.0
                         //let dynamicTrafo = scaleTrafo |> AVal.map (fun scale -> scale * trafo)
                         let stableTrafo = viewTrafo |> AVal.map (fun view -> trafo * view) // stable, and a bit slow
                         AVal.constant trafo, AVal.constant text
-                    ) 
-                ) traverse.sols traverse.tTextSize.value
+                    )
+                )
                 |> ASet.ofAVal
             let sg = 
                 let config = { Text.TextConfig.Default with renderStyle = RenderStyle.Billboard; color = C4b.White }
@@ -664,16 +684,24 @@ module TraverseApp =
             |> Sg.onOff model.isVisibleT
 
 
-        let viewText (refSystem : AdaptiveReferenceSystem) view near (traverseModel : AdaptiveTraverseModel) =
+        let viewTextForTraverse (refSystem : AdaptiveReferenceSystem)
+                                (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>) 
+                                (near : aval<float>) (traverse : AdaptiveTraverse)  =
+                drawSolTextsFast
+                    view
+                    horiztonalFieldOfViewInDegrees
+                    near
+                    traverse
+                |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
+
+        [<Obsolete("draw with sg.view")>]
+        let viewText (refSystem : AdaptiveReferenceSystem) (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>) 
+                    (near : aval<float>) (traverseModel : AdaptiveTraverseModel) =
         
             let traverses = traverseModel.traverses
             traverses 
             |> AMap.map(fun id traverse ->
-                drawSolTextsFast
-                    view
-                    near
-                    traverse
-                |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
+                viewTextForTraverse refSystem view horiztonalFieldOfViewInDegrees near traverse
             )
             |> AMap.toASet 
             |> ASet.map snd 
@@ -817,13 +845,38 @@ module TraverseApp =
 
         let view
             (view           : aval<CameraView>)
+            (nearPlane      : aval<float>)
+            (hfovInDegrees  : aval<float>)
             (refsys         : AdaptiveReferenceSystem) 
-            (traverseModel  : AdaptiveTraverseModel) =
-
+            (traverseModel  : AdaptiveTraverseModel)
+            (filterPriority : aval<Option<int>>) // if Some, only render traverses with this priority
+            (surfacePriorityExists : int -> aval<bool>)
+            = 
+        
             let traverses = traverseModel.traverses
             traverses 
+            |> AMap.filterA (fun k v -> 
+                (filterPriority, v.priority.value, v.priorityEnabled) 
+                |||> AVal.bind3 (fun filterPriority p enabled -> 
+                    match filterPriority, enabled with
+                    | Some priority, true-> // we have it priorities enabled and we are in a surface pass. check if this is the right prio
+                        AVal.constant (int p = priority)
+                    | Some _, false -> // we are in a surface pass here, but priorty rendering is not enabled => skip
+                         AVal.constant false
+                    | None, true -> 
+                        // we are in overlay pass here.
+                        // but it has priority enabled -> it was already rendered with the surfaces?
+                        let surfaceExists = surfacePriorityExists (int p)
+                        surfaceExists |> AVal.map not // if it does not exist, render it now.
+                    | None, false ->  // we are in overlay pass here and prios are not enabled => we need to render it now.
+                        AVal.constant true
+                )
+            )
             |> AMap.map(fun id traverse ->
-                viewTraverseFast view refsys traverse
+                let dots = viewTraverseFast view refsys traverse
+                let lines = viewLines refsys traverseModel
+                let text = viewTextForTraverse refsys view hfovInDegrees nearPlane traverse
+                Sg.ofList [dots; lines; text]
             )
             |> AMap.toASet 
             |> ASet.map snd 
