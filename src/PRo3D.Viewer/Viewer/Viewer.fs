@@ -679,7 +679,7 @@ module ViewerApp =
                             snapshots               = 
                                 bm.bookmarks
                                 |> HashMap.toList
-                                |> List.map (fun s ->
+                                |> List.choose (fun s ->
                                     let id, sbm = s
                                     match sbm with
                                     | SequencedBookmark.LoadedBookmark sb ->
@@ -687,12 +687,15 @@ module ViewerApp =
                                                 {   location = sb.cameraView.Location
                                                     forward  = sb.cameraView.Forward
                                                     up       = sb.cameraView.Up
-                                                    }                         
-                                        {
+                                                    } 
+                                        Some(
+                                            {
                                             filename = sb.filename
                                             camera   = snapshotCam
                                         }
-                                    //| SequencedBookmark.NotYetLoaded sb -> List.empty
+                                        )
+                                        
+                                    | SequencedBookmark.NotYetLoaded sb -> None
                                 )
                         }
                 let serialised = 
