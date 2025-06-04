@@ -684,18 +684,24 @@ module TraverseApp =
             |> Sg.onOff model.isVisibleT
 
 
+        let viewTextForTraverse (refSystem : AdaptiveReferenceSystem)
+                                (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>) 
+                                (near : aval<float>) (traverse : AdaptiveTraverse)  =
+                drawSolTextsFast
+                    view
+                    horiztonalFieldOfViewInDegrees
+                    near
+                    traverse
+                |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
+
+        [<Obsolete("draw with sg.view")>]
         let viewText (refSystem : AdaptiveReferenceSystem) (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>) 
                     (near : aval<float>) (traverseModel : AdaptiveTraverseModel) =
         
             let traverses = traverseModel.traverses
             traverses 
             |> AMap.map(fun id traverse ->
-                drawSolTextsFast
-                    view
-                    near
-                    horiztonalFieldOfViewInDegrees
-                    traverse
-                |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
+                viewTextForTraverse refSystem view horiztonalFieldOfViewInDegrees near traverse
             )
             |> AMap.toASet 
             |> ASet.map snd 
@@ -839,31 +845,38 @@ module TraverseApp =
 
         let view
             (view           : aval<CameraView>)
+            (nearPlane      : aval<float>)
+            (hfovInDegrees  : aval<float>)
             (refsys         : AdaptiveReferenceSystem) 
             (traverseModel  : AdaptiveTraverseModel)
             (filterPriority : aval<Option<int>>) // if Some, only render traverses with this priority
+            (surfacePriorityExists : int -> aval<bool>)
             = 
-
+        
             let traverses = traverseModel.traverses
             traverses 
             |> AMap.filterA (fun k v -> 
                 (filterPriority, v.priority.value, v.priorityEnabled) 
-                |||> AVal.map3 (fun filterPriority p enabled -> 
+                |||> AVal.bind3 (fun filterPriority p enabled -> 
                     match filterPriority, enabled with
                     | Some priority, true-> // we have it priorities enabled and we are in a surface pass. check if this is the right prio
-                        int p = priority 
+                        AVal.constant (int p = priority)
                     | Some _, false -> // we are in a surface pass here, but priorty rendering is not enabled => skip
-                        false
-                    | None, true -> // we are in overlay pass here.
-                        false       // but it has priority enabled -> it was already rendered with the surfaces
+                         AVal.constant false
+                    | None, true -> 
+                        // we are in overlay pass here.
+                        // but it has priority enabled -> it was already rendered with the surfaces?
+                        let surfaceExists = surfacePriorityExists (int p)
+                        surfaceExists |> AVal.map not // if it does not exist, render it now.
                     | None, false ->  // we are in overlay pass here and prios are not enabled => we need to render it now.
-                        true
+                        AVal.constant true
                 )
             )
             |> AMap.map(fun id traverse ->
                 let dots = viewTraverseFast view refsys traverse
                 let lines = viewLines refsys traverseModel
-                Sg.ofList [dots; lines]
+                let text = viewTextForTraverse refsys view hfovInDegrees nearPlane traverse
+                Sg.ofList [dots; lines; text]
             )
             |> AMap.toASet 
             |> ASet.map snd 

@@ -992,18 +992,18 @@ module ViewerUtils =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         //let view = m.navigation.camera.view
+        let validSurfacePriority v = 
+            // only relevant in secondary pass with overlayed geometry to render "missing" traverses
+            AVal.constant true
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let grouped = 
-            sgGrouped |> AList.map(
-                fun x -> ( x 
+            sgGrouped 
+            |> AList.map (fun group -> 
+                
+                let surfaces = 
+                    group
                     |> AMap.map(fun guid surface ->   
-                        let priority = 
-                            AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
-                            |> AVal.bind (function
-                                | (Some (AdaptiveSurfaces s)) -> 
-                                    s.priority.value |> AVal.map (int >> Some) 
-                                | _ -> AVal.constant None
-                            )
+
 
                         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         let s =
@@ -1038,16 +1038,38 @@ module ViewerUtils =
                                 |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                                 |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
-                        let depthComposed = 
-                            TraverseApp.Sg.view view refSystem m.scene.traverses priority
-                            |> Sg.map ViewerAction.TraverseMessage
 
-                        Sg.ofList [surfaceSg; depthComposed]
-                       )
+                        surfaceSg
+                    )
+
+                let depthComposed = 
+                    group.Content
+                    |> AVal.map (fun surfaces -> 
+                        match surfaces |> HashMap.toValueSeq |> Seq.tryHead with
+                        | None -> Sg.empty
+                        | Some someSurf -> 
+                            let priority = 
+                                AMap.tryFind someSurf.surface m.scene.surfacesModel.surfaces.flat
+                                |> AVal.bind (function
+                                    | (Some (AdaptiveSurfaces s)) -> 
+                                        s.priority.value |> AVal.map (int >> Some) 
+                                    | _ -> AVal.constant None
+                                )
+                            TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority
+                            |> Sg.map ViewerAction.TraverseMessage
+                    )
+                    |> Sg.dynamic
+
+                let surfaces = 
+                    surfaces
                     |> AMap.toASet 
-                    |> ASet.map snd                     
-                )                 
-            )
+                    |> ASet.map snd           
+                    |> Sg.set
+                    
+                Sg.ofList [surfaces; depthComposed]
+            )  
+                    
+
 
         // TODO Laura: test depthTested outside the loop
 
@@ -1057,14 +1079,8 @@ module ViewerUtils =
 
 
         alist {                    
-            for set in grouped do  
+            for sg in grouped do  
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-
-                let sg = set |> Sg.set
-                    //|> Sg.effect [surfaceEffect] 
-                    //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-
                 yield RenderCommand.SceneGraph sg
 
             yield RenderCommand.SceneGraph (depthTested)

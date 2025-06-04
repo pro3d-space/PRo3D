@@ -1945,25 +1945,25 @@ module ViewerApp =
                 mrefConfig
                 m.scene.referenceSystem
 
-        let traverse = 
-            let text = 
-                TraverseApp.Sg.viewText 
-                    m.scene.referenceSystem
-                    view
-                    m.scene.config.nearPlane.value 
-                    (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
-                    m.scene.traverses
-                |> Sg.map TraverseMessage
+        //let traverse = 
+        //    let text = 
+        //        TraverseApp.Sg.viewText 
+        //            m.scene.referenceSystem
+        //            view
+        //            m.scene.config.nearPlane.value 
+        //            (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+        //            m.scene.traverses
+        //        |> Sg.map TraverseMessage
 
-            let traverse = 
-                TraverseApp.Sg.view     
-                    m.navigation.camera.view //m.navigation.camera.view
-                    m.scene.referenceSystem
-                    m.scene.traverses   
-                    (AVal.constant None)
-                |> Sg.map TraverseMessage
+        //    let traverse = 
+        //        TraverseApp.Sg.view     
+        //            m.navigation.camera.view //m.navigation.camera.view
+        //            m.scene.referenceSystem
+        //            m.scene.traverses   
+        //            (AVal.constant None)
+        //        |> Sg.map TraverseMessage
 
-            Sg.ofList [text; traverse]
+        //    Sg.ofList [text; traverse]
 
         let distancePointsText =
             ViewPlanApp.Sg.viewText 
@@ -1978,7 +1978,7 @@ module ViewerApp =
             homePosition;
             annotationTexts |> Sg.noEvents
             scaleBarTexts
-            traverse
+            //traverse
             distancePointsText
         ] |> Sg.ofList
                                  
@@ -2031,8 +2031,39 @@ module ViewerApp =
         //    ]
         //    |> Sg.ofList
         //    |> Sg.map TraverseMessage
-        let traverses = 
-            Sg.empty
+        let traverses =
+        
+            let isThereASurfaceWithPriority (p : int) = 
+                m.scene.surfacesModel.surfaces.flat
+                |> AMap.toASetValues
+                |> ASet.existsA (fun e -> 
+                    match e with
+                    | AdaptiveSurfaces s -> s.priority.value |> AVal.map (fun pS -> int pS = p) 
+                    | _ -> AVal.constant false
+                )
+
+            //let text = 
+            //    TraverseApp.Sg.viewText 
+            //        m.scene.referenceSystem
+            //        view
+            //        m.scene.config.nearPlane.value 
+            //        (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+            //        m.scene.traverses
+            //    |> Sg.map TraverseMessage
+
+            let traverse = 
+                TraverseApp.Sg.view     
+                    view 
+                    m.scene.config.nearPlane.value 
+                    (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+                    m.scene.referenceSystem
+                    m.scene.traverses   
+                    (AVal.constant None)
+                    isThereASurfaceWithPriority
+                |> Sg.map TraverseMessage
+
+            //Sg.ofList [text; traverse]
+            traverse
 
         let distancePoints =
             ViewPlanApp.Sg.viewVPDistancePoints 

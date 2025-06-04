@@ -126,10 +126,16 @@ module SnapshotSg =
         let refSystem = m.scene.referenceSystem
         let view = m.navigation.camera.view
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
+
+        let validSurfacePriority v = 
+            // only relevant in secondary pass with overlayed geometry to render "missing" traverses
+            AVal.constant true
+
         let grouped = 
-            sgGrouped |> AList.map(
-                fun x -> ( x 
-                    |> AMap.map(fun guid surface ->              
+            sgGrouped |> AList.map(fun group -> 
+                let surfaces = 
+                    group
+                    |> AMap.map (fun guid surface ->              
                         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         let priority = 
                             AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
@@ -169,15 +175,34 @@ module SnapshotSg =
                                 |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
 
-                        let depthComposed = 
-                            TraverseApp.Sg.view view refSystem m.scene.traverses priority
-                            |> Sg.map ViewerAction.TraverseMessage
+                        surface
+                   )
 
-                        Sg.ofList [surface; depthComposed]
-                       )
+                let depthComposed = 
+                    group.Content
+                    |> AVal.map (fun surfaces -> 
+                        match surfaces |> HashMap.toValueSeq |> Seq.tryHead with
+                        | None -> Sg.empty
+                        | Some someSurf -> 
+                            let priority = 
+                                AMap.tryFind someSurf.surface m.scene.surfacesModel.surfaces.flat
+                                |> AVal.bind (function
+                                    | (Some (AdaptiveSurfaces s)) -> 
+                                        s.priority.value |> AVal.map (int >> Some) 
+                                    | _ -> AVal.constant None
+                                )
+                            TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map (fun v -> Frustum.horizontalFieldOfViewInDegrees v)) refSystem m.scene.traverses priority validSurfacePriority
+                            |> Sg.map ViewerAction.TraverseMessage
+                    )
+                    |> Sg.dynamic
+
+                let surfaceSg = 
+                    surfaces
                     |> AMap.toASet 
-                    |> ASet.map snd                     
-                )                
+                    |> ASet.map snd   
+                    |> Sg.set
+                    
+                Sg.ofList [surfaceSg; depthComposed]               
             )
 
         //grouped   
@@ -188,9 +213,7 @@ module SnapshotSg =
             alist {                    
                 for set in grouped do       
                     yield alist {
-                        let sg = 
-                            set 
-                            |> Sg.set
+                        let sg = set
 
                         yield sg :> ISg 
 
@@ -288,18 +311,18 @@ module SnapshotSg =
             //let solText = 
             //    MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
                 
-            let traverse = 
-                [ 
-                    //TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
-                    TraverseApp.Sg.view m.navigation.camera.view m.scene.referenceSystem m.scene.traverses (AVal.constant None)
-                    TraverseApp.Sg.viewText m.scene.referenceSystem
-                        m.navigation.camera.view
-                        m.scene.config.nearPlane.value 
-                        (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
-                        m.scene.traverses
-                ]
-                |> Sg.ofList
-                |> Sg.map TraverseMessage
+            //let traverse = 
+            //    [ 
+            //        //TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
+            //        TraverseApp.Sg.view m.navigation.camera.view m.scene.config.nearPlane.value (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)  m.scene.referenceSystem m.scene.traverses (AVal.constant None)
+            //        //TraverseApp.Sg.viewText m.scene.referenceSystem
+            //        //    m.navigation.camera.view
+            //        //    m.scene.config.nearPlane.value 
+            //        //    (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+            //        //    m.scene.traverses
+            //    ]
+            //    |> Sg.ofList
+            //    |> Sg.map TraverseMessage
            
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
@@ -329,8 +352,7 @@ module SnapshotSg =
                 //solText; 
                 annotationTexts |> Sg.noEvents
                 heightValidation
-                scaleBarTexts
-                traverse                
+                scaleBarTexts              
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let heightValidationDiscs =
@@ -353,14 +375,26 @@ module SnapshotSg =
             |> Sg.map GeologicSurfacesMessage 
 
 
-        let traverses =
-            //TraverseApp.Sg.view       
-            //    m.navigation.camera.view
-            //    m.scene.referenceSystem
-            //    m.scene.traverses 
-            //    (AVal.constant None)
-            //|> Sg.map TraverseMessage
-            Sg.empty
+        let traverses =            
+            let isThereASurfaceWithPriority (p : int) = 
+                m.scene.surfacesModel.surfaces.flat
+                |> AMap.toASetValues
+                |> ASet.existsA (fun e -> 
+                    match e with
+                    | AdaptiveSurfaces s -> s.priority.value |> AVal.map (fun pS -> int pS = p) 
+                    | _ -> false |> AVal.constant
+                )
+
+            TraverseApp.Sg.view       
+                m.navigation.camera.view
+                m.scene.config.nearPlane.value 
+                (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+                m.scene.referenceSystem
+                m.scene.traverses 
+                (AVal.constant None)
+                isThereASurfaceWithPriority
+            |> Sg.map TraverseMessage
+
 
         let depthTested = 
             [
