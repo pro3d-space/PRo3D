@@ -47,14 +47,14 @@ module UI =
             | Geometry.Polyline     -> "Pick an arbitrary number of points on the surface to create a polyline connecting them. The polyline depends on the projection mode."
             | Geometry.Polygon      -> "Pick an arbitrary number of points on the surface to create a closed region connecting them. The polygon depends on the projection mode."
             | Geometry.DnS          -> "Pick an arbitrary number of points on the surface to draw a polyline that is used to draw an intersecting plane using least squares computation. The vectors strike (red) and dip (green) represent the directions of least and highest inclination."
-            | Geometry.TT           -> ""
+            | _                     -> ""
 
         let projectionTooltip (i: Projection) : string =
             match i with
             | Projection.Linear     -> "Produces straight line segments as point-to-point connections with linear interpolation between them, no actual projection is performed."
             | Projection.Viewpoint  -> "Between two points the space is sampled by shooting additional rays to intersect with the surface."
             | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene’s up-vector."
-            | Projection.Bookmark   -> ""
+            | _                     -> ""
 
         let thicknessTooltip = "Thickness of annotation"
         let samplingAmountTooltip = "Sampling amount used for annotations rendered with viewpoint or sky projection"

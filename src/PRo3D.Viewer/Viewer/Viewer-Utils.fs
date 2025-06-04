@@ -492,12 +492,19 @@ module ViewerUtils =
 
 
                     |> Sg.withEvents [
+                        SceneEventKind.Move, (
+                            fun sceneHit -> 
+                                let name  = surf.name |> AVal.force        
+                                let surfacePicking = surfacePicking |> AVal.force
+                                true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                        )
                         SceneEventKind.Click, (
                            fun sceneHit -> 
                              let name  = surf.name |> AVal.force        
                              let surfacePicking = surfacePicking |> AVal.force
                              //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)])
+                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)]
+                         )
                        ]  
                     // handle surface visibility
                     |> Sg.onOff (surf.isVisible) // on off variant

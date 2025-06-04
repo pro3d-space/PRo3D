@@ -30,19 +30,14 @@ type RenderRange =
             | Some from, Some count -> Some {fromFrame = from; frameCount = count}
             | _,_ -> None
 
-type T = float32
-
 
 module Rendering =
     let renderCommandsToSceneGraph (renderCommands : alist<Aardvark.SceneGraph.RenderCommand>) =
         Sg.execute (Aardvark.SceneGraph.RenderCommand.Ordered renderCommands)
 
-    //let toT (v : int64) : T = float32 v
-    let toT (v : float) : T = float32 v
-
     Aardvark.Init()
 
-    let render (r : RenderParameters) (projMat : Trafo3d) = 
+    let render (r : RenderParameters) (projMat : Trafo3d) : Option<PixImage> * Option<PixImage<byte>> * Option<PixImage<float32>> = 
         r.clearTask.Run(r.outputDescription) |> ignore
         r.task.Run(r.outputDescription) |> ignore
         let depthImageByte, deptImageFloat = 
@@ -64,9 +59,9 @@ module Rendering =
 
                 // test for real depth values
                 //let mutable depthMat = Matrix<float>(int64 size.X, int64 size.Y)
-                let pi = PixImage<'t>(V2i(int64 size.X, int64 size.Y), 1)
+                let pi = PixImage<float32>(V2i(int64 size.X, int64 size.Y), 1)
 
-                let mutable depthMat = pi.GetMatrix<'t>()
+                let mutable depthMat = pi.GetMatrix<float32>()
                 depthMat.SetByCoord(fun (l : V2l) -> 
                     let depth = mat.[l.X, l.Y] 
                     let ndcX = (2.0 * (float)l.X) / ((float)size.X) - 1.0
@@ -75,7 +70,7 @@ module Rendering =
 
                     let ndcVec = V3d(ndcX, ndcY, ndcZ)
                         
-                    toT (projMat.InvTransformPosProj(ndcVec).Z)
+                    projMat.InvTransformPosProj(ndcVec).Z |> float32
                 ) |> ignore
 
                 

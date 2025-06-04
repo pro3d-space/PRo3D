@@ -104,14 +104,14 @@ module Missing =
             | AdaptiveSome a -> Some a
             | AdaptiveNone -> None
 
-namespace Aardvark.Rendering.Text
+//namespace Aardvark.Rendering.Text
 
-module Font =
+//module Font =
     
-    type HackRegular = Aardvark.FontProvider.FontSquirrelProvider<Family = "Hack">
+//    type HackRegular = Aardvark.FontProvider.FontSquirrelProvider<Family = "Hack">
 
-    let create name style =
-        HackRegular.Font
+//    let create name style =
+//        HackRegular.Font
 
 namespace Aardvark.Base
 
