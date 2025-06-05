@@ -226,7 +226,7 @@ module Bookmarks =
                         
                     i [clazz "plus icon"
                        onMouseClick (fun _ -> 
-                         BookmarkAction.GroupsMessage(GroupsAppAction.AddGroup path))] [] 
+                         BookmarkAction.GroupsMessage(GroupsAppAction.AddEmptyGroup path))] [] 
                     |> UI.wrapToolTip DataPosition.Bottom "Add Group"
                 ]
                  

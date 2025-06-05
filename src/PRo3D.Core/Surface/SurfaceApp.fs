@@ -747,13 +747,13 @@ module SurfaceApp =
             |> List.fold HashMap.union HashMap.empty
                       
         //write union of surface models ... union flat and recalculate all others
-        //this does only update surfaces ... not kdtrees or sgs !!!!             
+        //this does only update surfaces ... not kdtrees or sgs !!!!
         { model with surfaces = { model.surfaces with flat = flat' } }
 
     let changeImportDirectories (model:SurfaceModel) (selectedPaths:list<string>) = 
         let surfacePaths = 
             selectedPaths
-            |> List.map Files.superDiscoveryMultipleSurfaceFolder
+            |> List.map Files.discoverSurfaceFolders
             |> List.concat
 
         let surfaces =        
@@ -1281,7 +1281,7 @@ module SurfaceApp =
                         
                     i [clazz "plus icon"
                        onMouseClick (fun _ -> 
-                         GroupsMessage(GroupsAppAction.AddGroup path))] []
+                         GroupsMessage(GroupsAppAction.AddEmptyGroup path))] []
                     |> UI.wrapToolTip DataPosition.Bottom "Add Group"           
 
                     Incremental.i toggleAttributes AList.empty 

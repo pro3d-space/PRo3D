@@ -17,7 +17,8 @@ open PRo3D
 type GroupsAppAction =
     | ToggleExpand          of list<Index>
     | SetActiveGroup        of Guid*list<Index>*string
-    | AddGroup              of list<Index>
+    | AddEmptyGroup         of list<Index>
+    | AddGroup              of list<Index>*Node
     | AddLeaves             of list<Index>*IndexList<Leaf>    
     | RemoveGroup           of list<Index>
     | RemoveLeaf            of Guid*list<Index> 
@@ -98,7 +99,6 @@ module GroupsApp =
             |> List.fold (fun a b -> HashMap.union a b) model.flat
 
         { model with flat = flat }
-
     
     let updateNodeAt (p : list<Index>) (f : Node -> Node) (t : Node) = 
         let rec go (p : list<Index>) (t : Node) =
@@ -364,6 +364,7 @@ module GroupsApp =
     let update (model : GroupsModel) (action : GroupsAppAction) =
         match action with
         | SetActiveGroup (g, p, s) -> 
+            Log.warn "[GroupsApp] SetActiveGroup %A %A" p s
             let selection = { id = g; path = p; name = s}
 
             { model with 
@@ -378,8 +379,10 @@ module GroupsApp =
         | ToggleExpand p -> 
             let func = (fun (x:Node) -> { x with expanded = not x.expanded })
             { model with rootGroup = updateNodeAt p func model.rootGroup }
-        | AddGroup p -> 
+        | AddEmptyGroup p -> 
             insertGroup p (createEmptyGroup()) model
+        | AddGroup (p, n) ->
+            insertGroup p n model
         | RemoveGroup p -> 
             
             //delete from flat
@@ -544,7 +547,7 @@ module GroupsApp =
         | _ -> 
             model
 
-    let addGroupToRoot (m : GroupsModel) (name : string) =
+    let addGroupToRoot (m : GroupsModel) (name : string) = //TODO duplicated in GroupsExtension.fs
         let existingGroup = 
             m.rootGroup.subNodes 
                 |> IndexList.toList

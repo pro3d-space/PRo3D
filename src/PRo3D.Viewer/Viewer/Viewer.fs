@@ -848,16 +848,40 @@ module ViewerApp =
                 m
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface    
-        | DiscoverAndImportOpcs sl,_,_ -> 
-            //"" |> UpdateUserFeedback |> ViewerAction |> mailbox.Post
+        | DiscoverAndImportRimfax importPaths,_,_ ->
+            Log.line "[Viewer] Discover and import Rimfax folders: %A" importPaths
+
+            match importPaths with
+            | [] -> m
+            | paths ->
+                let paths = paths |> List.choose Files.tryDirectoryExists
+
+                //discovery function
+                let rimfaxPaths =
+                    paths |> List.map Files.discoverRimfaxFolders |> List.concat |> List.choose Files.getObjFilePath
+
+                Log.line "[Viewer] Discovered %d Rimfax folders." (List.length rimfaxPaths)
+                
+                //surface maker
+                let loader = MeshLoaderType.Wavefront
+                let rimfaxCurtains =
+                    rimfaxPaths                    
+                    |> List.map (SurfaceUtils.mk SurfaceType.Mesh loader m.scene.config.importTriangleSize.value)
+                    |> IndexList.ofList
+
+                //import to scene
+                m
+                |> SceneLoader.imporRimfaxObj loader rimfaxCurtains
+                |> ViewerIO.loadLastFootPrint
+                |> updateSceneWithNewSurface                
+        | DiscoverAndImportOpcs sl,_,_ ->             
             match sl with
             | [] -> m
             | paths ->
-                //"Import OPCs..." |> UpdateUserFeedback |> ViewerAction |> mailbox.Post
                 let selectedPaths = paths |> List.choose Files.tryDirectoryExists
                 let surfacePaths = 
                     selectedPaths
-                    |> List.map Files.superDiscoveryMultipleSurfaceFolder
+                    |> List.map Files.discoverSurfaceFolders
                     |> List.concat
 
                 let surfaces = 
@@ -865,9 +889,8 @@ module ViewerApp =
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
                     |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown m.scene.config.importTriangleSize.value)
                     |> IndexList.ofList
-
                     
-                //gale crater hook
+                //hirise hacks
                 let surfaces = GaleCrater.hack surfaces
                 let surfaces = Jezero.hack surfaces
 

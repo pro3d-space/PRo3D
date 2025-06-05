@@ -252,6 +252,9 @@ module Gui =
 
         let jsImportOPCDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to discover OPCs and import', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+        let jsImportRimfaxDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to discover Rimfax OBJs and import', filters: [{ name: 'RIMFAX (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
            
         let jsImportOBJDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
@@ -275,6 +278,12 @@ module Gui =
                         clientEvent "onclick" (jsImportOPCDialog)
                     ] [
                         text "Import OPCs"
+                    ]
+                    div [ clazz "ui inverted item";
+                        Dialogs.onChooseFiles DiscoverAndImportRimfax;
+                        clientEvent "onclick" (jsImportRimfaxDialog)
+                    ] [
+                        text "Import Rimfax OBJs"
                     ]
                     //div [ clazz "ui inverted item"; 
                     //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Assimp);

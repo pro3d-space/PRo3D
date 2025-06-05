@@ -492,12 +492,12 @@ module ViewerUtils =
 
 
                     |> Sg.withEvents [
-                        SceneEventKind.Move, (
-                            fun sceneHit -> 
-                                let name  = surf.name |> AVal.force        
-                                let surfacePicking = surfacePicking |> AVal.force
-                                true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
-                        )
+                        // SceneEventKind.Move, (
+                        //     fun sceneHit -> 
+                        //         let name  = surf.name |> AVal.force        
+                        //         let surfacePicking = surfacePicking |> AVal.force
+                        //         true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                        // ) TODO Event not caught in viewer, results in console spamming on mouse move
                         SceneEventKind.Click, (
                            fun sceneHit -> 
                              let name  = surf.name |> AVal.force        

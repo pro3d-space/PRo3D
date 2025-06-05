@@ -19,6 +19,7 @@ open Chiron
 open Aether
 open Aether.Operators
 open PRo3D.Core.Gis
+open System.Text.RegularExpressions
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Model =    
@@ -58,6 +59,7 @@ module SceneLoader =
 
         
     let _surfaceModelLens    = Model.scene_ >-> Scene.surfacesModel_
+    let _surfaceGroupsModelLens = _surfaceModelLens >-> SurfaceModel.surfaces_
     let _referenceSystemLens = Model.scene_ >-> Scene.referenceSystem_
     let _scaleBarsModelLens  = Model.scene_ >-> Scene.scaleBars_
     let _scaleBarsLens       = _scaleBarsModelLens >-> ScaleBarsModel.scaleBars_
@@ -189,17 +191,8 @@ module SceneLoader =
         |> SurfaceModel.triggerSgGrouping 
         |> (flip <| Optic.set _surfaceModelLens) m
 
-    let importObj (loaderType : MeshLoaderType) (surfaces : IndexList<Surface>) (m : Model) =
-      
-        let leafs = surfaces |> IndexList.map Leaf.Surfaces
-
-        let m = 
-            m.scene.surfacesModel.surfaces 
-            |> GroupsApp.addLeaves m.scene.surfacesModel.surfaces.activeGroup.path leafs 
-            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.surfaces_)) m
-
-        let loadedSgSurfaces =
-            match loaderType with
+    let private loadSgSurface (loaderType : MeshLoaderType )(surfaces : IndexList<Surface>) =
+         match loaderType with
             | MeshLoaderType.Assimp ->
                 SurfaceUtils.ObjectFiles.AssimpLoader.createSgObjects surfaces
             | MeshLoaderType.GlTf -> 
@@ -209,6 +202,17 @@ module SceneLoader =
             | _ -> 
                 SurfaceUtils.ObjectFiles.AssimpLoader.createSgObjects surfaces 
 
+    let importObj (loaderType : MeshLoaderType) (surfaces : IndexList<Surface>) (m : Model) =
+      
+        let leafs = surfaces |> IndexList.map Leaf.Surfaces
+
+        let m = 
+            m.scene.surfacesModel.surfaces 
+            |> GroupsApp.addLeaves m.scene.surfacesModel.surfaces.activeGroup.path leafs 
+            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.surfaces_)) m
+
+        let loadedSgSurfaces = loadSgSurface loaderType surfaces
+           
         let m = 
             HashMap.union m.scene.surfacesModel.sgSurfaces loadedSgSurfaces
             |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m
@@ -216,6 +220,116 @@ module SceneLoader =
         m.scene.surfacesModel 
           |> SurfaceModel.triggerSgGrouping 
           |> (flip <| Optic.set _surfaceModelLens) m
+
+    let tryParseSolGroups filename =
+        let m = Regex.Match(filename, @"_(\d{4})_")
+        if m.Success then
+            let sol = m.Groups[1].Value
+            match int sol with
+            | solInt ->
+                let lowerBound = solInt / 100 * 100
+                let lowerBoundStr = sprintf "%04d" lowerBound
+                Some (lowerBoundStr, sol)
+            | _ -> None
+        else
+            None
+
+    [<Literal>]
+    let private rimfaxGroupName = "_rimfax"
+
+    //let findRimfaxGroup (groups : GroupsModel) : Node = 
+    //    scene.surfacesModel.surfaces.rootGroup.subNodes 
+    //    |> IndexList.toList
+    //    |> List.find(fun x -> x.name = rimfaxGroupName)
+
+    let findPathToGroup (predicate: Node -> bool) (root: Node) : option<list<Index>> =
+        let rec traverse (node: Node) (path: list<Index>) : option<list<Index>> =
+            if predicate node then
+                List.rev path |> Some
+            else
+                node.subNodes
+                |> IndexList.mapi (fun i subNode ->
+                    traverse subNode (i :: path)                    
+                )
+                |> Seq.tryPick id
+                
+        traverse root []
+
+    let addRimfaxToItsGroup (rimfax : Surface) (m : Model) : Model =
+        let solGroupNames = tryParseSolGroups rimfax.name
+        let lowerBoundName = solGroupNames.Value |> fst
+        let groups = m.scene.surfacesModel.surfaces
+
+        let rimfaxIndex = findPathToGroup (fun x -> x.name = rimfaxGroupName) groups.rootGroup
+        //let rimfaxIndex = m.scene.surfacesModel.surfaces.rootGroup.subNodes |> IndexList.tryFindIndex rimfaxGroup
+
+        let lowerBoundGroup = 
+            {    
+                version   = Node.current
+                name      = lowerBoundName
+                key       = Guid.NewGuid()
+                leaves    = IndexList.Empty
+                subNodes  = IndexList.Empty
+                visible   = true
+                expanded  = true
+            }    
+
+        // ... Problems with groupsmodel and Index paths
+        // want to check if a folder of a certain name exists in a subtree and retrieve its path, if not create it and retrieve path
+        // let blurg = GroupsApp.updateNodeAt rimfaxIndex (fun node -> node.)
+        let action = GroupsAppAction.AddGroup([rimfaxIndex.Value], lowerBoundGroup)
+        let surfaces = GroupsApp.update m.scene.surfacesModel.surfaces action
+
+        Log.warn "[Scene] parsing %s to %A" rimfax.name solGroupNames
+
+        m |> Optic.set (_surfaceModelLens >-> SurfaceModel.surfaces_) surfaces
+
+    let imporRimfaxObj (loaderType : MeshLoaderType) (surfaces : IndexList<Surface>) (m : Model) : Model =
+        let surfaceGroups = m.scene.surfacesModel.surfaces
+        let path = findPathToGroup (fun x -> x.name = rimfaxGroupName) m.scene.surfacesModel.surfaces.rootGroup
+        
+
+        let surfaceGroups =
+            match path with 
+            | Some p -> 
+                Log.line "[Scene] found path to group: %A" p
+                surfaceGroups
+            | None ->
+                //create rimfax group if not existing
+                GroupsApp.addGroupToRoot surfaceGroups rimfaxGroupName
+                //Optic.set _surfaceGroupsModelLens surfaceGroupsModel m
+                        
+        //create leaves
+        let leaves = surfaces |> IndexList.map Leaf.Surfaces
+
+        //retrieve rimfax group ... move to groupsmodel
+        let rimfaxGroup = 
+            surfaceGroups.rootGroup.subNodes 
+            |> IndexList.toList
+            |> List.find(fun x -> x.name = rimfaxGroupName)
+
+        Log.warn "[Scene] found %A" rimfaxGroup.name
+        
+        // ... add each rimfax to its own group
+        let m = addRimfaxToItsGroup (surfaces |> IndexList.first) m
+
+
+        //add leaves to respective group
+        let m = 
+            surfaceGroups 
+            |> GroupsApp.addLeaves surfaceGroups.activeGroup.path leaves 
+            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.surfaces_)) m
+
+        //create sg surfaces and add to scene
+        let loadedSgSurfaces = loadSgSurface loaderType surfaces            
+
+        let m = 
+            HashMap.union m.scene.surfacesModel.sgSurfaces loadedSgSurfaces
+            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m
+                    
+        m.scene.surfacesModel 
+        |> SurfaceModel.triggerSgGrouping 
+        |> (flip <| Optic.set _surfaceModelLens) m
 
 
     let importSceneObj (sceneObjs : IndexList<SceneObject>) (m : Model) =

@@ -217,7 +217,7 @@ module UI =
                 Incremental.i setActiveAttributes AList.empty 
                 |> UI.wrapToolTip DataPosition.Bottom "Set active"
                   
-                i [clazz "plus icon"; onMouseClick (fun _ -> GroupsMessage(GroupsAppAction.AddGroup path))] [] 
+                i [clazz "plus icon"; onMouseClick (fun _ -> GroupsMessage(GroupsAppAction.AddEmptyGroup path))] [] 
                 |> UI.wrapToolTip DataPosition.Bottom "Add Group"
 
                 staticClickIcon "unhide icon" "Show All" (GroupsMessage(GroupsAppAction.SetVisibility(path,true)))
