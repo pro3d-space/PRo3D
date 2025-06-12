@@ -656,6 +656,12 @@ module Gui =
                                         ]
                                         a [style "visibility:hidden"; clazz "invisibleCrashButton"] []
 
+                                        let jsImportTrafosDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Transformation files' , filters: [{ name: 'Trafos (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles ImportTrafo; clientEvent "onclick" jsImportTrafosDialog ] [
+                                            text "Import Transformation (*.json)"
+                                        ]
+
                                         //div [clazz "ui item"; onClick (fun _ ->  ViewerAction.Nop)] [
                                         //    text "Send Crash Report"
                                         //    a [attribute "href" "mailto:hs@pro3d.com?attach=C:\\Program Files (x86)\\ProcessExplorer\\procexp64.exe"] [text "go"]

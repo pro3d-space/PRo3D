@@ -315,7 +315,7 @@ module ScaleBarsApp =
                 let scB = model.scaleBars |> HashMap.tryFind id
                 match scB with
                 | Some sb ->
-                    let transformation' = (TransformationApp.update sb.transformation msg refSys)
+                    let transformation' = (TransformationApp.update sb.transformation "" msg refSys)
                     let sb' = { sb with transformation = transformation' }
                     let scaleBars = model.scaleBars |> HashMap.alter sb.guid (function | Some _ -> Some sb' | None -> None )
                     { model with scaleBars = scaleBars} 

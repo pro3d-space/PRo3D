@@ -1056,7 +1056,8 @@ module SurfaceApp =
                 match model.surfaces.singleSelectLeaf with
                 | Some s -> 
                     let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                    let transformation' = (TransformationApp.update surface.transformation msg refSys) //surface.transformation msg)
+                    let transformation' = 
+                        (TransformationApp.update surface.transformation surface.importPath msg refSys) //surface.transformation msg)
                     let s' = { surface with transformation = transformation' }
                     //let homePosition = 
                     //  match surface.homePosition with

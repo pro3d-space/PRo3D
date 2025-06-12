@@ -485,7 +485,21 @@ module ViewPlanApp =
                     instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
                     instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0 }
 
-        
+    let calcPanTilt
+        (forward:V3d) = 
+        let pan = Math.Atan2(forward.X, forward.Z)
+        //let tilt = Math.Asin(-forward.Y
+        let tilt = Math.Atan2(-forward.Y, Math.Sqrt(Math.Pow(forward.X, 2.0) + Math.Pow(forward.Z, 2.0)))
+      
+        pan, tilt   
+
+    let getTiltFromRotationMatrix 
+        (rotTrafo : Trafo3d) =
+        let rotMat = rotTrafo.Forward.UpperLeftM33()
+        let C2 = rotMat.C2.Normalized
+        let rotTilt = Math.Asin(-C2.Z)
+        rotTilt
+
       
     let updateRovers 
         (model      : ViewPlanModel) 
@@ -536,7 +550,71 @@ module ViewPlanApp =
         let vp' = {selectedVp with footPrint = fp'}
         let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
         let newOuterModel = Optic.set _footprint fp' outerModel
-        newOuterModel, {model with viewPlans = viewPlans }         
+        newOuterModel, {model with viewPlans = viewPlans }      
+        
+    let getAngleUpdate
+        (vp : ViewPlan)
+        (roverModel : RoverModel)
+        (ax : Axis) 
+        (a : Utilities.PRo3DNumeric.Action) 
+        (id : string) =
+
+        let angle = Utilities.PRo3DNumeric.update ax.angle a
+        let ax' = { ax with angle = angle }
+
+        let rover = { vp.rover with axes = (vp.rover.axes |> HashMap.update id (fun _ -> ax')) }
+        let vp' = { vp with rover = rover; currentAngle = angle; }
+
+        let angleUpdate = { 
+            roverId       = vp'.rover.id
+            axisId        = ax'.id
+            angle         = Axis.Mapping.from180 ax'.angle.min ax'.angle.max ax'.angle.value
+            shiftedAngle  = ax'.degreesMapped
+            invertedAngle = ax'.degreesNegated
+        }
+        let roverModel = RoverApp.updateAnglePlatform angleUpdate roverModel
+        roverModel, vp'
+
+    let lookAtTarget
+        (model : ViewPlanModel)
+        (viewPlan : ViewPlan) 
+        (pointId : Guid) =
+        let selPoint = viewPlan.distancePoints |> HashMap.find pointId
+
+        let oldForward, right, up = decomposeRoverTrafo viewPlan.roverTrafo
+        let forward = (selPoint.position - viewPlan.position)
+
+        let panOld, tiltOld = calcPanTilt(oldForward.Normalized)
+        let panNew, tiltNew = calcPanTilt(forward.Normalized)
+
+        let deltaPan  = (panOld - panNew).DegreesFromRadians()
+        let deltaTilt = (tiltOld - tiltNew).DegreesFromRadians()
+        // Note: we have to calculate tilt from the rotation matrix because a big value for pan
+        // causes an unstable reference level (XY)
+        // For larger pans, the inclination of the vector in the XZ projection also changes, which distorts the tilt.
+        let rotTrafo1 =  Trafo3d.FromOrthoNormalBasis(oldForward.Normalized, right.Normalized, up.Normalized)
+        let newRight = forward.Normalized.Cross(up.Normalized)
+        let rotTrafo2 =  Trafo3d.FromOrthoNormalBasis(forward.Normalized, newRight.Normalized, up.Normalized) // forward cross up statt right?
+        let rotDiff = rotTrafo2 * rotTrafo1.Inverse
+        let rotTilt = getTiltFromRotationMatrix rotDiff
+
+        // pan axis update
+        let panUpdateRover, panUpdateVP =
+            match viewPlan.rover.axes.TryFind "Pan Axis" with
+            | Some ax -> 
+                let panTest = deltaPan 
+                getAngleUpdate viewPlan model.roverModel ax (Utilities.PRo3DNumeric.Action.SetValue panTest) "Pan Axis"
+            | None -> model.roverModel, viewPlan
+
+        // tilt axis update
+        let tiltUpdateRover, tiltUpdateVP =
+            match viewPlan.rover.axes.TryFind "Tilt Axis" with
+            | Some ax -> 
+                let tiltTest = rotTilt //deltaTilt 
+                getAngleUpdate panUpdateVP panUpdateRover ax (Utilities.PRo3DNumeric.Action.SetValue tiltTest) "Tilt Axis"
+            | None -> panUpdateRover, panUpdateVP 
+
+        tiltUpdateRover, tiltUpdateVP
 
     //let update (model : ViewPlanModel) (camState:CameraControllerState) (action : Action) =
     let update 
@@ -657,29 +735,11 @@ module ViewPlanApp =
                 let selectedVp = model.viewPlans |> HashMap.find vpid 
                 match selectedVp.rover.axes.TryFind id with
                 | Some ax -> 
-                    let angle = Utilities.PRo3DNumeric.update ax.angle a
-                    //printfn "numeric angle: %A" angle
-                    let ax' = { ax with angle = angle }
-
-                    let rover = { selectedVp.rover with axes = (selectedVp.rover.axes |> HashMap.update id (fun _ -> ax')) }
-                    let vp' = { selectedVp with rover = rover; currentAngle = angle; }
-
-                    let angleUpdate = { 
-                        roverId       = vp'.rover.id
-                        axisId        = ax'.id
-                        angle         = Axis.Mapping.from180 ax'.angle.min ax'.angle.max ax'.angle.value
-                        shiftedAngle  = ax'.degreesMapped
-                        invertedAngle = ax'.degreesNegated
-                    }
-
-                    let roverModel = RoverApp.updateAnglePlatform angleUpdate model.roverModel
+                    let roverModel, vp' = getAngleUpdate selectedVp model.roverModel ax a id
 
                     let fp = Optic.get _footprint outerModel
                     let fp, model' = updateRovers model roverModel vp' fp
                     let newOuterModel = Optic.set _footprint fp outerModel
-
-                    //let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
-                                                
                     newOuterModel, model' //{ model with viewPlans = viewPlans }
                 | None -> outerModel, model
             | None -> outerModel, model
@@ -884,18 +944,47 @@ module ViewPlanApp =
             match model.selectedViewPlan with
             | Some vpid -> 
                 let selectedVp = model.viewPlans |> HashMap.find vpid
-                let selPoint = selectedVp.distancePoints |> HashMap.find id
-                
-                let footPrint = Optic.get _footprint outerModel
-                let forward, right, up = decomposeRoverTrafo selectedVp.roverTrafo
-                let forward = (selPoint.position - selectedVp.position).Normalized
+                //let selPoint = selectedVp.distancePoints |> HashMap.find id
 
-                let rTrafo = initialPlacementTrafo' selectedVp.position forward up
-                let vp' = {selectedVp with roverTrafo = rTrafo}
-                let fp', m'       = updateInstrumentCam vp' model footPrint
-                let newOuterModel = Optic.set _footprint fp' outerModel
+                //let oldForward, right, up = decomposeRoverTrafo selectedVp.roverTrafo
+                //let forward = (selPoint.position - selectedVp.position)
 
-                updateVPOutput m' vp' newOuterModel
+                //let panOld, tiltOld = calcPanTilt(oldForward.Normalized)
+                //let panNew, tiltNew = calcPanTilt(forward.Normalized)
+
+                //let deltaPan  = (panOld - panNew).DegreesFromRadians()
+                //let deltaTilt = (tiltOld - tiltNew).DegreesFromRadians()
+                //// Note: we have to calculate tilt from the rotation matrix because a big value for pan
+                //// causes an unstable reference level (XY)
+                //// For larger pans, the inclination of the vector in the XZ projection also changes, which distorts the tilt.
+                //let rotTrafo1 =  Trafo3d.FromOrthoNormalBasis(oldForward.Normalized, right.Normalized, up.Normalized)
+                //let newRight = forward.Normalized.Cross(up.Normalized)
+                //let rotTrafo2 =  Trafo3d.FromOrthoNormalBasis(forward.Normalized, newRight.Normalized, up.Normalized) // forward cross up statt right?
+                //let rotDiff = rotTrafo2 * rotTrafo1.Inverse
+                //let rotTilt = getTiltFromRotationMatrix rotDiff
+
+                //// pan axis update
+                //let panUpdateRover, panUpdateVP =
+                //    match selectedVp.rover.axes.TryFind "Pan Axis" with
+                //    | Some ax -> 
+                //        let panTest = deltaPan 
+                //        getAngleUpdate selectedVp model.roverModel ax (Utilities.PRo3DNumeric.Action.SetValue panTest) "Pan Axis"
+                //    | None -> model.roverModel, selectedVp
+
+                //// tilt axis update
+                //let tiltUpdateRover, tiltUpdateVP =
+                //    match selectedVp.rover.axes.TryFind "Tilt Axis" with
+                //    | Some ax -> 
+                //        let tiltTest = rotTilt //deltaTilt 
+                //        getAngleUpdate panUpdateVP panUpdateRover ax (Utilities.PRo3DNumeric.Action.SetValue tiltTest) "Tilt Axis"
+                //    | None -> panUpdateRover, panUpdateVP 
+
+                let rover, vp' = lookAtTarget model selectedVp id
+
+                let fp = Optic.get _footprint outerModel
+                let fp, model' = updateRovers model rover vp' fp
+                let newOuterModel = Optic.set _footprint fp outerModel
+                newOuterModel, model'
             | None -> outerModel, model   
         | ToggleText           -> 
             match model.selectedViewPlan with
@@ -1081,7 +1170,7 @@ module ViewPlanApp =
                         }
 
                         let up = { marker with direction = camUpTrans; color = (AVal.constant C4b.Red)}
-
+                     
                         match sid = id with
                         | true ->
                             let lookAt = { marker with direction = camLookAtTrans; color = (AVal.constant C4b.Cyan)}
