@@ -1,3 +1,15 @@
+## 5.0.1 
+- major release preparation
+
+## 4.27.0-prerelease7
+- #412 update: *.json file with image info for every image
+
+##4.27.0-prerelease9
+- update packages
+
+##4.27.0-prerelease8
+- #412 update: *.exr format with real distance for depth
+
 ##4.27.0-prerelease7
 - #412 update: *.json file with image info for every image
 

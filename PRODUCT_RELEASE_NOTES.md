@@ -1,3 +1,25 @@
+## 5.0.5
+- first official 5.0 release
+
+## 5.0.4
+- updated PRo3d.SPICE/fixed osx cootrafo build (again)
+
+## 5.0.3
+- updated PRo3d.SPICE/fixed osx cootrafo build (again)
+
+## 5.0.2 
+- updated PRo3d.SPICE/fixed osx cootrafo build
+
+## 5.0.0 
+- next major release preparation
+
+## 4.27.0-prerelease2
+- tweaked opc parameters
+- 
+## 4.27.0-prerelease1
+- tweaked opc parameters
+- 
+
 ## 4.26.0-prerelease1
 - fixed surface priority
 - improved handling of large trajectories
@@ -5,7 +27,7 @@
 ## 4.25.0-prerelease7
 - distance- and trianglefilter fix
 - fixed problem with sequenced bookmarks performance problem when a traverse is loaded
-- fixed obj not being rendered with batch rendering## 4.24.0
+- fixed obj not being rendered with batch rendering
 
 ## 4.21.0-prerelease3
 - bugfix contour lines

@@ -114,7 +114,8 @@ type ViewerAction =
 | ConfigPropertiesMessage         of ConfigProperties.Action
 | DeleteLast
 | AddSg                           of ISg
-| PickSurface                     of SceneHit*string*bool
+| PickSurface                     of SceneHit * string * bool
+| PreviewPickSurface              of SceneHit * string * bool
 | PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string

@@ -2,7 +2,7 @@
   "profiles": {
     "opc-tool": {
       "commandName": "Project",
-      "commandLineArgs": "--ignoremasterkdtree \"I:\\OPC\\GardenCity\\MSL_Mastcam_Sol_926_id_48427\" --forcekdtreerebuild"
+      "commandLineArgs": "--ignoremasterkdtree --forcekdtreerebuild \"C:\\pro3ddata\\kdtree-optimierung\\_Opc2x2-Patch1024-Tile2048\\_Opc2x2-Patch1024-Tile2048\\Jezero_08_06\" "
     }
   }
 }

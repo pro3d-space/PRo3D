@@ -11,6 +11,7 @@ Aardvark.SceneGraph.Assimp
 Aardvark.Data.Opc 
 
 Aardvark.PixImage.DevIL
+Aardvark.PixImage.FreeImage
 
 Adaptify.Core
 

@@ -6,16 +6,4 @@ Expecto
 Expecto.FsCheck
 FSharp.Core
 
-FSharp.Data.Adaptive
-Aardvark.Base
-Aardvark.Base.Incremental
-Aardvark.Base.FSharp
-Aardvark.Rendering
-Aardvark.Rendering.Text
-Aardvark.Application.Slim
-Aardvark.Application.Slim.GL
-Aardvark.Application.Slim.Vulkan
-Aardvark.SceneGraph
-Aardvark.SceneGraph.IO
-
 PRo3D.SPICE
