@@ -23,6 +23,9 @@ open PRo3D.Core
 open PRo3D.Base.Gis
 
 open Aardvark.UI.Primitives
+
+open System.IO
+open Chiron
         
 module TransformationApp =
 
@@ -60,6 +63,9 @@ module TransformationApp =
     | SetEulerMode          of EulerMode
     | ToggleRefSysVisible
     | SetRefSysSize         of Numeric.Action
+    | ExportTrafoData    
+    | ImportTrafoData       of string
+
 
     // calc reference system from pivot
     let getNorthAndUpFromPivot
@@ -231,6 +237,55 @@ module TransformationApp =
                                 refSysBasis
                                 originTrafo
         newTrafo
+
+
+    // export trafo data
+    let writeTrafoDataToJson 
+        (transform : Transformations)
+        (refsys : ReferenceSystem)
+        (fullPathName : string) =
+
+        let fullTrafo : Trafo3d = fullTrafo' transform refsys None None
+        let trafoData =
+            {
+                translation          = transform.translation.value 
+                yaw                  = transform.yaw.value
+                pitch                = transform.pitch.value
+                roll                 = transform.roll.value
+                pivot                = transform.pivot.value
+                scaling              = transform.scaling.value 
+                trafo                = fullTrafo
+            }
+
+        let jsonPathName = sprintf "%s_trafo3d.json" fullPathName
+        let serialised = 
+                trafoData
+                |> Json.serialize 
+                |> Json.formatWith JsonFormattingOptions.Pretty 
+        try 
+            System.IO.File.WriteAllText(jsonPathName , serialised)
+        with e ->
+            Log.warn "[JsonChiron] Could not save %s" jsonPathName 
+            Log.warn "%s" e.Message
+
+        Log.warn "Debug Saved json to %s" (jsonPathName)
+
+    // import trafo data
+    let WriteTrafoDataFromJson
+        (path : string) =
+        try
+            let json =
+                path
+                    |> Serialization.readFromFile
+                    |> Json.parse 
+            let (loadedTrafo : TransformationData) =
+                    json
+                    |> Json.deserialize
+            Some loadedTrafo
+        with e ->
+            Log.error "[Transformation] Error Loading Trafofile %s." path
+            Log.error "%s" e.Message
+            None
       
     let refSysTranslation 
         (transform : Transformations)
@@ -256,8 +311,9 @@ module TransformationApp =
 
     let update<'a> 
         (model : Transformations)
+        (exportPath : string)
         (act : Action) 
-        (refSys : ReferenceSystem)=
+        (refSys : ReferenceSystem) =
         match act with
         | SetTranslation t ->    
             let t' = Vector3d.update model.translation t
@@ -317,6 +373,30 @@ module TransformationApp =
             { model with refSysSize = ps }
         | SetEulerMode m -> 
             { model with eulerMode = m }
+        | ExportTrafoData -> 
+            let js = writeTrafoDataToJson model refSys exportPath
+            model
+        | ImportTrafoData importPath ->
+            let trafoData = WriteTrafoDataFromJson importPath
+            match trafoData with 
+            | Some data ->
+                let translation = Vector3d.updateV3d model.translation data.translation
+                let yaw = Numeric.update model.yaw (Numeric.SetValue data.yaw)
+                let pitch = Numeric.update model.pitch (Numeric.SetValue data.pitch)
+                let roll = Numeric.update model.roll (Numeric.SetValue data.roll)
+                let pivot = Vector3d.updateV3d model.pivot data.pivot
+
+                { model with translation  = translation; 
+                             yaw          = yaw;
+                             pitch        = pitch;
+                             roll         = roll;
+                             pivot        = pivot;
+                             trafoChanged = true } 
+            | None -> model
+
+                        
+            
+        
    
     module UI =
         
@@ -374,6 +454,7 @@ module TransformationApp =
                     Html.row "Local Reference System:" [viewLocalRefSysData model.refSys]
                     Html.row "RefSys Size:"      [Numeric.view' [InputBox] model.refSysSize |> UI.map SetRefSysSize]
                     Html.row "Mode" [modeDropDown]
+                    Html.row "export TrafoData:"  [button [clazz "ui button tiny"; onClick (fun _ -> ExportTrafoData )] []]
                     //Html.row "Reset Trafos:"    [button [clazz "ui button tiny"; onClick (fun _ -> ResetTrafos )] []]
                     //Html.row "Pivot Point:"     [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
                 ]

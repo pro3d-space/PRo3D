@@ -434,5 +434,49 @@ type Transformations with
         }
 
 
+// transformation output-/inputdata
+type TransformationData =
+    {
+        translation           : V3d
+        yaw                   : float
+        pitch                 : float
+        roll                  : float
+        scaling               : float
+        trafo                 : Trafo3d
+        pivot                 : V3d 
+    } 
+    static member ToJson (x : TransformationData) = 
+        json {
+            do! Json.write "translation" (x.translation.ToString())
+            do! Json.write "scaling" x.scaling
+            do! Json.write "yaw"   x.yaw
+            do! Json.write "pitch" x.pitch
+            do! Json.write "roll"  x.roll
+            do! Json.writeWith Ext.toJson<Trafo3d,Ext> "trafo" x.trafo
+            do! Json.write "pivot" (x.pivot.ToString())
+        }
+    static member FromJson (x : TransformationData) =
+        json {
+             let! translation          = Json.read "translation"
+             let! scaling              = Json.read "scaling"
+             let! yaw                  = Json.read "yaw"
+             let! pitch                = Json.read "pitch"
+             let! roll                 = Json.read "roll"
+             let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
+             let! pivot                = Json.read "pivot"
+             
+
+            return {
+                translation          = translation |> V3d.Parse
+                yaw                  = yaw
+                pitch                = pitch
+                roll                 = roll
+                pivot                = pivot |> V3d.Parse
+                scaling              = scaling 
+                trafo                = trafo
+            }
+        }
+
+
      
 

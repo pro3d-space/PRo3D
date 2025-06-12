@@ -205,7 +205,7 @@ module SceneObjectsApp =
                 let sobj = model.sceneObjects |> HashMap.tryFind id
                 match sobj with
                 | Some so ->
-                    let transformation' = (TransformationApp.update so.transformation msg refSys)
+                    let transformation' = (TransformationApp.update so.transformation so.importPath msg refSys)
                     let selSO = { so with transformation = transformation' }
                     let sceneObjs = model.sceneObjects |> HashMap.alter so.guid (function | Some _ -> Some selSO | None -> None )
                     { model with sceneObjects = sceneObjs} 

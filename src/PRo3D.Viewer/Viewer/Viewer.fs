@@ -1001,6 +1001,19 @@ module ViewerApp =
         | ImportTraverse traverseFiles,_,_ -> 
             let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverses traverseFiles)
             { m with scene = { m.scene with traverses = t }}
+        | ImportTrafo trafoFiles,_,_ -> 
+            match m.scene.surfacesModel.surfaces.singleSelectLeaf with
+            | Some s -> 
+                let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find s |> Leaf.toSurface
+                match trafoFiles |> List.tryHead with
+                | Some path -> 
+                    let msg = (TransformationApp.Action.ImportTrafoData path)
+                    let transformation' = 
+                        (TransformationApp.update surface.transformation path msg m.scene.referenceSystem) 
+                    let s' = m.scene.surfacesModel |> SurfaceModel.updateSingleSurface { surface with transformation = transformation' } 
+                    { m with scene = { m.scene with surfacesModel = s' } }
+                | None -> m
+            | None -> m
         | DeleteLast,_,_ -> 
             if File.Exists @".\last" then
                 File.Delete(@".\last") |> ignore
