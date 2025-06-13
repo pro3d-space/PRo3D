@@ -500,14 +500,16 @@ with
                         (SnapshotCamera.fromCamera (CameraView.withForward v p.camera.view))
 
                 let letstry = p.camera.view.Orientation //normalized quaternion
-                    
+                
+                // Laura: now ist is one shot with the given direction of the bm
                 let directions = [ 
-                     cam p.camera.forward "_FORWARD"                                                    
-                     cam p.camera.view.Backward "_BACKWARD"
-                     cam p.camera.view.Up "_UP"
-                     cam p.camera.view.Down "_DOWN"
-                     cam p.camera.view.Left "_LEFT"
-                     cam p.camera.view.Right "_RIGHT"
+                     cam p.camera.forward "" 
+                     //cam p.camera.forward "_FORWARD"                                                    
+                     //cam p.camera.view.Backward "_BACKWARD"
+                     //cam p.camera.view.Up "_UP"
+                     //cam p.camera.view.Down "_DOWN"
+                     //cam p.camera.view.Left "_LEFT"
+                     //cam p.camera.view.Right "_RIGHT"
                     ]
                 directions)
     }
