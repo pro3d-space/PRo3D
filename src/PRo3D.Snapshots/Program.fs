@@ -90,6 +90,8 @@ let startApplication (startupArgs : CLStartupArgs) =
   
     Aardvark.Init()
 
+    Aardvark.Data.PixImageFreeImage.Init()
+
     let mutable cooTrafoInitialized = false
     let disposables = List<IDisposable>()
 
