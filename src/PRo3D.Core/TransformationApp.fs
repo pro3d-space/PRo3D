@@ -63,8 +63,8 @@ module TransformationApp =
     | SetEulerMode          of EulerMode
     | ToggleRefSysVisible
     | SetRefSysSize         of Numeric.Action
-    | ExportTrafoData    
-    | ImportTrafoData       of string
+    | ExportTrafoData       
+    | ImportTrafoData       of string// list<string>
 
 
     // calc reference system from pivot
@@ -255,6 +255,7 @@ module TransformationApp =
                 pivot                = transform.pivot.value
                 scaling              = transform.scaling.value 
                 trafo                = fullTrafo
+                refSys               = transform.refSys
             }
 
         let jsonPathName = sprintf "%s_trafo3d.json" fullPathName
@@ -271,7 +272,7 @@ module TransformationApp =
         Log.warn "Debug Saved json to %s" (jsonPathName)
 
     // import trafo data
-    let WriteTrafoDataFromJson
+    let readTrafoDataFromJson
         (path : string) =
         try
             let json =
@@ -299,15 +300,6 @@ module TransformationApp =
                 | _, _ -> getReferenceSystemBasis_global refSys
             let trans = translation |> Trafo3d.Translation
             (refSysRotation.Inverse * trans * refSysRotation)
-
-    //let updateTransformationForNewPivot 
-    //    (model : Transformations) =
-    //    let pChanged = 
-    //        if not (model.pitch.value = 0.0) && not (model.yaw.value = 0.0) && not (model.roll.value = 0.0) then true else false
-    //    let trafo' = (model.translation.value |> Trafo3d.Translation)
-    //    //{ model with yaw = yaw; pitch = pitch; roll = roll; trafo = trafo'; scaling = scale}
-    //    { model with trafo = trafo'; pivotChanged = pChanged; (*yaw = yaw; pitch = pitch; roll = roll; scaling = scale*)} 
-    
 
     let update<'a> 
         (model : Transformations)
@@ -377,28 +369,70 @@ module TransformationApp =
             let js = writeTrafoDataToJson model refSys exportPath
             model
         | ImportTrafoData importPath ->
-            let trafoData = WriteTrafoDataFromJson importPath
-            match trafoData with 
-            | Some data ->
-                let translation = Vector3d.updateV3d model.translation data.translation
-                let yaw = Numeric.update model.yaw (Numeric.SetValue data.yaw)
-                let pitch = Numeric.update model.pitch (Numeric.SetValue data.pitch)
-                let roll = Numeric.update model.roll (Numeric.SetValue data.roll)
-                let pivot = Vector3d.updateV3d model.pivot data.pivot
+            //match importPath |> List.tryHead with
+            //| Some path -> 
+                let trafoData = readTrafoDataFromJson importPath //path
+                match trafoData with 
+                | Some data ->
+                    let translation = Vector3d.updateV3d model.translation data.translation
+                    let yaw = Numeric.update model.yaw (Numeric.SetValue data.yaw)
+                    let pitch = Numeric.update model.pitch (Numeric.SetValue data.pitch)
+                    let roll = Numeric.update model.roll (Numeric.SetValue data.roll)
+                    let pivot = Vector3d.updateV3d model.pivot data.pivot
+                    let showRefsys = match data.refSys with Some rf -> true| None -> false
 
-                { model with translation  = translation; 
-                             yaw          = yaw;
-                             pitch        = pitch;
-                             roll         = roll;
-                             pivot        = pivot;
-                             trafoChanged = true } 
-            | None -> model
+                    { model with translation     = translation; 
+                                 yaw             = yaw;
+                                 pitch           = pitch;
+                                 roll            = roll;
+                                 pivot           = pivot;
+                                 trafoChanged    = true;
+                                 showTrafoRefSys = showRefsys;
+                                 refSys          = data.refSys
+                                 } 
+                | None -> model
+            //| None -> model
 
                         
             
         
    
     module UI =
+
+        let jsImportTrafosDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Transformation files' , filters: [{ name: 'Trafos (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+        let jsExportTrafoDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Surfacetrafo (*.json)', filters:  [{ name: 'Trafos (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});" 
+                                        //div [ clazz "ui item"; Dialogs.onChooseFiles ImportTrafo; clientEvent "onclick" jsImportTrafosDialog ] [
+                                        //    text "Import Transformation (*.json)"
+                                        //]
+        //let importTrafoGui =
+        //        let attributes = 
+        //            alist {
+        //                yield Dialogs.onChooseFiles Action.ImportTrafoData;
+        //                yield clientEvent "onclick" (jsImportTrafosDialog)
+        //                yield (style "word-break: break-all")
+        //            } |> AttributeMap.ofAList 
+
+        //        let content =
+        //                alist {
+        //                    yield i [clazz "ui button tiny"] []
+        //                }
+        //        Incremental.div attributes content
+
+        //let exportTrafoGui =
+        //        let attributes = 
+        //            alist {
+        //                Dialogs.onSaveFile ExportTrafoData;
+        //                clientEvent "onclick" jsExportTrafoDialog
+                       
+        //            } |> AttributeMap.ofAList 
+
+        //        let content =
+        //                alist {
+        //                    yield i [clazz "ui button tiny"] []
+        //                }
+        //        Incremental.div attributes content
+
         
         let viewV3dInput (model : AdaptiveV3dInput) =  
             Html.table [                            
@@ -454,9 +488,9 @@ module TransformationApp =
                     Html.row "Local Reference System:" [viewLocalRefSysData model.refSys]
                     Html.row "RefSys Size:"      [Numeric.view' [InputBox] model.refSysSize |> UI.map SetRefSysSize]
                     Html.row "Mode" [modeDropDown]
+                    //Html.row "export TrafoData:"  [ exportTrafoGui ]
                     Html.row "export TrafoData:"  [button [clazz "ui button tiny"; onClick (fun _ -> ExportTrafoData )] []]
-                    //Html.row "Reset Trafos:"    [button [clazz "ui button tiny"; onClick (fun _ -> ResetTrafos )] []]
-                    //Html.row "Pivot Point:"     [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
+                    //Html.row "import TrafoData:"  [ importTrafoGui ]
                 ]
             )
 

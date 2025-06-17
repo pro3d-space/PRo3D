@@ -444,6 +444,7 @@ type TransformationData =
         scaling               : float
         trafo                 : Trafo3d
         pivot                 : V3d 
+        refSys                : Option<Affine3d>
     } 
     static member ToJson (x : TransformationData) = 
         json {
@@ -454,6 +455,12 @@ type TransformationData =
             do! Json.write "roll"  x.roll
             do! Json.writeWith Ext.toJson<Trafo3d,Ext> "trafo" x.trafo
             do! Json.write "pivot" (x.pivot.ToString())
+            let tRefSys =
+                match x.refSys with
+                | None -> Trafo3d()//.Identity
+                | Some rs -> (Trafo3d(rs))
+         
+            do! Json.writeWith Ext.toJson<Trafo3d,Ext> "refSys" tRefSys
         }
     static member FromJson (x : TransformationData) =
         json {
@@ -464,6 +471,14 @@ type TransformationData =
              let! roll                 = Json.read "roll"
              let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
              let! pivot                = Json.read "pivot"
+             let! refSysTrafo          = Json.tryReadWith Ext.fromJson<Option<Trafo3d>,Ext> "refSys" 
+             let refSys = match refSysTrafo with 
+                            | Some s -> 
+                                    if s = Trafo3d() then
+                                        None 
+                                    else 
+                                        Some (Affine3d(s.Forward.UpperLeftM33(), s.Forward.C3.XYZ))
+                            | None -> None
              
 
             return {
@@ -474,6 +489,7 @@ type TransformationData =
                 pivot                = pivot |> V3d.Parse
                 scaling              = scaling 
                 trafo                = trafo
+                refSys               = refSys
             }
         }
 
