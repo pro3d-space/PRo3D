@@ -383,7 +383,7 @@ module ViewerApp =
             | PickPivot.SceneObjectPivot -> m
                 //todo
             | _ -> m
-        | Interactions.PickDistanePoint, _ ->
+        | Interactions.PickDistancePoint, _ ->
             let msg = ViewPlanApp.Action.AddDistancePoint(p)
             let outerModel, viewPlans = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
             { m with scene = { m.scene with viewPlans = viewPlans } }
