@@ -255,6 +255,18 @@ module SceneLoader =
                 
         traverse root []
 
+    let retrieveOrCreate (groups : GroupsModel)=
+        let path = findPathToGroup (fun x -> x.name = rimfaxGroupName) groups.rootGroup
+        
+        match path with 
+        | Some p -> 
+            Log.line "[Scene] found path to group: %A" p
+            groups
+        | None ->
+            //create rimfax group if not existing
+            GroupsApp.addGroupToRoot surfaceGroups rimfaxGroupName
+                //Optic.set _surfaceGroupsModelLens surfaceGroupsModel m
+
     let addRimfaxToItsGroup (rimfax : Surface) (m : Model) : Model =
         let solGroupNames = tryParseSolGroups rimfax.name
         let lowerBoundName = solGroupNames.Value |> fst
@@ -286,9 +298,8 @@ module SceneLoader =
 
     let imporRimfaxObj (loaderType : MeshLoaderType) (surfaces : IndexList<Surface>) (m : Model) : Model =
         let surfaceGroups = m.scene.surfacesModel.surfaces
-        let path = findPathToGroup (fun x -> x.name = rimfaxGroupName) m.scene.surfacesModel.surfaces.rootGroup
+        let path = findPathToGroup (fun x -> x.name = rimfaxGroupName) surfaceGroups.rootGroup
         
-
         let surfaceGroups =
             match path with 
             | Some p -> 
