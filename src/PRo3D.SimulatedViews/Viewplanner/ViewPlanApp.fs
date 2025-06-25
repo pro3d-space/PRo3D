@@ -1247,23 +1247,29 @@ module ViewPlanApp =
                     Trafo3d.Translation(offset * up)
             )
         
-        let getTextPosition (point : aval<V3d>) (dist : aval<float>) (size : aval<float>) =
+        let getTextPosition (point : aval<V3d>) (size : aval<float>) =
             adaptive {
                 let! pos = point
-                let! dist = dist
                 let loc = pos + pos.Normalized * 1.5
                 let! size = size
                 let trafo = (Trafo3d.Scale((float)size)) * (Trafo3d.Translation loc)
-                let text = $"{dist}"
-                //let stableTrafo = viewTrafo |> AVal.map (fun view -> trafo * view) // stable, and a bit slow
-                return AVal.constant trafo, AVal.constant text
-            } |> AVal.force
+                return trafo
+            } 
+
+        let getText (dist : aval<float>)  =
+            adaptive {
+                let! dist = dist
+                let text = $"{dist : F4}"
+                return text
+            } 
 
         let drawTextsFast (refSystem : AdaptiveReferenceSystem) (vp : AdaptiveViewPlan) : ISg<Action> = 
             let contents = 
                 //let viewTrafo = view |> AVal.map CameraView.viewTrafo
                 vp.distancePoints 
-                |> AMap.map (fun _ point -> getTextPosition point.position point.distance vp.textSize.value )
+                |> AMap.map (fun _ point -> let pos = getTextPosition point.position vp.textSize.value
+                                            let txt = getText point.distance
+                                            pos, txt)
                 |> AMap.toASet 
                 |> ASet.map snd 
                         
