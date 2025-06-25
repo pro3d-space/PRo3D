@@ -1,3 +1,7 @@
+## 5.0.6
+- ViewPlan: lookAt function for distance points, changes pan and tilt
+- Trafos: export/import trafos for specific surface
+
 ## 5.0.5
 - first official 5.0 release
 
