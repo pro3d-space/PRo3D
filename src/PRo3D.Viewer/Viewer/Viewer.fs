@@ -1009,7 +1009,7 @@ module ViewerApp =
                 //| Some path -> 
                 let msg = (TransformationApp.Action.ImportTrafoData trafoFile)
                 let transformation' = 
-                    (TransformationApp.update surface.transformation trafoFile msg m.scene.referenceSystem) 
+                    (TransformationApp.update surface.transformation msg m.scene.referenceSystem) 
                 let s' = m.scene.surfacesModel |> SurfaceModel.updateSingleSurface { surface with transformation = transformation' } 
                 { m with scene = { m.scene with surfacesModel = s' } }
                 //| None -> m
