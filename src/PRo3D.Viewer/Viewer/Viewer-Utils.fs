@@ -496,7 +496,8 @@ module ViewerUtils =
                             fun sceneHit -> 
                                 let name  = surf.name |> AVal.force        
                                 let surfacePicking = surfacePicking |> AVal.force
-                                true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                                //true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                                true, Seq.empty
                         )
                         SceneEventKind.Click, (
                            fun sceneHit -> 
