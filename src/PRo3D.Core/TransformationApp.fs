@@ -23,6 +23,9 @@ open PRo3D.Core
 open PRo3D.Base.Gis
 
 open Aardvark.UI.Primitives
+
+open System.IO
+open Chiron
         
 module TransformationApp =
 
@@ -40,7 +43,7 @@ module TransformationApp =
             | EulerMode.YZX -> y * z * x
             | EulerMode.ZXY -> z * x * y
             | EulerMode.ZYX -> z * y * x
-   
+
     type Action =
     | SetTranslation        of Vector3d.Action
     | SetPickedTranslation  of V3d
@@ -60,6 +63,9 @@ module TransformationApp =
     | SetEulerMode          of EulerMode
     | ToggleRefSysVisible
     | SetRefSysSize         of Numeric.Action
+    | ExportTrafoData       of string //list<string>
+    | ImportTrafoData       of string// list<string>
+
 
     // calc reference system from pivot
     let getNorthAndUpFromPivot
@@ -231,6 +237,56 @@ module TransformationApp =
                                 refSysBasis
                                 originTrafo
         newTrafo
+
+
+    // export trafo data
+    let writeTrafoDataToJson 
+        (transform : Transformations)
+        (refsys : ReferenceSystem)
+        (fullPathName : string) =
+
+        let fullTrafo : Trafo3d = fullTrafo' transform refsys None None
+        let trafoData =
+            {
+                translation          = transform.translation.value 
+                yaw                  = transform.yaw.value
+                pitch                = transform.pitch.value
+                roll                 = transform.roll.value
+                pivot                = transform.pivot.value
+                scaling              = transform.scaling.value 
+                trafo                = fullTrafo
+                refSys               = transform.refSys
+            }
+
+        let jsonPathName = sprintf "%s_trafo3d.json" fullPathName
+        let serialised = 
+                trafoData
+                |> Json.serialize 
+                |> Json.formatWith JsonFormattingOptions.Pretty 
+        try 
+            System.IO.File.WriteAllText(jsonPathName , serialised)
+        with e ->
+            Log.warn "[JsonChiron] Could not save %s" jsonPathName 
+            Log.warn "%s" e.Message
+
+        Log.warn "Debug Saved json to %s" (jsonPathName)
+
+    // import trafo data
+    let readTrafoDataFromJson
+        (path : string) =
+        try
+            let json =
+                path
+                    |> Serialization.readFromFile
+                    |> Json.parse 
+            let (loadedTrafo : TransformationData) =
+                    json
+                    |> Json.deserialize
+            Some loadedTrafo
+        with e ->
+            Log.error "[Transformation] Error Loading Trafofile %s." path
+            Log.error "%s" e.Message
+            None
       
     let refSysTranslation 
         (transform : Transformations)
@@ -245,19 +301,10 @@ module TransformationApp =
             let trans = translation |> Trafo3d.Translation
             (refSysRotation.Inverse * trans * refSysRotation)
 
-    //let updateTransformationForNewPivot 
-    //    (model : Transformations) =
-    //    let pChanged = 
-    //        if not (model.pitch.value = 0.0) && not (model.yaw.value = 0.0) && not (model.roll.value = 0.0) then true else false
-    //    let trafo' = (model.translation.value |> Trafo3d.Translation)
-    //    //{ model with yaw = yaw; pitch = pitch; roll = roll; trafo = trafo'; scaling = scale}
-    //    { model with trafo = trafo'; pivotChanged = pChanged; (*yaw = yaw; pitch = pitch; roll = roll; scaling = scale*)} 
-    
-
     let update<'a> 
         (model : Transformations)
         (act : Action) 
-        (refSys : ReferenceSystem)=
+        (refSys : ReferenceSystem) =
         match act with
         | SetTranslation t ->    
             let t' = Vector3d.update model.translation t
@@ -317,8 +364,88 @@ module TransformationApp =
             { model with refSysSize = ps }
         | SetEulerMode m -> 
             { model with eulerMode = m }
+        | ExportTrafoData path -> 
+            let js = writeTrafoDataToJson model refSys path 
+            model
+        | ImportTrafoData importPath ->
+            let trafoData = readTrafoDataFromJson importPath
+            match trafoData with 
+            | Some data ->
+                let translation = Vector3d.updateV3d model.translation data.translation
+                let yaw = Numeric.update model.yaw (Numeric.SetValue data.yaw)
+                let pitch = Numeric.update model.pitch (Numeric.SetValue data.pitch)
+                let roll = Numeric.update model.roll (Numeric.SetValue data.roll)
+                let pivot = Vector3d.updateV3d model.pivot data.pivot
+                let showRefsys = match data.refSys with Some rf -> true| None -> false
+
+                { model with translation     = translation; 
+                                yaw             = yaw;
+                                pitch           = pitch;
+                                roll            = roll;
+                                pivot           = pivot;
+                                trafoChanged    = true;
+                                showTrafoRefSys = showRefsys;
+                                refSys          = data.refSys
+                                } 
+            | None -> model
    
     module UI =
+
+        let importTrafoGui =
+                 div [] [
+                    openDialogButton 
+                            ({
+                                mode            = OpenDialogMode.File
+                                title           = "Choose watched text file"
+                                startPath       = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+                                filters         = [| "*.*" |]
+                                allowMultiple   = false
+                            }) [onChooseFile Action.ImportTrafoData] [text "choose file"]
+                ]
+
+        let onSaveFile (chosen : string -> 'msg) =
+            onEvent "onsave" [] (List.head >> Aardvark.Service.Pickler.json.UnPickleOfString >> List.head >> Aardvark.Service.PathUtils.ofUnixStyle >> chosen)
+        let internal toJSON =
+            let properties = 
+                [   yield "mode: 'file'"
+                   
+                    yield sprintf "title: Save Trafo" 
+                    
+                    
+                    yield sprintf "startPath: '%s'" (Aardvark.Service.PathUtils.toUnixStyle (Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)))
+
+                   
+                    yield sprintf "filters: [*.*]"
+                        
+                    yield sprintf "allowMultiple: false" 
+
+
+                ]
+
+            properties |> String.concat ", " |> sprintf "{ %s }"
+
+        let openSaveDialogButton (config : OpenDialogConfig) (att : list<string * AttributeValue<'msg>>) (content : list<DomNode<'msg>>) =
+            let cfg = toJSON 
+            button [
+                yield clientEvent "onclick" ("top.aardvark.dialog.showSaveDialog( " + cfg + ",function(files) { if(files != undefined) aardvark.processEvent('__ID__', 'onsave', files); });")
+                //yield clientEvent "onclick" ("top.aardvark.dialog.showSaveDialog({ title:'Save trafo as', filters:  [{ name: 'trafo3d (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});")
+                yield! att
+            ] content
+        let jsExportTrafoDialog = 
+            "top.aardvark.dialog.showSaveDialog({ title:'Save Trafo3d as', filters:  [{ name: 'Trafo3d (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
+           
+        let exportTrafoGui = 
+                div [] [
+                    openSaveDialogButton 
+                            ({
+                                mode            = OpenDialogMode.File
+                                title           = "Save Trafo"
+                                startPath       = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+                                filters         = [| "*.*" |]
+                                allowMultiple   = false
+                            }) [onSaveFile Action.ExportTrafoData] [text "save file"]
+                ]
+               
         
         let viewV3dInput (model : AdaptiveV3dInput) =  
             Html.table [                            
@@ -347,42 +474,44 @@ module TransformationApp =
                         Html.row "East:"  [Incremental.text eastStr]
                         ]
 
-        let view (model:AdaptiveTransformations) =
+        let view (model:AdaptiveTransformations) 
+                     (exportPath : string) =
             let mode : aval<EulerMode> = AVal.constant EulerMode.XYZ
             let modeDropDown = 
                 let values = 
                     [ EulerMode.XYZ, "XYZ"; EulerMode.XZY, "XZY"; EulerMode.YXZ, "YXZ"; EulerMode.YZX, "YZX"; EulerMode.ZXY, "ZXY"; EulerMode.ZYX, "ZYX"]
                     |> List.map (fun (m, v) -> m, text v)
                     |> AMap.ofList
-                Dropdown.dropdown SetEulerMode false None mode AttributeMap.empty values 
+                Dropdown.dropdown Action.SetEulerMode false None mode AttributeMap.empty values 
 
             require GuiEx.semui (
                 Html.table [  
                     //Html.row "Visible:" [GuiEx.iconCheckBox model.useTranslationArrows ToggleVisible ]
-                    Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map SetTranslation ]
-                    Html.row "Scale:"           [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
-                    Html.row "Yaw   (Z,deg):"     [Numeric.view' [InputBox] model.yaw |> UI.map SetYaw]
-                    Html.row "Pitch (Y,deg):"     [Numeric.view' [InputBox] model.pitch |> UI.map SetPitch]
-                    Html.row "Roll  (X,deg):"     [Numeric.view' [InputBox] model.roll |> UI.map SetRoll]
-                    Html.row "flip Z:"          [GuiEx.iconCheckBox model.flipZ FlipZ ]
-                    Html.row "sketchFab:"       [GuiEx.iconCheckBox model.isSketchFab ToggleSketchFab ]
-                    Html.row "use Pivot:"       [GuiEx.iconCheckBox model.usePivot ToggleUsePivot ]
-                    Html.row "show PivotPoint:" [GuiEx.iconCheckBox model.showPivot TogglePivotVisible ]
-                    Html.row "Pivot Point (m):" [viewPivotPointInput model.pivot |> UI.map SetPivotPoint ]
-                    Html.row "Pivot Size:"      [Numeric.view' [InputBox] model.pivotSize |> UI.map SetPivotSize]
-                    Html.row "show local RefSys:" [GuiEx.iconCheckBox model.showTrafoRefSys ToggleRefSysVisible ]
+                    Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map Action.SetTranslation ]
+                    Html.row "Scale:"           [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map Action.SetScaling ]
+                    Html.row "Yaw   (Z,deg):"     [Numeric.view' [InputBox] model.yaw |> UI.map Action.SetYaw]
+                    Html.row "Pitch (Y,deg):"     [Numeric.view' [InputBox] model.pitch |> UI.map Action.SetPitch]
+                    Html.row "Roll  (X,deg):"     [Numeric.view' [InputBox] model.roll |> UI.map Action.SetRoll]
+                    Html.row "flip Z:"          [GuiEx.iconCheckBox model.flipZ Action.FlipZ ]
+                    Html.row "sketchFab:"       [GuiEx.iconCheckBox model.isSketchFab Action.ToggleSketchFab ]
+                    Html.row "use Pivot:"       [GuiEx.iconCheckBox model.usePivot Action.ToggleUsePivot ]
+                    Html.row "show PivotPoint:" [GuiEx.iconCheckBox model.showPivot Action.TogglePivotVisible ]
+                    Html.row "Pivot Point (m):" [viewPivotPointInput model.pivot |> UI.map Action.SetPivotPoint ]
+                    Html.row "Pivot Size:"      [Numeric.view' [InputBox] model.pivotSize |> UI.map Action.SetPivotSize]
+                    Html.row "show local RefSys:" [GuiEx.iconCheckBox model.showTrafoRefSys Action.ToggleRefSysVisible ]
                     Html.row "Local Reference System:" [viewLocalRefSysData model.refSys]
-                    Html.row "RefSys Size:"      [Numeric.view' [InputBox] model.refSysSize |> UI.map SetRefSysSize]
+                    Html.row "RefSys Size:"      [Numeric.view' [InputBox] model.refSysSize |> UI.map Action.SetRefSysSize]
                     Html.row "Mode" [modeDropDown]
-                    //Html.row "Reset Trafos:"    [button [clazz "ui button tiny"; onClick (fun _ -> ResetTrafos )] []]
-                    //Html.row "Pivot Point:"     [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
+                    //Html.row "export TrafoData:"  [ exportTrafoGui ] //exportPath ]
+                    Html.row "export TrafoData:"  [button [clazz "ui button tiny"; onClick (fun _ -> Action.ExportTrafoData exportPath)] []]
+                    Html.row "import TrafoData:"  [ importTrafoGui ]
                 ]
             )
 
         let translationView (model:AdaptiveTransformations) =
             require GuiEx.semui (
                 Html.table [ 
-                    Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map SetTranslation ]
+                    Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map Action.SetTranslation ]
                 ]
             )
 

@@ -3,8 +3,7 @@
 open Aardvark.UI
 open System
 
-module Dialogs =    
-    
+module Dialogs =   
     let onChooseFiles (chosen : list<string> -> 'msg) =
         let cb xs =
             match xs with

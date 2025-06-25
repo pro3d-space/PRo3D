@@ -138,7 +138,7 @@ type ViewerAction =
 | SetInteraction                  of Interactions        
 | SetMode                         of TrafoMode
 | TransforAdaptiveSurface         of System.Guid * Trafo3d
-| ImportTrafo                     of list<string>
+| ImportTrafo                     of list<string> 
 | TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
 | RecalculateFarPlane
 | RecalculateNearFarPlane      
