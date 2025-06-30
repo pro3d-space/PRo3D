@@ -8,7 +8,7 @@ open PRo3D.Base.Annotation.GeoJSON
 open PRo3D.Base
 open PRo3D.Core
 open FSharp.Data.Adaptive
-
+open System.IO
 
 module RIMFAXTraverseApp =
 
@@ -150,6 +150,14 @@ module RIMFAXTraverseApp =
             
                         let! c = color
                         let bgc = sprintf "color: %s" (Html.color c)
+
+                        let disableClickPropagation =
+                            onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); } );"
+
+                        let jsImportRIMFAXDialog =
+                            "top.aardvark.dialog.showOpenDialog({tile: 'Select RIMFAX directory', filters: [{ name: 'RIMFAX (directories)'}], properties: ['openDirectory', 'singleSelection']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePath);});"
+
+
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
@@ -165,6 +173,16 @@ module RIMFAXTraverseApp =
             
                                         yield Incremental.i toggleMap AList.empty 
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
+                                        yield disableClickPropagation (
+                                            button [
+                                                clazz "ui button tiny";
+                                                style "margin-left: 10px";
+                                                //Dialogs.onChooseFiles (curry (Directory.GetFiles(RIMFAXRootDirectory, "*.obj", SearchOption.AllDirectories)));
+                                                clientEvent "onclick" (jsImportRIMFAXDialog)
+                                            ] [
+                                                text "Import Surfaces"
+                                            ]
+                                        )
 
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"                                            
@@ -213,6 +231,7 @@ module RIMFAXTraverseApp =
                         let dynamicEnum = System.Collections.Generic.Dictionary<string, int>()
                         dynamicEnum.Add("Start", 1)
                         dynamicEnum.Add("Stop", 2)
+
                         yield div [clazz "item"; style white] [
                             i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
                             div [clazz "content"; style white] [                     
@@ -237,12 +256,7 @@ module RIMFAXTraverseApp =
                                                 (computeSolRotation sol refSystem)))] []
                                     yield 
                                         Html.SemUi.dropDown (adaptive { return sol } |> AVal.map (fun sol -> sol.RIMFAXImageMode)) SetRIMFAXImageMode
-                                    yield 
-                                        button [
-                                            clazz "ui button tiny"; style "margin-left: 10px"; onClick (fun _ -> LoadRIMFAXSurface )
-                                        ] [
-                                            text "Load"
-                                        ]
+
                                 ]                                     
                             ]
                         ]

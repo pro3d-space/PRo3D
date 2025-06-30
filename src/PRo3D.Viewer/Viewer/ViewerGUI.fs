@@ -950,30 +950,13 @@ module Gui =
     module Traverse =
 
         let traverseUI (m : AdaptiveModel) =
-            let outputFolderGui =
-                let attributes = 
-                    alist {
-                        let! outputPath = m.scene.traverses.RIMFAXRootDirectory
-                        yield Dialogs.onChooseFiles SetImportDirectory;
-                        yield clientEvent "onclick" (Dialogs.jsSelectPathDialogWithPath outputPath)
-                    } |> AttributeMap.ofAList
-                let content =
-                    alist {
-                        yield button [
-                                    clazz "ui icon button";
-                                    style "margin-left:15px; height: 25px; padding: 5;"] [text "IMPORT"]
-                        yield Incremental.text m.scene.traverses.RIMFAXRootDirectory
-                    }
-                Incremental.div attributes content
             div [] [
                 yield GuiEx.accordion "Rover Traverses" "Write" true [
                     RoverTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
                 yield
-                    GuiEx.accordionWithHeader
+                    GuiEx.accordion
                         "RIMFAX Traverses"
-                        //"Import"
-                        outputFolderGui
                         "Write"
                         true
                         [RIMFAXTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses]

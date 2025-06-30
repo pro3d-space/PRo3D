@@ -271,8 +271,20 @@ module TraverseApp =
                 waypointsTraverses = HashMap.empty;
                 RIMFAXTraverses = HashMap.empty;
                 selectedTraverse = None } 
-        | SetImportDirectory directory ->
-            model
+        | LoadRIMFAXSurface filePaths ->
+            (**match filePaths  with
+            | [path] ->
+                let objects =                   
+                    path 
+                    |> SurfaceUtils.mk SurfaceType.Mesh preferredLoader m.scene.config.importTriangleSize.value
+                    |> IndexList.single                                
+                model 
+                |> SceneLoader.importObj preferredLoader objects 
+                |> ViewerIO.loadLastFootPrint
+                |> updateSceneWithNewSurface     
+            | _ -> 
+                Log.line "[Viewer] can only import exactly one file, given: %d" (List.length filePaths)*)
+                model   
         |_-> model
 
     module UI =
