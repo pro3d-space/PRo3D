@@ -8,7 +8,7 @@ open PRo3D.Base.Annotation.GeoJSON
 open PRo3D.Base
 open PRo3D.Core
 open FSharp.Data.Adaptive
-open System.IO
+
 
 module RIMFAXTraverseApp =
 
@@ -154,9 +154,7 @@ module RIMFAXTraverseApp =
                         let disableClickPropagation =
                             onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); } );"
 
-                        let jsImportRIMFAXDialog =
-                            "top.aardvark.dialog.showOpenDialog({tile: 'Select RIMFAX directory', filters: [{ name: 'RIMFAX (directories)'}], properties: ['openDirectory', 'singleSelection']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePath);});"
-
+                        let jsImportRIMFAXDialog = "top.aardvark.dialog.showOpenDialog({tile: 'Select RIMFAX directory', filters: [{ name: 'RIMFAX (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"        
 
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
@@ -177,7 +175,7 @@ module RIMFAXTraverseApp =
                                             button [
                                                 clazz "ui button tiny";
                                                 style "margin-left: 10px";
-                                                //Dialogs.onChooseFiles (curry (Directory.GetFiles(RIMFAXRootDirectory, "*.obj", SearchOption.AllDirectories)));
+                                                Dialogs.onChooseFiles (fun chosen -> LoadRIMFAXSurface chosen);
                                                 clientEvent "onclick" (jsImportRIMFAXDialog)
                                             ] [
                                                 text "Import Surfaces"

@@ -40,7 +40,7 @@ type TraverseAction =
     | SelectTraverse of Guid
     | TraversePropertiesMessage of TraversePropertiesAction
     | RemoveAllTraverses
-    | LoadRIMFAXSurface of filePaths : list<string>
+    | LoadRIMFAXSurface of rootDirectory : list<string>
     | SetRIMFAXImageMode of RIMFAXImageMode
 
 module InitTraverseParams =

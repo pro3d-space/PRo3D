@@ -14,6 +14,7 @@ open PRo3D.Core
 open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
+open PRo3D.Core.Surface
 
 module TraversePropertiesApp =
 
@@ -271,19 +272,23 @@ module TraverseApp =
                 waypointsTraverses = HashMap.empty;
                 RIMFAXTraverses = HashMap.empty;
                 selectedTraverse = None } 
-        | LoadRIMFAXSurface filePaths ->
-            (**match filePaths  with
+        | LoadRIMFAXSurface rootDirectoy ->
+            match rootDirectoy  with
             | [path] ->
+                let objFiles = Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories)
                 let objects =                   
                     path 
-                    |> SurfaceUtils.mk SurfaceType.Mesh preferredLoader m.scene.config.importTriangleSize.value
-                    |> IndexList.single                                
+                    |> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront 1000 // should we actually use the triangle count stored in the scene viewer config file here?
+                    |> IndexList.single     
+                (*
+                SceneLoader.importObj MeshLoaderType.Wavefront objects
                 model 
-                |> SceneLoader.importObj preferredLoader objects 
+                |> SceneLoader.importObj MeshLoaderType.Wavefront objects 
                 |> ViewerIO.loadLastFootPrint
-                |> updateSceneWithNewSurface     
+                |> updateSceneWithNewSurface *)
+                model
             | _ -> 
-                Log.line "[Viewer] can only import exactly one file, given: %d" (List.length filePaths)*)
+                Log.line "[Viewer] can only import exactly one file, given: %d" (List.length rootDirectoy)
                 model   
         |_-> model
 
