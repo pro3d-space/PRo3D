@@ -48,9 +48,11 @@ type TabMenu =
 
 type BookmarkAction =
     | AddBookmark 
-    | ImportBookmarks of list<string>
-    | ExportBookmarks of string
-    | GroupsMessage   of GroupsAppAction
+    | ImportGroupModel    of list<string>
+    | ExportGroupModel    of string
+    | ImportBookmarks     of list<string>
+    | ExportBookmarks     of string
+    | GroupsMessage       of GroupsAppAction
     | PrintViewParameters of Guid
 
 type PropertyActions =
@@ -101,7 +103,7 @@ type ViewerAction =
 | SetFrustum                      of Frustum
 | SetRenderViewportSize           of V2i
 | ImportSurface                   of list<string>
-| DiscoverAndImportOpcs        of list<string>
+| DiscoverAndImportOpcs           of list<string>
 | ImportDiscoveredSurfacesThreads of list<string>
 | ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>

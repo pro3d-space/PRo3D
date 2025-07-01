@@ -52,7 +52,7 @@ module Bookmarks =
                 GroupsApp.addLeafToActiveGroup (Leaf.Bookmarks newBm) true bookmarks
             
             outerModel, { groups with lastSelectedItem = SelectedItem.Child }
-        | ImportBookmarks pathList ->
+        | ImportGroupModel pathList ->
             match pathList with
             | filepath :: tail ->
                 match System.IO.File.Exists filepath with
@@ -68,15 +68,30 @@ module Bookmarks =
                     outerModel, bookmarks
             | [] -> outerModel, bookmarks
             
-        | ExportBookmarks filepath ->
+        | ExportGroupModel filepath ->
             if filepath <> "" then
                 bookmarks
-                  |> Json.serialize 
-                  |> Json.formatWith JsonFormattingOptions.Pretty 
-                  |> Serialization.writeToFile filepath
+                |> Json.serialize 
+                |> Json.formatWith JsonFormattingOptions.Pretty 
+                |> Serialization.writeToFile filepath
                 Log.line "[Comparison] Bookmarks exported to %s" (System.IO.Path.GetFullPath filepath)
                 outerModel, bookmarks
             else outerModel, bookmarks
+        | ImportBookmarks pathList ->
+            if pathList.IsEmpty |> not then
+                let bookmarks =         
+                    pathList 
+                    |> List.fold(fun bookmarks path -> bookmarks) bookmarks
+                outerModel, bookmarks
+            else
+                outerModel, bookmarks
+        | ExportBookmarks filepath ->
+            if filepath <> "" then 
+                                
+                outerModel, bookmarks
+            else    
+                outerModel, bookmarks
+
         | GroupsMessage msg -> 
             match msg with
             | GroupsAppAction.UpdateCam id -> 
@@ -299,34 +314,49 @@ module Bookmarks =
             )
 
         let jsImportBookmarksDialog =
-            "top.aardvark.dialog.showOpenDialog({ title: 'Import Bookmarks', filters: [{ name: 'Bookmarks (*.bm)', extensions: ['bm']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            "top.aardvark.dialog.showOpenDialog({ title: 'Import Bookmarks', filters: [{ name: 'Bookmarks (*.bm)', extensions: ['bm']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         let jsExportBookmarksDialog = 
-            "top.aardvark.dialog.showSaveDialog({ title:'Save Bookmarks as', filters:  [{ name: 'Bookmarks (*.bm)', extensions: ['bm'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
-           
-        let menu =
-            div [ clazz "ui dropdown item"] [
-                text "Bookmarks"
-                i [clazz "dropdown icon"] [] 
-                div [ clazz "menu"] [                    
-                    div [
-                          clazz "ui inverted item"
-                          Dialogs.onChooseFiles ImportBookmarks
-                          clientEvent "onclick" jsImportBookmarksDialog
-                        ] [text "Import"]
-                    div [
-                          clazz "ui inverted item"
-                          Dialogs.onSaveFile ExportBookmarks;
-                          clientEvent "onclick" jsExportBookmarksDialog
-                        ] [text "Export"]
-                ]
-            ]
+            "top.aardvark.dialog.showSaveDialog({ title:'Save Bookmarks as', filters:  [{ name: 'Bookmarks (*.bm)', extensions: ['bm'] }] }).then(result => {aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
+            
+        //let menu =
+        //    div [ clazz "ui dropdown item"] [
+        //        text "Bookmarks"
+        //        i [clazz "dropdown icon"] [] 
+        //        div [ clazz "menu"] [                    
+        //            div [
+        //                  clazz "ui inverted item"
+        //                  Dialogs.onChooseFiles ImportBookmarks
+        //                  clientEvent "onclick" jsImportBookmarksDialog
+        //                ] [text "Import"]
+        //            div [
+        //                  clazz "ui inverted item"
+        //                  Dialogs.onSaveFile ExportBookmarks;
+        //                  clientEvent "onclick" jsExportBookmarksDialog
+        //                ] [text "Export"]
+        //        ]
+        //    ]
 
         let viewGUI = 
+            
             div [clazz "ui buttons inverted"] [
                 button [clazz "ui inverted icon button"
                         onMouseClick (fun _ -> AddBookmark )] [ 
                         i [clazz "plus icon"] [] 
                 ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
-            ] 
+                                
+                button [clazz "ui inverted icon button"
+                        Dialogs.onChooseFiles ImportBookmarks
+                        
+                        clientEvent "onclick" jsImportBookmarksDialog] [
+                        i [clazz "download icon"] []
+                ] |> UI.wrapToolTip DataPosition.Bottom "Import Bookmarks"
+                button [clazz "ui inverted icon button"
+                        Dialogs.onSaveFile ExportBookmarks
+                        clientEvent "onclick" jsExportBookmarksDialog] [
+                        i [clazz "upload icon"] []
+                ] |> UI.wrapToolTip DataPosition.Bottom "Export Bookmarks"
+            ]
+                        
+             
 
        
