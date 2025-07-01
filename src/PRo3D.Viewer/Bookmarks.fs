@@ -87,8 +87,23 @@ module Bookmarks =
                 outerModel, bookmarks
         | ExportBookmarks filepath ->
             if filepath <> "" then 
-                                
-                outerModel, bookmarks
+                match bookmarks.lastSelectedItem with
+                | SelectedItem.Group -> 
+                    let exportGroup = GroupsApp.getNode bookmarks.activeGroup.path bookmarks.rootGroup
+
+                    exportGroup
+                    |> Json.serialize
+                    |> Json.formatWith JsonFormattingOptions.Pretty
+                    |> Serialization.writeToFile filepath
+                    Log.line "Currently selected Bookmark group exported to %s" (System.IO.Path.GetFullPath filepath)
+                
+
+                    outerModel, bookmarks
+                | SelectedItem.Child -> 
+                    outerModel, bookmarks
+                | _ -> 
+                    outerModel, bookmarks
+
             else    
                 outerModel, bookmarks
 
