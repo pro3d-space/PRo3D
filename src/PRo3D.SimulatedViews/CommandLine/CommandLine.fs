@@ -32,6 +32,8 @@ module CommandLine =
 
     /// parse commandline arguments
     let parseArguments (argv : array<string>) : CLStartupArgs =    
+        Log.line "[CommandLine] Command Line Arguments:"
+        Log.line "%s" (argv |> (String.concat " "))
         let isHelp flag = 
             String.equalsCaseInsensitive flag "--help"
             || (flag |> String.equalsCaseInsensitive "--h")
