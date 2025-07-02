@@ -955,16 +955,6 @@ module ViewerUtils =
             
             }                              
         sgs
-  
-    //TODO TO refactor screenshot specific
-    let getSurfacesSgWithCamera (runtime : IRuntime) (m : AdaptiveModel) =
-        let sgs = getSurfacesScenegraphs runtime m
-        let camera =
-            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
-        sgs 
-            |> ASet.ofAList
-            |> Sg.set
-            |> (camera |> Sg.camera)
 
     let renderCommands 
         (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
