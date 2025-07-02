@@ -109,101 +109,10 @@ module SnapshotSg =
     /// create scengegraph using Rendering.RenderCommands
     let createSceneGraph (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
                          overlayed depthTested (runtime : IRuntime) (allowFootprint : bool) 
+                         (allowDepthview : bool) 
                          (calcDepth : bool) (m:AdaptiveModel)  =
-        let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
-        let filterTexture = ~~true
-
-        //avoids kdtree intersections for certain interactions
-        let surfacePicking = 
-            m.interaction 
-            |> AVal.map(fun x -> 
-                match x with
-                | Interactions.PickAnnotation | Interactions.PickLog -> false
-                | _ -> true
-            )
-        let vpVisible = isViewPlanVisible m
-        let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
-        let refSystem = m.scene.referenceSystem
         let view = m.navigation.camera.view
-        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-
-        let validSurfacePriority v = 
-            // only relevant in secondary pass with overlayed geometry to render "missing" traverses
-            AVal.constant true
-
-        let grouped = 
-            sgGrouped |> AList.map(fun group -> 
-                let surfaces = 
-                    group
-                    |> AMap.map (fun guid surface ->              
-                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
-                        let priority = 
-                            AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
-                            |> AVal.bind (function
-                                | (Some (AdaptiveSurfaces s)) -> 
-                                    s.priority.value |> AVal.map (int >> Some) 
-                                | _ -> AVal.constant None
-                            )
-                        let s = 
-                            viewSingleSurfaceSg 
-                                surface 
-                                m.scene.surfacesModel.surfaces.flat
-                                m.frustum 
-                                selected 
-                                surfacePicking
-                                surface.globalBB
-                                refSystem 
-                                observationSystem
-                                observerSystem
-                                m.footPrint
-                                vpVisible
-                                usehighlighting filterTexture
-                                allowFootprint
-                                false
-                                view
-                        let surface = 
-                            match surface.isObj with
-                            | true -> 
-                                s 
-                                |> Sg.effect [
-                                    objEffect
-                                ] 
-                            | false -> 
-                                s
-                                |> Sg.effect [surfaceEffect] 
-                                |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                                |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-
-
-                        surface
-                   )
-
-                let depthComposed = 
-                    group.Content
-                    |> AVal.map (fun surfaces -> 
-                        match surfaces |> HashMap.toValueSeq |> Seq.tryHead with
-                        | None -> Sg.empty
-                        | Some someSurf -> 
-                            let priority = 
-                                AMap.tryFind someSurf.surface m.scene.surfacesModel.surfaces.flat
-                                |> AVal.bind (function
-                                    | (Some (AdaptiveSurfaces s)) -> 
-                                        s.priority.value |> AVal.map (int >> Some) 
-                                    | _ -> AVal.constant None
-                                )
-                            TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map (fun v -> Frustum.horizontalFieldOfViewInDegrees v)) refSystem m.scene.traverses priority validSurfacePriority
-                            |> Sg.map ViewerAction.TraverseMessage
-                    )
-                    |> Sg.dynamic
-
-                let surfaceSg = 
-                    surfaces
-                    |> AMap.toASet 
-                    |> ASet.map snd   
-                    |> Sg.set
-                    
-                Sg.ofList [surfaceSg; depthComposed]               
-            )
+        let grouped = ViewerUtils.createGroupedSgs sgGrouped view allowFootprint allowDepthview m
 
         //grouped   
         let last = grouped |> AList.tryLast
@@ -211,17 +120,15 @@ module SnapshotSg =
         let sgs = 
             // bundles of sgs
             alist {                    
-                for set in grouped do       
+                for sg in grouped do       
                     yield alist {
-                        let sg = set
-
                         yield sg :> ISg 
 
                         if (not calcDepth) then
                             let depthTested = 
                                 last 
                                 |> AVal.map (function 
-                                    | Some e when System.Object.ReferenceEquals(e,set) -> 
+                                    | Some e when System.Object.ReferenceEquals(e,sg) -> 
                                         depthTested 
                                     | _ -> 
                                         Sg.empty
@@ -410,7 +317,7 @@ module SnapshotSg =
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
         let sg = createSceneGraph m.scene.surfacesModel.sgGrouped 
-                                  overlayed depthTested runtime true calcDepth m
+                                  overlayed depthTested runtime true false calcDepth m
         sg
             |> Sg.noEvents
             |> Sg.camera camera
