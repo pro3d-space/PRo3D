@@ -78,11 +78,38 @@ module Bookmarks =
                 outerModel, bookmarks
             else outerModel, bookmarks
         | ImportBookmarks pathList ->
-            if pathList.IsEmpty |> not then
-                let bookmarks =         
+            if pathList.IsEmpty |> not then                
+                let updatedBMs = 
                     pathList 
-                    |> List.fold(fun bookmarks path -> bookmarks) bookmarks
-                outerModel, bookmarks
+                    |> List.fold(fun bm path -> 
+                        let importObject : ExportSubNodeModel = 
+                            path
+                            |> Serialization.Chiron.readFromFile 
+                            |> Json.parse 
+                            |> Json.deserialize
+
+                        let addChildren (children : HashMap<System.Guid, Leaf> ) model = 
+                            children
+                            |> HashMap.fold (fun b _ leaf -> 
+                                { 
+                                    b with flat = b.flat |> HashMap.add leaf.id leaf
+                            }) model
+                        
+                        match importObject.itemType with
+                        | SelectedItem.Group ->
+                            importObject.group 
+                            |> Option.map (fun g -> GroupsApp.addNodeToActiveGroup g bookmarks)
+                            |> Option.defaultValue bookmarks
+                            |> addChildren importObject.children
+                            
+                        | SelectedItem.Child ->
+                            importObject.children 
+                            |> HashMap.fold(fun b _ leaf -> 
+                                b |> GroupsApp.addLeafToActiveGroup leaf false) bm
+                        | _ ->
+                            bookmarks                    
+                        ) bookmarks
+                outerModel, updatedBMs
             else
                 outerModel, bookmarks
         | ExportBookmarks filepath ->
@@ -90,16 +117,45 @@ module Bookmarks =
                 match bookmarks.lastSelectedItem with
                 | SelectedItem.Group -> 
                     let exportGroup = GroupsApp.getNode bookmarks.activeGroup.path bookmarks.rootGroup
+                    let leaves = 
+                        GroupsApp.collectLeaves exportGroup 
+                        |> IndexList.toList
 
-                    exportGroup
+                    let children = 
+                        bookmarks.flat
+                        |> HashMap.filter(fun _ l -> leaves |> List.contains(l.id))                        
+
+                    let exportObject = {
+                        itemType = bookmarks.lastSelectedItem
+                        group    = Some(exportGroup)
+                        children = children
+                    }                        
+
+                    exportObject
                     |> Json.serialize
                     |> Json.formatWith JsonFormattingOptions.Pretty
                     |> Serialization.writeToFile filepath
-                    Log.line "Currently selected Bookmark group exported to %s" (System.IO.Path.GetFullPath filepath)
-                
+                    Log.line "Currently selected bookmark group exported to %s" (System.IO.Path.GetFullPath filepath)
 
                     outerModel, bookmarks
-                | SelectedItem.Child -> 
+                | SelectedItem.Child ->                 
+                    if bookmarks.flat.ContainsKey bookmarks.activeChild.id then
+                        let activeLeaf =  bookmarks.flat[bookmarks.activeChild.id]
+                
+                        let exportObject = {
+                            itemType = bookmarks.lastSelectedItem
+                            group    = None
+                            children = HashMap.Empty |> HashMap.add activeLeaf.id activeLeaf
+                        }                 
+                
+                        exportObject
+                        |> Json.serialize
+                        |> Json.formatWith JsonFormattingOptions.Pretty
+                        |> Serialization.writeToFile filepath
+                        Log.line "Currently selected bookmark exported to %s" (System.IO.Path.GetFullPath filepath)  
+                    else
+                        Log.line "Currently selected bookmark not found - please reselect a bookmark"
+                        
                     outerModel, bookmarks
                 | _ -> 
                     outerModel, bookmarks
