@@ -190,7 +190,7 @@ module ViewerUtils =
             |> Sg.uniform "endC"           ((C4b.Red |> AVal.constant)  |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H)))  
             |> Sg.uniform "interval"       fp.depthColorLegend.interval.value
             |> Sg.uniform "inverted"       (false |> AVal.constant)
-            |> Sg.uniform "lowerBound"     (AVal.constant(0.0)) //fp.depthColorLegend.lowerBound.value //
+            |> Sg.uniform "lowerBound"     fp.depthColorLegend.lowerBound.value //(AVal.constant(0.0)) //
             |> Sg.uniform "upperBound"     fp.depthColorLegend.upperBound.value //
             |> Sg.uniform "MinMax"         (AVal.constant(3000.0)) //(AVal.constant(V2d(0.0,1.0)))
             |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)

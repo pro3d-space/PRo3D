@@ -232,6 +232,7 @@ module SnapshotSg =
             }
 
         let commands = 
+            
             alist {
                 for sgBundle in sgs do
                     if (not calcDepth) then yield RenderCommand.ClearDepth(1.0) 
@@ -334,7 +335,7 @@ module SnapshotSg =
                     m.scene.config
                     mdrawingConfig
                     m.navigation.camera.view
-                    m.drawing            
+                    m.drawing      
 
             let scaleBarTexts = 
                 ScaleBarsApp.Sg.viewTextLabels 

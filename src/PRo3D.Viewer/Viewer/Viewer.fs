@@ -2032,18 +2032,7 @@ module ViewerApp =
                 mrefConfig
                 m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
-       
-        //let traverses = 
-        //    [ 
-        //        //TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
-        //        TraverseApp.Sg.view     
-        //            view //m.navigation.camera.view
-        //            m.scene.referenceSystem
-        //            m.scene.traverses   
-        //            (AVal.constant None)
-        //    ]
-        //    |> Sg.ofList
-        //    |> Sg.map TraverseMessage
+     
         let traverses =
         
             let isThereASurfaceWithPriority (p : int) = 
@@ -2055,15 +2044,7 @@ module ViewerApp =
                     | _ -> AVal.constant false
                 )
 
-            //let text = 
-            //    TraverseApp.Sg.viewText 
-            //        m.scene.referenceSystem
-            //        view
-            //        m.scene.config.nearPlane.value 
-            //        (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
-            //        m.scene.traverses
-            //    |> Sg.map TraverseMessage
-
+          
             let traverse = 
                 TraverseApp.Sg.view     
                     view 
@@ -2185,18 +2166,6 @@ module ViewerApp =
             //        m.drawing.dnsColorLegend 
             //        m.correlationPlot 
             //        (allowLogPicking m)
-
-            //let traverse = 
-            //    [ 
-            //        TraverseApp.Sg.viewLines m.scene.traverses
-            //        TraverseApp.Sg.viewText 
-            //            m.navigation.camera.view
-            //            m.scene.config.nearPlane.value 
-            //            m.scene.traverses
-            //    ]
-            //    |> Sg.ofList
-            //    |> Sg.map TraverseMessage
-
            
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
@@ -2254,14 +2223,6 @@ module ViewerApp =
         let geologicSurfacesSg = 
             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
             |> Sg.map GeologicSurfacesMessage 
-
-
-        //let traverses =
-        //    TraverseApp.Sg.view     
-        //        m.navigation.camera.view
-        //        m.scene.referenceSystem
-        //        m.scene.traverses   
-        //    |> Sg.map TraverseMessage
 
         let depthTested = 
             [
