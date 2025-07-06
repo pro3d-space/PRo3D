@@ -82,11 +82,40 @@ module Bookmarks =
                 let updatedBMs = 
                     pathList 
                     |> List.fold(fun bm path -> 
+                        let updateGuids (importObject : ExportSubNodeModel) = 
+                            let updatedChildren = 
+                                importObject.children
+                                |> HashMap.map (fun _ child -> 
+                                    let newGuid = System.Guid.NewGuid()
+                                    child.SetId newGuid)
+                                
+                            let rec updateChildren (subNode : Node) (uC : HashMap<System.Guid, Leaf>) =
+                                let newLeaves = 
+                                    subNode.leaves
+                                    |> IndexList.map(fun g -> 
+                                        if uC.ContainsKey g then
+                                            (uC.[g].id)
+                                        else 
+                                            g
+                                        )
+                                let newNodes = 
+                                    subNode.subNodes
+                                    |> IndexList.map(fun n -> updateChildren n uC)
+
+                                { subNode with leaves = newLeaves; subNodes = newNodes }
+                                
+                            let newNode = 
+                                importObject.group
+                                |> Option.map (fun n -> updateChildren n updatedChildren)
+                            
+                            { importObject with group = newNode; children = updatedChildren }
+
                         let importObject : ExportSubNodeModel = 
                             path
                             |> Serialization.Chiron.readFromFile 
                             |> Json.parse 
                             |> Json.deserialize
+                            |> updateGuids
 
                         let addChildren (children : HashMap<System.Guid, Leaf> ) model = 
                             children
@@ -94,7 +123,7 @@ module Bookmarks =
                                 { 
                                     b with flat = b.flat |> HashMap.add leaf.id leaf
                             }) model
-                        
+
                         match importObject.itemType with
                         | SelectedItem.Group ->
                             importObject.group 

@@ -30,6 +30,12 @@ type Leaf =
           | Bookmarks   b -> b.key
           | Annotations a -> a.key
 
+      member x.SetId (newGuid : System.Guid) = 
+          match x with
+          | Surfaces    s -> Leaf.Surfaces    { s with guid = newGuid }
+          | Bookmarks   b -> Leaf.Bookmarks   { b with key  = newGuid }
+          | Annotations a -> Leaf.Annotations { a with key  = newGuid }
+
       member x.visible =
           match x with          
           | Surfaces    s -> s.isVisible
