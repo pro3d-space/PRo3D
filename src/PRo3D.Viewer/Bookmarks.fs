@@ -102,7 +102,7 @@ module Bookmarks =
                                     subNode.subNodes
                                     |> IndexList.map(fun n -> updateChildren n uC)
 
-                                { subNode with leaves = newLeaves; subNodes = newNodes }
+                                { subNode with leaves = newLeaves; subNodes = newNodes; key = System.Guid.NewGuid() }
                                 
                             let newNode = 
                                 importObject.group
