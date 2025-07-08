@@ -277,17 +277,32 @@ module TraverseApp =
         | LoadRIMFAXSurface (rootDirectoy, traverseID) ->
             match rootDirectoy  with
             | [path] ->
-                let objPaths = Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) |> Array.filter (fun filePath -> (Path.GetDirectoryName(filePath).Contains("026") && not (Path.GetDirectoryName(filePath).Contains("1219"))  && not (Array.contains "1220" (Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)))))
-                let objSurfaces =                   
-                    objPaths 
-                    |> Array.toList
-                    |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront 1000 file) // should we actually use the triangle count stored in the scene viewer config file here?
-                    // |> List.map(fun surface -> SceneLoader.importObj MeshLoaderType.Wavefront (IndexList.single surface) model)
-                let RIMFAXSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront (IndexList.ofList objSurfaces)
+                //let objPaths = Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) |> Array.filter (fun filePath -> (Path.GetDirectoryName(filePath).Contains("026") && not (Path.GetDirectoryName(filePath).Contains("1219"))  && not (Array.contains "1220" (Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)))))
+                let pathBelongsToSol (filePath : string) (solNumber : int)  =
+                    let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
+                    if folders.Length >= 2 then
+                        let secondLast = folders.[folders.Length - 2]
+                        match System.Int32.TryParse(secondLast) with
+                        | true, parsed -> parsed = solNumber
+                        | false, _ -> false
+                    else
+                        false
+
+                let sols = 
+                    model.RIMFAXTraverses[traverseID].sols 
+                    |> List.map (fun sol ->
+                        let objSurfaces =                   
+                            Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) 
+                            |> Array.filter (fun filePath -> (pathBelongsToSol filePath sol.solNumber))
+                            |> Array.toList
+                            |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront 1000 file)  // should we actually use the triangle count stored in the scene viewer config file here?
+                        let RIMFAXSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront (IndexList.ofList objSurfaces)
+                        {sol with RIMFAXSurfaces = RIMFAXSurfaces}
+                    )
                 
                 let RIMFAXTraverses' =  
                     model.RIMFAXTraverses 
-                        |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with RIMFAXSurfaces = RIMFAXSurfaces })
+                        |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with sols = sols})
                 { model with
                     RIMFAXTraverses = RIMFAXTraverses'
                 }
@@ -585,10 +600,17 @@ module TraverseApp =
                 |> Sg.noEvents 
 
             let surfaceSg =
-                model.RIMFAXSurfaces
-                |> AMap.map (fun x value -> value.sceneGraph |> AVal.map createSg |> Sg.dynamic)
+                model.sols
+                |> AVal.map (List.map (fun sol -> 
+                    sol.RIMFAXSurfaces
+                    |> HashMap.map (fun x value -> value.sceneGraph |> createSg)
+                )
+                >> HashMap.unionMany
+                )
+                
 
             surfaceSg
+            |> AMap.ofAVal
             |> ASet.ofAMap
             |> ASet.map (snd)
             |> Sg.set
@@ -597,7 +619,6 @@ module TraverseApp =
                 do! DefaultSurfaces.diffuseTexture
             }
 
-            
             
         let viewTraverseFast  
             (view : aval<CameraView>)

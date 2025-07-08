@@ -92,6 +92,7 @@ type Sol =
       sclkStart: float
       sclkEnd: float
       RIMFAXImageMode: RIMFAXImageMode
+      RIMFAXSurfaces : HashMap<Guid, SgSurface>
     } 
 
 module Sol =
@@ -117,6 +118,7 @@ module Sol =
           sclkStart = nan
           sclkEnd = nan
           RIMFAXImageMode = RIMFAXImageMode.M026
+          RIMFAXSurfaces = HashMap.empty
         }
 
     let readV0 =
@@ -159,6 +161,7 @@ module Sol =
                   sclkStart = sclkStart
                   sclkEnd = sclkEnd
                   RIMFAXImageMode = RIMFAXImageMode.M026
+                  RIMFAXSurfaces = HashMap.empty
                 }
         }
 
@@ -209,7 +212,6 @@ type Traverse =
       isVisibleT: bool
       color: ColorInput;
       heightOffset : NumericInput
-      RIMFAXSurfaces : HashMap<Guid, SgSurface>
     }
 
 module Traverse =
@@ -251,7 +253,6 @@ module Traverse =
           isVisibleT = true
           color = { c = C4b.White }
           heightOffset = { Numeric.init with value = 0.0 }
-          RIMFAXSurfaces = HashMap.empty
           }
 
     let withTraverseType(traverseType: TraverseType) (t: Traverse) =
@@ -285,7 +286,6 @@ module Traverse =
                   isVisibleT = true
                   color = { c = C4b.White } 
                   heightOffset = { Numeric.init with value = 0.0}
-                  RIMFAXSurfaces = HashMap.empty
                 }
         }
 
@@ -323,7 +323,6 @@ module Traverse =
                   isVisibleT = isVisibleT
                   color = color
                   heightOffset = { Numeric.init with value = Option.defaultValue 0.0 heightOffset }
-                  RIMFAXSurfaces = HashMap.empty
                 }
         }
 
