@@ -1,5 +1,5 @@
-//a55daa8f-80f1-3e54-bbaf-96a196f2bd36
-//e572c266-e388-a201-f9e2-55e87dfda7f2
+//630d0be8-f1a0-e730-56bb-cf9c52aa6f6e
+//c5b6732c-861b-15d2-735e-ad372cd84310
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -113,6 +113,11 @@ type AdaptiveTraverse(value : Traverse) =
     let _isVisibleT_ = FSharp.Data.Adaptive.cval(value.isVisibleT)
     let _color_ = Aardvark.UI.AdaptiveColorInput(value.color)
     let _heightOffset_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.heightOffset)
+    let _RIMFAXSurfaces_ =
+        let inline __arg2 (m : PRo3D.Core.Surface.AdaptiveSgSurface) (v : PRo3D.Core.Surface.SgSurface) =
+            m.Update(v)
+            m
+        FSharp.Data.Traceable.ChangeableModelMap(value.RIMFAXSurfaces, (fun (v : PRo3D.Core.Surface.SgSurface) -> PRo3D.Core.Surface.AdaptiveSgSurface(v)), __arg2, (fun (m : PRo3D.Core.Surface.AdaptiveSgSurface) -> m))
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Traverse) = AdaptiveTraverse(value)
@@ -132,6 +137,7 @@ type AdaptiveTraverse(value : Traverse) =
             _isVisibleT_.Value <- value.isVisibleT
             _color_.Update(value.color)
             _heightOffset_.Update(value.heightOffset)
+            _RIMFAXSurfaces_.Update(value.RIMFAXSurfaces)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = __value.guid
@@ -147,6 +153,7 @@ type AdaptiveTraverse(value : Traverse) =
     member __.isVisibleT = _isVisibleT_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.color = _color_
     member __.heightOffset = _heightOffset_
+    member __.RIMFAXSurfaces = _RIMFAXSurfaces_ :> FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseLenses = 
     type Traverse with
@@ -164,6 +171,7 @@ module TraverseLenses =
         static member isVisibleT_ = ((fun (self : Traverse) -> self.isVisibleT), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with isVisibleT = value }))
         static member color_ = ((fun (self : Traverse) -> self.color), (fun (value : Aardvark.UI.ColorInput) (self : Traverse) -> { self with color = value }))
         static member heightOffset_ = ((fun (self : Traverse) -> self.heightOffset), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with heightOffset = value }))
+        static member RIMFAXSurfaces_ = ((fun (self : Traverse) -> self.RIMFAXSurfaces), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) (self : Traverse) -> { self with RIMFAXSurfaces = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverseModel(value : TraverseModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)

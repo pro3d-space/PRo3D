@@ -9,6 +9,8 @@ open FSharp.Data.Adaptive
 open PRo3D.Base
 open PRo3D.Core
 
+open PRo3D.Core.Surface
+
 open Adaptify
 open Chiron
 
@@ -40,7 +42,7 @@ type TraverseAction =
     | SelectTraverse of Guid
     | TraversePropertiesMessage of TraversePropertiesAction
     | RemoveAllTraverses
-    | LoadRIMFAXSurface of rootDirectory : list<string>
+    | LoadRIMFAXSurface of rootDirectory : list<string> * traverseID : Guid 
     | SetRIMFAXImageMode of RIMFAXImageMode
 
 module InitTraverseParams =
@@ -207,6 +209,7 @@ type Traverse =
       isVisibleT: bool
       color: ColorInput;
       heightOffset : NumericInput
+      RIMFAXSurfaces : HashMap<Guid, SgSurface>
     }
 
 module Traverse =
@@ -248,6 +251,7 @@ module Traverse =
           isVisibleT = true
           color = { c = C4b.White }
           heightOffset = { Numeric.init with value = 0.0 }
+          RIMFAXSurfaces = HashMap.empty
           }
 
     let withTraverseType(traverseType: TraverseType) (t: Traverse) =
@@ -281,6 +285,7 @@ module Traverse =
                   isVisibleT = true
                   color = { c = C4b.White } 
                   heightOffset = { Numeric.init with value = 0.0}
+                  RIMFAXSurfaces = HashMap.empty
                 }
         }
 
@@ -318,6 +323,7 @@ module Traverse =
                   isVisibleT = isVisibleT
                   color = color
                   heightOffset = { Numeric.init with value = Option.defaultValue 0.0 heightOffset }
+                  RIMFAXSurfaces = HashMap.empty
                 }
         }
 

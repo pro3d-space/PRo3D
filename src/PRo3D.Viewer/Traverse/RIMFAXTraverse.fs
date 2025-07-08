@@ -175,7 +175,7 @@ module RIMFAXTraverseApp =
                                             button [
                                                 clazz "ui button tiny";
                                                 style "margin-left: 10px";
-                                                Dialogs.onChooseFiles (fun chosen -> LoadRIMFAXSurface chosen);
+                                                Dialogs.onChooseFiles (fun chosen -> LoadRIMFAXSurface (chosen, traverseID) );
                                                 clientEvent "onclick" (jsImportRIMFAXDialog)
                                             ] [
                                                 text "Import Surfaces"

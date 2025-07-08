@@ -274,16 +274,23 @@ module TraverseApp =
                 waypointsTraverses = HashMap.empty;
                 RIMFAXTraverses = HashMap.empty;
                 selectedTraverse = None } 
-        | LoadRIMFAXSurface rootDirectoy ->
+        | LoadRIMFAXSurface (rootDirectoy, traverseID) ->
             match rootDirectoy  with
             | [path] ->
-                let objPaths = Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories)
+                let objPaths = Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) |> Array.filter (fun filePath -> (Path.GetDirectoryName(filePath).Contains("026") && not (Path.GetDirectoryName(filePath).Contains("1219"))  && not (Array.contains "1220" (Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)))))
                 let objSurfaces =                   
                     objPaths 
                     |> Array.toList
                     |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront 1000 file) // should we actually use the triangle count stored in the scene viewer config file here?
-                    |> List.map(fun surface -> SceneLoader.importObj MeshLoaderType.Wavefront (IndexList.single surface))
-                model
+                    // |> List.map(fun surface -> SceneLoader.importObj MeshLoaderType.Wavefront (IndexList.single surface) model)
+                let RIMFAXSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront (IndexList.ofList objSurfaces)
+                
+                let RIMFAXTraverses' =  
+                    model.RIMFAXTraverses 
+                        |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with RIMFAXSurfaces = RIMFAXSurfaces })
+                { model with
+                    RIMFAXTraverses = RIMFAXTraverses'
+                }
             | _ -> 
                 Log.line "[Viewer] can only import exactly one file, given: %d" (List.length rootDirectoy)
                 model   
@@ -566,6 +573,31 @@ module TraverseApp =
             |> Sg.instanced solTrafosInRefSystem
             |> Sg.noEvents
             |> Sg.onOff traverse.showDots
+
+
+        let viewRIMFAXSurfaces
+            (refSystem : AdaptiveReferenceSystem)
+            (model : AdaptiveTraverse) 
+            : ISg<TraverseAction> =
+
+            let createSg (sg : ISg) =
+                sg 
+                |> Sg.noEvents 
+
+            let surfaceSg =
+                model.RIMFAXSurfaces
+                |> AMap.map (fun x value -> value.sceneGraph |> AVal.map createSg |> Sg.dynamic)
+
+            surfaceSg
+            |> ASet.ofAMap
+            |> ASet.map (snd)
+            |> Sg.set
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
+                do! DefaultSurfaces.diffuseTexture
+            }
+
+            
             
         let viewTraverseFast  
             (view : aval<CameraView>)
@@ -574,8 +606,10 @@ module TraverseApp =
             Sg.ofList [
                 viewTraverseCoordinateFrames view refSystem model
                 viewTraverseDots refSystem view model
+                viewRIMFAXSurfaces refSystem model
             ]
             |> Sg.onOff model.isVisibleT
+
 
         let viewTraverse  
             (refSystem : AdaptiveReferenceSystem)
