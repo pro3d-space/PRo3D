@@ -1,5 +1,5 @@
-//69bd0580-3d38-0c9d-8433-d821c78bc211
-//1bba8d25-af14-17af-7603-1a416ec0997e
+//9e8fc73f-a4d2-21cf-91dd-9eddc45e1060
+//85a14ba2-3f07-dd2e-bf5a-a83ab68d04fa
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -83,7 +83,7 @@ type AdaptiveSol(value : Sol) =
     member __.toRMC = _toRMC_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.sclkStart = _sclkStart_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.sclkEnd = _sclkEnd_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.RIMFAXImageMode = _RIMFAXImageMode_ :> FSharp.Data.Adaptive.aval<RIMFAXImageMode>
+    member __.RIMFAXImageMode = _RIMFAXImageMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<RIMFAXImageMode>>
     member __.RIMFAXSurfaces = _RIMFAXSurfaces_ :> FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SolLenses = 
@@ -106,7 +106,7 @@ module SolLenses =
         static member toRMC_ = ((fun (self : Sol) -> self.toRMC), (fun (value : Microsoft.FSharp.Core.string) (self : Sol) -> { self with toRMC = value }))
         static member sclkStart_ = ((fun (self : Sol) -> self.sclkStart), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with sclkStart = value }))
         static member sclkEnd_ = ((fun (self : Sol) -> self.sclkEnd), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with sclkEnd = value }))
-        static member RIMFAXImageMode_ = ((fun (self : Sol) -> self.RIMFAXImageMode), (fun (value : RIMFAXImageMode) (self : Sol) -> { self with RIMFAXImageMode = value }))
+        static member RIMFAXImageMode_ = ((fun (self : Sol) -> self.RIMFAXImageMode), (fun (value : Microsoft.FSharp.Core.option<RIMFAXImageMode>) (self : Sol) -> { self with RIMFAXImageMode = value }))
         static member RIMFAXSurfaces_ = ((fun (self : Sol) -> self.RIMFAXSurfaces), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) (self : Sol) -> { self with RIMFAXSurfaces = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverse(value : Traverse) =

@@ -967,9 +967,9 @@ type SgSurface = {
     opcScene    : Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>
     [<NonAdaptive>]
     dataSource  : DataSource
-
     [<NonAdaptive>]
     isObj       : bool
+    sgImportPath  : string // instead of using "importPath" as using "importPath" leads to type confusion with Surface during build and would lead to enforce typing everywhere
 }
 
 

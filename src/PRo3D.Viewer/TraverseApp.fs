@@ -297,7 +297,13 @@ module TraverseApp =
                             |> Array.toList
                             |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront 1000 file)  // should we actually use the triangle count stored in the scene viewer config file here?
                         let RIMFAXSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront (IndexList.ofList objSurfaces)
-                        {sol with RIMFAXSurfaces = RIMFAXSurfaces}
+                        {sol with
+                            RIMFAXSurfaces = RIMFAXSurfaces;
+                            RIMFAXImageMode =
+                                match HashMap.count RIMFAXSurfaces with
+                                | 0 -> None
+                                | _ -> Some RIMFAXImageMode.M026
+                        }
                     )
                 
                 let RIMFAXTraverses' =  
@@ -599,15 +605,29 @@ module TraverseApp =
                 sg 
                 |> Sg.noEvents 
 
+            let getRIMFAXImageModeFromPath (filePath : string)  =
+                let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
+                if folders.Length >= 1 then
+                    match folders.[folders.Length - 1] with
+                    | "026" -> Some RIMFAXImageMode.M026
+                    | "056" -> Some RIMFAXImageMode.M056
+                    | "078" -> Some RIMFAXImageMode.M078
+                    | "110" -> Some RIMFAXImageMode.M110
+                    | "214" -> Some RIMFAXImageMode.M214
+                    | "230" -> Some RIMFAXImageMode.M230
+                    | "240" -> Some RIMFAXImageMode.M240
+                else
+                    None
+
             let surfaceSg =
                 model.sols
                 |> AVal.map (List.map (fun sol -> 
                     sol.RIMFAXSurfaces
+                    // TODO Sophie : |> HashMap.filter(fun guid surf -> (getRIMFAXImageModeFromPath surf.sgImportPath) == sol.RIMFAXImageMode)
                     |> HashMap.map (fun x value -> value.sceneGraph |> createSg)
-                )
+                   ) 
                 >> HashMap.unionMany
                 )
-                
 
             surfaceSg
             |> AMap.ofAVal

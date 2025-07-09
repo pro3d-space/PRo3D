@@ -325,6 +325,7 @@ module Sg =
                 opcScene    = Some scene
                 dataSource  = DataSource.OpcHierarchy patchHierarchies
                 //transformation = Init.Transformations
+                sgImportPath = s.importPath
             }
         sgSurface
     

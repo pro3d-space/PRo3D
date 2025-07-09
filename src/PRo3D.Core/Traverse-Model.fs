@@ -28,8 +28,10 @@ type RIMFAXImageMode =
     | M026 = 0
     | M056 = 1
     | M078 = 2
-    | M214 = 3
-    | M240 = 4
+    | M110 = 3
+    | M214 = 4
+    | M230 = 5
+    | M240 = 6
 
 type TraverseAction =
     | SelectSol of int
@@ -91,7 +93,7 @@ type Sol =
       toRMC: string
       sclkStart: float
       sclkEnd: float
-      RIMFAXImageMode: RIMFAXImageMode
+      RIMFAXImageMode: option<RIMFAXImageMode>
       RIMFAXSurfaces : HashMap<Guid, SgSurface>
     } 
 
@@ -117,7 +119,7 @@ module Sol =
           toRMC = "" 
           sclkStart = nan
           sclkEnd = nan
-          RIMFAXImageMode = RIMFAXImageMode.M026
+          RIMFAXImageMode = None
           RIMFAXSurfaces = HashMap.empty
         }
 
@@ -160,7 +162,7 @@ module Sol =
                   toRMC = toRMC
                   sclkStart = sclkStart
                   sclkEnd = sclkEnd
-                  RIMFAXImageMode = RIMFAXImageMode.M026
+                  RIMFAXImageMode = None
                   RIMFAXSurfaces = HashMap.empty
                 }
         }
