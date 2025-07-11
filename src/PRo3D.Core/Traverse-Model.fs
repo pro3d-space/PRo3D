@@ -24,15 +24,6 @@ type TraversePropertiesAction =
     | SetTraverseColor of ColorPicker.Action
     | SetHeightOffset of Numeric.Action
 
-type RIMFAXImageMode =
-    | M026 = 0
-    | M056 = 1
-    | M078 = 2
-    | M110 = 3
-    | M214 = 4
-    | M230 = 5
-    | M240 = 6
-
 type TraverseAction =
     | SelectSol of int
     | FlyToSol of V3d * V3d * V3d //forward * sky * location
@@ -45,7 +36,7 @@ type TraverseAction =
     | TraversePropertiesMessage of TraversePropertiesAction
     | RemoveAllTraverses
     | LoadRIMFAXSurface of rootDirectory : list<string> * traverseID : Guid 
-    | SetRIMFAXImageMode of RIMFAXImageMode
+    | SetRIMFAXImageMode of mode : string * traverseID : Guid * solNumber : int
 
 module InitTraverseParams =
 
@@ -93,7 +84,8 @@ type Sol =
       toRMC: string
       sclkStart: float
       sclkEnd: float
-      RIMFAXImageMode: option<RIMFAXImageMode>
+      RIMFAXImageModeOptions: option<List<string>>
+      RIMFAXImageMode: option<string>
       RIMFAXSurfaces : HashMap<Guid, SgSurface>
     } 
 
@@ -119,6 +111,7 @@ module Sol =
           toRMC = "" 
           sclkStart = nan
           sclkEnd = nan
+          RIMFAXImageModeOptions = None
           RIMFAXImageMode = None
           RIMFAXSurfaces = HashMap.empty
         }
@@ -162,6 +155,7 @@ module Sol =
                   toRMC = toRMC
                   sclkStart = sclkStart
                   sclkEnd = sclkEnd
+                  RIMFAXImageModeOptions = None
                   RIMFAXImageMode = None
                   RIMFAXSurfaces = HashMap.empty
                 }

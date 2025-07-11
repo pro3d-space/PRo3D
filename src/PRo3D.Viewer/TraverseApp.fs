@@ -106,7 +106,7 @@ module TraversePropertiesApp =
             )
     
 module TraverseApp = 
-    
+
     let parseTraverse (traverse : GeoJsonTraverse) = 
         let sols =
             match traverse.properties.traverseType with
@@ -297,12 +297,25 @@ module TraverseApp =
                             |> Array.toList
                             |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront 1000 file)  // should we actually use the triangle count stored in the scene viewer config file here?
                         let RIMFAXSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront (IndexList.ofList objSurfaces)
+                        let RIMFAXImageModeOptions =
+                            Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) 
+                            |> Array.filter (fun filePath -> (pathBelongsToSol filePath sol.solNumber))
+                            |> Array.toList
+                            |> List.map(fun file -> 
+                                let folders = Path.GetDirectoryName(file).Split(Path.DirectorySeparatorChar)
+                                folders.[folders.Length - 1]
+                                )
+
                         {sol with
                             RIMFAXSurfaces = RIMFAXSurfaces;
-                            RIMFAXImageMode =
-                                match HashMap.count RIMFAXSurfaces with
+                            RIMFAXImageModeOptions =
+                                match RIMFAXImageModeOptions.Length with
                                 | 0 -> None
-                                | _ -> Some RIMFAXImageMode.M026
+                                | _ -> Some RIMFAXImageModeOptions
+                            RIMFAXImageMode =
+                                match RIMFAXImageModeOptions.Length with
+                                | 0 -> None
+                                | _ -> Some RIMFAXImageModeOptions.[0]
                         }
                     )
                 
@@ -315,6 +328,22 @@ module TraverseApp =
             | _ -> 
                 Log.line "[Viewer] can only import exactly one file, given: %d" (List.length rootDirectoy)
                 model   
+        | SetRIMFAXImageMode (RIMFAXImageMode, traverseID, solID) ->
+            model
+            let sols = 
+                model.RIMFAXTraverses[traverseID].sols
+                |> List.map (fun sol ->
+                    if sol.solNumber = solID then
+                        { sol with RIMFAXImageMode = Some RIMFAXImageMode }
+                    else
+                        sol
+                    )
+            let RIMFAXTraverses' =  
+                model.RIMFAXTraverses 
+                    |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with sols = sols})
+            { model with
+                RIMFAXTraverses = RIMFAXTraverses'
+            }
         |_-> model
 
     module UI =
@@ -605,17 +634,10 @@ module TraverseApp =
                 sg 
                 |> Sg.noEvents 
 
-            let getRIMFAXImageModeFromPath (filePath : string)  =
+            let getRIMFAXImageModeFromPath (filePath : string) : option<string> =
                 let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
                 if folders.Length >= 1 then
-                    match folders.[folders.Length - 1] with
-                    | "026" -> Some RIMFAXImageMode.M026
-                    | "056" -> Some RIMFAXImageMode.M056
-                    | "078" -> Some RIMFAXImageMode.M078
-                    | "110" -> Some RIMFAXImageMode.M110
-                    | "214" -> Some RIMFAXImageMode.M214
-                    | "230" -> Some RIMFAXImageMode.M230
-                    | "240" -> Some RIMFAXImageMode.M240
+                    Some folders.[folders.Length - 1]
                 else
                     None
 
@@ -623,7 +645,9 @@ module TraverseApp =
                 model.sols
                 |> AVal.map (List.map (fun sol -> 
                     sol.RIMFAXSurfaces
-                    // TODO Sophie : |> HashMap.filter(fun guid surf -> (getRIMFAXImageModeFromPath surf.sgImportPath) == sol.RIMFAXImageMode)
+                    |> HashMap.filter(fun guid surf -> 
+                        (getRIMFAXImageModeFromPath surf.sgImportPath) = sol.RIMFAXImageMode
+                    )
                     |> HashMap.map (fun x value -> value.sceneGraph |> createSg)
                    ) 
                 >> HashMap.unionMany

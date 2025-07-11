@@ -252,12 +252,15 @@ module RIMFAXTraverseApp =
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
-                                    match sol.RIMFAXImageMode with
-                                    | Some RIMFAXImageMode ->
-                                        yield 
-                                            Html.SemUi.dropDown (adaptive { return RIMFAXImageMode }) SetRIMFAXImageMode
-                                    | None -> []
-                                ]                                     
+                                    match sol.RIMFAXImageModeOptions with
+                                    | Some options ->
+                                        match sol.RIMFAXImageMode with
+                                        | Some option ->
+                                            yield 
+                                                Html.SemUi.dropDown' (options |> AList.ofList) (adaptive { return option }) (fun value -> SetRIMFAXImageMode (value, m.guid, sol.solNumber)) (fun option -> option)
+                                        | None -> ()
+                                    | None -> ()
+                                ]
                             ]
                         ]
                 })
