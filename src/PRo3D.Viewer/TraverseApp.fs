@@ -311,7 +311,7 @@ module TraverseApp =
                             RIMFAXImageModeOptions =
                                 match RIMFAXImageModeOptions.Length with
                                 | 0 -> None
-                                | _ -> Some RIMFAXImageModeOptions
+                                | _ -> Some (RIMFAXImageModeOptions |> List.append [ "-" ])
                             RIMFAXImageMode =
                                 match RIMFAXImageModeOptions.Length with
                                 | 0 -> None
@@ -329,7 +329,6 @@ module TraverseApp =
                 Log.line "[Viewer] can only import exactly one file, given: %d" (List.length rootDirectoy)
                 model   
         | SetRIMFAXImageMode (RIMFAXImageMode, traverseID, solID) ->
-            model
             let sols = 
                 model.RIMFAXTraverses[traverseID].sols
                 |> List.map (fun sol ->
