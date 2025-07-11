@@ -280,13 +280,15 @@ module ViewPlanApp =
         }
 
         let trafo = placementTrafoFromSolTrafo placementLocation ref rotationTrafo // (rotationTrafo * Trafo3d.Translation(placementLocation))
+        let forward, _, up = decomposeRoverTrafo trafo
+        let forward' = placementLocation + forward
         
         let newViewPlan = {
             version            = ViewPlan.current
             id                 = Guid.NewGuid()
             name               = name
             position           = placementLocation
-            lookAt             = ref.northO//(ref.northO |> rotationTrafo.Forward.TransposedTransformDir)
+            lookAt             = forward' //ref.northO//(ref.northO |> rotationTrafo.Forward.TransposedTransformDir)
             viewerState        = cameraView
             vectorsVisible     = true
             rover              = rover
