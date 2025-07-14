@@ -16,6 +16,7 @@ open Chiron
 
 type TraversePropertiesAction =
     | ToggleShowText
+    | ToggleShowRIMFAXSurfaces
     | ToggleShowLines
     | ToggleShowDots
     | SetTraverseName of string
@@ -202,6 +203,7 @@ type Traverse =
       selectedSol: option<int>
       showLines: bool
       showText: bool
+      showRIMFAXSurfaces: bool
       tTextSize: NumericInput
       tLineWidth: NumericInput
       showDots: bool
@@ -243,6 +245,7 @@ module Traverse =
           selectedSol = None
           showLines = true
           showText = false
+          showRIMFAXSurfaces = true
           tTextSize = InitTraverseParams.tText
           tLineWidth = InitTraverseParams.tLineW 1.5
           showDots = false
@@ -276,6 +279,7 @@ module Traverse =
                   selectedSol = None
                   showLines = showLines
                   showText = showText
+                  showRIMFAXSurfaces = true
                   tTextSize = InitTraverseParams.tText
                   tLineWidth = InitTraverseParams.tLineW 1.5
                   showDots = showDots
@@ -313,6 +317,7 @@ module Traverse =
                   selectedSol = None
                   showLines = showLines
                   showText = showText
+                  showRIMFAXSurfaces = true
                   tTextSize = tTextSize
                   tLineWidth = tLineWidth
                   showDots = showDots

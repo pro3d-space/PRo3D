@@ -28,6 +28,8 @@ module TraversePropertiesApp =
         // Text
         | ToggleShowText ->
             { model with showText = not model.showText }
+        | ToggleShowRIMFAXSurfaces ->
+            { model with showRIMFAXSurfaces = not model.showRIMFAXSurfaces }
         | SetSolTextsize s ->
             { model with tTextSize = Numeric.update model.tTextSize s}
         // Line
@@ -62,6 +64,7 @@ module TraversePropertiesApp =
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Show Surfaces:"  [GuiEx.iconCheckBox m.showRIMFAXSurfaces ToggleShowRIMFAXSurfaces]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
@@ -648,7 +651,7 @@ module TraverseApp =
                         (getRIMFAXImageModeFromPath surf.sgImportPath) = sol.RIMFAXImageMode
                     )
                     |> HashMap.map (fun x value -> value.sceneGraph |> createSg)
-                   ) 
+                    ) 
                 >> HashMap.unionMany
                 )
 
@@ -666,11 +669,10 @@ module TraverseApp =
         let viewTraverseFast  
             (view : aval<CameraView>)
             (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
-
             Sg.ofList [
                 viewTraverseCoordinateFrames view refSystem model
                 viewTraverseDots refSystem view model
-                viewRIMFAXSurfaces refSystem model
+                viewRIMFAXSurfaces refSystem model |> Sg.onOff model.showRIMFAXSurfaces
             ]
             |> Sg.onOff model.isVisibleT
 
