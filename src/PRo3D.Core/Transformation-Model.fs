@@ -443,7 +443,7 @@ type TransformationData =
         roll                  : float
         scaling               : float
         trafo                 : Trafo3d
-        pivot                 : V3d 
+        pivot                 : V3d
         refSys                : Option<Affine3d>
     } 
     static member ToJson (x : TransformationData) = 

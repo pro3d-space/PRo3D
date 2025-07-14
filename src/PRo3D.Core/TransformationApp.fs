@@ -64,7 +64,7 @@ module TransformationApp =
     | ToggleRefSysVisible
     | SetRefSysSize         of Numeric.Action
     | ExportTrafoData       of string //list<string>
-    | ImportTrafoData       of string// list<string>
+    | ImportTrafoData       of list<string>
 
 
     // calc reference system from pivot
@@ -258,18 +258,17 @@ module TransformationApp =
                 refSys               = transform.refSys
             }
 
-        let jsonPathName = sprintf "%s_trafo3d.json" fullPathName
         let serialised = 
                 trafoData
                 |> Json.serialize 
                 |> Json.formatWith JsonFormattingOptions.Pretty 
         try 
-            System.IO.File.WriteAllText(jsonPathName , serialised)
+            System.IO.File.WriteAllText(fullPathName , serialised)
         with e ->
-            Log.warn "[JsonChiron] Could not save %s" jsonPathName 
+            Log.warn "[JsonChiron] Could not save %s" fullPathName 
             Log.warn "%s" e.Message
 
-        Log.warn "Debug Saved json to %s" (jsonPathName)
+        Log.warn "Debug Saved json to %s" (fullPathName)
 
     // import trafo data
     let readTrafoDataFromJson
@@ -368,7 +367,7 @@ module TransformationApp =
             let js = writeTrafoDataToJson model refSys path 
             model
         | ImportTrafoData importPath ->
-            let trafoData = readTrafoDataFromJson importPath
+            let trafoData = readTrafoDataFromJson importPath.Head
             match trafoData with 
             | Some data ->
                 let translation = Vector3d.updateV3d model.translation data.translation
@@ -376,12 +375,14 @@ module TransformationApp =
                 let pitch = Numeric.update model.pitch (Numeric.SetValue data.pitch)
                 let roll = Numeric.update model.roll (Numeric.SetValue data.roll)
                 let pivot = Vector3d.updateV3d model.pivot data.pivot
-                let showRefsys = match data.refSys with Some rf -> true| None -> false
+                let usePivot = if (data.pivot = V3d.Zero) then false else true
+                let showRefsys = match data.refSys with |Some rf -> true| None -> false
 
                 { model with translation     = translation; 
                                 yaw             = yaw;
                                 pitch           = pitch;
                                 roll            = roll;
+                                usePivot        = usePivot;
                                 pivot           = pivot;
                                 trafoChanged    = true;
                                 showTrafoRefSys = showRefsys;
@@ -389,64 +390,34 @@ module TransformationApp =
                                 } 
             | None -> model
    
-    module UI =
+    module UI = 
 
-        let importTrafoGui =
-                 div [] [
-                    openDialogButton 
-                            ({
-                                mode            = OpenDialogMode.File
-                                title           = "Choose watched text file"
-                                startPath       = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
-                                filters         = [| "*.*" |]
-                                allowMultiple   = false
-                            }) [onChooseFile Action.ImportTrafoData] [text "choose file"]
-                ]
+        let jsImportTrafodataDialog =
+            "top.aardvark.dialog.showOpenDialog({ title: 'Import Trafodata', filters: [{ name: 'Trafo3d (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+        let jsExportTrafodataDialog = 
+            "top.aardvark.dialog.showSaveDialog({ title:'Save Trafodata as', filters:  [{ name: 'Trafo3d (*.json)', extensions: ['json'] }] }).then(result => {aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
+            
 
-        let onSaveFile (chosen : string -> 'msg) =
-            onEvent "onsave" [] (List.head >> Aardvark.Service.Pickler.json.UnPickleOfString >> List.head >> Aardvark.Service.PathUtils.ofUnixStyle >> chosen)
-        let internal toJSON =
-            let properties = 
-                [   yield "mode: 'file'"
-                   
-                    yield sprintf "title: Save Trafo" 
-                    
-                    
-                    yield sprintf "startPath: '%s'" (Aardvark.Service.PathUtils.toUnixStyle (Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)))
+        let saveTrafoButton = 
+            button [clazz "ui inverted icon button"
+                    Dialogs.onSaveFile ExportTrafoData
+                    clientEvent "onclick" jsExportTrafodataDialog] [
+                    i [clazz "upload icon"] []
+            ] |> UI.wrapToolTip DataPosition.Bottom "Export Trafodata"
 
-                   
-                    yield sprintf "filters: [*.*]"
+        let loadTrafoButton = 
+            button [clazz "ui inverted icon button"
+                    Dialogs.onChooseFiles ImportTrafoData
                         
-                    yield sprintf "allowMultiple: false" 
+                    clientEvent "onclick" jsImportTrafodataDialog] [
+                    i [clazz "download icon"] []
+            ] |> UI.wrapToolTip DataPosition.Bottom "Import Bookmarks"
 
 
-                ]
-
-            properties |> String.concat ", " |> sprintf "{ %s }"
-
-        let openSaveDialogButton (config : OpenDialogConfig) (att : list<string * AttributeValue<'msg>>) (content : list<DomNode<'msg>>) =
-            let cfg = toJSON 
-            button [
-                yield clientEvent "onclick" ("top.aardvark.dialog.showSaveDialog( " + cfg + ",function(files) { if(files != undefined) aardvark.processEvent('__ID__', 'onsave', files); });")
-                //yield clientEvent "onclick" ("top.aardvark.dialog.showSaveDialog({ title:'Save trafo as', filters:  [{ name: 'trafo3d (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});")
-                yield! att
-            ] content
         let jsExportTrafoDialog = 
             "top.aardvark.dialog.showSaveDialog({ title:'Save Trafo3d as', filters:  [{ name: 'Trafo3d (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
            
-        let exportTrafoGui = 
-                div [] [
-                    openSaveDialogButton 
-                            ({
-                                mode            = OpenDialogMode.File
-                                title           = "Save Trafo"
-                                startPath       = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
-                                filters         = [| "*.*" |]
-                                allowMultiple   = false
-                            }) [onSaveFile Action.ExportTrafoData] [text "save file"]
-                ]
-               
-        
+      
         let viewV3dInput (model : AdaptiveV3dInput) =  
             Html.table [                            
                 Html.row "north" [Numeric.view' [InputBox] model.x |> UI.map Vector3d.Action.SetX]
@@ -502,9 +473,8 @@ module TransformationApp =
                     Html.row "Local Reference System:" [viewLocalRefSysData model.refSys]
                     Html.row "RefSys Size:"      [Numeric.view' [InputBox] model.refSysSize |> UI.map Action.SetRefSysSize]
                     Html.row "Mode" [modeDropDown]
-                    //Html.row "export TrafoData:"  [ exportTrafoGui ] //exportPath ]
-                    Html.row "export TrafoData:"  [button [clazz "ui button tiny"; onClick (fun _ -> Action.ExportTrafoData exportPath)] []]
-                    Html.row "import TrafoData:"  [ importTrafoGui ]
+                    Html.row "import Trafodata:"  [ loadTrafoButton ]
+                    Html.row "export Trafodata:"  [ saveTrafoButton ]
                 ]
             )
 

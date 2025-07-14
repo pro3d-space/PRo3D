@@ -1007,7 +1007,7 @@ module ViewerApp =
                 let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find s |> Leaf.toSurface
                 //match trafoFile |> List.tryHead with
                 //| Some path -> 
-                let msg = (TransformationApp.Action.ImportTrafoData trafoFile)
+                let msg = (TransformationApp.Action.ImportTrafoData [trafoFile])
                 let transformation' = 
                     (TransformationApp.update surface.transformation msg m.scene.referenceSystem) 
                 let s' = m.scene.surfacesModel |> SurfaceModel.updateSingleSurface { surface with transformation = transformation' } 
