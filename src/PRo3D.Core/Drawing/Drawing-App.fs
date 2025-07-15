@@ -636,17 +636,17 @@ module DrawingApp =
                 pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
             }
 
-        let annoSet = 
+        let labels = 
             model.annotations.flat 
-            |> AMap.choose (fun _ y -> y |> tryToAnnotation) // TODO v5: here we collapsed some avals - check correctness
-            |> AMap.toASet
-
-        let labels =              
-            annoSet 
-            |> ASet.map(fun (_,a) ->                                           
-                Sg.finishedAnnotationText a config view                 
-            )
-            |> Sg.set   
+            |> AMap.toASetValues
+            |> ASet.chooseA (fun anno -> 
+                match anno |> tryToAnnotation with
+                | None -> AVal.constant None
+                | Some v -> 
+                    Sg.shouldTextBeRendered v 
+                    |> AVal.map (function | true -> Some (Sg.drawText view config v) | _ -> None)
+               ) 
+            |> Sg.set
 
         labels
 

@@ -190,9 +190,9 @@ module ViewerUtils =
             |> Sg.uniform "endC"           ((C4b.Red |> AVal.constant)  |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H)))  
             |> Sg.uniform "interval"       fp.depthColorLegend.interval.value
             |> Sg.uniform "inverted"       (false |> AVal.constant)
-            |> Sg.uniform "lowerBound"     fp.depthColorLegend.lowerBound.value 
-            |> Sg.uniform "upperBound"     fp.depthColorLegend.upperBound.value
-            |> Sg.uniform "MinMax"         (AVal.constant(V2d(0.0,1.0)))
+            |> Sg.uniform "lowerBound"     fp.depthColorLegend.lowerBound.value //(AVal.constant(0.0)) //
+            |> Sg.uniform "upperBound"     fp.depthColorLegend.upperBound.value //
+            |> Sg.uniform "MinMax"         (AVal.constant(3000.0)) //(AVal.constant(V2d(0.0,1.0)))
             |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
     let getLodParameters 
@@ -273,8 +273,8 @@ module ViewerUtils =
         (surfacePicking  : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
-        (observedSystem : aval<Option<SpiceReferenceSystem>>) 
-        (observerSystem : aval<Option<ObserverSystem>>)
+        (observedSystem  : aval<Option<SpiceReferenceSystem>>) 
+        (observerSystem  : aval<Option<ObserverSystem>>)
         (fp              : AdaptiveFootPrint) 
         (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
@@ -342,7 +342,7 @@ module ViewerUtils =
                     
 
                 let samplerDescription : aval<SamplerState -> SamplerState> = 
-                    filterTexture 
+                    (AVal.constant(true)) //filterTexture 
                     |> AVal.map (fun filterTexture ->  
                         fun (x : SamplerState) -> 
                             match filterTexture with
@@ -429,7 +429,7 @@ module ViewerUtils =
                     |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
                     |> addImageCorrectionParameters  surf
                     |> addRadiometryParameters surf
-                    |> Sg.uniform "DepthVisible" depthVisible
+                    |> Sg.uniform "DepthVisible" depthVisible //(AVal.constant(true)) //
                     |> Sg.uniform "FootprintVisible" footprintVisible
                     |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
                     |> Sg.applyFootprint footprintViewProj
@@ -492,12 +492,19 @@ module ViewerUtils =
 
 
                     |> Sg.withEvents [
+                        //SceneEventKind.Move, (
+                        //    fun sceneHit -> 
+                        //        let name  = surf.name |> AVal.force        
+                        //        let surfacePicking = surfacePicking |> AVal.force
+                        //        true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                        //)
                         SceneEventKind.Click, (
                            fun sceneHit -> 
                              let name  = surf.name |> AVal.force        
                              let surfacePicking = surfacePicking |> AVal.force
                              //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)])
+                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)]
+                         )
                        ]  
                     // handle surface visibility
                     |> Sg.onOff (surf.isVisible) // on off variant
@@ -515,6 +522,12 @@ module ViewerUtils =
                     |> Sg.andAlso (
                         TransformationApp.Sg.viewObjectSpace surf.transformation
                         |> Sg.trafo trafo
+                        //|> Sg.dynamic
+                    )    
+                    // surface reference system (global coords)
+                    |> Sg.andAlso (
+                        TransformationApp.Sg.viewTrafoRefSys surf.transformation
+                        //|> Sg.trafo trafo
                         //|> Sg.dynamic
                     )    
                 return surfaceSg
@@ -942,26 +955,13 @@ module ViewerUtils =
             
             }                              
         sgs
-  
-    //TODO TO refactor screenshot specific
-    let getSurfacesSgWithCamera (runtime : IRuntime) (m : AdaptiveModel) =
-        let sgs = getSurfacesScenegraphs runtime m
-        let camera =
-            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
-        sgs 
-            |> ASet.ofAList
-            |> Sg.set
-            |> (camera |> Sg.camera)
 
-    let renderCommands 
-        (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
-        overlayed 
-        depthTested 
-        (view : aval<CameraView>)
+    let createGroupedSgs 
+        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
+        (view           : aval<CameraView>)
         (allowFootprint : bool) 
         (allowDepthview : bool) 
-        (runtime : IRuntime) 
-        (m:AdaptiveModel)  =
+        (m              : AdaptiveModel)  =
 
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
@@ -979,30 +979,40 @@ module ViewerUtils =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         //let view = m.navigation.camera.view
+        let validSurfacePriority v = 
+            // only relevant in secondary pass with overlayed geometry to render "missing" traverses
+            AVal.constant true
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-        let grouped = 
-            sgGrouped |> AList.map(
-                fun x -> ( x 
-                    |> AMap.map(fun guid surface ->   
-                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
-                        let s =
-                            viewSingleSurfaceSg 
-                                surface 
-                                m.scene.surfacesModel.surfaces.flat
-                                m.frustum 
-                                selected 
-                                surfacePicking
-                                surface.globalBB
-                                refSystem 
-                                observationSystem
-                                observerSystem
-                                m.footPrint 
-                                vpVisible
-                                usehighlighting filterTexture
-                                allowFootprint
-                                allowDepthview
-                                view
 
+        sgGrouped 
+        |> AList.map (fun group -> 
+                
+            let surfaces = 
+                group
+                |> AMap.map(fun guid surface ->   
+
+
+                    let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
+                    let s =
+                        viewSingleSurfaceSg 
+                            surface 
+                            m.scene.surfacesModel.surfaces.flat
+                            m.frustum 
+                            selected 
+                            surfacePicking
+                            surface.globalBB
+                            refSystem 
+                            observationSystem
+                            observerSystem
+                            m.footPrint 
+                            vpVisible
+                            usehighlighting filterTexture
+                            allowFootprint
+                            allowDepthview
+                            view
+
+
+                    let surfaceSg = 
                         match surface.isObj with
                         | true -> 
                             s 
@@ -1014,28 +1024,55 @@ module ViewerUtils =
                             |> Sg.effect [surfaceEffect] 
                             |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                             |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-                       )
-                    |> AMap.toASet 
-                    |> ASet.map snd                     
-                )                 
-            )
 
-        // TODO Laura: test depthTested outside the loop
 
-        //grouped   
-        let last = grouped |> AList.tryLast
+                    surfaceSg
+                )
+
+            let depthComposed = 
+                group.Content
+                |> AVal.map (fun surfaces -> 
+                    match surfaces |> HashMap.toValueSeq |> Seq.tryHead with
+                    | None -> Sg.empty
+                    | Some someSurf -> 
+                        let priority = 
+                            AMap.tryFind someSurf.surface m.scene.surfacesModel.surfaces.flat
+                            |> AVal.bind (function
+                                | (Some (AdaptiveSurfaces s)) -> 
+                                    s.priority.value |> AVal.map (int >> Some) 
+                                | _ -> AVal.constant None
+                            )
+                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority
+                        |> Sg.map ViewerAction.TraverseMessage
+                )
+                |> Sg.dynamic
+
+            let surfaces = 
+                surfaces
+                |> AMap.toASet 
+                |> ASet.map snd           
+                |> Sg.set
+                    
+            Sg.ofList [surfaces; depthComposed]
+        )  
+
+    let renderCommands 
+        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
+        (overlayed      : ISg<ViewerAction>)
+        (depthTested    : ISg<ViewerAction>)
+        (view           : aval<CameraView>)
+        (allowFootprint : bool) 
+        (allowDepthview : bool) 
+        (runtime        : IRuntime) 
+        (m              : AdaptiveModel)  =
+
+        let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview m
 
 
 
         alist {                    
-            for set in grouped do  
+            for sg in grouped do  
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-
-                let sg = set |> Sg.set
-                    //|> Sg.effect [surfaceEffect] 
-                    //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-
                 yield RenderCommand.SceneGraph sg
 
             yield RenderCommand.SceneGraph (depthTested)

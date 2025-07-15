@@ -21,6 +21,8 @@ type TraversePropertiesAction =
     | SetLineWidth of Numeric.Action
     | SetTraverseColor of ColorPicker.Action
     | SetHeightOffset of Numeric.Action
+    | SetPriority of Numeric.Action
+    | TogglePriorityRenderingEnabled
 
 type TraverseAction =
     | SelectSol of int
@@ -136,21 +138,24 @@ type Sol with
 
 [<ModelType>]
 type Traverse =
-    { version: int
-      [<NonAdaptive>]
-      guid: System.Guid
-      [<NonAdaptive>]
-      tName: string
-      sols: List<Sol>
-      selectedSol: option<int>
-      showLines: bool
-      showText: bool
-      tTextSize: NumericInput
-      tLineWidth: NumericInput
-      showDots: bool
-      isVisibleT: bool
-      color: ColorInput;
-      heightOffset : NumericInput
+    { 
+        version: int
+        [<NonAdaptive>]
+        guid: System.Guid
+        [<NonAdaptive>]
+        tName: string
+        sols: List<Sol>
+        selectedSol: option<int>
+        showLines: bool
+        showText: bool
+        tTextSize: NumericInput
+        tLineWidth: NumericInput
+        showDots: bool
+        isVisibleT: bool
+        color: ColorInput;
+        heightOffset : NumericInput
+        priority : NumericInput
+        priorityEnabled : bool
     }
 
 module Traverse =
@@ -177,21 +182,33 @@ module Traverse =
 
     let current = 1
 
+    let initialPriority = {
+        value  = 0.0
+        min    = 0.0
+        max    = 10.0
+        step   = 1.0
+        format = "{0:0}"
+    }
+
+    let empty = {
+        version = current
+        guid = Guid.NewGuid()
+        tName = ""
+        sols = []
+        selectedSol = None
+        showLines = true
+        showText = false
+        tTextSize = InitTraverseParams.tText
+        tLineWidth = InitTraverseParams.tLineW 1.5
+        showDots = false
+        isVisibleT = true
+        color = { c = C4b.White }
+        heightOffset = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
+        priority = initialPriority
+        priorityEnabled = false
+    }
     let initial name sols =
-        { version = current
-          guid = Guid.NewGuid()
-          tName = name
-          sols = sols //[]
-          selectedSol = None
-          showLines = true
-          showText = false
-          tTextSize = InitTraverseParams.tText
-          tLineWidth = InitTraverseParams.tLineW 1.5
-          showDots = false
-          isVisibleT = true
-          color = { c = C4b.White }
-          heightOffset = { Numeric.init with value = 0.0 }
-          }
+        { empty with tName = name; sols = sols }
 
     let withColor(color: C4b) (t: Traverse) =
         { t with color = { c = color } }
@@ -204,19 +221,19 @@ module Traverse =
             let! showDots = Json.read "showDots"
 
             return
-                { version = current
-                  guid = Guid.NewGuid()
-                  tName = ""
-                  sols = sols
-                  selectedSol = None
-                  showLines = showLines
-                  showText = showText
-                  tTextSize = InitTraverseParams.tText
-                  tLineWidth = InitTraverseParams.tLineW 1.5
-                  showDots = showDots
-                  isVisibleT = true
-                  color = { c = C4b.White } 
-                  heightOffset = { Numeric.init with value = 0.0}
+                { empty with
+                    version = current
+                    guid = Guid.NewGuid()
+                    tName = ""
+                    sols = sols
+                    selectedSol = None
+                    showLines = showLines
+                    showText = showText
+                    tTextSize = InitTraverseParams.tText
+                    tLineWidth = InitTraverseParams.tLineW 1.5
+                    showDots = showDots
+                    isVisibleT = true
+                    color = { c = C4b.White } 
                 }
         }
 
@@ -233,26 +250,32 @@ module Traverse =
             let! isVisibleT = Json.read "isVisibleT"
             let! color = Json.readWith Ext.fromJson<ColorInput, Ext> "color"
             let! heightOffset = Json.tryRead "heightOffset"
+            let! priorityEnabled = Json.tryRead "priorityEnabled"
 
             let tLineWidth = 
                 match tLWidth with
                 | Some w -> InitTraverseParams.tLineW w
                 | None -> InitTraverseParams.tLineW 1.5
 
+            let! priority = Json.tryRead "priority" 
+
             return
-                { version = current
-                  guid = guid |> Guid
-                  tName = tName
-                  sols = sols
-                  selectedSol = None
-                  showLines = showLines
-                  showText = showText
-                  tTextSize = tTextSize
-                  tLineWidth = tLineWidth
-                  showDots = showDots
-                  isVisibleT = isVisibleT
-                  color = color
-                  heightOffset = { Numeric.init with value = Option.defaultValue 0.0 heightOffset }
+                { empty with 
+                    version = current
+                    guid = guid |> Guid
+                    tName = tName
+                    sols = sols
+                    selectedSol = None
+                    showLines = showLines
+                    showText = showText
+                    tTextSize = tTextSize
+                    tLineWidth = tLineWidth
+                    showDots = showDots
+                    isVisibleT = isVisibleT
+                    color = color
+                    heightOffset = { empty.heightOffset with value = Option.defaultValue 0.0 heightOffset }
+                    priority = { empty.priority with value = Option.defaultValue 0.0 priority }
+                    priorityEnabled = priorityEnabled |> Option.defaultValue false
                 }
         }
 
@@ -282,6 +305,8 @@ type Traverse with
             do! Json.writeWith (Ext.toJson<ColorInput, Ext>) "color" x.color
             do! Json.write "tLineWidth" x.tLineWidth.value
             do! Json.write "heightOffset" x.heightOffset.value
+            do! Json.write "priority" x.priority.value
+            do! Json.write "priorityEnabled" x.priorityEnabled
         }
 
 [<ModelType>]

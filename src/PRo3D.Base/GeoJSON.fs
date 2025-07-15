@@ -14,18 +14,7 @@ open Chiron
 open System.Text.RegularExpressions
 open System.IO
       
-module GeoJSON =
-    //type V2d = {
-    //    X:float
-    //    Y:float
-    //}
-    
-    //type V3d = {
-    //    X:float
-    //    Y:float
-    //    Z:float
-    //}
-    
+module GeoJSON =        
     type Coordinate =
     | TwoDim of V2d
     | ThreeDim of V3d

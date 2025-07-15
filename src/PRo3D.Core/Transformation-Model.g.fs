@@ -1,5 +1,5 @@
-//79504c33-c6ca-c23d-20b3-97ccdd52f992
-//1b17acb3-6955-9b6f-af28-4e00eda169b5
+//dc99f82f-aac1-13df-012f-b5767d1fd1ff
+//1118641f-fa43-57df-60db-c4482fadd316
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -20,6 +20,9 @@ type AdaptiveTransformations(value : Transformations) =
     let _roll_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.roll)
     let _trafo_ = FSharp.Data.Adaptive.cval(value.trafo)
     let _pivot_ = Aardvark.UI.Primitives.AdaptiveV3dInput(value.pivot)
+    let _refSys_ = FSharp.Data.Adaptive.cval(value.refSys)
+    let _showTrafoRefSys_ = FSharp.Data.Adaptive.cval(value.showTrafoRefSys)
+    let _refSysSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.refSysSize)
     let _oldPivot_ = FSharp.Data.Adaptive.cval(value.oldPivot)
     let _showPivot_ = FSharp.Data.Adaptive.cval(value.showPivot)
     let _pivotChanged_ = FSharp.Data.Adaptive.cval(value.pivotChanged)
@@ -46,6 +49,9 @@ type AdaptiveTransformations(value : Transformations) =
             _roll_.Update(value.roll)
             _trafo_.Value <- value.trafo
             _pivot_.Update(value.pivot)
+            _refSys_.Value <- value.refSys
+            _showTrafoRefSys_.Value <- value.showTrafoRefSys
+            _refSysSize_.Update(value.refSysSize)
             _oldPivot_.Value <- value.oldPivot
             _showPivot_.Value <- value.showPivot
             _pivotChanged_.Value <- value.pivotChanged
@@ -65,6 +71,9 @@ type AdaptiveTransformations(value : Transformations) =
     member __.roll = _roll_
     member __.trafo = _trafo_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.Trafo3d>
     member __.pivot = _pivot_
+    member __.refSys = _refSys_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Base.Affine3d>>
+    member __.showTrafoRefSys = _showTrafoRefSys_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.refSysSize = _refSysSize_
     member __.oldPivot = _oldPivot_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V3d>
     member __.showPivot = _showPivot_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.pivotChanged = _pivotChanged_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -86,6 +95,9 @@ module TransformationsLenses =
         static member roll_ = ((fun (self : Transformations) -> self.roll), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Transformations) -> { self with roll = value }))
         static member trafo_ = ((fun (self : Transformations) -> self.trafo), (fun (value : Aardvark.Base.Trafo3d) (self : Transformations) -> { self with trafo = value }))
         static member pivot_ = ((fun (self : Transformations) -> self.pivot), (fun (value : Aardvark.UI.Primitives.V3dInput) (self : Transformations) -> { self with pivot = value }))
+        static member refSys_ = ((fun (self : Transformations) -> self.refSys), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Base.Affine3d>) (self : Transformations) -> { self with refSys = value }))
+        static member showTrafoRefSys_ = ((fun (self : Transformations) -> self.showTrafoRefSys), (fun (value : Microsoft.FSharp.Core.bool) (self : Transformations) -> { self with showTrafoRefSys = value }))
+        static member refSysSize_ = ((fun (self : Transformations) -> self.refSysSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Transformations) -> { self with refSysSize = value }))
         static member oldPivot_ = ((fun (self : Transformations) -> self.oldPivot), (fun (value : Aardvark.Base.V3d) (self : Transformations) -> { self with oldPivot = value }))
         static member showPivot_ = ((fun (self : Transformations) -> self.showPivot), (fun (value : Microsoft.FSharp.Core.bool) (self : Transformations) -> { self with showPivot = value }))
         static member pivotChanged_ = ((fun (self : Transformations) -> self.pivotChanged), (fun (value : Microsoft.FSharp.Core.bool) (self : Transformations) -> { self with pivotChanged = value }))

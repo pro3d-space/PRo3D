@@ -109,37 +109,37 @@ module SequencedBookmarksApp =
         (m                : SequencedBookmarks) 
         (act              : SequencedBookmarksAction) 
         (lenses           : BookmarkLenses<'a>)
-        (outerModel       : 'a) : ('a * SequencedBookmarks) =
+        (viewer       : 'a) : ('a * SequencedBookmarks) =
 
         match act with
         | AnimationSettingsMessage msg ->
             let animationSettings = AnimationSettings.update m.animationSettings msg
             let m = {m with animationSettings = animationSettings}
-            outerModel, m
+            viewer, m
         | LoadBookmarks -> 
-            outerModel, BookmarkUtils.loadAll m
+            viewer, BookmarkUtils.loadAll m
         | SaveAnimation ->
             // do in outer model
-            outerModel, m
+            viewer, m
         | AddSBookmark ->
-            let nav = Optic.get lenses.navigationModel_ outerModel
-            let state = Optic.get lenses.sceneState_ outerModel
+            let nav = Optic.get lenses.navigationModel_ viewer
+            let state = Optic.get lenses.sceneState_ viewer
             let newSBm = 
                 getNewSBookmark nav (BookmarkUtils.getValidState state)  m.bookmarks.Count None
             let m = addBookmark newSBm m
-            outerModel, m
+            viewer, m
         | AddGisBookmark ->
-            let nav = Optic.get lenses.navigationModel_ outerModel
-            let state = Optic.get lenses.sceneState_ outerModel
+            let nav = Optic.get lenses.navigationModel_ viewer
+            let state = Optic.get lenses.sceneState_ viewer
             let defaultInfo = 
-                Optic.get lenses.defaultObservationInfo_ outerModel
+                Optic.get lenses.defaultObservationInfo_ viewer
                 |> Some
             let newSBm = 
                 getNewSBookmark nav state  m.bookmarks.Count defaultInfo
             let m = addBookmark newSBm m
-            outerModel, m
+            viewer, m
         | SequencedBookmarksAction.FlyToSBM id ->
-            toBookmarkFromView m outerModel lenses (tryFind id)
+            toBookmarkFromView m viewer lenses (tryFind id)
         | RemoveSBM id -> 
             let selSBm = 
                 match m.selectedBookmark with
@@ -149,9 +149,9 @@ module SequencedBookmarksApp =
             let bookmarks' = m.bookmarks |> HashMap.remove id
             let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
             let orderList' = removeGuid index m.orderList 
-            outerModel, { m with bookmarks = bookmarks'
-                                 orderList = orderList'
-                                 selectedBookmark = selSBm         
+            viewer, { m with bookmarks = bookmarks'
+                             orderList = orderList'
+                             selectedBookmark = selSBm         
                         }
        
         | SelectSBM id ->
@@ -163,31 +163,31 @@ module SequencedBookmarksApp =
                     match selected with
                     | Some sel -> // apply bookmark state
                         Optic.set lenses.setModel_ (SequencedBookmark.LoadedBookmark sel)
-                                                   outerModel
+                                                   viewer
                     | None ->
-                        outerModel
+                        viewer
                 outerModel, m
             | false ->
-                outerModel, selectSBookmark m id 
+                viewer, selectSBookmark m id 
         | SetSceneState id ->
             let updState bm =
-                {bm with sceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+                {bm with sceneState = Some (Optic.get lenses.sceneState_ viewer)}
             let m = loadAndUpdate m id updState
             Log.line "[Sequenced Bookmarks] Updated scene state."
-            outerModel, m
+            viewer, m
         | SaveSceneState ->
-            let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+            let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ viewer)}
             Log.line "[SequencedBookmarks] Saved scene state."
-            outerModel, m
+            viewer, m
         | RestoreSceneState ->
             let outerModel = 
                 match m.savedSceneState with
                 | Some state ->
                     Log.line "[SequencedBookmarks] Restoring scene state."
-                    Optic.set lenses.sceneState_ state outerModel
+                    Optic.set lenses.sceneState_ state viewer
                 | None ->
                     Log.line "[SequencedBookmarks] No scene state to restore."
-                    outerModel
+                    viewer
             outerModel, m
         | MoveUp id ->
             let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
@@ -210,7 +210,7 @@ module SequencedBookmarksApp =
                             [m.orderList.[index]]@[m.orderList.[index-1]]
                 else
                     m.orderList
-            outerModel, { m with orderList = orderList' }
+            viewer, { m with orderList = orderList' }
 
         | MoveDown id ->
             let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
@@ -232,14 +232,14 @@ module SequencedBookmarksApp =
                             [m.orderList.[index+1]]@[m.orderList.[index]]
                 else
                     m.orderList
-            outerModel, { m with orderList = orderList' }
+            viewer, { m with orderList = orderList' }
         | SequencedBookmarkMessage (key, msg) ->  
             let m = loadAndUpdate m key (fun sb -> SequencedBookmark.update sb msg)
-            outerModel, m
+            viewer, m
         | Play ->
-            if Animator.exists AnimationSlot.camera outerModel 
-                && Animator.isPaused AnimationSlot.camera outerModel then
-                Animator.startOrResume AnimationSlot.camera outerModel, m
+            if Animator.exists AnimationSlot.camera viewer 
+                && Animator.isPaused AnimationSlot.camera viewer then
+                Animator.startOrResume AnimationSlot.camera viewer, m
             else 
                 match (List.tryHead m.orderList) with
                 | Some firstBookmark ->
@@ -247,56 +247,56 @@ module SequencedBookmarksApp =
                     match m.animationSettings.useGlobalAnimation with
                     | true ->
                         //smoothPathAllBookmarks m lenses outerModel //removed because it does not work with focal length
-                        pathWithPausing m lenses outerModel
+                        pathWithPausing m lenses viewer
                     | false ->
-                        pathWithPausing m lenses outerModel
+                        pathWithPausing m lenses viewer
                 | None ->
                     Log.line "[SequencedBookmarks] There are no sequenced bookmarks."
-                    outerModel, m
+                    viewer, m
         | StepForward -> 
-            toBookmarkFromView m outerModel lenses next
+            toBookmarkFromView m viewer lenses next
         | StepBackward ->
-            toBookmarkFromView m outerModel lenses previous
+            toBookmarkFromView m viewer lenses previous
         | Pause ->
-            let outerModel = Animator.pause AnimationSlot.camera outerModel
+            let outerModel = Animator.pause AnimationSlot.camera viewer
             outerModel, m 
         | Stop ->
-            let outerModel = Animator.stop AnimationSlot.camera outerModel
+            let outerModel = Animator.stop AnimationSlot.camera viewer
             outerModel, m 
         | StartRecording -> 
-            outerModel, {m with 
+            viewer, {m with 
                             savedTimeSteps = []
                             lastSavedBookmark = None
                             isRecording = true
                             currentFps = None
                          }
         | StopRecording -> 
-            outerModel, {m with isRecording = false}
+            viewer, {m with isRecording = false}
         | ToggleGenerateOnStop ->
-            outerModel, {m with generateOnStop = not m.generateOnStop}
+            viewer, {m with generateOnStop = not m.generateOnStop}
         | ToggleUpdateJsonBeforeRendering ->
-            outerModel, {m with updateJsonBeforeRendering = not m.updateJsonBeforeRendering}
+            viewer, {m with updateJsonBeforeRendering = not m.updateJsonBeforeRendering}
         | ToggleDebug ->
-            outerModel, {m with debug = not m.debug}
+            viewer, {m with debug = not m.debug}
         | UpdateJson ->
             // currently updated in Viewer.fs
-            outerModel, m
+            viewer, m
         | GenerateSnapshots -> 
-            outerModel, {m with isGenerating = true}
+            viewer, {m with isGenerating = true}
         | CancelSnapshots ->
-            outerModel, {m with isCancelled = true}
+            viewer, {m with isCancelled = true}
         | SetResolutionX msg ->
-            outerModel, {m with resolutionX = Numeric.update m.resolutionX msg}
+            viewer, {m with resolutionX = Numeric.update m.resolutionX msg}
         | SetResolutionY msg ->
-            outerModel, {m with resolutionY = Numeric.update m.resolutionY msg}
+            viewer, {m with resolutionY = Numeric.update m.resolutionY msg}
         | SetOutputPath str -> 
             let str = 
                 match str with
                 | [] -> SequencedBookmarks.defaultOutputPath ()
                 | head::tail -> head
-            outerModel, {m with outputPath = str}
+            viewer, {m with outputPath = str}
         | SetFpsSetting setting ->
-            outerModel, {m with fpsSetting = setting}
+            viewer, {m with fpsSetting = setting}
         | CheckSnapshotsProcess id ->
             match snapshotProcess with 
             | Some p -> 
@@ -321,9 +321,44 @@ module SequencedBookmarksApp =
                                         isCancelled  = false
                                 }
                         m
-                outerModel, m
+                viewer, m
             | None -> 
-                outerModel, m
+                viewer, m
+        | GeneratePanoramaDepthImages -> 
+            viewer, {m with isGeneratingDepthImages = true}
+        | CancelPanoramas ->
+            viewer, {m with isCancelledDepthImages = true}
+        | SetOutputPathPanoramas str -> 
+            let str = 
+                match str with
+                | [] -> SequencedBookmarks.defaultOutputPath ()
+                | head::tail -> head
+            viewer, {m with outputPathDepthImages = str}
+        | CheckDepthPanoramaProcess id ->
+            match snapshotProcess with 
+            | Some p -> 
+                let m = 
+                    match p.HasExited , m.isCancelledDepthImages with
+                    | true, _ -> 
+                        Log.warn "[Snapshots] Depth Panorama generation finished."
+                        let m = {m with panoramaThreads = ThreadPool.remove id m.panoramaThreads
+                                        isGeneratingDepthImages = false
+                                }
+                                
+                        m
+                    | false, false ->
+                        m
+                    | false, true ->
+                        Log.warn "[Snapshots] Depth Panorama generation cancelled."
+                        p.Kill ()
+                        let m = {m with panoramaThreads = ThreadPool.remove id m.panoramaThreads
+                                        isGeneratingDepthImages = false
+                                        isCancelledDepthImages  = false
+                                }
+                        m
+                viewer, m
+            | None -> 
+                viewer, m
 
     let addBookmarks (m : SequencedBookmarks) (bookmarks : list<SequencedBookmark>) =
         let bookmarksWithKeys = 
@@ -379,9 +414,38 @@ module SequencedBookmarksApp =
             Log.warn "[Viewer] This feature is only available for Windows."
             m
 
+    let generateDepthPanoramas m runProcess scenePath =
+        let jsonPathName = Path.combine [m.outputPathDepthImages;"panoramaInputFormat.json"]
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
+                (System.Runtime.InteropServices.OSPlatform.Windows) then
+                    
+            let exeName = "PRo3D.Snapshots.exe"
+            match File.Exists exeName with
+            | true -> 
+                let args =
+                    sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
+                                        scenePath jsonPathName m.outputPathDepthImages
+                Log.line "[Viewer] Starting panorama depth rendering with arguments: %s" args
+                snapshotProcess <- Some (runProcess exeName args None)
+                let id = System.Guid.NewGuid () |> string
+                let proclst =
+                    proclist {
+                        for i in 0..4000 do
+                            do! Proc.Sleep 4000
+                            yield CheckDepthPanoramaProcess id
+                    }              
+                {m with panoramaThreads = ThreadPool.add id proclst m.panoramaThreads}
+            | false -> 
+                Log.warn "[Snapshots] Could not find %s" exeName
+                m
+        else 
+            Log.warn "[Viewer] This feature is only available for Windows."
+            m
+
 
     let threads (m : SequencedBookmarks) = 
-        m.snapshotThreads
+        //m.snapshotThreads
+        ThreadPool.union m.snapshotThreads m.panoramaThreads
        // ThreadPool.union m.snapshotThreads m.animationThreads
 
 
@@ -794,6 +858,67 @@ module SequencedBookmarksApp =
                                 outputFolderGui
                             ]
                     ]
+
+
+
+                ]
+            ) 
+            
+        let viewPanoramaDepthGUI (model:AdaptiveSequencedBookmarks) = 
+            
+            
+            let generateButton = 
+                button [clazz "ui icon button"; onMouseClick (fun _ -> GeneratePanoramaDepthImages )] [ 
+                    i [clazz "camera icon"] [] ] 
+                    
+                    
+            let cancelButton = 
+                button [clazz "ui icon button"; onMouseClick (fun _ -> CancelPanoramas )] 
+                       [i [clazz "remove icon"] []]
+                            
+               
+
+            let generateToggleButton =
+                model.isGeneratingDepthImages |> AVal.map (fun b -> if b then cancelButton else  generateButton)
+                                   |> AList.ofAValSingle
+            
+            
+            
+            let outputFolderGui =
+                let attributes = 
+                    alist {
+                        let! outputPath = model.outputPathDepthImages
+                        yield Dialogs.onChooseFiles SetOutputPathPanoramas;
+                        yield clientEvent "onclick" (Dialogs.jsSelectPathDialogWithPath outputPath)
+                        yield (style "word-break: break-all")
+                    } |> AttributeMap.ofAList
+
+                let content =
+                    alist {
+                        yield i [clazz "write icon"] []
+                        yield Incremental.text model.outputPathDepthImages
+                    }
+
+                Incremental.div attributes content
+
+            // RNO tooltips are deactivated, because they cause html body content to disappear
+            require GuiEx.semui ( 
+                div [] [
+                    Html.table [            
+                        
+                        Html.row "Generate Depth Images:" 
+                            [
+                                Incremental.div ([] |> AttributeMap.ofList) generateToggleButton         
+                            ]
+
+                        
+                        Html.row "Output Path" 
+                            [
+                                outputFolderGui
+                            ]
+                    ]
+
+
 
                 ]
             )            

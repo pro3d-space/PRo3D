@@ -1,0 +1,17 @@
+﻿Aardvark.Base
+Aardvark.Base.Incremental
+Aardvark.Base.FSharp
+
+Aardvark.Rendering
+Aardvark.Application.Slim.GL
+Aardvark.Application.Slim.Vulkan
+Aardvark.SceneGraph
+Aardvark.Data.Opc
+Aardvark.Rendering.Text
+Aardvark.PixImage.DevIL
+
+Aardvark.Data.GLTF
+
+FSharp.Core
+
+Aardium
