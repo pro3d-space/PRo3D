@@ -54,3 +54,5 @@ src\Aardvark.OpcViewer.psess
 **/bin/Debug/**
 **/bin/Release/**
 /notebooks/result.obj
+/.vscode/launch.json
+/.vscode/tasks.json
