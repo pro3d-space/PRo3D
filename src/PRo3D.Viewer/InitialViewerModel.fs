@@ -73,6 +73,9 @@ module Viewer =
         //let defaultDashboard = DashboardModes.provenance
         let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
         let viewConfigModel = ViewConfigModel.initial 
+
+        let applyProvenaceIfEnabled (m : Model) =
+            ProvenanceApp.emptyWithModel startupArgs.enableProvenanceTracking m
         {     
             scene = 
                 {
@@ -157,7 +160,7 @@ module Viewer =
             //instrumentCamera = { CameraController.initial with view = CameraView.lookAt V3d.Zero V3d.One V3d.OOI }        
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
             viewerMode      = ViewerMode.Standard
-            footPrint       = ViewPlanModel.initFootPrint
+            footPrint       = FootPrint.initFootPrint
             viewPortSizes   = HashMap.empty
 
             snapshotThreads      = ThreadPool.empty
@@ -172,6 +175,6 @@ module Viewer =
             animator            = Animation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid
-        } |> ProvenanceApp.emptyWithModel
+        } |> applyProvenaceIfEnabled
 
 

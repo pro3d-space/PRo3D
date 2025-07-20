@@ -1,0 +1,20 @@
+{
+  "profiles": {
+    "ModelViewer": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Perserverence-Rover//meshes ..//..//..//resources//Cubemap-Mars"
+    },
+    "AFC Camera": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//gltf//AFC ..//..//..//resources//Cubemap-Mars"
+    },
+    "Hera Spacecraft": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//gltf ..//..//..//resources//Cubemap-Mars"
+    },
+    "Perserverance Rover": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Perserverence-Rover//meshes ..//..//..//resources//Cubemap-Mars"
+    }
+  }
+}

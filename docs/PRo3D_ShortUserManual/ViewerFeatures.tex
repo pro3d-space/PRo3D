@@ -74,7 +74,15 @@ You can translate the surface along the north-, east and up axis of the coordina
     	\label{fig:surfaceColorCorrection}
    \end{figure}
 
-You can apply different color correction filters on the selected surface	(Figure~\ref{fig:surfaceColorCorrection}). \\
+You can apply different color correction filters on the selected surface	(Figure~\ref{fig:surfaceColorCorrection}). 
+Additionally you can linearly modify the minimum and maximum value of each color channel (Figure~\ref{fig:surfaceRadiometry}).\\
+
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/radiometry.png}
+    	\caption[Surface Radiometry]{\textbf{Radiometry:} Linear modification of rgb color mapping.}
+    	\label{fig:surfaceRadiometry}
+   \end{figure}
 
 \begin{figure}[h]
     	\centering
@@ -164,6 +172,56 @@ Dip\&Strike ColorLegend tab shown in Figure~\ref{fig:dnSColorLegend} E.
 %To import annotations from old scene files click the ``browse'' button in the \textbf{ImportAnnotationGroups} section in the Scene Menu (Figure~\ref{fig:StartMenu}). This opens a folder browser dialog, where you can select an old scene file an click ''Open''.
 %The annotations are loaded in the same group hierarchy to the ``root'' group.
 
+
+%----------------------------------------------------------------------------------------
+%	SubSection: ScaleBars
+%----------------------------------------------------------------------------------------
+\newpage
+\subsection{Scalebars}
+\label{sec:scalebars}
+
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/scaleBars.png}
+    	\caption[Viewer Features ScaleBars]{ScaleBar settings (red), ScaleBar listing (green) and properties of selected ScaleBar (blue).}
+    	\label{fig:scaleBars}
+   \end{figure}
+	
+The settings in the red rectangle in Figure~\ref{fig:scaleBars} show how to place scalebars. First set ``PlaceScaleBar'' in the actions menu. Then you can choose one of the following modes which determines the alignment of the scalebar:
+\begin{itemize}
+	\item \textit{Horizontal\_cam}: The camera's right vector.
+	\item \textit{Vertical\_cam}: The camera's up vector.
+	\item \textit{Sky\_cam}: The camera's sky vector.
+	\item \textit{Horizontal\_planet}: The cross product of the planet-based up vector and the camera's backward vector.
+	\item \textit{Sky\_planet}: The planet-based up vector.
+	\label{tab:scaleBarsOrientations}
+\end{itemize}
+
+Then you can choose if the selected position is the left, middle or right position of the scale bar, the length and the unit of the length. To place a scalebar point on the surface and press CTRL+LMB.
+	
+The listing in the ``ScaleBars'' tab (green rectangle) shows all scalebars in the scene.
+Under the scalebar's name is a little menu:
+\begin{itemize}
+	\item \textit{FlyTo}: A click on the button triggers a FlyTo animation to the camera position.
+  \item \textit{Toggle}: Toggles the scalebar visible/invisible.
+  \item \textit{remove}: Deletes the scalebar from the list.
+\end{itemize} 
+You can select a scalebar by clicking on the scalebar's name, which turns its color to green. Then you can see the scalebar's properties in the Properties panel and use the translations in the Transformation panel. \\
+
+In the Properties panel of the selected scalebar you can get information and change some of the settings:
+\begin{itemize}
+	\item \textit{Name}: The initial name cotains the initial parameter settings and is displayed in the listing. You can rename the scalebar by writing the new name in the box and press enter.
+	\item \textit{Visible}: The scalebar is visible (checked) or not (unchecked).
+	\item \textit{Textsize}: The length and unit is displayed as text beside the scale bar in the main view. You can adjust the size of the text.
+	\item \textit{TextVisible}: The scalebar's text is visible (checked) or not (unchecked).
+	\item \textit{Thickness}: You can change the scalebars's line thickness.
+	\item \textit{Subdivisions}: You can change the number of the black-white subdivisions.
+	\item \textit{Orientation}: You can change the orientation direction. They are described in Table~\ref{tab:scaleBarsOrientations}.
+	\item \textit{Unit}: You can change the scalebar's unit.
+	\item \textit{Representation}: You can change each scale bar to a coordinate frame with it's three axis pointing to the north- (red), up- (blue) and right-direction (green).
+\end{itemize}
+
+The Transformation panel provides the possibility to translate the selected scale bar in the north-, east- and up-direction.
 
 %----------------------------------------------------------------------------------------
 %	SubSection: ViewPlanner

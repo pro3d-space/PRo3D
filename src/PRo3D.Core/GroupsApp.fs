@@ -125,6 +125,7 @@ module GroupsApp =
         let root = updateNodeAt m.activeGroup.path f m.rootGroup        
 
         { m with rootGroup = root }
+
     
     let updateStructureAt (p : list<Index>) (f : Node -> Guid -> Node) (t : Node) = 
         let rec go (p : list<Index>) (t : Node)  =
@@ -155,7 +156,6 @@ module GroupsApp =
 
     // add one child to children of active group ... maybe move to active group
     let addLeafToActiveGroup (leaf:Leaf) (select:bool) model=
-
         let treeSelection =  
             {
                 id = leaf.id
@@ -172,6 +172,8 @@ module GroupsApp =
 
         let func = (fun (x : Node) -> { x with leaves = x.leaves |> IndexList.prepend leaf.id })
         model |> updateActiveGroup func
+           
+        
 
     // add a list of children to children of active group
     let addLeaves path (cs : IndexList<Leaf>) model = 
@@ -339,13 +341,23 @@ module GroupsApp =
                 m
         | true -> m
 
-    let insertGroup path (group : Node) (model : GroupsModel) =         
+    let insertGroup path (group : Node) (model : GroupsModel) =        
 
         let func = 
             (fun (x:Node) -> 
                 { x with subNodes = IndexList.add group x.subNodes })
 
         { model with rootGroup = updateNodeAt path func model.rootGroup; lastSelectedItem = SelectedItem.Group }
+
+    //add one node to active group
+    let addNodeToActiveGroup (node : Node) (model : GroupsModel) = 
+        let activeGroup = 
+            if model.activeGroup.path = List.empty then
+                []
+            else
+                model.activeGroup.path
+
+        insertGroup activeGroup node model
 
     let union (left : GroupsModel) (right : GroupsModel) : GroupsModel =
         if left.rootGroup.key = right.rootGroup.key then

@@ -237,7 +237,7 @@ let test = """let viewerVersion       = "3.1.3" """
     res
     *)
 
-let aardiumVersion = "2.0.5"
+let aardiumVersion = "2.1.1"
     //let versions = getInstalledPackageVersions()
     //match Map.tryFind "Aardium" versions with
     //| Some v -> v
@@ -433,7 +433,7 @@ Target.create "Publish" (fun _ ->
         }
     )
 
-    // snapshots
+    //// snapshots
     "src/PRo3D.Snapshots/PRo3D.Snapshots.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some "net6.0"
@@ -496,7 +496,7 @@ Target.create "Publish" (fun _ ->
         Shell.copyDir (Path.Combine(target, "mac-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
         Shell.copyDir (Path.Combine(target, "win-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
 
-        File.Move("bin/publish/win-x64/PRo3D.Viewer.exe", sprintf "bin/publish/win-x64/PRo3D.Viewer.%s.exe" notes.NugetVersion)
+        //File.Move("bin/publish/win-x64/PRo3D.Viewer.exe", sprintf "bin/publish/win-x64/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
 
 "Credits" ==> "Publish" |> ignore

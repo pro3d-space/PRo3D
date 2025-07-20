@@ -30,6 +30,12 @@ type Leaf =
           | Bookmarks   b -> b.key
           | Annotations a -> a.key
 
+      member x.SetId (newGuid : System.Guid) = 
+          match x with
+          | Surfaces    s -> Leaf.Surfaces    { s with guid = newGuid }
+          | Bookmarks   b -> Leaf.Bookmarks   { b with key  = newGuid }
+          | Annotations a -> Leaf.Annotations { a with key  = newGuid }
+
       member x.visible =
           match x with          
           | Surfaces    s -> s.isVisible
@@ -544,4 +550,50 @@ type SurfaceModel with
         json {
             do! Json.write "version"  x.version
             do! Json.write "surfaces" x.surfaces
+        }
+
+
+type ExportSubNodeModel = {
+    itemType : SelectedItem
+    group    : Option<Node>
+    children : HashMap<Guid, Leaf>
+}
+
+type ExportSubNodeModel with
+    static member FromJson (_ : ExportSubNodeModel) =
+        json {
+            let! t = Json.read "itemType"
+            
+            //0 Child, 1 Group as defined in "Selected Item"
+            match t with
+            | 0 ->
+                let! children = Json.read "children"
+                return {
+                    itemType = SelectedItem.Child
+                    group = None
+                    children = children |> List.map(fun (a : Leaf) -> (a.id, a)) |> HashMap.ofList
+                }
+
+            | 1 ->
+                let! group = Json.read "group"
+                let! children = Json.read "children"
+                return {
+                    itemType = SelectedItem.Group
+                    group = Some(group)
+                    children = children |> List.map(fun (a : Leaf) -> (a.id, a)) |> HashMap.ofList
+                }
+            | _ -> 
+                return {
+                    itemType = SelectedItem.Child
+                    group    = None
+                    children = HashMap.Empty
+                }
+        }
+
+    static member ToJson (x : ExportSubNodeModel) =
+        json {
+            do! Json.write "itemType" (int x.itemType)
+            if x.group.IsSome then 
+                do! Json.write "group" x.group
+            do! Json.write "children" (x.children |> HashMap.toList |> List.map snd)
         }

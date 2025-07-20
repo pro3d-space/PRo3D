@@ -413,15 +413,11 @@ module Sg =
             dotsAndText
         ] |> optional anno.visible
 
-    let finishedAnnotationText
-         (anno             : AdaptiveAnnotation) 
-         (config           : innerViewConfig)
-         (view             : aval<CameraView>) =
-        
-        anno.text 
-        |> AVal.map3 (fun show visible text -> (String.IsNullOrEmpty text) || (show && visible) ) anno.showText anno.visible
-        |> optionalSet (drawText view config anno)
-        |> Sg.set
+
+    let shouldTextBeRendered (anno : AdaptiveAnnotation) =
+         (anno.text, anno.visible, anno.showText) 
+         |||> AVal.map3 (fun text visible show -> show && visible && not (String.IsNullOrEmpty text))
+
 
     let finishedAnnotation 
         (anno             : AdaptiveAnnotation) 
@@ -443,14 +439,7 @@ module Sg =
         //            anno.geometry 
         //            config.offset
         //    )
-     
-        let texts = 
-            anno.text 
-            |> AVal.map2 (fun show text -> (String.IsNullOrEmpty text) || show ) anno.showText
-            |> optionalSet (drawText view config anno)
-    
-        let dotsAndText = texts |> Sg.set //ASet.union' [dots; texts] |> Sg.set
-            
+
         //let selectionColor = AVal.map2(fun x color -> if x then C4b.VRVisGreen else color) picked c
         let pickingAllowed = // for this particular annotation // whether should fire pick actions
             AVal.map2 (&&) pickingAllowed anno.visible
