@@ -12,6 +12,7 @@ open Aardvark.SceneGraph
 
 open PRo3D.Base
 open PRo3D
+open Chiron
 //open PRo3D.Versioned
 
 type GroupsAppAction =
@@ -372,6 +373,119 @@ module GroupsApp =
                 flat = left.flat |> HashMap.union right.flat
                 groupsLookup = left.groupsLookup |> HashMap.union right.groupsLookup
             }    
+
+    let exportGroupOrSubGroup  (model : GroupsModel) (filePath : string) = 
+        match model.lastSelectedItem with
+        | SelectedItem.Group -> 
+            let exportGroup = getNode model.activeGroup.path model.rootGroup
+            let leaves = 
+                collectLeaves exportGroup 
+                |> IndexList.toList
+
+            let children = 
+                model.flat
+                |> HashMap.filter(fun _ l -> leaves |> List.contains(l.id))                        
+
+            let exportObject = {
+                itemType = model.lastSelectedItem
+                group    = Some(exportGroup)
+                children = children
+            }                        
+
+            exportObject
+            |> Json.serialize
+            |> Json.formatWith JsonFormattingOptions.Pretty
+            |> Serialization.writeToFile filePath
+            Log.line "Currently selected subGroup exported to %s" (System.IO.Path.GetFullPath filePath)
+
+            model
+        | SelectedItem.Child ->                 
+            if model.flat.ContainsKey model.activeChild.id then
+                let activeLeaf =  model.flat[model.activeChild.id]
+                
+                let exportObject = {
+                    itemType = model.lastSelectedItem
+                    group    = None
+                    children = HashMap.Empty |> HashMap.add activeLeaf.id activeLeaf
+                }                 
+                
+                exportObject
+                |> Json.serialize
+                |> Json.formatWith JsonFormattingOptions.Pretty
+                |> Serialization.writeToFile filePath
+                Log.line "Currently selected bookmark exported to %s" (System.IO.Path.GetFullPath filePath)  
+            else
+                Log.line "Currently selected bookmark not found - please reselect a groupItem"
+
+            model
+        | _ -> 
+            Log.line "Export did not work properly - please reselect a groupItem"
+            model
+
+    let updateGuids (importObject : ExportSubNodeModel) = 
+        let updatedChildren = 
+            importObject.children
+            |> HashMap.map (fun _ child -> 
+                let newGuid = System.Guid.NewGuid()
+                child.SetId newGuid)
+            
+        let rec updateChildren (subNode : Node) (uC : HashMap<System.Guid, Leaf>) =
+            let newLeaves = 
+                subNode.leaves
+                |> IndexList.map(fun g -> 
+                    if uC.ContainsKey g then
+                        (uC.[g].id)
+                    else 
+                        g
+                    )
+            let newNodes = 
+                subNode.subNodes
+                |> IndexList.map(fun n -> updateChildren n uC)
+            { subNode with leaves = newLeaves; subNodes = newNodes; key = System.Guid.NewGuid() }
+            
+        let newNode = 
+            importObject.group
+            |> Option.map (fun n -> updateChildren n updatedChildren)
+        
+        { importObject with group = newNode; children = updatedChildren }
+
+    let addChildren (children : HashMap<System.Guid, Leaf> ) model = 
+        children
+        |> HashMap.fold (fun m _ leaf -> 
+            { 
+                m with flat = m.flat |> HashMap.add leaf.id leaf
+        }) model
+
+    let importGroupOrSubGroup (model : GroupsModel) (pathList : List<string>) = 
+        if pathList.IsEmpty |> not then 
+            let updatedGroup = 
+                pathList 
+                |> List.fold(fun m path -> 
+                    let importObject : ExportSubNodeModel = 
+                        path
+                        |> Serialization.Chiron.readFromFile 
+                        |> Json.parse 
+                        |> Json.deserialize
+                        |> updateGuids
+
+                    match importObject.itemType with
+                    | SelectedItem.Group ->
+                        importObject.group 
+                        |> Option.map (fun g -> addNodeToActiveGroup g model)
+                        |> Option.defaultValue model
+                        |> addChildren importObject.children
+                        
+                    | SelectedItem.Child ->
+                        importObject.children 
+                        |> HashMap.fold(fun b _ leaf -> 
+                            b |> addLeafToActiveGroup leaf false) m
+                    | _ ->
+                        model                    
+                    ) model
+            updatedGroup
+        else
+            model
+
 
     let update (model : GroupsModel) (action : GroupsAppAction) =
         match action with

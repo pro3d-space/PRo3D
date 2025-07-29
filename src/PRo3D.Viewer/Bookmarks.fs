@@ -79,116 +79,14 @@ module Bookmarks =
             else outerModel, bookmarks
         | ImportBookmarks pathList ->
             if pathList.IsEmpty |> not then                
-                let updatedBMs = 
-                    pathList 
-                    |> List.fold(fun bm path -> 
-                        let updateGuids (importObject : ExportSubNodeModel) = 
-                            let updatedChildren = 
-                                importObject.children
-                                |> HashMap.map (fun _ child -> 
-                                    let newGuid = System.Guid.NewGuid()
-                                    child.SetId newGuid)
-                                
-                            let rec updateChildren (subNode : Node) (uC : HashMap<System.Guid, Leaf>) =
-                                let newLeaves = 
-                                    subNode.leaves
-                                    |> IndexList.map(fun g -> 
-                                        if uC.ContainsKey g then
-                                            (uC.[g].id)
-                                        else 
-                                            g
-                                        )
-                                let newNodes = 
-                                    subNode.subNodes
-                                    |> IndexList.map(fun n -> updateChildren n uC)
-
-                                { subNode with leaves = newLeaves; subNodes = newNodes; key = System.Guid.NewGuid() }
-                                
-                            let newNode = 
-                                importObject.group
-                                |> Option.map (fun n -> updateChildren n updatedChildren)
-                            
-                            { importObject with group = newNode; children = updatedChildren }
-
-                        let importObject : ExportSubNodeModel = 
-                            path
-                            |> Serialization.Chiron.readFromFile 
-                            |> Json.parse 
-                            |> Json.deserialize
-                            |> updateGuids
-
-                        let addChildren (children : HashMap<System.Guid, Leaf> ) model = 
-                            children
-                            |> HashMap.fold (fun b _ leaf -> 
-                                { 
-                                    b with flat = b.flat |> HashMap.add leaf.id leaf
-                            }) model
-
-                        match importObject.itemType with
-                        | SelectedItem.Group ->
-                            importObject.group 
-                            |> Option.map (fun g -> GroupsApp.addNodeToActiveGroup g bookmarks)
-                            |> Option.defaultValue bookmarks
-                            |> addChildren importObject.children
-                            
-                        | SelectedItem.Child ->
-                            importObject.children 
-                            |> HashMap.fold(fun b _ leaf -> 
-                                b |> GroupsApp.addLeafToActiveGroup leaf false) bm
-                        | _ ->
-                            bookmarks                    
-                        ) bookmarks
+                let updatedBMs = GroupsApp.importGroupOrSubGroup bookmarks pathList
                 outerModel, updatedBMs
             else
                 outerModel, bookmarks
         | ExportBookmarks filepath ->
             if filepath <> "" then 
-                match bookmarks.lastSelectedItem with
-                | SelectedItem.Group -> 
-                    let exportGroup = GroupsApp.getNode bookmarks.activeGroup.path bookmarks.rootGroup
-                    let leaves = 
-                        GroupsApp.collectLeaves exportGroup 
-                        |> IndexList.toList
-
-                    let children = 
-                        bookmarks.flat
-                        |> HashMap.filter(fun _ l -> leaves |> List.contains(l.id))                        
-
-                    let exportObject = {
-                        itemType = bookmarks.lastSelectedItem
-                        group    = Some(exportGroup)
-                        children = children
-                    }                        
-
-                    exportObject
-                    |> Json.serialize
-                    |> Json.formatWith JsonFormattingOptions.Pretty
-                    |> Serialization.writeToFile filepath
-                    Log.line "Currently selected bookmark group exported to %s" (System.IO.Path.GetFullPath filepath)
-
-                    outerModel, bookmarks
-                | SelectedItem.Child ->                 
-                    if bookmarks.flat.ContainsKey bookmarks.activeChild.id then
-                        let activeLeaf =  bookmarks.flat[bookmarks.activeChild.id]
-                
-                        let exportObject = {
-                            itemType = bookmarks.lastSelectedItem
-                            group    = None
-                            children = HashMap.Empty |> HashMap.add activeLeaf.id activeLeaf
-                        }                 
-                
-                        exportObject
-                        |> Json.serialize
-                        |> Json.formatWith JsonFormattingOptions.Pretty
-                        |> Serialization.writeToFile filepath
-                        Log.line "Currently selected bookmark exported to %s" (System.IO.Path.GetFullPath filepath)  
-                    else
-                        Log.line "Currently selected bookmark not found - please reselect a bookmark"
-                        
-                    outerModel, bookmarks
-                | _ -> 
-                    outerModel, bookmarks
-
+                let bookmarks = GroupsApp.exportGroupOrSubGroup bookmarks filepath
+                outerModel, bookmarks                
             else    
                 outerModel, bookmarks
 

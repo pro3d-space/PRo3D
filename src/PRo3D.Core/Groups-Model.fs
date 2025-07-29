@@ -275,7 +275,6 @@ module Leaf =
             | _ -> None)
 
 module GroupsModel =
-
     let current = 0    
 
     let tryGetSelectedAnnotation (model : GroupsModel) =        
@@ -391,7 +390,6 @@ type GroupsModel with
             do! Json.write "flat"         (x.flat |> HashMap.toList |> List.map snd)
             do! Json.write "groupsLookup" (x.groupsLookup |> HashMap.toList)
         }
-
 
         
 module Groups = 
