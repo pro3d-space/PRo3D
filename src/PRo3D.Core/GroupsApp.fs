@@ -21,6 +21,8 @@ type GroupsAppAction =
     | AddGroup              of list<Index>
     | AddLeaves             of list<Index>*IndexList<Leaf>    
     | RemoveGroup           of list<Index>
+    | ExportGroup           of string*list<Index>
+    | ImportGroup           of list<string>*list<Index>
     | RemoveLeaf            of Guid*list<Index> 
     | ToggleChildVisibility of Guid*list<Index> 
     | ActiveChild           of Guid*list<Index>*string
@@ -580,6 +582,10 @@ module GroupsApp =
             { m' with selectedLeaves = selection ; singleSelectLeaf = last }
         | SingleSelectLeaf (p,id,s) ->
             addSingleSelectedLeaf model p id s
+        | ExportGroup (path, id) -> 
+            exportGroupOrSubGroup model path
+        | ImportGroup (paths, id) -> 
+            importGroupOrSubGroup model paths
         | AddLeafToSelection (p,id,s) ->
             let incomingSelection = {   // CHECK-merge (treeSelection)
                 id = id
@@ -780,11 +786,39 @@ module GroupsApp =
                 ] 
             ]
 
+    let jsImportGroupDialog =
+        "top.aardvark.dialog.showOpenDialog({ title: 'Import Group', filters: [{ name: 'SceneGroup (*.sg)', extensions: ['sg']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+    let jsExportGroupDialog = 
+        "top.aardvark.dialog.showSaveDialog({ title:'Save Group as', filters:  [{ name: 'Bookmarks (*.sg)', extensions: ['sg'] }] }).then(result => {aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
+
+    let exportImportGroup (ts:TreeSelection) =
+        Html.table [                            
+                div [clazz "ui buttons inverted"] [
+                    //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
+                    button [
+                        clazz "ui icon button" 
+                        attribute "data-content" "Export Group"                            
+                        Dialogs.onSaveFile (fun s ->  ExportGroup (s,ts.path))
+                        clientEvent "onclick" jsExportGroupDialog] 
+                        [ i [clazz "upload icon"] [] ] |> UI.wrapToolTip DataPosition.Right "Export Group"
+                    //)
+                ] 
+                div [clazz "ui buttons inverted"] [
+                    button [
+                        clazz "ui icon button" 
+                        attribute "data-content" "Import Group"                            
+                        Dialogs.onChooseFiles (fun s ->  ImportGroup (s,ts.path))
+                        clientEvent "onclick" jsImportGroupDialog] 
+                        [ i [clazz "download icon"] [] ] |> UI.wrapToolTip DataPosition.Right "Import Group"
+                ] 
+            ]
+
     let viewGroupButtons (ts:TreeSelection)  =
         require GuiEx.semui (
                 Html.table [
                      Html.row "Remove/Clear:" [deleteClearGroup ts]
                      Html.row "Selection:" [ viewSelectionButtons ]
+                     Html.row "Import/Export" [ exportImportGroup ts ]
                 ]
             )
 
