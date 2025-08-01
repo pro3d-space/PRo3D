@@ -33,11 +33,11 @@ module RoverTraverseApp =
                 return 
                     { sol with 
                         solNumber = solNumber
-                        fromRMC = fromRMC
-                        toRMC = toRMC
-                        length = length
-                        sclkStart = sclkStart
-                        sclkEnd = sclkEnd
+                        fromRMC = Some fromRMC
+                        toRMC = Some toRMC
+                        length = Some length
+                        sclkStart = Some sclkStart
+                        sclkEnd = Some sclkEnd
                     }
             }
 

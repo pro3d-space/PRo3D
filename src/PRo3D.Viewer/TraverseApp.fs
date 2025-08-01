@@ -16,7 +16,9 @@ open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open PRo3D.Core.Surface
-
+open PRo3D.ViewerUtils
+open OpcViewer.Base
+open Viewer
 
 module TraversePropertiesApp =
 
@@ -39,8 +41,8 @@ module TraversePropertiesApp =
             { model with color = ColorPicker.update model.color tc }
         | SetLineWidth w ->
             { model with tLineWidth = Numeric.update model.tLineWidth w}
-        | SetHeightOffset w -> 
-            { model with heightOffset = Numeric.update model.heightOffset w}
+        | SetHeightOffset h -> 
+            { model with heightOffset = Numeric.update model.heightOffset h}
         // Dots 
         | ToggleShowDots ->
             { model with showDots = not model.showDots }
@@ -116,8 +118,8 @@ module TraverseApp =
             | "waypoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true
             | "rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover, true, false, false
             | "rimfax" -> RIMFAXTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX, true, false, false
-            // | "PlannedTargets" -> PlannedTargetsTraverseApp.parseTraverse (traverse), TraverseType.PlannedTargets
-            // | "StrategicAnnotations" -> StrategicAnnotationsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
+            // | "plannedTargets" -> PlannedTargetsTraverseApp.parseTraverse (traverse), TraverseType.PlannedTargets
+            // | "strategicAnnotations" -> StrategicAnnotationsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
             | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, RIMFAX, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t
         sols
 
@@ -310,7 +312,10 @@ module TraverseApp =
                                 )
 
                         {sol with
-                            RIMFAXSurfaces = RIMFAXSurfaces;
+                            RIMFAXSurfaces = 
+                                match RIMFAXImageModeOptions.Length with
+                                | 0 -> None
+                                | _ -> Some RIMFAXSurfaces
                             RIMFAXImageModeOptions =
                                 match RIMFAXImageModeOptions.Length with
                                 | 0 -> None
@@ -629,12 +634,41 @@ module TraverseApp =
 
         let viewRIMFAXSurfaces
             (refSystem : AdaptiveReferenceSystem)
-            (model : AdaptiveTraverse) 
+            (traverseModel : AdaptiveTraverse) 
             : ISg<TraverseAction> =
 
-            let createSg (sg : ISg) =
-                sg 
-                |> Sg.noEvents 
+            let pickable
+                (bb : aval<Box3d>)
+                (trafo : aval<Trafo3d>) = 
+                (bb, trafo)
+                ||>  AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
+                    { shape = PickShape.Box (a); trafo = Trafo3d.Identity }
+                ) 
+
+            let pickBox
+                (bb : aval<Box3d>)
+                (trafo : aval<Trafo3d>)= 
+                pickable bb trafo
+                |> AVal.map(fun k ->
+                    match k.shape with
+                    | PickShape.Box bb -> bb
+                    | _ -> Box3d.Invalid
+                )
+
+            let createSg (surface : SgSurface) =
+                surface.sceneGraph 
+                |> Sg.pickable' (pickable (adaptive { return surface.globalBB}) (adaptive { return surface.trafo.previewTrafo }))
+                |> Sg.noEvents
+                |> Sg.andAlso (
+                    (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) (pickBox (adaptive { return surface.globalBB}) (adaptive { return surface.trafo.previewTrafo }))) 
+                    |> Sg.noEvents
+                    |> Sg.effect [  
+                        Shader.stableTrafo |> toEffect 
+                        DefaultSurfaces.vertexColor |> toEffect
+                    ] 
+                    |> Sg.onOff ~~true
+                )
+
 
             let getRIMFAXImageModeFromPath (filePath : string) : option<string> =
                 let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
@@ -644,14 +678,18 @@ module TraverseApp =
                     None
 
             let surfaceSg =
-                model.sols
+                traverseModel.sols
                 |> AVal.map (List.map (fun sol -> 
                     sol.RIMFAXSurfaces
-                    |> HashMap.filter(fun guid surf -> 
-                        (getRIMFAXImageModeFromPath surf.sgImportPath) = sol.RIMFAXImageMode
-                    )
-                    |> HashMap.map (fun x value -> value.sceneGraph |> createSg)
-                    ) 
+                    match sol.RIMFAXSurfaces with
+                    | Some surfaces ->
+                        surfaces 
+                        |> HashMap.filter(fun guid surf -> 
+                            (getRIMFAXImageModeFromPath surf.sgImportPath) = sol.RIMFAXImageMode
+                        )
+                        |> HashMap.map (fun x value -> createSg value)
+                    | None -> HashMap.Empty
+                ) 
                 >> HashMap.unionMany
                 )
 
@@ -664,17 +702,28 @@ module TraverseApp =
                 do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
                 do! DefaultSurfaces.diffuseTexture
             }
-
+            (*
+            |> Sg.withEvents [
+                SceneEventKind.Click, (
+                    fun sceneHit -> 
+                        // let name  = surface.name |> AVal.force        
+                        let surfacePicking = false
+                        //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
+                        true, Seq.ofList [PickSurface (sceneHit, "some_name", surfacePicking)])
+                ] 
+            *)
+            |> Sg.noEvents 
             
         let viewTraverseFast  
             (view : aval<CameraView>)
-            (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+            (refSystem : AdaptiveReferenceSystem)
+            (traverseModel : AdaptiveTraverse) : ISg<TraverseAction> = 
             Sg.ofList [
-                viewTraverseCoordinateFrames view refSystem model
-                viewTraverseDots refSystem view model
-                viewRIMFAXSurfaces refSystem model |> Sg.onOff model.showRIMFAXSurfaces
+                viewTraverseCoordinateFrames view refSystem traverseModel
+                viewTraverseDots refSystem view traverseModel
+                viewRIMFAXSurfaces refSystem traverseModel |> Sg.onOff traverseModel.showRIMFAXSurfaces
             ]
-            |> Sg.onOff model.isVisibleT
+            |> Sg.onOff traverseModel.isVisibleT
 
 
         let viewTraverse  

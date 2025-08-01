@@ -61,7 +61,24 @@ type TraverseType =
     | RIMFAX
     | WayPoints
     | StrategicAnnotations
-    | PlannedTargets
+    | PlannedTargets with
+
+    static member ToJson (t :TraverseType) =
+        match t with
+        | Rover -> ToJsonDefaults.ToJson "rover"
+        | RIMFAX -> ToJsonDefaults.ToJson "rimfax"
+        | WayPoints -> ToJsonDefaults.ToJson "waypoints"
+        | StrategicAnnotations -> ToJsonDefaults.ToJson "strategicAnnotations"
+        | PlannedTargets -> ToJsonDefaults.ToJson "plannedTargets" 
+
+    static member FromJson (_ :TraverseType) = fun json -> 
+        match json with
+        | String "rover" -> Value Rover, json
+        | String "rimfax" -> Value RIMFAX, json
+        | String "waypoints" -> Value WayPoints, json
+        | String "strategicAnnotations" -> Value StrategicAnnotations, json
+        | String "plannedTargets" -> Value PlannedTargets, json
+        | _ -> failwith (sprintf "Invalid Traverse Type '%A'" json)
 
 [<ModelType>]
 type Sol =
@@ -69,25 +86,25 @@ type Sol =
       location: list<V3d>
       solNumber: int
       // Rover properties
-      site: int
-      yaw: float
-      pitch: float
-      roll: float
-      tilt: float
-      note: string
-      distanceM: float
-      totalDistanceM: float
-      length: float
-      RMC: string
-      missionReference: Guid
+      site: option<int>
+      yaw: option<float>
+      pitch: option<float>
+      roll: option<float>
+      tilt: option<float>
+      note: option<string>
+      distanceM: option<float>
+      totalDistanceM: option<float>
+      length: option<float>
+      RMC: option<string>
+      missionReference: option<Guid>
       // RIMFAX properties
-      fromRMC: string
-      toRMC: string
-      sclkStart: float
-      sclkEnd: float
+      fromRMC: option<string>
+      toRMC: option<string>
+      sclkStart: option<float>
+      sclkEnd: option<float>
       RIMFAXImageModeOptions: option<List<string>>
       RIMFAXImageMode: option<string>
-      RIMFAXSurfaces : HashMap<Guid, SgSurface>
+      RIMFAXSurfaces : option<HashMap<Guid, SgSurface>>
     } 
 
 module Sol =
@@ -95,51 +112,57 @@ module Sol =
 
     let initial =
         { version = current
-          location = [V3d.NaN]
+          location = []
           solNumber = -1
-          site = -1
-          yaw = nan
-          pitch = nan
-          roll = nan
-          tilt = nan
-          note = ""
-          distanceM = nan
-          totalDistanceM = nan
-          length = nan
-          RMC = ""
-          missionReference = Guid.Empty
-          fromRMC = ""
-          toRMC = "" 
-          sclkStart = nan
-          sclkEnd = nan
+          site = None
+          yaw = None
+          pitch = None
+          roll = None
+          tilt = None
+          note = None
+          distanceM = None
+          totalDistanceM = None
+          length = None
+          RMC = None
+          missionReference = None
+          fromRMC = None
+          toRMC = None
+          sclkStart = None
+          sclkEnd = None
           RIMFAXImageModeOptions = None
           RIMFAXImageMode = None
-          RIMFAXSurfaces = HashMap.empty
+          RIMFAXSurfaces = None
         }
 
     let readV0 =
+
+        let parseV3dList (input: string) : list<V3d> =
+            input.Split([| ';' |], System.StringSplitOptions.RemoveEmptyEntries)
+            |> Array.map (fun s -> s  |> V3d.Parse)
+            |> Array.toList
+
         json {
+            let! location = Json.read "location"
             let! solNumber = Json.read "solNumber"
             let! site = Json.read "site"
-            let! yaw = Json.read "yaw"
-            let! pitch = Json.read "pitch"
-            let! roll = Json.read "roll"
-            let! tilt = Json.read "tilt"
-            let! note = Json.read "note"
-            let! distanceM = Json.read "distanceM"
-            let! totalDistanceM = Json.read "totalDistanceM"
-            let! length = Json.read "length"
-            let! RMC = Json.read "RMC"
-            let! missionReference = Json.read "missionReference"
-            let! fromRMC = Json.read "fromRMC"
-            let! toRMC = Json.read "toRMC"
-            let! sclkStart = Json.read "SCLK_START"
-            let! sclkEnd = Json.read "SCLK_END"       
+            let! yaw = Json.readOrDefault "yaw" None
+            let! pitch = Json.readOrDefault "pitch" None
+            let! roll = Json.readOrDefault "roll" None
+            let! tilt = Json.readOrDefault "tilt" None
+            let! note = Json.readOrDefault "note" None
+            let! distanceM = Json.readOrDefault "distanceM" None
+            let! totalDistanceM = Json.readOrDefault "totalDistanceM" None
+            let! length = Json.readOrDefault "length" None
+            let! RMC = Json.readOrDefault "RMC" None
+            let! missionReference = Json.readOrDefault "missionReference" None
+            let! fromRMC = Json.readOrDefault "fromRMC" None
+            let! toRMC = Json.readOrDefault "toRMC" None
+            let! sclkStart = Json.readOrDefault "SCLK_START" None
+            let! sclkEnd = Json.readOrDefault "SCLK_END" None
 
             return
                 { version = current
-                // !!!! needs fixing!
-                  location = [new V3d(0.0, 0.0, 0.0)] //location |> V3d.Parse
+                  location = parseV3dList location
                   solNumber = solNumber
                   site = site
                   yaw = yaw
@@ -158,7 +181,7 @@ module Sol =
                   sclkEnd = sclkEnd
                   RIMFAXImageModeOptions = None
                   RIMFAXImageMode = None
-                  RIMFAXSurfaces = HashMap.empty
+                  RIMFAXSurfaces = None
                 }
         }
 
@@ -171,7 +194,7 @@ type Sol with
 
             match v with
             | 0 -> return! Sol.readV0
-            | _ -> return! v |> sprintf "don't know version %d of Traverse" |> Json.error
+            | _ -> return! v |> sprintf "don't know version %d of Sol" |> Json.error
         }
 
     static member ToJson(x: Sol) =
@@ -179,14 +202,14 @@ type Sol with
             do! Json.write "version" Sol.current
             do! Json.write "location" (x.location |> string)
             do! Json.write "solNumber" x.solNumber
-            do! Json.write "site" x.site
-            do! Json.write "yaw" x.yaw
-            do! Json.write "pitch" x.pitch
-            do! Json.write "roll" x.roll
-            do! Json.write "tilt" x.tilt
-            do! Json.write "note" x.note
-            do! Json.write "distanceM" x.distanceM
-            do! Json.write "totalDistanceM" x.totalDistanceM
+            do! Json.writeOption "site" x.site
+            do! Json.writeOption "yaw" x.yaw
+            do! Json.writeOption "pitch" x.pitch
+            do! Json.writeOption "roll" x.roll
+            do! Json.writeOption "tilt" x.tilt
+            do! Json.writeOption "note" x.note
+            do! Json.writeOption "distanceM" x.distanceM
+            do! Json.writeOption "totalDistanceM" x.totalDistanceM
         }
 
 
@@ -210,6 +233,8 @@ type Traverse =
       isVisibleT: bool
       color: ColorInput;
       heightOffset : NumericInput
+      priority : NumericInput
+      priorityEnabled : bool
     }
 
 module Traverse =
@@ -234,25 +259,38 @@ module Traverse =
         
         C3f.FromHSV((float32)hue, (float32)saturation, (float32)value)|> C4b.FromC3f
 
-    let current = 1
+    let current = 2
+
+    let initialPriority = {
+        value  = 0.0
+        min    = 0.0
+        max    = 10.0
+        step   = 1.0
+        format = "{0:0}"
+    }
+
+    let empty = {
+        version = current
+        guid = Guid.NewGuid()
+        traverseType = TraverseType.Rover
+        showRIMFAXSurfaces = true
+        tName = ""
+        sols = []
+        selectedSol = None
+        showLines = true
+        showText = false
+        tTextSize = InitTraverseParams.tText
+        tLineWidth = InitTraverseParams.tLineW 1.5
+        showDots = false
+        isVisibleT = true
+        color = { c = C4b.White }
+        heightOffset = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
+        priority = initialPriority
+        priorityEnabled = false
+    }
 
     let initial name sols =
-        { version = current
-          guid = Guid.NewGuid()
-          tName = name
-          traverseType = TraverseType.Rover
-          sols = sols //[]
-          selectedSol = None
-          showLines = true
-          showText = false
-          showRIMFAXSurfaces = true
-          tTextSize = InitTraverseParams.tText
-          tLineWidth = InitTraverseParams.tLineW 1.5
-          showDots = false
-          isVisibleT = true
-          color = { c = C4b.White }
-          heightOffset = { Numeric.init with value = 0.0 }
-          }
+        { empty with tName = name; sols = sols }
 
     let withTraverseType(traverseType: TraverseType) (t: Traverse) =
         { t with traverseType = traverseType }
@@ -271,21 +309,19 @@ module Traverse =
             let! showDots = Json.read "showDots"
 
             return
-                { version = current
-                  guid = Guid.NewGuid()
-                  tName = ""
-                  sols = sols
-                  traverseType = TraverseType.Rover
-                  selectedSol = None
-                  showLines = showLines
-                  showText = showText
-                  showRIMFAXSurfaces = true
-                  tTextSize = InitTraverseParams.tText
-                  tLineWidth = InitTraverseParams.tLineW 1.5
-                  showDots = showDots
-                  isVisibleT = true
-                  color = { c = C4b.White } 
-                  heightOffset = { Numeric.init with value = 0.0}
+                { empty with
+                    version = current
+                    guid = Guid.NewGuid()
+                    tName = ""
+                    sols = sols
+                    selectedSol = None
+                    showLines = showLines
+                    showText = showText
+                    tTextSize = InitTraverseParams.tText
+                    tLineWidth = InitTraverseParams.tLineW 1.5
+                    showDots = showDots
+                    isVisibleT = true
+                    color = { c = C4b.White } 
                 }
         }
 
@@ -302,28 +338,77 @@ module Traverse =
             let! isVisibleT = Json.read "isVisibleT"
             let! color = Json.readWith Ext.fromJson<ColorInput, Ext> "color"
             let! heightOffset = Json.tryRead "heightOffset"
+            let! priorityEnabled = Json.tryRead "priorityEnabled"
 
             let tLineWidth = 
                 match tLWidth with
                 | Some w -> InitTraverseParams.tLineW w
                 | None -> InitTraverseParams.tLineW 1.5
 
+            let! priority = Json.tryRead "priority" 
+
             return
-                { version = current
-                  guid = guid |> Guid
-                  tName = tName
-                  traverseType = TraverseType.Rover
-                  sols = sols
-                  selectedSol = None
-                  showLines = showLines
-                  showText = showText
-                  showRIMFAXSurfaces = true
-                  tTextSize = tTextSize
-                  tLineWidth = tLineWidth
-                  showDots = showDots
-                  isVisibleT = isVisibleT
-                  color = color
-                  heightOffset = { Numeric.init with value = Option.defaultValue 0.0 heightOffset }
+                { empty with 
+                    version = current
+                    guid = guid |> Guid
+                    tName = tName
+                    sols = sols
+                    selectedSol = None
+                    showLines = showLines
+                    showText = showText
+                    tTextSize = tTextSize
+                    tLineWidth = tLineWidth
+                    showDots = showDots
+                    isVisibleT = isVisibleT
+                    color = color
+                    heightOffset = { empty.heightOffset with value = Option.defaultValue 0.0 heightOffset }
+                    priority = { empty.priority with value = Option.defaultValue 0.0 priority }
+                    priorityEnabled = priorityEnabled |> Option.defaultValue false
+                }
+        }
+
+    let readV2 =
+        json {
+            let! guid = Json.read "guid"
+            let! tName = Json.read "tName"
+            let! sols = Json.read "sols"
+            let! showLines = Json.read "showLines"
+            let! showText = Json.read "showText"
+            let! tTextSize = Json.readWith Ext.fromJson<NumericInput, Ext> "tTextSize"
+            let! tLWidth = Json.tryRead "tLineWidth"
+            let! showDots = Json.read "showDots"
+            let! isVisibleT = Json.read "isVisibleT"
+            let! color = Json.readWith Ext.fromJson<ColorInput, Ext> "color"
+            let! heightOffset = Json.tryRead "heightOffset"
+            let! priorityEnabled = Json.tryRead "priorityEnabled"
+            let! traverseType = Json.read "traverseType"
+            let! showRIMFAXSurfaces = Json.read "showRIMFAXSurfaces"
+
+            let tLineWidth = 
+                match tLWidth with
+                | Some w -> InitTraverseParams.tLineW w
+                | None -> InitTraverseParams.tLineW 1.5
+
+            let! priority = Json.tryRead "priority" 
+
+            return
+                {   version = current
+                    guid = guid |> Guid
+                    tName = tName
+                    sols = sols
+                    selectedSol = None
+                    showLines = showLines
+                    showText = showText
+                    tTextSize = tTextSize
+                    tLineWidth = tLineWidth
+                    showDots = showDots
+                    isVisibleT = isVisibleT
+                    color = color
+                    heightOffset = { empty.heightOffset with value = Option.defaultValue 0.0 heightOffset }
+                    priority = { empty.priority with value = Option.defaultValue 0.0 priority }
+                    priorityEnabled = priorityEnabled |> Option.defaultValue false
+                    traverseType = traverseType
+                    showRIMFAXSurfaces = showRIMFAXSurfaces
                 }
         }
 
@@ -337,6 +422,7 @@ type Traverse with
             match v with
             | 0 -> return! Traverse.readV0
             | 1 -> return! Traverse.readV1
+            | 2 -> return! Traverse.readV2
             | _ -> return! v |> sprintf "don't know version %d of Traverse" |> Json.error
         }
 
@@ -346,6 +432,7 @@ type Traverse with
             do! Json.write "guid" x.guid
             do! Json.write "tName" x.tName
             do! Json.write "sols" x.sols
+            do! Json.write "selectedSol" x.selectedSol
             do! Json.write "showLines" x.showLines
             do! Json.write "showText" x.showText
             do! Json.writeWith (Ext.toJson<NumericInput, Ext>) "tTextSize" x.tTextSize
@@ -354,6 +441,10 @@ type Traverse with
             do! Json.writeWith (Ext.toJson<ColorInput, Ext>) "color" x.color
             do! Json.write "tLineWidth" x.tLineWidth.value
             do! Json.write "heightOffset" x.heightOffset.value
+            do! Json.write "priority" x.priority.value
+            do! Json.write "priorityEnabled" x.priorityEnabled
+            do! Json.write "traverseType" x.traverseType
+            do! Json.write "showRIMFAXSurfaces" x.showRIMFAXSurfaces
         }
 
 

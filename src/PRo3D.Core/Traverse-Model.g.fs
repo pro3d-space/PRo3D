@@ -1,5 +1,5 @@
-//7de4acc5-8eea-4143-84f8-85b4cde79d45
-//5d3464bd-86df-24fa-ab78-e100ac5800a6
+//b1a67bdc-bab6-eed9-7d6f-2a7812b4362c
+//3ec4ee9e-525d-1c15-1714-d1c949a8b4ff
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -33,10 +33,23 @@ type AdaptiveSol(value : Sol) =
     let _RIMFAXImageModeOptions_ = FSharp.Data.Adaptive.cval(value.RIMFAXImageModeOptions)
     let _RIMFAXImageMode_ = FSharp.Data.Adaptive.cval(value.RIMFAXImageMode)
     let _RIMFAXSurfaces_ =
-        let inline __arg2 (m : PRo3D.Core.Surface.AdaptiveSgSurface) (v : PRo3D.Core.Surface.SgSurface) =
-            m.Update(v)
-            m
-        FSharp.Data.Traceable.ChangeableModelMap(value.RIMFAXSurfaces, (fun (v : PRo3D.Core.Surface.SgSurface) -> PRo3D.Core.Surface.AdaptiveSgSurface(v)), __arg2, (fun (m : PRo3D.Core.Surface.AdaptiveSgSurface) -> m))
+        let inline __arg1 (v : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) =
+            let inline __arg2 (m : PRo3D.Core.Surface.AdaptiveSgSurface) (v : PRo3D.Core.Surface.SgSurface) =
+                m.Update(v)
+                m
+            FSharp.Data.Traceable.ChangeableModelMap(v, (fun (v : PRo3D.Core.Surface.SgSurface) -> PRo3D.Core.Surface.AdaptiveSgSurface(v)), __arg2, (fun (m : PRo3D.Core.Surface.AdaptiveSgSurface) -> m)) :> System.Object
+        let inline __arg2 (o : System.Object) (v : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) =
+            (unbox<FSharp.Data.Traceable.ChangeableModelMap<System.Guid, PRo3D.Core.Surface.SgSurface, PRo3D.Core.Surface.AdaptiveSgSurface, PRo3D.Core.Surface.AdaptiveSgSurface>> o).Update(v)
+            o
+        let inline __arg4 (v : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) =
+            let inline __arg2 (m : PRo3D.Core.Surface.AdaptiveSgSurface) (v : PRo3D.Core.Surface.SgSurface) =
+                m.Update(v)
+                m
+            FSharp.Data.Traceable.ChangeableModelMap(v, (fun (v : PRo3D.Core.Surface.SgSurface) -> PRo3D.Core.Surface.AdaptiveSgSurface(v)), __arg2, (fun (m : PRo3D.Core.Surface.AdaptiveSgSurface) -> m)) :> System.Object
+        let inline __arg5 (o : System.Object) (v : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) =
+            (unbox<FSharp.Data.Traceable.ChangeableModelMap<System.Guid, PRo3D.Core.Surface.SgSurface, PRo3D.Core.Surface.AdaptiveSgSurface, PRo3D.Core.Surface.AdaptiveSgSurface>> o).Update(v)
+            o
+        Adaptify.FSharp.Core.AdaptiveOption<FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>, FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>, FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>>(value.RIMFAXSurfaces, __arg1, __arg2, (fun (o : System.Object) -> unbox<FSharp.Data.Traceable.ChangeableModelMap<System.Guid, PRo3D.Core.Surface.SgSurface, PRo3D.Core.Surface.AdaptiveSgSurface, PRo3D.Core.Surface.AdaptiveSgSurface>> o :> FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>), __arg4, __arg5, (fun (o : System.Object) -> unbox<FSharp.Data.Traceable.ChangeableModelMap<System.Guid, PRo3D.Core.Surface.SgSurface, PRo3D.Core.Surface.AdaptiveSgSurface, PRo3D.Core.Surface.AdaptiveSgSurface>> o :> FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>))
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Sol) = AdaptiveSol(value)
@@ -70,48 +83,48 @@ type AdaptiveSol(value : Sol) =
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.location = _location_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>>
     member __.solNumber = _solNumber_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
-    member __.site = _site_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
-    member __.yaw = _yaw_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.pitch = _pitch_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.roll = _roll_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.tilt = _tilt_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.note = _note_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
-    member __.distanceM = _distanceM_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.totalDistanceM = _totalDistanceM_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.length = _length_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.RMC = _RMC_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
-    member __.missionReference = _missionReference_ :> FSharp.Data.Adaptive.aval<System.Guid>
-    member __.fromRMC = _fromRMC_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
-    member __.toRMC = _toRMC_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
-    member __.sclkStart = _sclkStart_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.sclkEnd = _sclkEnd_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
+    member __.site = _site_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>>
+    member __.yaw = _yaw_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>>
+    member __.pitch = _pitch_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>>
+    member __.roll = _roll_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>>
+    member __.tilt = _tilt_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>>
+    member __.note = _note_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
+    member __.distanceM = _distanceM_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>>
+    member __.totalDistanceM = _totalDistanceM_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>>
+    member __.length = _length_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>>
+    member __.RMC = _RMC_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
+    member __.missionReference = _missionReference_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<System.Guid>>
+    member __.fromRMC = _fromRMC_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
+    member __.toRMC = _toRMC_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
+    member __.sclkStart = _sclkStart_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>>
+    member __.sclkEnd = _sclkEnd_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>>
     member __.RIMFAXImageModeOptions = _RIMFAXImageModeOptions_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>>>
     member __.RIMFAXImageMode = _RIMFAXImageMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
-    member __.RIMFAXSurfaces = _RIMFAXSurfaces_ :> FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>
+    member __.RIMFAXSurfaces = _RIMFAXSurfaces_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>, FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>, FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SolLenses = 
     type Sol with
         static member version_ = ((fun (self : Sol) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : Sol) -> { self with version = value }))
         static member location_ = ((fun (self : Sol) -> self.location), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>) (self : Sol) -> { self with location = value }))
         static member solNumber_ = ((fun (self : Sol) -> self.solNumber), (fun (value : Microsoft.FSharp.Core.int) (self : Sol) -> { self with solNumber = value }))
-        static member site_ = ((fun (self : Sol) -> self.site), (fun (value : Microsoft.FSharp.Core.int) (self : Sol) -> { self with site = value }))
-        static member yaw_ = ((fun (self : Sol) -> self.yaw), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with yaw = value }))
-        static member pitch_ = ((fun (self : Sol) -> self.pitch), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with pitch = value }))
-        static member roll_ = ((fun (self : Sol) -> self.roll), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with roll = value }))
-        static member tilt_ = ((fun (self : Sol) -> self.tilt), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with tilt = value }))
-        static member note_ = ((fun (self : Sol) -> self.note), (fun (value : Microsoft.FSharp.Core.string) (self : Sol) -> { self with note = value }))
-        static member distanceM_ = ((fun (self : Sol) -> self.distanceM), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with distanceM = value }))
-        static member totalDistanceM_ = ((fun (self : Sol) -> self.totalDistanceM), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with totalDistanceM = value }))
-        static member length_ = ((fun (self : Sol) -> self.length), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with length = value }))
-        static member RMC_ = ((fun (self : Sol) -> self.RMC), (fun (value : Microsoft.FSharp.Core.string) (self : Sol) -> { self with RMC = value }))
-        static member missionReference_ = ((fun (self : Sol) -> self.missionReference), (fun (value : System.Guid) (self : Sol) -> { self with missionReference = value }))
-        static member fromRMC_ = ((fun (self : Sol) -> self.fromRMC), (fun (value : Microsoft.FSharp.Core.string) (self : Sol) -> { self with fromRMC = value }))
-        static member toRMC_ = ((fun (self : Sol) -> self.toRMC), (fun (value : Microsoft.FSharp.Core.string) (self : Sol) -> { self with toRMC = value }))
-        static member sclkStart_ = ((fun (self : Sol) -> self.sclkStart), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with sclkStart = value }))
-        static member sclkEnd_ = ((fun (self : Sol) -> self.sclkEnd), (fun (value : Microsoft.FSharp.Core.float) (self : Sol) -> { self with sclkEnd = value }))
+        static member site_ = ((fun (self : Sol) -> self.site), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>) (self : Sol) -> { self with site = value }))
+        static member yaw_ = ((fun (self : Sol) -> self.yaw), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>) (self : Sol) -> { self with yaw = value }))
+        static member pitch_ = ((fun (self : Sol) -> self.pitch), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>) (self : Sol) -> { self with pitch = value }))
+        static member roll_ = ((fun (self : Sol) -> self.roll), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>) (self : Sol) -> { self with roll = value }))
+        static member tilt_ = ((fun (self : Sol) -> self.tilt), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>) (self : Sol) -> { self with tilt = value }))
+        static member note_ = ((fun (self : Sol) -> self.note), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>) (self : Sol) -> { self with note = value }))
+        static member distanceM_ = ((fun (self : Sol) -> self.distanceM), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>) (self : Sol) -> { self with distanceM = value }))
+        static member totalDistanceM_ = ((fun (self : Sol) -> self.totalDistanceM), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>) (self : Sol) -> { self with totalDistanceM = value }))
+        static member length_ = ((fun (self : Sol) -> self.length), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>) (self : Sol) -> { self with length = value }))
+        static member RMC_ = ((fun (self : Sol) -> self.RMC), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>) (self : Sol) -> { self with RMC = value }))
+        static member missionReference_ = ((fun (self : Sol) -> self.missionReference), (fun (value : Microsoft.FSharp.Core.option<System.Guid>) (self : Sol) -> { self with missionReference = value }))
+        static member fromRMC_ = ((fun (self : Sol) -> self.fromRMC), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>) (self : Sol) -> { self with fromRMC = value }))
+        static member toRMC_ = ((fun (self : Sol) -> self.toRMC), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>) (self : Sol) -> { self with toRMC = value }))
+        static member sclkStart_ = ((fun (self : Sol) -> self.sclkStart), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>) (self : Sol) -> { self with sclkStart = value }))
+        static member sclkEnd_ = ((fun (self : Sol) -> self.sclkEnd), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.float>) (self : Sol) -> { self with sclkEnd = value }))
         static member RIMFAXImageModeOptions_ = ((fun (self : Sol) -> self.RIMFAXImageModeOptions), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>>) (self : Sol) -> { self with RIMFAXImageModeOptions = value }))
         static member RIMFAXImageMode_ = ((fun (self : Sol) -> self.RIMFAXImageMode), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>) (self : Sol) -> { self with RIMFAXImageMode = value }))
-        static member RIMFAXSurfaces_ = ((fun (self : Sol) -> self.RIMFAXSurfaces), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) (self : Sol) -> { self with RIMFAXSurfaces = value }))
+        static member RIMFAXSurfaces_ = ((fun (self : Sol) -> self.RIMFAXSurfaces), (fun (value : Microsoft.FSharp.Core.option<FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>>) (self : Sol) -> { self with RIMFAXSurfaces = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverse(value : Traverse) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
@@ -126,6 +139,8 @@ type AdaptiveTraverse(value : Traverse) =
     let _isVisibleT_ = FSharp.Data.Adaptive.cval(value.isVisibleT)
     let _color_ = Aardvark.UI.AdaptiveColorInput(value.color)
     let _heightOffset_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.heightOffset)
+    let _priority_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.priority)
+    let _priorityEnabled_ = FSharp.Data.Adaptive.cval(value.priorityEnabled)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Traverse) = AdaptiveTraverse(value)
@@ -146,6 +161,8 @@ type AdaptiveTraverse(value : Traverse) =
             _isVisibleT_.Value <- value.isVisibleT
             _color_.Update(value.color)
             _heightOffset_.Update(value.heightOffset)
+            _priority_.Update(value.priority)
+            _priorityEnabled_.Value <- value.priorityEnabled
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = __value.guid
@@ -162,6 +179,8 @@ type AdaptiveTraverse(value : Traverse) =
     member __.isVisibleT = _isVisibleT_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.color = _color_
     member __.heightOffset = _heightOffset_
+    member __.priority = _priority_
+    member __.priorityEnabled = _priorityEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseLenses = 
     type Traverse with
@@ -180,6 +199,8 @@ module TraverseLenses =
         static member isVisibleT_ = ((fun (self : Traverse) -> self.isVisibleT), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with isVisibleT = value }))
         static member color_ = ((fun (self : Traverse) -> self.color), (fun (value : Aardvark.UI.ColorInput) (self : Traverse) -> { self with color = value }))
         static member heightOffset_ = ((fun (self : Traverse) -> self.heightOffset), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with heightOffset = value }))
+        static member priority_ = ((fun (self : Traverse) -> self.priority), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with priority = value }))
+        static member priorityEnabled_ = ((fun (self : Traverse) -> self.priorityEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with priorityEnabled = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverseModel(value : TraverseModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)

@@ -18,9 +18,9 @@ module WayPointsTraverseApp =
         let up = referenceSystem.up.value
         let east = Vec.cross up north
         
-        let yawRotation    = Trafo3d.RotationInDegrees(up, -sol.yaw)
-        let pitchRotation  = Trafo3d.RotationInDegrees(east, sol.pitch)
-        let rollRotation   = Trafo3d.RotationInDegrees(north, sol.roll)
+        let yawRotation    = Trafo3d.RotationInDegrees(up, -(match sol.yaw with | Some yaw -> yaw | None -> 0.0))
+        let pitchRotation  = Trafo3d.RotationInDegrees(east, (match sol.pitch with | Some pitch -> pitch | None -> 0.0))
+        let rollRotation   = Trafo3d.RotationInDegrees(north, (match sol.roll with | Some roll -> roll | None -> 0.0))
 
         yawRotation * pitchRotation * rollRotation
 
@@ -47,13 +47,13 @@ module WayPointsTraverseApp =
                 return 
                     { sol with 
                         solNumber = solNumber
-                        site = site
-                        yaw = yaw
-                        pitch = pitch
-                        roll = roll
-                        tilt = tilt
-                        RMC = RMC
-                        distanceM = distanceM
+                        site = Some site
+                        yaw = Some yaw
+                        pitch = Some pitch
+                        roll = Some roll
+                        tilt = Some tilt
+                        RMC = Some RMC
+                        distanceM = Some distanceM
                     }
             }
 
@@ -96,15 +96,16 @@ module WayPointsTraverseApp =
                 // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentioanl @ThomasOrtner
                 let sol = 
                     match parseStringProperty x "Note" with
-                    | Result.Ok note -> { sol with note = note }
+                    | Result.Ok note -> { sol with note = Some note }
                     | _ -> sol
 
                 // either choose dist_total_m or dist_total - or default to zero if nothing? @ThomasOrnter - is this defaulting correct or an error?
                 match parseDoubleProperty x "dist_total_m", parseDoubleProperty x "dist_total" with
-                | Result.Ok dist, _ | _, Result.Ok  dist -> 
-                    return { sol with totalDistanceM = dist }
+                | Result.Ok dist, _ 
+                | _, Result.Ok  dist -> 
+                    return { sol with totalDistanceM = Some dist }
                 | _ ->
-                    return { sol with totalDistanceM = 0.0 }
+                    return { sol with totalDistanceM = None }
             }
 
         let sols = 
@@ -246,7 +247,7 @@ module WayPointsTraverseApp =
                                         span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
                                     ]                
     
-                                    let descriptionText = sprintf "RMC: %s" sol.RMC
+                                    let descriptionText = sprintf "RMC: %s" (match sol.RMC with | Some rmc -> rmc | None -> "")
                                     yield div [clazz "description"] [text descriptionText]
     
                                     yield 
