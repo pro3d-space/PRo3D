@@ -606,7 +606,7 @@ type Model = {
 } 
 
 type ViewerAnimationAction =
-    | ViewerMessage of ViewerAction
+    | ViewerMessage     of ViewerAction
     | ProvenanceMessage of ProvenanceApp.ProvenanceMessage
     | AnewmationMessage of AnimatorMessage<Model>
 

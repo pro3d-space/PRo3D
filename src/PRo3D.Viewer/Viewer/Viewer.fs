@@ -594,6 +594,17 @@ module ViewerApp =
                     let model =
                         Optic.set _sequencedBookmarks sequencedBookmarks model
                     model
+                | SurfaceAppAction.GroupsMessage gm -> 
+                    match gm with 
+                    | GroupsAppAction.ImportGroup _ ->
+                        let surfacesModel = 
+                            model.scene.surfacesModel 
+                            |> SceneLoader.prepareSurfaceModel 
+                                runtime signature model.scene.scenePath
+                        
+                        Optic.set _surfacesModel surfacesModel model
+                    | _ -> 
+                        model
                 | _ -> 
                     model
             model

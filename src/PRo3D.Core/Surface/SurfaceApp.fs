@@ -28,28 +28,29 @@ open Adaptify.FSharp.Core
 open Aardvark.Base.Coder
 open FSharp.Data.Adaptive
 
+
 type SurfaceAppAction =
-| SurfacePropertiesMessage  of SurfaceProperties.Action
-| FlyToSurface              of Guid
-| MakeRelative              of Guid
-| RemoveSurface             of Guid*list<Index>
-| PickSurface               of SceneHit*string
-| OpenFolder                of Guid
-| RebuildKdTrees            of Guid
-| ToggleActiveFlag          of Guid
-| ChangeImportDirectory     of Guid*string
-| ChangeImportDirectories   of list<string>
+| SurfacePropertiesMessage   of SurfaceProperties.Action
+| FlyToSurface               of Guid
+| MakeRelative               of Guid
+| RemoveSurface              of Guid*list<Index>
+| PickSurface                of SceneHit*string
+| OpenFolder                 of Guid
+| RebuildKdTrees             of Guid
+| ToggleActiveFlag           of Guid
+| ChangeImportDirectory      of Guid*string
+| ChangeImportDirectories    of list<string>
 | ChangeOBJImportDirectories of list<string>
-| GroupsMessage             of GroupsAppAction
-//| PickObject                of V3d
-| PlaceSurface              of V3d
-| ScalarsColorLegendMessage of FalseColorLegendApp.Action
-| ColorCorrectionMessage    of ColorCorrectionProperties.Action
-| RadiometryMessage         of RadiometryProperties.Action
-| SetHomePosition           
-| TranslationMessage        of TransformationApp.Action
-| SetPreTrafo               of string
-| SetPreTrafoById           of Guid*Trafo3d
+| GroupsMessage              of GroupsAppAction
+//| PickObject                 of V3d
+| PlaceSurface               of V3d
+| ScalarsColorLegendMessage  of FalseColorLegendApp.Action
+| ColorCorrectionMessage     of ColorCorrectionProperties.Action
+| RadiometryMessage          of RadiometryProperties.Action
+| SetHomePosition            
+| TranslationMessage         of TransformationApp.Action
+| SetPreTrafo                of string
+| SetPreTrafoById            of Guid*Trafo3d
 
 
 module SurfaceUtils =    
@@ -918,10 +919,10 @@ module SurfaceApp =
             match msg with
             | GroupsAppAction.RemoveGroup _ | GroupsAppAction.RemoveLeaf _ ->
                 let sgs = 
-                  model.sgSurfaces 
-                      |> HashMap.filter(fun k _ -> groups.flat |> HashMap.containsKey k)
+                    model.sgSurfaces 
+                    |> HashMap.filter(fun k _ -> groups.flat |> HashMap.containsKey k)
 
-                { model with surfaces = groups; sgSurfaces = sgs } |> SurfaceModel.triggerSgGrouping                  
+                { model with surfaces = groups; sgSurfaces = sgs } |> SurfaceModel.triggerSgGrouping             
             | _ -> 
                 { model with surfaces = groups }
         //| PickObject p -> model   
