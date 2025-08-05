@@ -38,7 +38,7 @@ type TraverseAction =
     | RemoveAllTraverses
     | LoadRIMFAXSurface of rootDirectory : list<string> * traverseID : Guid 
     | SetRIMFAXImageMode of mode : string * traverseID : Guid * solNumber : int
-    | PickRIMFAXSurface of Guid
+    | PickRIMFAXSurface of surfaceId : Guid * traverseId : Guid
 
 module InitTraverseParams =
 
@@ -458,6 +458,7 @@ type TraverseModel =
       plannedTargetsTraverses: HashMap<Guid, Traverse>
       waypointsTraverses: HashMap<Guid, Traverse>
       selectedTraverse: Option<Guid>
+      selectedRIMFAXSurface: Option<Guid>
       }
 
 module TraverseModel =
@@ -486,7 +487,8 @@ module TraverseModel =
             let waypointsTraverses =
                 waypointsTraverses' |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
-            let! selected = Json.read "selectedTraverse"
+            let! selectedTraverse = Json.readOrDefault "selectedTraverse" None
+            let! selectedRIMFAXSurface = Json.readOrDefault "selectedRIMFAXSurface" None
 
             return
                 { version = current
@@ -495,7 +497,8 @@ module TraverseModel =
                   RIMFAXTraverses = RIMFAXTraverses
                   plannedTargetsTraverses = plannedTargetsTraverses
                   waypointsTraverses = waypointsTraverses
-                  selectedTraverse = selected }
+                  selectedTraverse = selectedTraverse
+                  selectedRIMFAXSurface = selectedRIMFAXSurface}
         }
 
     let initial =
@@ -505,7 +508,9 @@ module TraverseModel =
           RIMFAXTraverses = HashMap.empty
           plannedTargetsTraverses = HashMap.empty
           waypointsTraverses = HashMap.empty
-          selectedTraverse = None }
+          selectedTraverse = None
+          selectedRIMFAXSurface = None 
+        }
 
 
 type TraverseModel with
@@ -528,4 +533,5 @@ type TraverseModel with
             do! Json.write "plannedTargetsTraverses" (x.plannedTargetsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "waypointsTraverses" (x.waypointsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "selectedTraverse" x.selectedTraverse
+            do! Json.write "selectedTraverse" x.selectedRIMFAXSurface
         }

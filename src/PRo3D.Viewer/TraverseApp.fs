@@ -190,7 +190,9 @@ module TraverseApp =
                 roverTraverses = model.roverTraverses |> HashMap.union roverTraverses;
                 RIMFAXTraverses = model.RIMFAXTraverses |> HashMap.union RIMFAXTraverses;
                 waypointsTraverses = model.waypointsTraverses |> HashMap.union waypointsTraverses;
-                selectedTraverse = None }
+                selectedTraverse = None;
+                selectedRIMFAXSurface = None;
+            }
         | IsVisibleT id ->
             let roverTraverses' =  
                 model.roverTraverses 
@@ -351,13 +353,11 @@ module TraverseApp =
             { model with
                 RIMFAXTraverses = RIMFAXTraverses'
             }
-        | PickRIMFAXSurface guid ->
-            model
-            (*
+        | PickRIMFAXSurface (surfaceGuid, traverseGuid) ->
             { model with
-                selectedRIMFAXSurface = guid
+                selectedRIMFAXSurface = Some surfaceGuid
+                // todo: selectedTraverse = traverseGuid
             }
-            *)
         |_-> model
 
     module UI =
@@ -641,7 +641,8 @@ module TraverseApp =
 
         let viewRIMFAXSurfaces
             (refSystem : AdaptiveReferenceSystem)
-            (traverseModel : AdaptiveTraverse) 
+            (traverse : AdaptiveTraverse) 
+            (traverseModel  : AdaptiveTraverseModel)
             : ISg<TraverseAction> =
 
             let pickable
@@ -662,7 +663,17 @@ module TraverseApp =
                     | _ -> Box3d.Invalid
                 )
 
-            let createSg (surface : SgSurface) =
+            let createSg (surface : SgSurface)=
+
+                let isSelected = 
+                    adaptive {
+                        let! (selected : Option<Guid>) =  traverseModel.selectedRIMFAXSurface
+                        match selected with
+                        | Some id -> return (id = surface.surface)
+                        | None -> return false
+                    }
+
+
                 surface.sceneGraph 
                 |> Sg.pickable' (pickable (adaptive { return surface.globalBB}) (adaptive { return surface.trafo.previewTrafo }))
                 |> Sg.noEvents
@@ -673,15 +684,17 @@ module TraverseApp =
                         Shader.stableTrafo |> toEffect 
                         DefaultSurfaces.vertexColor |> toEffect
                     ] 
-                    |> Sg.onOff ~~true
+                    |> Sg.onOff isSelected
                 )
                 |> Sg.withEvents [
                     SceneEventKind.Click, (
                         fun (sceneHit : SceneHit) -> 
                             // let name  = surface.name |> AVal.force        
                             //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                            true, Seq.ofList [PickRIMFAXSurface surface.surface])
+                            true, Seq.ofList [PickRIMFAXSurface (surface.surface, (new Guid()))])
                     ] 
+                |> Sg.uniform "selected" isSelected
+                |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
 
 
             let getRIMFAXImageModeFromPath (filePath : string) : option<string> =
@@ -692,7 +705,7 @@ module TraverseApp =
                     None
 
             let surfaceSg =
-                traverseModel.sols
+                traverse.sols
                 |> AVal.map (List.map (fun sol -> 
                     sol.RIMFAXSurfaces
                     match sol.RIMFAXSurfaces with
@@ -722,32 +735,33 @@ module TraverseApp =
         let viewTraverseFast  
             (view : aval<CameraView>)
             (refSystem : AdaptiveReferenceSystem)
-            (traverseModel : AdaptiveTraverse) : ISg<TraverseAction> = 
+            (traverse : AdaptiveTraverse)
+            (traverseModel  : AdaptiveTraverseModel) : ISg<TraverseAction> = 
             Sg.ofList [
-                viewTraverseCoordinateFrames view refSystem traverseModel
-                viewTraverseDots refSystem view traverseModel
-                viewRIMFAXSurfaces refSystem traverseModel |> Sg.onOff traverseModel.showRIMFAXSurfaces
+                viewTraverseCoordinateFrames view refSystem traverse
+                viewTraverseDots refSystem view traverse
+                viewRIMFAXSurfaces refSystem traverse traverseModel |> Sg.onOff traverse.showRIMFAXSurfaces
             ]
-            |> Sg.onOff traverseModel.isVisibleT
+            |> Sg.onOff traverse.isVisibleT
 
 
         let viewTraverse  
             (refSystem : AdaptiveReferenceSystem)
-            (model : AdaptiveTraverse)
+            (traverse : AdaptiveTraverse)
             (traverseType: TraverseType) : ISg<TraverseAction> = 
 
             alist {
-                let! sols = model.sols
+                let! sols = traverse.sols
                 for sol in sols do
-                    let! showDots = model.showDots
+                    let! showDots = traverse.showDots
                     if showDots then
-                        let! selected = model.selectedSol
+                        let! selected = traverse.selectedSol
                         let color =
                             match selected with
                             | Some sel -> 
-                                if sel = sol.solNumber then  AVal.constant(C4b.VRVisGreen) else model.color.c
+                                if sel = sol.solNumber then  AVal.constant(C4b.VRVisGreen) else traverse.color.c
                             | None ->
-                                model.color.c
+                                traverse.color.c
                         yield PRo3D.Core.Drawing.Sg.sphere' color ~~6.0 ~~sol.location[0]
 
                         let loc =(sol.location[0] + sol.location[0].Normalized * 0.5)
@@ -758,8 +772,8 @@ module TraverseApp =
             }        
             |> ASet.ofAList         
             |> Sg.set
-            |> Sg.onOff model.isVisibleT
-            |> Sg.trafo (getTraverseOffsetTransform refSystem model)
+            |> Sg.onOff traverse.isVisibleT
+            |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
 
 
         let view
@@ -768,9 +782,10 @@ module TraverseApp =
             (traverseModel  : AdaptiveTraverseModel) =
 
             let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.RIMFAXTraverses) traverseModel.waypointsTraverses
+            
             traverses 
             |> AMap.map(fun id traverse ->
-                viewTraverseFast view refsys traverse
+                viewTraverseFast view refsys traverse traverseModel
             )
             |> AMap.toASet 
             |> ASet.map snd 
