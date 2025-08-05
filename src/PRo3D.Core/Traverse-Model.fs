@@ -38,6 +38,7 @@ type TraverseAction =
     | RemoveAllTraverses
     | LoadRIMFAXSurface of rootDirectory : list<string> * traverseID : Guid 
     | SetRIMFAXImageMode of mode : string * traverseID : Guid * solNumber : int
+    | PickRIMFAXSurface of Guid
 
 module InitTraverseParams =
 

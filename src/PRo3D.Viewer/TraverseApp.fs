@@ -351,6 +351,13 @@ module TraverseApp =
             { model with
                 RIMFAXTraverses = RIMFAXTraverses'
             }
+        | PickRIMFAXSurface guid ->
+            model
+            (*
+            { model with
+                selectedRIMFAXSurface = guid
+            }
+            *)
         |_-> model
 
     module UI =
@@ -668,6 +675,13 @@ module TraverseApp =
                     ] 
                     |> Sg.onOff ~~true
                 )
+                |> Sg.withEvents [
+                    SceneEventKind.Click, (
+                        fun (sceneHit : SceneHit) -> 
+                            // let name  = surface.name |> AVal.force        
+                            //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
+                            true, Seq.ofList [PickRIMFAXSurface surface.surface])
+                    ] 
 
 
             let getRIMFAXImageModeFromPath (filePath : string) : option<string> =
@@ -702,17 +716,8 @@ module TraverseApp =
                 do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
                 do! DefaultSurfaces.diffuseTexture
             }
-            (*
-            |> Sg.withEvents [
-                SceneEventKind.Click, (
-                    fun sceneHit -> 
-                        // let name  = surface.name |> AVal.force        
-                        let surfacePicking = false
-                        //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                        true, Seq.ofList [PickSurface (sceneHit, "some_name", surfacePicking)])
-                ] 
-            *)
             |> Sg.noEvents 
+
             
         let viewTraverseFast  
             (view : aval<CameraView>)
