@@ -353,10 +353,14 @@ module TraverseApp =
             { model with
                 RIMFAXTraverses = RIMFAXTraverses'
             }
-        | PickRIMFAXSurface (surfaceGuid, traverseGuid) ->
+        | PickRIMFAXSurface (surfaceID, traverseID, solNumber) ->
+            let RIMFAXTraverses' =  
+                model.RIMFAXTraverses 
+                    |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with selectedSol = Some solNumber})
             { model with
-                selectedRIMFAXSurface = Some surfaceGuid
-                // todo: selectedTraverse = traverseGuid
+                selectedRIMFAXSurface = Some surfaceID
+                selectedTraverse = Some traverseID
+                RIMFAXTraverses = RIMFAXTraverses'
             }
         |_-> model
 
@@ -663,8 +667,10 @@ module TraverseApp =
                     | _ -> Box3d.Invalid
                 )
 
-            let createSg (surface : SgSurface)=
-
+            let createSg 
+                (surface : SgSurface)
+                (traverseId : Guid)
+                (solNumber : int)=
                 let isSelected = 
                     adaptive {
                         let! (selected : Option<Guid>) =  traverseModel.selectedRIMFAXSurface
@@ -691,7 +697,7 @@ module TraverseApp =
                         fun (sceneHit : SceneHit) -> 
                             // let name  = surface.name |> AVal.force        
                             //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                            true, Seq.ofList [PickRIMFAXSurface (surface.surface, (new Guid()))])
+                            true, Seq.ofList [PickRIMFAXSurface (surface.surface, traverseId, solNumber)])
                     ] 
                 |> Sg.uniform "selected" isSelected
                 |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
@@ -714,7 +720,7 @@ module TraverseApp =
                         |> HashMap.filter(fun guid surf -> 
                             (getRIMFAXImageModeFromPath surf.sgImportPath) = sol.RIMFAXImageMode
                         )
-                        |> HashMap.map (fun x value -> createSg value)
+                        |> HashMap.map (fun x value -> createSg value traverse.guid sol.solNumber)
                     | None -> HashMap.Empty
                 ) 
                 >> HashMap.unionMany
