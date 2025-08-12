@@ -1,5 +1,5 @@
-//49a57878-436e-3a36-c67e-20219a2eb1a2
-//76c2a1a2-599c-d48c-1181-0dc905759daf
+//a6b01187-2583-6e59-d944-0b1f622f5012
+//9c32038b-f600-919a-f3e5-548f6cbba50d
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -141,6 +141,7 @@ type AdaptiveTraverse(value : Traverse) =
     let _heightOffset_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.heightOffset)
     let _priority_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.priority)
     let _priorityEnabled_ = FSharp.Data.Adaptive.cval(value.priorityEnabled)
+    let _RIMFAXRootDirectory_ = FSharp.Data.Adaptive.cval(value.RIMFAXRootDirectory)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Traverse) = AdaptiveTraverse(value)
@@ -163,6 +164,7 @@ type AdaptiveTraverse(value : Traverse) =
             _heightOffset_.Update(value.heightOffset)
             _priority_.Update(value.priority)
             _priorityEnabled_.Value <- value.priorityEnabled
+            _RIMFAXRootDirectory_.Value <- value.RIMFAXRootDirectory
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = __value.guid
@@ -181,6 +183,7 @@ type AdaptiveTraverse(value : Traverse) =
     member __.heightOffset = _heightOffset_
     member __.priority = _priority_
     member __.priorityEnabled = _priorityEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.RIMFAXRootDirectory = _RIMFAXRootDirectory_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseLenses = 
     type Traverse with
@@ -201,6 +204,7 @@ module TraverseLenses =
         static member heightOffset_ = ((fun (self : Traverse) -> self.heightOffset), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with heightOffset = value }))
         static member priority_ = ((fun (self : Traverse) -> self.priority), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with priority = value }))
         static member priorityEnabled_ = ((fun (self : Traverse) -> self.priorityEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with priorityEnabled = value }))
+        static member RIMFAXRootDirectory_ = ((fun (self : Traverse) -> self.RIMFAXRootDirectory), (fun (value : Microsoft.FSharp.Core.string) (self : Traverse) -> { self with RIMFAXRootDirectory = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverseModel(value : TraverseModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)

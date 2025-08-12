@@ -157,7 +157,6 @@ module Sol =
             let! sclkEnd = Json.readOrDefault "SCLK_END" None
             let! (RIMFAXImageModeOptions : option<list<string>>) = Json.readOrDefault "RIMFAXImageModeOptions" None
             let! RIMFAXImageMode = Json.readOrDefault "RIMFAXImageMode" None
-            // let! (RIMFAXSurfaces : option<HashMap<_, _>>) = Json.readOrDefault "RIMFAXSurfaces" None
 
             return
                 { version = current
@@ -219,7 +218,6 @@ type Sol with
             do! Json.writeOptionFloat "sclkEnd" x.sclkEnd
             do! Json.writeOptionList "RIMFAXImageModeOptions" x.RIMFAXImageModeOptions (fun options option -> Json.write option options)  
             do! Json.writeOption "RIMFAXImageMode" x.RIMFAXImageMode
-            do! Json.writeOption "RIMFAXSurfaces" 
         }
 
 
@@ -245,6 +243,7 @@ type Traverse =
       heightOffset : NumericInput
       priority : NumericInput
       priorityEnabled : bool
+      RIMFAXRootDirectory : string
     }
 
 module Traverse =
@@ -297,6 +296,7 @@ module Traverse =
         heightOffset = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
         priority = initialPriority
         priorityEnabled = false
+        RIMFAXRootDirectory = ""
     }
 
     let initial name sols =
@@ -393,6 +393,7 @@ module Traverse =
             let! priorityEnabled = Json.tryRead "priorityEnabled"
             let! traverseType = Json.read "traverseType"
             let! showRIMFAXSurfaces = Json.read "showRIMFAXSurfaces"
+            let! RIMFAXRootDirectory = Json.read "RIMFAXRootDirectory"
 
             let tLineWidth = 
                 match tLWidth with
@@ -419,6 +420,7 @@ module Traverse =
                     priorityEnabled = priorityEnabled |> Option.defaultValue false
                     traverseType = traverseType
                     showRIMFAXSurfaces = showRIMFAXSurfaces
+                    RIMFAXRootDirectory = RIMFAXRootDirectory
                 }
         }
 
@@ -455,6 +457,7 @@ type Traverse with
             do! Json.write "priorityEnabled" x.priorityEnabled
             do! Json.write "traverseType" x.traverseType
             do! Json.write "showRIMFAXSurfaces" x.showRIMFAXSurfaces
+            do! Json.write "RIMFAXRootDirectory" x.RIMFAXRootDirectory
         }
 
 

@@ -62,9 +62,9 @@
     <Compile Include="ProvenanceApp.fs" />
     <Compile Include="InitialViewerModel.fs" />
     <Compile Include="Bookmarks.fs" />
-    <Compile Include="Scene.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="TraverseApp.fs" />
+    <Compile Include="Scene.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />

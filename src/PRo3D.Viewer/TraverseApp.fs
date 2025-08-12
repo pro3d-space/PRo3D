@@ -331,7 +331,7 @@ module TraverseApp =
                 
                 let RIMFAXTraverses' =  
                     model.RIMFAXTraverses 
-                        |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with sols = sols})
+                        |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with sols = sols; RIMFAXRootDirectory = path})
                 { model with
                     RIMFAXTraverses = RIMFAXTraverses'
                 }
