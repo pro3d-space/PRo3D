@@ -109,7 +109,7 @@ type Sol =
     } 
 
 module Sol =
-    let current = 0
+    let current = 1
 
     let initial =
         { version = current
@@ -136,11 +136,40 @@ module Sol =
         }
 
     let readV0 =
+        json {
+
+            let! (location : string) = Json.read "location"
+            let! solNumber = Json.read "solNumber"
+            let! site = Json.readOrDefault "site" None
+            let! yaw = Json.readOrDefault "yaw" None
+            let! pitch = Json.readOrDefault "pitch" None
+            let! roll = Json.readOrDefault "roll" None
+            let! tilt = Json.readOrDefault "tilt" None
+            let! note = Json.readOrDefault "note" None
+            let! distanceM = Json.readOrDefault "distanceM" None
+            let! totalDistanceM = Json.readOrDefault "totalDistanceM" None
+
+            return
+                { initial with
+                      version = current
+                      location = [location |> V3d.Parse]
+                      solNumber = solNumber
+                      site = site
+                      yaw = yaw
+                      pitch = pitch
+                      roll = roll
+                      tilt = tilt
+                      note = note
+                      distanceM = distanceM
+                      totalDistanceM = totalDistanceM }
+        }
+
+    let readV1 =
 
         json {
             let! (location : list<string>) = Json.read "location"
             let! solNumber = Json.read "solNumber"
-            let! site = Json.read "site"
+            let! site = Json.readOrDefault "site" None
             let! yaw = Json.readOrDefault "yaw" None
             let! pitch = Json.readOrDefault "pitch" None
             let! roll = Json.readOrDefault "roll" None
@@ -192,6 +221,7 @@ type Sol with
 
             match v with
             | 0 -> return! Sol.readV0
+            | 1 -> return! Sol.readV1
             | _ -> return! v |> sprintf "don't know version %d of Sol" |> Json.error
         }
 
@@ -475,9 +505,36 @@ type TraverseModel =
 
 module TraverseModel =
 
-    let current = 0
+    let current = 1
+
+    let initial =
+        { version = current
+          roverTraverses = HashMap.empty
+          strategicAnnotationTraverses = HashMap.empty
+          RIMFAXTraverses = HashMap.empty
+          plannedTargetsTraverses = HashMap.empty
+          waypointsTraverses = HashMap.empty
+          selectedTraverse = None
+          selectedRIMFAXSurface = None 
+        }
 
     let read0 =
+        json {
+            let! traverses = Json.read "traverses"
+
+            let traverses =
+                traverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+
+            let! selected = Json.read "selectedTraverse"
+
+            return
+                { initial with
+                      version = current
+                      waypointsTraverses = traverses
+                      selectedTraverse = selected }
+        }
+
+    let read1 =
         json {
             let! roverTraverses' = Json.read "roverTraverses"
             let roverTraverses =
@@ -513,17 +570,6 @@ module TraverseModel =
                   selectedRIMFAXSurface = selectedRIMFAXSurface}
         }
 
-    let initial =
-        { version = current
-          roverTraverses = HashMap.empty
-          strategicAnnotationTraverses = HashMap.empty
-          RIMFAXTraverses = HashMap.empty
-          plannedTargetsTraverses = HashMap.empty
-          waypointsTraverses = HashMap.empty
-          selectedTraverse = None
-          selectedRIMFAXSurface = None 
-        }
-
 
 type TraverseModel with
 
@@ -533,6 +579,7 @@ type TraverseModel with
 
             match v with
             | 0 -> return! TraverseModel.read0
+            | 1 -> return! TraverseModel.read1
             | _ -> return! v |> sprintf "don't know version %A  of TraverseModel" |> Json.error
         }
 
