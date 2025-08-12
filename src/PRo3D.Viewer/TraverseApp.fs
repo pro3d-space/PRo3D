@@ -681,8 +681,9 @@ module TraverseApp =
 
 
                 surface.sceneGraph 
-                |> Sg.pickable' (pickable (adaptive { return surface.globalBB}) (adaptive { return surface.trafo.previewTrafo }))
+                |> Sg.pickable' (pickable (adaptive { return surface.globalBB }) (adaptive { return surface.trafo.previewTrafo }))
                 |> Sg.noEvents
+                (*
                 |> Sg.andAlso (
                     (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) (pickBox (adaptive { return surface.globalBB}) (adaptive { return surface.trafo.previewTrafo }))) 
                     |> Sg.noEvents
@@ -692,6 +693,11 @@ module TraverseApp =
                     ] 
                     |> Sg.onOff isSelected
                 )
+                *)
+                |> Sg.shader {
+                    do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
+                    do! DefaultSurfaces.diffuseTexture
+                }
                 |> Sg.withEvents [
                     SceneEventKind.Click, (
                         fun (sceneHit : SceneHit) -> 
@@ -731,10 +737,6 @@ module TraverseApp =
             |> ASet.ofAMap
             |> ASet.map (snd)
             |> Sg.set
-            |> Sg.shader {
-                do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
-                do! DefaultSurfaces.diffuseTexture
-            }
             |> Sg.noEvents 
 
             

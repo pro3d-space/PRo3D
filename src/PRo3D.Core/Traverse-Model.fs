@@ -137,13 +137,8 @@ module Sol =
 
     let readV0 =
 
-        let parseV3dList (input: string) : list<V3d> =
-            input.Split([| ';' |], System.StringSplitOptions.RemoveEmptyEntries)
-            |> Array.map (fun s -> s  |> V3d.Parse)
-            |> Array.toList
-
         json {
-            let! location = Json.read "location"
+            let! (location : list<string>) = Json.read "location"
             let! solNumber = Json.read "solNumber"
             let! site = Json.read "site"
             let! yaw = Json.readOrDefault "yaw" None
@@ -160,10 +155,13 @@ module Sol =
             let! toRMC = Json.readOrDefault "toRMC" None
             let! sclkStart = Json.readOrDefault "SCLK_START" None
             let! sclkEnd = Json.readOrDefault "SCLK_END" None
+            let! (RIMFAXImageModeOptions : option<list<string>>) = Json.readOrDefault "RIMFAXImageModeOptions" None
+            let! RIMFAXImageMode = Json.readOrDefault "RIMFAXImageMode" None
+            // let! (RIMFAXSurfaces : option<HashMap<_, _>>) = Json.readOrDefault "RIMFAXSurfaces" None
 
             return
                 { version = current
-                  location = parseV3dList location
+                  location = location |> List.map V3d.Parse
                   solNumber = solNumber
                   site = site
                   yaw = yaw
@@ -180,8 +178,8 @@ module Sol =
                   toRMC = toRMC
                   sclkStart = sclkStart
                   sclkEnd = sclkEnd
-                  RIMFAXImageModeOptions = None
-                  RIMFAXImageMode = None
+                  RIMFAXImageModeOptions = RIMFAXImageModeOptions
+                  RIMFAXImageMode = RIMFAXImageMode
                   RIMFAXSurfaces = None
                 }
         }
@@ -198,19 +196,30 @@ type Sol with
             | _ -> return! v |> sprintf "don't know version %d of Sol" |> Json.error
         }
 
+
     static member ToJson(x: Sol) =
         json {
             do! Json.write "version" Sol.current
-            do! Json.write "location" (x.location |> string)
+            do! Json.write "location" (x.location |> List.map(fun x -> x.ToString()))
             do! Json.write "solNumber" x.solNumber
             do! Json.writeOption "site" x.site
-            do! Json.writeOption "yaw" x.yaw
-            do! Json.writeOption "pitch" x.pitch
-            do! Json.writeOption "roll" x.roll
-            do! Json.writeOption "tilt" x.tilt
+            do! Json.writeOptionFloat "yaw" x.yaw
+            do! Json.writeOptionFloat "pitch" x.pitch
+            do! Json.writeOptionFloat "roll" x.roll
+            do! Json.writeOptionFloat "tilt" x.tilt
             do! Json.writeOption "note" x.note
-            do! Json.writeOption "distanceM" x.distanceM
-            do! Json.writeOption "totalDistanceM" x.totalDistanceM
+            do! Json.writeOptionFloat "distanceM" x.distanceM
+            do! Json.writeOptionFloat "totalDistanceM" x.totalDistanceM
+            do! Json.writeOptionFloat "length" x.length
+            do! Json.writeOption "RMC" x.RMC
+            do! Json.writeOption "missionReference" x.missionReference
+            do! Json.writeOption "fromRMC" x.fromRMC
+            do! Json.writeOption "toRMC" x.toRMC
+            do! Json.writeOptionFloat "sclkStart" x.sclkStart
+            do! Json.writeOptionFloat "sclkEnd" x.sclkEnd
+            do! Json.writeOptionList "RIMFAXImageModeOptions" x.RIMFAXImageModeOptions (fun options option -> Json.write option options)  
+            do! Json.writeOption "RIMFAXImageMode" x.RIMFAXImageMode
+            do! Json.writeOption "RIMFAXSurfaces" 
         }
 
 
@@ -476,7 +485,7 @@ module TraverseModel =
                 strategicAnnotationTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
             let! RIMFAXTraverses' = Json.read "RIMFAXTraverses"
-            let RIMFAXTraverses =
+            let RIMFAXTraverses = 
                 RIMFAXTraverses' |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
             let! plannedTargetsTraverses' = Json.read "plannedTargetsTraverses"
