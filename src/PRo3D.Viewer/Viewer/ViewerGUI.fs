@@ -248,25 +248,6 @@ module Gui =
             ]                              
         ]
 
-    module CustomGui =
-        let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) =
-            let names  = Enum.GetNames(typeof<'a>)
-            let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
-            let nv     = Array.zip names values
-
-            let attributes (name : string) (value : 'a) =
-                AttributeMap.ofListCond [
-                    always (attribute "value" name)
-                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
-                ]
-       
-            select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
-                for (name, value) in nv do
-                    if exclude |> HashSet.contains value |> not then
-                        let att = attributes name value
-                        yield Incremental.option att (AList.ofList [text name])
-            ] 
-
     module TopMenu =                       
 
         let jsImportOPCDialog =
@@ -675,6 +656,12 @@ module Gui =
                                         ]
                                         a [style "visibility:hidden"; clazz "invisibleCrashButton"] []
 
+                                        //let jsImportTrafosDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Transformation files' , filters: [{ name: 'Trafos (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        //div [ clazz "ui item"; Dialogs.onChooseFiles ImportTrafo; clientEvent "onclick" jsImportTrafosDialog ] [
+                                        //    text "Import Transformation (*.json)"
+                                        //]
+
                                         //div [clazz "ui item"; onClick (fun _ ->  ViewerAction.Nop)] [
                                         //    text "Send Crash Report"
                                         //    a [attribute "href" "mailto:hs@pro3d.com?attach=C:\\Program Files (x86)\\ProcessExplorer\\procexp64.exe"] [text "go"]
@@ -696,11 +683,12 @@ module Gui =
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
+                    let measurementTooltip = "Measurement to adapt the size of the axis gizmo"
+                    let visibilityTooltip = "Toggle visibility of axis gizmo"
                     return Html.Layout.horizontal [
-                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ]
-                        //Html.Layout.boxH [ i [clazz "unhide icon"][] ]
-                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ]                        
-                        ] |> UI.map ReferenceSystemMessage
+                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ] |> UI.wrapToolTip DataPosition.Bottom measurementTooltip
+                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ] |> UI.wrapToolTip DataPosition.Bottom visibilityTooltip                     
+                        ] |> UI.map ReferenceSystemMessage 
                 | Interactions.PickAnnotation ->
                      return Html.Layout.horizontal [
                         Html.Layout.boxH [text "eps.:"]
@@ -759,17 +747,34 @@ module Gui =
             | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
             | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
             | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
+            | Interactions.PickSurfaceRefSys     -> sprintf "%s+click to place additional reference system for surface" ctrl
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
+            | _ -> ""
+
+        let interactionTooltip (i : Interactions) : string =
+            match i with 
+            | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
+            | Interactions.PlaceCoordinateSystem -> "Pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
+            | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
+            | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
+            | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
+            | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
+            | Interactions.SelectArea            -> ""
+            | Interactions.PlaceScaleBar         -> ""
+            | Interactions.PlaceSceneObject      -> ""
+            | Interactions.PickPivotPoint        -> ""
             | _ -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
+
+
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
             Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet model.interaction SetInteraction ]
+                Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
                 Html.Layout.boxH [ 
                     div [style "font-style:italic; width:100%; text-align:right"] [
@@ -1099,7 +1104,10 @@ module Gui =
               ]   
               yield GuiEx.accordion "Snapshots" "Write" true [
                   SequencedBookmarksApp.UI.viewSnapshotGUI m.scene.sequencedBookmarks
-              ]                 
+              ] 
+              yield GuiEx.accordion "Depth Panoramas" "Write" true [
+                  SequencedBookmarksApp.UI.viewPanoramaDepthGUI m.scene.sequencedBookmarks
+              ]      
           ] |> UI.map SequencedBookmarkMessage
     
     //TODO refactor: two codes for resize attachments
@@ -1120,8 +1128,8 @@ module Gui =
                 let instrumentViewAttributes =
                     amap {
                         let! hor, vert = ViewPlanApp.getInstrumentResolution m.scene.viewPlans
-                        let height = "height:" + (vert/uint32(2)).ToString() + ";" ///uint32(2)
-                        let width = "width:" + (hor/uint32(2)).ToString() + ";" ///uint32(2)
+                        let height = "height:" + (vert/uint32(2)).ToString() + ";" //uint32(2)
+                        let width = "width:" + (hor/uint32(2)).ToString() + ";" //uint32(2)
                         yield onResize (fun s -> OnResize(s, id))
                         yield onFocus (fun s -> OnResize(s, id))
                         yield style ("background: #1B1C1E;" + height + width)

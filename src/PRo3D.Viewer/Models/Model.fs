@@ -66,6 +66,8 @@ type StartupArgs = {
     remoteApp             : bool
     enableProvenanceTracking : bool
 
+    loadScene             : Option<string>
+
     useMapping            : string
     data_samples          : Option<string>
     backgroundColor       : string
@@ -95,6 +97,7 @@ type StartupArgs = {
           enableProvenanceTracking = false
           isBatchRendering         = false
           defaultSpiceKernelPath   = None
+          loadScene                = None
       }
 
 

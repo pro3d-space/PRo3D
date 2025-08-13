@@ -50,7 +50,6 @@ module CommandLine =
                 match b with
                 | true -> ": yes"
                 | false -> ": no"
-
             
             let useAsyncLoading     = (argv |> hasFlag "sync" |> not)
             let startEmpty          = (argv |> hasFlag "empty")
@@ -61,7 +60,8 @@ module CommandLine =
             let disableCors         = argv |> hasFlag "disableCors"
             let enableRemoteApi     = argv |> hasFlag "remoteApi"    
             let enableProvenanceTracking = argv |> hasFlag "enableProvenance"
-            
+
+            let loadScene = parseArg "--scene" argv
 
             let samples             = parseArg "--samples" argv
             let backgroundColor     = parseArg "--backgroundColor" argv
@@ -84,25 +84,24 @@ module CommandLine =
             Log.line "[Arguments] Default SPICE kernel path: %s" (spiceKernelPath |> Option.defaultValue "no custom path supplied. using PRo3D default.")
 
             Log.line "[Arguments] render control config %A" (samples, backgroundColor, noMapping)
-            let args : StartupArgs = 
-                    {
-                            
-                        showExplorationPoint  = showExplorationCentre
-                        verbose               = verbose
-                        startEmpty            = startEmpty
-                        useAsyncLoading       = false
-                        magnificationFilter   = magFilter
-                        remoteApp             = remoteApp
-                        serverMode            = server
-                        port                  = port
-                        disableCors           = disableCors
-                        enableRemoteApi       = enableRemoteApi
-                        enableProvenanceTracking = enableProvenanceTracking
-                    
-                        useMapping            = if noMapping then "false" else "true"
-                        data_samples          = samples
-                        backgroundColor       = match backgroundColor with Some b -> b | None -> StartupArgs.initArgs.backgroundColor
-                        isBatchRendering      = false
-                        defaultSpiceKernelPath = spiceKernelPath
-                    }
+            let args : StartupArgs = {                        
+                showExplorationPoint     = showExplorationCentre
+                verbose                  = verbose
+                startEmpty               = startEmpty //never used
+                useAsyncLoading          = false
+                magnificationFilter      = magFilter
+                remoteApp                = remoteApp
+                serverMode               = server
+                port                     = port
+                disableCors              = disableCors
+                enableRemoteApi          = enableRemoteApi
+                enableProvenanceTracking = enableProvenanceTracking
+            
+                useMapping               = if noMapping then "false" else "true"
+                data_samples             = samples
+                backgroundColor          = match backgroundColor with Some b -> b | None -> StartupArgs.initArgs.backgroundColor
+                isBatchRendering         = false
+                defaultSpiceKernelPath   = spiceKernelPath
+                loadScene                = loadScene
+            }
             args

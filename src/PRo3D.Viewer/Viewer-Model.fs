@@ -48,9 +48,11 @@ type TabMenu =
 
 type BookmarkAction =
     | AddBookmark 
-    | ImportBookmarks of list<string>
-    | ExportBookmarks of string
-    | GroupsMessage   of GroupsAppAction
+    | ImportGroupModel    of list<string>
+    | ExportGroupModel    of string
+    | ImportBookmarks     of list<string>
+    | ExportBookmarks     of string
+    | GroupsMessage       of GroupsAppAction
     | PrintViewParameters of Guid
 
 type PropertyActions =
@@ -60,6 +62,7 @@ type PropertyActions =
 type PickPivot =
     | SurfacePivot      = 0
     | SceneObjectPivot  = 1
+
    // | ScaleBarPivot     = 2
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
@@ -100,7 +103,7 @@ type ViewerAction =
 | SetFrustum                      of Frustum
 | SetRenderViewportSize           of V2i
 | ImportSurface                   of list<string>
-| DiscoverAndImportOpcs        of list<string>
+| DiscoverAndImportOpcs           of list<string>
 | ImportDiscoveredSurfacesThreads of list<string>
 | ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
@@ -113,7 +116,8 @@ type ViewerAction =
 | ConfigPropertiesMessage         of ConfigProperties.Action
 | DeleteLast
 | AddSg                           of ISg
-| PickSurface                     of SceneHit*string*bool
+| PickSurface                     of SceneHit * string * bool
+| PreviewPickSurface              of SceneHit * string * bool
 | PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
@@ -136,7 +140,7 @@ type ViewerAction =
 | SetInteraction                  of Interactions        
 | SetMode                         of TrafoMode
 | TransforAdaptiveSurface         of System.Guid * Trafo3d
-| ImportTrafo                     of list<string>
+| ImportTrafo                     of list<string> 
 | TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
 | RecalculateFarPlane
 | RecalculateNearFarPlane      

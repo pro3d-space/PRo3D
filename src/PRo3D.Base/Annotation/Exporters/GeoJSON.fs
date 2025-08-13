@@ -1,5 +1,12 @@
 ﻿namespace PRo3D.Base.Annotation
 
+
+
+open System
+open Microsoft.FSharp.Reflection
+open Newtonsoft.Json
+open Newtonsoft.Json.Converters
+
 open Aardvark.Base
 
 open Chiron
@@ -8,19 +15,7 @@ open System.Text.RegularExpressions
 open System.IO
 
       
-module GeoJSON =
-    //type V2d = {
-    //    X:float
-    //    Y:float
-    //}
-    
-    //type V3d = {
-    //    X:float
-    //    Y:float
-    //    Z:float
-    //}
-    
-
+module GeoJSON =        
     type Coordinate =
     | TwoDim of V2d
     | ThreeDim of V3d
@@ -109,45 +104,6 @@ module GeoJSON =
             json{
                 do! Json.write "coordinates"  (x |> List.map(fun x -> x |> List.map(fun x -> x|> List.map(fun x -> x |> Ext.CoordinateToArray))))
             }
-
-
-    type GeoJsonImage = {
-        url : string
-        imageType : string
-        mode : string
-        topElev : int
-        depth : float
-        length : float
-    }
-        with    
-        static member ToJson (image: GeoJsonImage) =
-            json{
-                do! Json.write "url" image.url
-                do! Json.write "imageType" image.imageType
-                do! Json.write "mode" image.mode
-                do! Json.write "topElev" image.topElev
-                do! Json.write "depth" image.depth
-                do! Json.write "length" image.length
-            }
-        
-        static member FromJson (_: GeoJsonImage) =
-            json{
-                let! url = Json.read "url"
-                let! imageType = Json.read "type"
-                let! mode = Json.read "mode"
-                let! topElev = Json.read "topElev"
-                let! depth = Json.read "depth"
-                let! length = Json.read "length"
-
-                return {
-                    url = url;
-                    imageType = imageType;
-                    mode = mode;
-                    topElev = topElev;
-                    depth = depth;
-                    length = length;
-                }
-            }  
     
     type GeoJsonGeometry =
     | Point                 of coordinates : Coordinate
@@ -215,7 +171,6 @@ module GeoJSON =
                     return Point(V3d.NaN |> ThreeDim)
             }
 
-    
     type GeoJsonProperties = {
         generatedBy : string
         segmentCount : int
@@ -244,7 +199,8 @@ module GeoJSON =
                     timestamp = timestamp
                     traverseType = traverseType
                 }
-            }        
+            }   
+        
 
     type GeoJsonFeature = {
         geometry   : GeoJsonGeometry
@@ -314,3 +270,6 @@ module GeoJSON =
                 return {features = features; properties = properties}
             }
         
+
+        
+

@@ -10,15 +10,15 @@ MinPos.y=-1
 MaxPos.x=-1
 MaxPos.y=-1
 NormalPos.left=4
-NormalPos.top=26
-NormalPos.right=1322
-NormalPos.bottom=705
+NormalPos.top=32
+NormalPos.right=2042
+NormalPos.bottom=873
 Class=LaTeXView
 Document=PRo3D_ShortUserManual.tex
 
 [Frame0_View0,0]
-TopLine=155
-Cursor=7030
+TopLine=86
+Cursor=6527
 
 [Frame1]
 Flags=0
@@ -28,14 +28,14 @@ MinPos.y=-1
 MaxPos.x=-1
 MaxPos.y=-1
 NormalPos.left=4
-NormalPos.top=26
-NormalPos.right=1322
-NormalPos.bottom=705
+NormalPos.top=32
+NormalPos.right=2042
+NormalPos.bottom=873
 Class=LaTeXView
 Document=Start.tex
 
 [Frame1_View0,0]
-TopLine=30
+TopLine=0
 Cursor=1292
 
 [Frame2]
@@ -46,15 +46,15 @@ MinPos.y=-1
 MaxPos.x=-1
 MaxPos.y=-1
 NormalPos.left=4
-NormalPos.top=26
-NormalPos.right=1322
-NormalPos.bottom=705
+NormalPos.top=32
+NormalPos.right=2042
+NormalPos.bottom=873
 Class=LaTeXView
 Document=ViewerFeatures.tex
 
 [Frame2_View0,0]
-TopLine=326
-Cursor=19482
+TopLine=203
+Cursor=14279
 
 [Frame3]
 Flags=0
@@ -64,15 +64,15 @@ MinPos.y=-1
 MaxPos.x=-1
 MaxPos.y=-1
 NormalPos.left=4
-NormalPos.top=26
-NormalPos.right=1322
-NormalPos.bottom=705
+NormalPos.top=32
+NormalPos.right=2042
+NormalPos.bottom=873
 Class=LaTeXView
 Document=ViewerActions.tex
 
 [Frame3_View0,0]
-TopLine=51
-Cursor=3387
+TopLine=25
+Cursor=6272
 
 [Frame4]
 Flags=0
@@ -82,9 +82,9 @@ MinPos.y=-1
 MaxPos.x=-1
 MaxPos.y=-1
 NormalPos.left=4
-NormalPos.top=26
-NormalPos.right=1322
-NormalPos.bottom=705
+NormalPos.top=32
+NormalPos.right=2042
+NormalPos.bottom=873
 Class=LaTeXView
 Document=Introduction.tex
 
@@ -100,9 +100,9 @@ MinPos.y=-1
 MaxPos.x=-1
 MaxPos.y=-1
 NormalPos.left=4
-NormalPos.top=26
-NormalPos.right=1322
-NormalPos.bottom=705
+NormalPos.top=32
+NormalPos.right=2042
+NormalPos.bottom=873
 Class=LaTeXView
 Document=Minerva.tex
 
@@ -118,17 +118,17 @@ MinPos.y=-1
 MaxPos.x=-1
 MaxPos.y=-1
 NormalPos.left=4
-NormalPos.top=26
-NormalPos.right=1322
-NormalPos.bottom=705
+NormalPos.top=32
+NormalPos.right=2042
+NormalPos.bottom=873
 Class=LaTeXView
-Document=..\..\..\..\..\..\Program Files (x86)\MiKTeX 2.9\tex\latex\fancyhdr\fancyhdr.sty
+Document=..\..\..\..\..\AppData\Local\Programs\MiKTeX\tex\latex\hyperref\hyperref.sty
 
 [Frame6_View0,0]
-TopLine=314
-Cursor=12918
+TopLine=4292
+Cursor=117775
 
 [SessionInfo]
 FrameCount=7
-ActiveFrame=0
+ActiveFrame=2
 

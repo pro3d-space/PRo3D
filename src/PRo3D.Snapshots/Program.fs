@@ -90,6 +90,8 @@ let startApplication (startupArgs : CLStartupArgs) =
   
     Aardvark.Init()
 
+    Aardvark.Data.PixImageFreeImage.Init()
+
     let mutable cooTrafoInitialized = false
     let disposables = List<IDisposable>()
 
@@ -232,7 +234,7 @@ let startApplication (startupArgs : CLStartupArgs) =
         Log.line "serving at: %s" uri
 
         let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
-  
+
 
         Sg.useAsyncLoading <- false // need this for rendering without gui!
         SnapshotGenerator.animate runtime mModel mainApp startupArgs |> ignore
@@ -258,7 +260,7 @@ let startApplication (startupArgs : CLStartupArgs) =
 [<EntryPoint;STAThread>]
 let main argv = 
     // ensure appdata is here
-
+    
     // check if there are command line arguments, and if they are valid
     Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
     Sg.useAsyncLoading <- false 

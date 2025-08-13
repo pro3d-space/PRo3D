@@ -141,6 +141,7 @@ module RemoteApi =
                 ops |> Array.map encodeSetOperation |> Encode.array |> Encode.toString 4
 
     
+    open Thoth.Json.Net
 
     type Api(emitTopLevel : ViewerAnimationAction -> unit, p : AdaptiveProvenanceModel, m : AdaptiveModel, storage : PPersistence) = 
 
@@ -209,41 +210,124 @@ module RemoteApi =
                         None
                 )
                 |> Seq.toArray
+
+        member x.getSelectedAnnotationId() : option<Guid> =
+            x.FullModel.drawing.annotations.singleSelectLeaf.GetValue()
+
+        member x.getAnnotationById (id : string) : option<Base.Annotation.Annotation> =
+            let map = 
+                x.FullModel.drawing.annotations.flat.Content.GetValue()
+
+            match HashMap.tryFind (Guid.Parse(id)) map with
+            | Some (AdaptiveAnnotations annotation) ->
+                annotation.Current.GetValue()
+                |> Some                
+            | _ -> None
+
+        member x.getAnnotationPointsById(id : string) =
+            match x.getAnnotationById id with
+            | Some a ->
+                Encode.array [|
+                    for p in a.points |> IndexList.toArray do                        
+                        Encode.array [|
+                            Encode.float p.X
+                            Encode.float p.Y
+                            Encode.float p.Z
+                        |]
+                |] |> Some                
+            | _ -> None
+
+        member x.getSelectedSurfaceId() : option<Guid> =
+            x.FullModel.scene.surfacesModel.surfaces.singleSelectLeaf.GetValue()
+
+         member x.getSurfaceById(id : string) : option<Surface.Surface> =
+            let map = 
+                x.FullModel.scene.surfacesModel.surfaces.flat.Content.GetValue()
+            
+            match HashMap.tryFind (Guid.Parse(id)) map with
+            | Some (AdaptiveSurfaces surface) ->
+                surface.Current.GetValue() |> Some
+            | _ -> 
+                None
+
+        member x.setSurfaceTransform(id, forward : M44d) =
+            let trafo = Trafo3d(forward, forward.Inverse)
+
+            Log.line "[remoteApi] setting trafo"
+            Log.line "[remoteApi] %A" trafo
+
+            let action = 
+                Surface.SurfaceAppAction.SetPreTrafoById(id, trafo)
+                |> ViewerAction.SurfaceActions
+
+            action |> emit
+            ()
         
-        member x.QueryAnnotation(
-                queryAnnotationId    : string, 
+        member x.QueryAnnotation(                
                 attributeNames       : list<string>, 
                 heightRange          : Range1d,
                 outputReferenceFrame : OutputReferenceFrame) =
 
+            let queryAnnotationId = x.getSelectedAnnotationId()
             let annotations = x.FullModel.drawing.annotations.flat.Content.GetValue()
+            let anno = 
+                queryAnnotationId 
+                |> Option.bind(fun x -> HashMap.tryFind x annotations)
+                |> Option.bind(fun x ->
+                    match x with
+                    | AdaptiveAnnotations a -> Some a
+                    | _ -> None
+                )
 
-            match HashMap.tryFind (Guid.Parse(queryAnnotationId)) annotations with
-            | Some (AdaptiveAnnotations queryAnnotation) -> 
+            let cutoutSurfaceId = x.getSelectedSurfaceId()
+            let surfaces = x.FullModel.scene.surfacesModel.surfaces.flat.Content.GetValue()
+            let surf = 
+                cutoutSurfaceId 
+                |> Option.bind(fun x -> HashMap.tryFind x surfaces) 
+                |> Option.bind(fun x ->
+                    match x with
+                    | AdaptiveSurfaces s -> Some s
+                    | _ -> None
+                )
+
+            match (anno, surf) with
+            |  (Some queryAnnotation, Some cutoutSurface) -> 
                 let anno = queryAnnotation.Current.GetValue()
-                let sgSurfaces = x.FullModel.scene.surfacesModel.sgSurfaces.Content.GetValue()
-
-                let opcs = 
-                    sgSurfaces 
-                    |> Seq.choose (fun (_,s) -> s.opcScene.GetValue())
+                // let sgSurfaces = 
+                //     x.FullModel.scene.surfacesModel.sgSurfaces.Content.GetValue()
 
                 let patchHierarchies = 
-                    opcs 
-                    |> Seq.collect (fun scene -> 
-                        scene.patchHierarchies
-                        |> Seq.map Prinziple.register
-                        |> Seq.map (fun x -> 
-                            Aardvark.Data.Opc.PatchHierarchy.load 
-                                PRo3D.Base.Serialization.binarySerializer.Pickle 
-                                PRo3D.Base.Serialization.binarySerializer.UnPickle
-                                (Aardvark.Data.Opc.OpcPaths x), x
-                        )
-                    )
+                    cutoutSurface.opcPaths.GetValue()
+                    |> Seq.map Prinziple.register
+                    |> Seq.map (fun x -> 
+                        PatchHierarchy.load 
+                            PRo3D.Base.Serialization.binarySerializer.Pickle 
+                            PRo3D.Base.Serialization.binarySerializer.UnPickle
+                            (OpcPaths x), x
+                    ) 
                     |> Seq.toList
+
+                // let opcs = 
+                //     sgSurfaces 
+                //     |> Seq.choose (fun (_,s) -> s.opcScene.GetValue())
+
+                // let patchHierarchies = 
+                //     opcs 
+                //     |> Seq.collect (fun scene -> 
+                //         scene.patchHierarchies
+                //         |> Seq.map Prinziple.register
+                //         |> Seq.map (fun x -> 
+                //             Aardvark.Data.Opc.PatchHierarchy.load 
+                //                 PRo3D.Base.Serialization.binarySerializer.Pickle 
+                //                 PRo3D.Base.Serialization.binarySerializer.UnPickle
+                //                 (Aardvark.Data.Opc.OpcPaths x), x
+                //         )
+                //     )
+                //     |> Seq.toList
 
                 let queryResults = 
                     PRo3D.Base.AnnotationQuery.clipToRegion 
-                        patchHierarchies 
+                        patchHierarchies
                         attributeNames 
                         heightRange 
                         ignore 
@@ -316,7 +400,6 @@ module RemoteApi =
         }
 
     module SuaveHelpers =
-
        let getUTF8 (str: byte []) = System.Text.Encoding.UTF8.GetString(str)
 
     module SuaveV2 =
@@ -342,7 +425,6 @@ module RemoteApi =
                 virtualFileName : string
             }
 
-        
         let checkpointTemplate = """ { "sceneAsJson": __SCENE__, "drawingAsJson": __DRAWING__, "version": 1 } """
 
         let serializeCheckpoint (fullModel : ViewerIO.SerializedModel) =
@@ -480,7 +562,6 @@ module RemoteApi =
             let graphJson = api.GetProvenanceGraphJson()
             Successful.OK graphJson 
              
-
     module Suave = 
 
         open Suave
@@ -499,6 +580,7 @@ module RemoteApi =
 
         open SuaveHelpers
         open ProvenanceGraph
+        open Newtonsoft.Json.Linq
 
         let loadScene (api : Api) (r : HttpRequest)= 
             let str = r.rawForm |> getUTF8
@@ -644,58 +726,135 @@ module RemoteApi =
                         | _ -> ()
                 }
             )
+
+        module QueryAnnotation =
+            let parseCoordinateSpace (value: string) : Option<OutputReferenceFrame> =
+                match value.ToLower() with
+                | "local" -> Some OutputReferenceFrame.Local
+                | "global" -> Some OutputReferenceFrame.Global
+                | "centered" -> Some OutputReferenceFrame.Centered
+                | _ -> None // or handle as an error case
+
+            let parseGeometryType (value: string) : Option<OutputGeometryType> =
+                match value.ToLower() with
+                | "pointcloud" -> Some OutputGeometryType.PointCloud
+                | "mesh" -> Some OutputGeometryType.Mesh
+                | _ -> None // or handle as an error case
+
+            type QueryResults = System.Collections.Generic.List<Base.QueryResult>
+
+            let queryAnnotation
+                (api : Api) 
+                (f : OutputReferenceFrame -> OutputGeometryType -> QueryResults -> WebPart) 
+                (httpRequest : HttpRequest) =
+
+                let input =  
+                    httpRequest.rawForm |> getUTF8 |> PRo3D.Base.QueryApi.parseRequest
+
+                match input with
+                | Result.Ok input -> 
+                    match ((parseCoordinateSpace input.outputReferenceFrame), parseGeometryType(input.outputGeometryType)) with
+                    | (Some outputReferenceFrame, Some outputGeometryType) ->
+                        //here we can go from primitive types to real types
+                        match api.QueryAnnotation(                            
+                            input.queryAttributes, 
+                            Range1d.FromCenterAndSize(0, input.distanceToPlane), 
+                            outputReferenceFrame) with
+                        | None -> RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
+                        | Some queryResults -> 
+                            f  outputReferenceFrame outputGeometryType queryResults                
+                    | _ -> RequestErrors.BAD_REQUEST "could not parse outputReferenceFrame and/or outputGeometryType"
+                | _ -> RequestErrors.BAD_REQUEST "could not parse command"
+
+            let queryAnnotationAsObj (api : Api) = 
+
+                let toResult 
+                    (frame        : OutputReferenceFrame) 
+                    (geometryType : OutputGeometryType) 
+                    (results      : QueryResults) = 
+
+                    let s = 
+                        if geometryType = OutputGeometryType.PointCloud then
+                            PRo3D.Base.AnnotationQuery.queryResultsToCoordinatesSet frame results
+                        else
+                            PRo3D.Base.AnnotationQuery.queryResultsToObj frame geometryType results
+                            
+                    Successful.OK s
+
+                queryAnnotation api toResult
+
+            let queryAnnotationAsJson (api : Api) = 
+
+                let toJson (_ : OutputReferenceFrame) (_ : OutputGeometryType) (results : QueryResults) = 
+                    let s = PRo3D.Base.QueryApi.hitsToJson results //todo: also add frame
+                    Successful.OK s
+
+                queryAnnotation api toJson
         
-        let parseCoordinateSpace (value: string) : Option<OutputReferenceFrame> =
-            match value.ToLower() with
-            | "local" -> Some OutputReferenceFrame.Local
-            | "global" -> Some OutputReferenceFrame.Global
-            | _ -> None // or handle as an error case
+        module Surfaces =
+            let transform (surfaceId : option<string>) (api : Api) (req : HttpRequest) = 
+                match surfaceId with 
+                | Some id ->
+                    match api.getSurfaceById(id) with
+                    | Some _ -> 
+                        let payload = System.Text.Encoding.UTF8.GetString req.rawForm
+                        match payload with
+                        | "" -> 
+                            RequestErrors.BAD_REQUEST "No payload"
+                        | validPayload -> 
+                            let parsedJson = JObject.Parse(validPayload)
+                            let forward = parsedJson.["forward"].ToString()
 
-        let parseGeometryType (value: string) : Option<OutputGeometryType> =
-            match value.ToLower() with
-            | "pointcloud" -> Some OutputGeometryType.PointCloud
-            | "mesh" -> Some OutputGeometryType.Mesh
-            | _ -> None // or handle as an error case
+                            let forward = forward |> M44d.Parse
 
-        type QueryResults = System.Collections.Generic.List<Base.QueryResult>
+                            api.setSurfaceTransform(id |> Guid, forward)
 
-        let queryAnnotation (api : Api) (f : OutputReferenceFrame -> OutputGeometryType -> QueryResults -> WebPart) (httpRequest : HttpRequest) =
-            let input =  httpRequest.rawForm |> getUTF8 |> PRo3D.Base.QueryApi.parseRequest
-            match input with
-            | Result.Ok input -> 
-                match ((parseCoordinateSpace input.outputReferenceFrame), parseGeometryType(input.outputGeometryType)) with
-                | (Some outputReferenceFrame, Some outputGeometryType) ->
-                    //here we can go from primitive types to real types
-                    match api.QueryAnnotation(
-                        input.annotationId, 
-                        input.queryAttributes, 
-                        Range1d.FromCenterAndSize(0, input.distanceToPlane), 
-                        outputReferenceFrame) with
-                    | None -> RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
-                    | Some queryResults -> 
-                        f  outputReferenceFrame outputGeometryType queryResults                
-                | _ -> RequestErrors.BAD_REQUEST "could not parse outputReferenceFrame and/or outputGeometryType"
-            | _ -> RequestErrors.BAD_REQUEST "could not parse command"
+                            Successful.OK (sprintf "Received payload %s" (forward.ToString()))    
+                    | None ->                                             
+                        RequestErrors.NOT_FOUND "Surface not found"
+                | None -> 
+                    match api.getSelectedSurfaceId() with
+                    | Some id ->
+                        match api.getSurfaceById(id.ToString()) with
+                        | Some _ -> 
+                            let payload = System.Text.Encoding.UTF8.GetString req.rawForm
+                            match payload with
+                            | "" -> 
+                                RequestErrors.BAD_REQUEST "No payload"
+                            | validPayload -> 
+                                let parsedJson = JObject.Parse(validPayload)
+                                let forward = parsedJson.["forward"].ToString()
+                                let forward = forward |> M44d.Parse
+                                api.setSurfaceTransform(id, forward)
+                                Successful.OK (sprintf "Received payload %s" (forward.ToString()))    
+                        | None ->                                             
+                            RequestErrors.NOT_FOUND "Selected surface does not exist - really bad"
+                    | None ->
+                        RequestErrors.NOT_FOUND $"no surface selected"
 
-        let queryAnnotationAsObj (api : Api) = 
-
-            let toResult 
-                (frame        : OutputReferenceFrame) 
-                (geometryType : OutputGeometryType) 
-                (results      : QueryResults) = 
-
-                let s = PRo3D.Base.AnnotationQuery.queryResultsToObj frame geometryType results
-                Successful.OK s
-
-            queryAnnotation api toResult
-
-        let queryAnnotationAsJson (api : Api) = 
-            
-            let toJson (_ : OutputReferenceFrame) (_ : OutputGeometryType) (results : QueryResults) = 
-                let s = PRo3D.Base.QueryApi.hitsToJson results //todo: also add frame
-                Successful.OK s
-
-            queryAnnotation api toJson
+        module Annotations = 
+            let getPoints (annotationId : option<string>) (api : Api) =
+                match annotationId with
+                | Some id ->
+                    match api.getAnnotationPointsById(id) with
+                    | Some s -> 
+                        s 
+                        |> Encode.toString 4 
+                        |> Successful.OK
+                    | None -> 
+                        RequestErrors.NOT_FOUND $"Annotation of {id} not found"
+                | None ->
+                    match api.getSelectedAnnotationId() with
+                    | Some id ->
+                        match api.getAnnotationPointsById(id.ToString()) with
+                        | Some s -> 
+                            s 
+                            |> Encode.toString 4 
+                            |> Successful.OK
+                        | None -> 
+                            RequestErrors.NOT_FOUND $"Selected annotation does not exist - really bad"
+                    | None ->
+                        RequestErrors.NOT_FOUND $"no annotation selected"
 
         let webPart (storage : PPersistence) (api : Api) = 
             choose [
@@ -755,10 +914,42 @@ module RemoteApi =
                         )
                         path "/queryAnnotationAsJson" >=> 
                             Suave.Writers.setMimeType "application/json; charset=utf-8" 
-                                >=> request (queryAnnotationAsJson api)
-                        path "/queryAnnotationAsObj" >=> request (queryAnnotationAsObj api)
+                                >=> request (QueryAnnotation.queryAnnotationAsJson api)
+                        path "/queryAnnotationAsObj" >=> request (QueryAnnotation.queryAnnotationAsObj api)
                     ]
-                )
+                )                
+                prefix "/annotations" >=> 
+                    choose [
+                        // GET
+                        //     >=> path "/selected/points" 
+                        //     >=> Annotations.getPoints None api
+                        GET
+                            >=> pathScan "/%s/points" (fun id ->
+                                match id with 
+                                | "selected" -> 
+                                    Log.line "retrieving selected"
+                                    Annotations.getPoints None api
+                                | _ -> 
+                                    Log.line "retrieving by id"
+                                    Annotations.getPoints (Some id) api
+                        )
+                    ]
+                prefix "/surfaces" >=> 
+                    choose [                        
+                        // PUT
+                        //     >=> path "/selected/transformation" 
+                        //     >=> request (fun (req: HttpRequest) -> Surfaces.transform None api req)
+                        PUT
+                            >=> pathScan "/%s/transformation" (fun id ->
+                                match id with 
+                                | "selected" -> 
+                                    request (fun (req: HttpRequest) -> Surfaces.transform None api req)
+                                | _ ->
+                                    request (fun (req: HttpRequest) -> Surfaces.transform (Some id) api req)
+                            )
+                        RequestErrors.NOT_FOUND "Endpoint not found"
+                    ]
+                
             ]
 
 

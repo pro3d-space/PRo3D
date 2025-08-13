@@ -252,9 +252,9 @@ module ViewerIO =
                 selectedVp.selectedInstrument |> Option.map(fun instr -> (instr,vp)))
             |> Option.map(fun (instr, vp) -> 
                 let selectedVp = m.scene.viewPlans.viewPlans |> HashMap.find vp
-                let footPrint = FootPrint.updateFootprint instr selectedVp.position m.scene.viewPlans
+                let footPrint = FootPrintUtils.updateFootprint instr selectedVp m.scene.viewPlans
                 ViewPlanApp.updateInstrumentCam selectedVp m.scene.viewPlans footPrint)
-            |> Option.defaultValue (ViewPlanModel.initFootPrint, m.scene.viewPlans)
+            |> Option.defaultValue (FootPrint.initFootPrint, m.scene.viewPlans)
 
         { m with scene = {m.scene with viewPlans = viewPlans'};  footPrint = fp }
 

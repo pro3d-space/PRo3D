@@ -24,6 +24,8 @@ type TraversePropertiesAction =
     | SetLineWidth of Numeric.Action
     | SetTraverseColor of ColorPicker.Action
     | SetHeightOffset of Numeric.Action
+    | SetPriority of Numeric.Action
+    | TogglePriorityRenderingEnabled
 
 type TraverseAction =
     | SelectSol of int
