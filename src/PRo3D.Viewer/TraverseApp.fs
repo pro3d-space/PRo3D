@@ -706,35 +706,45 @@ module TraverseApp =
                         | None -> return false
                     }
 
+                let colorTransformationExpr =
+                    <@ fun (c : V4d) ->
+                        let tolerance = 0.05
+                        let isWhite =
+                            abs (c.X - 1.0) < tolerance &&
+                            abs (c.Y - 1.0) < tolerance &&
+                            abs (c.Z - 1.0) < tolerance
 
-                surface.sceneGraph 
-                |> Sg.pickable' (pickable (adaptive { return surface.globalBB }) (adaptive { return surface.trafo.previewTrafo }))
-                |> Sg.noEvents
-                (*
-                |> Sg.andAlso (
-                    (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) (pickBox (adaptive { return surface.globalBB}) (adaptive { return surface.trafo.previewTrafo }))) 
+                        if isWhite then
+                            V4d(1.0, 1.0, 0.0, c.W)
+                        else
+                            c
+                    @>
+
+                let sg = 
+                    surface.sceneGraph 
+                    |> Sg.pickable' (pickable (adaptive { return surface.globalBB }) (adaptive { return surface.trafo.previewTrafo }))
                     |> Sg.noEvents
-                    |> Sg.effect [  
-                        Shader.stableTrafo |> toEffect 
-                        DefaultSurfaces.vertexColor |> toEffect
-                    ] 
-                    |> Sg.onOff isSelected
-                )
-                *)
-                |> Sg.shader {
-                    do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
-                    do! DefaultSurfaces.diffuseTexture
-                }
-                |> Sg.withEvents [
-                    SceneEventKind.Click, (
-                        fun (sceneHit : SceneHit) -> 
-                            // let name  = surface.name |> AVal.force        
-                            //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                            true, Seq.ofList [PickRIMFAXSurface (surface.surface, traverseId, solNumber)])
-                    ] 
-                |> Sg.uniform "selected" isSelected
-                |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
+                    |> Sg.withEvents [
+                        SceneEventKind.Click, (
+                            fun (sceneHit : SceneHit) -> 
+                                true, Seq.ofList [PickRIMFAXSurface (surface.surface, traverseId, solNumber)])
+                        ] 
+                    |> Sg.uniform "selected" isSelected
+                    |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
 
+                let sg = 
+                    isSelected
+                    |> AVal.map (fun s ->
+                        sg
+                        |> Sg.shader {
+                            do! DefaultSurfaces.trafo
+                            do! DefaultSurfaces.diffuseTexture 
+                            if s then do! DefaultSurfaces.transformColor colorTransformationExpr
+                        }
+                    )
+                    |> Sg.dynamic
+
+                sg
 
             let getRIMFAXImageModeFromPath (filePath : string) : option<string> =
                 let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
@@ -746,7 +756,6 @@ module TraverseApp =
             let surfaceSg =
                 traverse.sols
                 |> AVal.map (List.map (fun sol -> 
-                    sol.RIMFAXSurfaces
                     match sol.RIMFAXSurfaces with
                     | Some surfaces ->
                         surfaces 
