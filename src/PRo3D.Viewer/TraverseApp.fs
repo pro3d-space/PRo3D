@@ -118,7 +118,7 @@ module TraversePropertiesApp =
 module TraverseApp = 
 
     let parseTraverse (traverse : GeoJsonTraverse) = 
-        let sols =
+        let (sols, traverseType, showLines, showText, showDots) =
             match traverse.properties.traverseType with
             | "waypoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true
             | "rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover, true, false, false
@@ -126,7 +126,7 @@ module TraverseApp =
             // | "plannedTargets" -> PlannedTargetsTraverseApp.parseTraverse (traverse), TraverseType.PlannedTargets
             // | "strategicAnnotations" -> StrategicAnnotationsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
             | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, RIMFAX, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t
-        sols
+        (sols, traverseType, showLines, showText, showDots)
 
     let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
         // this function is not in use at the moment
@@ -171,7 +171,7 @@ module TraverseApp =
                         |> Traverse.withProperties showLines showText showDots
                     traverse |> HashMap.single traverse.guid 
                 )
-                |> List.fold(fun a b -> HashMap.union a b) (HashMap.unionMany [model.roverTraverses; model.RIMFAXTraverses; model.waypointsTraverses])
+                |> List.fold(fun a b -> HashMap.union a b) HashMap.empty
 
             let roverTraverses = 
                 traversesJson
@@ -737,7 +737,7 @@ module TraverseApp =
                     |> AVal.map (fun s ->
                         sg
                         |> Sg.shader {
-                            do! DefaultSurfaces.trafo
+                            do! DefaultSurfaces.stableTrafo
                             do! DefaultSurfaces.diffuseTexture 
                             if s then do! DefaultSurfaces.transformColor colorTransformationExpr
                         }
