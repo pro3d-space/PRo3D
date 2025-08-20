@@ -789,7 +789,7 @@ module GroupsApp =
     let jsImportGroupDialog =
         "top.aardvark.dialog.showOpenDialog({ title: 'Import Group', filters: [{ name: 'SceneGroup (*.sg)', extensions: ['sg']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
     let jsExportGroupDialog = 
-        "top.aardvark.dialog.showSaveDialog({ title:'Save Group as', filters:  [{ name: 'Bookmarks (*.sg)', extensions: ['sg'] }] }).then(result => {aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
+        "top.aardvark.dialog.showSaveDialog({ title:'Save Group as', filters:  [{ name: 'SceneGroup (*.sg)', extensions: ['sg'] }] }).then(result => {aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
 
     let exportImportGroup (ts:TreeSelection) =
         Html.table [                            
