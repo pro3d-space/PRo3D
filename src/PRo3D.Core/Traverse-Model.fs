@@ -233,7 +233,7 @@ type Sol with
             do! Json.write "version" Sol.current
             do! Json.write "location" (x.location |> List.map(fun x -> x.ToString()))
             do! Json.write "solNumber" x.solNumber
-            do! Json.writeOption "site" x.site
+            do! Json.writeOptionInt "site" x.site
             do! Json.writeOptionFloat "yaw" x.yaw
             do! Json.writeOptionFloat "pitch" x.pitch
             do! Json.writeOptionFloat "roll" x.roll
