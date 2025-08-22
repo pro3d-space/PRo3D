@@ -618,7 +618,7 @@ module PackedRendering =
         |> Sg.shader { 
               do! PointsShader.pointSpriteVertex
               do! PointsShader.pointSpriteFragment
-              //do! DepthOffset.depthOffsetFS
+              do! Shader.DepthOffset.depthOffsetFS 
            }
 
 
