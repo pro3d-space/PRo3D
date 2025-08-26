@@ -14,6 +14,7 @@ open Chiron
 open System.Text.RegularExpressions
 open System.IO
 
+open PRo3D.Base
       
 module GeoJSON =        
     type Coordinate =
@@ -253,20 +254,20 @@ module GeoJSON =
 
     type GeoJsonTraverse = {
         features        : List<GeoJsonFeature>
-        properties    : GeoJsonProperties
+        properties    : Option<GeoJsonProperties>
     }
     with            
         static member ToJson (x: GeoJsonTraverse) =
             json{
                 do! Json.write "features" x.features
-                do! Json.write "properties" x.properties
+                do! Json.writeOption "properties" x.properties
                 do! Json.write "type" "FeatureCollection"
             }
             
         static member FromJson (_: GeoJsonTraverse) =
             json{
                 let! features = Json.read "features"
-                let! properties = Json.read "properties"
+                let! properties = Json.readOrDefault "properties" None
                 return {features = features; properties = properties}
             }
         
