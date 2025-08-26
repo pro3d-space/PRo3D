@@ -594,5 +594,5 @@ type TraverseModel with
             do! Json.write "plannedTargetsTraverses" (x.plannedTargetsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "waypointsTraverses" (x.waypointsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "selectedTraverse" x.selectedTraverse
-            do! Json.write "selectedTraverse" x.selectedRIMFAXSurface
+            do! Json.write "selectedRIMFAXSurface" x.selectedRIMFAXSurface
         }
