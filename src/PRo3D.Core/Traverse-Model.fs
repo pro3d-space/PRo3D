@@ -332,7 +332,7 @@ module Traverse =
     }
 
     let initial name sols =
-        { empty with tName = name; sols = sols }
+        { empty with tName = name; sols = sols; guid = Guid.NewGuid() }
 
     let withTraverseType(traverseType: TraverseType) (t: Traverse) =
         { t with traverseType = traverseType }
