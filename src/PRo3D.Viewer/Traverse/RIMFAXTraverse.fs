@@ -17,7 +17,7 @@ module RIMFAXTraverseApp =
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
         Trafo3d.Identity
 
-    let parseTraverse (traverse : GeoJsonTraverse) =
+    let parseTraverse (traverse : GeoJsonFeatureCollection) =
 
         let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
             let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =

@@ -117,7 +117,7 @@ module TraversePropertiesApp =
     
 module TraverseApp = 
 
-    let parseTraverse (name : string) (traverse : GeoJsonTraverse) = 
+    let parseTraverse (name : string) (traverse : GeoJsonFeatureCollection) = 
         match traverse.properties with
             | Some p ->
                 let (sols, traverseType, showLines, showText, showDots) =
