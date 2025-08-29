@@ -117,16 +117,21 @@ module TraversePropertiesApp =
     
 module TraverseApp = 
 
-    let parseTraverse (traverse : GeoJsonTraverse) = 
-        let (sols, traverseType, showLines, showText, showDots) =
-            match traverse.properties.traverseType with
-            | "waypoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true
-            | "rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover, true, false, false
-            | "rimfax" -> RIMFAXTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX, true, false, false
-            // | "plannedTargets" -> PlannedTargetsTraverseApp.parseTraverse (traverse), TraverseType.PlannedTargets
-            // | "strategicAnnotations" -> StrategicAnnotationsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
-            | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, RIMFAX, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t
-        (sols, traverseType, showLines, showText, showDots)
+    let parseTraverse (name : string) (traverse : GeoJsonFeatureCollection) = 
+        match traverse.properties with
+            | Some p ->
+                let (sols, traverseType, showLines, showText, showDots) =
+                    match p.traverseType with
+                    | "waypoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true
+                    | "rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover, true, false, false
+                    | "rimfax" -> RIMFAXTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX, true, false, false
+                    // | "plannedTargets" -> PlannedTargetsTraverseApp.parseTraverse (traverse), TraverseType.PlannedTargets
+                    // | "strategicAnnotations" -> StrategicAnnotationsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
+                    | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, RIMFAX, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t
+                Some (sols, traverseType, showLines, showText, showDots)
+            | None -> 
+                Log.warn "[TraverseApp] Error parsing traverse %s : Missing properties" name
+                None
 
     let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
         // this function is not in use at the moment
@@ -154,14 +159,18 @@ module TraverseApp =
                     Log.line "[Traverse] Loading %s" x
                     let geojson = System.IO.File.ReadAllText x
                      
-                    let sols, traverseType, showLines, showText, showDots =
-                        geojson 
-                        |> Json.parse 
-                        |> Json.deserialize 
-                        |> parseTraverse
-
-                    let name = Path.GetFileName x
-
+                    (geojson 
+                    |> Json.parse 
+                    |> Json.deserialize 
+                    |> parseTraverse (Path.GetFileName x),
+                    Path.GetFileName x
+                    )
+                )
+                |> List.choose (fun (parsedTraverse, name) ->
+                    match parsedTraverse with
+                    | Some v -> Some (v, name)
+                    | None -> None)
+                |> List.map(fun ((sols, traverseType, showLines, showText, showDots), name) ->
                     let color = if traverseType = TraverseType.Rover then C4b.White else C4b.Magenta
 
                     let traverse = 
