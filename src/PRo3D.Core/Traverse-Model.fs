@@ -84,57 +84,261 @@ type TraverseType =
         | _ -> failwith (sprintf "Invalid Traverse Type '%A'" json)
 
 [<ModelType>]
+type RoverMetrics =
+    {
+        version: int
+        length: float
+        fromRMC: string
+        toRMC: string
+        sclkStart: float
+        sclkEnd: float
+    }
+
+module RoverMetrics =
+    let current = 0
+
+    let readV0 =
+        json {
+
+            let! fromRMC = Json.read "fromRMC"
+            let! toRMC = Json.read "toRMC"
+            let! sclkStart = Json.read "SCLK_START"
+            let! sclkEnd = Json.read "SCLK_END"
+            let! length = Json.read "length"
+
+            return
+                {
+                    version = current
+                    fromRMC = fromRMC
+                    toRMC = toRMC
+                    sclkStart = sclkStart
+                    sclkEnd = sclkEnd
+                    length = length
+                }
+        }
+
+
+type RoverMetrics with
+
+    static member FromJson(_: RoverMetrics) =
+        json {
+            let! v = Json.read "version"
+
+            match v with
+            | 0 -> return! RoverMetrics.readV0
+            | _ -> return! v |> sprintf "don't know version %d of RoverMetrics" |> Json.error
+        }
+
+    static member ToJson(x: RoverMetrics) =
+        json {
+            do! Json.write "version" RoverMetrics.current
+            do! Json.write "fromRMC" x.fromRMC
+            do! Json.write "toRMC" x.toRMC
+            do! Json.writeFloat "sclkStart" x.sclkStart
+            do! Json.writeFloat "sclkEnd" x.sclkEnd
+            do! Json.writeFloat "length" x.length
+        }
+
+[<ModelType>]
+type RIMFAXSurfaceMetrics =
+    {
+        version: int
+        RIMFAXImageModeOptions: option<List<string>>
+        RIMFAXImageMode: option<string>
+        RIMFAXSurfaces : option<HashMap<Guid, SgSurface>>
+    }
+
+
+module RIMFAXSurfaceMetrics =
+    let current = 0
+
+    let readV0 =
+        json {
+            let! (RIMFAXImageModeOptions : option<list<string>>) = Json.readOrDefault "RIMFAXImageModeOptions" None
+            let! RIMFAXImageMode = Json.readOrDefault "RIMFAXImageMode" None
+
+            return
+                {
+                    version = current
+                    RIMFAXImageModeOptions = RIMFAXImageModeOptions
+                    RIMFAXImageMode = RIMFAXImageMode
+                    RIMFAXSurfaces = None
+                }
+        }
+
+
+type RIMFAXSurfaceMetrics with
+
+    static member FromJson(_: RIMFAXSurfaceMetrics) =
+        json {
+            let! v = Json.read "version"
+
+            match v with
+            | 0 -> return! RIMFAXSurfaceMetrics.readV0
+            | _ -> return! v |> sprintf "don't know version %d of RIMFAXSurfaceMetrics" |> Json.error
+        }
+
+    static member ToJson(x: RIMFAXSurfaceMetrics) =
+        json {
+            do! Json.write "version" RIMFAXSurfaceMetrics.current
+            do! Json.writeOptionList "RIMFAXImageModeOptions" x.RIMFAXImageModeOptions (fun options option -> Json.write option options)  
+            do! Json.writeOption "RIMFAXImageMode" x.RIMFAXImageMode
+        }
+
+
+[<ModelType>]
+type RIMFAXMetrics =
+    {
+        version: int
+        fromRMC: string
+        toRMC: string
+        sclkStart: float
+        sclkEnd: float
+        RIMFAXSurfaceProperties: option<RIMFAXSurfaceMetrics>
+        length: float
+    }
+
+module RIMFAXMetrics =
+    let current = 0
+
+    let readV0 =
+        json {
+
+            let! fromRMC = Json.read "fromRMC"
+            let! toRMC = Json.read "toRMC"
+            let! sclkStart = Json.read "SCLK_START"
+            let! sclkEnd = Json.read "SCLK_END"
+            let! RIMFAXSurfaceProperties = Json.read "RIMFAXSurfaceProperties"
+            let! length = Json.read "length"
+
+            return
+                {
+                    version = current
+                    fromRMC = fromRMC
+                    toRMC = toRMC
+                    sclkStart = sclkStart
+                    sclkEnd = sclkEnd
+                    RIMFAXSurfaceProperties = RIMFAXSurfaceProperties
+                    length = length
+                }
+        }
+
+type RIMFAXMetrics with
+
+    static member FromJson(_: RIMFAXMetrics) =
+        json {
+            let! v = Json.read "version"
+
+            match v with
+            | 0 -> return! RIMFAXMetrics.readV0
+            | _ -> return! v |> sprintf "don't know version %d of RIMFAXMetrics" |> Json.error
+        }
+
+    static member ToJson(x: RIMFAXMetrics) =
+        json {
+            do! Json.write "version" RIMFAXMetrics.current
+            do! Json.write "fromRMC" x.fromRMC
+            do! Json.write "toRMC" x.toRMC
+            do! Json.writeFloat "sclkStart" x.sclkStart
+            do! Json.writeFloat "sclkEnd" x.sclkEnd
+            do! Json.write "RIMFAXSurfaceProperties" x.RIMFAXSurfaceProperties
+            do! Json.writeFloat "length" x.length
+        }
+
+[<ModelType>]
+type WaypointMetrics =
+    {
+        version: int
+        RMC: string
+        site: int
+        yaw: float
+        pitch: float
+        roll: float
+        tilt: float
+        note: string
+        distanceM: float
+        totalDistanceM: float
+    }
+
+module WaypointMetrics =
+    let current = 0
+
+    let readV0 =
+        json {
+
+            let! RMC = Json.read "RMC"
+            let! site = Json.read "site" 
+            let! yaw = Json.read "yaw" 
+            let! pitch = Json.read "pitch" 
+            let! roll = Json.read "roll" 
+            let! tilt = Json.read "tilt" 
+            let! note = Json.read "note" 
+            let! distanceM = Json.read "distanceM" 
+            let! totalDistanceM = Json.read "totalDistanceM"
+
+            return
+                {
+                    version = current
+                    RMC = RMC
+                    site = site
+                    yaw = yaw
+                    pitch = pitch
+                    roll = roll
+                    tilt = tilt
+                    note = note
+                    distanceM = distanceM
+                    totalDistanceM = totalDistanceM 
+                }
+        }
+
+type WaypointMetrics with
+
+    static member FromJson(_: WaypointMetrics) =
+        json {
+            let! v = Json.read "version"
+
+            match v with
+            | 0 -> return! WaypointMetrics.readV0
+            | _ -> return! v |> sprintf "don't know version %d of WaypointMetrics" |> Json.error
+        }
+
+    static member ToJson(x: WaypointMetrics) =
+        json {
+            do! Json.write "version" WaypointMetrics.current
+            do! Json.write "RMC" x.RMC
+            do! Json.write "site" x.site
+            do! Json.writeFloat "yaw" x.yaw
+            do! Json.writeFloat "pitch" x.pitch
+            do! Json.writeFloat "roll" x.roll
+            do! Json.writeFloat "tilt" x.tilt
+            do! Json.write "note" x.note
+            do! Json.writeFloat "distanceM" x.distanceM
+            do! Json.writeFloat "totalDistanceM" x.totalDistanceM
+        }
+
+type TraverseMetrics =
+    | RoverM of RoverMetrics
+    | RIMFAXM of RIMFAXMetrics
+    | WaypointM of WaypointMetrics
+
+[<ModelType>]
 type Sol =
-    { version: int
+    { 
+      version: int
       location: list<V3d>
       solNumber: int
-      // Rover properties
-      site: option<int>
-      yaw: option<float>
-      pitch: option<float>
-      roll: option<float>
-      tilt: option<float>
-      note: option<string>
-      distanceM: option<float>
-      totalDistanceM: option<float>
-      length: option<float>
-      RMC: option<string>
-      missionReference: option<Guid>
-      // RIMFAX properties
-      fromRMC: option<string>
-      toRMC: option<string>
-      sclkStart: option<float>
-      sclkEnd: option<float>
-      RIMFAXImageModeOptions: option<List<string>>
-      RIMFAXImageMode: option<string>
-      RIMFAXSurfaces : option<HashMap<Guid, SgSurface>>
+      traverseMetrics: option<TraverseMetrics>
     } 
 
 module Sol =
     let current = 1
 
     let initial =
-        { version = current
+        { 
+          version = current
           location = []
           solNumber = -1
-          site = None
-          yaw = None
-          pitch = None
-          roll = None
-          tilt = None
-          note = None
-          distanceM = None
-          totalDistanceM = None
-          length = None
-          RMC = None
-          missionReference = None
-          fromRMC = None
-          toRMC = None
-          sclkStart = None
-          sclkEnd = None
-          RIMFAXImageModeOptions = None
-          RIMFAXImageMode = None
-          RIMFAXSurfaces = None
+          traverseMetrics = None
         }
 
     let readV0 =
@@ -142,28 +346,35 @@ module Sol =
 
             let! (location : string) = Json.read "location"
             let! solNumber = Json.read "solNumber"
-            let! site = Json.readOrDefault "site" None
-            let! yaw = Json.readOrDefault "yaw" None
-            let! pitch = Json.readOrDefault "pitch" None
-            let! roll = Json.readOrDefault "roll" None
-            let! tilt = Json.readOrDefault "tilt" None
-            let! note = Json.readOrDefault "note" None
-            let! distanceM = Json.readOrDefault "distanceM" None
-            let! totalDistanceM = Json.readOrDefault "totalDistanceM" None
+            let! RMC = Json.read "RMC"
+            let! site = Json.read "site"
+            let! yaw = Json.read "yaw"
+            let! pitch = Json.read "pitch"
+            let! roll = Json.read "roll"
+            let! tilt = Json.read "tilt"
+            let! note = Json.read "note"
+            let! distanceM = Json.read "distanceM"
+            let! totalDistanceM = Json.read "totalDistanceM"
 
             return
                 { initial with
-                      version = current
-                      location = [location |> V3d.Parse]
-                      solNumber = solNumber
-                      site = site
-                      yaw = yaw
-                      pitch = pitch
-                      roll = roll
-                      tilt = tilt
-                      note = note
-                      distanceM = distanceM
-                      totalDistanceM = totalDistanceM }
+                    version = current
+                    location = [location |> V3d.Parse]
+                    solNumber = solNumber
+                    traverseMetrics = 
+                        Some (WaypointM {
+                            version = 0
+                            RMC = RMC
+                            site = site
+                            yaw = yaw
+                            pitch = pitch
+                            roll = roll
+                            tilt = tilt
+                            note = note
+                            distanceM = distanceM
+                            totalDistanceM = totalDistanceM 
+                        })
+                }
         }
 
     let readV1 =
@@ -171,46 +382,13 @@ module Sol =
         json {
             let! (location : list<string>) = Json.read "location"
             let! solNumber = Json.read "solNumber"
-            let! site = Json.readOrDefault "site" None
-            let! yaw = Json.readOrDefault "yaw" None
-            let! pitch = Json.readOrDefault "pitch" None
-            let! roll = Json.readOrDefault "roll" None
-            let! tilt = Json.readOrDefault "tilt" None
-            let! note = Json.readOrDefault "note" None
-            let! distanceM = Json.readOrDefault "distanceM" None
-            let! totalDistanceM = Json.readOrDefault "totalDistanceM" None
-            let! length = Json.readOrDefault "length" None
-            let! RMC = Json.readOrDefault "RMC" None
-            let! missionReference = Json.readOrDefault "missionReference" None
-            let! fromRMC = Json.readOrDefault "fromRMC" None
-            let! toRMC = Json.readOrDefault "toRMC" None
-            let! sclkStart = Json.readOrDefault "SCLK_START" None
-            let! sclkEnd = Json.readOrDefault "SCLK_END" None
-            let! (RIMFAXImageModeOptions : option<list<string>>) = Json.readOrDefault "RIMFAXImageModeOptions" None
-            let! RIMFAXImageMode = Json.readOrDefault "RIMFAXImageMode" None
+            // let! (traverseMetrics : option<TraverseMetrics>) = Json.readOrDefault "traverseMetrics" None
 
             return
                 { version = current
                   location = location |> List.map V3d.Parse
                   solNumber = solNumber
-                  site = site
-                  yaw = yaw
-                  pitch = pitch
-                  roll = roll
-                  tilt = tilt
-                  note = note
-                  distanceM = distanceM
-                  totalDistanceM = totalDistanceM
-                  length = length
-                  RMC = RMC
-                  missionReference = missionReference
-                  fromRMC = fromRMC
-                  toRMC = toRMC
-                  sclkStart = sclkStart
-                  sclkEnd = sclkEnd
-                  RIMFAXImageModeOptions = RIMFAXImageModeOptions
-                  RIMFAXImageMode = RIMFAXImageMode
-                  RIMFAXSurfaces = None
+                  traverseMetrics = None
                 }
         }
 
@@ -233,23 +411,7 @@ type Sol with
             do! Json.write "version" Sol.current
             do! Json.write "location" (x.location |> List.map(fun x -> x.ToString()))
             do! Json.write "solNumber" x.solNumber
-            do! Json.writeOptionInt "site" x.site
-            do! Json.writeOptionFloat "yaw" x.yaw
-            do! Json.writeOptionFloat "pitch" x.pitch
-            do! Json.writeOptionFloat "roll" x.roll
-            do! Json.writeOptionFloat "tilt" x.tilt
-            do! Json.writeOption "note" x.note
-            do! Json.writeOptionFloat "distanceM" x.distanceM
-            do! Json.writeOptionFloat "totalDistanceM" x.totalDistanceM
-            do! Json.writeOptionFloat "length" x.length
-            do! Json.writeOption "RMC" x.RMC
-            do! Json.writeOption "missionReference" x.missionReference
-            do! Json.writeOption "fromRMC" x.fromRMC
-            do! Json.writeOption "toRMC" x.toRMC
-            do! Json.writeOptionFloat "sclkStart" x.sclkStart
-            do! Json.writeOptionFloat "sclkEnd" x.sclkEnd
-            do! Json.writeOptionList "RIMFAXImageModeOptions" x.RIMFAXImageModeOptions (fun options option -> Json.write option options)  
-            do! Json.writeOption "RIMFAXImageMode" x.RIMFAXImageMode
+            do! Json.writeOption "traverseMetrics" x.traverseMetrics
         }
 
 
@@ -332,7 +494,7 @@ module Traverse =
     }
 
     let initial name sols =
-        { empty with tName = name; sols = sols }
+        { empty with tName = name; sols = sols; guid = Guid.NewGuid() }
 
     let withTraverseType(traverseType: TraverseType) (t: Traverse) =
         { t with traverseType = traverseType }
@@ -594,5 +756,5 @@ type TraverseModel with
             do! Json.write "plannedTargetsTraverses" (x.plannedTargetsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "waypointsTraverses" (x.waypointsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "selectedTraverse" x.selectedTraverse
-            do! Json.write "selectedTraverse" x.selectedRIMFAXSurface
+            do! Json.write "selectedRIMFAXSurface" x.selectedRIMFAXSurface
         }

@@ -16,7 +16,7 @@ module RoverTraverseApp =
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
         Trafo3d.Identity
 
-    let parseTraverse (traverse : GeoJsonTraverse) =
+    let parseTraverse (traverse : GeoJsonFeatureCollection) =
 
         let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
             let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
@@ -193,17 +193,6 @@ module RoverTraverseApp =
                     
 
                     for sol in reversedSols do
-
-                        let! missionReference = 
-                            AVal.custom (fun t -> 
-                                let traverseMap = RIMFAXTraverses.Content.GetValue t
-                                traverseMap 
-                                    |> HashMap.toValueList
-                                    |> List.tryPick (fun v ->
-                                        let sols = v.sols.GetValue t
-                                        if sols[0].fromRMC = sol.RMC then Some v.guid else None
-                                    )
-                            )
    
                         let color =
                             match selected with
@@ -245,15 +234,7 @@ module RoverTraverseApp =
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
-                                    match missionReference with
-                                    | None -> ()
-                                    | Some reference -> 
-                                        yield i [clazz "wrench icon blue"; onClick (fun _ -> SelectTraverse reference)] [] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Select Mission"
                                 ]                                     
                             ]
                         ]
-
-
-
                 })
