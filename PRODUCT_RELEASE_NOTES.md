@@ -1,6 +1,9 @@
+## 5.1.0-prerelease1
+- native dependency fix for mac
+
 ## 5.0.7-prerelease1
--#516
--#525
+- #516
+- #525
 
 ## 5.0.7
 - ViewPlan: lookAt function for distance points, changes pan and tilt

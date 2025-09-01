@@ -57,6 +57,10 @@ jobs:
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .\build.cmd PublishToElectron
+      - name: Add ZIP Release
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\build.cmd GitHubRelease --test
 
   linux_x64:
     name: linux 
