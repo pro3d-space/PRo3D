@@ -18,9 +18,9 @@ module WayPointsTraverseApp =
         let up = referenceSystem.up.value
         let east = Vec.cross up north
         
-        let yawRotation    = Trafo3d.RotationInDegrees(up, -(match sol.yaw with | Some yaw -> yaw | None -> 0.0))
-        let pitchRotation  = Trafo3d.RotationInDegrees(east, (match sol.pitch with | Some pitch -> pitch | None -> 0.0))
-        let rollRotation   = Trafo3d.RotationInDegrees(north, (match sol.roll with | Some roll -> roll | None -> 0.0))
+        let yawRotation    = Trafo3d.RotationInDegrees(up, -(match sol.solMetrics with | Some (SolMetrics.WaypointM solMetrics) -> solMetrics.yaw | _ -> 0.0))
+        let pitchRotation  = Trafo3d.RotationInDegrees(east, (match sol.solMetrics with | Some (SolMetrics.WaypointM solMetrics) -> solMetrics.pitch | _ -> 0.0))
+        let rollRotation   = Trafo3d.RotationInDegrees(north, (match sol.solMetrics with | Some (SolMetrics.WaypointM solMetrics) -> solMetrics.roll | _ -> 0.0))
 
         yawRotation * pitchRotation * rollRotation
 
@@ -31,29 +31,52 @@ module WayPointsTraverseApp =
                 r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
 
             result {
-                let! solNumber      = parseIntProperty x  "sol" // not optional
-                let! yaw            = parseDoubleProperty x  "yaw"     // not optional
-                let! pitch          = parseDoubleProperty x  "pitch"   // not optional 
-                let! roll           = parseDoubleProperty x  "roll"    // not optional
-                let! RMC           = parseStringProperty x  "RMC"    // not optional
+                let! solNumber      = parseIntProperty x  "sol" 
+                let! yaw            = parseDoubleProperty x  "yaw"   
+                let! pitch          = parseDoubleProperty x  "pitch"
+                let! roll           = parseDoubleProperty x  "roll" 
+                let! RMC           = parseStringProperty x  "RMC"
+                let! note           = parseStringProperty x  "note"
+                
+                // Sophie Pichler: the following properties might better be optional?
+                let note = 
+                    match parseStringProperty x "Note" with
+                    | Result.Ok note -> note
+                    | _ -> 
+                        match parseStringProperty x "note" with
+                        | Result.Ok note -> note
+                        | _ -> ""
 
-                // those are optional (still print a warning)
                 let! tilt      = parseDoubleProperty x  "tilt"    |> reportErrorAndUseDefault  0.0    
                 let! distanceM = parseDoubleProperty x  "dist_m"  |> reportErrorAndUseDefault  0.0    
+                let totalDistanceM = 
+                    match parseDoubleProperty x "dist_total_m" with
+                    | Result.Ok dist_total_m -> dist_total_m
+                    | _ -> 
+                        match parseDoubleProperty x "dist_total" with
+                        | Result.Ok dist_total_m -> dist_total_m
+                        | _ -> 0
 
                 // not sure whether site should be optional (make it optional if needed), https://github.com/pro3d-space/PRo3D/issues/263
                 let! site      = parseIntProperty x  "site"  
+
+                let (solMetrics : SolMetrics) = WaypointM {
+                    version = WaypointMetrics.current
+                    totalDistanceM = totalDistanceM
+                    note = note
+                    site = site
+                    yaw = yaw
+                    pitch = pitch
+                    roll = roll
+                    tilt = tilt
+                    RMC = RMC
+                    distanceM = distanceM
+                }
                                   
                 return 
                     { sol with 
                         solNumber = solNumber
-                        site = Some site
-                        yaw = Some yaw
-                        pitch = Some pitch
-                        roll = Some roll
-                        tilt = Some tilt
-                        RMC = Some RMC
-                        distanceM = Some distanceM
+                        solMetrics = Some solMetrics
                     }
             }
 
@@ -91,21 +114,7 @@ module WayPointsTraverseApp =
                     }
                         
                 let! sol = parseProperties { Sol.initial with version = Sol.current; location = [position]; } x
-
-                // note is (now) optional for all cases. 
-                // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentioanl @ThomasOrtner
-                let sol = 
-                    match parseStringProperty x "Note" with
-                    | Result.Ok note -> { sol with note = Some note }
-                    | _ -> sol
-
-                // either choose dist_total_m or dist_total - or default to zero if nothing? @ThomasOrnter - is this defaulting correct or an error?
-                match parseDoubleProperty x "dist_total_m", parseDoubleProperty x "dist_total" with
-                | Result.Ok dist, _ 
-                | _, Result.Ok  dist -> 
-                    return { sol with totalDistanceM = Some dist }
-                | _ ->
-                    return { sol with totalDistanceM = None }
+                return sol
             }
 
         let sols = 
@@ -214,58 +223,59 @@ module WayPointsTraverseApp =
     
             Incremental.div listAttributes (
                 alist {
-    
+                    let white = sprintf "color: %s" (Html.color C4b.White)
                     let! selected = m.selectedSol
                     let! sols = m.sols
-
                     let reversedSols = sols |> List.rev
                     
                     for sol in reversedSols do
-                                                    
-                        let color =
-                            match selected with
-                            | Some sel -> 
-                                AVal.constant (if sel = sol.solNumber then C4b.VRVisGreen else C4b.Gray) 
-                            | None ->
-                                AVal.constant C4b.Gray
+                        match sol.solMetrics with
+                        | Some (SolMetrics.WaypointM solMetrics) ->                            
+                            let color =
+                                match selected with
+                                | Some sel -> 
+                                    AVal.constant (if sel = sol.solNumber then C4b.VRVisGreen else C4b.Gray) 
+                                | None ->
+                                    AVal.constant C4b.Gray
     
-                        let headerText = sprintf "Sol %i" sol.solNumber                    
-                
-                        let white = sprintf "color: %s" (Html.color C4b.White)
-                        let! c = color
-                        let bgc = sprintf "color: %s" (Html.color c)
+                            let headerText = sprintf "Sol %i" sol.solNumber                    
+                            let! c = color
+                            let bgc = sprintf "color: %s" (Html.color c)
 
-                        // only to be called in callback
-                        let getCurrentRefSystem () =
-                            refSystem.Current.GetValue()
+                            // only to be called in callback
+                            let getCurrentRefSystem () =
+                                refSystem.Current.GetValue()
 
-                        yield div [clazz "item"; style white] [
-                            i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
-                            div [clazz "content"; style white] [                     
-                                div [style white] [
-                                    yield div [clazz "header"; style bgc] [
-                                        span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
-                                    ]                
+                            yield div [clazz "item"; style white] [
+                                i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
+                                div [clazz "content"; style white] [                     
+                                    div [style white] [
+                                        yield div [clazz "header"; style bgc] [
+                                            span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
+                                        ]                
     
-                                    let descriptionText = sprintf "RMC: %s" (match sol.RMC with | Some rmc -> rmc | None -> "")
-                                    yield div [clazz "description"] [text descriptionText]
+                                        let descriptionText = sprintf "yaw %A | pitch %A | roll %A" solMetrics.yaw solMetrics.pitch solMetrics.roll
+                                        yield div [clazz "description"] [text descriptionText]
     
-                                    yield 
-                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (
-                                        computeSolFlyToParameters
-                                            sol
-                                            refSystem
-                                            (computeSolRotation sol refSystem)))] []
-                                    yield 
-                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (
-                                            computeSolViewplanParameters
+                                        yield 
+                                            i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (
+                                            computeSolFlyToParameters
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
-                                ]                                     
+                                        yield 
+                                            i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (
+                                                computeSolViewplanParameters
+                                                    sol
+                                                    refSystem
+                                                    (computeSolRotation sol refSystem)))] []
+                                    ]                                     
+                                ]
                             ]
-                        ]
-
-
-
+                        | _ -> 
+                            yield div [clazz "item"; style white] [
+                                yield div [clazz "header";] [
+                                    span [] [text "Inconsistent Data"]
+                                ]   
+                            ]
                 })

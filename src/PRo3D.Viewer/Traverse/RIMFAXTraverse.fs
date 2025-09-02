@@ -30,15 +30,21 @@ module RIMFAXTraverseApp =
                 let! solNumber  = parseIntProperty  x  "sol"    // not optional
                 let! sclkStart = parseDoubleProperty x  "SCLK_START"    // not optional
                 let! sclkEnd   = parseDoubleProperty x  "SCLK_END"    // not optional
+
+                let (solMetrics : SolMetrics) = RIMFAXM {
+                    version = RIMFAXMetrics.current;
+                    RIMFAXSurfaceProperties = None;
+                    length = length;
+                    fromRMC = fromRMC;
+                    toRMC = toRMC; 
+                    sclkStart = sclkStart;
+                    sclkEnd = sclkEnd;
+                }
                                   
                 return 
                     { sol with 
                         solNumber = solNumber;
-                        length = Some length;
-                        fromRMC = Some fromRMC;
-                        toRMC = Some toRMC; 
-                        sclkStart = Some sclkStart;
-                        sclkEnd = Some sclkEnd;
+                        solMetrics = Some solMetrics
                     }
             }
 
@@ -207,59 +213,63 @@ module RIMFAXTraverseApp =
                     let! sols = m.sols
 
                     let reversedSols = sols |> List.rev
-                    
+                    let white = sprintf "color: %s" (Html.color C4b.White)
+
                     for sol in reversedSols do
-                        let color =
-                            match selected with
-                            | Some sel -> 
-                                AVal.constant (if sel = sol.solNumber then C4b.VRVisGreen else C4b.Gray) 
-                            | None ->
-                                AVal.constant C4b.Gray
+                        match sol.solMetrics with
+                        | Some (SolMetrics.RIMFAXM solMetrics) ->
+                            let color =
+                                match selected with
+                                | Some sel -> 
+                                    AVal.constant (if sel = sol.solNumber then C4b.VRVisGreen else C4b.Gray) 
+                                | None ->
+                                    AVal.constant C4b.Gray
     
-                        let headerText = sprintf "Sol %i" sol.solNumber                    
-                
-                        let white = sprintf "color: %s" (Html.color C4b.White)
-                        let! c = color
-                        let bgc = sprintf "color: %s" (Html.color c)
+                            let headerText = sprintf "Sol %i" sol.solNumber                    
+                            let! c = color
+                            let bgc = sprintf "color: %s" (Html.color c)
 
-                        // only to be called in callback
-                        let getCurrentRefSystem () =
-                            refSystem.Current.GetValue()
-                        let dynamicEnum = System.Collections.Generic.Dictionary<string, int>()
-                        dynamicEnum.Add("Start", 1)
-                        dynamicEnum.Add("Stop", 2)
+                            // only to be called in callback
+                            let getCurrentRefSystem () =
+                                refSystem.Current.GetValue()
+                            let dynamicEnum = System.Collections.Generic.Dictionary<string, int>()
+                            dynamicEnum.Add("Start", 1)
+                            dynamicEnum.Add("Stop", 2)
 
-                        yield div [clazz "item"; style white] [
-                            i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
-                            div [clazz "content"; style white] [                     
-                                div [style white] [
-                                    yield div [clazz "header"; style bgc] [
-                                        span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
-                                    ]      
-                                    let descriptionText = sprintf "length %A" sol.length
-                                    yield div [clazz "description"] [text descriptionText]
+                            yield div [clazz "item"; style white] [
+                                i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
+                                div [clazz "content"; style white] [                     
+                                    div [style white] [
+                                        yield div [clazz "header"; style bgc] [
+                                            span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
+                                        ]      
+                                        let descriptionText = sprintf "length %A" solMetrics.length
+                                        yield div [clazz "description"] [text descriptionText]
     
-                                    yield 
-                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (
-                                        computeSolFlyToParameters
-                                            sol
-                                            refSystem
-                                            (computeSolRotation sol refSystem)))] []
-                                    yield 
-                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (
-                                            computeSolViewplanParameters
+                                        yield 
+                                            i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (
+                                            computeSolFlyToParameters
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
-                                    match sol.RIMFAXImageModeOptions with
-                                    | Some options ->
-                                        match sol.RIMFAXImageMode with
-                                        | Some option ->
+                                        yield 
+                                            i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (
+                                                computeSolViewplanParameters
+                                                    sol
+                                                    refSystem
+                                                    (computeSolRotation sol refSystem)))] []
+                                        match solMetrics.RIMFAXSurfaceProperties with
+                                        | Some RIMFAXSurfaceProperties ->
                                             yield 
-                                                Html.SemUi.dropDown' (options |> AList.ofList) (adaptive { return option }) (fun value -> SetRIMFAXImageMode (value, m.guid, sol.solNumber)) (fun option -> option)
+                                                Html.SemUi.dropDown' (RIMFAXSurfaceProperties.RIMFAXImageModeOptions |> AList.ofList) (adaptive { return RIMFAXSurfaceProperties.RIMFAXImageMode }) (fun value -> SetRIMFAXImageMode (value, m.guid, sol.solNumber)) (fun option -> option)
                                         | None -> ()
-                                    | None -> ()
+                                    ]
                                 ]
                             ]
-                        ]
+                        | _ -> 
+                            yield div [clazz "item"; style white] [
+                                yield div [clazz "header";] [
+                                    span [] [text "Inconsistent Data"]
+                                ]   
+                            ]
                 })

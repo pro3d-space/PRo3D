@@ -143,9 +143,9 @@ type RoverMetrics with
 type RIMFAXSurfaceMetrics =
     {
         version: int
-        RIMFAXImageModeOptions: option<List<string>>
-        RIMFAXImageMode: option<string>
-        RIMFAXSurfaces : option<HashMap<Guid, SgSurface>>
+        RIMFAXImageModeOptions: List<string>
+        RIMFAXImageMode: string
+        RIMFAXSurfaces : HashMap<Guid, SgSurface>
     }
 
 
@@ -154,15 +154,15 @@ module RIMFAXSurfaceMetrics =
 
     let readV0 =
         json {
-            let! (RIMFAXImageModeOptions : option<list<string>>) = Json.readOrDefault "RIMFAXImageModeOptions" None
-            let! RIMFAXImageMode = Json.readOrDefault "RIMFAXImageMode" None
+            let! (RIMFAXImageModeOptions : list<string>) = Json.read "RIMFAXImageModeOptions"
+            let! RIMFAXImageMode = Json.read "RIMFAXImageMode"
 
             return
                 {
                     version = current
                     RIMFAXImageModeOptions = RIMFAXImageModeOptions
                     RIMFAXImageMode = RIMFAXImageMode
-                    RIMFAXSurfaces = None
+                    RIMFAXSurfaces = HashMap.Empty
                 }
         }
 
@@ -181,8 +181,8 @@ type RIMFAXSurfaceMetrics with
     static member ToJson(x: RIMFAXSurfaceMetrics) =
         json {
             do! Json.write "version" RIMFAXSurfaceMetrics.current
-            do! Json.writeOptionList "RIMFAXImageModeOptions" x.RIMFAXImageModeOptions (fun options option -> Json.write option options)  
-            do! Json.writeOption "RIMFAXImageMode" x.RIMFAXImageMode
+            do! Json.write "RIMFAXImageModeOptions" x.RIMFAXImageModeOptions 
+            do! Json.write "RIMFAXImageMode" x.RIMFAXImageMode
         }
 
 
@@ -261,7 +261,7 @@ type WaypointMetrics =
     }
 
 module WaypointMetrics =
-    let current = 0
+    let current = 1
 
     let readV0 =
         json {
@@ -291,6 +291,34 @@ module WaypointMetrics =
                 }
         }
 
+    let readV1 =
+        json {
+
+            let! RMC = Json.read "RMC"
+            let! site = Json.read "site" 
+            let! yaw = Json.read "yaw" 
+            let! pitch = Json.read "pitch" 
+            let! roll = Json.read "roll" 
+            let! tilt = Json.read "tilt" 
+            let! note = Json.read "note" 
+            let! distanceM = Json.read "dist_m" 
+            let! totalDistanceM = Json.read "dist_total_m"
+
+            return
+                {
+                    version = current
+                    RMC = RMC
+                    site = site
+                    yaw = yaw
+                    pitch = pitch
+                    roll = roll
+                    tilt = tilt
+                    note = note
+                    distanceM = distanceM
+                    totalDistanceM = totalDistanceM 
+                }
+        }
+
 type WaypointMetrics with
 
     static member FromJson(_: WaypointMetrics) =
@@ -299,6 +327,7 @@ type WaypointMetrics with
 
             match v with
             | 0 -> return! WaypointMetrics.readV0
+            | 1 -> return! WaypointMetrics.readV1
             | _ -> return! v |> sprintf "don't know version %d of WaypointMetrics" |> Json.error
         }
 
@@ -312,14 +341,49 @@ type WaypointMetrics with
             do! Json.writeFloat "roll" x.roll
             do! Json.writeFloat "tilt" x.tilt
             do! Json.write "note" x.note
-            do! Json.writeFloat "distanceM" x.distanceM
-            do! Json.writeFloat "totalDistanceM" x.totalDistanceM
+            do! Json.writeFloat "dist_m" x.distanceM
+            do! Json.writeFloat "dist_total_m" x.totalDistanceM
         }
 
-type TraverseMetrics =
+type SolMetrics =
     | RoverM of RoverMetrics
     | RIMFAXM of RIMFAXMetrics
     | WaypointM of WaypointMetrics
+
+    static member ToJson (x: SolMetrics) =
+        match x with
+        | RoverM m -> 
+            json { 
+                do! Json.write "type" "Rover"
+                do! Json.write "metrics" m
+            }
+        | RIMFAXM m -> 
+            json { 
+                do! Json.write "type" "RIMFAX"
+                do! Json.write "metrics" m
+            }
+        | WaypointM m ->
+            json { 
+                do! Json.write "type" "Waypoint"
+                do! Json.write "metrics" m
+            }
+
+    static member FromJson (_: SolMetrics) =
+        json {
+            let! case = Json.read "type"
+            match case with
+            | "Rover" ->
+                let! metrics = Json.read "metrics"
+                return RoverM metrics
+            | "RIMFAX" ->
+                let! metrics = Json.read "metrics"
+                return RIMFAXM metrics
+            | "Waypoint" ->
+                let! metrics = Json.read "metrics"
+                return WaypointM metrics
+            | v ->
+                return! Json.error (sprintf "don't know SolMetric type: %s" v)
+        }
 
 [<ModelType>]
 type Sol =
@@ -327,7 +391,7 @@ type Sol =
       version: int
       location: list<V3d>
       solNumber: int
-      traverseMetrics: option<TraverseMetrics>
+      solMetrics: option<SolMetrics>
     } 
 
 module Sol =
@@ -338,7 +402,7 @@ module Sol =
           version = current
           location = []
           solNumber = -1
-          traverseMetrics = None
+          solMetrics = None
         }
 
     let readV0 =
@@ -361,7 +425,7 @@ module Sol =
                     version = current
                     location = [location |> V3d.Parse]
                     solNumber = solNumber
-                    traverseMetrics = 
+                    solMetrics = 
                         Some (WaypointM {
                             version = 0
                             RMC = RMC
@@ -382,13 +446,13 @@ module Sol =
         json {
             let! (location : list<string>) = Json.read "location"
             let! solNumber = Json.read "solNumber"
-            // let! (traverseMetrics : option<TraverseMetrics>) = Json.readOrDefault "traverseMetrics" None
+            let! solMetrics = Json.readOrDefault "solMetrics" None
 
             return
                 { version = current
                   location = location |> List.map V3d.Parse
                   solNumber = solNumber
-                  traverseMetrics = None
+                  solMetrics = solMetrics
                 }
         }
 
@@ -411,7 +475,7 @@ type Sol with
             do! Json.write "version" Sol.current
             do! Json.write "location" (x.location |> List.map(fun x -> x.ToString()))
             do! Json.write "solNumber" x.solNumber
-            do! Json.writeOption "traverseMetrics" x.traverseMetrics
+            do! Json.writeOption "solMetrics" x.solMetrics
         }
 
 

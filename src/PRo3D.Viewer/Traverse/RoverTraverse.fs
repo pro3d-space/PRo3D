@@ -29,15 +29,20 @@ module RoverTraverseApp =
                 let! length = parseDoubleProperty x  "length"
                 let! sclkStart = parseDoubleProperty x  "SCLK_START"
                 let! sclkEnd   = parseDoubleProperty x  "SCLK_END" 
-                                  
+                
+                let (solMetrics : SolMetrics) = RoverM {
+                    version = RoverMetrics.current;
+                    fromRMC = fromRMC
+                    toRMC = toRMC
+                    length = length
+                    sclkStart = sclkStart
+                    sclkEnd = sclkEnd
+                }
+
                 return 
                     { sol with 
                         solNumber = solNumber
-                        fromRMC = Some fromRMC
-                        toRMC = Some toRMC
-                        length = Some length
-                        sclkStart = Some sclkStart
-                        sclkEnd = Some sclkEnd
+                        solMetrics = Some solMetrics
                     }
             }
 
@@ -190,51 +195,56 @@ module RoverTraverseApp =
                     let! sols = m.sols
 
                     let reversedSols = sols |> List.rev
-                    
+                    let white = sprintf "color: %s" (Html.color C4b.White)
 
                     for sol in reversedSols do
-   
-                        let color =
-                            match selected with
-                            | Some sel -> 
-                                AVal.constant (if sel = sol.solNumber then C4b.VRVisGreen else C4b.Gray) 
-                            | None ->
-                                AVal.constant C4b.Gray
+                        match sol.solMetrics with
+                        | Some (SolMetrics.RoverM solMetrics) ->
+                            let color =
+                                match selected with
+                                | Some sel -> 
+                                    AVal.constant (if sel = sol.solNumber then C4b.VRVisGreen else C4b.Gray) 
+                                | None ->
+                                    AVal.constant C4b.Gray
     
-                        let headerText = sprintf "Sol %i" sol.solNumber                    
-                
-                        let white = sprintf "color: %s" (Html.color C4b.White)
-                        let! c = color
-                        let bgc = sprintf "color: %s" (Html.color c)
+                            let headerText = sprintf "Sol %i" sol.solNumber                    
+                            let! c = color
+                            let bgc = sprintf "color: %s" (Html.color c)
 
-                        // only to be called in callback
-                        let getCurrentRefSystem () =
-                            refSystem.Current.GetValue()
+                            // only to be called in callback
+                            let getCurrentRefSystem () =
+                                refSystem.Current.GetValue()
 
-                        yield div [clazz "item"; style white] [
-                            i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
-                            div [clazz "content"; style white] [                     
-                                div [style white] [
-                                    yield div [clazz "header"; style bgc] [
-                                        span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
-                                    ]                
+                            yield div [clazz "item"; style white] [
+                                i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
+                                div [clazz "content"; style white] [                     
+                                    div [style white] [
+                                        yield div [clazz "header"; style bgc] [
+                                            span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
+                                        ]                
     
-                                    let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
-                                    yield div [clazz "description"] [text descriptionText]
+                                        let descriptionText = sprintf "length %A" solMetrics.length
+                                        yield div [clazz "description"] [text descriptionText]
     
-                                    yield 
-                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (
-                                        computeSolFlyToParameters
-                                            sol
-                                            refSystem
-                                            (computeSolRotation sol refSystem)))] []
-                                    yield 
-                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (
-                                            computeSolViewplanParameters
+                                        yield 
+                                            i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (
+                                            computeSolFlyToParameters
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
-                                ]                                     
+                                        yield 
+                                            i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (
+                                                computeSolViewplanParameters
+                                                    sol
+                                                    refSystem
+                                                    (computeSolRotation sol refSystem)))] []
+                                    ]                                     
+                                ]
                             ]
-                        ]
+                        | _ -> 
+                            yield div [clazz "item"; style white] [
+                                yield div [clazz "header";] [
+                                    span [] [text "Inconsistent Data"]
+                                ]   
+                            ]
                 })
