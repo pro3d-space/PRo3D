@@ -60,7 +60,7 @@ jobs:
       - name: Add ZIP Release
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .\build.cmd GitHubRelease --test
+        run: .\build.cmd GitHubRelease
 
   linux_x64:
     name: linux 
