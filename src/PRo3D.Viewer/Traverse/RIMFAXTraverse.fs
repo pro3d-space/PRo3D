@@ -208,7 +208,6 @@ module RIMFAXTraverseApp =
     
             Incremental.div listAttributes (
                 alist {
-    
                     let! selected = m.selectedSol
                     let! sols = m.sols
 
@@ -232,9 +231,6 @@ module RIMFAXTraverseApp =
                             // only to be called in callback
                             let getCurrentRefSystem () =
                                 refSystem.Current.GetValue()
-                            let dynamicEnum = System.Collections.Generic.Dictionary<string, int>()
-                            dynamicEnum.Add("Start", 1)
-                            dynamicEnum.Add("Stop", 2)
 
                             yield div [clazz "item"; style white] [
                                 i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
@@ -262,6 +258,7 @@ module RIMFAXTraverseApp =
                                         | Some RIMFAXSurfaceProperties ->
                                             yield 
                                                 Html.SemUi.dropDown' (RIMFAXSurfaceProperties.RIMFAXImageModeOptions |> AList.ofList) (adaptive { return RIMFAXSurfaceProperties.RIMFAXImageMode }) (fun value -> SetRIMFAXImageMode (value, m.guid, sol.solNumber)) (fun option -> option)
+                                            yield i [clazz (match RIMFAXSurfaceProperties.isVisibleS with | true -> "unhide icon" | false -> "hide icon"); onClick (fun _ -> IsVisibleRIMFAXSurface (m.guid, sol.solNumber))] []
                                         | None -> ()
                                     ]
                                 ]

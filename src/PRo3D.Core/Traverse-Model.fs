@@ -30,6 +30,7 @@ type TraversePropertiesAction =
 type TraverseAction =
     | SelectSol of int
     | FlyToSol of V3d * V3d * V3d //forward * sky * location
+    | IsVisibleRIMFAXSurface of traverseId : Guid * solId : int
     | PlaceRoverAtSol of string * Trafo3d * V3d * ReferenceSystem //rotation and location
     | LoadTraverses of list<string>
     | FlyToTraverse of Guid
@@ -146,6 +147,7 @@ type RIMFAXSurfaceMetrics =
         RIMFAXImageModeOptions: List<string>
         RIMFAXImageMode: string
         RIMFAXSurfaces : HashMap<Guid, SgSurface>
+        isVisibleS: bool
     }
 
 
@@ -156,6 +158,7 @@ module RIMFAXSurfaceMetrics =
         json {
             let! (RIMFAXImageModeOptions : list<string>) = Json.read "RIMFAXImageModeOptions"
             let! RIMFAXImageMode = Json.read "RIMFAXImageMode"
+            let! isVisibleS = Json.read "isVisibleS"
 
             return
                 {
@@ -163,6 +166,7 @@ module RIMFAXSurfaceMetrics =
                     RIMFAXImageModeOptions = RIMFAXImageModeOptions
                     RIMFAXImageMode = RIMFAXImageMode
                     RIMFAXSurfaces = HashMap.Empty
+                    isVisibleS = isVisibleS
                 }
         }
 
@@ -183,6 +187,7 @@ type RIMFAXSurfaceMetrics with
             do! Json.write "version" RIMFAXSurfaceMetrics.current
             do! Json.write "RIMFAXImageModeOptions" x.RIMFAXImageModeOptions 
             do! Json.write "RIMFAXImageMode" x.RIMFAXImageMode
+            do! Json.write "isVisibleS" x.isVisibleS
         }
 
 

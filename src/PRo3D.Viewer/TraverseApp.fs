@@ -221,7 +221,30 @@ module TraverseApp =
                 roverTraverses = roverTraverses';
                 RIMFAXTraverses = RIMFAXTraverses';
                 waypointsTraverses = waypointsTraverses'
-                }
+            }
+        | IsVisibleRIMFAXSurface (traverseId, solId) ->
+            let RIMFAXTraverses' =  
+                model.RIMFAXTraverses 
+                |> HashMap.alter traverseId (
+                    function 
+                        None -> None 
+                        | Some m ->
+                            Some { m with sols = (m.sols 
+                                |> List.map (fun sol -> 
+                                        match sol.solMetrics with 
+                                        | Some (SolMetrics.RIMFAXM solMetrics) -> 
+                                            if solId = sol.solNumber then 
+                                                match solMetrics.RIMFAXSurfaceProperties with
+                                                | Some RIMFAXSurfaceProperties -> { sol with solMetrics = Some (RIMFAXM { solMetrics with RIMFAXSurfaceProperties = Some { RIMFAXSurfaceProperties with isVisibleS = not RIMFAXSurfaceProperties.isVisibleS }})}
+                                                | _ -> sol
+                                            else sol
+                                        | _ -> sol 
+                                )
+                            ) }
+                    )
+            { model with
+                RIMFAXTraverses = RIMFAXTraverses';
+            }
         | RemoveTraverse id -> 
             let selectedTraverse' = 
                 match model.selectedTraverse with
@@ -338,6 +361,7 @@ module TraverseApp =
                                             RIMFAXSurfaces = RIMFAXSurfaces
                                             RIMFAXImageModeOptions = (RIMFAXImageModeOptions |> List.append [ "-" ])
                                             RIMFAXImageMode = RIMFAXImageModeOptions.[0]
+                                            isVisibleS = true
                                         }
 
                                 {
@@ -771,7 +795,7 @@ module TraverseApp =
                         | Some RIMFAXSurfaceProperties ->
                             RIMFAXSurfaceProperties.RIMFAXSurfaces
                             |> HashMap.filter(fun guid surf -> 
-                                (getRIMFAXImageModeFromPath surf.sgImportPath) = Some RIMFAXSurfaceProperties.RIMFAXImageMode
+                                ((getRIMFAXImageModeFromPath surf.sgImportPath) = Some RIMFAXSurfaceProperties.RIMFAXImageMode && RIMFAXSurfaceProperties.isVisibleS)
                             )
                             |> HashMap.map (fun x value -> createSg value traverse.guid sol.solNumber)
                         | None -> HashMap.Empty

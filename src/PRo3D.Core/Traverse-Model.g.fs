@@ -1,5 +1,5 @@
-//51d4d1a9-ba73-454e-3606-11e1316a8238
-//8f05c0c0-ec4f-d62c-ce3f-7ebf5a2e293b
+//a1f0706c-0148-e0b7-9e15-4e542dafde9b
+//f8f1c77d-18bd-313d-8ea7-356a6f3bdc4e
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -58,6 +58,7 @@ type AdaptiveRIMFAXSurfaceMetrics(value : RIMFAXSurfaceMetrics) =
             m.Update(v)
             m
         FSharp.Data.Traceable.ChangeableModelMap(value.RIMFAXSurfaces, (fun (v : PRo3D.Core.Surface.SgSurface) -> PRo3D.Core.Surface.AdaptiveSgSurface(v)), __arg2, (fun (m : PRo3D.Core.Surface.AdaptiveSgSurface) -> m))
+    let _isVisibleS_ = FSharp.Data.Adaptive.cval(value.isVisibleS)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : RIMFAXSurfaceMetrics) = AdaptiveRIMFAXSurfaceMetrics(value)
@@ -70,11 +71,13 @@ type AdaptiveRIMFAXSurfaceMetrics(value : RIMFAXSurfaceMetrics) =
             _RIMFAXImageModeOptions_.Value <- value.RIMFAXImageModeOptions
             _RIMFAXImageMode_.Value <- value.RIMFAXImageMode
             _RIMFAXSurfaces_.Update(value.RIMFAXSurfaces)
+            _isVisibleS_.Value <- value.isVisibleS
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.RIMFAXImageModeOptions = _RIMFAXImageModeOptions_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>>
     member __.RIMFAXImageMode = _RIMFAXImageMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.RIMFAXSurfaces = _RIMFAXSurfaces_ :> FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>
+    member __.isVisibleS = _isVisibleS_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module RIMFAXSurfaceMetricsLenses = 
     type RIMFAXSurfaceMetrics with
@@ -82,6 +85,7 @@ module RIMFAXSurfaceMetricsLenses =
         static member RIMFAXImageModeOptions_ = ((fun (self : RIMFAXSurfaceMetrics) -> self.RIMFAXImageModeOptions), (fun (value : Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>) (self : RIMFAXSurfaceMetrics) -> { self with RIMFAXImageModeOptions = value }))
         static member RIMFAXImageMode_ = ((fun (self : RIMFAXSurfaceMetrics) -> self.RIMFAXImageMode), (fun (value : Microsoft.FSharp.Core.string) (self : RIMFAXSurfaceMetrics) -> { self with RIMFAXImageMode = value }))
         static member RIMFAXSurfaces_ = ((fun (self : RIMFAXSurfaceMetrics) -> self.RIMFAXSurfaces), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) (self : RIMFAXSurfaceMetrics) -> { self with RIMFAXSurfaces = value }))
+        static member isVisibleS_ = ((fun (self : RIMFAXSurfaceMetrics) -> self.isVisibleS), (fun (value : Microsoft.FSharp.Core.bool) (self : RIMFAXSurfaceMetrics) -> { self with isVisibleS = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveRIMFAXMetrics(value : RIMFAXMetrics) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
