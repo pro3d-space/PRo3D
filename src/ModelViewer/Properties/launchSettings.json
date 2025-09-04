@@ -14,7 +14,7 @@
     },
     "Perserverance Rover": {
       "commandName": "Project",
-      "commandLineArgs": "..//..//..//resources//Perserverence-Rover//meshes ..//..//..//resources//Cubemap-Mars"
+      "commandLineArgs": "D:\\Temp\\RoverTesting\\Export_YoqSothoth C:\\Repositories\\PRo3D.Resources.Models\\Cubemap-Mars"
     }
   }
 }

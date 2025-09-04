@@ -57,19 +57,19 @@ module GuiEx =
         )
 
     let iconToggle (dings : aval<bool>) onIcon offIcon action =
-      let toggleIcon = dings |> AVal.map(fun isOn -> if isOn then onIcon else offIcon)
-
-      let attributes = 
-        amap {
-            let! icon = toggleIcon
-            yield clazz icon
-            yield onClick (fun _ -> action)
-        } |> AttributeMap.ofAMap
-
-      Incremental.i attributes AList.empty
+        let toggleIcon = dings |> AVal.map(fun isOn -> if isOn then onIcon else offIcon)
+        
+        let attributes = 
+            amap {
+                let! icon = toggleIcon
+                yield clazz icon
+                yield onClick (fun _ -> action)
+            } |> AttributeMap.ofAMap
+        
+        Incremental.i attributes AList.empty
 
     let iconCheckBox (dings : aval<bool>) action =
-      iconToggle dings "check square outline icon" "square icon" action
+        iconToggle dings "check square outline icon" "square icon" action
 
     module DataChannel =
         type BespokeChannelReader<'a> (m        : aval<'a>,

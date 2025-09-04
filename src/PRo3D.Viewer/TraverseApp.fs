@@ -69,7 +69,9 @@ module TraversePropertiesApp =
         | SetPriority p ->
             { model with priority = Numeric.update model.priority p }
         | TogglePriorityRenderingEnabled ->             
-            { model with priorityEnabled = not model.priorityEnabled }
+            { model with priorityEnabled = not model.priorityEnabled } 
+        | SetRoverPositionOnTraverses pos -> 
+            { model with currRoverPosition = Numeric.update model.currRoverPosition pos }
 
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -121,9 +123,10 @@ module TraversePropertiesApp =
                     Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
-                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
-                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ] 
-                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
+                    Html.row "Height offset:" [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Priority:"      [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ] 
+                    Html.row "Use Priority"   [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
+                    Html.row "RoverPosition:" [Numeric.view' [NumericInputType.Slider] m.currRoverPosition |> UI.map SetRoverPositionOnTraverses ]
                 ]
             )
     
@@ -468,7 +471,11 @@ module TraverseApp =
                 | None -> model
             | None -> model
         | RemoveAllTraverses ->
-            { model with traverses = HashMap.empty; selectedTraverse = None }            
+            { model with traverses = HashMap.empty; selectedTraverse = None }  
+        | SetRoverToTraverse guid -> 
+            { model with roverTraverse = Some guid }
+        | RemoveRoverFromTraverse ->
+            { model with roverTraverse = None }        
         |_-> model
 
     module UI =
@@ -553,6 +560,12 @@ module TraverseApp =
                         onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                             button [clazz "ui icon button"; onMouseClick (fun _ -> RemoveAllTraverses)] [
                                 i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Remove All"
+                        )
+                    ] 
+                    div [clazz "ui buttons inverted"] [
+                        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
+                            button [clazz "ui icon button"; onMouseClick (fun _ -> RemoveRoverFromTraverse)] [
+                                i [clazz "car icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Hide Rover"
                         )
                     ] 
                 ] 

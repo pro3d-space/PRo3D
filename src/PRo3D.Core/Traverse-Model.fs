@@ -16,25 +16,29 @@ type TraversePropertiesAction =
     | ToggleShowText
     | ToggleShowLines
     | ToggleShowDots
-    | SetTraverseName of string
-    | SetSolTextsize of Numeric.Action
-    | SetLineWidth of Numeric.Action
-    | SetTraverseColor of ColorPicker.Action
-    | SetHeightOffset of Numeric.Action
-    | SetPriority of Numeric.Action
+    | SetTraverseName             of string
+    | SetSolTextsize              of Numeric.Action
+    | SetLineWidth                of Numeric.Action
+    | SetTraverseColor            of ColorPicker.Action
+    | SetHeightOffset             of Numeric.Action
+    | SetPriority                 of Numeric.Action
     | TogglePriorityRenderingEnabled
+    | SetRoverPositionOnTraverses of Numeric.Action
 
 type TraverseAction =
-    | SelectSol of int
-    | FlyToSol of V3d * V3d * V3d //forward * sky * location
-    | PlaceRoverAtSol of string * Trafo3d * V3d * ReferenceSystem //rotation and location
-    | LoadTraverses of list<string>
-    | FlyToTraverse of Guid
-    | RemoveTraverse of Guid
-    | IsVisibleT of Guid
-    | SelectTraverse of Guid
-    | TraversePropertiesMessage of TraversePropertiesAction
+    | SelectSol                   of int
+    | FlyToSol                    of V3d * V3d * V3d //forward * sky * location
+    | PlaceRoverAtSol             of string * Trafo3d * V3d * ReferenceSystem //rotation and location
+    | LoadTraverses               of list<string>
+    | FlyToTraverse               of Guid
+    | RemoveTraverse              of Guid
+    | IsVisibleT                  of Guid
+    | SelectTraverse              of Guid
+    | TraversePropertiesMessage   of TraversePropertiesAction
     | RemoveAllTraverses
+    | SetRoverToTraverse          of Guid
+    | RemoveRoverFromTraverse
+    
 
 module InitTraverseParams =
 
@@ -139,23 +143,24 @@ type Sol with
 [<ModelType>]
 type Traverse =
     { 
-        version: int
-        [<NonAdaptive>]
-        guid: System.Guid
-        [<NonAdaptive>]
-        tName: string
-        sols: List<Sol>
-        selectedSol: option<int>
-        showLines: bool
-        showText: bool
-        tTextSize: NumericInput
-        tLineWidth: NumericInput
-        showDots: bool
-        isVisibleT: bool
-        color: ColorInput;
-        heightOffset : NumericInput
-        priority : NumericInput
-        priorityEnabled : bool
+        version           : int
+        [<NonAdaptive>]   
+        guid              : System.Guid
+        [<NonAdaptive>]   
+        tName             : string
+        sols              : List<Sol>
+        selectedSol       : option<int>
+        showLines         : bool
+        showText          : bool
+        tTextSize         : NumericInput
+        tLineWidth        : NumericInput
+        showDots          : bool
+        isVisibleT        : bool
+        color             : ColorInput;
+        heightOffset      : NumericInput
+        priority          : NumericInput
+        priorityEnabled   : bool
+        currRoverPosition : NumericInput
     }
 
 module Traverse =
@@ -191,22 +196,24 @@ module Traverse =
     }
 
     let empty = {
-        version = current
-        guid = Guid.NewGuid()
-        tName = ""
-        sols = []
-        selectedSol = None
-        showLines = true
-        showText = false
-        tTextSize = InitTraverseParams.tText
-        tLineWidth = InitTraverseParams.tLineW 1.5
-        showDots = false
-        isVisibleT = true
-        color = { c = C4b.White }
-        heightOffset = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
-        priority = initialPriority
-        priorityEnabled = false
+        version           = current
+        guid              = Guid.NewGuid()
+        tName             = ""
+        sols              = []
+        selectedSol       = None
+        showLines         = true
+        showText          = false
+        tTextSize         = InitTraverseParams.tText
+        tLineWidth        = InitTraverseParams.tLineW 1.5
+        showDots          = false
+        isVisibleT        = true
+        color             = { c = C4b.White }
+        heightOffset      = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
+        priority          = initialPriority
+        priorityEnabled   = false
+        currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.001 }      
     }
+
     let initial name sols =
         { empty with tName = name; sols = sols }
 
@@ -310,10 +317,12 @@ type Traverse with
         }
 
 [<ModelType>]
-type TraverseModel =
-    { version: int
-      traverses: HashMap<Guid, Traverse>
-      selectedTraverse: Option<Guid> }
+type TraverseModel = { 
+        version           : int
+        traverses         : HashMap<Guid, Traverse>
+        selectedTraverse  : Option<Guid>
+        roverTraverse     : Option<Guid>        
+    }
 
 module TraverseModel =
 
@@ -328,16 +337,20 @@ module TraverseModel =
 
             let! selected = Json.read "selectedTraverse"
 
-            return
-                { version = current
-                  traverses = traverses
-                  selectedTraverse = selected }
+            return {
+                version           = current
+                traverses         = traverses
+                selectedTraverse  = selected 
+                roverTraverse     = None
+            }
         }
 
-    let initial =
-        { version = current
-          traverses = HashMap.empty
-          selectedTraverse = None }
+    let initial = { 
+        version           = current
+        traverses         = HashMap.empty
+        selectedTraverse  = None 
+        roverTraverse     = None
+    }
 
 
 

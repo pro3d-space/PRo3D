@@ -1,5 +1,5 @@
-//7ae5be9a-b8fa-192f-a19d-53282d6fee46
-//500d4ef2-4d77-7181-6060-e536c527097e
+//587ceb76-d38f-c1fd-4be7-0ea20ecc479a
+//5e359f61-dc68-c9f9-d3db-8d51e18a4e48
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -25,6 +25,7 @@ type AdaptiveTraverse(value : Traverse) =
     let _heightOffset_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.heightOffset)
     let _priority_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.priority)
     let _priorityEnabled_ = FSharp.Data.Adaptive.cval(value.priorityEnabled)
+    let _currRoverPosition_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.currRoverPosition)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Traverse) = AdaptiveTraverse(value)
@@ -46,6 +47,7 @@ type AdaptiveTraverse(value : Traverse) =
             _heightOffset_.Update(value.heightOffset)
             _priority_.Update(value.priority)
             _priorityEnabled_.Value <- value.priorityEnabled
+            _currRoverPosition_.Update(value.currRoverPosition)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = __value.guid
@@ -62,6 +64,7 @@ type AdaptiveTraverse(value : Traverse) =
     member __.heightOffset = _heightOffset_
     member __.priority = _priority_
     member __.priorityEnabled = _priorityEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.currRoverPosition = _currRoverPosition_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseLenses = 
     type Traverse with
@@ -80,6 +83,7 @@ module TraverseLenses =
         static member heightOffset_ = ((fun (self : Traverse) -> self.heightOffset), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with heightOffset = value }))
         static member priority_ = ((fun (self : Traverse) -> self.priority), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with priority = value }))
         static member priorityEnabled_ = ((fun (self : Traverse) -> self.priorityEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with priorityEnabled = value }))
+        static member currRoverPosition_ = ((fun (self : Traverse) -> self.currRoverPosition), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with currRoverPosition = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverseModel(value : TraverseModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
@@ -89,6 +93,7 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             m
         FSharp.Data.Traceable.ChangeableModelMap(value.traverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
     let _selectedTraverse_ = FSharp.Data.Adaptive.cval(value.selectedTraverse)
+    let _roverTraverse_ = FSharp.Data.Adaptive.cval(value.roverTraverse)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : TraverseModel) = AdaptiveTraverseModel(value)
@@ -100,14 +105,17 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             _version_.Value <- value.version
             _traverses_.Update(value.traverses)
             _selectedTraverse_.Value <- value.selectedTraverse
+            _roverTraverse_.Value <- value.roverTraverse
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.traverses = _traverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.selectedTraverse = _selectedTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
+    member __.roverTraverse = _roverTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseModelLenses = 
     type TraverseModel with
         static member version_ = ((fun (self : TraverseModel) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : TraverseModel) -> { self with version = value }))
         static member traverses_ = ((fun (self : TraverseModel) -> self.traverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with traverses = value }))
         static member selectedTraverse_ = ((fun (self : TraverseModel) -> self.selectedTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedTraverse = value }))
+        static member roverTraverse_ = ((fun (self : TraverseModel) -> self.roverTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with roverTraverse = value }))
 
