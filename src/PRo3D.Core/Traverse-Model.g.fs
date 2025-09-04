@@ -1,5 +1,5 @@
-//a1f0706c-0148-e0b7-9e15-4e542dafde9b
-//f8f1c77d-18bd-313d-8ea7-356a6f3bdc4e
+//d6dfc2ea-6146-8a7d-1c07-ce487353fcdf
+//e1802467-6f3a-9191-c198-73bcd94334d5
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -190,11 +190,104 @@ module WaypointMetricsLenses =
         static member distanceM_ = ((fun (self : WaypointMetrics) -> self.distanceM), (fun (value : Microsoft.FSharp.Core.float) (self : WaypointMetrics) -> { self with distanceM = value }))
         static member totalDistanceM_ = ((fun (self : WaypointMetrics) -> self.totalDistanceM), (fun (value : Microsoft.FSharp.Core.float) (self : WaypointMetrics) -> { self with totalDistanceM = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type AdaptiveSolMetricsCase =
+    abstract member Update : SolMetrics -> AdaptiveSolMetricsCase
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type private AdaptiveSolMetricsRoverM(Item : RoverMetrics) =
+    let _Item_ = AdaptiveRoverMetrics(Item)
+    let mutable __Item = Item
+    member __.Update(Item : RoverMetrics) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<RoverMetrics>.ShallowEquals(Item, __Item))) then
+            __Item <- Item
+            _Item_.Update(Item)
+    member __.Item = _Item_
+    interface AdaptiveSolMetricsCase with
+        member x.Update(value : SolMetrics) =
+            match value with
+            | SolMetrics.RoverM(Item) ->
+                x.Update(Item)
+                x :> AdaptiveSolMetricsCase
+            | SolMetrics.RIMFAXM(Item) -> AdaptiveSolMetricsRIMFAXM(Item) :> AdaptiveSolMetricsCase
+            | SolMetrics.WaypointM(Item) -> AdaptiveSolMetricsWaypointM(Item) :> AdaptiveSolMetricsCase
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type private AdaptiveSolMetricsRIMFAXM(Item : RIMFAXMetrics) =
+    let _Item_ = AdaptiveRIMFAXMetrics(Item)
+    let mutable __Item = Item
+    member __.Update(Item : RIMFAXMetrics) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<RIMFAXMetrics>.ShallowEquals(Item, __Item))) then
+            __Item <- Item
+            _Item_.Update(Item)
+    member __.Item = _Item_
+    interface AdaptiveSolMetricsCase with
+        member x.Update(value : SolMetrics) =
+            match value with
+            | SolMetrics.RoverM(Item) -> AdaptiveSolMetricsRoverM(Item) :> AdaptiveSolMetricsCase
+            | SolMetrics.RIMFAXM(Item) ->
+                x.Update(Item)
+                x :> AdaptiveSolMetricsCase
+            | SolMetrics.WaypointM(Item) -> AdaptiveSolMetricsWaypointM(Item) :> AdaptiveSolMetricsCase
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type private AdaptiveSolMetricsWaypointM(Item : WaypointMetrics) =
+    let _Item_ = AdaptiveWaypointMetrics(Item)
+    let mutable __Item = Item
+    member __.Update(Item : WaypointMetrics) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<WaypointMetrics>.ShallowEquals(Item, __Item))) then
+            __Item <- Item
+            _Item_.Update(Item)
+    member __.Item = _Item_
+    interface AdaptiveSolMetricsCase with
+        member x.Update(value : SolMetrics) =
+            match value with
+            | SolMetrics.RoverM(Item) -> AdaptiveSolMetricsRoverM(Item) :> AdaptiveSolMetricsCase
+            | SolMetrics.RIMFAXM(Item) -> AdaptiveSolMetricsRIMFAXM(Item) :> AdaptiveSolMetricsCase
+            | SolMetrics.WaypointM(Item) ->
+                x.Update(Item)
+                x :> AdaptiveSolMetricsCase
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type AdaptiveSolMetrics(value : SolMetrics) =
+    inherit Adaptify.AdaptiveValue<AdaptiveSolMetricsCase>()
+    let mutable __value = value
+    let mutable __current =
+        match value with
+        | SolMetrics.RoverM(Item) -> AdaptiveSolMetricsRoverM(Item) :> AdaptiveSolMetricsCase
+        | SolMetrics.RIMFAXM(Item) -> AdaptiveSolMetricsRIMFAXM(Item) :> AdaptiveSolMetricsCase
+        | SolMetrics.WaypointM(Item) -> AdaptiveSolMetricsWaypointM(Item) :> AdaptiveSolMetricsCase
+    let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (t : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
+    static member CreateAdaptiveCase(value : SolMetrics) =
+        match value with
+        | SolMetrics.RoverM(Item) -> AdaptiveSolMetricsRoverM(Item) :> AdaptiveSolMetricsCase
+        | SolMetrics.RIMFAXM(Item) -> AdaptiveSolMetricsRIMFAXM(Item) :> AdaptiveSolMetricsCase
+        | SolMetrics.WaypointM(Item) -> AdaptiveSolMetricsWaypointM(Item) :> AdaptiveSolMetricsCase
+    static member Create(value : SolMetrics) = AdaptiveSolMetrics(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : SolMetrics) -> AdaptiveSolMetrics(value)) (fun (adaptive : AdaptiveSolMetrics) (value : SolMetrics) -> adaptive.Update(value))
+    member __.Current = __adaptive
+    member __.Update(value : SolMetrics) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<SolMetrics>.ShallowEquals(value, __value))) then
+            __value <- value
+            __adaptive.MarkOutdated()
+            let __n = __current.Update(value)
+            if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<AdaptiveSolMetricsCase>.ShallowEquals(__n, __current))) then
+                __current <- __n
+                __.MarkOutdated()
+    override __.Compute(t : FSharp.Data.Adaptive.AdaptiveToken) = __current
+[<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+module AdaptiveSolMetrics = 
+    let (|AdaptiveRoverM|AdaptiveRIMFAXM|AdaptiveWaypointM|) (value : AdaptiveSolMetricsCase) =
+        match value with
+        | (:? AdaptiveSolMetricsRoverM as roverm) -> AdaptiveRoverM(roverm.Item)
+        | (:? AdaptiveSolMetricsRIMFAXM as rimfaxm) -> AdaptiveRIMFAXM(rimfaxm.Item)
+        | (:? AdaptiveSolMetricsWaypointM as waypointm) -> AdaptiveWaypointM(waypointm.Item)
+        | _ -> failwith "unreachable"
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveSol(value : Sol) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _location_ = FSharp.Data.Adaptive.cval(value.location)
     let _solNumber_ = FSharp.Data.Adaptive.cval(value.solNumber)
-    let _solMetrics_ = FSharp.Data.Adaptive.cval(value.solMetrics)
+    let _solMetrics_ =
+        let inline __arg5 (o : System.Object) (v : SolMetrics) =
+            (unbox<AdaptiveSolMetrics> o).Update(v)
+            o
+        Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Core.SolMetrics, PRo3D.Core.AdaptiveSolMetricsCase, FSharp.Data.Adaptive.aval<PRo3D.Core.AdaptiveSolMetricsCase>>(value.solMetrics, (fun (v : SolMetrics) -> AdaptiveSolMetrics.CreateAdaptiveCase(v) :> System.Object), (fun (o : System.Object) (v : SolMetrics) -> (unbox<AdaptiveSolMetricsCase> o).Update(v) :> System.Object), (fun (o : System.Object) -> unbox<AdaptiveSolMetricsCase> o), (fun (v : SolMetrics) -> AdaptiveSolMetrics(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveSolMetrics> o :> FSharp.Data.Adaptive.aval<AdaptiveSolMetricsCase>))
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Sol) = AdaptiveSol(value)
@@ -206,12 +299,12 @@ type AdaptiveSol(value : Sol) =
             _version_.Value <- value.version
             _location_.Value <- value.location
             _solNumber_.Value <- value.solNumber
-            _solMetrics_.Value <- value.solMetrics
+            _solMetrics_.Update(value.solMetrics)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.location = _location_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>>
     member __.solNumber = _solNumber_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
-    member __.solMetrics = _solMetrics_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<SolMetrics>>
+    member __.solMetrics = _solMetrics_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<SolMetrics, AdaptiveSolMetricsCase, FSharp.Data.Adaptive.aval<AdaptiveSolMetricsCase>>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SolLenses = 
     type Sol with

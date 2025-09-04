@@ -135,8 +135,8 @@ type RoverMetrics with
             do! Json.write "version" RoverMetrics.current
             do! Json.write "fromRMC" x.fromRMC
             do! Json.write "toRMC" x.toRMC
-            do! Json.writeFloat "sclkStart" x.sclkStart
-            do! Json.writeFloat "sclkEnd" x.sclkEnd
+            do! Json.writeFloat "SCLK_START" x.sclkStart
+            do! Json.writeFloat "SCLK_END" x.sclkEnd
             do! Json.writeFloat "length" x.length
         }
 
@@ -244,8 +244,8 @@ type RIMFAXMetrics with
             do! Json.write "version" RIMFAXMetrics.current
             do! Json.write "fromRMC" x.fromRMC
             do! Json.write "toRMC" x.toRMC
-            do! Json.writeFloat "sclkStart" x.sclkStart
-            do! Json.writeFloat "sclkEnd" x.sclkEnd
+            do! Json.writeFloat "SCLK_START" x.sclkStart
+            do! Json.writeFloat "SCLK_END" x.sclkEnd
             do! Json.write "RIMFAXSurfaceProperties" x.RIMFAXSurfaceProperties
             do! Json.writeFloat "length" x.length
         }
@@ -350,10 +350,13 @@ type WaypointMetrics with
             do! Json.writeFloat "dist_total_m" x.totalDistanceM
         }
 
+[<ModelType>]
 type SolMetrics =
     | RoverM of RoverMetrics
     | RIMFAXM of RIMFAXMetrics
     | WaypointM of WaypointMetrics
+
+type SolMetrics with
 
     static member ToJson (x: SolMetrics) =
         match x with
@@ -480,7 +483,9 @@ type Sol with
             do! Json.write "version" Sol.current
             do! Json.write "location" (x.location |> List.map(fun x -> x.ToString()))
             do! Json.write "solNumber" x.solNumber
-            do! Json.writeOption "solMetrics" x.solMetrics
+            // Sophie: this should actually be Json.writeOption... but Json.writeOption leads to ignoring the downstream ToJson methods,
+            // Therefore i here implement Json.write, as we always do have metrics at the moment, but we might have to investigate this
+            do! Json.write "solMetrics" x.solMetrics
         }
 
 
