@@ -546,7 +546,7 @@ module Traverse =
         format = "{0:0}"
     }
 
-    let empty = {
+    let empty() = {
         version = current
         guid = Guid.NewGuid()
         traverseType = TraverseType.Rover
@@ -568,7 +568,7 @@ module Traverse =
     }
 
     let initial name sols =
-        { empty with tName = name; sols = sols; guid = Guid.NewGuid() }
+        { (empty ()) with tName = name; sols = sols }
 
     let withTraverseType(traverseType: TraverseType) (t: Traverse) =
         { t with traverseType = traverseType }
@@ -587,7 +587,7 @@ module Traverse =
             let! showDots = Json.read "showDots"
 
             return
-                { empty with
+                { ( empty () ) with
                     version = current
                     guid = Guid.NewGuid()
                     tName = ""
@@ -626,7 +626,7 @@ module Traverse =
             let! priority = Json.tryRead "priority" 
 
             return
-                { empty with 
+                { ( empty () ) with 
                     version = current
                     guid = guid |> Guid
                     tName = tName
@@ -639,8 +639,8 @@ module Traverse =
                     showDots = showDots
                     isVisibleT = isVisibleT
                     color = color
-                    heightOffset = { empty.heightOffset with value = Option.defaultValue 0.0 heightOffset }
-                    priority = { empty.priority with value = Option.defaultValue 0.0 priority }
+                    heightOffset = { ( empty () ).heightOffset with value = Option.defaultValue 0.0 heightOffset }
+                    priority = { ( empty () ).priority with value = Option.defaultValue 0.0 priority }
                     priorityEnabled = priorityEnabled |> Option.defaultValue false
                 }
         }
@@ -683,8 +683,8 @@ module Traverse =
                     showDots = showDots
                     isVisibleT = isVisibleT
                     color = color
-                    heightOffset = { empty.heightOffset with value = Option.defaultValue 0.0 heightOffset }
-                    priority = { empty.priority with value = Option.defaultValue 0.0 priority }
+                    heightOffset = { ( empty () ).heightOffset with value = Option.defaultValue 0.0 heightOffset }
+                    priority = { ( empty () ).priority with value = Option.defaultValue 0.0 priority }
                     priorityEnabled = priorityEnabled |> Option.defaultValue false
                     traverseType = traverseType
                     showRIMFAXSurfaces = showRIMFAXSurfaces
