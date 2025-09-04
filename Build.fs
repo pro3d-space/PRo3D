@@ -624,7 +624,8 @@ Target.create "GitHubRelease" (fun _ ->
     let newVersion = notes.NugetVersion
     try
         try
-            Branches.tag "." newVersion
+            let tagName = "v" + newVersion
+            Branches.tag "." tagName
             let token =
                 match Environment.environVarOrDefault "GH_TOKEN" "" with
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s

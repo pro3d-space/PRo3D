@@ -1,3 +1,6 @@
+## 5.1.0-prerelease3
+- native dependency fix for mac
+
 ## 5.1.0-prerelease2
 - native dependency fix for mac
 

@@ -6,9 +6,34 @@ on:
       - aardium/package.json
       - .github/workflows/deploy.yml 
 jobs:
+
+  win32_x64:
+      name: windows
+      runs-on: windows-latest
+      steps:  
+        - name: Install Dotnet
+          uses: actions/setup-dotnet@v1
+          with:
+            dotnet-version: '8.0.x'
+        - name: Checkout
+          uses: actions/checkout@v2
+        - name: Yarn Install
+          working-directory: aardium
+          run: yarn install  
+        - name: Create ZIP Release
+          env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          run: .\build.cmd GitHubRelease
+        - name: Build
+          env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          run: .\build.cmd PublishToElectron
+
+
   mac_x64:
     name: OSX (x64)
     runs-on: macos-13
+    needs: win32_x64
     steps:  
       - name: Checkout
         uses: actions/checkout@v2
@@ -40,31 +65,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
-  win32_x64:
-    name: windows
-    runs-on: windows-latest
-    steps:  
-      - name: Install Dotnet
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '8.0.x'
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Yarn Install
-        working-directory: aardium
-        run: yarn install  
-      - name: Build
-        env:
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .\build.cmd PublishToElectron
-      - name: Add ZIP Release
-        env:
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .\build.cmd GitHubRelease
-
+  
   linux_x64:
     name: linux 
     runs-on: ubuntu-latest
+    needs: win32_x64
     steps:  
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v1
