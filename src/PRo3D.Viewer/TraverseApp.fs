@@ -320,7 +320,7 @@ module TraverseApp =
                 selectedTraverse = None } 
         | LoadRIMFAXSurface (rootDirectoy, traverseID) ->
             match rootDirectoy  with
-            | [path] ->
+            | [path] when path <> "" ->
                 //let objPaths = Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) |> Array.filter (fun filePath -> (Path.GetDirectoryName(filePath).Contains("026") && not (Path.GetDirectoryName(filePath).Contains("1219"))  && not (Array.contains "1220" (Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)))))
                 let pathBelongsToSol (filePath : string) (solNumber : int)  =
                     let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
