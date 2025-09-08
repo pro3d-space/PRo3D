@@ -47,6 +47,21 @@ module M20 =
             ""
 
 module TraversePropertiesApp =
+    let calculateRoverPosition (traverse : Traverse) =
+        let currPos = traverse.currRoverPosition.value
+
+        let solPosF = currPos * (float traverse.sols.Length)
+        let solPos1 = (int solPosF)
+        
+        let position = 
+            if solPos1 = traverse.sols.Length then 
+                traverse.sols.[solPos1].location
+            else
+                let solPos2 = solPos1 + 1
+                let factor = solPosF - (float solPos1)
+                (traverse.sols.[solPos1].location * factor) + (traverse.sols.[solPos2].location * (1.0 - factor))
+
+        { traverse with roverLocation = position }
 
     let update (model : Traverse) (action : TraversePropertiesAction) : Traverse = 
         match action with
@@ -72,6 +87,7 @@ module TraversePropertiesApp =
             { model with priorityEnabled = not model.priorityEnabled } 
         | SetRoverPositionOnTraverses pos -> 
             { model with currRoverPosition = Numeric.update model.currRoverPosition pos }
+            |> calculateRoverPosition 
 
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -617,6 +633,18 @@ module TraverseApp =
             |> Sg.dynamic
             |> Sg.onOff model.showLines
             |> Sg.onOff model.isVisibleT
+
+        let drawRover (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+            adaptive {
+                //let! position = model.roverLocation
+
+                let color = (AVal.constant C4b.LightGoldenRodYellow)
+                let box   = (AVal.constant Box3d.Unit)
+
+                return (Sg.box color box)
+            }
+            |> Sg.dynamic
+            |> Sg.translation model.roverLocation
 
 
         let getTraverseOffsetTransform (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) =
