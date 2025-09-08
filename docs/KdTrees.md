@@ -48,7 +48,7 @@ KdTrees can be constructed:
 | OPC_JezeroTest1m_nokdtree | No kd Tree | Yes, no picking, prints `WARNING: [KdTrees] Kdtree not available, please build it manually using opc-tool or pro3d.` | Create KdTree using PRo3D or opc-tool ![alt text](images/createKdTree2.png) and reload the hierarchy. | - |
 | OPC_JezeroTest1m_v2021 | OPC created using per patch kd trees | Yes, picking available fast loading, low memory | None | - |
 | OPC_JezeroTest1m | OPC created without per patch kdTrees, but with master kd tree file (mostly late 2023) | Yes loads, but takes lot of memory since kdtree for whole opc is loaded. Also PRo3D reports this line in stdout `WARNING: Found master kdtree - loading incore. THIS NEEDS A LOT OF MEMORY. CONSIDER CREATING PER-PATCH KD TREES..` | Delete `*.aakd` and create new kd trees using PRo3D or opc-tool. Note that PRo3D never deletes the master kdtree file as whis would be cumbersome. Users confronted with this situation currently really need to delete unwanted huge kd tree files. | This beharior could be changed to [ignore the master kd tree](https://github.com/aardvark-platform/OpcViewer/blob/7fdf368e1e59a2c33c0cc7e5ca3e20b8c18a42a0/src/OPCViewer.Base/KdTrees.fs#L212) |
-
+| MSL Sol 1275 (from pro3d.space page) | both, single and master kdtrees, [in september 2025](https://github.com/pro3d-space/PRo3D/issues/534) i added another tweak (see issue & PR) | Yes | Regenerate KdTrees if feasible | [here](https://github.com/pro3d-space/PRo3D/issues/534) |
 
 ## File system behavior
 

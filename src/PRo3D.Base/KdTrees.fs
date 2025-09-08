@@ -251,6 +251,7 @@ module KdTrees =
                 Log.line "[KdTrees] missing kd0 paths: %d/%d" missingKd0Paths.Length kd0Paths.Length
 
             match tryFixPatchFileIfNeeded masterKdPath with
+            // the idea here is to use the per-patch kdtrees if available (that's the missingKd0Paths check)
             | Some masterKdPath when not ignoreMasterKdTree && not forceRebuild && missingKd0Paths.Length > 0  ->
                 Log.warn "Found master kdtree - loading incore. THIS NEEDS A LOT OF MEMORY. CONSIDER CREATING PER-PATCH KD TREES. see: https://github.com/pro3d-space/PRo3D/blob/9821c8882b024c7ed85c23ee76110c70e249e480/docs/KdTrees.md#create-kdtrees-for-an-opc-hierarchy"
                 let tree = loadKdtree masterKdPath
