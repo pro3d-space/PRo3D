@@ -667,6 +667,26 @@ module TraverseApp =
             |> AMap.toASet 
             |> ASet.map snd 
             |> Sg.set
+
+        let viewRover (refSystem : AdaptiveReferenceSystem) (traverseModel : AdaptiveTraverseModel) = 
+            let roverModel = Sg.box (AVal.constant(C4b.Red)) (AVal.constant(Box3d.Unit))
+                
+            
+            let roverTraverse = 
+                aval {
+                    let! roverTraverseGuid = traverseModel.roverTraverse
+                    
+                    let roverTraverse = 
+                        roverTraverseGuid
+                        |> Option.map (fun g -> 
+                            traverseModel.traverses
+                            |> AMap.find g)
+                    return roverTraverse
+                }
+                
+                       
+            
+            ""
             
         let drawSolTextsFast (view : aval<CameraView>) (horizontalFovInDegrees : aval<float>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
             let contents = 
