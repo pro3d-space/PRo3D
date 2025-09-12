@@ -22,9 +22,9 @@ type TraversePropertiesAction =
     | SetTraverseColor            of ColorPicker.Action
     | SetHeightOffset             of Numeric.Action
     | SetPriority                 of Numeric.Action
-    | TogglePriorityRenderingEnabled
     | SetRoverPositionOnTraverses of Numeric.Action
-
+    | TogglePriorityRenderingEnabled
+    
 type TraverseAction =
     | SelectSol                   of int
     | FlyToSol                    of V3d * V3d * V3d //forward * sky * location
@@ -38,6 +38,7 @@ type TraverseAction =
     | RemoveAllTraverses
     | SetRoverToTraverse          of Guid
     | RemoveRoverFromTraverse
+    
     
 
 module InitTraverseParams =
@@ -161,7 +162,6 @@ type Traverse =
         priority          : NumericInput
         priorityEnabled   : bool
         currRoverPosition : NumericInput
-        roverLocation     : V3d
     }
 
 module Traverse =
@@ -212,8 +212,7 @@ module Traverse =
         heightOffset      = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
         priority          = initialPriority
         priorityEnabled   = false
-        currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.001 }   
-        roverLocation     = V3d.NaN
+        currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.001 }           
     }
 
     let initial name sols =
@@ -323,7 +322,8 @@ type TraverseModel = {
         version           : int
         traverses         : HashMap<Guid, Traverse>
         selectedTraverse  : Option<Guid>
-        roverTraverse     : Option<Guid>        
+        roverTraverse     : Option<Guid>
+        roverLocation     : V3d
     }
 
 module TraverseModel =
@@ -344,6 +344,7 @@ module TraverseModel =
                 traverses         = traverses
                 selectedTraverse  = selected 
                 roverTraverse     = None
+                roverLocation     = V3d.NaN
             }
         }
 
@@ -352,6 +353,7 @@ module TraverseModel =
         traverses         = HashMap.empty
         selectedTraverse  = None 
         roverTraverse     = None
+        roverLocation     = V3d.NaN
     }
 
 

@@ -1,5 +1,5 @@
-//ebafb2a5-81b5-ffb4-8828-58fe8d4950af
-//d3ca2aaf-0213-4bd5-bc84-a067b02002ca
+//6e5fc7f4-cb18-8a56-a190-7d67b24110ce
+//513f3ea7-9cef-a0e4-5bda-646fdcc0a643
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -26,7 +26,6 @@ type AdaptiveTraverse(value : Traverse) =
     let _priority_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.priority)
     let _priorityEnabled_ = FSharp.Data.Adaptive.cval(value.priorityEnabled)
     let _currRoverPosition_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.currRoverPosition)
-    let _roverLocation_ = FSharp.Data.Adaptive.cval(value.roverLocation)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Traverse) = AdaptiveTraverse(value)
@@ -49,7 +48,6 @@ type AdaptiveTraverse(value : Traverse) =
             _priority_.Update(value.priority)
             _priorityEnabled_.Value <- value.priorityEnabled
             _currRoverPosition_.Update(value.currRoverPosition)
-            _roverLocation_.Value <- value.roverLocation
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = __value.guid
@@ -67,7 +65,6 @@ type AdaptiveTraverse(value : Traverse) =
     member __.priority = _priority_
     member __.priorityEnabled = _priorityEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.currRoverPosition = _currRoverPosition_
-    member __.roverLocation = _roverLocation_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V3d>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseLenses = 
     type Traverse with
@@ -87,7 +84,6 @@ module TraverseLenses =
         static member priority_ = ((fun (self : Traverse) -> self.priority), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with priority = value }))
         static member priorityEnabled_ = ((fun (self : Traverse) -> self.priorityEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with priorityEnabled = value }))
         static member currRoverPosition_ = ((fun (self : Traverse) -> self.currRoverPosition), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with currRoverPosition = value }))
-        static member roverLocation_ = ((fun (self : Traverse) -> self.roverLocation), (fun (value : Aardvark.Base.V3d) (self : Traverse) -> { self with roverLocation = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverseModel(value : TraverseModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
@@ -98,6 +94,7 @@ type AdaptiveTraverseModel(value : TraverseModel) =
         FSharp.Data.Traceable.ChangeableModelMap(value.traverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
     let _selectedTraverse_ = FSharp.Data.Adaptive.cval(value.selectedTraverse)
     let _roverTraverse_ = FSharp.Data.Adaptive.cval(value.roverTraverse)
+    let _roverLocation_ = FSharp.Data.Adaptive.cval(value.roverLocation)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : TraverseModel) = AdaptiveTraverseModel(value)
@@ -110,11 +107,13 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             _traverses_.Update(value.traverses)
             _selectedTraverse_.Value <- value.selectedTraverse
             _roverTraverse_.Value <- value.roverTraverse
+            _roverLocation_.Value <- value.roverLocation
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.traverses = _traverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.selectedTraverse = _selectedTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
     member __.roverTraverse = _roverTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
+    member __.roverLocation = _roverLocation_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V3d>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseModelLenses = 
     type TraverseModel with
@@ -122,4 +121,5 @@ module TraverseModelLenses =
         static member traverses_ = ((fun (self : TraverseModel) -> self.traverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with traverses = value }))
         static member selectedTraverse_ = ((fun (self : TraverseModel) -> self.selectedTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedTraverse = value }))
         static member roverTraverse_ = ((fun (self : TraverseModel) -> self.roverTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with roverTraverse = value }))
+        static member roverLocation_ = ((fun (self : TraverseModel) -> self.roverLocation), (fun (value : Aardvark.Base.V3d) (self : TraverseModel) -> { self with roverLocation = value }))
 
