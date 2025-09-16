@@ -1,5 +1,5 @@
-//aa12ae5e-5fa3-0a42-74b9-ec4392ae7ad1
-//690b63cb-8351-abec-b049-09c7eeb3d072
+//6adb1b20-498e-6ffe-58a5-551e0f57b137
+//2418da5b-3223-106d-7df4-db0d3c2196b1
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -77,6 +77,7 @@ type AdaptiveGisApp(value : GisApp) =
     let _spiceKernel_ = FSharp.Data.Adaptive.cval(value.spiceKernel)
     let _spiceKernelLoadSuccess_ = FSharp.Data.Adaptive.cval(value.spiceKernelLoadSuccess)
     let _cameraInObserver_ = FSharp.Data.Adaptive.cval(value.cameraInObserver)
+    let _selectedMissionTimeRow_ = FSharp.Data.Adaptive.cval(value.selectedMissionTimeRow)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : GisApp) = AdaptiveGisApp(value)
@@ -95,6 +96,7 @@ type AdaptiveGisApp(value : GisApp) =
             _spiceKernel_.Value <- value.spiceKernel
             _spiceKernelLoadSuccess_.Value <- value.spiceKernelLoadSuccess
             _cameraInObserver_.Value <- value.cameraInObserver
+            _selectedMissionTimeRow_.Value <- value.selectedMissionTimeRow
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.defaultObservationInfo = _defaultObservationInfo_
@@ -106,6 +108,7 @@ type AdaptiveGisApp(value : GisApp) =
     member __.spiceKernel = _spiceKernel_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<PRo3D.Base.CooTransformation.SPICEKernel>>
     member __.spiceKernelLoadSuccess = _spiceKernelLoadSuccess_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.cameraInObserver = _cameraInObserver_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.selectedMissionTimeRow = _selectedMissionTimeRow_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module GisAppLenses = 
     type GisApp with
@@ -119,4 +122,5 @@ module GisAppLenses =
         static member spiceKernel_ = ((fun (self : GisApp) -> self.spiceKernel), (fun (value : Microsoft.FSharp.Core.option<PRo3D.Base.CooTransformation.SPICEKernel>) (self : GisApp) -> { self with spiceKernel = value }))
         static member spiceKernelLoadSuccess_ = ((fun (self : GisApp) -> self.spiceKernelLoadSuccess), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with spiceKernelLoadSuccess = value }))
         static member cameraInObserver_ = ((fun (self : GisApp) -> self.cameraInObserver), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with cameraInObserver = value }))
+        static member selectedMissionTimeRow_ = ((fun (self : GisApp) -> self.selectedMissionTimeRow), (fun (value : Microsoft.FSharp.Core.int) (self : GisApp) -> { self with selectedMissionTimeRow = value }))
 

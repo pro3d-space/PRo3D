@@ -115,6 +115,7 @@ type GisApp =
         spiceKernel            : option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
         cameraInObserver       : bool
+        selectedMissionTimeRow : int
     } 
 with
     static member current = 0
@@ -159,6 +160,7 @@ module GisAppJson =
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
+                selectedMissionTimeRow = -1
             }
         }
     
@@ -222,3 +224,4 @@ type GisAppAction =
     | ToggleCameraInObserver    
     | NewEntity
     | NewFrame
+    | ToggleMissionTimesRow     of int

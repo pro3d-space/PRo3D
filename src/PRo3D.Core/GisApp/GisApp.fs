@@ -219,6 +219,8 @@ module GisApp =
             viewer, m
         | GisAppAction.ToggleCameraInObserver ->
             viewer, {m with cameraInObserver = not m.cameraInObserver}
+        | GisAppAction.ToggleMissionTimesRow rowIdx ->
+            viewer, {m with selectedMissionTimeRow = rowIdx}
             
     let private currentlyAssociatedEntity
         (surface : SurfaceId) 
@@ -461,44 +463,59 @@ module GisApp =
 
             let updateddata = 
                 data
-                |> List.map (fun entry ->
-                    tr [] [
-                        td [] [text entry.name]
-                        td [] [
-                                text (System.String.Concat("Start: ", entry.minDate.ToString("yyyy-MM-dd")))
-                                br[]
-                                text (System.String.Concat("End: ", entry.maxDate.ToString("yyyy-MM-dd")))
-                            ] // , " \n ", entry.maxDate.ToString("yyyy-MM-dd")
-                        td [] [
-                            Numeric.view' [Slider] (
-                                AdaptiveNumericInput {
-                                    value   = 0.0
-                                    min     = 0.0
-                                    max     = 1.0
-                                    step    = 0.01
-                                    format  = "{0:0.00}"
-                                }
-                            ) |> UI.map (fun action -> 
-                                match action with
-                                | Numeric.Action.SetValue v ->
-                                    GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime (entry.minDate + (entry.maxDate - entry.minDate) * v))
-                                | _ ->
-                                    // implement different default case!!
-                                    GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime entry.minDate)
+                |> List.mapi (fun idx entry ->
+                    let attributes = 
+                        amap {
+                            yield onClick (fun _ -> GisAppAction.ToggleMissionTimesRow idx)
+                            let! missionTime = m.selectedMissionTimeRow
+                            yield 
+                                style (
+                                    match (missionTime : int) with
+                                    | selectedMissionTime when selectedMissionTime = idx -> ""
+                                    | _ -> "opacity: 0.5;"
                                 )
-                        ]
-                        td [] [
-                            (*
-                            Numeric.view' [InputBox] (AdaptiveNumericInput {
-                                    value   = 0.0
-                                    min     = 0.0
-                                    max     = 10.0
-                                    step    = 0.1
-                                    format  = "{0:0.00}"
-                                }) |> UI.map SetTrajectoryLength 
-                            *)
-                            ]
-                    ]
+                        } 
+
+                    let children = 
+                        alist {
+                                td [] [text entry.name]
+                                td [] [
+                                        text (System.String.Concat("Start: ", entry.minDate.ToString("yyyy-MM-dd")))
+                                        br[]
+                                        text (System.String.Concat("End: ", entry.maxDate.ToString("yyyy-MM-dd")))
+                                    ] 
+                                td [] [
+                                    Numeric.view' [Slider] (
+                                        AdaptiveNumericInput {
+                                            value   = 0.0
+                                            min     = 0.0
+                                            max     = 1.0
+                                            step    = 0.01
+                                            format  = "{0:0.00}"
+                                        }
+                                    ) |> UI.map (fun action -> 
+                                        match action with
+                                        | Numeric.Action.SetValue v ->
+                                            GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime (entry.minDate + (entry.maxDate - entry.minDate) * v))
+                                        | _ ->
+                                            // implement different default case!!
+                                            GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime entry.minDate)
+                                        )
+                                ]
+                                td [] [
+                                    (*
+                                    Numeric.view' [InputBox] (AdaptiveNumericInput {
+                                            value   = 0.0
+                                            min     = 0.0
+                                            max     = 10.0
+                                            step    = 0.1
+                                            format  = "{0:0.00}"
+                                        }) |> UI.map SetTrajectoryLength 
+                                    *)
+                                    ]
+                        }
+                    
+                    Incremental.tr (AttributeMap.ofAMap attributes) children
                 ) |> AList.ofList
 
             updateddata
@@ -985,6 +1002,7 @@ module GisApp =
                 spiceKernel             = spiceKernel |> Option.map CooTransformation.SPICEKernel.ofPath  
                 spiceKernelLoadSuccess  = true
                 cameraInObserver        = false
+                selectedMissionTimeRow  = -1
             }
 
         match spiceKernel with
