@@ -22,6 +22,7 @@ open Aardvark.SceneGraph
 open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisApp = 
     type GisLenses<'viewer> = 
@@ -426,6 +427,87 @@ module GisApp =
             ([clazz "ui unstackable inverted table"] |> AttributeMap.ofList)
             (AList.append (AList.append headers rows) actions)
 
+
+    let viewMissionTimes (m : AdaptiveGisApp) =
+
+        let headers =
+            [
+                tr [] [
+                    th [] [text "Mission Phase"]
+                    th [] [text "Time Range"]
+                    th [] [text "Animation"]
+                    th [] [text "Trajectory Length (Timespan)"]
+                ]
+            ] |> AList.ofList
+
+        let rows = 
+            let data : list<MissionTimeEntry> = [
+                {
+                    minDate = DateTime(2025, 1, 1)
+                    maxDate = DateTime(2025, 1, 3)
+                    name    = "Mars Flyby"
+                }
+                {
+                    minDate = DateTime(2025, 2, 1)
+                    maxDate = DateTime(2025, 3, 31)
+                    name    = "Phobos Flyby"
+                }
+                {
+                    minDate = DateTime(2025, 3, 1)
+                    maxDate = DateTime(2025, 10, 31)
+                    name    = "Earth Flyby"
+                }
+            ]
+
+            let updateddata = 
+                data
+                |> List.map (fun entry ->
+                    tr [] [
+                        td [] [text entry.name]
+                        td [] [
+                                text (System.String.Concat("Start: ", entry.minDate.ToString("yyyy-MM-dd")))
+                                br[]
+                                text (System.String.Concat("End: ", entry.maxDate.ToString("yyyy-MM-dd")))
+                            ] // , " \n ", entry.maxDate.ToString("yyyy-MM-dd")
+                        td [] [
+                            Numeric.view' [Slider] (
+                                AdaptiveNumericInput {
+                                    value   = 0.0
+                                    min     = 0.0
+                                    max     = 1.0
+                                    step    = 0.01
+                                    format  = "{0:0.00}"
+                                }
+                            ) |> UI.map (fun action -> 
+                                match action with
+                                | Numeric.Action.SetValue v ->
+                                    GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime (entry.minDate + (entry.maxDate - entry.minDate) * v))
+                                | _ ->
+                                    // implement different default case!!
+                                    GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime entry.minDate)
+                                )
+                        ]
+                        td [] [
+                            (*
+                            Numeric.view' [InputBox] (AdaptiveNumericInput {
+                                    value   = 0.0
+                                    min     = 0.0
+                                    max     = 10.0
+                                    step    = 0.1
+                                    format  = "{0:0.00}"
+                                }) |> UI.map SetTrajectoryLength 
+                            *)
+                            ]
+                    ]
+                ) |> AList.ofList
+
+            updateddata
+
+        Incremental.table 
+            ([clazz "ui unstackable inverted table"] |> AttributeMap.ofList)
+            (AList.append headers rows)
+
+
     let viewFrames (m : AdaptiveGisApp) =
         let mapper msg s =
             GisAppAction.FrameMessage (s, msg)
@@ -565,6 +647,10 @@ module GisApp =
                                  [GuiEx.iconCheckBox m.cameraInObserver ToggleCameraInObserver]
                     ]
                 )
+            ]
+
+            GuiEx.accordion "Mission Time" "Cubes" false [
+                viewMissionTimes m
             ]
         ]
 

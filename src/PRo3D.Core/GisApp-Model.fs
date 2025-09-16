@@ -2,8 +2,6 @@
 
 
 open System
-open Aardvark.Base
-open Aardvark.UI
 open FSharp.Data.Adaptive
 open Adaptify
 open PRo3D.Base
@@ -12,6 +10,7 @@ open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Base.Gis
 open Chiron
+
 
 type GisSurface = {
     surfaceId       : SurfaceId
@@ -120,6 +119,12 @@ type GisApp =
 with
     static member current = 0
 
+type MissionTimeEntry = {
+    minDate : DateTime
+    maxDate : DateTime
+    name    : string
+}
+
 module GisAppJson =
     let read0 =
         json {
@@ -217,6 +222,3 @@ type GisAppAction =
     | ToggleCameraInObserver    
     | NewEntity
     | NewFrame
-
-
-    
