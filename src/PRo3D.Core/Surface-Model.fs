@@ -972,9 +972,12 @@ type SgSurface = {
     dataSource  : DataSource
     [<NonAdaptive>]
     isObj       : bool
-    sgImportPath  : string // instead of using "importPath" as using "importPath" leads to type confusion with Surface during build and would lead to enforce typing everywhere
+    // "sgImportPath" property is not names "importPath", as "importPath" is a property of the type "Surface",
+    // which leads to type confusion during build and would enforce typing everywhere.
+    // We need this property not only for the surface type, but also for the SgSurface type, as it is required
+    // to render the RIMFAX surfaces.
+    sgImportPath  : string
 }
-
 
 
 
