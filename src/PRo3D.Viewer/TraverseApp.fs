@@ -359,7 +359,7 @@ module TraverseApp =
                                         Some { 
                                             version = RIMFAXSurfaceMetrics.current
                                             RIMFAXSurfaces = RIMFAXSurfaces
-                                            RIMFAXImageModeOptions = (RIMFAXImageModeOptions |> List.append [ "-" ])
+                                            RIMFAXImageModeOptions = (RIMFAXImageModeOptions)
                                             RIMFAXImageMode = RIMFAXImageModeOptions.[0]
                                             isVisibleS = true
                                         }
