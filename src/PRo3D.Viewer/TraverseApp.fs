@@ -341,7 +341,7 @@ module TraverseApp =
                                     Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) 
                                     |> Array.filter (fun filePath -> (pathBelongsToSol filePath sol.solNumber))
                                     |> Array.toList
-                                    |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront 1000 file)  // should we actually use the triangle count stored in the scene viewer config file here?
+                                    |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront Int32.MaxValue file) 
                                 let RIMFAXSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront (IndexList.ofList objSurfaces)
                                 let RIMFAXImageModeOptions =
                                     Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) 
