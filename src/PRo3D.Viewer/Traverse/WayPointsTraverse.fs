@@ -36,9 +36,8 @@ module WayPointsTraverseApp =
                 let! pitch          = parseDoubleProperty x  "pitch"
                 let! roll           = parseDoubleProperty x  "roll" 
                 let! RMC           = parseStringProperty x  "RMC"
-                let! note           = parseStringProperty x  "note"
                 
-                // Sophie Pichler: the following properties might better be optional?
+                // not sure whether the following properties should be optional
                 let note = 
                     match parseStringProperty x "Note" with
                     | Result.Ok note -> note
