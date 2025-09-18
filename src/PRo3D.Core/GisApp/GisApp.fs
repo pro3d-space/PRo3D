@@ -219,8 +219,31 @@ module GisApp =
             viewer, m
         | GisAppAction.ToggleCameraInObserver ->
             viewer, {m with cameraInObserver = not m.cameraInObserver}
-        | GisAppAction.ToggleMissionTimesRow rowIdx ->
-            viewer, {m with selectedMissionTimeRow = rowIdx}
+        | GisAppAction.SetMissionTimes ->
+             let data : list<MissionTimeEntry> = [
+                {
+                    minDate = DateTime(2025, 1, 1)
+                    maxDate = DateTime(2025, 1, 3)
+                    setDate = DateTime(2025, 1, 1)
+                    name    = "Mars Flyby"
+                }
+                {
+                    minDate = DateTime(2025, 2, 1)
+                    maxDate = DateTime(2025, 3, 31)
+                    setDate = DateTime(2025, 2, 1)
+                    name    = "Phobos Flyby"
+                }
+                {
+                    minDate = DateTime(2025, 3, 1)
+                    maxDate = DateTime(2025, 10, 31)
+                    setDate = DateTime(2025, 3, 1)
+                    name    = "Earth Flyby"
+                }
+             ]
+             viewer, {m with missionTimes = data}
+        | GisAppAction.SetMissionTimesRowAndSetDate (rowIdx, date) ->
+            let defaultObservationInfo = {m.defaultObservationInfo with time = {m.defaultObservationInfo.time with date = date}}
+            viewer, {m with selectedMissionTimeRow = Some rowIdx; defaultObservationInfo = defaultObservationInfo}
             
     let private currentlyAssociatedEntity
         (surface : SurfaceId) 
@@ -430,6 +453,8 @@ module GisApp =
             (AList.append (AList.append headers rows) actions)
 
 
+
+    
     let viewMissionTimes (m : AdaptiveGisApp) =
 
         let headers =
@@ -443,48 +468,40 @@ module GisApp =
             ] |> AList.ofList
 
         let rows = 
-            let data : list<MissionTimeEntry> = [
-                {
-                    minDate = DateTime(2025, 1, 1)
-                    maxDate = DateTime(2025, 1, 3)
-                    name    = "Mars Flyby"
-                }
-                {
-                    minDate = DateTime(2025, 2, 1)
-                    maxDate = DateTime(2025, 3, 31)
-                    name    = "Phobos Flyby"
-                }
-                {
-                    minDate = DateTime(2025, 3, 1)
-                    maxDate = DateTime(2025, 10, 31)
-                    name    = "Earth Flyby"
-                }
-            ]
-
             let updateddata = 
-                data
-                |> List.mapi (fun idx entry ->
+                m.missionTimes
+                |> AList.ofAVal
+                |> AList.mapi (fun idx entry ->
                     let attributes = 
                         amap {
-                            yield onClick (fun _ -> GisAppAction.ToggleMissionTimesRow idx)
+                            yield onClick (fun _ -> 
+                                GisAppAction.SetMissionTimesRowAndSetDate (idx, entry.minDate + (entry.maxDate - entry.minDate) * 0.5)
+                            )
                             let! missionTime = m.selectedMissionTimeRow
                             yield 
                                 style (
-                                    match (missionTime : int) with
-                                    | selectedMissionTime when selectedMissionTime = idx -> ""
+                                    match (missionTime : option<Index>) with
+                                    | Some selectedMissionTime when selectedMissionTime = idx -> ""
                                     | _ -> "opacity: 0.5;"
                                 )
                         } 
 
                     let children = 
                         alist {
+                                let! missionTime = m.selectedMissionTimeRow
                                 td [] [text entry.name]
                                 td [] [
                                         text (System.String.Concat("Start: ", entry.minDate.ToString("yyyy-MM-dd")))
                                         br[]
                                         text (System.String.Concat("End: ", entry.maxDate.ToString("yyyy-MM-dd")))
                                     ] 
-                                td [] [
+                                td [
+                                    style (
+                                            match (missionTime : option<Index>) with
+                                            | Some selectedMissionTime when selectedMissionTime = idx -> ""
+                                            | _ -> "pointer-events: none;"
+                                        )
+                                ] [
                                     Numeric.view' [Slider] (
                                         AdaptiveNumericInput {
                                             value   = 0.0
@@ -496,7 +513,8 @@ module GisApp =
                                     ) |> UI.map (fun action -> 
                                         match action with
                                         | Numeric.Action.SetValue v ->
-                                            GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime (entry.minDate + (entry.maxDate - entry.minDate) * v))
+                                            let setDate = entry.minDate + (entry.maxDate - entry.minDate) * v
+                                            GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime (setDate))
                                         | _ ->
                                             // implement different default case!!
                                             GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime entry.minDate)
@@ -516,7 +534,7 @@ module GisApp =
                         }
                     
                     Incremental.tr (AttributeMap.ofAMap attributes) children
-                ) |> AList.ofList
+                ) 
 
             updateddata
 
@@ -1002,7 +1020,8 @@ module GisApp =
                 spiceKernel             = spiceKernel |> Option.map CooTransformation.SPICEKernel.ofPath  
                 spiceKernelLoadSuccess  = true
                 cameraInObserver        = false
-                selectedMissionTimeRow  = -1
+                selectedMissionTimeRow  = None
+                missionTimes            = List.Empty
             }
 
         match spiceKernel with

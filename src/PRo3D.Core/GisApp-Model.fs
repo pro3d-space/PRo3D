@@ -102,6 +102,13 @@ module GisSurface =
             referenceFrame = frame
         }
 
+type MissionTimeEntry = {
+    minDate : DateTime
+    maxDate : DateTime
+    setDate : DateTime
+    name    : string
+}
+
 [<ModelType>]
 type GisApp = 
     {
@@ -115,16 +122,11 @@ type GisApp =
         spiceKernel            : option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
         cameraInObserver       : bool
-        selectedMissionTimeRow : int
+        selectedMissionTimeRow : option<Index>
+        missionTimes           : list<MissionTimeEntry>
     } 
 with
     static member current = 0
-
-type MissionTimeEntry = {
-    minDate : DateTime
-    maxDate : DateTime
-    name    : string
-}
 
 module GisAppJson =
     let read0 =
@@ -160,7 +162,8 @@ module GisAppJson =
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
-                selectedMissionTimeRow = -1
+                selectedMissionTimeRow = None
+                missionTimes           = List.Empty
             }
         }
     
@@ -224,4 +227,5 @@ type GisAppAction =
     | ToggleCameraInObserver    
     | NewEntity
     | NewFrame
-    | ToggleMissionTimesRow     of int
+    | SetMissionTimesRowAndSetDate of (Index * DateTime)
+    | SetMissionTimes
