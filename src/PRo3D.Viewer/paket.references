@@ -7,7 +7,6 @@ Aardvark.Application.Slim.GL
 Aardvark.SceneGraph
 Aardvark.SceneGraph.Assimp
 Aardvark.Data.Opc 
-Aardvark.Data.GLTF
 Aardvark.Rendering.Text
 Aardvark.Geometry 
 Aardvark.Geometry.Intersection

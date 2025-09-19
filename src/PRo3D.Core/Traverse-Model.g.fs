@@ -1,5 +1,5 @@
-//6e5fc7f4-cb18-8a56-a190-7d67b24110ce
-//513f3ea7-9cef-a0e4-5bda-646fdcc0a643
+//6de40070-e910-a14a-1e32-73d2b2b5d71c
+//af770f31-7bb4-759c-0578-95449cd9f5fa
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -93,8 +93,7 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             m
         FSharp.Data.Traceable.ChangeableModelMap(value.traverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
     let _selectedTraverse_ = FSharp.Data.Adaptive.cval(value.selectedTraverse)
-    let _roverTraverse_ = FSharp.Data.Adaptive.cval(value.roverTraverse)
-    let _roverLocation_ = FSharp.Data.Adaptive.cval(value.roverLocation)
+    let _rover_ = Pro3d.Core.AdaptiveRoverModel(value.rover)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : TraverseModel) = AdaptiveTraverseModel(value)
@@ -106,20 +105,17 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             _version_.Value <- value.version
             _traverses_.Update(value.traverses)
             _selectedTraverse_.Value <- value.selectedTraverse
-            _roverTraverse_.Value <- value.roverTraverse
-            _roverLocation_.Value <- value.roverLocation
+            _rover_.Update(value.rover)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.traverses = _traverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.selectedTraverse = _selectedTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
-    member __.roverTraverse = _roverTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
-    member __.roverLocation = _roverLocation_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V3d>
+    member __.rover = _rover_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseModelLenses = 
     type TraverseModel with
         static member version_ = ((fun (self : TraverseModel) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : TraverseModel) -> { self with version = value }))
         static member traverses_ = ((fun (self : TraverseModel) -> self.traverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with traverses = value }))
         static member selectedTraverse_ = ((fun (self : TraverseModel) -> self.selectedTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedTraverse = value }))
-        static member roverTraverse_ = ((fun (self : TraverseModel) -> self.roverTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with roverTraverse = value }))
-        static member roverLocation_ = ((fun (self : TraverseModel) -> self.roverLocation), (fun (value : Aardvark.Base.V3d) (self : TraverseModel) -> { self with roverLocation = value }))
+        static member rover_ = ((fun (self : TraverseModel) -> self.rover), (fun (value : Pro3d.Core.RoverModel) (self : TraverseModel) -> { self with rover = value }))
 

@@ -11,6 +11,8 @@ open PRo3D.Core
 
 open Adaptify
 open Chiron
+open Pro3d.Core
+
 
 type TraversePropertiesAction =
     | ToggleShowText
@@ -322,8 +324,7 @@ type TraverseModel = {
         version           : int
         traverses         : HashMap<Guid, Traverse>
         selectedTraverse  : Option<Guid>
-        roverTraverse     : Option<Guid>
-        roverLocation     : V3d
+        rover             : RoverModel
     }
 
 module TraverseModel =
@@ -343,8 +344,7 @@ module TraverseModel =
                 version           = current
                 traverses         = traverses
                 selectedTraverse  = selected 
-                roverTraverse     = None
-                roverLocation     = V3d.NaN
+                rover             = RoverModel.initial
             }
         }
 
@@ -352,8 +352,7 @@ module TraverseModel =
         version           = current
         traverses         = HashMap.empty
         selectedTraverse  = None 
-        roverTraverse     = None
-        roverLocation     = V3d.NaN
+        rover             = RoverModel.initial
     }
 
 

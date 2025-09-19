@@ -54,6 +54,8 @@
     <Compile Include="Surface.fs" />
     <Compile Include="GroupsApp.fs" />
     <Compile Include="OrientationCube.fs" />
+    <Compile Include="Rover-Model.fs" />
+    <Compile Include="Rover-Model.g.fs" />
     <Compile Include="Traverse-Model.fs" />
     <Compile Include="Traverse-Model.g.fs" />
     <Compile Include="Surface\Translation.fs" />

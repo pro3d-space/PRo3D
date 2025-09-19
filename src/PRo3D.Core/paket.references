@@ -10,6 +10,7 @@ Aardvark.UI.Primitives
 Aardvark.SceneGraph
 Aardvark.SceneGraph.Assimp
 Aardvark.Data.Opc 
+Aardvark.Data.GLTF
 
 Adaptify.Core
 
