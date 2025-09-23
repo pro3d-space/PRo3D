@@ -33,6 +33,9 @@ open PRo3D.SPICE
 open PRo3D.Core.ProjectedImages
 open PRo3D.Core.Gis
 
+open FSharp.Data
+open FSharp.Data.JsonExtensions
+
 [<Struct>]
 type RelState = 
     {
@@ -80,7 +83,7 @@ module TestViewer =
         let referenceFrame = cval "ECLIPJ2000"
         let time = 
             let startTime = "2025-03-12 11:50:30.000Z"
-            cval (DateTime.Parse startTime)
+            cval (DateTime.Parse(startTime)
 
 
         let hera = 
@@ -149,6 +152,7 @@ module TestViewer =
             Map.ofList [
                 "HERA_AFC-1", frustum
                 "HERA_AFC-2", frustum
+                "HERA_HSH", Frustum.perspective 15.23999 1000.0 distanceSunPluto (2048.0 / 1088.0)
             ]
 
 
@@ -318,22 +322,63 @@ module TestViewer =
         let count = cval 0
         let projectionCount = timeClampedCount 
 
+        let instrumentData = 
+            InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\20250314\HSH_converted\HSH_converted"
+            |> Seq.toArray
+            |> Array.sortBy (fun (_, _, mbi) -> mbi?hera?DATE?value)
+            
+        let hshObservations = 
+            instrumentData 
+            |> Array.map (fun (_, _, mbi) -> 
+                let obsTime = 
+                    match mbi?hera?DATE?value with
+                    | JsonValue.String v -> DateTime.Parse(v, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal)
+                    | _ -> failwith ""
+                let p = {
+                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                    instrumentReferenceFrame = "HERA_HSH"
+                    instrumentName = "HERA_HSH"
+                    supportBody = "SUN"
+                    time = obsTime
+                }
+                ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
+            )
+    
+        let hshProjection =   
+            observer |> AVal.map (fun observer -> 
+                let p = {
+                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                    instrumentReferenceFrame = "HERA_HSH"
+                    instrumentName = "HERA_HSH"
+                    supportBody = "SUN"
+                    time = DateTime.Parse("2025-03-12T12:22:46.456", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal)
+                }
+                ProjectedImages.projectOnto "IAU_MARS" observer instruments p
+            )
+            
+
+        let simulated = 
+            observationTimes 
+            |> Array.map (fun t -> 
+                let p = {
+                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                    instrumentReferenceFrame = "HERA_AFC-1"
+                    instrumentName = "HERA_AFC-1"
+                    supportBody = "SUN"
+                    time = t
+                }
+                ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
+            )
+
+        let observations = simulated
+        //let currentProjection = hshProjection
+        //let projectedTexture = @"C:\pro3ddata\HERA\20250314\HSH_converted\HSH_converted\HSH_0CRSJ8_250312T122246_1A.tif"
 
         let bodies = CelestialBodies.bodySources |> Array.map (fun b -> b.name, b) |> AMap.ofArray
         let wrapModel (planet : string) (sg : ISg) =
-            let observations = 
-                observationTimes 
-                |> Array.map (fun t -> 
-                    let p = {
-                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                        instrumentReferenceFrame = "HERA_AFC-1"
-                        instrumentName = "HERA_AFC-1"
-                        supportBody = "SUN"
-                        time = t
-                    }
-                    ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
-                )
             let getProjectionTrafo _ =
                 currentProjection
             sg

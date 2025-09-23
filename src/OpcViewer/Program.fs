@@ -11,7 +11,7 @@ type Kind = Scene | Annotations | Solarsystem
 [<EntryPoint>]
 let main argv =
     
-    let kind = Scene
+    let kind = Solarsystem
 
     let shaler =
         { 

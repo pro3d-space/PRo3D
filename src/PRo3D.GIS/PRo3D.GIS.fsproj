@@ -6,6 +6,8 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="exampleFiles\HSH_0CRQSV_250312T115349_1A.mbi.json" />
+    <Compile Include="InstrumentMetadata.fs" />
     <Compile Include="MarsTaggedLocations.fs" />
     <Compile Include="ProjectedImagesModel.fs" />
     <Compile Include="OpcShaders.fs" />
@@ -20,6 +22,7 @@
     <Compile Include="GisApp.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
