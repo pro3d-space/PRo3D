@@ -1,5 +1,5 @@
-//c69aaef8-e36c-5d42-9f62-b1ff3dac5c3e
-//7d695f84-a879-f960-6f26-7a9de22a800c
+//7f2bfa67-6f73-15ad-2a35-8a4def171457
+//bfa1c88a-c283-870e-3701-96d1b195a5e9
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -78,7 +78,7 @@ type AdaptiveGisApp(value : GisApp) =
     let _spiceKernelLoadSuccess_ = FSharp.Data.Adaptive.cval(value.spiceKernelLoadSuccess)
     let _cameraInObserver_ = FSharp.Data.Adaptive.cval(value.cameraInObserver)
     let _selectedMissionTimeRow_ = FSharp.Data.Adaptive.cval(value.selectedMissionTimeRow)
-    let _missionTimes_ = FSharp.Data.Adaptive.cval(value.missionTimesEntries)
+    let _missionTimesEntries_ = FSharp.Data.Adaptive.cval(value.missionTimesEntries)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : GisApp) = AdaptiveGisApp(value)
@@ -98,7 +98,7 @@ type AdaptiveGisApp(value : GisApp) =
             _spiceKernelLoadSuccess_.Value <- value.spiceKernelLoadSuccess
             _cameraInObserver_.Value <- value.cameraInObserver
             _selectedMissionTimeRow_.Value <- value.selectedMissionTimeRow
-            _missionTimes_.Value <- value.missionTimesEntries
+            _missionTimesEntries_.Value <- value.missionTimesEntries
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.defaultObservationInfo = _defaultObservationInfo_
@@ -111,7 +111,7 @@ type AdaptiveGisApp(value : GisApp) =
     member __.spiceKernelLoadSuccess = _spiceKernelLoadSuccess_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.cameraInObserver = _cameraInObserver_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.selectedMissionTimeRow = _selectedMissionTimeRow_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>>
-    member __.missionTimes = _missionTimes_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Collections.list<MissionTimeEntry>>>
+    member __.missionTimesEntries = _missionTimesEntries_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Collections.list<MissionTimeEntry>>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module GisAppLenses = 
     type GisApp with
@@ -126,5 +126,5 @@ module GisAppLenses =
         static member spiceKernelLoadSuccess_ = ((fun (self : GisApp) -> self.spiceKernelLoadSuccess), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with spiceKernelLoadSuccess = value }))
         static member cameraInObserver_ = ((fun (self : GisApp) -> self.cameraInObserver), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with cameraInObserver = value }))
         static member selectedMissionTimeRow_ = ((fun (self : GisApp) -> self.selectedMissionTimeRow), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>) (self : GisApp) -> { self with selectedMissionTimeRow = value }))
-        static member missionTimes_ = ((fun (self : GisApp) -> self.missionTimesEntries), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Collections.list<MissionTimeEntry>>) (self : GisApp) -> { self with missionTimesEntries = value }))
+        static member missionTimesEntries_ = ((fun (self : GisApp) -> self.missionTimesEntries), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Collections.list<MissionTimeEntry>>) (self : GisApp) -> { self with missionTimesEntries = value }))
 

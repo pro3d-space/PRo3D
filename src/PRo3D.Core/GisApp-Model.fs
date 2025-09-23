@@ -196,6 +196,7 @@ type EntityAction =
     | ToggleTrajectory
     | SetTextureName    of string
     | SetRadius         of float
+    | SetTrajectoryLength of float
     | SetGeometryPath   of string
     | SetReferenceFrame of option<FrameSpiceName>
     | Delete            of EntitySpiceName
