@@ -29,8 +29,8 @@ module TraversePropertiesApp =
         // Text
         | ToggleShowText ->
             { model with showText = not model.showText }
-        | ToggleShowRIMFAXSurfaces ->
-            { model with showRIMFAXSurfaces = not model.showRIMFAXSurfaces }
+        | ToggleshowRimfaxSurfaces ->
+            { model with showRimfaxSurfaces = not model.showRimfaxSurfaces }
         | SetSolTextsize s ->
             { model with tTextSize = Numeric.update model.tTextSize s}
         // Line
@@ -63,13 +63,13 @@ module TraversePropertiesApp =
                 ]
             )
 
-        let viewRIMFAXTraverseProperties (m : AdaptiveTraverse) =
+        let viewRimfaxTraverseProperties (m : AdaptiveTraverse) =
             require GuiEx.semui (
                 Html.table [
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
-                    Html.row "Show Surfaces:"  [GuiEx.iconCheckBox m.showRIMFAXSurfaces ToggleShowRIMFAXSurfaces]
+                    Html.row "Show Surfaces:"  [GuiEx.iconCheckBox m.showRimfaxSurfaces ToggleshowRimfaxSurfaces]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
@@ -124,10 +124,10 @@ module TraverseApp =
                     match p.traverseType with
                     | "waypoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true
                     | "rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover, true, false, false
-                    | "rimfax" -> RIMFAXTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX, true, false, false
+                    | "rimfax" -> RimfaxTraverseApp.parseTraverse (traverse), TraverseType.Rimfax, true, false, false
                     // | "plannedTargets" -> PlannedTargetsTraverseApp.parseTraverse (traverse), TraverseType.PlannedTargets
                     // | "strategicAnnotations" -> StrategicAnnotationsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
-                    | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, RIMFAX, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t
+                    | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, Rimfax, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t
                 Some (sols, traverseType, showLines, showText, showDots)
             | None -> 
                 Log.warn "[TraverseApp] Error parsing traverse %s : Missing properties" name
@@ -188,10 +188,10 @@ module TraverseApp =
                     traverse.traverseType = TraverseType.Rover
                 )
 
-            let RIMFAXTraverses = 
+            let rimfaxTraverses = 
                 traversesJson
                 |> HashMap.filter(fun guid traverse ->
-                    traverse.traverseType = TraverseType.RIMFAX
+                    traverse.traverseType = TraverseType.Rimfax
                 )
 
             let waypointsTraverses = 
@@ -202,29 +202,29 @@ module TraverseApp =
 
             { model with 
                 roverTraverses = model.roverTraverses |> HashMap.union roverTraverses;
-                RIMFAXTraverses = model.RIMFAXTraverses |> HashMap.union RIMFAXTraverses;
+                rimfaxTraverses = model.rimfaxTraverses |> HashMap.union rimfaxTraverses;
                 waypointsTraverses = model.waypointsTraverses |> HashMap.union waypointsTraverses;
                 selectedTraverse = None;
-                selectedRIMFAXSurface = None;
+                selectedRimfaxSurface = None;
             }
         | IsVisibleT id ->
             let roverTraverses' =  
                 model.roverTraverses 
                 |> HashMap.alter id (function None -> None | Some t -> Some { t with isVisibleT = not t.isVisibleT })
-            let RIMFAXTraverses' =  
-                model.RIMFAXTraverses 
+            let rimfaxTraverses' =  
+                model.rimfaxTraverses 
                 |> HashMap.alter id (function None -> None | Some m -> Some { m with isVisibleT = not m.isVisibleT })
             let waypointsTraverses' =  
                 model.waypointsTraverses 
                 |> HashMap.alter id (function None -> None | Some m -> Some { m with isVisibleT = not m.isVisibleT })
             { model with
                 roverTraverses = roverTraverses';
-                RIMFAXTraverses = RIMFAXTraverses';
+                rimfaxTraverses = rimfaxTraverses';
                 waypointsTraverses = waypointsTraverses'
             }
-        | IsVisibleRIMFAXSurface (traverseId, solId) ->
-            let RIMFAXTraverses' =  
-                model.RIMFAXTraverses 
+        | IsVisibleRimfaxSurface (traverseId, solId) ->
+            let rimfaxTraverses' =  
+                model.rimfaxTraverses 
                 |> HashMap.alter traverseId (
                     function 
                         None -> None 
@@ -232,10 +232,10 @@ module TraverseApp =
                             Some { m with sols = (m.sols 
                                 |> List.map (fun sol -> 
                                         match sol.solMetrics with 
-                                        | Some (SolMetrics.RIMFAXM solMetrics) -> 
+                                        | Some (SolMetrics.RimfaxM solMetrics) -> 
                                             if solId = sol.solNumber then 
-                                                match solMetrics.RIMFAXSurfaceProperties with
-                                                | Some RIMFAXSurfaceProperties -> { sol with solMetrics = Some (RIMFAXM { solMetrics with RIMFAXSurfaceProperties = Some { RIMFAXSurfaceProperties with isVisibleS = not RIMFAXSurfaceProperties.isVisibleS }})}
+                                                match solMetrics.rimfaxSurfaceProperties with
+                                                | Some rimfaxSurfaceProperties -> { sol with solMetrics = Some (RimfaxM { solMetrics with rimfaxSurfaceProperties = Some { rimfaxSurfaceProperties with isVisibleS = not rimfaxSurfaceProperties.isVisibleS }})}
                                                 | _ -> sol
                                             else sol
                                         | _ -> sol 
@@ -243,7 +243,7 @@ module TraverseApp =
                             ) }
                     )
             { model with
-                RIMFAXTraverses = RIMFAXTraverses';
+                rimfaxTraverses = rimfaxTraverses';
             }
         | RemoveTraverse id -> 
             let selectedTraverse' = 
@@ -251,15 +251,15 @@ module TraverseApp =
                 | Some selT -> if selT = id then None else Some selT
                 | None -> None
             let roverTraverses' = HashMap.remove id model.roverTraverses
-            let RIMFAXTraverses' = HashMap.remove id model.RIMFAXTraverses
+            let rimfaxTraverses' = HashMap.remove id model.rimfaxTraverses
             let waypointsTraverses' = HashMap.remove id model.waypointsTraverses
             { model with 
                 roverTraverses = roverTraverses';
-                RIMFAXTraverses = RIMFAXTraverses';
+                rimfaxTraverses = rimfaxTraverses';
                 waypointsTraverses = waypointsTraverses';
                 selectedTraverse = selectedTraverse' }
         | SelectTraverse id ->
-            let selT = HashMap.unionMany [model.roverTraverses; model.RIMFAXTraverses; model.waypointsTraverses] |> HashMap.tryFind id
+            let selT = HashMap.unionMany [model.roverTraverses; model.rimfaxTraverses; model.waypointsTraverses] |> HashMap.tryFind id
             match selT, model.selectedTraverse with
             | Some a, Some b -> 
                 if a.guid = b then 
@@ -272,23 +272,23 @@ module TraverseApp =
         | TraversePropertiesMessage msg ->  
             match model.selectedTraverse with
             | Some id -> 
-                let selectedT = HashMap.unionMany [model.roverTraverses; model.RIMFAXTraverses; model.waypointsTraverses] |> HashMap.tryFind id
+                let selectedT = HashMap.unionMany [model.roverTraverses; model.rimfaxTraverses; model.waypointsTraverses] |> HashMap.tryFind id
                 match selectedT with
                 | Some selT ->
                     let traverse = (TraversePropertiesApp.update selT msg)
                     let roverTraverses' = model.roverTraverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
-                    let RIMFAXTraverses' = model.RIMFAXTraverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
+                    let rimfaxTraverses' = model.rimfaxTraverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
                     let waypointsTraverses' = model.waypointsTraverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
                     { model with 
                         roverTraverses = roverTraverses';
-                        RIMFAXTraverses = RIMFAXTraverses';
+                        rimfaxTraverses = rimfaxTraverses';
                         waypointsTraverses = waypointsTraverses' }
                 | None -> model
             | None -> model
         | SelectSol solNumber ->
             match model.selectedTraverse with
             | Some id -> 
-                let selectedT = HashMap.unionMany [model.roverTraverses; model.RIMFAXTraverses; model.waypointsTraverses] |> HashMap.tryFind id
+                let selectedT = HashMap.unionMany [model.roverTraverses; model.rimfaxTraverses; model.waypointsTraverses] |> HashMap.tryFind id
                 match selectedT with
                 | Some selT ->
                     let selectedSol =
@@ -300,15 +300,15 @@ module TraverseApp =
                     let roverTraverses' =  
                         model.roverTraverses 
                         |> HashMap.alter id (function None -> None | Some t -> Some { t with selectedSol = selectedSol })
-                    let RIMFAXTraverses' =  
-                        model.RIMFAXTraverses 
+                    let rimfaxTraverses' =  
+                        model.rimfaxTraverses 
                         |> HashMap.alter id (function None -> None | Some t -> Some { t with selectedSol = selectedSol })
                     let waypointsTraverses' =  
                         model.waypointsTraverses 
                         |> HashMap.alter id (function None -> None | Some t -> Some { t with selectedSol = selectedSol })
                     { model with 
                         roverTraverses = roverTraverses';
-                        RIMFAXTraverses = RIMFAXTraverses';
+                        rimfaxTraverses = rimfaxTraverses';
                         waypointsTraverses = waypointsTraverses' }
                 | None -> model
             | None -> model
@@ -316,9 +316,9 @@ module TraverseApp =
             { model with 
                 roverTraverses = HashMap.empty;
                 waypointsTraverses = HashMap.empty;
-                RIMFAXTraverses = HashMap.empty;
+                rimfaxTraverses = HashMap.empty;
                 selectedTraverse = None } 
-        | LoadRIMFAXSurface (rootDirectoy, traverseID) ->
+        | LoadRimfaxSurface (rootDirectoy, traverseID) ->
             match rootDirectoy  with
             | [path] when path <> "" ->
                 //let objPaths = Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) |> Array.filter (fun filePath -> (Path.GetDirectoryName(filePath).Contains("026") && not (Path.GetDirectoryName(filePath).Contains("1219"))  && not (Array.contains "1220" (Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)))))
@@ -333,17 +333,17 @@ module TraverseApp =
                         false
 
                 let sols = 
-                        model.RIMFAXTraverses[traverseID].sols 
+                        model.rimfaxTraverses[traverseID].sols 
                         |> List.map (fun sol ->
                             match sol.solMetrics with
-                            | Some (SolMetrics.RIMFAXM solMetrics) ->
+                            | Some (SolMetrics.RimfaxM solMetrics) ->
                                 let objSurfaces =                   
                                     Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) 
                                     |> Array.filter (fun filePath -> (pathBelongsToSol filePath sol.solNumber))
                                     |> Array.toList
                                     |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront Int32.MaxValue file) 
-                                let RIMFAXSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront (IndexList.ofList objSurfaces)
-                                let RIMFAXImageModeOptions =
+                                let rimfaxSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront (IndexList.ofList objSurfaces)
+                                let rimfaxImageModeOptions =
                                     Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) 
                                     |> Array.filter (fun filePath -> (pathBelongsToSol filePath sol.solNumber))
                                     |> Array.toList
@@ -352,63 +352,63 @@ module TraverseApp =
                                         folders.[folders.Length - 1]
                                         )
 
-                                let RIMFAXSurfaceProperties = 
-                                    match RIMFAXImageModeOptions.Length with
+                                let rimfaxSurfaceProperties = 
+                                    match rimfaxImageModeOptions.Length with
                                     | 0 -> None
                                     | _ ->
                                         Some { 
-                                            version = RIMFAXSurfaceMetrics.current
-                                            RIMFAXSurfaces = RIMFAXSurfaces
-                                            RIMFAXImageModeOptions = (RIMFAXImageModeOptions)
-                                            RIMFAXImageMode = RIMFAXImageModeOptions.[0]
+                                            version = RimfaxSurfaceMetrics.current
+                                            rimfaxSurfaces = rimfaxSurfaces
+                                            rimfaxImageModeOptions = (rimfaxImageModeOptions)
+                                            rimfaxImageMode = rimfaxImageModeOptions.[0]
                                             isVisibleS = true
                                         }
 
                                 {
-                                    sol with solMetrics = Some (RIMFAXM {solMetrics with RIMFAXSurfaceProperties = RIMFAXSurfaceProperties})
+                                    sol with solMetrics = Some (RimfaxM {solMetrics with rimfaxSurfaceProperties = rimfaxSurfaceProperties})
                                 }
                             | _ -> sol
                     )
                 
-                let RIMFAXTraverses' =  
-                    model.RIMFAXTraverses 
-                        |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with sols = sols; RIMFAXRootDirectory = path})
+                let rimfaxTraverses' =  
+                    model.rimfaxTraverses 
+                        |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with sols = sols; rimfaxRootDirectory = path})
                 { model with
-                    RIMFAXTraverses = RIMFAXTraverses'
+                    rimfaxTraverses = rimfaxTraverses'
                 }
             | _ -> 
                 Log.line "[Viewer] can only import exactly one file, given: %d" (List.length rootDirectoy)
                 model   
-        | SetRIMFAXImageMode (RIMFAXImageMode, traverseID, solID) ->
+        | SetRimfaxImageMode (rimfaxImageMode, traverseID, solID) ->
             let sols = 
-                model.RIMFAXTraverses[traverseID].sols
+                model.rimfaxTraverses[traverseID].sols
                 |> List.map (fun sol ->
                     match sol.solMetrics with
-                    | Some (SolMetrics.RIMFAXM solMetrics) ->
+                    | Some (SolMetrics.RimfaxM solMetrics) ->
                         if sol.solNumber = solID then
-                            let RIMFAXSurfaceProperties =
-                                match solMetrics.RIMFAXSurfaceProperties with 
+                            let rimfaxSurfaceProperties =
+                                match solMetrics.rimfaxSurfaceProperties with 
                                 | None -> None
-                                | Some RIMFAXSurfaceProperties -> Some {RIMFAXSurfaceProperties with RIMFAXImageMode = RIMFAXImageMode }
-                            { sol with solMetrics = Some (RIMFAXM { solMetrics with RIMFAXSurfaceProperties = RIMFAXSurfaceProperties} ) }
+                                | Some rimfaxSurfaceProperties -> Some {rimfaxSurfaceProperties with rimfaxImageMode = rimfaxImageMode }
+                            { sol with solMetrics = Some (RimfaxM { solMetrics with rimfaxSurfaceProperties = rimfaxSurfaceProperties} ) }
                         else
                             sol
                     | _ -> sol
                 )
-            let RIMFAXTraverses' =  
-                model.RIMFAXTraverses 
+            let rimfaxTraverses' =  
+                model.rimfaxTraverses 
                     |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with sols = sols})
             { model with
-                RIMFAXTraverses = RIMFAXTraverses'
+                rimfaxTraverses = rimfaxTraverses'
             }
-        | PickRIMFAXSurface (surfaceID, traverseID, solNumber) ->
-            let RIMFAXTraverses' =  
-                model.RIMFAXTraverses 
+        | PickRimfaxSurface (surfaceID, traverseID, solNumber) ->
+            let rimfaxTraverses' =  
+                model.rimfaxTraverses 
                     |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with selectedSol = Some solNumber})
             { model with
-                selectedRIMFAXSurface = Some surfaceID
+                selectedRimfaxSurface = Some surfaceID
                 selectedTraverse = Some traverseID
-                RIMFAXTraverses = RIMFAXTraverses'
+                rimfaxTraverses = rimfaxTraverses'
             }
         |_-> model
 
@@ -433,12 +433,12 @@ module TraverseApp =
                 
                 match guid with
                 | Some id -> 
-                    let! traverse = AMap.union (AMap.union model.roverTraverses model.RIMFAXTraverses) model.waypointsTraverses |> AMap.tryFind id
+                    let! traverse = AMap.union (AMap.union model.roverTraverses model.rimfaxTraverses) model.waypointsTraverses |> AMap.tryFind id
                     match traverse with
                     | Some t -> 
                         match t.traverseType with
                         | TraverseType.Rover -> return (TraversePropertiesApp.UI.viewRoverTraverseProperties t |> UI.map TraversePropertiesMessage)
-                        | TraverseType.RIMFAX -> return (TraversePropertiesApp.UI.viewRIMFAXTraverseProperties t |> UI.map TraversePropertiesMessage)
+                        | TraverseType.Rimfax -> return (TraversePropertiesApp.UI.viewRimfaxTraverseProperties t |> UI.map TraversePropertiesMessage)
                         | TraverseType.WayPoints -> return (TraversePropertiesApp.UI.viewWayPointsTraverseProperties t |> UI.map TraversePropertiesMessage)
                         | TraverseType.StrategicAnnotations -> return (TraversePropertiesApp.UI.viewStrategicAnnotationsTraverseProperties t |> UI.map TraversePropertiesMessage)
                         | TraverseType.PlannedTargets -> return (TraversePropertiesApp.UI.viewPlannedTargetsTraverseProperties t |> UI.map TraversePropertiesMessage)
@@ -452,17 +452,17 @@ module TraverseApp =
                 let empty = div [ style "font-style:italic"] [ text "no traverse selected" ] |> UI.map TraversePropertiesMessage 
                 match guid with
                 | Some id -> 
-                    let! traverse = AMap.union (AMap.union model.roverTraverses model.RIMFAXTraverses) model.waypointsTraverses |> AMap.tryFind id
+                    let! traverse = AMap.union (AMap.union model.roverTraverses model.rimfaxTraverses) model.waypointsTraverses |> AMap.tryFind id
                     match traverse with
                     | Some t ->
                         match t.traverseType with
                         | TraverseType.Rover -> return RoverTraverseApp.UI.viewSolList refSystem model.roverTraverses t
-                        | TraverseType.RIMFAX -> return RIMFAXTraverseApp.UI.viewSolList refSystem t
+                        | TraverseType.Rimfax -> return RimfaxTraverseApp.UI.viewSolList refSystem t
                         | TraverseType.WayPoints -> return WayPointsTraverseApp.UI.viewSolList refSystem t
                         // | TraverseType.StrategicAnnotations -> return StrategicAnnotationsTraverseApp.UI.viewSolList refSystem t
-                        // | TraverseType.PlannedTargets -> return PlannedTargetsTraverseApp.UI.viewSolList refSystem model.RIMFAXTraverses t
+                        // | TraverseType.PlannedTargets -> return PlannedTargetsTraverseApp.UI.viewSolList refSystem model.rimfaxTraverses t
                     | None -> 
-                        let! traverse = model.RIMFAXTraverses |> AMap.tryFind id
+                        let! traverse = model.rimfaxTraverses |> AMap.tryFind id
                         match traverse with
                         | Some t ->
                             let ui = (WayPointsTraverseApp.UI.viewSolList refSystem t )
@@ -490,7 +490,7 @@ module TraverseApp =
             adaptive {
                 let! sols = model.sols
                 match model.traverseType with
-                | TraverseType.RIMFAX ->
+                | TraverseType.Rimfax ->
                     let segments = sols |> List.map (fun x -> x.location)
 
                     let segmentSgs =
@@ -526,7 +526,7 @@ module TraverseApp =
             )
 
         let viewLines (refSystem: AdaptiveReferenceSystem) (traverseModel : AdaptiveTraverseModel) =
-            let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.RIMFAXTraverses) traverseModel.waypointsTraverses
+            let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.rimfaxTraverses) traverseModel.waypointsTraverses
             traverses 
             |> AMap.map( fun id traverse ->
                 drawSolLines traverse
@@ -607,7 +607,7 @@ module TraverseApp =
         let viewText (refSystem : AdaptiveReferenceSystem) (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>) 
                     (near : aval<float>) (traverseModel : AdaptiveTraverseModel) =
         
-            let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.RIMFAXTraverses) traverseModel.waypointsTraverses
+            let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.rimfaxTraverses) traverseModel.waypointsTraverses
             traverses 
             |> AMap.map(fun id traverse ->
                 viewTextForTraverse refSystem view horiztonalFieldOfViewInDegrees near traverse
@@ -713,7 +713,7 @@ module TraverseApp =
             |> Sg.onOff traverse.showDots
 
 
-        let viewRIMFAXSurfaces
+        let viewRimfaxSurfaces
             (refSystem : AdaptiveReferenceSystem)
             (traverse : AdaptiveTraverse) 
             (traverseModel  : AdaptiveTraverseModel)
@@ -733,7 +733,7 @@ module TraverseApp =
                 (solNumber : int)=
                 let isSelected = 
                     adaptive {
-                        let! (selected : Option<Guid>) =  traverseModel.selectedRIMFAXSurface
+                        let! (selected : Option<Guid>) =  traverseModel.selectedRimfaxSurface
                         match selected with
                         | Some id -> return (id = surface.surface)
                         | None -> return false
@@ -760,7 +760,7 @@ module TraverseApp =
                     |> Sg.withEvents [
                         SceneEventKind.Click, (
                             fun (sceneHit : SceneHit) -> 
-                                true, Seq.ofList [PickRIMFAXSurface (surface.surface, traverseId, solNumber)])
+                                true, Seq.ofList [PickRimfaxSurface (surface.surface, traverseId, solNumber)])
                         ] 
                     |> Sg.uniform "selected" isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
@@ -779,7 +779,7 @@ module TraverseApp =
 
                 sg
 
-            let getRIMFAXImageModeFromPath (filePath : string) : option<string> =
+            let getRimfaxImageModeFromPath (filePath : string) : option<string> =
                 let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
                 if folders.Length >= 1 then
                     Some folders.[folders.Length - 1]
@@ -790,12 +790,12 @@ module TraverseApp =
                 traverse.sols
                 |> AVal.map (List.map (fun sol -> 
                     match sol.solMetrics with
-                    | Some (RIMFAXM solMetrics) ->
-                        match solMetrics.RIMFAXSurfaceProperties with
-                        | Some RIMFAXSurfaceProperties ->
-                            RIMFAXSurfaceProperties.RIMFAXSurfaces
+                    | Some (RimfaxM solMetrics) ->
+                        match solMetrics.rimfaxSurfaceProperties with
+                        | Some rimfaxSurfaceProperties ->
+                            rimfaxSurfaceProperties.rimfaxSurfaces
                             |> HashMap.filter(fun guid surf -> 
-                                ((getRIMFAXImageModeFromPath surf.sgImportPath) = Some RIMFAXSurfaceProperties.RIMFAXImageMode && RIMFAXSurfaceProperties.isVisibleS)
+                                ((getRimfaxImageModeFromPath surf.sgImportPath) = Some rimfaxSurfaceProperties.rimfaxImageMode && rimfaxSurfaceProperties.isVisibleS)
                             )
                             |> HashMap.map (fun x value -> createSg value traverse.guid sol.solNumber)
                         | None -> HashMap.Empty
@@ -820,7 +820,7 @@ module TraverseApp =
             Sg.ofList [
                 viewTraverseCoordinateFrames view refSystem traverse
                 viewTraverseDots refSystem view traverse
-                viewRIMFAXSurfaces refSystem traverse traverseModel |> Sg.onOff traverse.showRIMFAXSurfaces
+                viewRimfaxSurfaces refSystem traverse traverseModel |> Sg.onOff traverse.showRimfaxSurfaces
             ]
             |> Sg.onOff traverse.isVisibleT
 
@@ -865,7 +865,7 @@ module TraverseApp =
             (filterPriority : aval<Option<int>>) // if Some, only render traverses with this priority
             (surfacePriorityExists : int -> aval<bool>)
             = 
-            let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.RIMFAXTraverses) traverseModel.waypointsTraverses
+            let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.rimfaxTraverses) traverseModel.waypointsTraverses
 
             traverses 
             |> AMap.filterA (fun k v -> 

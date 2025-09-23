@@ -1,5 +1,5 @@
-//d6dfc2ea-6146-8a7d-1c07-ce487353fcdf
-//e1802467-6f3a-9191-c198-73bcd94334d5
+//ed1e13d1-dec3-4e68-defc-8a5133e77c11
+//efe74877-edf5-6de8-08ee-3f54851ef3a7
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -49,65 +49,65 @@ module RoverMetricsLenses =
         static member sclkStart_ = ((fun (self : RoverMetrics) -> self.sclkStart), (fun (value : Microsoft.FSharp.Core.float) (self : RoverMetrics) -> { self with sclkStart = value }))
         static member sclkEnd_ = ((fun (self : RoverMetrics) -> self.sclkEnd), (fun (value : Microsoft.FSharp.Core.float) (self : RoverMetrics) -> { self with sclkEnd = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-type AdaptiveRIMFAXSurfaceMetrics(value : RIMFAXSurfaceMetrics) =
+type AdaptiveRimfaxSurfaceMetrics(value : RimfaxSurfaceMetrics) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
-    let _RIMFAXImageModeOptions_ = FSharp.Data.Adaptive.cval(value.RIMFAXImageModeOptions)
-    let _RIMFAXImageMode_ = FSharp.Data.Adaptive.cval(value.RIMFAXImageMode)
-    let _RIMFAXSurfaces_ =
+    let _rimfaxImageModeOptions_ = FSharp.Data.Adaptive.cval(value.rimfaxImageModeOptions)
+    let _rimfaxImageMode_ = FSharp.Data.Adaptive.cval(value.rimfaxImageMode)
+    let _rimfaxSurfaces_ =
         let inline __arg2 (m : PRo3D.Core.Surface.AdaptiveSgSurface) (v : PRo3D.Core.Surface.SgSurface) =
             m.Update(v)
             m
-        FSharp.Data.Traceable.ChangeableModelMap(value.RIMFAXSurfaces, (fun (v : PRo3D.Core.Surface.SgSurface) -> PRo3D.Core.Surface.AdaptiveSgSurface(v)), __arg2, (fun (m : PRo3D.Core.Surface.AdaptiveSgSurface) -> m))
+        FSharp.Data.Traceable.ChangeableModelMap(value.rimfaxSurfaces, (fun (v : PRo3D.Core.Surface.SgSurface) -> PRo3D.Core.Surface.AdaptiveSgSurface(v)), __arg2, (fun (m : PRo3D.Core.Surface.AdaptiveSgSurface) -> m))
     let _isVisibleS_ = FSharp.Data.Adaptive.cval(value.isVisibleS)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
-    static member Create(value : RIMFAXSurfaceMetrics) = AdaptiveRIMFAXSurfaceMetrics(value)
-    static member Unpersist = Adaptify.Unpersist.create (fun (value : RIMFAXSurfaceMetrics) -> AdaptiveRIMFAXSurfaceMetrics(value)) (fun (adaptive : AdaptiveRIMFAXSurfaceMetrics) (value : RIMFAXSurfaceMetrics) -> adaptive.Update(value))
-    member __.Update(value : RIMFAXSurfaceMetrics) =
-        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<RIMFAXSurfaceMetrics>.ShallowEquals(value, __value))) then
+    static member Create(value : RimfaxSurfaceMetrics) = AdaptiveRimfaxSurfaceMetrics(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : RimfaxSurfaceMetrics) -> AdaptiveRimfaxSurfaceMetrics(value)) (fun (adaptive : AdaptiveRimfaxSurfaceMetrics) (value : RimfaxSurfaceMetrics) -> adaptive.Update(value))
+    member __.Update(value : RimfaxSurfaceMetrics) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<RimfaxSurfaceMetrics>.ShallowEquals(value, __value))) then
             __value <- value
             __adaptive.MarkOutdated()
             _version_.Value <- value.version
-            _RIMFAXImageModeOptions_.Value <- value.RIMFAXImageModeOptions
-            _RIMFAXImageMode_.Value <- value.RIMFAXImageMode
-            _RIMFAXSurfaces_.Update(value.RIMFAXSurfaces)
+            _rimfaxImageModeOptions_.Value <- value.rimfaxImageModeOptions
+            _rimfaxImageMode_.Value <- value.rimfaxImageMode
+            _rimfaxSurfaces_.Update(value.rimfaxSurfaces)
             _isVisibleS_.Value <- value.isVisibleS
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
-    member __.RIMFAXImageModeOptions = _RIMFAXImageModeOptions_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>>
-    member __.RIMFAXImageMode = _RIMFAXImageMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
-    member __.RIMFAXSurfaces = _RIMFAXSurfaces_ :> FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>
+    member __.rimfaxImageModeOptions = _rimfaxImageModeOptions_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>>
+    member __.rimfaxImageMode = _rimfaxImageMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.rimfaxSurfaces = _rimfaxSurfaces_ :> FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>
     member __.isVisibleS = _isVisibleS_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-module RIMFAXSurfaceMetricsLenses = 
-    type RIMFAXSurfaceMetrics with
-        static member version_ = ((fun (self : RIMFAXSurfaceMetrics) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : RIMFAXSurfaceMetrics) -> { self with version = value }))
-        static member RIMFAXImageModeOptions_ = ((fun (self : RIMFAXSurfaceMetrics) -> self.RIMFAXImageModeOptions), (fun (value : Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>) (self : RIMFAXSurfaceMetrics) -> { self with RIMFAXImageModeOptions = value }))
-        static member RIMFAXImageMode_ = ((fun (self : RIMFAXSurfaceMetrics) -> self.RIMFAXImageMode), (fun (value : Microsoft.FSharp.Core.string) (self : RIMFAXSurfaceMetrics) -> { self with RIMFAXImageMode = value }))
-        static member RIMFAXSurfaces_ = ((fun (self : RIMFAXSurfaceMetrics) -> self.RIMFAXSurfaces), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) (self : RIMFAXSurfaceMetrics) -> { self with RIMFAXSurfaces = value }))
-        static member isVisibleS_ = ((fun (self : RIMFAXSurfaceMetrics) -> self.isVisibleS), (fun (value : Microsoft.FSharp.Core.bool) (self : RIMFAXSurfaceMetrics) -> { self with isVisibleS = value }))
+module RimfaxSurfaceMetricsLenses = 
+    type RimfaxSurfaceMetrics with
+        static member version_ = ((fun (self : RimfaxSurfaceMetrics) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : RimfaxSurfaceMetrics) -> { self with version = value }))
+        static member rimfaxImageModeOptions_ = ((fun (self : RimfaxSurfaceMetrics) -> self.rimfaxImageModeOptions), (fun (value : Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>) (self : RimfaxSurfaceMetrics) -> { self with rimfaxImageModeOptions = value }))
+        static member rimfaxImageMode_ = ((fun (self : RimfaxSurfaceMetrics) -> self.rimfaxImageMode), (fun (value : Microsoft.FSharp.Core.string) (self : RimfaxSurfaceMetrics) -> { self with rimfaxImageMode = value }))
+        static member rimfaxSurfaces_ = ((fun (self : RimfaxSurfaceMetrics) -> self.rimfaxSurfaces), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) (self : RimfaxSurfaceMetrics) -> { self with rimfaxSurfaces = value }))
+        static member isVisibleS_ = ((fun (self : RimfaxSurfaceMetrics) -> self.isVisibleS), (fun (value : Microsoft.FSharp.Core.bool) (self : RimfaxSurfaceMetrics) -> { self with isVisibleS = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-type AdaptiveRIMFAXMetrics(value : RIMFAXMetrics) =
+type AdaptiveRimfaxMetrics(value : RimfaxMetrics) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _fromRMC_ = FSharp.Data.Adaptive.cval(value.fromRMC)
     let _toRMC_ = FSharp.Data.Adaptive.cval(value.toRMC)
     let _sclkStart_ = FSharp.Data.Adaptive.cval(value.sclkStart)
     let _sclkEnd_ = FSharp.Data.Adaptive.cval(value.sclkEnd)
-    let _RIMFAXSurfaceProperties_ =
-        let inline __arg2 (o : System.Object) (v : RIMFAXSurfaceMetrics) =
-            (unbox<AdaptiveRIMFAXSurfaceMetrics> o).Update(v)
+    let _rimfaxSurfaceProperties_ =
+        let inline __arg2 (o : System.Object) (v : RimfaxSurfaceMetrics) =
+            (unbox<AdaptiveRimfaxSurfaceMetrics> o).Update(v)
             o
-        let inline __arg5 (o : System.Object) (v : RIMFAXSurfaceMetrics) =
-            (unbox<AdaptiveRIMFAXSurfaceMetrics> o).Update(v)
+        let inline __arg5 (o : System.Object) (v : RimfaxSurfaceMetrics) =
+            (unbox<AdaptiveRimfaxSurfaceMetrics> o).Update(v)
             o
-        Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Core.RIMFAXSurfaceMetrics, PRo3D.Core.AdaptiveRIMFAXSurfaceMetrics, PRo3D.Core.AdaptiveRIMFAXSurfaceMetrics>(value.RIMFAXSurfaceProperties, (fun (v : RIMFAXSurfaceMetrics) -> AdaptiveRIMFAXSurfaceMetrics(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveRIMFAXSurfaceMetrics> o), (fun (v : RIMFAXSurfaceMetrics) -> AdaptiveRIMFAXSurfaceMetrics(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveRIMFAXSurfaceMetrics> o))
+        Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Core.RimfaxSurfaceMetrics, PRo3D.Core.AdaptiveRimfaxSurfaceMetrics, PRo3D.Core.AdaptiveRimfaxSurfaceMetrics>(value.rimfaxSurfaceProperties, (fun (v : RimfaxSurfaceMetrics) -> AdaptiveRimfaxSurfaceMetrics(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveRimfaxSurfaceMetrics> o), (fun (v : RimfaxSurfaceMetrics) -> AdaptiveRimfaxSurfaceMetrics(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveRimfaxSurfaceMetrics> o))
     let _length_ = FSharp.Data.Adaptive.cval(value.length)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
-    static member Create(value : RIMFAXMetrics) = AdaptiveRIMFAXMetrics(value)
-    static member Unpersist = Adaptify.Unpersist.create (fun (value : RIMFAXMetrics) -> AdaptiveRIMFAXMetrics(value)) (fun (adaptive : AdaptiveRIMFAXMetrics) (value : RIMFAXMetrics) -> adaptive.Update(value))
-    member __.Update(value : RIMFAXMetrics) =
-        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<RIMFAXMetrics>.ShallowEquals(value, __value))) then
+    static member Create(value : RimfaxMetrics) = AdaptiveRimfaxMetrics(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : RimfaxMetrics) -> AdaptiveRimfaxMetrics(value)) (fun (adaptive : AdaptiveRimfaxMetrics) (value : RimfaxMetrics) -> adaptive.Update(value))
+    member __.Update(value : RimfaxMetrics) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<RimfaxMetrics>.ShallowEquals(value, __value))) then
             __value <- value
             __adaptive.MarkOutdated()
             _version_.Value <- value.version
@@ -115,7 +115,7 @@ type AdaptiveRIMFAXMetrics(value : RIMFAXMetrics) =
             _toRMC_.Value <- value.toRMC
             _sclkStart_.Value <- value.sclkStart
             _sclkEnd_.Value <- value.sclkEnd
-            _RIMFAXSurfaceProperties_.Update(value.RIMFAXSurfaceProperties)
+            _rimfaxSurfaceProperties_.Update(value.rimfaxSurfaceProperties)
             _length_.Value <- value.length
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
@@ -123,18 +123,18 @@ type AdaptiveRIMFAXMetrics(value : RIMFAXMetrics) =
     member __.toRMC = _toRMC_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.sclkStart = _sclkStart_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.sclkEnd = _sclkEnd_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.RIMFAXSurfaceProperties = _RIMFAXSurfaceProperties_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<RIMFAXSurfaceMetrics, AdaptiveRIMFAXSurfaceMetrics, AdaptiveRIMFAXSurfaceMetrics>>
+    member __.rimfaxSurfaceProperties = _rimfaxSurfaceProperties_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<RimfaxSurfaceMetrics, AdaptiveRimfaxSurfaceMetrics, AdaptiveRimfaxSurfaceMetrics>>
     member __.length = _length_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-module RIMFAXMetricsLenses = 
-    type RIMFAXMetrics with
-        static member version_ = ((fun (self : RIMFAXMetrics) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : RIMFAXMetrics) -> { self with version = value }))
-        static member fromRMC_ = ((fun (self : RIMFAXMetrics) -> self.fromRMC), (fun (value : Microsoft.FSharp.Core.string) (self : RIMFAXMetrics) -> { self with fromRMC = value }))
-        static member toRMC_ = ((fun (self : RIMFAXMetrics) -> self.toRMC), (fun (value : Microsoft.FSharp.Core.string) (self : RIMFAXMetrics) -> { self with toRMC = value }))
-        static member sclkStart_ = ((fun (self : RIMFAXMetrics) -> self.sclkStart), (fun (value : Microsoft.FSharp.Core.float) (self : RIMFAXMetrics) -> { self with sclkStart = value }))
-        static member sclkEnd_ = ((fun (self : RIMFAXMetrics) -> self.sclkEnd), (fun (value : Microsoft.FSharp.Core.float) (self : RIMFAXMetrics) -> { self with sclkEnd = value }))
-        static member RIMFAXSurfaceProperties_ = ((fun (self : RIMFAXMetrics) -> self.RIMFAXSurfaceProperties), (fun (value : Microsoft.FSharp.Core.option<RIMFAXSurfaceMetrics>) (self : RIMFAXMetrics) -> { self with RIMFAXSurfaceProperties = value }))
-        static member length_ = ((fun (self : RIMFAXMetrics) -> self.length), (fun (value : Microsoft.FSharp.Core.float) (self : RIMFAXMetrics) -> { self with length = value }))
+module RimfaxMetricsLenses = 
+    type RimfaxMetrics with
+        static member version_ = ((fun (self : RimfaxMetrics) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : RimfaxMetrics) -> { self with version = value }))
+        static member fromRMC_ = ((fun (self : RimfaxMetrics) -> self.fromRMC), (fun (value : Microsoft.FSharp.Core.string) (self : RimfaxMetrics) -> { self with fromRMC = value }))
+        static member toRMC_ = ((fun (self : RimfaxMetrics) -> self.toRMC), (fun (value : Microsoft.FSharp.Core.string) (self : RimfaxMetrics) -> { self with toRMC = value }))
+        static member sclkStart_ = ((fun (self : RimfaxMetrics) -> self.sclkStart), (fun (value : Microsoft.FSharp.Core.float) (self : RimfaxMetrics) -> { self with sclkStart = value }))
+        static member sclkEnd_ = ((fun (self : RimfaxMetrics) -> self.sclkEnd), (fun (value : Microsoft.FSharp.Core.float) (self : RimfaxMetrics) -> { self with sclkEnd = value }))
+        static member rimfaxSurfaceProperties_ = ((fun (self : RimfaxMetrics) -> self.rimfaxSurfaceProperties), (fun (value : Microsoft.FSharp.Core.option<RimfaxSurfaceMetrics>) (self : RimfaxMetrics) -> { self with rimfaxSurfaceProperties = value }))
+        static member length_ = ((fun (self : RimfaxMetrics) -> self.length), (fun (value : Microsoft.FSharp.Core.float) (self : RimfaxMetrics) -> { self with length = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveWaypointMetrics(value : WaypointMetrics) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
@@ -207,14 +207,14 @@ type private AdaptiveSolMetricsRoverM(Item : RoverMetrics) =
             | SolMetrics.RoverM(Item) ->
                 x.Update(Item)
                 x :> AdaptiveSolMetricsCase
-            | SolMetrics.RIMFAXM(Item) -> AdaptiveSolMetricsRIMFAXM(Item) :> AdaptiveSolMetricsCase
+            | SolMetrics.RimfaxM(Item) -> AdaptiveSolMetricsRimfaxM(Item) :> AdaptiveSolMetricsCase
             | SolMetrics.WaypointM(Item) -> AdaptiveSolMetricsWaypointM(Item) :> AdaptiveSolMetricsCase
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-type private AdaptiveSolMetricsRIMFAXM(Item : RIMFAXMetrics) =
-    let _Item_ = AdaptiveRIMFAXMetrics(Item)
+type private AdaptiveSolMetricsRimfaxM(Item : RimfaxMetrics) =
+    let _Item_ = AdaptiveRimfaxMetrics(Item)
     let mutable __Item = Item
-    member __.Update(Item : RIMFAXMetrics) =
-        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<RIMFAXMetrics>.ShallowEquals(Item, __Item))) then
+    member __.Update(Item : RimfaxMetrics) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<RimfaxMetrics>.ShallowEquals(Item, __Item))) then
             __Item <- Item
             _Item_.Update(Item)
     member __.Item = _Item_
@@ -222,7 +222,7 @@ type private AdaptiveSolMetricsRIMFAXM(Item : RIMFAXMetrics) =
         member x.Update(value : SolMetrics) =
             match value with
             | SolMetrics.RoverM(Item) -> AdaptiveSolMetricsRoverM(Item) :> AdaptiveSolMetricsCase
-            | SolMetrics.RIMFAXM(Item) ->
+            | SolMetrics.RimfaxM(Item) ->
                 x.Update(Item)
                 x :> AdaptiveSolMetricsCase
             | SolMetrics.WaypointM(Item) -> AdaptiveSolMetricsWaypointM(Item) :> AdaptiveSolMetricsCase
@@ -239,7 +239,7 @@ type private AdaptiveSolMetricsWaypointM(Item : WaypointMetrics) =
         member x.Update(value : SolMetrics) =
             match value with
             | SolMetrics.RoverM(Item) -> AdaptiveSolMetricsRoverM(Item) :> AdaptiveSolMetricsCase
-            | SolMetrics.RIMFAXM(Item) -> AdaptiveSolMetricsRIMFAXM(Item) :> AdaptiveSolMetricsCase
+            | SolMetrics.RimfaxM(Item) -> AdaptiveSolMetricsRimfaxM(Item) :> AdaptiveSolMetricsCase
             | SolMetrics.WaypointM(Item) ->
                 x.Update(Item)
                 x :> AdaptiveSolMetricsCase
@@ -250,13 +250,13 @@ type AdaptiveSolMetrics(value : SolMetrics) =
     let mutable __current =
         match value with
         | SolMetrics.RoverM(Item) -> AdaptiveSolMetricsRoverM(Item) :> AdaptiveSolMetricsCase
-        | SolMetrics.RIMFAXM(Item) -> AdaptiveSolMetricsRIMFAXM(Item) :> AdaptiveSolMetricsCase
+        | SolMetrics.RimfaxM(Item) -> AdaptiveSolMetricsRimfaxM(Item) :> AdaptiveSolMetricsCase
         | SolMetrics.WaypointM(Item) -> AdaptiveSolMetricsWaypointM(Item) :> AdaptiveSolMetricsCase
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (t : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member CreateAdaptiveCase(value : SolMetrics) =
         match value with
         | SolMetrics.RoverM(Item) -> AdaptiveSolMetricsRoverM(Item) :> AdaptiveSolMetricsCase
-        | SolMetrics.RIMFAXM(Item) -> AdaptiveSolMetricsRIMFAXM(Item) :> AdaptiveSolMetricsCase
+        | SolMetrics.RimfaxM(Item) -> AdaptiveSolMetricsRimfaxM(Item) :> AdaptiveSolMetricsCase
         | SolMetrics.WaypointM(Item) -> AdaptiveSolMetricsWaypointM(Item) :> AdaptiveSolMetricsCase
     static member Create(value : SolMetrics) = AdaptiveSolMetrics(value)
     static member Unpersist = Adaptify.Unpersist.create (fun (value : SolMetrics) -> AdaptiveSolMetrics(value)) (fun (adaptive : AdaptiveSolMetrics) (value : SolMetrics) -> adaptive.Update(value))
@@ -272,10 +272,10 @@ type AdaptiveSolMetrics(value : SolMetrics) =
     override __.Compute(t : FSharp.Data.Adaptive.AdaptiveToken) = __current
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module AdaptiveSolMetrics = 
-    let (|AdaptiveRoverM|AdaptiveRIMFAXM|AdaptiveWaypointM|) (value : AdaptiveSolMetricsCase) =
+    let (|AdaptiveRoverM|AdaptiveRimfaxM|AdaptiveWaypointM|) (value : AdaptiveSolMetricsCase) =
         match value with
         | (:? AdaptiveSolMetricsRoverM as roverm) -> AdaptiveRoverM(roverm.Item)
-        | (:? AdaptiveSolMetricsRIMFAXM as rimfaxm) -> AdaptiveRIMFAXM(rimfaxm.Item)
+        | (:? AdaptiveSolMetricsRimfaxM as rimfaxm) -> AdaptiveRimfaxM(rimfaxm.Item)
         | (:? AdaptiveSolMetricsWaypointM as waypointm) -> AdaptiveWaypointM(waypointm.Item)
         | _ -> failwith "unreachable"
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
@@ -319,7 +319,7 @@ type AdaptiveTraverse(value : Traverse) =
     let _selectedSol_ = FSharp.Data.Adaptive.cval(value.selectedSol)
     let _showLines_ = FSharp.Data.Adaptive.cval(value.showLines)
     let _showText_ = FSharp.Data.Adaptive.cval(value.showText)
-    let _showRIMFAXSurfaces_ = FSharp.Data.Adaptive.cval(value.showRIMFAXSurfaces)
+    let _showRimfaxSurfaces_ = FSharp.Data.Adaptive.cval(value.showRimfaxSurfaces)
     let _tTextSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.tTextSize)
     let _tLineWidth_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.tLineWidth)
     let _showDots_ = FSharp.Data.Adaptive.cval(value.showDots)
@@ -328,7 +328,7 @@ type AdaptiveTraverse(value : Traverse) =
     let _heightOffset_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.heightOffset)
     let _priority_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.priority)
     let _priorityEnabled_ = FSharp.Data.Adaptive.cval(value.priorityEnabled)
-    let _RIMFAXRootDirectory_ = FSharp.Data.Adaptive.cval(value.RIMFAXRootDirectory)
+    let _rimfaxRootDirectory_ = FSharp.Data.Adaptive.cval(value.rimfaxRootDirectory)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Traverse) = AdaptiveTraverse(value)
@@ -342,7 +342,7 @@ type AdaptiveTraverse(value : Traverse) =
             _selectedSol_.Value <- value.selectedSol
             _showLines_.Value <- value.showLines
             _showText_.Value <- value.showText
-            _showRIMFAXSurfaces_.Value <- value.showRIMFAXSurfaces
+            _showRimfaxSurfaces_.Value <- value.showRimfaxSurfaces
             _tTextSize_.Update(value.tTextSize)
             _tLineWidth_.Update(value.tLineWidth)
             _showDots_.Value <- value.showDots
@@ -351,7 +351,7 @@ type AdaptiveTraverse(value : Traverse) =
             _heightOffset_.Update(value.heightOffset)
             _priority_.Update(value.priority)
             _priorityEnabled_.Value <- value.priorityEnabled
-            _RIMFAXRootDirectory_.Value <- value.RIMFAXRootDirectory
+            _rimfaxRootDirectory_.Value <- value.rimfaxRootDirectory
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = __value.guid
@@ -361,7 +361,7 @@ type AdaptiveTraverse(value : Traverse) =
     member __.selectedSol = _selectedSol_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>>
     member __.showLines = _showLines_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showText = _showText_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
-    member __.showRIMFAXSurfaces = _showRIMFAXSurfaces_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.showRimfaxSurfaces = _showRimfaxSurfaces_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.tTextSize = _tTextSize_
     member __.tLineWidth = _tLineWidth_
     member __.showDots = _showDots_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -370,7 +370,7 @@ type AdaptiveTraverse(value : Traverse) =
     member __.heightOffset = _heightOffset_
     member __.priority = _priority_
     member __.priorityEnabled = _priorityEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
-    member __.RIMFAXRootDirectory = _RIMFAXRootDirectory_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.rimfaxRootDirectory = _rimfaxRootDirectory_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseLenses = 
     type Traverse with
@@ -382,7 +382,7 @@ module TraverseLenses =
         static member selectedSol_ = ((fun (self : Traverse) -> self.selectedSol), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>) (self : Traverse) -> { self with selectedSol = value }))
         static member showLines_ = ((fun (self : Traverse) -> self.showLines), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showLines = value }))
         static member showText_ = ((fun (self : Traverse) -> self.showText), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showText = value }))
-        static member showRIMFAXSurfaces_ = ((fun (self : Traverse) -> self.showRIMFAXSurfaces), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showRIMFAXSurfaces = value }))
+        static member showRimfaxSurfaces_ = ((fun (self : Traverse) -> self.showRimfaxSurfaces), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showRimfaxSurfaces = value }))
         static member tTextSize_ = ((fun (self : Traverse) -> self.tTextSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with tTextSize = value }))
         static member tLineWidth_ = ((fun (self : Traverse) -> self.tLineWidth), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with tLineWidth = value }))
         static member showDots_ = ((fun (self : Traverse) -> self.showDots), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showDots = value }))
@@ -391,7 +391,7 @@ module TraverseLenses =
         static member heightOffset_ = ((fun (self : Traverse) -> self.heightOffset), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with heightOffset = value }))
         static member priority_ = ((fun (self : Traverse) -> self.priority), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with priority = value }))
         static member priorityEnabled_ = ((fun (self : Traverse) -> self.priorityEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with priorityEnabled = value }))
-        static member RIMFAXRootDirectory_ = ((fun (self : Traverse) -> self.RIMFAXRootDirectory), (fun (value : Microsoft.FSharp.Core.string) (self : Traverse) -> { self with RIMFAXRootDirectory = value }))
+        static member rimfaxRootDirectory_ = ((fun (self : Traverse) -> self.rimfaxRootDirectory), (fun (value : Microsoft.FSharp.Core.string) (self : Traverse) -> { self with rimfaxRootDirectory = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverseModel(value : TraverseModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
@@ -405,11 +405,11 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             m.Update(v)
             m
         FSharp.Data.Traceable.ChangeableModelMap(value.strategicAnnotationTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
-    let _RIMFAXTraverses_ =
+    let _rimfaxTraverses_ =
         let inline __arg2 (m : AdaptiveTraverse) (v : Traverse) =
             m.Update(v)
             m
-        FSharp.Data.Traceable.ChangeableModelMap(value.RIMFAXTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
+        FSharp.Data.Traceable.ChangeableModelMap(value.rimfaxTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
     let _plannedTargetsTraverses_ =
         let inline __arg2 (m : AdaptiveTraverse) (v : Traverse) =
             m.Update(v)
@@ -421,7 +421,7 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             m
         FSharp.Data.Traceable.ChangeableModelMap(value.waypointsTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
     let _selectedTraverse_ = FSharp.Data.Adaptive.cval(value.selectedTraverse)
-    let _selectedRIMFAXSurface_ = FSharp.Data.Adaptive.cval(value.selectedRIMFAXSurface)
+    let _selectedRimfaxSurface_ = FSharp.Data.Adaptive.cval(value.selectedRimfaxSurface)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : TraverseModel) = AdaptiveTraverseModel(value)
@@ -433,29 +433,29 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             _version_.Value <- value.version
             _roverTraverses_.Update(value.roverTraverses)
             _strategicAnnotationTraverses_.Update(value.strategicAnnotationTraverses)
-            _RIMFAXTraverses_.Update(value.RIMFAXTraverses)
+            _rimfaxTraverses_.Update(value.rimfaxTraverses)
             _plannedTargetsTraverses_.Update(value.plannedTargetsTraverses)
             _waypointsTraverses_.Update(value.waypointsTraverses)
             _selectedTraverse_.Value <- value.selectedTraverse
-            _selectedRIMFAXSurface_.Value <- value.selectedRIMFAXSurface
+            _selectedRimfaxSurface_.Value <- value.selectedRimfaxSurface
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.roverTraverses = _roverTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.strategicAnnotationTraverses = _strategicAnnotationTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
-    member __.RIMFAXTraverses = _RIMFAXTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
+    member __.rimfaxTraverses = _rimfaxTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.plannedTargetsTraverses = _plannedTargetsTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.waypointsTraverses = _waypointsTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.selectedTraverse = _selectedTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
-    member __.selectedRIMFAXSurface = _selectedRIMFAXSurface_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
+    member __.selectedRimfaxSurface = _selectedRimfaxSurface_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseModelLenses = 
     type TraverseModel with
         static member version_ = ((fun (self : TraverseModel) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : TraverseModel) -> { self with version = value }))
         static member roverTraverses_ = ((fun (self : TraverseModel) -> self.roverTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with roverTraverses = value }))
         static member strategicAnnotationTraverses_ = ((fun (self : TraverseModel) -> self.strategicAnnotationTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with strategicAnnotationTraverses = value }))
-        static member RIMFAXTraverses_ = ((fun (self : TraverseModel) -> self.RIMFAXTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with RIMFAXTraverses = value }))
+        static member rimfaxTraverses_ = ((fun (self : TraverseModel) -> self.rimfaxTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with rimfaxTraverses = value }))
         static member plannedTargetsTraverses_ = ((fun (self : TraverseModel) -> self.plannedTargetsTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with plannedTargetsTraverses = value }))
         static member waypointsTraverses_ = ((fun (self : TraverseModel) -> self.waypointsTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with waypointsTraverses = value }))
         static member selectedTraverse_ = ((fun (self : TraverseModel) -> self.selectedTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedTraverse = value }))
-        static member selectedRIMFAXSurface_ = ((fun (self : TraverseModel) -> self.selectedRIMFAXSurface), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedRIMFAXSurface = value }))
+        static member selectedRimfaxSurface_ = ((fun (self : TraverseModel) -> self.selectedRimfaxSurface), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedRimfaxSurface = value }))
 

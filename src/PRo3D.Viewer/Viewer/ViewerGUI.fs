@@ -964,7 +964,7 @@ module Gui =
                         "RIMFAX Traverses"
                         "Write"
                         true
-                        [RIMFAXTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses]
+                        [RimfaxTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses]
                 yield GuiEx.accordion "WayPoint Traverses" "Write" true [
                     WayPointsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]

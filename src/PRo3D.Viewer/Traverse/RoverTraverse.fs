@@ -179,7 +179,7 @@ module RoverTraverseApp =
 
         let viewSolList 
             (refSystem : AdaptiveReferenceSystem) 
-            (RIMFAXTraverses: amap<Guid, AdaptiveTraverse>)
+            (rimfaxTraverses: amap<Guid, AdaptiveTraverse>)
             (m : AdaptiveTraverse) =
     
             let listAttributes =

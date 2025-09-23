@@ -10,7 +10,7 @@ open PRo3D.Core
 open FSharp.Data.Adaptive
 
 
-module RIMFAXTraverseApp =
+module RimfaxTraverseApp =
 
     open TraverseUtilities
 
@@ -31,9 +31,9 @@ module RIMFAXTraverseApp =
                 let! sclkStart = parseDoubleProperty x  "SCLK_START"    // not optional
                 let! sclkEnd   = parseDoubleProperty x  "SCLK_END"    // not optional
 
-                let (solMetrics : SolMetrics) = RIMFAXM {
-                    version = RIMFAXMetrics.current;
-                    RIMFAXSurfaceProperties = None;
+                let (solMetrics : SolMetrics) = RimfaxM {
+                    version = RimfaxMetrics.current;
+                    rimfaxSurfaceProperties = None;
                     length = length;
                     fromRMC = fromRMC;
                     toRMC = toRMC; 
@@ -119,7 +119,7 @@ module RIMFAXTraverseApp =
                 alist {
 
                     let! selected = m.selectedTraverse
-                    let traverses = m.RIMFAXTraverses |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
+                    let traverses = m.rimfaxTraverses |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
                             
                     for traverse in traverses do
                         
@@ -159,7 +159,7 @@ module RIMFAXTraverseApp =
                         let disableClickPropagation =
                             onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); } );"
 
-                        let jsImportRIMFAXDialog = "top.aardvark.dialog.showOpenDialog({tile: 'Select RIMFAX directory', filters: [{ name: 'RIMFAX (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"        
+                        let jsImportRimfaxDialog = "top.aardvark.dialog.showOpenDialog({tile: 'Select Rimfax directory', filters: [{ name: 'Rimfax (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"        
 
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
@@ -180,8 +180,8 @@ module RIMFAXTraverseApp =
                                             button [
                                                 clazz "ui button tiny";
                                                 style "margin-left: 10px";
-                                                Dialogs.onChooseFiles (fun chosen -> LoadRIMFAXSurface (chosen, traverseID) );
-                                                clientEvent "onclick" (jsImportRIMFAXDialog)
+                                                Dialogs.onChooseFiles (fun chosen -> LoadRimfaxSurface (chosen, traverseID) );
+                                                clientEvent "onclick" (jsImportRimfaxDialog)
                                             ] [
                                                 text "Import Surfaces"
                                             ]
@@ -216,7 +216,7 @@ module RIMFAXTraverseApp =
 
                     for sol in reversedSols do
                         match sol.solMetrics with
-                        | Some (SolMetrics.RIMFAXM solMetrics) ->
+                        | Some (SolMetrics.RimfaxM solMetrics) ->
                             let color =
                                 match selected with
                                 | Some sel -> 
@@ -254,11 +254,11 @@ module RIMFAXTraverseApp =
                                                     sol
                                                     refSystem
                                                     (computeSolRotation sol refSystem)))] []
-                                        match solMetrics.RIMFAXSurfaceProperties with
-                                        | Some RIMFAXSurfaceProperties ->
+                                        match solMetrics.rimfaxSurfaceProperties with
+                                        | Some rimfaxSurfaceProperties ->
                                             yield 
-                                                Html.SemUi.dropDown' (RIMFAXSurfaceProperties.RIMFAXImageModeOptions |> AList.ofList) (adaptive { return RIMFAXSurfaceProperties.RIMFAXImageMode }) (fun value -> SetRIMFAXImageMode (value, m.guid, sol.solNumber)) (fun option -> option)
-                                            yield i [clazz (match RIMFAXSurfaceProperties.isVisibleS with | true -> "unhide icon" | false -> "hide icon"); onClick (fun _ -> IsVisibleRIMFAXSurface (m.guid, sol.solNumber))] []
+                                                Html.SemUi.dropDown' (rimfaxSurfaceProperties.rimfaxImageModeOptions |> AList.ofList) (adaptive { return rimfaxSurfaceProperties.rimfaxImageMode }) (fun value -> SetRimfaxImageMode (value, m.guid, sol.solNumber)) (fun option -> option)
+                                            yield i [clazz (match rimfaxSurfaceProperties.isVisibleS with | true -> "unhide icon" | false -> "hide icon"); onClick (fun _ -> IsVisibleRimfaxSurface (m.guid, sol.solNumber))] []
                                         | None -> ()
                                     ]
                                 ]

@@ -390,16 +390,16 @@ module SceneLoader =
 
         let m = Optic.set _sceneObjects sOModel m
 
-        // load RIMFAXSurfaces
+        // load rimfaxSurfaces
         let traverses' = 
-            m.scene.traverses.RIMFAXTraverses 
+            m.scene.traverses.rimfaxTraverses 
             |> Seq.fold (fun traverses (guid, traverse) -> 
                 (TraverseApp.update 
                     traverses
-                    (LoadRIMFAXSurface ([traverse.RIMFAXRootDirectory], guid))
+                    (LoadRimfaxSurface ([traverse.rimfaxRootDirectory], guid))
                 )) m.scene.traverses 
 
-        { m with scene.traverses.RIMFAXTraverses = traverses'.RIMFAXTraverses} 
+        { m with scene.traverses.rimfaxTraverses = traverses'.rimfaxTraverses} 
          
 
     let loadSceneFromJson (jsonScene : string) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) =

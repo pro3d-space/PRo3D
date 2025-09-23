@@ -16,7 +16,7 @@ open Chiron
 
 type TraversePropertiesAction =
     | ToggleShowText
-    | ToggleShowRIMFAXSurfaces
+    | ToggleshowRimfaxSurfaces
     | ToggleShowLines
     | ToggleShowDots
     | SetTraverseName of string
@@ -30,7 +30,7 @@ type TraversePropertiesAction =
 type TraverseAction =
     | SelectSol of int
     | FlyToSol of V3d * V3d * V3d //forward * sky * location
-    | IsVisibleRIMFAXSurface of traverseId : Guid * solId : int
+    | IsVisibleRimfaxSurface of traverseId : Guid * solId : int
     | PlaceRoverAtSol of string * Trafo3d * V3d * ReferenceSystem //rotation and location
     | LoadTraverses of list<string>
     | FlyToTraverse of Guid
@@ -39,9 +39,9 @@ type TraverseAction =
     | SelectTraverse of Guid
     | TraversePropertiesMessage of TraversePropertiesAction
     | RemoveAllTraverses
-    | LoadRIMFAXSurface of rootDirectory : list<string> * traverseID : Guid 
-    | SetRIMFAXImageMode of mode : string * traverseID : Guid * solNumber : int
-    | PickRIMFAXSurface of surfaceId : Guid * traverseId : Guid * solNumber : int
+    | LoadRimfaxSurface of rootDirectory : list<string> * traverseID : Guid 
+    | SetRimfaxImageMode of mode : string * traverseID : Guid * solNumber : int
+    | PickRimfaxSurface of surfaceId : Guid * traverseId : Guid * solNumber : int
 
 module InitTraverseParams =
 
@@ -62,7 +62,7 @@ module InitTraverseParams =
 
 type TraverseType =
     | Rover
-    | RIMFAX
+    | Rimfax
     | WayPoints
     | StrategicAnnotations
     | PlannedTargets with
@@ -70,7 +70,7 @@ type TraverseType =
     static member ToJson (t :TraverseType) =
         match t with
         | Rover -> ToJsonDefaults.ToJson "rover"
-        | RIMFAX -> ToJsonDefaults.ToJson "rimfax"
+        | Rimfax -> ToJsonDefaults.ToJson "rimfax"
         | WayPoints -> ToJsonDefaults.ToJson "waypoints"
         | StrategicAnnotations -> ToJsonDefaults.ToJson "strategicAnnotations"
         | PlannedTargets -> ToJsonDefaults.ToJson "plannedTargets" 
@@ -78,7 +78,7 @@ type TraverseType =
     static member FromJson (_ :TraverseType) = fun json -> 
         match json with
         | String "rover" -> Value Rover, json
-        | String "rimfax" -> Value RIMFAX, json
+        | String "rimfax" -> Value Rimfax, json
         | String "waypoints" -> Value WayPoints, json
         | String "strategicAnnotations" -> Value StrategicAnnotations, json
         | String "plannedTargets" -> Value PlannedTargets, json
@@ -141,69 +141,69 @@ type RoverMetrics with
         }
 
 [<ModelType>]
-type RIMFAXSurfaceMetrics =
+type RimfaxSurfaceMetrics =
     {
         version: int
-        RIMFAXImageModeOptions: List<string>
-        RIMFAXImageMode: string
-        RIMFAXSurfaces : HashMap<Guid, SgSurface>
+        rimfaxImageModeOptions: List<string>
+        rimfaxImageMode: string
+        rimfaxSurfaces : HashMap<Guid, SgSurface>
         isVisibleS: bool
     }
 
 
-module RIMFAXSurfaceMetrics =
+module RimfaxSurfaceMetrics =
     let current = 0
 
     let readV0 =
         json {
-            let! (RIMFAXImageModeOptions : list<string>) = Json.read "RIMFAXImageModeOptions"
-            let! RIMFAXImageMode = Json.read "RIMFAXImageMode"
+            let! (rimfaxImageModeOptions : list<string>) = Json.read "rimfaxImageModeOptions"
+            let! rimfaxImageMode = Json.read "rimfaxImageMode"
             let! isVisibleS = Json.read "isVisibleS"
 
             return
                 {
                     version = current
-                    RIMFAXImageModeOptions = RIMFAXImageModeOptions
-                    RIMFAXImageMode = RIMFAXImageMode
-                    RIMFAXSurfaces = HashMap.Empty
+                    rimfaxImageModeOptions = rimfaxImageModeOptions
+                    rimfaxImageMode = rimfaxImageMode
+                    rimfaxSurfaces = HashMap.Empty
                     isVisibleS = isVisibleS
                 }
         }
 
 
-type RIMFAXSurfaceMetrics with
+type RimfaxSurfaceMetrics with
 
-    static member FromJson(_: RIMFAXSurfaceMetrics) =
+    static member FromJson(_: RimfaxSurfaceMetrics) =
         json {
             let! v = Json.read "version"
 
             match v with
-            | 0 -> return! RIMFAXSurfaceMetrics.readV0
-            | _ -> return! v |> sprintf "don't know version %d of RIMFAXSurfaceMetrics" |> Json.error
+            | 0 -> return! RimfaxSurfaceMetrics.readV0
+            | _ -> return! v |> sprintf "don't know version %d of RimfaxSurfaceMetrics" |> Json.error
         }
 
-    static member ToJson(x: RIMFAXSurfaceMetrics) =
+    static member ToJson(x: RimfaxSurfaceMetrics) =
         json {
-            do! Json.write "version" RIMFAXSurfaceMetrics.current
-            do! Json.write "RIMFAXImageModeOptions" x.RIMFAXImageModeOptions 
-            do! Json.write "RIMFAXImageMode" x.RIMFAXImageMode
+            do! Json.write "version" RimfaxSurfaceMetrics.current
+            do! Json.write "rimfaxImageModeOptions" x.rimfaxImageModeOptions 
+            do! Json.write "rimfaxImageMode" x.rimfaxImageMode
             do! Json.write "isVisibleS" x.isVisibleS
         }
 
 
 [<ModelType>]
-type RIMFAXMetrics =
+type RimfaxMetrics =
     {
         version: int
         fromRMC: string
         toRMC: string
         sclkStart: float
         sclkEnd: float
-        RIMFAXSurfaceProperties: option<RIMFAXSurfaceMetrics>
+        rimfaxSurfaceProperties: option<RimfaxSurfaceMetrics>
         length: float
     }
 
-module RIMFAXMetrics =
+module RimfaxMetrics =
     let current = 0
 
     let readV0 =
@@ -213,7 +213,7 @@ module RIMFAXMetrics =
             let! toRMC = Json.read "toRMC"
             let! sclkStart = Json.read "SCLK_START"
             let! sclkEnd = Json.read "SCLK_END"
-            let! RIMFAXSurfaceProperties = Json.read "RIMFAXSurfaceProperties"
+            let! rimfaxSurfaceProperties = Json.read "rimfaxSurfaceProperties"
             let! length = Json.read "length"
 
             return
@@ -223,30 +223,30 @@ module RIMFAXMetrics =
                     toRMC = toRMC
                     sclkStart = sclkStart
                     sclkEnd = sclkEnd
-                    RIMFAXSurfaceProperties = RIMFAXSurfaceProperties
+                    rimfaxSurfaceProperties = rimfaxSurfaceProperties
                     length = length
                 }
         }
 
-type RIMFAXMetrics with
+type RimfaxMetrics with
 
-    static member FromJson(_: RIMFAXMetrics) =
+    static member FromJson(_: RimfaxMetrics) =
         json {
             let! v = Json.read "version"
 
             match v with
-            | 0 -> return! RIMFAXMetrics.readV0
-            | _ -> return! v |> sprintf "don't know version %d of RIMFAXMetrics" |> Json.error
+            | 0 -> return! RimfaxMetrics.readV0
+            | _ -> return! v |> sprintf "don't know version %d of RimfaxMetrics" |> Json.error
         }
 
-    static member ToJson(x: RIMFAXMetrics) =
+    static member ToJson(x: RimfaxMetrics) =
         json {
-            do! Json.write "version" RIMFAXMetrics.current
+            do! Json.write "version" RimfaxMetrics.current
             do! Json.write "fromRMC" x.fromRMC
             do! Json.write "toRMC" x.toRMC
             do! Json.writeFloat "SCLK_START" x.sclkStart
             do! Json.writeFloat "SCLK_END" x.sclkEnd
-            do! Json.write "RIMFAXSurfaceProperties" x.RIMFAXSurfaceProperties
+            do! Json.write "rimfaxSurfaceProperties" x.rimfaxSurfaceProperties
             do! Json.writeFloat "length" x.length
         }
 
@@ -353,7 +353,7 @@ type WaypointMetrics with
 [<ModelType>]
 type SolMetrics =
     | RoverM of RoverMetrics
-    | RIMFAXM of RIMFAXMetrics
+    | RimfaxM of RimfaxMetrics
     | WaypointM of WaypointMetrics
 
 type SolMetrics with
@@ -365,9 +365,9 @@ type SolMetrics with
                 do! Json.write "type" "Rover"
                 do! Json.write "metrics" m
             }
-        | RIMFAXM m -> 
+        | RimfaxM m -> 
             json { 
-                do! Json.write "type" "RIMFAX"
+                do! Json.write "type" "Rimfax"
                 do! Json.write "metrics" m
             }
         | WaypointM m ->
@@ -383,9 +383,9 @@ type SolMetrics with
             | "Rover" ->
                 let! metrics = Json.read "metrics"
                 return RoverM metrics
-            | "RIMFAX" ->
+            | "Rimfax" ->
                 let! metrics = Json.read "metrics"
-                return RIMFAXM metrics
+                return RimfaxM metrics
             | "Waypoint" ->
                 let! metrics = Json.read "metrics"
                 return WaypointM metrics
@@ -502,7 +502,7 @@ type Traverse =
       selectedSol: option<int>
       showLines: bool
       showText: bool
-      showRIMFAXSurfaces: bool
+      showRimfaxSurfaces: bool
       tTextSize: NumericInput
       tLineWidth: NumericInput
       showDots: bool
@@ -511,7 +511,7 @@ type Traverse =
       heightOffset : NumericInput
       priority : NumericInput
       priorityEnabled : bool
-      RIMFAXRootDirectory : string
+      rimfaxRootDirectory : string
     }
 
 module Traverse =
@@ -550,7 +550,7 @@ module Traverse =
         version = current
         guid = Guid.NewGuid()
         traverseType = TraverseType.Rover
-        showRIMFAXSurfaces = true
+        showRimfaxSurfaces = true
         tName = ""
         sols = []
         selectedSol = None
@@ -564,7 +564,7 @@ module Traverse =
         heightOffset = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
         priority = initialPriority
         priorityEnabled = false
-        RIMFAXRootDirectory = ""
+        rimfaxRootDirectory = ""
     }
 
     let initial name sols =
@@ -660,8 +660,8 @@ module Traverse =
             let! heightOffset = Json.tryRead "heightOffset"
             let! priorityEnabled = Json.tryRead "priorityEnabled"
             let! traverseType = Json.read "traverseType"
-            let! showRIMFAXSurfaces = Json.read "showRIMFAXSurfaces"
-            let! RIMFAXRootDirectory = Json.read "RIMFAXRootDirectory"
+            let! showRimfaxSurfaces = Json.read "showRimfaxSurfaces"
+            let! rimfaxRootDirectory = Json.read "rimfaxRootDirectory"
 
             let tLineWidth = 
                 match tLWidth with
@@ -687,8 +687,8 @@ module Traverse =
                     priority = { ( empty () ).priority with value = Option.defaultValue 0.0 priority }
                     priorityEnabled = priorityEnabled |> Option.defaultValue false
                     traverseType = traverseType
-                    showRIMFAXSurfaces = showRIMFAXSurfaces
-                    RIMFAXRootDirectory = RIMFAXRootDirectory
+                    showRimfaxSurfaces = showRimfaxSurfaces
+                    rimfaxRootDirectory = rimfaxRootDirectory
                 }
         }
 
@@ -724,8 +724,8 @@ type Traverse with
             do! Json.write "priority" x.priority.value
             do! Json.write "priorityEnabled" x.priorityEnabled
             do! Json.write "traverseType" x.traverseType
-            do! Json.write "showRIMFAXSurfaces" x.showRIMFAXSurfaces
-            do! Json.write "RIMFAXRootDirectory" x.RIMFAXRootDirectory
+            do! Json.write "showRimfaxSurfaces" x.showRimfaxSurfaces
+            do! Json.write "rimfaxRootDirectory" x.rimfaxRootDirectory
         }
 
 
@@ -734,11 +734,11 @@ type TraverseModel =
     { version: int
       roverTraverses: HashMap<Guid, Traverse>
       strategicAnnotationTraverses: HashMap<Guid, Traverse>
-      RIMFAXTraverses: HashMap<Guid, Traverse>
+      rimfaxTraverses: HashMap<Guid, Traverse>
       plannedTargetsTraverses: HashMap<Guid, Traverse>
       waypointsTraverses: HashMap<Guid, Traverse>
       selectedTraverse: Option<Guid>
-      selectedRIMFAXSurface: Option<Guid>
+      selectedRimfaxSurface: Option<Guid>
       }
 
 module TraverseModel =
@@ -749,11 +749,11 @@ module TraverseModel =
         { version = current
           roverTraverses = HashMap.empty
           strategicAnnotationTraverses = HashMap.empty
-          RIMFAXTraverses = HashMap.empty
+          rimfaxTraverses = HashMap.empty
           plannedTargetsTraverses = HashMap.empty
           waypointsTraverses = HashMap.empty
           selectedTraverse = None
-          selectedRIMFAXSurface = None 
+          selectedRimfaxSurface = None 
         }
 
     let read0 =
@@ -782,9 +782,9 @@ module TraverseModel =
             let strategicAnnotationTraverses =
                 strategicAnnotationTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
-            let! RIMFAXTraverses' = Json.read "RIMFAXTraverses"
-            let RIMFAXTraverses = 
-                RIMFAXTraverses' |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+            let! rimfaxTraverses' = Json.read "rimfaxTraverses"
+            let rimfaxTraverses = 
+                rimfaxTraverses' |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
             let! plannedTargetsTraverses' = Json.read "plannedTargetsTraverses"
             let plannedTargetsTraverses =
@@ -795,17 +795,17 @@ module TraverseModel =
                 waypointsTraverses' |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
             let! selectedTraverse = Json.readOrDefault "selectedTraverse" None
-            let! selectedRIMFAXSurface = Json.readOrDefault "selectedRIMFAXSurface" None
+            let! selectedRimfaxSurface = Json.readOrDefault "selectedRimfaxSurface" None
 
             return
                 { version = current
                   roverTraverses = roverTraverses
                   strategicAnnotationTraverses = strategicAnnotationTraverses
-                  RIMFAXTraverses = RIMFAXTraverses
+                  rimfaxTraverses = rimfaxTraverses
                   plannedTargetsTraverses = plannedTargetsTraverses
                   waypointsTraverses = waypointsTraverses
                   selectedTraverse = selectedTraverse
-                  selectedRIMFAXSurface = selectedRIMFAXSurface}
+                  selectedRimfaxSurface = selectedRimfaxSurface}
         }
 
 
@@ -826,9 +826,9 @@ type TraverseModel with
             do! Json.write "version" x.version
             do! Json.write "roverTraverses" (x.roverTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "strategicAnnotationTraverses" (x.strategicAnnotationTraverses |> HashMap.toList |> List.map snd)
-            do! Json.write "RIMFAXTraverses" (x.RIMFAXTraverses |> HashMap.toList |> List.map snd)
+            do! Json.write "rimfaxTraverses" (x.rimfaxTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "plannedTargetsTraverses" (x.plannedTargetsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "waypointsTraverses" (x.waypointsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "selectedTraverse" x.selectedTraverse
-            do! Json.write "selectedRIMFAXSurface" x.selectedRIMFAXSurface
+            do! Json.write "selectedRimfaxSurface" x.selectedRimfaxSurface
         }
