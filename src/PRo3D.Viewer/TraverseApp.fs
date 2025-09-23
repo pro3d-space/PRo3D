@@ -384,8 +384,16 @@ module TraverseApp =
         else    
             traverses |> List.map(fun x -> (x, C4b.Chocolate))
 
-    let calculateRoverPosition (model : TraverseModel) (newPosAction : Numeric.Action)=
-        let roverLocation = 
+    let calculateRoverTrafo (model : TraverseModel) (newPosAction : Numeric.Action) =
+        let refsys = model.rover.refSystem
+        let north  = refsys.northO.Normalized        
+        let up     = refsys.up.value.Normalized
+        let east   = north.Cross(up).Normalized
+              
+        let refSysRotation = 
+            Trafo3d.FromOrthoNormalBasis(north, east, up)
+        
+        let translation, rotation = 
             model.rover.roverTraverse
             |> Option.map(fun tGuid ->
                 let traverse = { model.traverses.[tGuid] with currRoverPosition = (Numeric.update model.traverses.[tGuid].currRoverPosition newPosAction)}
@@ -393,18 +401,30 @@ module TraverseApp =
                 let currPos = traverse.currRoverPosition.value
 
                 let solPosF = currPos * (float (traverse.sols.Length - 1))
-                let solPos1 = (int solPosF)
+                let solPos1 = (int solPosF)                
                 
                 if solPos1 = (traverse.sols.Length - 1) then 
-                    traverse.sols.[solPos1].location
+                    let currSol = traverse.sols.[solPos1] 
+                    let rotation = TraversePropertiesApp.computeSolRotation currSol refsys
+
+                    (Trafo3d.Translation currSol.location), rotation
                 else
-                    let solPos2 = solPos1 + 1
-                    let factor = solPosF - (float solPos1)
-                    (traverse.sols.[solPos1].location * factor) + (traverse.sols.[solPos2].location * (1.0 - factor)))
-            |> Option.defaultValue V3d.NaN
+                    let sol1 = traverse.sols.[solPos1]
+                    let sol2 = traverse.sols.[solPos1 + 1]
+
+                    let factor  = solPosF - (float (solPos1 + 1))
+                    let factor2 = 1.0 - factor
+                    let posTrafo = Trafo3d.Translation ((sol1.location * factor) + (sol2.location * factor2))
+
+                    let mixedRotationSol = { sol1 with yaw = (sol1.yaw * factor + sol2.yaw * factor2); pitch = (sol1.pitch * factor + sol2.pitch * factor2); roll = (sol1.roll * factor + sol2.roll * factor2)}
+
+                    let rotation = TraversePropertiesApp.computeSolRotation mixedRotationSol refsys
+
+                    (posTrafo,rotation))
+            |> Option.defaultValue (Trafo3d.Translation(V3d.NegativeInfinity), Trafo3d.Identity)
         
 
-        { model with rover = { model.rover with roverLocation = roverLocation }}
+        { model with rover = { model.rover with translationTrafo = translation; rotationTrafo = rotation }}
 
     let update 
         (model : TraverseModel) 
@@ -471,7 +491,7 @@ module TraverseApp =
                 | Some selT ->
                     match msg with 
                     | TraversePropertiesAction.SetRoverPositionOnTraverses pos ->
-                        calculateRoverPosition model pos
+                        calculateRoverTrafo model pos
                     | _ -> 
                         let traverse = (TraversePropertiesApp.update selT msg)
                         let traverses' = model.traverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
@@ -498,8 +518,8 @@ module TraverseApp =
             | None -> model            
         | RemoveAllTraverses ->
             { model with traverses = HashMap.empty; selectedTraverse = None }  
-        | SetRoverToTraverse guid -> 
-            { model with rover = { model.rover with roverTraverse = Some guid }}
+        | SetRoverToTraverse (guid, refSystem) -> 
+            { model with rover = { model.rover with roverTraverse = Some guid; refSystem = refSystem }}
         | RemoveRoverFromTraverse ->
             { model with rover = { model.rover with roverTraverse = None }}
         |_-> model
@@ -571,7 +591,7 @@ module TraverseApp =
                                         yield Incremental.i toggleMap AList.empty 
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                                        yield i [clazz "car icon green"; onClick (fun _ -> SetRoverToTraverse traverseID)] []
+                                        yield i [clazz "car icon green"; onClick (fun _ -> SetRoverToTraverse (traverseID, refSystem))] []
                                         |> UI.wrapToolTip DataPosition.Bottom "Set Rover to traverse"
 
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
@@ -895,7 +915,7 @@ module TraverseApp =
             let rover   = traverseModel.rover
             let visible = rover.roverTraverse |> AVal.map(fun rT -> rT.IsSome)             
 
-            Pro3d.Core.RoverModel.Sg.viewRover rover.path visible rover.roverLocation
+            Pro3d.Core.RoverModel.Sg.viewRover rover.path visible rover.translationTrafo rover.rotationTrafo
 
         let view
             (view           : aval<CameraView>)

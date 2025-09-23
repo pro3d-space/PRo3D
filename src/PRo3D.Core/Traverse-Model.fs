@@ -17,7 +17,7 @@ open Pro3d.Core
 type TraversePropertiesAction =
     | ToggleShowText
     | ToggleShowLines
-    | ToggleShowDots
+    | ToggleShowDots   
     | SetTraverseName             of string
     | SetSolTextsize              of Numeric.Action
     | SetLineWidth                of Numeric.Action
@@ -26,20 +26,20 @@ type TraversePropertiesAction =
     | SetPriority                 of Numeric.Action
     | SetRoverPositionOnTraverses of Numeric.Action
     | TogglePriorityRenderingEnabled
-    
+
 type TraverseAction =
-    | SelectSol                   of int
-    | FlyToSol                    of V3d * V3d * V3d //forward * sky * location
-    | PlaceRoverAtSol             of string * Trafo3d * V3d * ReferenceSystem //rotation and location
-    | LoadTraverses               of list<string>
-    | FlyToTraverse               of Guid
-    | RemoveTraverse              of Guid
-    | IsVisibleT                  of Guid
-    | SelectTraverse              of Guid
-    | TraversePropertiesMessage   of TraversePropertiesAction
-    | RemoveAllTraverses
-    | SetRoverToTraverse          of Guid
+    | SelectSol                 of int
+    | FlyToSol                  of V3d * V3d * V3d //forward * sky * location
+    | PlaceRoverAtSol           of string * Trafo3d * V3d * ReferenceSystem //rotation and location
+    | LoadTraverses             of list<string>
+    | FlyToTraverse             of Guid
+    | RemoveTraverse            of Guid
+    | IsVisibleT                of Guid
+    | SelectTraverse            of Guid
+    | TraversePropertiesMessage of TraversePropertiesAction
+    | SetRoverToTraverse        of Guid * ReferenceSystem
     | RemoveRoverFromTraverse
+    | RemoveAllTraverses
     
     
 
@@ -146,10 +146,10 @@ type Sol with
 [<ModelType>]
 type Traverse =
     { 
-        version           : int
-        [<NonAdaptive>]   
-        guid              : System.Guid
-        [<NonAdaptive>]   
+        version: int
+        [<NonAdaptive>]
+        guid    : System.Guid
+        [<NonAdaptive>]
         tName             : string
         sols              : List<Sol>
         selectedSol       : option<int>
