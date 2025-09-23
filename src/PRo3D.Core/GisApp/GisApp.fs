@@ -475,10 +475,10 @@ module GisApp =
 
     let viewMissionTimeEntries (m : AdaptiveGisApp) =
         let missionTimeEntries = 
-            m.missionTimes 
+            m.missionTimesEntries 
             |> AVal.map (fun mt -> 
             match mt with
-            | Some missionTimes -> 
+            | Some missionTimesEntries_ -> 
                 let headers =
                     [
                         tr [] [
@@ -493,7 +493,7 @@ module GisApp =
 
                 let rows = 
                     let updateddata = 
-                        missionTimes
+                        missionTimesEntries_
                         |> List.mapi (fun idx entry ->
                             let attributes = 
                                 amap {
