@@ -89,6 +89,28 @@ module GisApp =
         | None ->
             m
 
+    let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
+            [
+                {
+                    minDate = DateTime(2025, 1, 1)
+                    maxDate = DateTime(2025, 1, 3)
+                    sliderValue = 0.0
+                    name    = "Mars Flyby"
+                }
+                {
+                    minDate = DateTime(2025, 2, 1)
+                    maxDate = DateTime(2025, 3, 31)
+                    sliderValue = 0.0
+                    name    = "Phobos Flyby"
+                }
+                {
+                    minDate = DateTime(2025, 3, 1)
+                    maxDate = DateTime(2025, 10, 31)
+                    sliderValue = 0.0
+                    name    = "Earth Flyby"
+                }
+            ]
+
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
                (viewer : 'viewer)
@@ -220,26 +242,7 @@ module GisApp =
         | GisAppAction.ToggleCameraInObserver ->
             viewer, {m with cameraInObserver = not m.cameraInObserver}
         | GisAppAction.InitializeMissionTimeEntries ->
-             let data : list<MissionTimeEntry> = [
-                {
-                    minDate = DateTime(2025, 1, 1)
-                    maxDate = DateTime(2025, 1, 3)
-                    sliderValue = 0.0
-                    name    = "Mars Flyby"
-                }
-                {
-                    minDate = DateTime(2025, 2, 1)
-                    maxDate = DateTime(2025, 3, 31)
-                    sliderValue = 0.0
-                    name    = "Phobos Flyby"
-                }
-                {
-                    minDate = DateTime(2025, 3, 1)
-                    maxDate = DateTime(2025, 10, 31)
-                    sliderValue = 0.0
-                    name    = "Earth Flyby"
-                }
-             ]
+             let data : list<MissionTimeEntry> = getMissionTimeEntriesData()
              viewer, {m with missionTimesEntries = Some data}
         | GisAppAction.SetMissionTimesRowAndSetDate (entry, rowIdx) ->
             let date = entry.minDate + (entry.maxDate - entry.minDate) * entry.sliderValue
@@ -470,8 +473,8 @@ module GisApp =
             (AList.append (AList.append headers rows) actions)
 
 
-    let viewMissionTimes (m : AdaptiveGisApp) =
-        let test = 
+    let viewMissionTimeEntries (m : AdaptiveGisApp) =
+        let missionTimeEntries = 
             m.missionTimes 
             |> AVal.map (fun mt -> 
             match mt with
@@ -508,7 +511,7 @@ module GisApp =
 
                             let children = 
                                 alist {
-                                        let! missionTime = m.selectedMissionTimeRow
+                                        let! selectedMissionTimeRow = m.selectedMissionTimeRow
                                         td [] [text entry.name]
                                         td [] [
                                                 text (System.String.Concat("Start: ", entry.minDate.ToString("yyyy-MM-dd")))
@@ -518,7 +521,7 @@ module GisApp =
                                         disableClickPropagation (
                                         td [
                                             style (
-                                                    match (missionTime : option<int>) with
+                                                    match (selectedMissionTimeRow : option<int>) with
                                                     | Some selectedMissionTime when selectedMissionTime = idx -> ""
                                                     | _ -> "pointer-events: none;"
                                                 )
@@ -562,7 +565,7 @@ module GisApp =
                     ]
                 ]
             )
-        let v = AList.ofAValSingle test
+        let v = AList.ofAValSingle missionTimeEntries
         
         Incremental.div (AttributeMap.Empty) v
 
@@ -709,7 +712,7 @@ module GisApp =
             ]
 
             GuiEx.accordion "Mission Time" "Cubes" false [
-                viewMissionTimes m
+                viewMissionTimeEntries m
             ]
         ]
 
@@ -1032,26 +1035,7 @@ module GisApp =
                 (ReferenceFrame.iauEarth.spiceName, ReferenceFrame.iauEarth)
             ] |> HashMap.ofList
 
-        let missionTimeEntries : list<MissionTimeEntry> = [
-            {
-                minDate = DateTime(2025, 1, 1)
-                maxDate = DateTime(2025, 1, 3)
-                sliderValue = 0.0
-                name    = "Mars Flyby"
-            }
-            {
-                minDate = DateTime(2025, 2, 1)
-                maxDate = DateTime(2025, 3, 31)
-                sliderValue = 0.0
-                name    = "Phobos Flyby"
-            }
-            {
-                minDate = DateTime(2025, 3, 1)
-                maxDate = DateTime(2025, 10, 31)
-                sliderValue = 0.0
-                name    = "Earth Flyby"
-            }
-        ]
+        let missionTimeEntries : list<MissionTimeEntry> = getMissionTimeEntriesData()
 
         let m =
             {
