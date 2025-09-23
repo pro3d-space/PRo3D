@@ -880,11 +880,11 @@ module GisApp =
                 |> Sg.ofIndexedGeometry
 
             // time steps for sampling the past for trajectories. They end at present.
-            let timeSteps =
+            let timeSteps (trajectoryLength : float) =
                 time
                 |> AVal.map (fun endTime -> 
                     let steps = 1000
-                    let trajectoryDuration = TimeSpan.FromDays 1.0
+                    let trajectoryDuration = TimeSpan.FromDays trajectoryLength
                     let startTime = endTime - trajectoryDuration
                     // could be [| startTime .. samplingDistance .. endTime |] if TimeSpan would have get_Zero static member...
                     Array.init steps (fun i -> endTime - ((endTime - startTime) / float steps) * float i) 
@@ -899,7 +899,7 @@ module GisApp =
                         if showTrajectory then
                             // pairwise trajectory points looking into the past....
                             let lineSegments = 
-                                (timeSteps, targetReferenceFrame, observerSpiceBody) 
+                                (timeSteps(entity.trajectoryLength.GetValue()), targetReferenceFrame, observerSpiceBody) 
                                 |||> AVal.map3 (fun steps targetReferenceFrame observer -> 
                                         steps 
                                         |> Array.choose (fun time -> 
