@@ -124,13 +124,7 @@ module AnnotationProperties =
       
         require GuiEx.semui (
             Html.table [   
-                //yield Html.row "Position:"              
-                //    [
-                //        Incremental.text (pos |> AVal.map  (fun d -> d));                         
-                //        //button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition)][i[clazz "ui icon print"][]]
-                //    ]
-
-                yield Html.row "PrintPosition:"         [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )] [i [clazz "ui icon print"] []]]
+                yield Html.row "Print Position:"        [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )] [i [clazz "ui icon print"] []]]
                 yield Html.row "Height:"                [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "HeightDelta:"           [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Avg Altitude:"          [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]

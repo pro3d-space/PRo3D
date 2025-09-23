@@ -12,6 +12,19 @@ open PRo3D.Core
 open Adaptify
 open Chiron
 
+type Sol =
+    { version: int
+      location: V3d
+      solNumber: int
+      site: int
+      yaw: float
+      pitch: float
+      roll: float
+      tilt: float
+      note: string
+      distanceM: float
+      totalDistanceM: float }
+
 type TraversePropertiesAction =
     | ToggleShowText
     | ToggleShowLines
@@ -34,6 +47,7 @@ type TraverseAction =
     | IsVisibleT of Guid
     | SelectTraverse of Guid
     | TraversePropertiesMessage of TraversePropertiesAction
+    | PrintPosition of Sol
     | RemoveAllTraverses
 
 module InitTraverseParams =
@@ -51,20 +65,6 @@ module InitTraverseParams =
           max = 10.0
           step = 0.001
           format = "{0:0.000}" }
-
-
-type Sol =
-    { version: int
-      location: V3d
-      solNumber: int
-      site: int
-      yaw: float
-      pitch: float
-      roll: float
-      tilt: float
-      note: string
-      distanceM: float
-      totalDistanceM: float }
 
 module Sol =
     let current = 0

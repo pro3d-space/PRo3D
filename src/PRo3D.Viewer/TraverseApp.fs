@@ -19,33 +19,6 @@ module Double =
     let parse x =
         Double.Parse(x, Globalization.CultureInfo.InvariantCulture)
 
-module M20 =
-    let parseDouble x =
-        match x with
-        | Json.String p ->
-            p |> Double.parse  
-        | Json.Number p ->
-            double p
-        | _ -> 
-            0.0
-
-    let parseInt x =
-        match x with
-        | Json.String p ->
-            p |> int
-        | Json.Number p ->
-            int p
-        | _ -> 
-            0
-
-    let parseString x =
-        match x with
-        | Json.String p -> p
-        | Json.Number p ->
-            p.ToString() 
-        | _ -> 
-            ""
-
 module TraversePropertiesApp =
 
     let update (model : Traverse) (action : TraversePropertiesAction) : Traverse = 
@@ -158,32 +131,7 @@ module TraversePropertiesApp =
                 
                         let white = sprintf "color: %s" (Html.color C4b.White)
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.color c)
-                            
-                        //if (sol.solNumber = 238) then
-                        //items
-                        //yield div [clazz "item"; style white] [
-                        //    i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
-                        //    div [clazz "content"; style white] [                     
-                        //        Incremental.div (AttributeMap.ofList [style white])(
-                        //            alist {
-                                            
-                        //                yield div [clazz "header"; style bgc] [
-                        //                    span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
-                        //                ]                
-    
-                        //                let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
-                        //                yield div [clazz "description"] [text descriptionText]
-    
-                        //                let! refSystem = refSystem.Current
-                        //                yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
-                        //                    |> UI.wrapToolTip DataPosition.Bottom "Fly to Sol"
-                        //                yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
-                        //                    |> UI.wrapToolTip DataPosition.Bottom "Make Viewplan"
-                        //            } 
-                        //        )                                     
-                        //    ]
-                        //]
+                        let bgc = sprintf "color: %s" (Html.color c)                                                   
 
                         // only to be called in callback
                         let getCurrentRefSystem () =
@@ -204,11 +152,12 @@ module TraversePropertiesApp =
                                         i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (computeSolFlyToParameters sol refSystem))] []
                                     yield 
                                         i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
+                                    yield 
+                                        i [clazz "print icon"; onClick (fun _ -> PrintPosition sol)] []
                                 ]                                     
                             ]
                         ]
                 })
-
 
 module TraverseApp =
     type TraverseParseError =
@@ -335,7 +284,7 @@ module TraverseApp =
             let! sol = parseProperties { Sol.initial with version = Sol.current; location = position; } x
 
             // note is (now) optional for all cases. 
-            // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentioanl @ThomasOrtner
+            // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentional @ThomasOrtner
             let sol = 
                 match parseStringProperty x "Note" with
                 | Result.Ok note -> { sol with note = note }
@@ -469,6 +418,12 @@ module TraverseApp =
             | None -> model
         | RemoveAllTraverses ->
             { model with traverses = HashMap.empty; selectedTraverse = None }            
+        | PrintPosition sol ->            
+            Log.line "--- Printing Point Coordinates ---"
+            Log.line "Sol Number %A" sol.solNumber
+            Log.line "XYZ: %A" sol.location
+            Log.line "--- Done ---"
+            model
         |_-> model
 
     module UI =
