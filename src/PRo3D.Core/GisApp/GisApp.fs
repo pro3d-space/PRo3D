@@ -92,22 +92,22 @@ module GisApp =
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
             [
                 {
-                    minDate = DateTime(2025, 1, 1)
-                    maxDate = DateTime(2025, 1, 3)
-                    sliderValue = 0.0
+                    minDate = DateTime(2025, 3, 10)
+                    maxDate = DateTime(2025, 3, 14)
+                    sliderValue = 0.626 // 12 March 2025, 12:07
+                    name    = "Deimos Flyby"
+                }
+                {
+                    minDate = DateTime(2025, 3, 10)
+                    maxDate = DateTime(2025, 3, 14)
+                    sliderValue = 0.6338 // 12 March 2025, 12:51
                     name    = "Mars Flyby"
                 }
                 {
-                    minDate = DateTime(2025, 2, 1)
-                    maxDate = DateTime(2025, 3, 31)
-                    sliderValue = 0.0
-                    name    = "Phobos Flyby"
-                }
-                {
-                    minDate = DateTime(2025, 3, 1)
-                    maxDate = DateTime(2025, 10, 31)
-                    sliderValue = 0.0
-                    name    = "Earth Flyby"
+                    minDate = DateTime(2026, 12, 12)
+                    maxDate = DateTime(2026, 12, 16)
+                    sliderValue = 0.5
+                    name    = "Didymos Orbital Insertion"
                 }
             ]
 
