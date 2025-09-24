@@ -54,7 +54,7 @@ module OutlineEffect =
       }
 
     // NOTE: sg MUST only hold pure Sg without any modes or shaders!
-    let createForSg (outlineGroup: int) (pass: RenderPass) (color: C4f) sg =
+    let createForSg' (lineWidth : aval<float>) (outlineGroup: int) (pass: RenderPass) (color: C4f) (sg : ISg<_>) =
         let sg = sg |> Sg.uniform "Color" (AVal.constant color)
         
         let mask = 
@@ -79,7 +79,7 @@ module OutlineEffect =
             |> Sg.blendMode (AVal.init BlendMode.Blend)
             |> Sg.fillMode (AVal.init FillMode.Fill)
             |> Sg.pass pass
-            |> Sg.uniform "LineWidth" (AVal.constant 5.0)
+            |> Sg.uniform "LineWidth" lineWidth
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
                 do! Shader.lines
@@ -89,6 +89,10 @@ module OutlineEffect =
             }
         
         [ mask; outline ] |> Sg.ofList
+
+    // NOTE: sg MUST only hold pure Sg without any modes or shaders!
+    let createForSg  (outlineGroup: int) (pass: RenderPass) (color: C4f) (sg : ISg<_>) =
+        createForSg' (AVal.constant 5.0) outlineGroup pass color sg
  
     let createForLine 
         (points: aval<V3d[]>) 

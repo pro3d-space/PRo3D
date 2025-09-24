@@ -55,6 +55,8 @@ type QueryFunctions =
     }
 
 module AnnotationQuery =
+    open Chiron
+    open Newtonsoft.Json
 
     let queryFunctionsFromPointsOnPlane (heightRange : Range1d) (points : seq<V3d>) : QueryFunctions =
 
@@ -251,6 +253,8 @@ module AnnotationQuery =
         let q = queryFunctionsFromAnnotation heightRange annotation
         clip hierarchies attributeNames q (handlePatch q) hit
 
+    
+
     let queryResultsToObj 
         (outputReferenceFrame : OutputReferenceFrame)
         (outputGeometryType   : OutputGeometryType)
@@ -303,7 +307,6 @@ module AnnotationQuery =
             |> WavefrontGeometry.mergeWithDefaultColor C3b.White  
             |> Seq.singleton
             |> RudimentaryObjExport.writeToString 
-
         | PointCloud ->
             let shiftByCenterOfMass (points: V3d[]) : V3d[] =
                 // Calculate the center of mass
@@ -317,14 +320,60 @@ module AnnotationQuery =
 
             let allVertices = 
                 queryResults 
-                |> Seq.collect (fun h -> h.globalPositions) 
+                |> Seq.collect (fun h -> 
+                    match outputReferenceFrame with
+                    | Local -> h.localPositions |> Seq.map V3d
+                    | _ -> h.globalPositions |> Seq.map V3d
+                ) 
                 |> Seq.toArray
+
+            let allVertices =
+                if outputReferenceFrame = Centered then                    
+                    allVertices |> shiftByCenterOfMass
+                else
+                    allVertices
 
             let geometry = 
                 {
                     colors = None
-                    indices = [| |] // h.indices |> Seq.toArray
-                    vertices = allVertices |> shiftByCenterOfMass
+                    indices = [| |] 
+                    vertices = allVertices
                 }
 
             geometry |> Seq.singleton |> RudimentaryObjExport.writeToString        
+
+
+    let queryResultsToCoordinatesSet 
+        (outputReferenceFrame : OutputReferenceFrame)
+        (queryResults         : List<QueryResult>) =
+
+        let shiftByCenterOfMass (points: V3d[]) : V3d[] =
+                // Calculate the center of mass
+                let centerOfMass = 
+                    points 
+                    |> Array.reduce (+) 
+                    |> fun sum -> sum / float points.Length
+
+                // Shift each point by subtracting the center of mass
+                points |> Array.map (fun point -> point - centerOfMass)
+
+        let allVertices = 
+            queryResults 
+            |> Seq.collect (fun h -> 
+                match outputReferenceFrame with
+                | Local -> h.localPositions |> Seq.map V3d
+                | _ -> h.globalPositions |> Seq.map V3d
+            ) 
+            |> Seq.toArray
+
+        let allVertices =
+            if outputReferenceFrame = Centered then                    
+                allVertices |> shiftByCenterOfMass
+            else
+                allVertices
+
+        let pointsArray =
+            allVertices
+            |> Array.map (fun v -> [| v.X; v.Y; v.Z |])
+
+        JsonConvert.SerializeObject(pointsArray)        

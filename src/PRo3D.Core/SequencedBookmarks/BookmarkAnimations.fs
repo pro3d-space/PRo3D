@@ -19,18 +19,12 @@ open PRo3D.Core.BookmarkUtils
 
 open Aether
 open Aether.Operators
-open Chiron
 
 /// Animations for sequenced bookmarks
 module BookmarkAnimations =
 
     module AnimationSlot =
-        let private getName (slot : string) (entity : V2i) =
-            Sym.ofString <| sprintf "%A/%s" entity slot
-
         let camera = Sym.ofString "camera"
-        let caption = Sym.ofString "caption"
-        //let appearance = getName "appearance"
 
     module Primitives =
         let frustum_ = SceneStateViewConfig.frustumModel_ >-> FrustumModel.frustum_
@@ -39,7 +33,6 @@ module BookmarkAnimations =
         // interpolate ViewConfigModel for animation
         let interpVcm (src : SceneStateViewConfig) (dst : SceneStateViewConfig)
                 : IAnimation<'Model, SceneStateViewConfig> =
-            //let animFocal = Primitives.lerp src.frustumModel.focal.value src.frustumModel.focal.value
             let animFocal = Animation.create (lerp src.frustumModel.focal.value dst.frustumModel.focal.value)
                             |> Animation.seconds 1
             animFocal
@@ -86,27 +79,30 @@ module BookmarkAnimations =
         let interpolateBm (settings : AnimationSettings) 
                           (setSeqbookmark : Lens<'a, SequencedBookmark>)
                           (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel)
-                          = //IAnimation<'Model, SequencedBookmark> =
+                          =
 
             let pause = 
                 if src.delay.value > 0.0 then
-                    let dummyAnimation = Animation.create (fun _ -> src.cameraView)
-                   
-                    // TODO RNO add other interpolations
-                    [
-                        dummyAnimation
-                        |> Animation.map (fun view -> src)
-                        |> Animation.seconds src.delay.value
-                    ]
+                    let p = // creating interpolation here, because static version (Animation.create (fun _ -> src.cameraView)) fails in very specific circumstances (issue #456)
+                        Animation.Camera.interpolate  (src.bookmark.cameraView) (src.bookmark.cameraView)
+                        |> Animation.map (fun view -> 
+                            {src with bookmark = {src.bookmark with cameraView = view}})
+                    [p
+                    |> Animation.seconds src.delay.value]
                 else 
                     []
             
             let toNext = 
-                let animCam = Animation.Camera.interpolate src.bookmark.cameraView dst.bookmark.cameraView
-                              |> Animation.map (fun view -> 
-                                    {dst with bookmark = {dst.bookmark with cameraView = view}})
+                let animCam = 
+                    Animation.Camera.interpolate  (src.bookmark.cameraView) (dst.bookmark.cameraView)
+                    
+                let animCam = 
+                    animCam
+                    |> Animation.map (fun view -> 
+                        {dst with bookmark = {dst.bookmark with cameraView = view}})
+
                 match src.sceneState, dst.sceneState with
-                | Some srcState, Some dstState ->
+                | Some srcState, Some dstState -> 
                     let _view = SequencedBookmarkModel._cameraView
                     let _obsInfo = SequencedBookmarkModel.observationInfo_ 
 
@@ -115,7 +111,7 @@ module BookmarkAnimations =
                         |> Animation.map (fun vcm -> 
                             Optic.set SequencedBookmarkModel._stateConfig vcm dst) 
                     let anim = 
-                        Animation.map2 (fun c f -> f |> Optic.set _view (Optic.get _view c)) 
+                        Animation.map2 (fun c f -> f |> Optic.set _view (Optic.get _view c))
                                        animCam animFocal
                     let anim = 
                         match src.observationInfo, dst.observationInfo with
@@ -135,7 +131,6 @@ module BookmarkAnimations =
                 | _ -> 
                     animCam
                 
-
             let toNext =
                 if settings.useGlobalAnimation then
                     toNext
@@ -149,7 +144,10 @@ module BookmarkAnimations =
                         |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
                 else 
                     toNext
+
             pause@[toNext]
+            
+            
 
         let inline slerpBm (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel) 
                             : IAnimation<'Model, SequencedBookmarkModel> =
@@ -324,7 +322,7 @@ module BookmarkAnimations =
     //    let m = {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
     //    outerModel, m
 
-    /// This function does no work with focal length therefore it is not in use
+    // This function does not work with focal length therefore it is not in use
     //let smoothPathAllBookmarks (m : SequencedBookmarks)
     //                           (lenses : BookmarkLenses<'a>)
     //                           (outerModel      : 'a) =
@@ -350,17 +348,17 @@ module BookmarkAnimations =
         
     let pathWithPausing (m : SequencedBookmarks)
                         (lenses : BookmarkLenses<'a>)
-                        (outerModel      : 'a) =
+                        (viewer      : 'a) =
         let bookmarks = orderedLoadedBookmarks m
         let animations =
             bookmarks
             |> List.pairwise 
-            |> List.map (fun (a,b) -> Primitives.interpolateBm m.animationSettings lenses.setModel_ a b)
+            |> List.map (fun (a,b) -> 
+                Primitives.interpolateBm m.animationSettings lenses.setModel_ a b
+            )
             |> List.concat
             |> List.map (Animation.onStart (fun name x m -> 
-                                                    Log.line "[Bookmark Animation] Selected bookmark %s" x.name
-                                                    Optic.set lenses.selectedBookmark_ (Some x.key) m
-                                    ))
+                Optic.set lenses.selectedBookmark_ (Some x.key) m))
         
         let animation =
             animations
@@ -368,13 +366,13 @@ module BookmarkAnimations =
 
         let animation = 
             animation
-            |> addGlobalAttributes m lenses outerModel
+            |> addGlobalAttributes m lenses viewer
                 
-        let outerModel =
-            outerModel 
+        let viewer =
+            viewer 
             |> Animator.createAndStart AnimationSlot.camera animation
        // let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
-        outerModel, m
+        viewer, m
 
     let cameraOnly (m : SequencedBookmarks)
                    (navigationModel : Lens<'a,NavigationModel>) 
@@ -427,7 +425,6 @@ module BookmarkAnimations =
                 |> Animator.createAndStart AnimationSlot.camera animation
             outerModel, {m with selectedBookmark = Some next.key}
         | _ -> 
-            Log.line "[SequencedBookmarks] No bookmark selected."
             outerModel, m
 
     //let toBookmarkFromSelected (m : SequencedBookmarks)

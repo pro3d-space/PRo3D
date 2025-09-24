@@ -1,3 +1,48 @@
+## 5.1.0
+- native dependency fix for mac
+## 5.1.0-prerelease3
+- native dependency fix for mac
+
+## 5.1.0-prerelease2
+- native dependency fix for mac
+
+## 5.1.0-prerelease1
+- native dependency fix for mac
+
+## 5.0.7-prerelease1
+- #516
+- #525
+
+## 5.0.7
+- ViewPlan: lookAt function for distance points, changes pan and tilt
+- Trafos: export/import trafos for specific surface
+
+## 5.0.6
+- ViewPlan: lookAt function for distance points, changes pan and tilt
+- Trafos: export/import trafos for specific surface
+
+## 5.0.5
+- first official 5.0 release
+
+## 5.0.4
+- updated PRo3d.SPICE/fixed osx cootrafo build (again)
+
+## 5.0.3
+- updated PRo3d.SPICE/fixed osx cootrafo build (again)
+
+## 5.0.2 
+- updated PRo3d.SPICE/fixed osx cootrafo build
+
+## 5.0.0 
+- next major release preparation
+
+## 4.27.0-prerelease2
+- tweaked opc parameters
+- 
+## 4.27.0-prerelease1
+- tweaked opc parameters
+- 
+
 ## 5.0.0-prerelease-hera-7
 - product style release for hera deliverable
 
@@ -8,7 +53,10 @@
 ## 4.25.0-prerelease7
 - distance- and trianglefilter fix
 - fixed problem with sequenced bookmarks performance problem when a traverse is loaded
-- fixed obj not being rendered with batch rendering## 4.24.0
+- fixed obj not being rendered with batch rendering
+
+## 4.24.0
+- fixed obj not being rendered with batch rendering
 
 ## 4.21.0-prerelease3
 - bugfix contour lines

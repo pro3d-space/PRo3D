@@ -17,27 +17,34 @@ open System.Threading.Tasks
 
 module SnapshotUtils =
         
-    let runProcess filename args startDir = 
+    let runProcess (processName : string) (args : string) (startDir : Option<string>) = 
+        let fullPath = Path.GetFullPath(processName)
+        Log.line "[Snapshots] Starting process %s with args %s in %A" fullPath args startDir
+        if File.Exists(fullPath) |> not then
+            failwithf "[Snapshots] Could not find process %s" fullPath
         let procStartInfo = 
             ProcessStartInfo(
                 RedirectStandardOutput = false,
                 RedirectStandardError = false,
                 UseShellExecute = true,
-                FileName = filename,
+                FileName = fullPath,
                 Arguments = args
             )
         match startDir with 
-        | Some d -> procStartInfo.WorkingDirectory <- d 
+        | Some d -> 
+            if Directory.Exists(d) |> not then
+                failwithf "[Snapshots] Could not find working directory %s" d
+            procStartInfo.WorkingDirectory <- d 
         | _ -> ()
         let p = new Process(StartInfo = procStartInfo)
         let started = 
             try
                 p.Start()
             with | ex ->
-                ex.Data.Add("filename", filename)
+                ex.Data.Add("filename", processName)
                 reraise()
         if not started then
-            failwithf "[Snapshots] Failed to start process %s" filename
+            failwithf "[Snapshots] Failed to start process %s" processName
         Log.line "[Snapshots] Started %s with pid %i" p.ProcessName p.Id
         p            
 

@@ -7,7 +7,12 @@
     },
     "PRo3D.Viewer.Provex": {
       "commandName": "Project",
-      "commandLineArgs": "--disableCors --port 4321 --remoteApi -loadRecent",
+      "commandLineArgs": "--disableCors --port 4321 --remoteApi --enableProvenance",
+      "nativeDebugging": true
+    },
+    "PRo3D.Viewer.CoReg": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 4321 --remoteApi --scene \"F:\\Co-Reg\\20250422_CoReg_360_361.pro3d\"",
       "nativeDebugging": true
     },
     "PRo3D.RemoteApi": {

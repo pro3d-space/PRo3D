@@ -329,6 +329,14 @@ Target.create "PublishToElectron" (fun _ ->
         //File.WriteAllBytes("Aardium/dist/Aardium-Linux-x64.tar.gz", [||]) |> ignore
         //Directory.CreateDirectory "Aardium/dist/Aardium-win32-x64" |> ignore
 )
+
+
+let extractNativeDependenciesInFolder (os : OSPlatform) (arch : Architecture) (dir : string) =
+    for assembly in Directory.EnumerateFiles(dir, "*.dll") do
+        try
+            UnpackNativeDependencies.extractNativeDependenciesForAssembly Trace.trace os arch assembly false dir
+        with e -> 
+            Trace.tracefn "could not add native dependencies to %s: %A" assembly e
  
 Target.create "CopyToElectron" (fun _ -> 
 
@@ -361,6 +369,9 @@ Target.create "CopyToElectron" (fun _ ->
          )
          for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/mac/") do    
             File.Copy(f, Path.Combine("aardium/build/build", Path.GetFileName f))
+
+         extractNativeDependenciesInFolder OSPlatform.OSX Architecture.X64 "aardium/build/build" 
+
     elif System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux) then
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
                 { o with
@@ -378,6 +389,9 @@ Target.create "CopyToElectron" (fun _ ->
             let target = Path.Combine("aardium/build/build", Path.GetFileName f)
             printfn "copy: %s => %s" f target
             File.Copy(f, target)
+
+        extractNativeDependenciesInFolder OSPlatform.Linux Architecture.X64 "aardium/build/build" 
+
     else
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
             { o with
@@ -390,9 +404,13 @@ Target.create "CopyToElectron" (fun _ ->
                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
             }
         )
+        extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 "aardium/build/build" 
+
         File.Copy("data/runtime/vcruntime140.dll", "aardium/build/build/vcruntime140.dll")
         File.Copy("data/runtime/vcruntime140_1.dll", "aardium/build/build/vcruntime140_1.dll")
         File.Copy("data/runtime/msvcp140.dll", "aardium/build/build/msvcp140.dll")
+
+
 
 
     File.Copy("CREDITS.MD", "aardium/build/build/CREDITS.MD", true)
@@ -402,6 +420,9 @@ Target.create "CopyToElectron" (fun _ ->
 
 "InstallYarn" ==> "CopyToElectron" ==> "PublishToElectron" |> ignore
 
+Target.create "TestUnpack" (fun _ -> 
+    extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 "./aardium/build/build"
+)
 
 Target.create "Publish" (fun _ ->
 
@@ -433,7 +454,7 @@ Target.create "Publish" (fun _ ->
         }
     )
 
-    // snapshots
+    //// snapshots
     "src/PRo3D.Snapshots/PRo3D.Snapshots.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some "net6.0"
@@ -496,7 +517,7 @@ Target.create "Publish" (fun _ ->
         Shell.copyDir (Path.Combine(target, "mac-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
         Shell.copyDir (Path.Combine(target, "win-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
 
-        File.Move("bin/publish/win-x64/PRo3D.Viewer.exe", sprintf "bin/publish/win-x64/PRo3D.Viewer.%s.exe" notes.NugetVersion)
+        //File.Move("bin/publish/win-x64/PRo3D.Viewer.exe", sprintf "bin/publish/win-x64/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
 
 "Credits" ==> "Publish" |> ignore
@@ -603,14 +624,15 @@ Target.create "GitHubRelease" (fun _ ->
     let newVersion = notes.NugetVersion
     try
         try
-            Branches.tag "." newVersion
+            let tagName = "v" + newVersion
+            Branches.tag "." tagName
             let token =
                 match Environment.environVarOrDefault "GH_TOKEN" "" with
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
             //let files = System.IO.Directory.EnumerateFiles("bin/publish") 
-            let release = sprintf "bin/PRo3D.Viewer.%s.zip" notes.NugetVersion
+            let release = sprintf "bin/PRo3D.Viewer-standalone.%s.zip" notes.NugetVersion
             let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
             let release =

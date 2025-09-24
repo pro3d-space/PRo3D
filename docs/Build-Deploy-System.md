@@ -10,8 +10,20 @@ In order to deploy all supported architectures using github actions is the prefe
 
 Deployments are triggered by github actions. 
 There are two release types:
- - test releases for internal testing, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/TEST_RELEASE_NOTES.md) file and let the CI build a zip which appears on the github release page as a draft
- - public releases, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md) and change the version number [here](https://github.com/pro3d-space/PRo3D/blob/0fc290263430b5c2ff172c18286885a8bf0b73a0/aardium/package.json#L4) and let the CI build a multiplatform build with installer, the result will appear at as a draft in the github release page
+ 1. public releases, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md) and change the version number [here](https://github.com/pro3d-space/PRo3D/blob/0fc290263430b5c2ff172c18286885a8bf0b73a0/aardium/package.json#L4) and let the CI build a multiplatform build with installer, the result will appear at as a draft in the github release page
+
+The draft release looks like this:
+![alt text](images/draftRelease1.png)
+It contains, dmg for mac, exe as *installer* etc and the artifact named PRo3D.Viewer-standalone.xxx.zip is a plain executable windows deployment, which provides sequenced bookmark functionality.
+
+When publishing the release, make sure to set the correct tag, branch and verify the release notes.
+![alt text](images/draftRelease2.png)
+ 
+
+ 2. test releases for internal testing, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/TEST_RELEASE_NOTES.md) file and let the CI build a zip which appears on the github release page as a draft
+
+
+
 
 ## Details
 
@@ -19,10 +31,10 @@ The `new` build system uses the Build.fsproj and Build.fs/Helpers.fs files for r
 
 Thus we have those components:
  - Build.fs run by ./build.sh and build.cmd
- - the target "CopyToElectron" patches the version string and copies over the build result into the aardium/bin folders
+ - the target "CopyToElectron" patches the version string and copies overW the build result into the aardium/bin folders
  - the target "PublishToElectron" performs the build and runs yarn dist in the aardium folder. The rest of deployment/signing/notarization/upload is taken care of by ./aardium/package.json.
 
-.github/workflows/deploy.yml shows the deploy script and is run automatically when pushed into the `autorelease` branch.
+.github/workflows/deploy.yml shows the deploy script.
 
 ## How is pro3d embedded in the electron build?
 

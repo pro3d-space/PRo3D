@@ -72,11 +72,11 @@ module ReferenceSystemApp =
         V3d(px, py, pz)
        
     let upVector (point:V3d) (planet) = 
-        CooTransformation.getUpVector point planet //point.Normalized
+        CooTransformation.getUpVector point planet |> Vec.Normalized //point.Normalized
     
     let northVector (up:V3d) =
-        let east = V3d.OOI.Cross(up)
-        up.Cross(east)
+        let east = V3d.OOI.Cross(up).Normalized
+        up.Cross(east).Normalized
     
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
         let up = upVector p planet
