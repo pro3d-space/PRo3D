@@ -270,21 +270,19 @@ module WaypointMetrics =
 
     let readV0 =
         json {
-
-            let! RMC = Json.read "RMC"
-            let! site = Json.read "site" 
-            let! yaw = Json.read "yaw" 
-            let! pitch = Json.read "pitch" 
-            let! roll = Json.read "roll" 
-            let! tilt = Json.read "tilt" 
-            let! note = Json.read "note" 
-            let! distanceM = Json.read "distanceM" 
+            let! site = Json.read "site"
+            let! yaw = Json.read "yaw"
+            let! pitch = Json.read "pitch"
+            let! roll = Json.read "roll"
+            let! tilt = Json.read "tilt"
+            let! note = Json.read "note"
+            let! distanceM = Json.read "distanceM"
             let! totalDistanceM = Json.read "totalDistanceM"
 
             return
                 {
                     version = current
-                    RMC = RMC
+                    RMC = ""
                     site = site
                     yaw = yaw
                     pitch = pitch
@@ -418,7 +416,6 @@ module Sol =
 
             let! (location : string) = Json.read "location"
             let! solNumber = Json.read "solNumber"
-            let! RMC = Json.read "RMC"
             let! site = Json.read "site"
             let! yaw = Json.read "yaw"
             let! pitch = Json.read "pitch"
@@ -436,7 +433,7 @@ module Sol =
                     solMetrics = 
                         Some (WaypointM {
                             version = 0
-                            RMC = RMC
+                            RMC = ""
                             site = site
                             yaw = yaw
                             pitch = pitch
