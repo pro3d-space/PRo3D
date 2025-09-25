@@ -478,7 +478,7 @@ type Sol with
     static member ToJson(x: Sol) =
         json {
             do! Json.write "version" Sol.current
-            do! Json.write "location" (x.location |> List.map(fun x -> x.ToString()))
+            do! Json.write "location" (x.location |> List.map string)
             do! Json.write "solNumber" x.solNumber
             // Sophie: this should actually be Json.writeOption... but Json.writeOption leads to ignoring the downstream ToJson methods,
             // Therefore i here implement Json.write, as we always do have metrics at the moment, but we might have to investigate this
