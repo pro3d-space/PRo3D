@@ -440,8 +440,8 @@ module TraverseApp =
                         | TraverseType.Rover -> return (TraversePropertiesApp.UI.viewRoverTraverseProperties t |> UI.map TraversePropertiesMessage)
                         | TraverseType.Rimfax -> return (TraversePropertiesApp.UI.viewRimfaxTraverseProperties t |> UI.map TraversePropertiesMessage)
                         | TraverseType.WayPoints -> return (TraversePropertiesApp.UI.viewWayPointsTraverseProperties t |> UI.map TraversePropertiesMessage)
-                        | TraverseType.StrategicAnnotations -> return (TraversePropertiesApp.UI.viewStrategicAnnotationsTraverseProperties t |> UI.map TraversePropertiesMessage)
-                        | TraverseType.PlannedTargets -> return (TraversePropertiesApp.UI.viewPlannedTargetsTraverseProperties t |> UI.map TraversePropertiesMessage)
+                        //| TraverseType.StrategicAnnotations -> return (TraversePropertiesApp.UI.viewStrategicAnnotationsTraverseProperties t |> UI.map TraversePropertiesMessage)
+                        //| TraverseType.PlannedTargets -> return (TraversePropertiesApp.UI.viewPlannedTargetsTraverseProperties t |> UI.map TraversePropertiesMessage)
                     | None -> return empty
                 | None -> return empty
             }  
@@ -459,8 +459,8 @@ module TraverseApp =
                         | TraverseType.Rover -> return RoverTraverseApp.UI.viewSolList refSystem model.roverTraverses t
                         | TraverseType.Rimfax -> return RimfaxTraverseApp.UI.viewSolList refSystem t
                         | TraverseType.WayPoints -> return WayPointsTraverseApp.UI.viewSolList refSystem t
-                        // | TraverseType.StrategicAnnotations -> return StrategicAnnotationsTraverseApp.UI.viewSolList refSystem t
-                        // | TraverseType.PlannedTargets -> return PlannedTargetsTraverseApp.UI.viewSolList refSystem model.rimfaxTraverses t
+                        //| TraverseType.StrategicAnnotations -> return StrategicAnnotationsTraverseApp.UI.viewSolList refSystem t
+                        //| TraverseType.PlannedTargets -> return PlannedTargetsTraverseApp.UI.viewSolList refSystem model.rimfaxTraverses t
                     | None -> 
                         let! traverse = model.rimfaxTraverses |> AMap.tryFind id
                         match traverse with

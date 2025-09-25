@@ -64,8 +64,8 @@ type TraverseType =
     | Rover
     | Rimfax
     | WayPoints
-    | StrategicAnnotations
-    | PlannedTargets with
+    //| StrategicAnnotations
+    //| PlannedTargets with
 
     static member ToJson (t :TraverseType) =
         match t with
