@@ -43,3 +43,7 @@ On the top levels the sols are divided on two granularity levels, the last folde
 After selecting the root folder, the user sees the RIMFAX surface in the render view. The sols of the selected traverse in the attribute window are listed in the *Sol* panel. The user can set the RIMFAX mode in this list for each sol.
 
 ![](./images/RIMFAXsollist.png)
+
+ ### Limitations
+
+RIMFAX surface loading requires approximately three times more main memory than the actual file size. To load only the necessary surfaces, the best approach is to duplicate the folder containing them and manually remove the subfolders with surface models that are not needed in PRo3D for the analysis.
