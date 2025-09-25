@@ -35,7 +35,7 @@ module WayPointsTraverseApp =
                 let! yaw            = parseDoubleProperty x  "yaw"   
                 let! pitch          = parseDoubleProperty x  "pitch"
                 let! roll           = parseDoubleProperty x  "roll" 
-                let! RMC           = parseStringProperty x  "RMC"
+                let! rmc           = parseStringProperty x  "RMC"
                 
                 // not sure whether the following properties should be optional
                 let note = 
@@ -68,7 +68,7 @@ module WayPointsTraverseApp =
                     pitch = pitch
                     roll = roll
                     tilt = tilt
-                    RMC = RMC
+                    rmc = rmc
                     distanceM = distanceM
                 }
                                   

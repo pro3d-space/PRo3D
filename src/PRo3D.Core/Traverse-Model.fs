@@ -72,16 +72,16 @@ type TraverseType =
         | Rover -> ToJsonDefaults.ToJson "rover"
         | Rimfax -> ToJsonDefaults.ToJson "rimfax"
         | WayPoints -> ToJsonDefaults.ToJson "waypoints"
-        | StrategicAnnotations -> ToJsonDefaults.ToJson "strategicAnnotations"
-        | PlannedTargets -> ToJsonDefaults.ToJson "plannedTargets" 
+        //| StrategicAnnotations -> ToJsonDefaults.ToJson "strategicAnnotations"
+        //| PlannedTargets -> ToJsonDefaults.ToJson "plannedTargets" 
 
     static member FromJson (_ :TraverseType) = fun json -> 
         match json with
         | String "rover" -> Value Rover, json
         | String "rimfax" -> Value Rimfax, json
         | String "waypoints" -> Value WayPoints, json
-        | String "strategicAnnotations" -> Value StrategicAnnotations, json
-        | String "plannedTargets" -> Value PlannedTargets, json
+        //| String "strategicAnnotations" -> Value StrategicAnnotations, json
+        //| String "plannedTargets" -> Value PlannedTargets, json
         | _ -> failwith (sprintf "Invalid Traverse Type '%A'" json)
 
 [<ModelType>]
@@ -254,7 +254,7 @@ type RimfaxMetrics with
 type WaypointMetrics =
     {
         version: int
-        RMC: string
+        rmc: string
         site: int
         yaw: float
         pitch: float
@@ -282,7 +282,7 @@ module WaypointMetrics =
             return
                 {
                     version = current
-                    RMC = ""
+                    rmc = ""
                     site = site
                     yaw = yaw
                     pitch = pitch
@@ -297,7 +297,7 @@ module WaypointMetrics =
     let readV1 =
         json {
 
-            let! RMC = Json.read "RMC"
+            let! rmc = Json.read "RMC"
             let! site = Json.read "site" 
             let! yaw = Json.read "yaw" 
             let! pitch = Json.read "pitch" 
@@ -310,7 +310,7 @@ module WaypointMetrics =
             return
                 {
                     version = current
-                    RMC = RMC
+                    rmc = rmc
                     site = site
                     yaw = yaw
                     pitch = pitch
@@ -337,7 +337,7 @@ type WaypointMetrics with
     static member ToJson(x: WaypointMetrics) =
         json {
             do! Json.write "version" WaypointMetrics.current
-            do! Json.write "RMC" x.RMC
+            do! Json.write "RMC" x.rmc
             do! Json.write "site" x.site
             do! Json.writeFloat "yaw" x.yaw
             do! Json.writeFloat "pitch" x.pitch
@@ -433,7 +433,7 @@ module Sol =
                     solMetrics = 
                         Some (WaypointM {
                             version = 0
-                            RMC = ""
+                            rmc = ""
                             site = site
                             yaw = yaw
                             pitch = pitch

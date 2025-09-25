@@ -1,5 +1,5 @@
-//2074ee74-28e7-789f-33c4-e30a6405850f
-//efe74877-edf5-6de8-08ee-3f54851ef3a7
+//0dbdbb78-0ef9-0b90-1fc7-433475ffc380
+//a72739d7-0c27-cc36-4689-a3f0d8b9df9c
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -138,7 +138,7 @@ module RimfaxMetricsLenses =
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveWaypointMetrics(value : WaypointMetrics) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
-    let _RMC_ = FSharp.Data.Adaptive.cval(value.RMC)
+    let _rmc_ = FSharp.Data.Adaptive.cval(value.rmc)
     let _site_ = FSharp.Data.Adaptive.cval(value.site)
     let _yaw_ = FSharp.Data.Adaptive.cval(value.yaw)
     let _pitch_ = FSharp.Data.Adaptive.cval(value.pitch)
@@ -156,7 +156,7 @@ type AdaptiveWaypointMetrics(value : WaypointMetrics) =
             __value <- value
             __adaptive.MarkOutdated()
             _version_.Value <- value.version
-            _RMC_.Value <- value.RMC
+            _rmc_.Value <- value.rmc
             _site_.Value <- value.site
             _yaw_.Value <- value.yaw
             _pitch_.Value <- value.pitch
@@ -167,7 +167,7 @@ type AdaptiveWaypointMetrics(value : WaypointMetrics) =
             _totalDistanceM_.Value <- value.totalDistanceM
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
-    member __.RMC = _RMC_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.rmc = _rmc_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.site = _site_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.yaw = _yaw_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.pitch = _pitch_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
@@ -180,7 +180,7 @@ type AdaptiveWaypointMetrics(value : WaypointMetrics) =
 module WaypointMetricsLenses = 
     type WaypointMetrics with
         static member version_ = ((fun (self : WaypointMetrics) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : WaypointMetrics) -> { self with version = value }))
-        static member RMC_ = ((fun (self : WaypointMetrics) -> self.RMC), (fun (value : Microsoft.FSharp.Core.string) (self : WaypointMetrics) -> { self with RMC = value }))
+        static member rmc_ = ((fun (self : WaypointMetrics) -> self.rmc), (fun (value : Microsoft.FSharp.Core.string) (self : WaypointMetrics) -> { self with rmc = value }))
         static member site_ = ((fun (self : WaypointMetrics) -> self.site), (fun (value : Microsoft.FSharp.Core.int) (self : WaypointMetrics) -> { self with site = value }))
         static member yaw_ = ((fun (self : WaypointMetrics) -> self.yaw), (fun (value : Microsoft.FSharp.Core.float) (self : WaypointMetrics) -> { self with yaw = value }))
         static member pitch_ = ((fun (self : WaypointMetrics) -> self.pitch), (fun (value : Microsoft.FSharp.Core.float) (self : WaypointMetrics) -> { self with pitch = value }))
