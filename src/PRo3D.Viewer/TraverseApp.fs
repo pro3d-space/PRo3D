@@ -126,7 +126,7 @@ module TraversePropertiesApp =
                     Html.row "Height offset:" [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
                     Html.row "Priority:"      [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ] 
                     Html.row "Use Priority"   [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
-                    Html.row "RoverPosition:" [Numeric.view' [NumericInputType.Slider] m.currRoverPosition |> UI.map SetRoverPositionOnTraverses ]
+                    Html.row "RoverPosition:" [Numeric.view' [NumericInputType.InputBox] m.currRoverPosition |> UI.map SetRoverPositionOnTraverses; Numeric.view' [NumericInputType.Slider] m.currRoverPosition |> UI.map SetRoverPositionOnTraverses ]
                 ]
             )
     
@@ -412,11 +412,11 @@ module TraverseApp =
                     let sol1 = traverse.sols.[solPos1]
                     let sol2 = traverse.sols.[solPos1 + 1]
 
-                    let factor  = solPosF - (float (solPos1 + 1))
-                    let factor2 = 1.0 - factor
-                    let posTrafo = Trafo3d.Translation ((sol1.location * factor) + (sol2.location * factor2))
+                    let factor2  = solPosF - (float solPos1)
+                    let factor1 = 1.0 - factor2
+                    let posTrafo = Trafo3d.Translation ((sol1.location * factor1) + (sol2.location * factor2))
 
-                    let mixedRotationSol = { sol1 with yaw = (sol1.yaw * factor + sol2.yaw * factor2); pitch = (sol1.pitch * factor + sol2.pitch * factor2); roll = (sol1.roll * factor + sol2.roll * factor2)}
+                    let mixedRotationSol = { sol1 with yaw = (sol1.yaw * factor1 + sol2.yaw * factor2); pitch = (sol1.pitch * factor1 + sol2.pitch * factor2); roll = (sol1.roll * factor1 + sol2.roll * factor2)}
 
                     let rotation = TraversePropertiesApp.computeSolRotation mixedRotationSol refsys
 

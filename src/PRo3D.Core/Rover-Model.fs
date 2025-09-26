@@ -285,6 +285,39 @@ module RoverModel =
         roverDirection   = V3d.IOO
     } 
 
+    module TrafoHelper = 
+        let trafoFromTranslatedBase
+            (position   : V3d) 
+            (tilt       : V3d) 
+            (forward    : V3d) 
+            (right      : V3d) 
+            : Trafo3d =
+
+            let rotTrafo =  Trafo3d.FromOrthoNormalBasis(forward.Normalized, right.Normalized, tilt.Normalized)
+            (rotTrafo * Trafo3d.Translation(position))
+               
+        let initialPlacementTrafo' 
+            (position:V3d) 
+            (forward : V3d) 
+            (up:V3d) : Trafo3d =
+            
+            let forward = forward.Normalized
+            let up = up.Normalized
+
+            let n = Vec.Cross(forward, up.Normalized).Normalized
+            let tilt = Vec.Cross(n, forward).Normalized
+            let right = Vec.Cross(tilt, forward).Normalized        
+
+            trafoFromTranslatedBase position tilt forward right
+
+        let initialPlacementTrafo 
+            (position:V3d) 
+            (lookAt:V3d) 
+            (up:V3d) : Trafo3d =
+            let forward = (lookAt - position).Normalized
+
+            initialPlacementTrafo' position forward up  
+
     module Sg = 
         let loadRoverModel (path : aval<string> )= 
             let roverFile = path.GetValue()
@@ -405,15 +438,17 @@ module RoverModel =
                 Sg.UniformApplicator(defaultMaterial, roverModel)
                 |> SgFSharp.Sg.vertexBufferValue' DefaultSemantic.Colors C4b.White
                 |> SgFSharp.Sg.vertexBufferValue' DefaultSemantic.DiffuseColorTexture V2f.Zero  
-                |> SgFSharp.Sg.trafo translationTrafo                
                 //|> SgFSharp.Sg.trafo rotationTrafo
+                //|> SgFSharp.Sg.trafo translationTrafo                                
                 |> SgFSharp.Sg.shader {
                     do! Shader.trafo
                     do! Shader.shade
                 }
                 |> Sg.noEvents
 
-            rM            
+            Sg.ofList [rM; (Sg.cylinder 16 (C4b.Orange |> AVal.constant) (1.0 |> AVal.constant) (2.0 |> AVal.constant))]  
+            |> Sg.trafo rotationTrafo
+            |> Sg.trafo translationTrafo
             |> Sg.uniform "DepthOffset" (AVal.constant 0.0000000001)
             |> Sg.blendMode (AVal.constant BlendMode.None)
             |> Sg.effect [

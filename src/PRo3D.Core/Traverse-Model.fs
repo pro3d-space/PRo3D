@@ -214,7 +214,7 @@ module Traverse =
         heightOffset      = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
         priority          = initialPriority
         priorityEnabled   = false
-        currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.001 }           
+        currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001 }           
     }
 
     let initial name sols =
