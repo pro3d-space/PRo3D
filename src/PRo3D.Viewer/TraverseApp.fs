@@ -393,7 +393,7 @@ module TraverseApp =
         let refSysRotation = 
             Trafo3d.FromOrthoNormalBasis(north, east, up)
         
-        let translation, rotation = 
+        let trafo = 
             model.rover.roverTraverse
             |> Option.map(fun tGuid ->
                 let traverse = { model.traverses.[tGuid] with currRoverPosition = (Numeric.update model.traverses.[tGuid].currRoverPosition newPosAction)}
@@ -401,30 +401,58 @@ module TraverseApp =
                 let currPos = traverse.currRoverPosition.value
 
                 let solPosF = currPos * (float (traverse.sols.Length - 1))
-                let solPos1 = (int solPosF)                
+                let solPos1 = (int solPosF)       
+                
+                let trafoFromTranslatedBase
+                    (position   : V3d) 
+                    (tilt       : V3d) 
+                    (forward    : V3d) 
+                    (right      : V3d) 
+                    : Trafo3d =
+
+                    let rotTrafo =  Trafo3d.FromOrthoNormalBasis(forward.Normalized, right.Normalized, tilt.Normalized)
+                    (rotTrafo * Trafo3d.Translation(position))
+
+                let placementTrafoFromSolTrafo 
+                    position 
+                    (refSystem : ReferenceSystem) 
+                    (rotTrafo : Trafo3d) = 
+                    let north = refSystem.northO
+                    let up = refSystem.up.value
+                    let east = Vec.cross up north
+
+                    let forward = rotTrafo.Forward.TransformDir north
+                    let tilt = rotTrafo.Forward.TransformDir up
+                    let right = rotTrafo.Forward.TransformDir east
+
+                    trafoFromTranslatedBase position tilt forward right
+
                 
                 if solPos1 = (traverse.sols.Length - 1) then 
                     let currSol = traverse.sols.[solPos1] 
                     let rotation = TraversePropertiesApp.computeSolRotation currSol refsys
 
-                    (Trafo3d.Translation currSol.location), rotation
+                    let completeTrafo = placementTrafoFromSolTrafo currSol.location refsys rotation
+
+                    completeTrafo
                 else
                     let sol1 = traverse.sols.[solPos1]
                     let sol2 = traverse.sols.[solPos1 + 1]
 
                     let factor2  = solPosF - (float solPos1)
                     let factor1 = 1.0 - factor2
-                    let posTrafo = Trafo3d.Translation ((sol1.location * factor1) + (sol2.location * factor2))
+                                        
+                    //let rotation = Trafo3d.RotateInto(V3d.IOO, newDir)//{ sol1 with yaw = (sol1.yaw * factor1 + sol2.yaw * factor2); pitch = (sol1.pitch * factor1 + sol2.pitch * factor2); roll = (sol1.roll * factor1 + sol2.roll * factor2)}
 
-                    let mixedRotationSol = { sol1 with yaw = (sol1.yaw * factor1 + sol2.yaw * factor2); pitch = (sol1.pitch * factor1 + sol2.pitch * factor2); roll = (sol1.roll * factor1 + sol2.roll * factor2)}
+                    let rotation = TraversePropertiesApp.computeSolRotation sol1 refsys
 
-                    let rotation = TraversePropertiesApp.computeSolRotation mixedRotationSol refsys
+                    let completeTrafo = placementTrafoFromSolTrafo ((sol1.location * factor1) + (sol2.location * factor2)) refsys rotation
 
-                    (posTrafo,rotation))
-            |> Option.defaultValue (Trafo3d.Translation(V3d.NegativeInfinity), Trafo3d.Identity)
+                    completeTrafo)
+            |> Option.defaultValue (Trafo3d.Translation(V3d.NegativeInfinity))
         
 
-        { model with rover = { model.rover with translationTrafo = translation; rotationTrafo = rotation }}
+        { model with rover = { model.rover with trafo = trafo }}
 
     let update 
         (model : TraverseModel) 
@@ -915,7 +943,7 @@ module TraverseApp =
             let rover   = traverseModel.rover
             let visible = rover.roverTraverse |> AVal.map(fun rT -> rT.IsSome)             
 
-            Pro3d.Core.RoverModel.Sg.viewRover rover.path visible rover.translationTrafo rover.rotationTrafo
+            Pro3d.Core.RoverModel.Sg.viewRover rover.path visible rover.trafo
 
         let view
             (view           : aval<CameraView>)

@@ -21,9 +21,9 @@ type RoverModel = {
     path              : string
     roverTraverse     : Option<Guid>
     refSystem         : ReferenceSystem
-    translationTrafo  : Trafo3d
-    rotationTrafo     : Trafo3d
-    roverDirection    : V3d
+    trafo             : Trafo3d
+    forwardVector     : V3d
+    upVector          : V3d
 }
 
 module RoverModel =
@@ -279,10 +279,10 @@ module RoverModel =
     let initial = {
         path = @"D:\Temp\RoverTesting\Export_YoqSothoth\Perseverance_100.gltf"
         roverTraverse    = None
-        translationTrafo = Trafo3d.Translation(V3d.NaN)
-        rotationTrafo    = Trafo3d.Identity
+        trafo            = Trafo3d.Translation(V3d.NaN)
         refSystem        = ReferenceSystem.initial
-        roverDirection   = V3d.IOO
+        forwardVector    = -V3d.IOO
+        upVector         = V3d.OIO
     } 
 
     module TrafoHelper = 
@@ -431,7 +431,7 @@ module RoverModel =
                 "DiffuseColorTexture", AVal.constant NullTexture.Instance                
             ]
 
-        let viewRover (path : aval<string>) (visible : aval<bool>) (translationTrafo : aval<Trafo3d>) (rotationTrafo : aval<Trafo3d>)= 
+        let viewRover (path : aval<string>) (visible : aval<bool>) (trafo : aval<Trafo3d>)= 
             let roverModel = loadRoverModel path//Sg.box (AVal.constant(C4b.Red)) (AVal.constant(Box3d.Unit))
             
             let rM = 
@@ -446,9 +446,9 @@ module RoverModel =
                 }
                 |> Sg.noEvents
 
-            Sg.ofList [rM; (Sg.cylinder 16 (C4b.Orange |> AVal.constant) (1.0 |> AVal.constant) (2.0 |> AVal.constant))]  
-            |> Sg.trafo rotationTrafo
-            |> Sg.trafo translationTrafo
+            Sg.ofList [rM; (Sg.cylinder 16 (C4b.Orange |> AVal.constant) (0.5 |> AVal.constant) (2.0 |> AVal.constant))]  
+            |> Sg.trafo trafo
+            //|> Sg.trafo translationTrafo
             |> Sg.uniform "DepthOffset" (AVal.constant 0.0000000001)
             |> Sg.blendMode (AVal.constant BlendMode.None)
             |> Sg.effect [
