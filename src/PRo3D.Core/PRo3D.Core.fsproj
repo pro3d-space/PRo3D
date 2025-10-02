@@ -84,7 +84,6 @@
     <Compile Include="GisApp\ObservationInfo.fs" />
     <Compile Include="GisApp\Entity.fs" />
     <Compile Include="GisApp\ReferenceFrame.fs" />
-    <Compile Include="GisApp\GisApp.fs" />
     <Compile Include="SceneObjectsApp.fs" />
     <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="GeologicSurfaceApp.fs" />
