@@ -419,6 +419,8 @@ module ViewerUtils =
                     |> Sg.dynamic
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
+                    |> Sg.applyBody (observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value))
+                    |> Sg.noEvents
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     //|> addAttributeFalsecolorMappingParameters surf
@@ -842,10 +844,17 @@ module ViewerUtils =
 
     let surfaceEffect =
         Effect.compose [
+
+            // image projection
+            PRo3D.SPICE.Shaders.planetLocalLightingViewSpace   |> toEffect
+            ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect
+            PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect
+            ImageProjection.Shaders.generateNormal |> toEffect
             
             Shader.footprintV        |> toEffect 
             Shader.stableTrafo       |> toEffect
-            Shader.triangleFilterX   |> toEffect
+            // TODO HERA: this removed this temporarily
+            //Shader.triangleFilterX   |> toEffect
            
            
             Shader.fixAlpha |> toEffect
@@ -870,6 +879,11 @@ module ViewerUtils =
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
+
+            // TODO HERA: make this optional
+            ImageProjection.Shaders.stableImageProjection |> toEffect
+            ImageProjection.Shaders.localImageProjections |> toEffect
+            PRo3D.SPICE.Shaders.solarLighting |> toEffect
         ]
         //Effect.compose [
             
@@ -1022,7 +1036,7 @@ module ViewerUtils =
 
 
 
-        let projectedImages (surfaceId : Guid) (body : string) (refSystem :  string)  = 
+        let projectedImages (surfaceId : Guid) (body : string) (refSystem :  string) : aval<Option<Sg.ProjectedImages>> = 
             if body.ToLower() = "mars" then
                 m.scene.gisApp.projectedImages.images.Content
                 |> AVal.map (fun images -> 
@@ -1102,6 +1116,7 @@ module ViewerUtils =
 
 
                     surfaceSg
+                    |> wrapGisData guid
                 )
 
             let depthComposed = 

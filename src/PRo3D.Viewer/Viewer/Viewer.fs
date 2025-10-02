@@ -2083,7 +2083,9 @@ module ViewerApp =
             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
             |> Sg.map GeologicSurfacesMessage 
 
-        let gisEntities = Gis.GisApp.viewGisEntities m.scene.gisApp |> Sg.noEvents
+        let gisEntities = 
+            let camera = (view, frustum) ||> AVal.map2 Camera.create
+            Gis.GisApp.viewGisEntities camera m.scene.gisApp |> Sg.noEvents
 
         [
             depthTested; 
