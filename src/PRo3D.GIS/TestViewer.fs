@@ -83,7 +83,7 @@ module TestViewer =
         let referenceFrame = cval "ECLIPJ2000"
         let time = 
             let startTime = "2025-03-12 11:50:30.000Z"
-            cval (DateTime.Parse(startTime)
+            cval (DateTime.Parse(startTime))
 
 
         let hera = 
@@ -115,7 +115,7 @@ module TestViewer =
                 let t = Trafo3d.FromBasis(right, up, forward, targetState.pos)
                 let t = Trafo3d.FromBasis(-rot.C1, rot.C0, rot.C2, targetState.pos)
                 //let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, targetState.pos)
-                CameraView.ofTrafo t.Inverse |> Some 
+                //CameraView.ofTrafo t.Inverse |> Some 
                 CameraView.lookAt targetState.pos V3d.Zero V3d.OOI |> Some
             | _ -> 
                 None

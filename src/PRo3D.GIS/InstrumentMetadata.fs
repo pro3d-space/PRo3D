@@ -88,8 +88,6 @@ module Tiff_Mbi_Json =
     let parseJson (content : string) = 
         JsonValue.Parse(content)
 
-    let test () = 
-        File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "exampleFiles", "HSH_0CRQSV_250312T115349_1A.mbi.json"))
 
 let discoverInstrumentFolder (dir : string) = 
     let getJsonInfoPath (imagePath : string) (suffix : string) = 

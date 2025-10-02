@@ -1,4 +1,5 @@
-﻿namespace PRo3D.SPICE
+﻿#nowarn "9"
+namespace PRo3D.SPICE
 
 open System
 open FSharp.NativeInterop

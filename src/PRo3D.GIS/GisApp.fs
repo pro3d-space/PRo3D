@@ -786,14 +786,6 @@ module GisApp =
             let bodies = 
                 renderableBodies 
                 |> ASet.map (fun (renderableBody, entity) -> 
-                    let geometry = 
-                        match entity.geometry with
-                        | Some g -> 
-                            let sg : ISg = failwith "load geometry to isg"
-                            sg
-                        | None -> 
-                            // use proxy gemetry
-                            body
                     let texture =
                         entity.textureName 
                         |> AVal.map (fun textureName -> 
