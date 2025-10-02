@@ -10,6 +10,7 @@ open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Base.Gis
 open Chiron
+open Aardvark.UI.Primitives
 
 
 type GisSurface = {
@@ -102,11 +103,16 @@ module GisSurface =
             referenceFrame = frame
         }
 
+[<ModelType>]
 type MissionTimeEntry = {
+    [<NonAdaptive>]
     minDate : DateTime
+    [<NonAdaptive>]
     maxDate : DateTime
+    [<NonAdaptive>]
     name    : string
-    sliderValue : float
+
+    value : NumericInput
 }
 
 module InstrumentImages = 
@@ -188,18 +194,18 @@ type GisApp =
         version                : int
         defaultObservationInfo : ObservationInfo
         entities               : HashMap<EntitySpiceName, Entity>
-        newEntity              : option<Entity>
-        newFrame               : option<ReferenceFrame>
+        newEntity              : Option<Entity>
+        newFrame               : Option<ReferenceFrame>
         referenceFrames        : HashMap<FrameSpiceName, ReferenceFrame>
         gisSurfaces            : HashMap<SurfaceId, GisSurface>
-        spiceKernel            : option<CooTransformation.SPICEKernel>
+        spiceKernel            : Option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
         cameraInObserver       : bool
         projectedImages        : ProjectedImages
         showMarkers            : bool // whether line + text markers are displayed (for known planets)
 
-        selectedMissionTimeRow : option<int>
-        missionTimesEntries    : option<list<MissionTimeEntry>>
+        selectedMissionTimeRow : Option<Index>
+        missionTimesEntries    : Option<IndexList<MissionTimeEntry>>
     } 
 with
     static member current = 0
@@ -317,8 +323,8 @@ type GisAppAction =
     | NewFrame
     | ImageProjection           of ImageProjectionMessage
     | ToggleDrawMarkers
-    | SetMissionTimesRowAndSetDate of (MissionTimeEntry * int)
+    | SetMissionTimesRowAndSetDate of (MissionTimeEntry * Index)
     | InitializeMissionTimeEntries
-    | SetTime                   of (MissionTimeEntry * float)
+    | SetTime                   of (MissionTimeEntry * Index * float)
     | Empty
 

@@ -89,26 +89,27 @@ module GisApp =
             m
 
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
-            [
-                {
-                    minDate = DateTime(2025, 3, 10)
-                    maxDate = DateTime(2025, 3, 14)
-                    sliderValue = 0.626 // 12 March 2025, 12:07
-                    name    = "Deimos Flyby"
-                }
-                {
-                    minDate = DateTime(2025, 3, 10)
-                    maxDate = DateTime(2025, 3, 14)
-                    sliderValue = 0.6338 // 12 March 2025, 12:51
-                    name    = "Mars Flyby"
-                }
-                {
-                    minDate = DateTime(2026, 12, 12)
-                    maxDate = DateTime(2026, 12, 16)
-                    sliderValue = 0.5
-                    name    = "Didymos Orbital Insertion"
-                }
-            ]
+        let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
+        [
+            {
+                minDate = DateTime(2025, 3, 10)
+                maxDate = DateTime(2025, 3, 14)
+                value = getNumericInput 0.626 // 12 March 2025, 12:07
+                name    = "Deimos Flyby"
+            };
+            {
+                minDate = DateTime(2025, 3, 10)
+                maxDate = DateTime(2025, 3, 14)
+                value = getNumericInput 0.6338 // 12 March 2025, 12:51
+                name    = "Mars Flyby"
+            };
+            {
+                minDate = DateTime(2026, 12, 12)
+                maxDate = DateTime(2026, 12, 16)
+                value = getNumericInput 0.5
+                name    = "Didymos Orbital Insertion"
+            }
+        ]
 
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
@@ -259,24 +260,19 @@ module GisApp =
             viewer, {m with projectedImages = ProjectedImagesApp.update msg m.projectedImages }
         | GisAppAction.InitializeMissionTimeEntries ->
              let data : list<MissionTimeEntry> = getMissionTimeEntriesData()
-             viewer, {m with missionTimesEntries = Some data}
+             viewer, {m with missionTimesEntries = Some (IndexList.ofList data) }
         | GisAppAction.SetMissionTimesRowAndSetDate (entry, rowIdx) ->
-            let date = entry.minDate + (entry.maxDate - entry.minDate) * entry.sliderValue
+            let date = entry.minDate + (entry.maxDate - entry.minDate) * entry.value.value
             let defaultObservationInfo = {m.defaultObservationInfo with time = {m.defaultObservationInfo.time with date = date}}
             viewer, {m with selectedMissionTimeRow = Some rowIdx; defaultObservationInfo = defaultObservationInfo}
-        | GisAppAction.SetTime (entry, sliderValue) ->
+        | GisAppAction.SetTime (entry, idx, sliderValue) ->
             let date = entry.minDate + (entry.maxDate - entry.minDate) * sliderValue
             let defaultObservationInfo = {m.defaultObservationInfo with time = {m.defaultObservationInfo.time with date = date}}
             let missionTimesEntries = 
-                match m.missionTimesEntries with
-                | Some me -> 
-                    Some (
-                        me
-                        |> List.map (fun (e : MissionTimeEntry) -> 
-                            match e with 
-                            | e_ when e_.name = entry.name -> {e_ with sliderValue = sliderValue}
-                            | other -> other ))
-                | None -> None
+                m.missionTimesEntries
+                |> Option.map (fun entries ->
+                    entries |> IndexList.update idx (fun e -> { e with value = { e.value with value = sliderValue }})
+                )
             viewer, {m with missionTimesEntries = missionTimesEntries; defaultObservationInfo = defaultObservationInfo}
         | GisAppAction.Empty ->
             viewer, m
@@ -493,93 +489,97 @@ module GisApp =
         let missionTimeEntries = 
             m.missionTimesEntries 
             |> AVal.map (fun mt -> 
-            match mt with
-            | Some missionTimesEntries_ -> 
-                let headers =
-                    [
-                        tr [] [
-                            th [] [text "Mission Phase"]
-                            th [] [text "Time Range"]
-                            th [] [text "Animation"]
-                        ]
-                    ] |> AList.ofList
+                match mt with
+                | AdaptiveSome missionTimesEntries_ -> 
+                    let headers =
+                        [
+                            tr [] [
+                                th [] [text "Mission Phase"]
+                                th [] [text "Time Range"]
+                                th [] [text "Animation"]
+                            ]
+                        ] |> AList.ofList
 
-                let disableClickPropagation =
-                    onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); } );"
+                    let disableClickPropagation =
+                        onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); } );"
 
-                let rows = 
-                    let updateddata = 
-                        missionTimesEntries_
-                        |> List.mapi (fun idx entry ->
-                            let attributes = 
-                                amap {
-                                    yield onClick (fun _ -> 
-                                        GisAppAction.SetMissionTimesRowAndSetDate (entry, idx)
-                                    )
-                                    let! missionTime = m.selectedMissionTimeRow
-                                    yield 
-                                        style (
-                                            match (missionTime : option<int>) with
-                                            | Some selectedMissionTime when selectedMissionTime = idx -> ""
-                                            | _ -> "opacity: 0.5;"
+                    let rows = 
+                        let updateddata = 
+                            missionTimesEntries_
+                            |> AList.mapi (fun idx (entry : AdaptiveMissionTimeEntry) ->
+                                let attributes = 
+                                    amap {
+                                        yield onClick (fun _ -> 
+                                            GisAppAction.SetMissionTimesRowAndSetDate (entry.Current.GetValue(), idx)
                                         )
-                                } 
-
-                            let children = 
-                                alist {
-                                        let! selectedMissionTimeRow = m.selectedMissionTimeRow
-                                        td [] [text entry.name]
-                                        td [] [
-                                                text (System.String.Concat("Start: ", entry.minDate.ToString("yyyy-MM-dd")))
-                                                br[]
-                                                text (System.String.Concat("End: ", entry.maxDate.ToString("yyyy-MM-dd")))
-                                            ] 
-                                        disableClickPropagation (
-                                        td [
+                                        let! missionTime = m.selectedMissionTimeRow
+                                        yield 
                                             style (
-                                                    match (selectedMissionTimeRow : option<int>) with
-                                                    | Some selectedMissionTime when selectedMissionTime = idx -> ""
-                                                    | _ -> "pointer-events: none;"
-                                                )
-                                        ] [
-                                            Numeric.view' [Slider] (
-                                                AdaptiveNumericInput {
-                                                    value   = entry.sliderValue
-                                                    min     = 0.0
-                                                    max     = 1.0
-                                                    step    = 0.01
-                                                    format  = "{0:0.00}"
-                                                }
-                                            ) |> UI.map (fun action -> 
-                                                match action with
-                                                | Numeric.Action.SetValue v ->
-                                                    GisAppAction.SetTime (entry, v)
-                                                    //GisAppAction.Empty
-                                                | _ ->
-                                                    GisAppAction.Empty
-                                                )
-                                        ])
-                                }
+                                                match (missionTime : option<Index>) with
+                                                | Some selectedMissionTime when selectedMissionTime = idx -> ""
+                                                | _ -> "opacity: 0.5;"
+                                            )
+                                    } 
+
+                                let children = 
+                                    alist {
+                                            let! selectedMissionTimeRow = m.selectedMissionTimeRow
+                                            td [] [text entry.name]
+                                            td [] [
+                                                    text (System.String.Concat("Start: ", entry.minDate.ToString("yyyy-MM-dd")))
+                                                    br[]
+                                                    text (System.String.Concat("End: ", entry.maxDate.ToString("yyyy-MM-dd")))
+                                                ] 
+                                            disableClickPropagation (
+                                                td [
+                                                    style (
+                                                            match selectedMissionTimeRow with
+                                                            | Some selectedMissionTime when selectedMissionTime = idx -> ""
+                                                            | _ -> "pointer-events: none;"
+                                                        )
+                                                ] [
+                                                    //let numeric = 
+                                                    //    require Html.semui (
+                                                    //        Incremental.slider
+                                                    //            { min = 0.0; max = 1.0; step = 0.01; } 
+                                                    //            AttributeMap.empty entry.sliderValue 
+                                                    //            (fun v -> 
+                                                    //                GisAppAction.SetTime (entry.Current.GetValue(), idx, v)
+                                                    //            )
+                                                    //    )
+                                                
+                                                    //numeric
+                                                    Numeric.view' [Slider] entry.value 
+                                                    |> UI.map (fun action -> 
+                                                        match action with
+                                                        | Numeric.Action.SetValue v ->
+                                                            GisAppAction.SetTime (entry.Current.GetValue(), idx, v)
+                                                            //GisAppAction.Empty
+                                                        | _ ->
+                                                            GisAppAction.Empty
+                                                    )
+                                                ]
+                                            )
+                                    }
                     
-                            Incremental.tr (AttributeMap.ofAMap attributes) children
-                        ) 
-                        |> AList.ofList
+                                Incremental.tr (AttributeMap.ofAMap attributes) children
+                            ) 
 
-                    updateddata
+                        updateddata
 
-                Incremental.table 
-                    ([clazz "ui unstackable inverted table"] |> AttributeMap.ofList)
-                    (AList.append headers rows)
-            | None ->
-                div [] [
-                    button [
-                        clazz "ui button tiny";
-                        style "margin-left: 10px";
-                        onClick (fun _ -> GisAppAction.InitializeMissionTimeEntries);
-                    ] [
-                        text "Load Data"
+                    Incremental.table 
+                        ([clazz "ui unstackable inverted table"] |> AttributeMap.ofList)
+                        (AList.append headers rows)
+                | AdaptiveNone ->
+                    div [] [
+                        button [
+                            clazz "ui button tiny";
+                            style "margin-left: 10px";
+                            onClick (fun _ -> GisAppAction.InitializeMissionTimeEntries);
+                        ] [
+                            text "Load Data"
+                        ]
                     ]
-                ]
             )
         let v = AList.ofAValSingle missionTimeEntries
         
@@ -1072,7 +1072,7 @@ module GisApp =
                 projectedImages         = ProjectedImages.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
                 showMarkers             = false
                 selectedMissionTimeRow  = None
-                missionTimesEntries     = Some missionTimeEntries
+                missionTimesEntries     = Some (IndexList.ofList missionTimeEntries)
             }
 
         match spiceKernel with
