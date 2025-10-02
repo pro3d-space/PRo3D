@@ -1,5 +1,5 @@
-//43397014-9bd3-2b86-526d-ba2d539c7a09
-//f5a6de7e-a6c9-1e7e-f760-301fc03fdd47
+//fc88a56f-109b-d993-91f9-d49f45ccc301
+//92642a42-0d2c-734c-02c9-a0706c75fab0
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -101,6 +101,8 @@ type AdaptiveGisApp(value : GisApp) =
     let _cameraInObserver_ = FSharp.Data.Adaptive.cval(value.cameraInObserver)
     let _projectedImages_ = AdaptiveProjectedImages(value.projectedImages)
     let _showMarkers_ = FSharp.Data.Adaptive.cval(value.showMarkers)
+    let _selectedMissionTimeRow_ = FSharp.Data.Adaptive.cval(value.selectedMissionTimeRow)
+    let _missionTimesEntries_ = FSharp.Data.Adaptive.cval(value.missionTimesEntries)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : GisApp) = AdaptiveGisApp(value)
@@ -121,6 +123,8 @@ type AdaptiveGisApp(value : GisApp) =
             _cameraInObserver_.Value <- value.cameraInObserver
             _projectedImages_.Update(value.projectedImages)
             _showMarkers_.Value <- value.showMarkers
+            _selectedMissionTimeRow_.Value <- value.selectedMissionTimeRow
+            _missionTimesEntries_.Value <- value.missionTimesEntries
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.defaultObservationInfo = _defaultObservationInfo_
@@ -134,6 +138,8 @@ type AdaptiveGisApp(value : GisApp) =
     member __.cameraInObserver = _cameraInObserver_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.projectedImages = _projectedImages_
     member __.showMarkers = _showMarkers_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.selectedMissionTimeRow = _selectedMissionTimeRow_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>>
+    member __.missionTimesEntries = _missionTimesEntries_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Collections.list<MissionTimeEntry>>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module GisAppLenses = 
     type GisApp with
@@ -149,4 +155,6 @@ module GisAppLenses =
         static member cameraInObserver_ = ((fun (self : GisApp) -> self.cameraInObserver), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with cameraInObserver = value }))
         static member projectedImages_ = ((fun (self : GisApp) -> self.projectedImages), (fun (value : ProjectedImages) (self : GisApp) -> { self with projectedImages = value }))
         static member showMarkers_ = ((fun (self : GisApp) -> self.showMarkers), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with showMarkers = value }))
+        static member selectedMissionTimeRow_ = ((fun (self : GisApp) -> self.selectedMissionTimeRow), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>) (self : GisApp) -> { self with selectedMissionTimeRow = value }))
+        static member missionTimesEntries_ = ((fun (self : GisApp) -> self.missionTimesEntries), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Collections.list<MissionTimeEntry>>) (self : GisApp) -> { self with missionTimesEntries = value }))
 

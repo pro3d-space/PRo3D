@@ -113,12 +113,13 @@ type Entity = {
     label        : string
     color        : C4f
     radius       : float
+    trajectoryLength : float
     geometryPath : option<string>
     textureName  : option<string>
     showTrajectory : bool
     defaultFrame : option<FrameSpiceName>
 } with
-    static member current = 0
+    static member current = 1
     static member private readV0 = 
         json {
             let! label        = Json.read    "label"       
@@ -141,6 +142,37 @@ type Entity = {
                 draw         = draw
                 color        = C4f.Parse color       
                 radius       = radius      
+                trajectoryLength = 1.0
+                geometryPath = geometryPath
+                textureName  = textureName 
+                defaultFrame = defaultFrame
+                showTrajectory = Option.defaultValue false showTrajectory
+            }
+        }
+    static member private readV1 = 
+        json {
+            let! label        = Json.read    "label"       
+            let! spiceName    = Json.read    "spiceName"   
+            let! color        = Json.read    "color"       
+            let! radius       = Json.read    "radius" 
+            let! trajectoryLength       = Json.read    "trajectoryLength" 
+            let! geometryPath = Json.tryRead "geometryPath"
+            let! textureName  = Json.tryRead "textureName" 
+            let! defaultFrame = Json.read    "defaultFrame"
+            let! (draw : option<bool>) = Json.tryRead "draw"
+            let draw = Option.defaultValue false draw
+            let! showTrajectory = Json.tryRead "showTrajectory"
+            
+            return {
+                version      = Entity.current
+                label        = label       
+                spiceName    = spiceName   
+                spiceNameText = spiceName.Value
+                isEditing    = false
+                draw         = draw
+                color        = C4f.Parse color       
+                radius       = radius      
+                trajectoryLength = trajectoryLength
                 geometryPath = geometryPath
                 textureName  = textureName 
                 defaultFrame = defaultFrame
@@ -152,6 +184,7 @@ type Entity = {
             let! v = Json.read "version"
             match v with            
             | 0 -> return! Entity.readV0
+            | 1 -> return! Entity.readV1
             | _ -> return! v |> sprintf "don't know version %A  of ReferenceFrame" |> Json.error
         }
     static member ToJson (x : Entity) =
@@ -160,7 +193,8 @@ type Entity = {
             do! Json.write "label"        x.label       
             do! Json.write "spiceName"    x.spiceName   
             do! Json.write "color"        (string x.color)
-            do! Json.write "radius"       x.radius      
+            do! Json.write "radius"       x.radius   
+            do! Json.write "trajectoryLength" x.trajectoryLength   
             do! Json.write "geometryPath" x.geometryPath
             do! Json.write "textureName"  x.textureName 
             do! Json.write "defaultFrame" x.defaultFrame
@@ -181,6 +215,7 @@ module Entity =
             color         = C4f.Red       
             geometryPath  = None
             radius        = 3376200.0 //polar radius in meter
+            trajectoryLength = 1.0
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "IAU_MARS")
             showTrajectory = false
@@ -197,6 +232,7 @@ module Entity =
             color         = C4f.Gray       
             geometryPath  = None
             radius        = 6250.0 //polar radius in meter
+            trajectoryLength = 1.0
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
             showTrajectory = false
@@ -212,6 +248,7 @@ module Entity =
             draw          = false
             color         = C4f.DarkGoldenRod       
             geometryPath  = None
+            trajectoryLength = 1.0
             radius        = 11266.5 //polar radius in meter
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
@@ -229,6 +266,7 @@ module Entity =
             color         = C4f.Blue       
             geometryPath  = None
             radius        = 6356800.0 // polar radius in meter
+            trajectoryLength = 1.0
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "IAU_EARTH")
             showTrajectory = false
@@ -245,6 +283,7 @@ module Entity =
             color         = C4f.Silver       
             geometryPath  = None
             radius        = 1736000.0 //polar radius in meter
+            trajectoryLength = 1.0
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "IAU_MOON") // should maybe used different default?
             showTrajectory = false
@@ -261,6 +300,7 @@ module Entity =
             color         = C4f.Grey       
             geometryPath  = None
             radius        = 382.5 //mean radius +/- 2.5m
+            trajectoryLength = 1.0
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
             showTrajectory = false
@@ -277,6 +317,7 @@ module Entity =
             color         = C4f.Grey       
             geometryPath  = None
             radius        = 75.5 //mean radius +/- 2.5m
+            trajectoryLength = 1.0
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
             showTrajectory = false
@@ -292,6 +333,7 @@ module Entity =
             color         = C4f.Grey       
             geometryPath  = None
             radius        = 2.0 // ?
+            trajectoryLength = 1.0
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") // DIMORPHOS_FIXED ?
             showTrajectory = false

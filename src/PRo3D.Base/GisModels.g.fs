@@ -1,5 +1,5 @@
-//1da507ae-eea1-1667-8c87-eaabedd72ffb
-//3a1757c3-e4f2-208b-2a9c-d34a65623c3b
+//251ad71b-cb7c-21d8-9ec3-647d6d39e6c8
+//db3df1b6-4b89-80aa-8e0d-76abf6a15f63
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -56,6 +56,7 @@ type AdaptiveEntity(value : Entity) =
     let _label_ = FSharp.Data.Adaptive.cval(value.label)
     let _color_ = FSharp.Data.Adaptive.cval(value.color)
     let _radius_ = FSharp.Data.Adaptive.cval(value.radius)
+    let _trajectoryLength_ = FSharp.Data.Adaptive.cval(value.trajectoryLength)
     let _geometryPath_ = FSharp.Data.Adaptive.cval(value.geometryPath)
     let _textureName_ = FSharp.Data.Adaptive.cval(value.textureName)
     let _showTrajectory_ = FSharp.Data.Adaptive.cval(value.showTrajectory)
@@ -74,6 +75,7 @@ type AdaptiveEntity(value : Entity) =
             _label_.Value <- value.label
             _color_.Value <- value.color
             _radius_.Value <- value.radius
+            _trajectoryLength_.Value <- value.trajectoryLength
             _geometryPath_.Value <- value.geometryPath
             _textureName_.Value <- value.textureName
             _showTrajectory_.Value <- value.showTrajectory
@@ -87,6 +89,7 @@ type AdaptiveEntity(value : Entity) =
     member __.label = _label_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.color = _color_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.C4f>
     member __.radius = _radius_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
+    member __.trajectoryLength = _trajectoryLength_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.geometryPath = _geometryPath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
     member __.textureName = _textureName_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
     member __.showTrajectory = _showTrajectory_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -102,6 +105,7 @@ module EntityLenses =
         static member label_ = ((fun (self : Entity) -> self.label), (fun (value : Microsoft.FSharp.Core.string) (self : Entity) -> { self with label = value }))
         static member color_ = ((fun (self : Entity) -> self.color), (fun (value : Aardvark.Base.C4f) (self : Entity) -> { self with color = value }))
         static member radius_ = ((fun (self : Entity) -> self.radius), (fun (value : Microsoft.FSharp.Core.float) (self : Entity) -> { self with radius = value }))
+        static member trajectoryLength_ = ((fun (self : Entity) -> self.trajectoryLength), (fun (value : Microsoft.FSharp.Core.float) (self : Entity) -> { self with trajectoryLength = value }))
         static member geometryPath_ = ((fun (self : Entity) -> self.geometryPath), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>) (self : Entity) -> { self with geometryPath = value }))
         static member textureName_ = ((fun (self : Entity) -> self.textureName), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>) (self : Entity) -> { self with textureName = value }))
         static member showTrajectory_ = ((fun (self : Entity) -> self.showTrajectory), (fun (value : Microsoft.FSharp.Core.bool) (self : Entity) -> { self with showTrajectory = value }))

@@ -2,8 +2,6 @@
 
 
 open System
-open Aardvark.Base
-open Aardvark.UI
 open FSharp.Data.Adaptive
 open Adaptify
 open PRo3D.Base
@@ -12,6 +10,7 @@ open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Base.Gis
 open Chiron
+
 
 type GisSurface = {
     surfaceId       : SurfaceId
@@ -103,6 +102,13 @@ module GisSurface =
             referenceFrame = frame
         }
 
+type MissionTimeEntry = {
+    minDate : DateTime
+    maxDate : DateTime
+    name    : string
+    sliderValue : float
+}
+
 module InstrumentImages = 
 
     open Aardvark.Rendering
@@ -191,6 +197,9 @@ type GisApp =
         cameraInObserver       : bool
         projectedImages        : ProjectedImages
         showMarkers            : bool // whether line + text markers are displayed (for known planets)
+
+        selectedMissionTimeRow : option<int>
+        missionTimesEntries    : option<list<MissionTimeEntry>>
     } 
 with
     static member current = 0
@@ -233,6 +242,9 @@ module GisAppJson =
                 spiceKernelLoadSuccess = false
                 projectedImages        = ProjectedImages.initial //{ ProjectedImages.initial with images = System.IO.Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
                 showMarkers            = Option.defaultValue false showMarkers
+
+                selectedMissionTimeRow = None
+                missionTimesEntries    = None
             }
         }
     
@@ -266,6 +278,7 @@ type EntityAction =
     | ToggleTrajectory
     | SetTextureName    of string
     | SetRadius         of float
+    | SetTrajectoryLength of float
     | SetGeometryPath   of string
     | SetReferenceFrame of option<FrameSpiceName>
     | Delete            of EntitySpiceName
@@ -304,6 +317,8 @@ type GisAppAction =
     | NewFrame
     | ImageProjection           of ImageProjectionMessage
     | ToggleDrawMarkers
+    | SetMissionTimesRowAndSetDate of (MissionTimeEntry * int)
+    | InitializeMissionTimeEntries
+    | SetTime                   of (MissionTimeEntry * float)
+    | Empty
 
-
-    
