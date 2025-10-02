@@ -277,7 +277,7 @@ module RoverModel =
 
 
     let initial = {
-        path = @"D:\Temp\RoverTesting\Export_YoqSothoth\Perseverance_100.gltf"
+        path = @"D:\Temp\RoverTesting\Export_YoqSothoth\Perseverance_100_rot.gltf"
         roverTraverse    = None
         trafo            = Trafo3d.Translation(V3d.NaN)
         refSystem        = ReferenceSystem.initial
@@ -446,7 +446,7 @@ module RoverModel =
                 }
                 |> Sg.noEvents
 
-            Sg.ofList [rM; (Sg.cylinder 16 (C4b.Orange |> AVal.constant) (0.5 |> AVal.constant) (2.0 |> AVal.constant))]  
+            rM  
             |> Sg.trafo trafo
             //|> Sg.trafo translationTrafo
             |> Sg.uniform "DepthOffset" (AVal.constant 0.0000000001)

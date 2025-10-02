@@ -15,6 +15,7 @@ open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.UI.Trafos
+open Pro3d.Core.RoverModel
         
 module Double =
     let parse x =
@@ -85,6 +86,7 @@ module TraversePropertiesApp =
         let rollRotation   = Trafo3d.RotationInDegrees(north, sol.roll)
 
         yawRotation * pitchRotation * rollRotation
+
 
     let computeSolFlyToParameters
         (sol : Sol) 
@@ -384,7 +386,7 @@ module TraverseApp =
         else    
             traverses |> List.map(fun x -> (x, C4b.Chocolate))
 
-    let calculateRoverTrafo (model : TraverseModel) (newPosAction : Numeric.Action) =
+    let calculateRoverTrafoOnTraverse (newPosAction : Numeric.Action) (model : TraverseModel) =
         let refsys = model.rover.refSystem
         let north  = refsys.northO.Normalized        
         let up     = refsys.up.value.Normalized
@@ -402,37 +404,11 @@ module TraverseApp =
 
                 let solPosF = currPos * (float (traverse.sols.Length - 1))
                 let solPos1 = (int solPosF)       
-                
-                let trafoFromTranslatedBase
-                    (position   : V3d) 
-                    (tilt       : V3d) 
-                    (forward    : V3d) 
-                    (right      : V3d) 
-                    : Trafo3d =
-
-                    let rotTrafo =  Trafo3d.FromOrthoNormalBasis(forward.Normalized, right.Normalized, tilt.Normalized)
-                    (rotTrafo * Trafo3d.Translation(position))
-
-                let placementTrafoFromSolTrafo 
-                    position 
-                    (refSystem : ReferenceSystem) 
-                    (rotTrafo : Trafo3d) = 
-                    let north = refSystem.northO
-                    let up = refSystem.up.value
-                    let east = Vec.cross up north
-
-                    let forward = rotTrafo.Forward.TransformDir north
-                    let tilt = rotTrafo.Forward.TransformDir up
-                    let right = rotTrafo.Forward.TransformDir east
-
-                    trafoFromTranslatedBase position tilt forward right
-
-                
+                                
                 if solPos1 = (traverse.sols.Length - 1) then 
                     let currSol = traverse.sols.[solPos1] 
-                    let rotation = TraversePropertiesApp.computeSolRotation currSol refsys
-
-                    let completeTrafo = placementTrafoFromSolTrafo currSol.location refsys rotation
+                    
+                    let completeTrafo = TrafoHelper.initialPlacementTrafo' currSol.location refsys.northO refsys.up.value
 
                     completeTrafo
                 else
@@ -441,12 +417,14 @@ module TraverseApp =
 
                     let factor2  = solPosF - (float solPos1)
                     let factor1 = 1.0 - factor2
-                                        
-                    //let rotation = Trafo3d.RotateInto(V3d.IOO, newDir)//{ sol1 with yaw = (sol1.yaw * factor1 + sol2.yaw * factor2); pitch = (sol1.pitch * factor1 + sol2.pitch * factor2); roll = (sol1.roll * factor1 + sol2.roll * factor2)}
 
-                    let rotation = TraversePropertiesApp.computeSolRotation sol1 refsys
+                    let forward = (sol2.location - sol1.location).Normalized
+                    let position = ((sol1.location * factor1) + (sol2.location * factor2))
+                                                            
+                    //let rotation = TraversePropertiesApp.computeSolRotation sol1 refsys
+                    let completeTrafo = TrafoHelper.initialPlacementTrafo' position forward refsys.up.value
 
-                    let completeTrafo = placementTrafoFromSolTrafo ((sol1.location * factor1) + (sol2.location * factor2)) refsys rotation
+                    //let completeTrafo = placementTrafoFromSolTrafo position refsys rotation
 
                     completeTrafo)
             |> Option.defaultValue (Trafo3d.Translation(V3d.NegativeInfinity))
@@ -519,7 +497,7 @@ module TraverseApp =
                 | Some selT ->
                     match msg with 
                     | TraversePropertiesAction.SetRoverPositionOnTraverses pos ->
-                        calculateRoverTrafo model pos
+                        calculateRoverTrafoOnTraverse pos model
                     | _ -> 
                         let traverse = (TraversePropertiesApp.update selT msg)
                         let traverses' = model.traverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
@@ -547,7 +525,15 @@ module TraverseApp =
         | RemoveAllTraverses ->
             { model with traverses = HashMap.empty; selectedTraverse = None }  
         | SetRoverToTraverse (guid, refSystem) -> 
-            { model with rover = { model.rover with roverTraverse = Some guid; refSystem = refSystem }}
+            let roverUpdate = 
+                { model with rover = { model.rover with roverTraverse = Some guid; refSystem = refSystem }}
+                |> calculateRoverTrafoOnTraverse (Numeric.Action.SetValue 0.0)
+            
+            model.rover.roverTraverse
+            |> Option.map(fun g -> 
+                if g = guid then model
+                else roverUpdate)
+            |> Option.defaultValue roverUpdate
         | RemoveRoverFromTraverse ->
             { model with rover = { model.rover with roverTraverse = None }}
         |_-> model
