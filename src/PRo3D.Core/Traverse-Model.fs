@@ -11,7 +11,6 @@ open PRo3D.Core
 
 open Adaptify
 open Chiron
-open Pro3d.Core
 
 
 type TraversePropertiesAction =
@@ -24,20 +23,20 @@ type TraversePropertiesAction =
     | SetTraverseColor            of ColorPicker.Action
     | SetHeightOffset             of Numeric.Action
     | SetPriority                 of Numeric.Action
-    | SetRoverPositionOnTraverses of Numeric.Action
     | TogglePriorityRenderingEnabled
 
 type TraverseAction =
-    | SelectSol                 of int
-    | FlyToSol                  of V3d * V3d * V3d //forward * sky * location
-    | PlaceRoverAtSol           of string * Trafo3d * V3d * ReferenceSystem //rotation and location
-    | LoadTraverses             of list<string>
-    | FlyToTraverse             of Guid
-    | RemoveTraverse            of Guid
-    | IsVisibleT                of Guid
-    | SelectTraverse            of Guid
-    | TraversePropertiesMessage of TraversePropertiesAction
-    | SetRoverToTraverse        of Guid * ReferenceSystem
+    | SelectSol                  of int
+    | FlyToSol                   of V3d * V3d * V3d //forward * sky * location
+    | PlaceRoverAtSol            of string * Trafo3d * V3d * ReferenceSystem //rotation and location
+    | LoadTraverses              of list<string>
+    | FlyToTraverse              of Guid
+    | RemoveTraverse             of Guid
+    | IsVisibleT                 of Guid
+    | SelectTraverse             of Guid
+    | TraversePropertiesMessage  of TraversePropertiesAction
+    | SetRoverPositionOnTraverse of ReferenceSystem * Numeric.Action
+    | SetRoverToTraverse         of Guid
     | RemoveRoverFromTraverse
     | RemoveAllTraverses
     
@@ -163,7 +162,6 @@ type Traverse =
         heightOffset      : NumericInput
         priority          : NumericInput
         priorityEnabled   : bool
-        currRoverPosition : NumericInput
     }
 
 module Traverse =
@@ -213,8 +211,7 @@ module Traverse =
         color             = { c = C4b.White }
         heightOffset      = { Numeric.init with value = 0.0; min = -100.0; max = 100.0 }
         priority          = initialPriority
-        priorityEnabled   = false
-        currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001 }           
+        priorityEnabled   = false                 
     }
 
     let initial name sols =
@@ -324,7 +321,8 @@ type TraverseModel = {
         version           : int
         traverses         : HashMap<Guid, Traverse>
         selectedTraverse  : Option<Guid>
-        rover             : RoverModel
+        traverseWithRover : Option<Guid>        
+        currRoverPosition : NumericInput
     }
 
 module TraverseModel =
@@ -344,15 +342,17 @@ module TraverseModel =
                 version           = current
                 traverses         = traverses
                 selectedTraverse  = selected 
-                rover             = RoverModel.initial
+                traverseWithRover = None
+                currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001 }  
             }
         }
 
     let initial = { 
         version           = current
         traverses         = HashMap.empty
-        selectedTraverse  = None 
-        rover             = RoverModel.initial
+        selectedTraverse  = None        
+        traverseWithRover = None
+        currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001 }  
     }
 
 

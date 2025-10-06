@@ -99,6 +99,7 @@ module Viewer =
                     feedbackThreads       = ThreadPool.empty
                     comparisonApp         = PRo3D.ComparisonApp.init                    
                     viewPlans             = ViewPlanModel.initial
+                    rover                 = Rover3DModel.initial
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 

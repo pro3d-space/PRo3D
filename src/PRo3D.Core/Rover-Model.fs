@@ -1,4 +1,4 @@
-﻿namespace Pro3d.Core
+﻿namespace PRo3D.Core
 
 open Adaptify
 open System
@@ -17,7 +17,7 @@ open PRo3D.Core
 
 
 [<ModelType>]
-type RoverModel = {
+type Rover3DModel = {
     path              : string
     roverTraverse     : Option<Guid>
     refSystem         : ReferenceSystem
@@ -26,7 +26,7 @@ type RoverModel = {
     upVector          : V3d
 }
 
-module RoverModel =
+module Rover3DModel =
     module Shader = 
         open FShade
         type ViewPositionAttribute() = inherit SemanticAttribute("ViewPosition")
@@ -348,6 +348,7 @@ module RoverModel =
                         let semantic =
                             match sem with
                             | TextureSemantic.BaseColor -> DefaultSemantic.DiffuseColorCoordinates  
+                            | _ -> Symbol.Empty
                             
                             
 
@@ -432,14 +433,13 @@ module RoverModel =
             ]
 
         let viewRover (path : aval<string>) (visible : aval<bool>) (trafo : aval<Trafo3d>)= 
-            let roverModel = loadRoverModel path//Sg.box (AVal.constant(C4b.Red)) (AVal.constant(Box3d.Unit))
+            let roverModel = loadRoverModel path
             
             let rM = 
                 Sg.UniformApplicator(defaultMaterial, roverModel)
                 |> SgFSharp.Sg.vertexBufferValue' DefaultSemantic.Colors C4b.White
                 |> SgFSharp.Sg.vertexBufferValue' DefaultSemantic.DiffuseColorTexture V2f.Zero  
-                //|> SgFSharp.Sg.trafo rotationTrafo
-                //|> SgFSharp.Sg.trafo translationTrafo                                
+                             
                 |> SgFSharp.Sg.shader {
                     do! Shader.trafo
                     do! Shader.shade

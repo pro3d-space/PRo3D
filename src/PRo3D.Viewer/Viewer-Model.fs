@@ -33,8 +33,6 @@ open Adaptify
 open Aether
 open Aether.Operators
 
-
-
 //open PRo3D.Minerva
 
 #nowarn "0686"
@@ -196,7 +194,7 @@ and MailboxState = {
 and MailboxAction =
 | ViewerAction  of ViewerAction
 | InitMailboxState of MailboxState  
-| DrawingAction of PRo3D.Core.Drawing.DrawingAction 
+| DrawingAction of Drawing.DrawingAction 
 
 [<ModelType>] 
 type Scene = {
@@ -217,6 +215,7 @@ type Scene = {
     traverses         : TraverseModel
 
     viewPlans         : ViewPlanModel
+    rover             : Rover3DModel
     dockConfig        : DockConfig
     closedPages       : list<DockElement>
     firstImport       : bool
@@ -228,7 +227,7 @@ type Scene = {
     geologicSurfacesModel : GeologicSurfacesModel
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
-    gisApp                : PRo3D.Core.Gis.GisApp
+    gisApp                : Gis.GisApp
 }
 
 module Scene =
@@ -265,6 +264,7 @@ module Scene =
                     bookmarks             = bookmarks
                                           
                     viewPlans             = ViewPlanModel.initial
+                    rover                 = Rover3DModel.initial
                     dockConfig            = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
                     closedPages           = List.empty
                     firstImport           = false
@@ -317,6 +317,7 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = ViewPlanModel.initial
+                    rover                   = Rover3DModel.initial
                     dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
                     closedPages             = List.empty
                     firstImport             = false
@@ -331,7 +332,7 @@ module Scene =
 
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
-                    gisApp                  = Gis.GisApp.initial None
+                    gisApp                  = Gis.GisApp.initial None                    
                 }
         }
 
@@ -374,6 +375,7 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = ViewPlanModel.initial //if viewplans.IsSome then viewplans.Value else ViewPlanModel.initial
+                    rover                   = Rover3DModel.initial
                     dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
                     closedPages             = List.empty
                     firstImport             = false
@@ -437,6 +439,7 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = viewPlans
+                    rover                   = Rover3DModel.initial
                     dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
                     closedPages             = List.empty
                     firstImport             = false
