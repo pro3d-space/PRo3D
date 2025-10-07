@@ -285,7 +285,6 @@ type EntityAction =
     | SetTextureName    of string
     | SetRadius         of float
     | SetTrajectoryLength of float
-    | SetGeometryPath   of string
     | SetReferenceFrame of option<FrameSpiceName>
     | Delete            of EntitySpiceName
     | Edit              of EntitySpiceName

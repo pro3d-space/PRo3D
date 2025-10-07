@@ -114,7 +114,6 @@ type Entity = {
     color        : C4f
     radius       : float
     trajectoryLength : float
-    geometryPath : option<string>
     textureName  : option<string>
     showTrajectory : bool
     defaultFrame : option<FrameSpiceName>
@@ -126,7 +125,6 @@ type Entity = {
             let! spiceName    = Json.read    "spiceName"   
             let! color        = Json.read    "color"       
             let! radius       = Json.read    "radius"      
-            let! geometryPath = Json.tryRead "geometryPath"
             let! textureName  = Json.tryRead "textureName" 
             let! defaultFrame = Json.read    "defaultFrame"
             let! (draw : option<bool>) = Json.tryRead "draw"
@@ -143,7 +141,6 @@ type Entity = {
                 color        = C4f.Parse color       
                 radius       = radius      
                 trajectoryLength = 1.0
-                geometryPath = geometryPath
                 textureName  = textureName 
                 defaultFrame = defaultFrame
                 showTrajectory = Option.defaultValue false showTrajectory
@@ -156,7 +153,6 @@ type Entity = {
             let! color        = Json.read    "color"       
             let! radius       = Json.read    "radius" 
             let! trajectoryLength       = Json.read    "trajectoryLength" 
-            let! geometryPath = Json.tryRead "geometryPath"
             let! textureName  = Json.tryRead "textureName" 
             let! defaultFrame = Json.read    "defaultFrame"
             let! (draw : option<bool>) = Json.tryRead "draw"
@@ -173,7 +169,6 @@ type Entity = {
                 color        = C4f.Parse color       
                 radius       = radius      
                 trajectoryLength = trajectoryLength
-                geometryPath = geometryPath
                 textureName  = textureName 
                 defaultFrame = defaultFrame
                 showTrajectory = Option.defaultValue false showTrajectory
@@ -195,7 +190,6 @@ type Entity = {
             do! Json.write "color"        (string x.color)
             do! Json.write "radius"       x.radius   
             do! Json.write "trajectoryLength" x.trajectoryLength   
-            do! Json.write "geometryPath" x.geometryPath
             do! Json.write "textureName"  x.textureName 
             do! Json.write "defaultFrame" x.defaultFrame
             do! Json.write "draw"         x.draw
@@ -213,7 +207,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Red       
-            geometryPath  = None
             radius        = 3376200.0 //polar radius in meter
             trajectoryLength = 1.0
             textureName   = None
@@ -230,7 +223,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Gray       
-            geometryPath  = None
             radius        = 6250.0 //polar radius in meter
             trajectoryLength = 1.0
             textureName   = None
@@ -247,7 +239,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.DarkGoldenRod       
-            geometryPath  = None
             trajectoryLength = 1.0
             radius        = 11266.5 //polar radius in meter
             textureName   = None
@@ -264,7 +255,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Blue       
-            geometryPath  = None
             radius        = 6356800.0 // polar radius in meter
             trajectoryLength = 1.0
             textureName   = None
@@ -281,7 +271,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Silver       
-            geometryPath  = None
             radius        = 1736000.0 //polar radius in meter
             trajectoryLength = 1.0
             textureName   = None
@@ -298,7 +287,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Grey       
-            geometryPath  = None
             radius        = 382.5 //mean radius +/- 2.5m
             trajectoryLength = 1.0
             textureName   = None
@@ -315,7 +303,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Grey       
-            geometryPath  = None
             radius        = 75.5 //mean radius +/- 2.5m
             trajectoryLength = 1.0
             textureName   = None
@@ -331,7 +318,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Grey       
-            geometryPath  = None
             radius        = 2.0 // ?
             trajectoryLength = 1.0
             textureName   = None

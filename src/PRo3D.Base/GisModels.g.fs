@@ -1,5 +1,5 @@
-//251ad71b-cb7c-21d8-9ec3-647d6d39e6c8
-//db3df1b6-4b89-80aa-8e0d-76abf6a15f63
+//31e205ad-d96a-4d20-a31c-621c281baf03
+//38582eab-3150-57bf-6ec6-cf4ae09f8c63
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -57,7 +57,6 @@ type AdaptiveEntity(value : Entity) =
     let _color_ = FSharp.Data.Adaptive.cval(value.color)
     let _radius_ = FSharp.Data.Adaptive.cval(value.radius)
     let _trajectoryLength_ = FSharp.Data.Adaptive.cval(value.trajectoryLength)
-    let _geometryPath_ = FSharp.Data.Adaptive.cval(value.geometryPath)
     let _textureName_ = FSharp.Data.Adaptive.cval(value.textureName)
     let _showTrajectory_ = FSharp.Data.Adaptive.cval(value.showTrajectory)
     let _defaultFrame_ = FSharp.Data.Adaptive.cval(value.defaultFrame)
@@ -76,7 +75,6 @@ type AdaptiveEntity(value : Entity) =
             _color_.Value <- value.color
             _radius_.Value <- value.radius
             _trajectoryLength_.Value <- value.trajectoryLength
-            _geometryPath_.Value <- value.geometryPath
             _textureName_.Value <- value.textureName
             _showTrajectory_.Value <- value.showTrajectory
             _defaultFrame_.Value <- value.defaultFrame
@@ -90,7 +88,6 @@ type AdaptiveEntity(value : Entity) =
     member __.color = _color_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.C4f>
     member __.radius = _radius_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.trajectoryLength = _trajectoryLength_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
-    member __.geometryPath = _geometryPath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
     member __.textureName = _textureName_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
     member __.showTrajectory = _showTrajectory_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.defaultFrame = _defaultFrame_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<FrameSpiceName>>
@@ -106,7 +103,6 @@ module EntityLenses =
         static member color_ = ((fun (self : Entity) -> self.color), (fun (value : Aardvark.Base.C4f) (self : Entity) -> { self with color = value }))
         static member radius_ = ((fun (self : Entity) -> self.radius), (fun (value : Microsoft.FSharp.Core.float) (self : Entity) -> { self with radius = value }))
         static member trajectoryLength_ = ((fun (self : Entity) -> self.trajectoryLength), (fun (value : Microsoft.FSharp.Core.float) (self : Entity) -> { self with trajectoryLength = value }))
-        static member geometryPath_ = ((fun (self : Entity) -> self.geometryPath), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>) (self : Entity) -> { self with geometryPath = value }))
         static member textureName_ = ((fun (self : Entity) -> self.textureName), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>) (self : Entity) -> { self with textureName = value }))
         static member showTrajectory_ = ((fun (self : Entity) -> self.showTrajectory), (fun (value : Microsoft.FSharp.Core.bool) (self : Entity) -> { self with showTrajectory = value }))
         static member defaultFrame_ = ((fun (self : Entity) -> self.defaultFrame), (fun (value : Microsoft.FSharp.Core.option<FrameSpiceName>) (self : Entity) -> { self with defaultFrame = value }))
