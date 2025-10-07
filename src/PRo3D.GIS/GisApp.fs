@@ -464,7 +464,7 @@ module GisApp =
                 tr [] [
                     th [] [text "Spice Name"]
                     th [] [text "Reference Frame"]
-                    th [] [text "Draw"]
+                    th [] [text "Proxy"]
                     th [] [text "Actions"]
                 ]
             ] |> AList.ofList

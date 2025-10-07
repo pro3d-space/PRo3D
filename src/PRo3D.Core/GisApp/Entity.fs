@@ -170,7 +170,7 @@ module Entity =
                             EntityAction.SetTextureName
                          |> fullWidthText]
                 Html.row "Radius" [radiusInput]
-                Html.row "Draw Entity" [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
+                Html.row "Draw Proxy" [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
                 Html.row "Show Trajectory" [GuiEx.iconCheckBox m.showTrajectory EntityAction.ToggleTrajectory]
                 Html.row "Trajectory Length (days)" [trajectoryLengthInput]
                 actions
