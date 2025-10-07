@@ -95,6 +95,7 @@ module ComparisonUtils =
                                                                    (FastRay3d(ray)) 
                                                                    surfaceFilter 
                                                                    cache
+                                                                   true
         match intersected with
         | Some (t,surf), c ->       
             cache <- c

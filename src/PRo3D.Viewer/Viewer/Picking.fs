@@ -29,7 +29,10 @@ module Picking =
         let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
         let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
                 
-        Log.startTimed "[PickSurface] try intersect kdtree of %s" surfaceName       
+        let endLog = 
+            if Config.diagnosticTimings then 
+                Log.startTimed "[PickSurface] try intersect kdtree of %s" surfaceName    
+            Config.diagnosticTimings
                          
         let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
         let onlyVisible (id : Guid) (l : Leaf) (s : SgSurface) = l.visible
@@ -42,13 +45,13 @@ module Picking =
                       
 
         let hit = 
-            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem r surfaceFilter cache with
+            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem r surfaceFilter cache Config.diagnosticTimings with
             | Some (hit,surf), c ->                         
                 cache <- c
                 let t = hit.RayHit.T
                 let hitPosOnRay = ray.GetPointOnRay(t)
 
-                Log.line "[PickSurface] surface hit at (new method) %A" hit
+                if Config.diagnosticTimings then Log.line "[PickSurface] surface hit at (new method) %A" hit
 
                 //let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
                 //let hitF = hitF cameraLocation
@@ -69,7 +72,7 @@ module Picking =
             | _ -> 
                 None
 
-        Log.stop()
+        if endLog then Log.stop()
 
         hit 
 

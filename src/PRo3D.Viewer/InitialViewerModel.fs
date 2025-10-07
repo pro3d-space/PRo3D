@@ -178,6 +178,8 @@ module Viewer =
             provenanceModel = ProvenanceModel.invalid
             surfaceIntersection   = None
             ellipseModel = None
+            backgroundPicking = ThreadPool.empty
+            pickPreviewRequested = new ConsumableAsyncValue<_>()
         } |> applyProvenaceIfEnabled
 
 

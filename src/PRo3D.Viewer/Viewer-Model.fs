@@ -114,8 +114,12 @@ type ViewerAction =
 | ConfigPropertiesMessage         of ConfigProperties.Action
 | DeleteLast
 | AddSg                           of ISg
+
 | PickSurface                     of SceneHit * string * bool
 | PreviewPickSurface              of SceneHit * string * bool
+| PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d>
+
+
 | PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
@@ -628,8 +632,11 @@ type Model = {
 
     provenanceModel      : ProvenanceModel
 
+    backgroundPicking    : ThreadPool<ViewerAction>
+
     surfaceIntersection : Option<SurfaceIntersection>
     ellipseModel        : Option<EllipseModel>
+    pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
 } 
 
 type ViewerAnimationAction =

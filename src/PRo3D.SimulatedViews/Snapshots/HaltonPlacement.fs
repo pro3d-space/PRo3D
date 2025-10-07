@@ -86,14 +86,14 @@ module HaltonPlacement =
                     let dir = (p-camLocation).Normalized
                     FastRay3d(camLocation, dir)
                 
-                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem observedSystem observerSystem ray surfaceFilter cache with
+                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem observedSystem observerSystem ray surfaceFilter cache true with
                 | Some (t,surf), c ->                             
                     cache <- c; ray.Ray.GetPointOnRay t.RayHit.T |> Some
                 | None, c ->
                     cache <- c; None
                                   
             let result = 
-                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem observedSystem observerSystem (FastRay3d(ray)) surfaceFilter cache with
+                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem observedSystem observerSystem (FastRay3d(ray)) surfaceFilter cache true with
                 | Some (t,surf), c ->                         
                     cache <- c
                     let hit = ray.GetPointOnRay(t.RayHit.T)

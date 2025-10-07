@@ -1008,11 +1008,35 @@ module ViewerApp =
             else 
                 m
         | ViewerAction.PreviewPickSurface (p,name,true), _ ,_ ->
-            Log.line "preview"
-            let project p = failwith ""
-            let fray = p.globalRay.Ray
-            let r = fray.Ray
-            match Picking.pickRay m fray name with
+
+            // mutate pickrequest. handled async background function below
+            m.pickPreviewRequested.SetValue (m, p, name)
+
+            let p = 
+                proclist {
+                    Log.line "switchTo thread for picking"
+                    do! Async.SwitchToThreadPool()
+                    let runPicks () = 
+                        async {
+                            let ct = Async.DefaultCancellationToken
+                            while not ct.IsCancellationRequested do
+                                let! (m, sceneHit, name) = Async.AwaitTask <| m.pickPreviewRequested.WaitAsync()
+                                let pick = Picking.pickRay m sceneHit.globalRay.Ray name
+                                let previewIntersection = PreviewPickSurfaceFinished(p, name, pick)
+                                mailbox.Post(MailboxAction.ViewerAction previewIntersection)
+                        }
+
+                    do! runPicks() |> Proc.Await
+                    Log.warn "pick thread gone down."
+                    yield ViewerAction.Nop
+                }
+            { m with backgroundPicking = ThreadPool.add "BackgroundPicking" p ThreadPool.empty; }
+
+        | ViewerAction.PreviewPickSurfaceFinished(_,_, None), _, _ -> 
+            // preview request lead to no hit. ignore
+            m 
+        | ViewerAction.PreviewPickSurfaceFinished(_, name, hit), _, _ -> 
+            match hit with
             | Some (p, hitPosOnRay) -> 
                 let info = p.GetIntersectionRayHitInfo()
                 let project p = 
@@ -1033,6 +1057,7 @@ module ViewerApp =
             | _ -> 
                 Log.line "no hit"
                 m
+            
         | ViewerAction.PickSurface (p,name,true), _ ,true ->
             let fray = p.globalRay.Ray
             let r = fray.Ray
@@ -1103,14 +1128,14 @@ module ViewerApp =
                                     FastRay3d(p + (up * 5000.0), -up)  
                                 | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
-                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache with
+                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache Config.diagnosticTimings with
                             | Some (t,surf), c ->                             
                                 cache <- c; ray.Ray.GetPointOnRay t.RayHit.T |> Some
                             | None, c ->
                                 cache <- c; None
                                    
                         let result = 
-                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache with
+                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache Config.diagnosticTimings with
                             | Some (t,surf), c ->                         
                                 cache <- c
                                 let hit = r.GetPointOnRay(t.RayHit.T)
@@ -2352,7 +2377,7 @@ module ViewerApp =
 
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; sBookmarks]
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; sBookmarks; m.backgroundPicking]
             |> ThreadPool.map ViewerMessage
             |> ThreadPool.union (
                 Animation.Animator.threads m.animator 

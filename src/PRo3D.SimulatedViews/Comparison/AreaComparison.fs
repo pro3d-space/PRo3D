@@ -284,6 +284,7 @@ module AreaComparison =
                                                                            (FastRay3d(ray)) 
                                                                            surfFilter 
                                                                            cache
+                                                                           true
                 cache <- c
                 hitInfo |> Option.map (fun (h,s) -> (h.RayHit.T, s))
 
