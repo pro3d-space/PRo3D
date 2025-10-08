@@ -297,7 +297,6 @@ type ReferenceFrameAction =
     | SetLabel          of string
     | SetSpiceName      of string
     | SetSpiceNameText  of string
-    | SetEntity         of option<EntitySpiceName>
     | Delete            of FrameSpiceName
     | Cancel
     | Save      

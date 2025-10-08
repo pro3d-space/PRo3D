@@ -614,7 +614,6 @@ module GisApp =
                 tr [] [
                     //th [] [text "Label"]
                     th [] [text "Spice Name"]
-                    th [] [text "Associated Entity"]
                     th [] []
                 ]
             ] |> AList.ofList
@@ -857,8 +856,6 @@ module GisApp =
                     | _ -> None
                 )
             )
-
-
 
         let markers = 
             showMarkers 

@@ -1,5 +1,5 @@
-//31e205ad-d96a-4d20-a31c-621c281baf03
-//38582eab-3150-57bf-6ec6-cf4ae09f8c63
+//bdbeea08-1546-11cc-a005-43177b419343
+//740ccc55-ac9b-70b4-b92a-6ebdae0ff7c3
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -16,7 +16,6 @@ type AdaptiveReferenceFrame(value : ReferenceFrame) =
     let _description_ = FSharp.Data.Adaptive.cval(value.description)
     let _spiceNameText_ = FSharp.Data.Adaptive.cval(value.spiceNameText)
     let _isEditing_ = FSharp.Data.Adaptive.cval(value.isEditing)
-    let _entity_ = FSharp.Data.Adaptive.cval(value.entity)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ReferenceFrame) = AdaptiveReferenceFrame(value)
@@ -29,7 +28,6 @@ type AdaptiveReferenceFrame(value : ReferenceFrame) =
             _description_.Value <- value.description
             _spiceNameText_.Value <- value.spiceNameText
             _isEditing_.Value <- value.isEditing
-            _entity_.Value <- value.entity
     member __.Current = __adaptive
     member __.version = __value.version
     member __.label = _label_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
@@ -37,7 +35,6 @@ type AdaptiveReferenceFrame(value : ReferenceFrame) =
     member __.spiceName = __value.spiceName
     member __.spiceNameText = _spiceNameText_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.isEditing = _isEditing_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
-    member __.entity = _entity_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<EntitySpiceName>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ReferenceFrameLenses = 
     type ReferenceFrame with
@@ -47,7 +44,6 @@ module ReferenceFrameLenses =
         static member spiceName_ = ((fun (self : ReferenceFrame) -> self.spiceName), (fun (value : FrameSpiceName) (self : ReferenceFrame) -> { self with spiceName = value }))
         static member spiceNameText_ = ((fun (self : ReferenceFrame) -> self.spiceNameText), (fun (value : Microsoft.FSharp.Core.string) (self : ReferenceFrame) -> { self with spiceNameText = value }))
         static member isEditing_ = ((fun (self : ReferenceFrame) -> self.isEditing), (fun (value : Microsoft.FSharp.Core.bool) (self : ReferenceFrame) -> { self with isEditing = value }))
-        static member entity_ = ((fun (self : ReferenceFrame) -> self.entity), (fun (value : Microsoft.FSharp.Core.option<EntitySpiceName>) (self : ReferenceFrame) -> { self with entity = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveEntity(value : Entity) =
     let _isEditing_ = FSharp.Data.Adaptive.cval(value.isEditing)

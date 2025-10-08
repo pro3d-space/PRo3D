@@ -58,7 +58,6 @@ type ReferenceFrame =
         spiceName   : FrameSpiceName
         spiceNameText : string
         isEditing   : bool
-        entity      : option<EntitySpiceName>
     } 
 with
     static member current = 0
@@ -67,7 +66,6 @@ with
             let! label       = Json.read    "label"
             let! description = Json.tryRead "description"
             let! spiceName   = Json.read    "spiceName"
-            let! entity      = Json.tryRead "entity"
             
             return {
                 version      = ReferenceFrame.current
@@ -76,7 +74,6 @@ with
                 spiceName    = spiceName  
                 spiceNameText = spiceName.Value
                 isEditing    = false
-                entity       = entity
             }
         }
     static member FromJson(_ : ReferenceFrame) = 
@@ -93,8 +90,6 @@ with
             if x.description.IsSome then
                 do! Json.write  "description"  x.description.Value
             do! Json.write      "spiceName"    x.spiceName  
-            if x.entity.IsSome then
-                do! Json.write  "entity"       x.entity.Value
         }
 
 /// Entities are natural bodies or spacecraft.
@@ -336,7 +331,6 @@ module ReferenceFrame =
             description = Some "Defined with Earth's Mean Equator and Mean Equinox (MEME) at 12:00 Terrestrial Time on 1 January 2000"
             spiceName   = FrameSpiceName "J2000"
             spiceNameText = "J2000"
-            entity      = None
             isEditing   = false
         }
     let eclipJ2000 = 
@@ -346,7 +340,6 @@ module ReferenceFrame =
             description = Some "Ecliptic coordinates based upon the J2000 frame."
             spiceName   = FrameSpiceName "ECLIPJ2000"
             spiceNameText = "ECLIPJ2000"
-            entity      = None
             isEditing   = false
         }
     let iauMars = 
@@ -356,7 +349,6 @@ module ReferenceFrame =
             description = Some "Mars body-fixed frame"
             spiceName   = FrameSpiceName "IAU_MARS"
             spiceNameText = "IAU_MARS"
-            entity      = Some (EntitySpiceName "Mars")
             isEditing   = false
         }
     let iauEarth = 
@@ -366,7 +358,6 @@ module ReferenceFrame =
             description = Some "Earth body-fixed frame"
             spiceName   = FrameSpiceName "IAU_EARTH"
             spiceNameText = "IAU_EARTH"
-            entity      = Some (EntitySpiceName "Earth")
             isEditing   = false
         }
 
