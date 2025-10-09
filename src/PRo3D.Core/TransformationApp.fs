@@ -300,18 +300,18 @@ module TransformationApp =
             Log.error "%s" e.Message
             None
       
-    let refSysTranslation 
-        (transform : Transformations)
-        (translation : V3d)
-        (pivot       : V3d)
-        (refSys : ReferenceSystem) =
+    //let refSysTranslation 
+    //    (transform : Transformations)
+    //    (translation : V3d)
+    //    (pivot       : V3d)
+    //    (refSys : ReferenceSystem) =
 
-            let refSysRotation = 
-                match transform.refSys, transform.usePivot with
-                | Some lrs, true -> getReferenceSystemBasis_local lrs refSys.planet
-                | _, _ -> getReferenceSystemBasis_global refSys
-            let trans = translation |> Trafo3d.Translation
-            (refSysRotation.Inverse * trans * refSysRotation)
+    //        let refSysRotation = 
+    //            match transform.refSys, transform.usePivot with
+    //            | Some lrs, true -> getReferenceSystemBasis_local lrs refSys.planet
+    //            | _, _ -> getReferenceSystemBasis_global refSys
+    //        let trans = translation |> Trafo3d.Translation
+    //        (refSysRotation.Inverse * trans * refSysRotation)
 
     let getLocalRefSys 
         (refSys : ReferenceSystem)
@@ -416,7 +416,10 @@ module TransformationApp =
             let af =
                 match mode with
                 | ReferenceSystemMode.LEGACY_Global -> None
-                | ReferenceSystemMode.PivotCenter -> Some (getLocalRefSys refSys model.pivot.value)
+                | ReferenceSystemMode.PivotCenter -> 
+                    match model.pivotMode with 
+                    | PivotMode.NoPivot -> None
+                    | _-> Some (getLocalRefSys refSys model.pivot.value)
                 | ReferenceSystemMode.PickedLocal -> model.refSys
                 | _ -> model.refSys
             { model with refSysMode = mode; refSys = af }
