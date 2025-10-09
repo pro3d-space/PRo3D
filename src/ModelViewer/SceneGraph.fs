@@ -454,8 +454,6 @@ module SceneSg =
 
 
                 let rec traverse (node : Node) =
-
-
                     let cs =
                         match node.Children with
                         | [] -> None

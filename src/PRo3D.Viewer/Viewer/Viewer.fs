@@ -1686,6 +1686,14 @@ module ViewerApp =
                         scene = { m.scene with viewPlans = viewPlanModel }
                         footPrint = model.footPrint
                     } 
+                | SetRoverPositionOnTraverse (refSys, pos) ->
+                    let trafo = TraverseApp.calculateRoverTrafoOnTraverse pos refSys m.scene.traverses
+                    let rMessage = Rover3DAction.SetRoverTrafo trafo
+                    let rover = Rover3DApp.update m.scene.rover rMessage
+                    { m with 
+                        scene = { m.scene with rover = rover }                        
+                    }
+
                 | _ -> m                                        
                 
             { m with scene = { m.scene with traverses = TraverseApp.update m.scene.traverses msg }; animations = animation }                        
@@ -2079,6 +2087,9 @@ module ViewerApp =
         let sceneObjects =
             SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
 
+        let rover3DModel = 
+            Rover3DApp.viewRover m.scene.rover
+
         let geologicSurfacesSg = 
             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
             |> Sg.map GeologicSurfacesMessage 
@@ -2089,6 +2100,7 @@ module ViewerApp =
             depthTested; 
             heightValidationDiscs; 
             sceneObjects; 
+            rover3DModel;
             geologicSurfacesSg
             gisEntities
         ] |> Sg.ofList

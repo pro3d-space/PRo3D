@@ -494,7 +494,6 @@ module TraverseApp =
                 | None -> model
             | None -> model
         | SetRoverPositionOnTraverse (refSys, pos) ->
-            let roverTrafo = calculateRoverTrafoOnTraverse pos refSys model
             model
         | SelectSol solNumber ->
             match model.selectedTraverse with
@@ -602,6 +601,8 @@ module TraverseApp =
 
         let viewActions (refSystem : AdaptiveReferenceSystem) (model:AdaptiveTraverseModel) =
             adaptive {
+                let! refSys = refSystem.Current
+
                 return Html.table [                            
                     div [clazz "ui buttons inverted"] [
                         onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
@@ -614,9 +615,8 @@ module TraverseApp =
                             button [clazz "ui icon button"; onMouseClick (fun _ -> RemoveRoverFromTraverse)] [
                                 i [clazz "car icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Hide Rover"
                         )
-                    ] 
-
-                    //Html.row "RoverPosition:" [Numeric.view' [NumericInputType.InputBox] model. |> UI.map SetRoverPositionOnTraverse; Numeric.view' [NumericInputType.Slider] m.currRoverPosition |> UI.map SetRoverPositionOnTraverses ]
+                    ]                     
+                    Html.row "RoverPosition:" [Numeric.view' [NumericInputType.InputBox] model.currRoverPosition |> UI.map (fun x -> SetRoverPositionOnTraverse (refSys, x)); Numeric.view' [NumericInputType.Slider] model.currRoverPosition |> UI.map (fun x -> SetRoverPositionOnTraverse (refSys, x)) ]
                 ] 
             }
             
