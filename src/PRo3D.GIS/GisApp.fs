@@ -1050,6 +1050,7 @@ module GisApp =
                 (ReferenceFrame.eclipJ2000.spiceName, ReferenceFrame.eclipJ2000)
                 (ReferenceFrame.iauMars.spiceName, ReferenceFrame.iauMars)
                 (ReferenceFrame.iauEarth.spiceName, ReferenceFrame.iauEarth)
+                (ReferenceFrame.heraSpacecraft.spiceName, ReferenceFrame.heraSpacecraft)
             ] |> HashMap.ofList
 
         let missionTimeEntries : list<MissionTimeEntry> = getMissionTimeEntriesData()

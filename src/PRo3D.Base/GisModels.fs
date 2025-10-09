@@ -308,15 +308,15 @@ module Entity =
         {
             version       = Entity.current
             label         = "Hera Spacecraft"
-            spiceName     = EntitySpiceName "HERA" // ?? Need to check!
+            spiceName     = EntitySpiceName "HERA" 
             spiceNameText = "HERA"
             isEditing     = false
             draw          = false
             color         = C4f.Grey       
-            radius        = 2.0 // ?
+            radius        = 2.0 
             trajectoryLength = 1.0
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") // DIMORPHOS_FIXED ?
+            defaultFrame  = Some (FrameSpiceName "HERA_SPACECRAFT") // DIMORPHOS_FIXED ?
             showTrajectory = false
         }
         
@@ -358,6 +358,15 @@ module ReferenceFrame =
             description = Some "Earth body-fixed frame"
             spiceName   = FrameSpiceName "IAU_EARTH"
             spiceNameText = "IAU_EARTH"
+            isEditing   = false
+        }
+    let heraSpacecraft = 
+        {
+            version     = ReferenceFrame.current
+            label       = "HERA_SPACECRAFT"
+            description = Some "Spacecraft body-fixed frame"
+            spiceName   = FrameSpiceName "HERA_SPACECRAFT"
+            spiceNameText = "HERA_SPACECRAFT"
             isEditing   = false
         }
 
