@@ -84,7 +84,7 @@ module WayPointsTraverseApp =
                 let! position = 
                     result {
                         match x.geometry with
-                        | GeoJsonGeometry.Point p ->
+                        | GeoJsonGeometry.Point(p, _) ->
                             match p with
                             | Coordinate.TwoDim y ->
                                 //x ... lon

@@ -29,6 +29,8 @@ type Geometry =
 | Polygon   = 3 
 | DnS       = 4
 | TT        = 5
+| Ellipse   = 6
+| AxisEllipse = 7
 
 type Semantic = 
 | Horizon0 = 0 
@@ -357,6 +359,42 @@ with
             do! Json.writeFloat "verticalThickness" x.verticalThickness
         }
 
+
+type EllipticAnnotationResult = 
+    {
+        geographicalEllipse : Ellipse2d
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {      
+                let! center             = Json.read "center"     
+                let! major              = Json.read "major"
+                let! minor              = Json.read "minor"
+            
+                return {
+                    geographicalEllipse = Ellipse2d(V2d.Parse(center), V2d.Parse(major), V2d.Parse(minor))
+                }
+            }
+
+        static member FromJson(_: EllipticAnnotationResult) =
+            json {
+                let! v = Json.read "version"
+                match v with 
+                | 0 -> return! EllipticAnnotationResult.readV0
+                | _ -> return! v |> sprintf "don't know version %A  of AnnotationResults" |> Json.error
+            }
+    
+        static member ToJson (x : EllipticAnnotationResult) =
+            json {
+                do! Json.write   "version"  version
+                do! Json.write   "center"   (string x.geographicalEllipse.Center)
+                do! Json.write   "major"    (string x.geographicalEllipse.Axis0)
+                do! Json.write   "minor"    (string x.geographicalEllipse.Axis1)
+            }
+    
+
 module AnnotationResults =    
     
     let initial = 
@@ -400,6 +438,7 @@ type Annotation = {
                    
     results        : Option<AnnotationResults>
     dnsResults     : Option<DipAndStrikeResults>
+    ellipticResults : Option<EllipticAnnotationResult>
                    
     visible          : bool
     showDns          : bool
@@ -490,6 +529,7 @@ with
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = None
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -551,6 +591,7 @@ with
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = None
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -612,6 +653,7 @@ with
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = None
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -676,6 +718,7 @@ with
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -741,6 +784,7 @@ with
                 manualDipAzimuth = manualDipAzimuth
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -780,6 +824,8 @@ with
     
             let! manualDipAngle = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAngle"
             let! manualDipAzimuth = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAzimuth"
+
+            let! ellipseProperties = Json.tryRead "ellipseResults" 
             
             return {
                 version          = Annotation.current
@@ -807,6 +853,7 @@ with
                 manualDipAzimuth = manualDipAzimuth
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
+                ellipticResults  = ellipseProperties
             }
         }
 
@@ -856,7 +903,12 @@ with
             do! Json.write "semanticType" (x.semanticType |> int)
 
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAngle" (x.manualDipAngle)
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAzimuth" (x.manualDipAzimuth)          
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAzimuth" (x.manualDipAzimuth)    
+            
+            match x.ellipticResults with
+            | None -> ()
+            | Some e -> 
+                do! Json.write "ellipseResults" x.ellipticResults
         }
 
 module Annotation =
@@ -937,6 +989,7 @@ module Annotation =
             manualDipAzimuth = Annotation.initialmanualDipAzimuth 
             bookmarkId       = bookmarkId
             referenceSystem  = referenceSystem
+            ellipticResults  = None
         }
 
     let initial =

@@ -284,8 +284,9 @@ module AreaComparison =
                                                                            (FastRay3d(ray)) 
                                                                            surfFilter 
                                                                            cache
+                                                                           true
                 cache <- c
-                hitInfo
+                hitInfo |> Option.map (fun (h,s) -> (h.RayHit.T, s))
 
             let calcDistanceRound (localPoint : V3d) =
                 let raysFrom : V3d = sgSurface1.globalBB.Center

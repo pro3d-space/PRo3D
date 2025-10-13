@@ -70,10 +70,10 @@ module RoverTraverseApp =
         let parseFeature (idx : int) (x : GeoJsonFeature) =
             let locations = 
                 match x.geometry with
-                | GeoJsonGeometry.LineString coordinates ->
+                | GeoJsonGeometry.LineString(coordinates, _) ->
                     [coordinates 
                     |> List.map (fun coord -> parseCoordinate coord)]
-                | GeoJsonGeometry.MultiLineString coordinates ->
+                | GeoJsonGeometry.MultiLineString(coordinates, _) ->
                     coordinates |> List.map (List.map parseCoordinate)
                 | _ -> [[]]
             let sols = 

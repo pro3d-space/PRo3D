@@ -139,6 +139,11 @@ type Ext with
             return (t |> Trafo3d.Parse)            
         }
 
+    static member ToJson1 (ext : Ext, v : V2d) = 
+        json {
+            do! Json.write "coordinates" [v.X; v.Y]
+        }
+
     static member ToJson1 (ext : Ext, v : Trafo3d) = 
         json {
             do! Json.write "trafo"  (v.ToString())

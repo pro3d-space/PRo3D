@@ -67,7 +67,7 @@ module DrawingApp =
         | _ -> 
             { a with points = a.points |> IndexList.add firstP }
     
-    let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
+    let getFinishedAnnotation up north planet (sampleSurface : Option<V3d -> Option<V3d>>)  (view:CameraView) (model : DrawingModel) =
         match model.working with
         | Some w ->  
             let w = 
@@ -79,7 +79,7 @@ module DrawingApp =
                             manualDipAngle   = { w.manualDipAngle   with value = 0.0 }
                             manualDipAzimuth = { w.manualDipAzimuth with value = 0.0 }
                     }
-                | _-> w 
+                | _ -> w 
         
             let dns = 
                 match w.geometry with 
@@ -91,15 +91,27 @@ module DrawingApp =
 
             let w = { w with dnsResults = dns }
 
+            let w = 
+                match w.geometry, sampleSurface with
+                | Geometry.AxisEllipse, Some sampleSurface -> 
+                    match EllipticAnnotations.constructAndSample planet (IndexList.toArray w.points) sampleSurface with
+                    | Some (ellipse, sampledPoints) -> 
+                        let points = IndexList.ofArray sampledPoints
+                        { w with points = points; ellipticResults = Some { geographicalEllipse = ellipse }}
+                    | _ -> 
+                        w
+                | _ -> 
+                    w
+
             let results = Calculations.calculateAnnotationResults w up north planet
 
-            Some { w with results = Some results; view = view }
+            Some { w with results = Some results; view = view; }
         | None -> None
 
-    let finishAndAppend up north planet (view:CameraView) (model : DrawingModel)  = 
+    let finishAndAppend up north planet (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel)  = 
       
         let groups = 
-            match getFinishedAnnotation up north planet view model with
+            match getFinishedAnnotation up north planet sampleSurface view model with
             | Some a -> 
                 //let json = a |> JsonTypes.ofAnnotation |> Aardvark.UI.Pickler.jsonToString                 
                 //bc.Add json
@@ -111,7 +123,7 @@ module DrawingApp =
     
     //adds new point to working state, if certain conditions are met the annotation finishes itself
     // returns current segment for async computations outside
-    let addPoint up north planet (referenceSystem : Option<SpiceReferenceSystem>) samplePoint (p : V3d) view model surfaceName bc bookmarkId =
+    let addPoint up north planet (referenceSystem : Option<SpiceReferenceSystem>) (samplePoint : V3d -> Option<V3d>) (p : V3d) view model surfaceName bc bookmarkId =
       
         let working, newSegment = 
             match model.working with
@@ -119,10 +131,13 @@ module DrawingApp =
                 let annotation = { w with points = w.points |> IndexList.add p }
                 Log.line "working contains %d points" annotation.points.Count
                 
+                // do not generate segments for ellipses as they are sampled when the ellipse is fully constructed (after having the ellipse we know its outline).
+                let allowSegmentGeneration = w.geometry <> Geometry.Ellipse && w.geometry <> Geometry.AxisEllipse
+
                 //fetch current drawing segment (projected, polyline or polygon)
                 let result = 
                     match w.projection with
-                    | Projection.Viewpoint | Projection.Sky | Projection.Bookmark ->                     
+                    | Projection.Viewpoint | Projection.Sky | Projection.Bookmark when allowSegmentGeneration ->                     
                         match IndexList.tryAt (IndexList.count w.points-1) w.points with
                         | None -> 
                             annotation, None
@@ -152,6 +167,8 @@ module DrawingApp =
                                 { annotation with segments = IndexList.add newSegment annotation.segments }, None
                     | Projection.Linear ->
                         annotation, None
+                    | Projection.Sky when w.geometry = Geometry.AxisEllipse -> 
+                        annotation, None
                     | _ -> failwith "case does not exist"            
                 result 
             | None ->  //no working state, start new working annotation
@@ -173,9 +190,13 @@ module DrawingApp =
         match (working.geometry, (working.points |> IndexList.count)) with
         | Geometry.Point, 1 -> 
             Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
-            finishAndAppend up north planet view model, None
+            finishAndAppend up north planet (Some samplePoint) view model, None
         | Geometry.TT, 2 | Geometry.Line, 2 -> 
-            finishAndAppend up north planet view model, None
+            finishAndAppend up north planet (Some samplePoint) view model, None
+        | Geometry.Ellipse, 3 -> 
+            finishAndAppend up north planet (Some samplePoint) view model, None
+        | Geometry.AxisEllipse, 3 -> 
+            finishAndAppend up north planet (Some samplePoint) view model, None
         | _ -> 
             model, newSegment 
 
@@ -304,13 +325,19 @@ module DrawingApp =
             |> HashMap.toList 
             |> List.map snd
             |> List.filter (fun a -> a.visible)
+
+        let isSelected = 
+            match model.annotations.singleSelectLeaf with
+            | None -> fun _ -> false
+            | Some s -> 
+                fun (a : Annotation) -> a.key = s
                
         try
             if xyz then
-                GeoJSONExport.writeGeoJSON_XYZ path annotations
+                GeoJSONExport.writeGeoJSON_XYZ path isSelected annotations
             else 
                 let planet = smallConfig.planet.Get(bigConfig)            
-                GeoJSONExport.writeGeoJSON (Some planet) path annotations
+                GeoJSONExport.writeGeoJSON (Some planet) path isSelected annotations
         with e -> 
             Log.warn "[Drawing] exportGeoJson failed with %A" e
 
@@ -329,15 +356,20 @@ module DrawingApp =
             |> List.map snd
             |> List.filter (fun a -> a.visible)
                
+        let isSelected = 
+            match model.annotations.singleSelectLeaf with
+            | None -> fun _ -> false
+            | Some s -> 
+                fun (a : Annotation) -> a.key = s
 
-        GeoJSONExport.writeStreamGeoJSON_XYZ path annotations
+        GeoJSONExport.writeStreamGeoJSON_XYZ isSelected path annotations
 
-    let finish (bigConfig  : 'a)  (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) =
+    let finish (bigConfig  : 'a) (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) =
         let up     = smallConfig.up.Get(bigConfig)
         let north  = smallConfig.north.Get(bigConfig)
         let planet = smallConfig.planet.Get(bigConfig)
 
-        (finishAndAppend up north planet view model) |> stash
+        (finishAndAppend up north planet None view model) |> stash
 
     type ProfilePoint = {
         position  : V3d
@@ -379,16 +411,16 @@ module DrawingApp =
                 { model with pick = false}        
             | DrawingAction.Move p, true, false -> 
                 { model with hoverPosition = Some (Trafo3d.Translation p) }
-            | AddPointAdv (point, hitFunction, name, bookmarkId), true, false ->
+            | AddPointAdv (point, projectSurface, name, bookmarkId), true, false ->
                 let up    = smallConfig.up.Get(bigConfig)
                 let north = smallConfig.north.Get(bigConfig)
                 let planet = smallConfig.planet.Get(bigConfig)
 
-                let model, newSegment = addPoint up north planet referenceSystem hitFunction point view model name webSocket bookmarkId
+                let model, newSegment = addPoint up north planet referenceSystem projectSurface point view model name webSocket bookmarkId
             
                 match newSegment with
                 | None         -> model
-                | Some segment -> addNewSegment hitFunction model segment
+                | Some segment -> addNewSegment projectSurface model segment
                 |> stash
             | RemoveLastPoint, _, _ -> 
               //let annotation = { w with points = w.points |> IndexList.append p }
@@ -417,7 +449,14 @@ module DrawingApp =
 
                 {model with semantic = mode }
             | SetGeometry mode, _, _ ->
-                { model with geometry = mode }
+                let projection = 
+                    match mode with
+                    | Geometry.AxisEllipse -> Projection.Sky
+                    // every other tool uses linear as default. TODO: if switching back to default is an UX problem, 
+                    // we need to store the user-set projection mode and reset it if needed.
+                    | _ -> Projection.Linear
+
+                { model with geometry = mode; projection = projection; }
             | SetProjection mode, _, _ ->
                 { model with projection = mode }                  
             | ChangeColor c, _, _ -> 
@@ -718,7 +757,7 @@ module DrawingApp =
             pickRenderTarget.Acquire()
             let packedLines = 
                 let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
-                    kind, fun evt -> false, Seq.delay (fun () -> (f evt))
+                    kind, fun evt -> true, Seq.delay (fun () -> (f evt))
                 PackedRendering.packedRender lines 
                 |> Sg.noEvents
                 |> Sg.pickable' (bb |> AVal.map PickShape.Box)

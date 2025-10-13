@@ -169,6 +169,7 @@ module MeasurementsImporter =
             manualDipAzimuth = Annotation.initial.manualDipAzimuth
             bookmarkId       = None
             referenceSystem  = None
+            ellipticResults  = None
         }        
         
 
