@@ -104,42 +104,85 @@ module GeoJSON =
             json{
                 do! Json.write "coordinates"  (x |> List.map(fun x -> x |> List.map(fun x -> x|> List.map(fun x -> x |> Ext.CoordinateToArray))))
             }
-    
+
+    type GeometryProperties = 
+        | EllipseProperties of center : V2d * major : V2d * min : V2d
+        | NoProperties
+         with
+            static member ToJson(v : GeometryProperties) =
+                match v with
+                | NoProperties ->
+                    json {
+                        return ()
+                    }
+                | EllipseProperties(center, major, minor) -> 
+                    json {
+                        do! Json.write "specialGeometry" "ellipse"
+                        do! Json.write "center" [| center.X; center.Y |]
+                        do! Json.write "major" [| major.X; major.Y |]
+                        do! Json.write "minor" [| minor.X; minor.Y |]
+                    }
+
+    type GeoJsonProperties = 
+        { geometry : GeometryProperties; selected : bool }
+        with
+            static member ToJson(v : GeoJsonProperties) =
+                json {
+                    do! Json.write "geometryProperties" v.geometry
+                    do! Json.write "isSelected" v.selected
+                }
+
     type GeoJsonGeometry =
-    | Point                 of coordinates : Coordinate
-    | MultiPoint            of coordinates : List<Coordinate>
-    | LineString            of coordinates : List<Coordinate>
-    | MultiLineString       of coordinates : List<List<Coordinate>>
-    | Polygon               of coordinates : List<List<Coordinate>>
-    | MultiPolygon          of coordinates : List<List<List<Coordinate>>>
-    | GeometryCollection    of geometries :  List<GeoJsonGeometry>
+    | Point                 of coordinates : Coordinate * Option<GeoJsonProperties>
+    | MultiPoint            of coordinates : List<Coordinate> * Option<GeoJsonProperties>
+    | LineString            of coordinates : List<Coordinate> * Option<GeoJsonProperties>
+    | MultiLineString       of coordinates : List<List<Coordinate>> * Option<GeoJsonProperties>
+    | Polygon               of coordinates : List<List<Coordinate>> * Option<GeoJsonProperties>
+    | MultiPolygon          of coordinates : List<List<List<Coordinate>>> * Option<GeoJsonProperties>
+    | GeometryCollection    of geometries :  List<GeoJsonGeometry> * Option<GeoJsonProperties>
     
         with 
+
+        static member PolygonEmptyProperties (coordinates : List<List<Coordinate>>) = GeoJsonGeometry.Polygon(coordinates, None)
         
         static member ToJson (x: GeoJsonGeometry) = 
+            let writeProperties (props : Option<GeoJsonProperties>) = 
+                match props with
+                | None -> 
+                    json {
+                        return ()
+                    }
+                | Some props ->
+                    json {
+                        do! Json.write "properties" props
+                    }
             json {
                 match x with
-                | Point(c) -> 
+                | Point(c,p) -> 
                     do! Ext.ToGeoJson c
                     do! Json.write "type" "Point"
-                | MultiPoint(c) -> 
+                | MultiPoint(c,p) -> 
                     do! Ext.ToGeoJson  c
                     do! Json.write "type" "MultiPoint"
-                | LineString(c) ->
+                | LineString(c,p) ->
                     do! Ext.ToGeoJson  c
                     do! Json.write "type" "LineString"
-                | MultiLineString(c) -> 
+                | MultiLineString(c,p) -> 
                     do! Ext.ToGeoJson  c
                     do! Json.write "type" "MultiLineString"
-                | Polygon(c) ->
-                    do! Ext.ToGeoJson  c
+                | Polygon(c, props) ->
                     do! Json.write "type" "Polygon"
-                | MultiPolygon(c) ->
+                    do! Ext.ToGeoJson  c
+                    match props with
+                    | None -> ()
+                    | Some props ->
+                        do! Json.write "properties" props
+                | MultiPolygon(c,p) ->
                     do! Ext.ToGeoJson  c
                     do! Json.write "type" "MultiPolygon"
-                | GeometryCollection(c) ->
-                    do! Json.write "geometries" c
+                | GeometryCollection(c,p) ->
                     do! Json.write "type" "GeometryCollection"
+                    do! Json.write "geometries" c
             }
         
         static member FromJson (_: GeoJsonGeometry) = 
@@ -148,27 +191,27 @@ module GeoJSON =
                 match x with
                 | "Point" -> 
                     let! y = Ext.readCoordinate "coordinates"
-                    return Point(y)
+                    return Point(y,None)
                 | "MultiPoint" -> 
                     let! y = Ext.readCoordinateL "coordinates"
-                    return MultiPoint(y)
+                    return MultiPoint(y,None)
                 | "LineString" -> 
                     let! y = Ext.readCoordinateL "coordinates"
-                    return LineString(y)
+                    return LineString(y,None)
                 | "MultiLineString" -> 
                     let! y = Ext.readCoordinateLL "coordinates"
-                    return MultiLineString(y)
+                    return MultiLineString(y,None)
                 | "Polygon" -> 
                     let! y = Ext.readCoordinateLL "coordinates"
-                    return Polygon(y)
+                    return Polygon(y,None)
                 | "MultiPolygon" -> 
                     let! y = Ext.readCoordinateLLL "coordinates"
-                    return MultiPolygon(y)
+                    return MultiPolygon(y,None)
                 | "GeometryCollection" -> 
                     let! y = Json.read "geometries"
-                    return GeometryCollection(y)
+                    return GeometryCollection(y,None)
                 | _ ->
-                    return Point(V3d.NaN |> ThreeDim)
+                    return Point(V3d.NaN |> ThreeDim, None)
             }
 
     

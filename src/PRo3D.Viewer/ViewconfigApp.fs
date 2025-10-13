@@ -29,6 +29,9 @@ module ConfigProperties =
         | ToggleSurfaceHighlighting
         | ToggleExplorationPointGui
         | ToggleShowLeafLabels
+
+        | ToggleShowPreviewIntersectionCursor
+        | SetPreviewIntersectionCursorWorldSize of Numeric.Action
         
 
     let update (model : ViewConfigModel) (act : Action) =
@@ -60,6 +63,10 @@ module ConfigProperties =
             { model with pickingTolerance = Numeric.update model.pickingTolerance tolerance }
         | ToggleExplorationPointGui -> {model with showExplorationPointGui = not model.showExplorationPointGui}
         | ToggleShowLeafLabels -> { model with showLeafLabels = not model.showLeafLabels }
+
+        | ToggleShowPreviewIntersectionCursor -> { model with showPreviewIntersection = not model.showPreviewIntersection }
+        | SetPreviewIntersectionCursorWorldSize a ->  { model with previewIntersectionWorldSize = Numeric.update model.previewIntersectionWorldSize a }
+
         | Nop -> model
         | _ -> 
             Log.warn "[ConfigProperties] Unknown action %A" act
@@ -87,6 +94,10 @@ module ConfigProperties =
 
                 let leafLabelCheckbox = GuiEx.iconCheckBox model.showLeafLabels ToggleShowLeafLabels
                 Html.row "Show leaf labels: "       [UI.wrapToolTip DataPosition.Bottom "Shown for selected surface (only available for opcs)" leafLabelCheckbox]
+
+                let showPreviewIntersection = GuiEx.iconCheckBox model.showPreviewIntersection ToggleShowPreviewIntersectionCursor
+                Html.row "Show Preview Cursor: "       [UI.wrapToolTip DataPosition.Bottom "Shows 3D pointer at surface intersection point" leafLabelCheckbox]
+                Html.row "Preview Cursor Size:"        [Numeric.view' [InputBox] model.previewIntersectionWorldSize  |> UI.map SetPreviewIntersectionCursorWorldSize ]   
             ]
         )
 

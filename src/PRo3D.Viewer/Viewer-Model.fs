@@ -545,6 +545,10 @@ type ProjectedEllipse =
         ellipse : Ellipse2d
     }
 
+type EllipseType = 
+    | BoundaryEllipse
+    | ThreePointEllipse
+
 [<ModelType>]
 type EllipseModel = 
     {

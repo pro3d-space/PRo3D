@@ -2,7 +2,7 @@
   "profiles": {
     "opc-tool": {
       "commandName": "Project",
-      "commandLineArgs": "--ignoremasterkdtree \"I:\\OPC\\GardenCity\\MSL_Mastcam_Sol_926_id_48427\" --forcekdtreerebuild"
+      "commandLineArgs": "--ignoremasterkdtree \"C:\\pro3ddata\\HERA\\Workshop\\20250527_Phobos_HSH_stacked_float32_exr\\Phobos_HSH\" --forcekdtreerebuild"
     }
   }
 }

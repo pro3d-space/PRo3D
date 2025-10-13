@@ -1,5 +1,5 @@
-//ea6b8b58-aa03-1b6d-365c-599e2d6d0bcc
-//0eaf4200-3da2-4846-8dc5-b2559de278e7
+//f2896bef-44c3-fb09-2703-30b2a595511f
+//e3228cee-7733-fb1c-9eed-dc30d4baa6c2
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -216,6 +216,7 @@ type AdaptiveModel(value : Model) =
     let _renderingUrl_ = FSharp.Data.Adaptive.cval(value.renderingUrl)
     let _screenshotDirectory_ = FSharp.Data.Adaptive.cval(value.screenshotDirectory)
     let _provenanceModel_ = AdaptiveProvenanceModel(value.provenanceModel)
+    let _backgroundPicking_ = FSharp.Data.Adaptive.cval(value.backgroundPicking)
     let _surfaceIntersection_ = FSharp.Data.Adaptive.cval(value.surfaceIntersection)
     let _ellipseModel_ =
         let inline __arg2 (o : System.Object) (v : EllipseModel) =
@@ -225,6 +226,7 @@ type AdaptiveModel(value : Model) =
             (unbox<AdaptiveEllipseModel> o).Update(v)
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Viewer.EllipseModel, PRo3D.Viewer.AdaptiveEllipseModel, PRo3D.Viewer.AdaptiveEllipseModel>(value.ellipseModel, (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o), (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o))
+    let _pickPreviewRequested_ = FSharp.Data.Adaptive.cval(value.pickPreviewRequested)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Model) = AdaptiveModel(value)
@@ -271,8 +273,10 @@ type AdaptiveModel(value : Model) =
             _renderingUrl_.Value <- value.renderingUrl
             _screenshotDirectory_.Value <- value.screenshotDirectory
             _provenanceModel_.Update(value.provenanceModel)
+            _backgroundPicking_.Value <- value.backgroundPicking
             _surfaceIntersection_.Value <- value.surfaceIntersection
             _ellipseModel_.Update(value.ellipseModel)
+            _pickPreviewRequested_.Value <- value.pickPreviewRequested
     member __.Current = __adaptive
     member __.viewerVersion = _viewerVersion_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.startupArgs = _startupArgs_ :> FSharp.Data.Adaptive.aval<PRo3D.StartupArgs>
@@ -313,8 +317,10 @@ type AdaptiveModel(value : Model) =
     member __.screenshotDirectory = _screenshotDirectory_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.animator = __value.animator
     member __.provenanceModel = _provenanceModel_
+    member __.backgroundPicking = _backgroundPicking_ :> FSharp.Data.Adaptive.aval<FSharp.Data.Adaptive.ThreadPool<ViewerAction>>
     member __.surfaceIntersection = _surfaceIntersection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<SurfaceIntersection>>
     member __.ellipseModel = _ellipseModel_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<EllipseModel, AdaptiveEllipseModel, AdaptiveEllipseModel>>
+    member __.pickPreviewRequested = _pickPreviewRequested_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ModelLenses = 
     type Model with
@@ -357,6 +363,8 @@ module ModelLenses =
         static member screenshotDirectory_ = ((fun (self : Model) -> self.screenshotDirectory), (fun (value : Microsoft.FSharp.Core.string) (self : Model) -> { self with screenshotDirectory = value }))
         static member animator_ = ((fun (self : Model) -> self.animator), (fun (value : Aardvark.UI.Animation.Animator<Model>) (self : Model) -> { self with animator = value }))
         static member provenanceModel_ = ((fun (self : Model) -> self.provenanceModel), (fun (value : ProvenanceModel) (self : Model) -> { self with provenanceModel = value }))
+        static member backgroundPicking_ = ((fun (self : Model) -> self.backgroundPicking), (fun (value : FSharp.Data.Adaptive.ThreadPool<ViewerAction>) (self : Model) -> { self with backgroundPicking = value }))
         static member surfaceIntersection_ = ((fun (self : Model) -> self.surfaceIntersection), (fun (value : Microsoft.FSharp.Core.Option<SurfaceIntersection>) (self : Model) -> { self with surfaceIntersection = value }))
         static member ellipseModel_ = ((fun (self : Model) -> self.ellipseModel), (fun (value : Microsoft.FSharp.Core.Option<EllipseModel>) (self : Model) -> { self with ellipseModel = value }))
+        static member pickPreviewRequested_ = ((fun (self : Model) -> self.pickPreviewRequested), (fun (value : Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>) (self : Model) -> { self with pickPreviewRequested = value }))
 
