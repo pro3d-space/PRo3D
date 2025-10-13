@@ -2151,6 +2151,7 @@ module ViewerApp =
             heightValidation;
         ] |> Sg.ofList 
 
+
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
 
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
