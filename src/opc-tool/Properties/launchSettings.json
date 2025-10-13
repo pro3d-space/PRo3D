@@ -2,7 +2,7 @@
   "profiles": {
     "opc-tool": {
       "commandName": "Project",
-      "commandLineArgs": "--ignoremasterkdtree \"C:\\pro3ddata\\HERA\\Workshop\\20250527_Phobos_HSH_stacked_float32_exr\\Phobos_HSH\" --forcekdtreerebuild"
+      "commandLineArgs": "--ignoremasterkdtree --forcekdtreerebuild \"C:\\pro3ddata\\kdtree-optimierung\\_Opc2x2-Patch1024-Tile2048\\_Opc2x2-Patch1024-Tile2048\\Jezero_08_06\" "
     }
   }
 }

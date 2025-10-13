@@ -13,6 +13,7 @@ open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Viewer
 open PRo3D.Navigation2
+open PRo3D.Viewer.TraverseApp
 
 open Chiron
 
@@ -387,7 +388,19 @@ module SceneLoader =
             m.scene.sceneObjectsModel 
             |> prepareSceneObjectsModel 
 
-        Optic.set _sceneObjects sOModel m  
+        let m = Optic.set _sceneObjects sOModel m
+
+        // load rimfaxSurfaces
+        let traverses' = 
+            m.scene.traverses.rimfaxTraverses 
+            |> Seq.fold (fun traverses (guid, traverse) -> 
+                (TraverseApp.update 
+                    traverses
+                    (LoadRimfaxSurface ([traverse.rimfaxRootDirectory], guid))
+                )) m.scene.traverses 
+
+        { m with scene.traverses.rimfaxTraverses = traverses'.rimfaxTraverses} 
+         
 
     let loadSceneFromJson (jsonScene : string) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) =
         let scene : Scene = 

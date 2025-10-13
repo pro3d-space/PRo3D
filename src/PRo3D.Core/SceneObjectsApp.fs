@@ -115,6 +115,7 @@ module SceneObjectsUtils =
             isObj       = true 
             opcScene    = None
             dataSource  = Mesh
+            sgImportPath = sObject.importPath
         }
 
              
@@ -347,7 +348,9 @@ module SceneObjectsApp =
                 | Some id -> 
                   let! so = model.sceneObjects |> AMap.tryFind id
                   match so with
-                  | Some s -> return (TransformationApp.UI.view s.transformation |> UI.map TranslationMessage)
+                  | Some s -> 
+                        let! path = s.importPath
+                        return (TransformationApp.UI.view s.transformation path |> UI.map TranslationMessage)
                   | None -> return empty
                 | None -> return empty
             }  

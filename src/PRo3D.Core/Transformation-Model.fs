@@ -434,5 +434,65 @@ type Transformations with
         }
 
 
+// transformation output-/inputdata
+type TransformationData =
+    {
+        translation           : V3d
+        yaw                   : float
+        pitch                 : float
+        roll                  : float
+        scaling               : float
+        trafo                 : Trafo3d
+        pivot                 : V3d
+        refSys                : Option<Affine3d>
+    } 
+    static member ToJson (x : TransformationData) = 
+        json {
+            do! Json.write "translation" (x.translation.ToString())
+            do! Json.write "scaling" x.scaling
+            do! Json.write "yaw"   x.yaw
+            do! Json.write "pitch" x.pitch
+            do! Json.write "roll"  x.roll
+            do! Json.writeWith Ext.toJson<Trafo3d,Ext> "trafo" x.trafo
+            do! Json.write "pivot" (x.pivot.ToString())
+            let tRefSys =
+                match x.refSys with
+                | None -> Trafo3d()//.Identity
+                | Some rs -> (Trafo3d(rs))
+         
+            do! Json.writeWith Ext.toJson<Trafo3d,Ext> "refSys" tRefSys
+        }
+    static member FromJson (x : TransformationData) =
+        json {
+             let! translation          = Json.read "translation"
+             let! scaling              = Json.read "scaling"
+             let! yaw                  = Json.read "yaw"
+             let! pitch                = Json.read "pitch"
+             let! roll                 = Json.read "roll"
+             let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
+             let! pivot                = Json.read "pivot"
+             let! refSysTrafo          = Json.tryReadWith Ext.fromJson<Option<Trafo3d>,Ext> "refSys" 
+             let refSys = match refSysTrafo with 
+                            | Some s -> 
+                                    if s = Trafo3d() then
+                                        None 
+                                    else 
+                                        Some (Affine3d(s.Forward.UpperLeftM33(), s.Forward.C3.XYZ))
+                            | None -> None
+             
+
+            return {
+                translation          = translation |> V3d.Parse
+                yaw                  = yaw
+                pitch                = pitch
+                roll                 = roll
+                pivot                = pivot |> V3d.Parse
+                scaling              = scaling 
+                trafo                = trafo
+                refSys               = refSys
+            }
+        }
+
+
      
 

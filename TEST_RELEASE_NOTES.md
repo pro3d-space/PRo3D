@@ -1,3 +1,9 @@
+## 5.0.6 
+- added traverse priority feature
+
+## 5.0.1 
+- major release preparation
+
 ## 5.0.1 
 - major release preparation
 

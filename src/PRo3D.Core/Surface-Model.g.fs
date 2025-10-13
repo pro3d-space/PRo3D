@@ -1,5 +1,5 @@
-//37f5b468-c181-4812-e1d8-274cc8ab8e6a
-//bdb6543d-d70f-88b9-d38b-2463a0d1f7a6
+//c69ac26f-6e8e-d1a4-0b8a-1044d022dc75
+//af254f0f-678d-92b6-3cc6-043a00e78960
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -314,6 +314,7 @@ type AdaptiveSgSurface(value : SgSurface) =
     let _sceneGraph_ = FSharp.Data.Adaptive.cval(value.sceneGraph)
     let _picking_ = FSharp.Data.Adaptive.cval(value.picking)
     let _opcScene_ = FSharp.Data.Adaptive.cval(value.opcScene)
+    let _sgImportPath_ = FSharp.Data.Adaptive.cval(value.sgImportPath)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : SgSurface) = AdaptiveSgSurface(value)
@@ -327,7 +328,7 @@ type AdaptiveSgSurface(value : SgSurface) =
             _sceneGraph_.Value <- value.sceneGraph
             _picking_.Value <- value.picking
             _opcScene_.Value <- value.opcScene
-            ()
+            _sgImportPath_.Value <- value.sgImportPath
     member __.Current = __adaptive
     member __.surface = __value.surface
     member __.trafo = _trafo_
@@ -337,6 +338,7 @@ type AdaptiveSgSurface(value : SgSurface) =
     member __.opcScene = _opcScene_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>>
     member __.dataSource = __value.dataSource
     member __.isObj = __value.isObj
+    member __.sgImportPath = _sgImportPath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SgSurfaceLenses = 
     type SgSurface with
@@ -348,4 +350,5 @@ module SgSurfaceLenses =
         static member opcScene_ = ((fun (self : SgSurface) -> self.opcScene), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>) (self : SgSurface) -> { self with opcScene = value }))
         static member dataSource_ = ((fun (self : SgSurface) -> self.dataSource), (fun (value : DataSource) (self : SgSurface) -> { self with dataSource = value }))
         static member isObj_ = ((fun (self : SgSurface) -> self.isObj), (fun (value : Microsoft.FSharp.Core.bool) (self : SgSurface) -> { self with isObj = value }))
+        static member sgImportPath_ = ((fun (self : SgSurface) -> self.sgImportPath), (fun (value : Microsoft.FSharp.Core.string) (self : SgSurface) -> { self with sgImportPath = value }))
 

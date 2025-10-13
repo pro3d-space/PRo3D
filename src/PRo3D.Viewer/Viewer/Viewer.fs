@@ -383,7 +383,7 @@ module ViewerApp =
             | PickPivot.SceneObjectPivot -> m
                 //todo
             | _ -> m
-        | Interactions.PickDistanePoint, _ ->
+        | Interactions.PickDistancePoint, _ ->
             let msg = ViewPlanApp.Action.AddDistancePoint(p)
             let outerModel, viewPlans = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
             { m with scene = { m.scene with viewPlans = viewPlans } }
@@ -1001,6 +1001,19 @@ module ViewerApp =
         | ImportTraverse traverseFiles,_,_ -> 
             let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverses traverseFiles)
             { m with scene = { m.scene with traverses = t }}
+        | ImportTrafo [trafoFile],_,_ ->  //m
+            match m.scene.surfacesModel.surfaces.singleSelectLeaf with
+            | Some s -> 
+                let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find s |> Leaf.toSurface
+                //match trafoFile |> List.tryHead with
+                //| Some path -> 
+                let msg = (TransformationApp.Action.ImportTrafoData [trafoFile])
+                let transformation' = 
+                    (TransformationApp.update surface.transformation msg m.scene.referenceSystem) 
+                let s' = m.scene.surfacesModel |> SurfaceModel.updateSingleSurface { surface with transformation = transformation' } 
+                { m with scene = { m.scene with surfacesModel = s' } }
+                //| None -> m
+            | None -> m
         | DeleteLast,_,_ -> 
             if File.Exists @".\last" then
                 File.Delete(@".\last") |> ignore
@@ -1990,7 +2003,7 @@ module ViewerApp =
         ) m.ctrlFlag m.interaction
 
     // overlays that occur in instrumentview + main renderview
-    let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) =
+    let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) (frustum : aval<Frustum>) =
         let refSystem =
             Sg.view
                 m.scene.config
@@ -2021,13 +2034,25 @@ module ViewerApp =
                 mrefConfig
                 m.scene.referenceSystem
 
-        let traverse = 
-            TraverseApp.Sg.viewText 
-                m.scene.referenceSystem
-                view
-                m.scene.config.nearPlane.value 
-                m.scene.traverses
-            |> Sg.map TraverseMessage
+        //let traverse = 
+        //    let text = 
+        //        TraverseApp.Sg.viewText 
+        //            m.scene.referenceSystem
+        //            view
+        //            m.scene.config.nearPlane.value 
+        //            (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+        //            m.scene.traverses
+        //        |> Sg.map TraverseMessage
+
+        //    let traverse = 
+        //        TraverseApp.Sg.view     
+        //            m.navigation.camera.view //m.navigation.camera.view
+        //            m.scene.referenceSystem
+        //            m.scene.traverses   
+        //            (AVal.constant None)
+        //        |> Sg.map TraverseMessage
+
+        //    Sg.ofList [text; traverse]
 
         let distancePointsText =
             ViewPlanApp.Sg.viewText 
@@ -2042,7 +2067,7 @@ module ViewerApp =
             homePosition;
             annotationTexts |> Sg.noEvents
             scaleBarTexts
-            traverse
+            //traverse
             distancePointsText
         ] |> Sg.ofList
                                  
@@ -2084,16 +2109,30 @@ module ViewerApp =
                 m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
        
-        let traverses = 
-            [ 
-                TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
+        let traverses =
+        
+            let isThereASurfaceWithPriority (p : int) = 
+                m.scene.surfacesModel.surfaces.flat
+                |> AMap.toASetValues
+                |> ASet.existsA (fun e -> 
+                    match e with
+                    | AdaptiveSurfaces s -> s.priority.value |> AVal.map (fun pS -> int pS = p) 
+                    | _ -> AVal.constant false
+                )
+
+
+            let traverse = 
                 TraverseApp.Sg.view     
-                    view //m.navigation.camera.view
+                    view 
+                    m.scene.config.nearPlane.value 
+                    (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
                     m.scene.referenceSystem
                     m.scene.traverses   
-            ]
-            |> Sg.ofList
-            |> Sg.map TraverseMessage
+                    (AVal.constant None)
+                    isThereASurfaceWithPriority
+                |> Sg.map TraverseMessage
+
+            traverse
 
         let distancePoints =
             ViewPlanApp.Sg.viewVPDistancePoints 
@@ -2103,8 +2142,8 @@ module ViewerApp =
 
         let surfaceIntersection = 
             Picking.pickVisualization m
-            |> Sg.noEvents
-
+            |> Sg.noEvents     
+            
         let ellipseDrawing = 
             m.ellipseModel |> AVal.map (function
                 | AdaptiveNone -> Sg.empty
@@ -2112,12 +2151,35 @@ module ViewerApp =
                     EllipseAnnotations.App.viewDepthTested m
             )
             |> Sg.dynamic
+            
+            
+        let depthTested =
+            [
+                scaleBars;
+                annotationSg
+                traverses
+                distancePoints
+            ] |> Sg.ofList
+
+        let heightValidationDiscs =
+            HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
+
+        
+        let sceneObjects =
+            SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
+
+        let geologicSurfacesSg = 
+            GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
+            |> Sg.map GeologicSurfacesMessage 
+
+        let gisEntities = Gis.GisApp.viewGisEntities m.scene.gisApp |> Sg.noEvents
 
         [
-            scaleBars;
-            annotationSg
-            traverses
-            distancePoints
+            depthTested; 
+            heightValidationDiscs; 
+            sceneObjects; 
+            geologicSurfacesSg
+            gisEntities
             surfaceIntersection
             ellipseDrawing
         ] |> Sg.ofList
@@ -2127,7 +2189,7 @@ module ViewerApp =
         let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let icam = AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
 
-        let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam
+        let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam frustum
        
         let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
 
@@ -2142,180 +2204,65 @@ module ViewerApp =
             DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds, None) //AttributeMap.Empty
         )
 
+    let createOverlaySg (m: AdaptiveModel) = 
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+        let near = m.scene.config.nearPlane.value
+
+        let overL = getOverlayed m m.navigation.camera.view frustum
+
+        let leafLabels =
+            m.scene.config.showLeafLabels 
+            |> AVal.map (fun enabled -> 
+                if enabled then
+                    Sg.viewLeafLabels ~~0.01 ~~60.0 m.navigation.camera.view m.scene.surfacesModel
+                else 
+                    Sg.empty
+            )
+            |> Sg.dynamic
+                                 
+        let viewPlans =
+            ViewPlanApp.Sg.view 
+                m.scene.config 
+                mrefConfig 
+                m.scene.viewPlans 
+                m.navigation.camera.view
+            |> Sg.map ViewPlanMessage           
+           
+        let heightValidation =
+            HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
+            
+        let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
+
+        let ellipsePreview = 
+            m.ellipseModel |> AVal.map (function 
+                | AdaptiveNone -> 
+                    Sg.empty 
+                | AdaptiveSome m -> 
+                    EllipseAnnotations.App.viewOverlayed m 
+            )
+            |> Sg.dynamic
+
+           
+        [
+            overL;
+            viewPlans; 
+            leafLabels;
+            heightValidation;
+            ellipsePreview
+        ] |> Sg.ofList 
+
+
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
 
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
 
-        
-        let gisEntities = Gis.GisApp.viewGisEntities m.scene.gisApp |> Sg.noEvents
-
         let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
 
-        let overlayed =
-                        
-            let createLabelBillboards (model : amap<string, V3d>) (view:aval<CameraView>) (near:aval<float>) =        
-                model
-                |> AMap.map(fun txt pos ->
-                   Sg.text view near 
-                      ~~60.0
-                      ~~pos
-                      ~~(Trafo3d.Translation pos)
-                      ~~20.0
-                      ~~txt
-                      ~~C4b.White
-                ) 
-                |> AMap.toASet  
-                |> ASet.map(fun x -> snd x)            
-                |> Sg.set
-
-            //let alignment = 
-            //    AlignmentApp.view m.alignment m.scene.navigation.camera.view
-            //        |> Sg.map AlignmentActions
-            //        |> Sg.fillMode (AVal.constant FillMode.Fill)
-            //        |> Sg.cullMode (AVal.constant CullMode.None)
-
-            let near = m.scene.config.nearPlane.value
-
-            let overL = getOverlayed m m.navigation.camera.view
-
-            let leafLabels =
-                m.scene.config.showLeafLabels 
-                |> AVal.map (fun enabled -> 
-                    if enabled then
-                        Sg.viewLeafLabels ~~0.01 ~~60.0 m.navigation.camera.view m.scene.surfacesModel
-                    else 
-                        Sg.empty
-                )
-                |> Sg.dynamic
-                                 
-            let viewPlans =
-                ViewPlanApp.Sg.view 
-                    m.scene.config 
-                    mrefConfig 
-                    m.scene.viewPlans 
-                    m.navigation.camera.view
-                |> Sg.map ViewPlanMessage           
-
-            //let solText = 
-            //    MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
-                
-            //let correlationLogs, _ =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        near 
-            //        m.correlationPlot 
-            //        m.drawing.dnsColorLegend
-
-            //let finishedLogs, _ =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        near 
-            //        m.drawing.dnsColorLegend 
-            //        m.correlationPlot 
-            //        (allowLogPicking m)
-
-            //let traverse = 
-            //    [ 
-            //        TraverseApp.Sg.viewLines m.scene.traverses
-            //        TraverseApp.Sg.viewText 
-            //            m.navigation.camera.view
-            //            m.scene.config.nearPlane.value 
-            //            m.scene.traverses
-            //    ]
-            //    |> Sg.ofList
-            //    |> Sg.map TraverseMessage
-           
-            let heightValidation =
-                HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
-            
-            let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
-
-            let ellipsePreview = 
-                m.ellipseModel |> AVal.map (function 
-                    | AdaptiveNone -> 
-                        Sg.empty 
-                    | AdaptiveSome m -> 
-                        EllipseAnnotations.App.viewOverlayed m 
-                )
-                |> Sg.dynamic
-
-           
-            [
-                overL;
-                viewPlans; 
-                leafLabels;
-             //   solText; 
-                heightValidation;
-                ellipsePreview
-                //traverse
-                //gisEntities
-            ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
-
-        //let minervaSg =
-        //    let minervaFeatures = 
-        //        MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
-
-        //    let filterLocation =
-        //        MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
-
-        //    Sg.ofList [minervaFeatures] //;filterLocation]
-
-        //let all = m.minervaModel.data.features
-        //let selected = 
-        //    m.minervaModel.session.selection.highlightedFrustra
-        //    |> AList.ofASet
-        //    |> AList.toAVal 
-        //    |> AVal.map (fun x ->
-        //        x
-        //        |> IndexList.take 500
-        //    )
-        //    |> AList.ofAVal
-        //    |> ASet.ofAList
-        
-        //let linkingSg = 
-        //    PRo3D.Linking.LinkingApp.view 
-        //        m.minervaModel.hoveredProduct 
-        //        selected 
-        //        m.linkingModel
-        //    |> Sg.map LinkingActions
+        let overlayed = createOverlaySg m
 
         let depthTested = 
             getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
-
-        let heightValidationDiscs =
-            HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
-
-        
-        let sceneObjects =
-            SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
-
-        let geologicSurfacesSg = 
-            GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
-            |> Sg.map GeologicSurfacesMessage 
-
-
-        //let traverses =
-        //    TraverseApp.Sg.view     
-        //        m.navigation.camera.view
-        //        m.scene.referenceSystem
-        //        m.scene.traverses   
-        //    |> Sg.map TraverseMessage
-
-        let depthTested = 
-            [
-             //   linkingSg; 
-                depthTested; 
-                //minervaSg; 
-                heightValidationDiscs; 
-                sceneObjects; 
-                geologicSurfacesSg
-                //traverses
-                gisEntities
-            ] |> Sg.ofList
-
 
         //render OPCs in priority groups
         let cmds  = 

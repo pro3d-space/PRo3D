@@ -143,7 +143,7 @@ module Rendering =
                 baseName = sprintf "%s.%s" path ending
                 depth = sprintf "%s_depth.%s" path ending
                 tifDepth = sprintf "%s_depth.tiff" path
-                exrDepth = sprintf "no_filename_%s_depth.exr" path
+                exrDepth = sprintf "%s_depth.exr" path
             }
         | _,_ -> 
             {
@@ -183,9 +183,15 @@ module Rendering =
                 //let loader = PixImageFreeImage.Loader//PixImageDevil.Loader
                 
                 //loader.SaveToFile(names.exrDepth, depthF, saveParams) |> ignore
-                PixImageFreeImage.Loader.SaveToFile(names.exrDepth, depthF, PixSaveParams(PixFileFormat.Exr)) |> ignore
-                depthF.TryDispose () |> ignore
+                //PixImageFreeImage.Loader.SaveToFile(names.exrDepth, depthF, PixSaveParams(PixFileFormat.Exr)) |> ignore
+
+                use s = System.IO.File.OpenWrite(names.exrDepth)
+                let dirExists = System.IO.Directory.Exists(names.exrDepth |> System.IO.Path.GetDirectoryName)
+                PixImageFreeImage.Loader.SaveToStream(s, depthF, PixSaveParams(PixFileFormat.Exr))
+
+                //depthF.TryDispose () |> ignore
                 Log.line "[SNAPSHOT] Saved %s" names.exrDepth
+                Log.line "[SNAPSHOT] Directory exists %s" (dirExists.ToString())
 
                 // Test image
                 //let loadedPi = PixImage.Load(names.exrDepth, PixImageFreeImage.Loader) |> unbox<PixImage<T>>
@@ -216,6 +222,12 @@ module Rendering =
             with e ->
                 Log.error "[SNAPSHOT] Could not save image %s" names.exrDepth
                 Log.error "%s" e.Message
+                Log.warn "%A" e
+
+
+            PixImageFreeImage.Loader.SaveToFile(names.exrDepth, depthF, PixSaveParams(PixFileFormat.Exr)) |> ignore
+            depthF.TryDispose () |> ignore
+
         | _,_ -> ()
 
         try

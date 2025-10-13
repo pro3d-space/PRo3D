@@ -12,7 +12,7 @@
     },
     "PRo3D.Viewer.CoReg": {
       "commandName": "Project",
-      "commandLineArgs": "--disableCors --port 4321 --remoteApi --scene \"F:\\PRo3D\\AI-Mars-3D\\Co-Registration\\2025-01-07_CoRegDemo\\2025-01-07_Kodiak_CoReg_Demo_SRC_translated.pro3d",
+      "commandLineArgs": "--port 4321 --remoteApi --scene \"F:\\Co-Reg\\20250422_CoReg_360_361.pro3d\"",
       "nativeDebugging": true
     },
     "PRo3D.RemoteApi": {

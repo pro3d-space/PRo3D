@@ -354,28 +354,29 @@ module ViewConfigModel =
                 let! importTriangleSize            = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
                 let! (drawOrientationCube : bool)  = Json.read "drawOrientationCube"                        
                 let! depthoffset                   = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
-                let! (filterTexture : bool)        = Json.read "filterTexture"                      
+                let! (filterTexture : bool)        = Json.read "filterTexture"   
+                let! showExplorationPointGui       = Json.tryRead "showExplorationPointGui"                   
                 
                 let! previewIntersectionWorldSize'  = Json.tryRead "previewIntersectionWorldSize"
                 let! (showPreviewIntersection' : Option<bool>) = Json.tryRead "showPreviewIntersection"           
         
                 return {            
-                    version               = current
-                    nearPlane             = nearPlane
-                    farPlane              = farPlane
-                    frustumModel          = frustumModel
-                    navigationSensitivity = navigationSensitivity
-                    arrowLength           = arrowLength
-                    arrowThickness        = arrowThickness
-                    dnsPlaneSize          = dnsPlaneSize
-                    lodColoring           = lodColoring
-                    importTriangleSize    = importTriangleSize      
-                    drawOrientationCube   = drawOrientationCube
-                    offset                = depthoffset
-                    pickingTolerance      = initPickingTolerance
-                    filterTexture         = filterTexture 
-                    showExplorationPointGui = true
-                    showLeafLabels        = false
+                    version                 = current
+                    nearPlane               = nearPlane
+                    farPlane                = farPlane
+                    frustumModel            = frustumModel
+                    navigationSensitivity   = navigationSensitivity
+                    arrowLength             = arrowLength
+                    arrowThickness          = arrowThickness
+                    dnsPlaneSize            = dnsPlaneSize
+                    lodColoring             = lodColoring
+                    importTriangleSize      = importTriangleSize      
+                    drawOrientationCube     = drawOrientationCube
+                    offset                  = depthoffset
+                    pickingTolerance        = initPickingTolerance
+                    filterTexture           = filterTexture 
+                    showExplorationPointGui = if showExplorationPointGui.IsSome then showExplorationPointGui.Value else true
+                    showLeafLabels          = false
                     showPreviewIntersection = Option.defaultValue true showPreviewIntersection'
                     previewIntersectionWorldSize = { previewIntersectionWorldSize with value = Option.defaultValue previewIntersectionWorldSize.value previewIntersectionWorldSize' }
                 }
@@ -410,6 +411,7 @@ type ViewConfigModel with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "pickingTolerance"      x.pickingTolerance
             do! Json.write "filterTexture" x.filterTexture
             do! Json.write "version" x.version
+            do! Json.write "showExplorationPointGui" x.showExplorationPointGui
             do! Json.write "previewIntersectionWorldSize" x.previewIntersectionWorldSize.value
             do! Json.write "showPreviewIntersection" x.showPreviewIntersection
         }

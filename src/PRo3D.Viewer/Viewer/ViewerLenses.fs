@@ -57,10 +57,6 @@ module ViewerLenses =
     let _scaleBarsModel = Model.scene_  >->  Scene.scaleBars_
     let _scaleBars      = _scaleBarsModel >-> ScaleBarsModel.scaleBars_
 
-    // traverses
-    let _traversesModel = Model.scene_  >->  Scene.traverses_
-    let _traverses      = _traversesModel >-> TraverseModel.traverses_
-
     // geologic surfaces
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_

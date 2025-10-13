@@ -144,42 +144,44 @@ module AssemblyResources =
                 Shell.copyRecursive source dst true |> ignore
                 ()
 
+    let copyDependenciesForArch (arch : Architecture) (folder : string) (targets : seq<string>) =
+            let arch = 
+                match arch with
+                | Architecture.X64 -> "AMD64"
+                | Architecture.X86 -> "x86"
+                | _ -> "unknown"
+            let targets = targets |> Seq.toArray
+
+            let platform =
+                if RuntimeInformation.IsOSPlatform OSPlatform.Windows then "windows"
+                elif RuntimeInformation.IsOSPlatform OSPlatform.OSX then "mac"
+                elif RuntimeInformation.IsOSPlatform OSPlatform.Linux then "linux"
+                else "windows"
+
+            for t in targets do
+                getFilesAndFolders(Path.Combine(folder, platform, arch)) 
+                    |> Seq.iter (copy t)
+
+                getFilesAndFolders(Path.Combine(folder, platform)) 
+                    |> Array.filter (fun f -> 
+                        let n = Path.GetFileName(f) 
+                        n <> "x86" && n <> "AMD64"
+                        )
+                    |> Seq.iter (copy t)
+
+                getFilesAndFolders(Path.Combine(folder, arch)) 
+                    |> Seq.iter (copy t)
+
+                getFilesAndFolders(folder) 
+                    |> Array.filter (fun f -> 
+                        let n = Path.GetFileName(f) 
+                        n <> "x86" && n <> "AMD64" && n <> "windows" && n <> "linux" && n <> "mac"
+                        )
+                    |> Seq.iter (copy t)
+
+
     let copyDependencies (folder : string) (targets : seq<string>) =
-        let arch = 
-            match RuntimeInformation.OSArchitecture with
-            | Architecture.X64 -> "AMD64"
-            | Architecture.X86 -> "x86"
-            | _ -> "unknown"
-        let targets = targets |> Seq.toArray
-
-        let platform =
-            if RuntimeInformation.IsOSPlatform OSPlatform.Windows then "windows"
-            elif RuntimeInformation.IsOSPlatform OSPlatform.OSX then "mac"
-            elif RuntimeInformation.IsOSPlatform OSPlatform.Linux then "linux"
-            else "windows"
-
-        for t in targets do
-            getFilesAndFolders(Path.Combine(folder, platform, arch)) 
-                |> Seq.iter (copy t)
-
-            getFilesAndFolders(Path.Combine(folder, platform)) 
-                |> Array.filter (fun f -> 
-                    let n = Path.GetFileName(f) 
-                    n <> "x86" && n <> "AMD64"
-                    )
-                |> Seq.iter (copy t)
-
-            getFilesAndFolders(Path.Combine(folder, arch)) 
-                |> Seq.iter (copy t)
-
-            getFilesAndFolders(folder) 
-                |> Array.filter (fun f -> 
-                    let n = Path.GetFileName(f) 
-                    n <> "x86" && n <> "AMD64" && n <> "windows" && n <> "linux" && n <> "mac"
-                    )
-                |> Seq.iter (copy t)
-
-
+        copyDependenciesForArch RuntimeInformation.OSArchitecture folder targets
 
 
 module Helpers =

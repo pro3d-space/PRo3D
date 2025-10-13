@@ -1,3 +1,27 @@
+## 5.1.0
+- native dependency fix for mac
+
+## 5.1.0-prerelease3
+- native dependency fix for mac
+
+## 5.1.0-prerelease2
+- native dependency fix for mac
+
+## 5.1.0-prerelease1
+- native dependency fix for mac
+
+## 5.0.7-prerelease1
+- #516
+- #525
+
+## 5.0.7
+- ViewPlan: lookAt function for distance points, changes pan and tilt
+- Trafos: export/import trafos for specific surface
+
+## 5.0.6
+- ViewPlan: lookAt function for distance points, changes pan and tilt
+- Trafos: export/import trafos for specific surface
+
 ## 5.0.5
 - first official 5.0 release
 
@@ -12,6 +36,13 @@
 
 ## 5.0.0 
 - next major release preparation
+
+## 4.27.0-prerelease2
+- tweaked opc parameters
+- 
+## 4.27.0-prerelease1
+- tweaked opc parameters
+- 
 
 ## 4.26.0-prerelease1
 - fixed surface priority

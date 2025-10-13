@@ -81,10 +81,10 @@
     <Compile Include="SequencedBookmarks\BookmarkUtils.fs" />
     <Compile Include="SequencedBookmarks\BookmarkAnimations.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarksApp.fs" />
-    <Compile Include="Gis\ObservationInfo.fs" />
-    <Compile Include="Gis\Entity.fs" />
-    <Compile Include="Gis\ReferenceFrame.fs" />
-    <Compile Include="Gis\GisApp.fs" />
+    <Compile Include="GisApp\ObservationInfo.fs" />
+    <Compile Include="GisApp\Entity.fs" />
+    <Compile Include="GisApp\ReferenceFrame.fs" />
+    <Compile Include="GisApp\GisApp.fs" />
     <Compile Include="SceneObjectsApp.fs" />
     <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="GeologicSurfaceApp.fs" />

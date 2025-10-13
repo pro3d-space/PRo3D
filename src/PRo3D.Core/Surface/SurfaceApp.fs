@@ -206,6 +206,7 @@ module SurfaceUtils =
                     opcScene    = None
                     dataSource  = DataSource.Mesh
                     //transformation = Init.Transformations
+                    sgImportPath = surface.importPath
                 }
                  
             let createSgObjects surfaces =
@@ -655,6 +656,7 @@ module SurfaceUtils =
                     opcScene        = None
                     dataSource      = DataSource.Mesh
                     //transformation = Init.Transformations
+                    sgImportPath    = surface.importPath
                 }
                  
 
@@ -1056,7 +1058,8 @@ module SurfaceApp =
                 match model.surfaces.singleSelectLeaf with
                 | Some s -> 
                     let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                    let transformation' = (TransformationApp.update surface.transformation msg refSys) //surface.transformation msg)
+                    let transformation' = 
+                        (TransformationApp.update surface.transformation msg refSys) //surface.transformation msg)
                     let s' = { surface with transformation = transformation' }
                     //let homePosition = 
                     //  match surface.homePosition with
@@ -1425,7 +1428,8 @@ module SurfaceApp =
                   let leaf = model.surfaces.flat |> AMap.find i 
                   let! surf = leaf 
                   let x = match surf with | AdaptiveSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-                  return TransformationApp.UI.view x.transformation |> UI.map TranslationMessage
+                  let! path = x.importPath
+                  return TransformationApp.UI.view x.transformation path |> UI.map TranslationMessage
                 else
                   return empty
               | None -> return empty
