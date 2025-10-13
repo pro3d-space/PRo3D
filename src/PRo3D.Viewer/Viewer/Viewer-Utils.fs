@@ -281,7 +281,7 @@ module ViewerUtils =
         (filterTexture   : aval<bool>)
         (allowFootprint  : bool)  
         (allowDepthview  : bool) 
-        (cursorWorldSpace : aval<Option<V3d>>)
+        (cursorWorldSpace : aval<Option<V3d * float>>)
         (view            : aval<CameraView>) =
 
         adaptive {
@@ -418,7 +418,7 @@ module ViewerUtils =
                     (view, cursorWorldSpace) ||> AVal.map2 (fun view p -> 
                         match p with
                         | None -> V4d.Zero
-                        | Some p -> 
+                        | Some (p, _) -> 
                             let vp = (CameraView.viewTrafo view).Forward.TransformPos p
                             V4d(vp, 1.0) // w for indication if valid
                     )
@@ -440,7 +440,15 @@ module ViewerUtils =
 
 
                     |> Sg.uniform "CursorViewSpace" cusorViewSpace
-                    |> Sg.uniform "CursorWorldSizeSquared" (V4f(2.0, 2.1, 2.2, 2.3)  |> AVal.constant)
+                    |> Sg.uniform "CursorWorldSizeSquared" (
+                        cursorWorldSpace |> AVal.map (function 
+                            | None -> V4f.Zero 
+                            | Some (_, s) -> 
+                                let r = s * 0.2
+                                // radius start gradient, radius start inner cirucle, radius end gradient
+                                V4f(r, r + 0.1 * r, r + 0.2 * r, r + 0.25 * r) ////(V4f(2.0, 2.1, 2.2, 2.3)  |> AVal.constant)
+                        )
+                    ) 
                     |> Sg.uniform "CursorShaderEnabled" (AVal.constant true)
 
                     |> addImageCorrectionParameters  surf
@@ -1015,7 +1023,13 @@ module ViewerUtils =
         //let view = m.navigation.camera.view
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
 
-        let cursorWorldPos = m.surfaceIntersection |> AVal.map (Option.map (fun s -> s.hitPoint))
+        let cursorWorldPos = 
+            (m.surfaceIntersection, m.scene.config.previewIntersectionWorldSize.value, m.scene.config.showPreviewIntersection) 
+            |||> AVal.map3 (fun hitPoint previewSize showIt -> 
+                match hitPoint with
+                | Some hitPoint when showIt -> Some (hitPoint.hitPoint, previewSize)
+                | _ -> None
+            )
 
         let grouped = 
             sgGrouped |> AList.map(

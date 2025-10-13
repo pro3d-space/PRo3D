@@ -88,13 +88,29 @@ module Picking =
                     | Some n -> Trafo3d.RotateInto(V3d.OOI, n) * t 
                     | None -> t
             )
+
+
+        (*
+                | cylinder ends at 0
+                | cone ends at 20% of the full size
+                v cone starts at surface (-height)
+        ___________________ surface
+        
+        *)
+
+        let surfaceStart = m.scene.config.previewIntersectionWorldSize.value |> AVal.map (fun s -> Trafo3d.Translation(0.0,0.0, -s))
+        let cylinderStart = m.scene.config.previewIntersectionWorldSize.value |> AVal.map (fun s -> Trafo3d.Translation(0.0,0.0, -s * 0.8))
+        let radiusCyliner = m.scene.config.previewIntersectionWorldSize.value |> AVal.map (fun s -> 0.01 * s)
+        let radiusCone = m.scene.config.previewIntersectionWorldSize.value |> AVal.map (fun s -> 0.1 * s)
+
         Sg.ofList [
-            SgPrimitives.Sg.cone 10 (AVal.constant C4b.White) (AVal.constant 1.0) (AVal.constant 3.0) |> Sg.translate 0.0 0.0 -10.0 
-            SgPrimitives.Sg.cylinder 10 (AVal.constant C4b.White) (AVal.constant 0.1) (AVal.constant 10.0) |> Sg.translate 0.0 0.0 -8.0 
+            SgPrimitives.Sg.cone 10 (AVal.constant C4b.White) radiusCone (m.scene.config.previewIntersectionWorldSize.value  |> AVal.map (fun s -> s * 0.3)) |> Sg.trafo surfaceStart
+            SgPrimitives.Sg.cylinder 10 (AVal.constant C4b.White) radiusCyliner (m.scene.config.previewIntersectionWorldSize.value) |> Sg.trafo cylinderStart
         ]
         |> Sg.shader {
             do! DefaultSurfaces.stableTrafo
             do! DefaultSurfaces.stableHeadlight
         }
         |> Sg.trafo t
+        |> Sg.onOff m.scene.config.showPreviewIntersection
         |> Sg.onOff (m.surfaceIntersection |> AVal.map Option.isSome)

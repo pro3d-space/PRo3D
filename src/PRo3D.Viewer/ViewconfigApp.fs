@@ -96,7 +96,7 @@ module ConfigProperties =
                 Html.row "Show leaf labels: "       [UI.wrapToolTip DataPosition.Bottom "Shown for selected surface (only available for opcs)" leafLabelCheckbox]
 
                 let showPreviewIntersection = GuiEx.iconCheckBox model.showPreviewIntersection ToggleShowPreviewIntersectionCursor
-                Html.row "Show Preview Cursor: "       [UI.wrapToolTip DataPosition.Bottom "Shows 3D pointer at surface intersection point" leafLabelCheckbox]
+                Html.row "Show Preview Cursor: "       [UI.wrapToolTip DataPosition.Bottom "Shows 3D pointer at surface intersection point" showPreviewIntersection]
                 Html.row "Preview Cursor Size:"        [Numeric.view' [InputBox] model.previewIntersectionWorldSize  |> UI.map SetPreviewIntersectionCursorWorldSize ]   
             ]
         )
