@@ -244,18 +244,16 @@ let aardiumVersion = "2.1.1"
     //| None -> failwith "no aardium version found"
     
     
-Target.create "test" (fun _ -> 
-    let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
-    printf "url: %s" url
-    let tempFile = Path.GetTempFileName()
-    use c = new System.Net.WebClient()
-    c.DownloadFile(url, tempFile)
-    use a = new ZipArchive(File.OpenRead tempFile)
-    let t = Path.GetTempPath()
-    let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
-    a.ExtractToDirectory(tempPath)
-    let target = Path.Combine("bin", "publish")
-    Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
+Target.create "Tests" (fun _ -> 
+    DotNet.test (fun o -> 
+        { o with
+            NoRestore = false 
+            MSBuildParams =
+                { o.MSBuildParams with
+                    DisableInternalBinLog = true
+                }
+        }
+    ) "./src/Tests/Tests.fsproj"
 )
 
 let yarnName =
