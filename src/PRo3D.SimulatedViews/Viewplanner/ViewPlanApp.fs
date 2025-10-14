@@ -67,6 +67,7 @@ module ViewPlanApp =
     | SetTextSize         of Numeric.Action
     | SetDPointSize       of Numeric.Action
     | SetPointColor       of ColorPicker.Action
+    | ToogleRoverVisibility
 
             
     let loadRoverData 

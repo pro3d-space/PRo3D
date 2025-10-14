@@ -516,7 +516,11 @@ module TraverseApp =
         | RemoveAllTraverses ->
             { model with traverses = HashMap.empty; selectedTraverse = None }  
         | SetRoverToTraverse guid -> 
-            { model with traverseWithRover = Some guid }            
+            let traverse = HashMap.tryFind guid model.traverses
+            traverse 
+            |> Option.map(fun t ->                 
+                {model with traverseWithRover = Some guid } )
+            |> Option.defaultValue model            
         | RemoveRoverFromTraverse ->
             { model with traverseWithRover = None }
         |_-> model

@@ -291,9 +291,20 @@ module ViewerApp =
             let outerModel, viewPlans = 
                 ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath ref m
 
+            let rover3dModel = 
+                if viewPlans.showRoverOnSelection then
+                    let currentRoverTrafo = 
+                        viewPlans.selectedViewPlan
+                        |> Option.map(fun guid -> viewPlans.viewPlans.[guid].roverTrafo)
+                    { m.scene.rover with trafo = currentRoverTrafo }
+                else
+                    m.scene.rover
+
+                
+
             let m' = 
                 { m with 
-                    scene = { m.scene with viewPlans = viewPlans}  // CHECK-merge
+                    scene = { m.scene with viewPlans = viewPlans; rover = rover3dModel }  // CHECK-merge
                     footPrint = outerModel.footPrint 
                 }
             match m.scene.viewPlans.working with

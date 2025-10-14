@@ -1028,13 +1028,14 @@ type ViewPlan with
 
 [<ModelType>]
 type ViewPlanModel = {
-    version             : int
-    viewPlans           : HashMap<Guid,ViewPlan>
-    selectedViewPlan    : Option<Guid>
-    working             : list<V3d> // pos + lookAt
-    roverModel          : RoverModel
-    instrumentCam       : CameraView
-    instrumentFrustum   : Frustum
+    version              : int
+    viewPlans            : HashMap<Guid,ViewPlan>
+    selectedViewPlan     : Option<Guid>
+    working              : list<V3d> // pos + lookAt
+    showRoverOnSelection : bool
+    roverModel           : RoverModel
+    instrumentCam        : CameraView
+    instrumentFrustum    : Frustum
     //footPrint           : FootPrint
     
 }
@@ -1043,13 +1044,14 @@ module ViewPlanModel =
     let current = 1 
 
     let initial = {
-        version           = current
-        viewPlans         = HashMap.Empty
-        selectedViewPlan  = None
-        working           = list.Empty
-        roverModel        = RoverModel.initial
-        instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
-        instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
+        version              = current
+        viewPlans            = HashMap.Empty
+        selectedViewPlan     = None
+        working              = list.Empty
+        showRoverOnSelection = false
+        roverModel           = RoverModel.initial
+        instrumentCam        = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
+        instrumentFrustum    = Frustum.perspective 60.0 0.1 10000.0 1.0
         //footPrint         = FootPrint.initFootPrint        
     }
 
@@ -1059,13 +1061,14 @@ module ViewPlanModel =
             //let! viewPlans       = Json.read "viewPlans"            
 
             return {
-                version           = current
-                viewPlans         = HashMap.empty//viewPlans |> HashMap.ofList 
-                selectedViewPlan  = None
-                working           = list.Empty
-                roverModel        = RoverModel.initial
-                instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
-                instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
+                version              = current
+                viewPlans            = HashMap.empty//viewPlans |> HashMap.ofList 
+                selectedViewPlan     = None
+                working              = list.Empty
+                showRoverOnSelection = false
+                roverModel           = RoverModel.initial
+                instrumentCam        = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
+                instrumentFrustum    = Frustum.perspective 60.0 0.1 10000.0 1.0
                 //footPrint         = FootPrint.initFootPrint                
             }
         }    
@@ -1078,13 +1081,14 @@ module ViewPlanModel =
             let! selectedVp = Json.tryRead "selectedViewPlan"
 
             return {
-                version           = current
-                viewPlans         = viewPlans 
-                selectedViewPlan  = selectedVp //None
-                working           = list.Empty
-                roverModel        = RoverModel.initial
-                instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
-                instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
+                version              = current
+                viewPlans            = viewPlans 
+                selectedViewPlan     = selectedVp //None
+                working              = list.Empty
+                showRoverOnSelection = false
+                roverModel           = RoverModel.initial
+                instrumentCam        = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
+                instrumentFrustum    = Frustum.perspective 60.0 0.1 10000.0 1.0
                 //footPrint         = FootPrint.initFootPrint                
             }
         }    
