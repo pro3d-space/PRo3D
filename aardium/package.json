@@ -32,10 +32,10 @@
     "nodejs-websocket": "^1.7.2"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.3.0",
     "dotenv": "^16.0.0",
     "electron": "^18.1.0",
     "electron-builder": "^23.0.3",
-    "@electron/notarize": "^2.3.0",
     "electron-packager": "^15.5.1",
     "electron-rebuild": "^3.2.7",
     "folder-zip-sync": "^1.0.5",
@@ -86,5 +86,6 @@
         "AppImage"
       ]
     }
-  }
+  },
+  "packageManager": "yarn@4.10.3"
 }

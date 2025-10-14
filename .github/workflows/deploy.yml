@@ -24,9 +24,23 @@ jobs:
           run: corepack enable
         - name: Set Yarn version
           working-directory: aardium
-          run: corepack prepare yarn@4.10.3-dev --activate
+          run: corepack prepare yarn@4.10.3 --activate
+        - name: Activate latest Yarn
+          run: yarn set version 4.10.3
         - name: Verify
           run: yarn --version
+        - name: Setup Node.js with specific npm
+          uses: actions/setup-node@v4
+          with:
+            node-version: '20' 
+        - name: Verify node
+          working-directory: aardium
+          run: npm --version
+        #- name: Install specific npm version
+        #  working-directory: aardium
+        #  run: |
+        #    npm install -g npm@20.11.1
+        #    npm --version
         - name: Create ZIP Release
           env:
               GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
