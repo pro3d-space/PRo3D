@@ -16,10 +16,17 @@ jobs:
           with:
             dotnet-version: '8.0.x'
         - name: Checkout
-          uses: actions/checkout@v2
-        - name: Yarn Install
+          uses: actions/checkout@v4
+        #- name: Yarn Install
+        #  working-directory: aardium
+        #  run: yarn install  
+        - name: Enable Corepack
+          run: corepack enable
+        - name: Set Yarn version
           working-directory: aardium
-          run: yarn install  
+          run: corepack prepare yarn@4.10.3-dev --activate
+        - name: Verify
+          run: yarn --version
         - name: Create ZIP Release
           env:
               GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
