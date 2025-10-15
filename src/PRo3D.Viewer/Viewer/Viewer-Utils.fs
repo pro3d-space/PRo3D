@@ -231,29 +231,12 @@ module ViewerUtils =
             let! texture = s.primaryTexture 
             let attr : AttributeParameters = 
                 {
-                    selectedTexture = texture |> Option.map(fun x -> x.index)
+                    selectedTexture = texture |> Option.map (fun x -> { texture = TextureReference.LegacyId x.index; channel = ChannelReference.NoChannelSelection })
                     selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
                 }
 
             return attr
         }
-
-    let attributeParameters' (surf:Surface) =
-            let s = surf
-            let scalar = s.selectedScalar
-            let scalar' = 
-                match scalar with
-                | Some m -> m.label |> Some
-                | None -> None
-            
-            let texture = s.primaryTexture 
-            let attr : AttributeParameters = 
-                {
-                    selectedTexture = texture |> Option.map(fun x -> x.index)
-                    selectedScalar  = scalar'
-                }
-
-            attr    
 
     type Vertex = {
         [<Position>]        pos     : V4d
@@ -466,10 +449,13 @@ module ViewerUtils =
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
                     
                     |> SecondaryTexture.Sg.applySecondaryTextureId (
-                            surf.secondaryTexture 
-                            |> AVal.map (function
-                                | None -> -1
-                                | Some s -> s.index
+                            (surf.secondaryTexture, surf.secondaryTextureLayer) 
+                            ||> AVal.map2 (fun texture layer ->
+                                match texture, layer with
+                                | Some s, Some l -> Some { texture = TextureReference.LegacyId s.index; channel = ChannelReference.ChannelWithIndex l }
+                                | Some s, None -> 
+                                    Some { texture = TextureReference.LegacyId s.index; channel = ChannelReference.NoChannelSelection }
+                                | _ -> None
                             )
                     )
                     |> Sg.pickable' pickable

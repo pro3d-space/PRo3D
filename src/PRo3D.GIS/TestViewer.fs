@@ -465,6 +465,8 @@ module TestViewer =
                 
         )
 
+        let defaultSecondaryTextureId = 
+            Some { texture = TextureReference.LegacyId 0; channel = ChannelReference.NoChannelSelection }
 
 
         let marsSg =
@@ -482,7 +484,7 @@ module TestViewer =
                 //do! Shader.LoDColor 
             }
             |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
-            |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant 0)
+            |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant defaultSecondaryTextureId)
             |> Sg.uniform "LodVisEnabled" (cval false)
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount //count
             |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Desktop\pro3d\pro3d-hera\src\PRo3D.GIS\resources\AFC_1020x1020 (2).png" true

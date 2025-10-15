@@ -666,6 +666,7 @@ type Surface = {
     textureLayers   : IndexList<TextureLayer>
     primaryTexture     : Option<TextureLayer>
     secondaryTexture   : Option<TextureLayer>
+    secondaryTextureLayer : Option<int>
     transferFunction   : TransferFunction
     opcxPath        : Option<string>
 
@@ -774,6 +775,7 @@ module Surface =
                     textureLayers   = textureLayers
                     primaryTexture   = selectedTexture
                     secondaryTexture = None
+                    secondaryTextureLayer = None
                     transferFunction = TransferFunction.empty
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
@@ -868,6 +870,7 @@ module Surface =
                     textureLayers   = textureLayers
                     primaryTexture   = selectedTexture
                     secondaryTexture = None
+                    secondaryTextureLayer = None
                     transferFunction = TransferFunction.empty
                     opcxPath        = None
                     surfaceType     = surfaceType     |> enum<SurfaceType>

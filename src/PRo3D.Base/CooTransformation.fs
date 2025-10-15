@@ -153,26 +153,30 @@ module CooTransformation =
 
     let private init = 0.0
 
+    let getLatLonAltPlanet (planet : string) (p:V3d) : SphericalCoo = 
+        let mutable lat = init
+        let mutable lon = init
+        let mutable alt = init
+            
+        let errorCode = CooTransformation.Xyz2LatLonAlt(planet, p.X, p.Y, p.Z, &lat, &lon, &alt)
+            
+        if errorCode <> 0 then
+            Log.line "cootrafo errorcode %A" errorCode
+            
+        {
+            latitude  = lat
+            longitude = lon
+            altitude  = alt
+            radian    = 0.0
+        }
+
     let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
         match planet with
         | Planet.None | Planet.JPL | Planet.ENU ->
             { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }
         | _ ->
-            let mutable lat = init
-            let mutable lon = init
-            let mutable alt = init
-            
-            let errorCode = CooTransformation.Xyz2LatLonAlt(planet.ToString(), p.X, p.Y, p.Z, &lat, &lon, &alt)
-            
-            if errorCode <> 0 then
-                Log.line "cootrafo errorcode %A" errorCode
-            
-            {
-                latitude  = lat
-                longitude = lon
-                altitude  = alt
-                radian    = 0.0
-            }
+            getLatLonAltPlanet (planet.ToString()) p
+
 
     let getLatLonRad (p:V3d) : SphericalCoo = 
         let mutable lat = init
@@ -190,20 +194,23 @@ module CooTransformation =
             radian    = rad
         }
 
+    let getXYZFromLatLonAltPlanet (sc : SphericalCoo) (planet : string) : V3d = 
+        let mutable pX = init
+        let mutable pY = init
+        let mutable pZ = init
+        let error = 
+            CooTransformation.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ )
+            
+        if error <> 0 then
+            Log.line "cootrafo errorcode %A" error
+            
+        V3d(pX, pY, pZ)
+
     let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
         match planet with
         | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
         | _ ->
-            let mutable pX = init
-            let mutable pY = init
-            let mutable pZ = init
-            let error = 
-                CooTransformation.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ )
-            
-            if error <> 0 then
-                Log.line "cootrafo errorcode %A" error
-            
-            V3d(pX, pY, pZ)
+            getXYZFromLatLonAltPlanet sc (planet.ToString())
 
     let getXYZFromLatLonAlt' (coordinate :V3d) (planet:Planet) : V3d = 
         match planet with
