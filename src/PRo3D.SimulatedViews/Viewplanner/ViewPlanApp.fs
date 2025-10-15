@@ -35,39 +35,39 @@ open Aether.Operators
 module ViewPlanApp = 
         
     type Action =
-    | CreateNewViewplan of (string * Trafo3d * V3d * ReferenceSystem) //name and trafo and position and refSystem
-    | AddPoint          of V3d*ReferenceSystem*HashMap<string, ConcreteKdIntersectionTree>*SurfaceModel     
-    | SelectViewPlan    of Guid
-    | FlyToViewPlan     of Guid
-    | IsVisible         of Guid
-    | RemoveViewPlan    of Guid
-    | SelectInstrument  of option<Instrument>
-    | SelectAxis        of option<Axis>
-    | ChangeAngle       of string * PRo3D.Base.Utilities.PRo3DNumeric.Action
-    | ChangeFocal       of string * Numeric.Action
-    | SetVPName         of string
+    | CreateNewViewplan     of (string * Trafo3d * V3d * ReferenceSystem) //name and trafo and position and refSystem
+    | AddPoint              of V3d*ReferenceSystem*HashMap<string, ConcreteKdIntersectionTree>*SurfaceModel     
+    | SelectViewPlan        of Guid
+    | FlyToViewPlan         of Guid
+    | IsVisible             of Guid
+    | RemoveViewPlan        of Guid
+    | SelectInstrument      of option<Instrument>
+    | SelectAxis            of option<Axis>
+    | ChangeAngle           of string * PRo3D.Base.Utilities.PRo3DNumeric.Action
+    | ChangeFocal           of string * Numeric.Action
+    | SetVPName             of string
     | ToggleFootprint
     | SaveFootPrint
     | OpenFootprintFolder
     | ToggleDepth
-    | DepthColorLegendMessage   of FalseColorLegendApp.Action
+    | DepthColorLegendMessage of FalseColorLegendApp.Action
     | SaveDepthData
     | OpenDepthDataFolder
-    | SelectImage        of Guid
-    | RemoveImage        of Guid
+    | SelectImage           of Guid
+    | RemoveImage           of Guid
     | ToggleProjectedImage
-    | LoadImage          of list<string>
-    | ImportExInTrinsics of list<string>
+    | LoadImage             of list<string>
+    | ImportExInTrinsics    of list<string>
     | LoadImageTest
-    | SelectDistancePoint of Guid
-    | RemoveDistancePoint of Guid
-    | LookAtPoint         of Guid
-    | ToggleText          
-    | AddDistancePoint    of V3d
-    | SetTextSize         of Numeric.Action
-    | SetDPointSize       of Numeric.Action
-    | SetPointColor       of ColorPicker.Action
-    | ToogleRoverVisibility
+    | SelectDistancePoint   of Guid
+    | RemoveDistancePoint   of Guid
+    | LookAtPoint           of Guid
+    | ToggleText            
+    | AddDistancePoint      of V3d
+    | SetTextSize           of Numeric.Action
+    | SetDPointSize         of Numeric.Action
+    | SetPointColor         of ColorPicker.Action
+    | SetRoverVisibility    of bool * Guid
 
             
     let loadRoverData 
@@ -987,13 +987,15 @@ module ViewPlanApp =
                 let vp' = {selectedVp with dPointSize = ds}
                 updateVPOutput model vp' outerModel
             | None -> outerModel, model   
-         | SetPointColor a ->
+        | SetPointColor a ->
             match model.selectedViewPlan with
             | Some vpid -> 
                 let selectedVp = model.viewPlans |> HashMap.find vpid
                 let vp' = {selectedVp with dPointColor = ColorPicker.update selectedVp.dPointColor a }
                 updateVPOutput model vp' outerModel
             | None -> outerModel, model   
+        | _ -> outerModel, model
+
             
 
     module Sg =     
@@ -1393,7 +1395,15 @@ module ViewPlanApp =
 
                 i [clazz "Remove icon red";                                             
                     onClick (fun _ -> RemoveViewPlan id)
-                ] [] |> UI.wrapToolTip DataPosition.Bottom "Remove"                                         
+                ] [] |> UI.wrapToolTip DataPosition.Bottom "Remove"     
+                
+                i [clazz "car icon green"; 
+                    onClick (fun _ -> (SetRoverVisibility (true, id)))
+                ] [] |> UI.wrapToolTip DataPosition.Bottom "Toggle Rover Visibility"
+
+                i [clazz "car icon red"; 
+                    onClick (fun _ -> (SetRoverVisibility (false, id)))
+                ] [] |> UI.wrapToolTip DataPosition.Bottom "Toggle Rover Visibility"
             ]    
 
         let viewViewPlans (m:AdaptiveViewPlanModel) = 

@@ -300,8 +300,6 @@ module ViewerApp =
                 else
                     m.scene.rover
 
-                
-
             let m' = 
                 { m with 
                     scene = { m.scene with viewPlans = viewPlans; rover = rover3dModel }  // CHECK-merge
@@ -778,7 +776,7 @@ module ViewerApp =
         | ViewPlanMessage msg,_,_ ->
             let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
 
-            let animations = 
+            let model = 
                 match msg with
                 | ViewPlanApp.Action.FlyToViewPlan vp ->
 
@@ -787,14 +785,18 @@ module ViewerApp =
                     let animationMessage = 
                         CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
 
-                    AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))   
+                    let animations = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))   
+                    { model with animations = animations }
+                | ViewPlanApp.Action.SetRoverVisibility (visible, guid) -> 
+                    let rover = 
+                        { model.scene.rover with trafo = (if visible then (Some viewPlanModel.viewPlans.[guid].roverTrafo) else None) }
+                    { model with scene = { model.scene with rover = rover }}
                 | _ ->
-                    m.animations             
+                    model             
 
             { model with 
                 scene = { model.scene with viewPlans = viewPlanModel }
-                footPrint = model.footPrint
-                animations = animations
+                footPrint = model.footPrint                
             } 
         | DnSColorLegendMessage msg,_,_ ->
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
