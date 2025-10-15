@@ -72,9 +72,22 @@ jobs:
         with: 
           p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
           p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
-      - name: Yarn Install
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Set Yarn version
         working-directory: aardium
-        run: yarn install
+        run: corepack prepare yarn@4.10.3 --activate
+      - name: Activate latest Yarn
+        run: yarn set version 4.10.3
+      - name: Verify
+        run: yarn --version
+      - name: Setup Node.js with specific npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' 
+      - name: Verify node
+        working-directory: aardium
+        run: npm --version
       - name: Build
         run: bash ./build.sh PublishToElectron
         env:
@@ -100,9 +113,22 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Yarn Install
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Set Yarn version
         working-directory: aardium
-        run: yarn install
+        run: corepack prepare yarn@4.10.3 --activate
+      - name: Activate latest Yarn
+        run: yarn set version 4.10.3
+      - name: Verify
+        run: yarn --version
+      - name: Setup Node.js with specific npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' 
+      - name: Verify node
+        working-directory: aardium
+        run: npm --version
       - name: Build
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

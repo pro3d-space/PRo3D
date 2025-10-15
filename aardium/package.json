@@ -15,7 +15,7 @@
     "dist": "run-script-os",
     "dist:darwin:x64": "bash ./signbuild.sh && electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
     "dist:darwin:arm64": "bash ./signbuild.sh && electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
-    "dist::win32": "electron-builder --c.buildVersion='%BUILD_VERSION%' --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
+    "dist::win32": "electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
     "dist:linux:x64": "electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always"
   },
   "main": "main.js",
@@ -37,6 +37,8 @@
     "run-script-os": "^1.1.1"
   },
   "build": {
+    "appId": "space.pro3d.app",  
+    "buildVersion": "${version}.0", 
     "extraFiles": [
       "build/build"
     ],
@@ -67,7 +69,6 @@
         "ext": "pro3d"
       }
     ],
-    "appId": "space.pro3d.app",
     "mac": {
       "category": "your.app.category.type",
       "hardenedRuntime": true,
