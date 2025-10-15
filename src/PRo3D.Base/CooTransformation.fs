@@ -16,6 +16,9 @@ type Planet =
 | None  = 2
 | JPL   = 3
 | ENU   = 4
+| Moon = 5
+| Phobos = 6
+| Deimos = 7
 
 module Planet =
     let inferCoordinateSystem (p : V3d) = //TODO rno
