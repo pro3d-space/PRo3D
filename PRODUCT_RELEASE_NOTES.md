@@ -1,8 +1,12 @@
+## 5.1.1-prerelease-hera-7  
+- ellipse drawing
+
 ## 5.1.1            
 - added phobos/deimos/moon options in planet selection combo box.
 
 ## 5.1.0
 - native dependency fix for mac
+
 ## 5.1.0-prerelease3
 - native dependency fix for mac
 
