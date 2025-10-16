@@ -521,7 +521,7 @@ module TraverseApp =
             |> Option.map(fun t ->                 
                 {model with traverseWithRover = Some guid } )
             |> Option.defaultValue model            
-        | RemoveRoverFromTraverse ->
+        | RemoveRoverFromTraverse ->            
             { model with traverseWithRover = None }
         |_-> model
 

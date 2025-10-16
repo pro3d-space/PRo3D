@@ -790,6 +790,7 @@ module ViewerApp =
                 | ViewPlanApp.Action.SetRoverVisibility (visible, guid) -> 
                     let rover = 
                         { model.scene.rover with trafo = (if visible then (Some viewPlanModel.viewPlans.[guid].roverTrafo) else None) }
+
                     { model with scene = { model.scene with rover = rover }}
                 | _ ->
                     model             
@@ -1704,9 +1705,22 @@ module ViewerApp =
                     let rMessage = Rover3DAction.SetRoverTrafo trafo
                     let rover = Rover3DApp.update m.scene.rover rMessage
                     { m with 
-                        scene = { m.scene with rover = rover }                        
+                        scene = { m.scene with rover = rover; traverses = { m.scene.traverses with currRoverPosition = (Numeric.update m.scene.traverses.currRoverPosition pos) }}                        
                     }
-
+                | SetRoverToTraverse guid -> 
+                    let traverseModel = TraverseApp.update m.scene.traverses msg
+                    let trafo = TraverseApp.calculateRoverTrafoOnTraverse (Numeric.Action.SetValue traverseModel.currRoverPosition.value) m.scene.referenceSystem traverseModel
+                    let rMessage = Rover3DAction.SetRoverTrafo trafo
+                    let rover = Rover3DApp.update m.scene.rover rMessage
+                    { m with
+                        scene = { m.scene with traverses = traverseModel; rover = rover}                    
+                    }
+                | RemoveRoverFromTraverse ->
+                    let traverseModel = TraverseApp.update m.scene.traverses msg
+                    let rover = Rover3DApp.update m.scene.rover Rover3DAction.RemoveRover 
+                    { m with
+                        scene = { m.scene with traverses = traverseModel; rover = rover}                    
+                    }
                 | _ -> m                                        
                 
             { m with scene = { m.scene with traverses = TraverseApp.update m.scene.traverses msg }; animations = animation }                        
