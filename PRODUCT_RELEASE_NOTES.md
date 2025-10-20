@@ -1,3 +1,6 @@
+## 5.1.1-prerelease-hera-8  
+- ellipse drawing
+
 ## 5.1.1-prerelease-hera-7  
 - ellipse drawing
 
