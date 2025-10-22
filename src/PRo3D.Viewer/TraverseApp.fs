@@ -620,7 +620,7 @@ module TraverseApp =
                                 i [clazz "car icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Hide Rover"
                         )
                     ]                     
-                    Html.row "RoverPosition:" [Numeric.view' [NumericInputType.InputBox] model.currRoverPosition |> UI.map (fun x -> SetRoverPositionOnTraverse (refSys, x)); Numeric.view' [NumericInputType.Slider] model.currRoverPosition |> UI.map (fun x -> SetRoverPositionOnTraverse (refSys, x)) ]
+                    Html.row "RoverPosition:" [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] model.currRoverPosition |> UI.map (fun x -> SetRoverPositionOnTraverse (refSys, x))]
                 ] 
             }
             

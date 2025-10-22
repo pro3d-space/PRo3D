@@ -343,7 +343,7 @@ module TraverseModel =
                 traverses         = traverses
                 selectedTraverse  = selected 
                 traverseWithRover = None
-                currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001 }  
+                currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001; format = "{0:F4}" }  
             }
         }
 
@@ -352,7 +352,7 @@ module TraverseModel =
         traverses         = HashMap.empty
         selectedTraverse  = None        
         traverseWithRover = None
-        currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001 }  
+        currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001; format = "{0:F4}" }  
     }
 
 
