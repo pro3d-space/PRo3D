@@ -206,6 +206,7 @@ module SurfaceUtils =
                     opcScene    = None
                     dataSource  = DataSource.Mesh
                     //transformation = Init.Transformations
+                    sgImportPath = surface.importPath
                 }
                  
             let createSgObjects surfaces =
@@ -655,6 +656,7 @@ module SurfaceUtils =
                     opcScene        = None
                     dataSource      = DataSource.Mesh
                     //transformation = Init.Transformations
+                    sgImportPath    = surface.importPath
                 }
                  
 

@@ -14,6 +14,7 @@ open Chiron
 open System.Text.RegularExpressions
 open System.IO
 
+open PRo3D.Base
       
 module GeoJSON =        
     type Coordinate =
@@ -171,9 +172,36 @@ module GeoJSON =
                     return Point(V3d.NaN |> ThreeDim)
             }
 
-    
+    type GeoJsonProperties = {
+        generatedBy : string
+        segmentCount : int
+        timestamp : string
+        traverseType : string
+    }
+    with    
+        static member ToJson (gp: GeoJsonProperties) =
+            json{
+                do! Json.write "generatedBy" gp.generatedBy
+                do! Json.write "segmentCount" gp.segmentCount
+                do! Json.write "timestamp" gp.timestamp
+                do! Json.write "type" gp.traverseType
+            }
         
+        static member FromJson (_: GeoJsonProperties) =
+            json{
+                let! generatedBy = Json.read "generatedBy"
+                let! segmentCount = Json.read "segmentCount"
+                let! timestamp = Json.read "timestamp"
+                let! traverseType = Json.read "type"
 
+                return {
+                    generatedBy = generatedBy;
+                    segmentCount = segmentCount; 
+                    timestamp = timestamp
+                    traverseType = traverseType
+                }
+            }   
+        
 
     type GeoJsonFeature = {
         geometry   : GeoJsonGeometry
@@ -205,7 +233,7 @@ module GeoJSON =
     type GeoJsonFeatureCollection = {
         features   : List<GeoJsonFeature>
         bbox       : Option<List<float>>
-        //properties : Option<List<string * string>>
+        properties : Option<GeoJsonProperties>
     }
     with            
         static member ToJson (x: GeoJsonFeatureCollection) =
@@ -215,16 +243,16 @@ module GeoJSON =
                 | Some b -> do! Json.write "bbox" b
                 | None -> ()
                 do! Json.write "type" "FeatureCollection"
+                do! Json.writeOption "properties" x.properties
             }
             
         static member FromJson (_: GeoJsonFeatureCollection) =
             json{
                 let! g = Json.read "features"
                 let! (b:Option<List<float>>) = Json.tryRead "bbox"
-                return {features = g;bbox =b}
+                let! properties = Json.readOrDefault "properties" None
+                return {features = g; bbox = b; properties = properties}
             }
-        
 
         
-
 

@@ -115,6 +115,7 @@ module SceneObjectsUtils =
             isObj       = true 
             opcScene    = None
             dataSource  = Mesh
+            sgImportPath = sObject.importPath
         }
 
              

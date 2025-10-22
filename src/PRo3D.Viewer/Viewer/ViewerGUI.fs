@@ -130,7 +130,10 @@ module Gui =
                     | Planet.JPL   -> "JPL Rover Frame"
                     | Planet.None  -> "None xyz"          
                     | Planet.ENU   -> "ENU"
-                    | _ -> "[TextOverlays] missing enum"
+                    | Planet.Moon  -> "Moon"
+                    | Planet.Deimos -> "Deimos"
+                    | Planet.Phobos -> "Phobos"
+                    | _ -> "[TextOverlays] missing text representation for selected planet."
                 )  
             
             let pnb = pitchAndBearing m cv
@@ -479,7 +482,7 @@ module Gui =
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
                     ] [
-                        text "Import"
+                        text "Import Directory"
                     ]
                     div [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
@@ -953,20 +956,36 @@ module Gui =
             |> UI.map SceneObjectsMessage      
           
     module Traverse =
+
         let traverseUI (m : AdaptiveModel) =
             div [] [
+                yield GuiEx.accordion "Rover Traverses" "Write" true [
+                    RoverTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                ]
+                yield
+                    GuiEx.accordion
+                        "RIMFAX Traverses"
+                        "Write"
+                        true
+                        [RimfaxTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses]
+                yield GuiEx.accordion "WayPoint Traverses" "Write" true [
+                    WayPointsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                ]
+                //yield GuiEx.accordion "Strategic Annotations" "Write" true [
+                    // not yet implemented
+                    // StrategicAnnotationsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                //]
+                //yield GuiEx.accordion "Planned Targets" "Write" true [
+                    // not yet implemented
+                    // PlannedTargetsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                //]
                 yield GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
                 ]
                 yield GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]
-
-                yield GuiEx.accordion "Traverses" "Write" true [
-                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
-                ]
                 yield GuiEx.accordion "Sols" "road" true [
-                    //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
                 ]
             ] 
@@ -974,7 +993,7 @@ module Gui =
 
     module ScaleBars = 
         
-        let scaleBarsUI (m : AdaptiveModel) =             
+        let scaleBarsUI (m : AdaptiveModel) = 
             div [] [
                 GuiEx.accordion "ScaleBars" "Write" true [
                     ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars

@@ -275,6 +275,7 @@ module Scene =
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 
                     traverses             = TraverseModel.initial
+
                     sequencedBookmarks    = SequencedBookmarks.initial
 
                     comparisonApp         = ComparisonApp.init
@@ -327,7 +328,7 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverses                = TraverseModel.initial
+                    traverses               = TraverseModel.initial
 
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
@@ -383,7 +384,7 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverses                = traverse |> Option.defaultValue(TraverseModel.initial)
+                    traverses               = traverse |> Option.defaultValue(TraverseModel.initial)
                     sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
@@ -446,7 +447,7 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverses                = traverse |> Option.defaultValue(TraverseModel.initial)
+                    traverses               = traverse |> Option.defaultValue(TraverseModel.initial)
                     sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 

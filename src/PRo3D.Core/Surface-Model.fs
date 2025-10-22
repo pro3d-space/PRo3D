@@ -972,11 +972,14 @@ type SgSurface = {
     opcScene    : Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>
     [<NonAdaptive>]
     dataSource  : DataSource
-
     [<NonAdaptive>]
     isObj       : bool
+    // "sgImportPath" property is not names "importPath", as "importPath" is a property of the type "Surface",
+    // which leads to type confusion during build and would enforce typing everywhere.
+    // We need this property not only for the surface type, but also for the SgSurface type, as it is required
+    // to render the RIMFAX surfaces.
+    sgImportPath  : string
 }
-
 
 
 
