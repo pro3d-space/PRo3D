@@ -186,7 +186,7 @@ module Rover3DModel =
 
 
     let initial = {
-        path = @"D:\Temp\RoverTesting\Export_YoqSothoth\Perseverance_100_rot.gltf"
+        path = Path.combine [".";"resources";"RoverModel";"Perseverance.gltf"]
         trafo            = None
         refSystem        = ReferenceSystem.initial
         forwardVector    = -V3d.IOO
