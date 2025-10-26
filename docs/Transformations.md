@@ -25,7 +25,7 @@ To transform a surface, it must first be selected. Then the user has to select i
     **NOTE:** It is not recommended to select this option!! It ist only used for scenes with older versions.
 
 
-### Transformation UI
+## Transformation UI
 
 ![alt text](./images/TrafoGui.png)
 
@@ -47,3 +47,6 @@ To transform a surface, it must first be selected. Then the user has to select i
 - **Mode:** Change the euler directions to avoid a possible gimbal lock.
 - **Import Trafodata:** Import trafo from a json file.
 - **Export Trafodata:** Export trafo to a json file.
+
+## Further work
+https://github.com/pro3d-space/PRo3D/issues/553
