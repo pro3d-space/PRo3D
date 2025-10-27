@@ -6,18 +6,22 @@ To transform a surface, it must first be selected. Then the user has to select i
     The translation occurs along and the rotations around the axes directions of the selected reference system. 
     There are two recommendet ways to set a reference system.
     The third option is outdated and is not recommended!
-    ![alt text](./images/RefSys.png)
+   
+    ![](./images/RefSys.png)
+   
     - **PivotCenter:** A local reference system is placed at the pivot position (therefore you have to place a pivot first, see below).
-    - **PickedLocal:** To place the local reference system, select **PickSurfaceRefSys** in the picking interactions menu, then use **Ctrl + LMB** to position the local reference system at an appropriate location on or near the surface. 
-    ![alt text](./images/LocalRefSys.png)
+    - **PickedLocal:** To place the local reference system, select **PickSurfaceRefSys** in the picking interactions menu, then use **Ctrl + LMB** to position the local reference system at an appropriate location on or near the surface.
+    - 
+    ![](./images/LocalRefSys.png)
+
     - **LEGACY_Global:** For global transformation the orientations of the global scene reference system are used. That means the translation occurs along the directions of the axes of the global reference system. Therefore, it is important that this system is strategically well placed in the scene. 
     **NOTE:** It is not recommended to select this option!! It ist only used for scenes with older versions.
 
-2. **A pivot.**
+3. **A pivot.**
     For local transformations, a pivot point must be defined for the selected surface. This pivot acts as the origin for all local transformations and remains fixed on the surface—even when the surface is translated.
     To use the pivot,  **Show Pivot** must be enabled in the Transformation GUI. Here too, option three is not recommended!!
-
-    ![alt text](./images/Pivot.png)
+   
+    ![](./images/Pivot.png)
     
     - **BBCenter:** The pivot point is placed at the center of the surface's bounding box and serves as the origin for rotation and scaling.
     - **PickPivot:** In the picking interactions dropdown menu, select **PickPivotPoint**, then press **Ctrl + LMB** to   place the pivot at a desired point on the surface. This point serves as the origin for rotation and scaling.
@@ -27,7 +31,7 @@ To transform a surface, it must first be selected. Then the user has to select i
 
 ## Transformation UI
 
-![alt text](./images/TrafoGui.png)
+![](./images/TrafoGui.png)
 
 - **ReferenceSystem:** Described above.
 - **Translation(m):** The translation occurs along the axes of the selected reference system (as described above). The translation can be entered in the input fields of the respective axes.
