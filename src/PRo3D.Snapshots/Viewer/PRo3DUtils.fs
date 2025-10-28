@@ -26,16 +26,20 @@ open System.Collections.Concurrent
             (renderingUrl        : string)
             (dataSamples         : int)
             (screenshotDirectory : string)
-            (viewerVersion       : string) =
+            (viewerVersion       : string)
+            (args                : StartupArgs) =
 
-            let startupArgs = 
-                {StartupArgs.initArgs with isBatchRendering = true}
+            let startupArgs = { args with isBatchRendering = true}
+
             let m = 
                 if startEmpty |> not then
-                    PRo3D.Viewer.Viewer.initial messagingMailbox startupArgs renderingUrl 
+                    let model = 
+                        PRo3D.Viewer.Viewer.initial messagingMailbox startupArgs renderingUrl 
                                                 dataSamples screenshotDirectory ViewerLenses._animator
                                                 viewerVersion
-                    |> SceneLoader.loadLastScene runtime signature                
+                    
+                    if args.startEmpty then model
+                    else model |> SceneLoader.loadLastScene runtime signature                
                     |> SceneLoader.loadLogBrush
                     |> ViewerIO.loadRoverData                
                     |> ViewerIO.loadAnnotations

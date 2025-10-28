@@ -624,8 +624,7 @@ type Model = {
     //viewPlans            : ViewPlanModel
  
     snapshotThreads      : ThreadPool<ViewerAction>
-    showExplorationPoint : bool
-
+    
     heighValidation      : HeightValidatorModel
 
     filterTexture        : bool
