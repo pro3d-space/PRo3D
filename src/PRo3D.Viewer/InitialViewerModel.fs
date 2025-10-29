@@ -91,7 +91,7 @@ module Viewer =
                     config          = viewConfigModel
                     scenePath       = None
 
-                    referenceSystem       = ReferenceSystem.initial                    
+                    referenceSystem       = { ReferenceSystem.initial with isVisible = startupArgs.showReferenceSystem }
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
                     dockConfig            = defaultDockConfig                

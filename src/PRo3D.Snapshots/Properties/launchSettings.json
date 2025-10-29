@@ -2,7 +2,7 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": " --scn D:\\Data\\PRo3D\\20190717_VictoriaCrater\\VictoriaCraterScaleBars.pro3d --asnap C:\\Users\\rnowak\\Desktop\\Pro3D\\PRo3D\\bin\\Debug\\net6.0\\images\\batchRendering.json --out C:\\Users\\rnowak\\Desktop\\Pro3D\\PRo3D\\bin\\Debug\\net6.0\\images --debug"
+      "commandLineArgs": "--opc \"D:\\Pro3d_Datasets\\Hera\\Rendering_Snapshots\\Dimorphos_DRACO_RGB_meters;D:\\Pro3d_Datasets\\Hera\\Rendering_Snapshots\\Didymain\" --out \"./data\" --asnap \"./data/PRo3D.json\"  --empty"
     }
   }
 }

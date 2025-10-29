@@ -157,7 +157,7 @@ let startApplication (startupArgs : CLStartupArgs) =
             SimulatedViews.PRo3DUtils.start 
                 runtime signature startupArgs.startEmpty messagingMailbox 
                 sendQueue dumpFile cacheFile uri 8 "" viewerVersion 
-                { StartupArgs.initArgs with showExplorationPoint = startupArgs.showExplorationPoint }
+                { StartupArgs.initArgs with showExplorationPoint = startupArgs.showExplorationPoint; showReferenceSystem = startupArgs.showReferenceSystem }
 
         let s = 
             {MailboxState.empty with update = 

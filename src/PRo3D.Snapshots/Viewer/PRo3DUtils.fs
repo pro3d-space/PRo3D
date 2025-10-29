@@ -38,8 +38,8 @@ open System.Collections.Concurrent
                                                 dataSamples screenshotDirectory ViewerLenses._animator
                                                 viewerVersion
                     
-                    if args.startEmpty then model
-                    else model |> SceneLoader.loadLastScene runtime signature                
+                    model 
+                    |> SceneLoader.loadLastScene runtime signature                
                     |> SceneLoader.loadLogBrush
                     |> ViewerIO.loadRoverData                
                     |> ViewerIO.loadAnnotations
@@ -50,7 +50,7 @@ open System.Collections.Concurrent
                     |> SceneLoader.addScaleBarSegments
                     |> SceneLoader.addGeologicSurfaces
                 else
-                    PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
+                    PRo3D.Viewer.Viewer.initial messagingMailbox startupArgs renderingUrl
                                                 dataSamples screenshotDirectory ViewerLenses._animator
                                                 viewerVersion
                     |> ViewerIO.loadRoverData

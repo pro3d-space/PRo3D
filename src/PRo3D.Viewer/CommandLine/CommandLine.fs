@@ -86,6 +86,7 @@ module CommandLine =
             Log.line "[Arguments] render control config %A" (samples, backgroundColor, noMapping)
             let args : StartupArgs = {                        
                 showExplorationPoint     = showExplorationCentre
+                showReferenceSystem      = showReferenceSystem
                 verbose                  = verbose
                 startEmpty               = startEmpty //never used
                 useAsyncLoading          = false
