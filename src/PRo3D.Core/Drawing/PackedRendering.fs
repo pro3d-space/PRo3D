@@ -32,11 +32,11 @@ module PackedRendering =
 
         type AttrVertex =
             {
-                [<Position>]                pos     : V4d            
-                [<TexCoord>]                tc      : V2d
-                [<Color>]                   c       : V4d
-                [<Normal>]                  n       : V3d
-                [<Semantic("LightDir")>]    ldir    : V3d
+                [<Position>]                pos     : V4f            
+                [<TexCoord>]                tc      : V2f
+                [<Color>]                   c       : V4f
+                [<Normal>]                  n       : V3f
+                [<Semantic("LightDir")>]    ldir    : V3f
             }
 
         let stableLight (v : AttrVertex) =
@@ -46,30 +46,30 @@ module PackedRendering =
      
                 let diffuse = Vec.dot c n |> abs            
  
-                return V4d(v.c.XYZ * diffuse, v.c.W)
+                return V4f(v.c.XYZ * diffuse, v.c.W)
             }
 
         [<ReflectedDefinition>]
-        let transformNormal (n : V3d) =
-            uniform.ModelViewTrafoInv.Transposed * V4d(n, 0.0)
+        let transformNormal (n : V3f) =
+            uniform.ModelViewTrafoInv.Transposed * V4f(n, 0.0f)
             |> Vec.xyz
             |> Vec.normalize
 
         let stableTrafo' (v : AttrVertex) =
             vertex {
-                let mvp : M44d = uniform?ModelViewTrafo
+                let mvp : M44f = uniform?ModelViewTrafo
                 let vp = mvp * v.pos
                 return  
                     { v with
                         pos  = uniform.ProjTrafo * vp
                         n    = transformNormal v.n
-                        ldir = V3d.Zero - vp.XYZ |> Vec.normalize
+                        ldir = V3f.Zero - vp.XYZ |> Vec.normalize
                     } 
             } 
 
 
         type UniformScope with
-            member x.Color : V4d = uniform?Color
+            member x.Color : V4f = uniform?Color
 
         let uniformColor (v : Effects.Vertex) =
             fragment {
@@ -83,15 +83,15 @@ module PackedRendering =
 
         type PointVertex =
             {
-                [<Position>] pos : V4d
-                [<Semantic("np")>] np : V4d
-                [<Semantic("Sizes")>] size : float
-                [<PointSize>] pointSize : float
-                [<Color>] c : V4d
-                [<PointCoord>] tc : V2d
+                [<Position>] pos : V4f
+                [<Semantic("np")>] np : V4f
+                [<Semantic("Sizes")>] size : float32
+                [<PointSize>] pointSize : float32
+                [<Color>] c : V4f
+                [<PointCoord>] tc : V2f
 
                 [<Depth(DepthWriteMode.OnlyLess)>]
-                depth : float
+                depth : float32
             }
 
         let pointSpriteVertex (v : PointVertex) =
@@ -104,19 +104,19 @@ module PackedRendering =
             fragment {
                 let tc = v.tc
 
-                let c = 2.0 * tc - V2d.II
-                if c.Length > 1.0 then
+                let c = 2.0f * tc - V2f.II
+                if c.Length > 1.0f then
                     discard()
 
-                let n = V3d(c, Math.Sqrt(1.0 -  Vec.dot c c)) |> Vec.normalize
-                let p = v.np + V4d(n, 1.0)
+                let n = V3f(c, sqrt(1.0f -  Vec.dot c c)) |> Vec.normalize
+                let p = v.np + V4f(n, 1.0f)
 
                 let pp = uniform.ProjTrafo * p
                 let nd = pp.Z / pp.W
-                let d = (nd + 1.0) / 2.0
+                let d = (nd + 1.0f) / 2.0f
 
                 let d = (d - uniform.DepthOffset)  / v.pos.W
-                return { v with c = v.c;  depth = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0  }
+                return { v with c = v.c;  depth = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0f  }
             }
 
     module LineShader =
@@ -125,15 +125,15 @@ module PackedRendering =
 
         type ThickLineVertex = 
             {
-                [<Position>]                pos     : V4d
-                [<Color>]                   c       : V4d
-                [<Semantic("LineCoord")>]   lc      : V2d
-                [<Semantic("Width")>]       w       : float
+                [<Position>]                pos     : V4f
+                [<Color>]                   c       : V4f
+                [<Semantic("LineCoord")>]   lc      : V2f
+                [<Semantic("Width")>]       w       : float32
                 [<Semantic("Id")>]          id      : int
                 [<SourceVertexIndex>]       i       : int
 
-                [<Semantic("PickingTolerance")>] tolerance : float
-                [<Semantic("LineWidth")>] width : float
+                [<Semantic("PickingTolerance")>] tolerance : float32
+                [<Semantic("LineWidth")>] width : float32
                 [<Semantic("ObjId")>] obId : int
             }
 
@@ -144,13 +144,13 @@ module PackedRendering =
             onlyInShaderCode "drawId"
 
         type UniformScope with
-            member x.MVs          : M44d[]  = x?StorageBuffer?MVs
-            member x.LineWidths   : float[] = x?StorageBuffer?LineWidths
-            member x.Colors       : V4d[]   = x?StorageBuffer?Colors
+            member x.MVs          : M44f[]  = x?StorageBuffer?MVs
+            member x.LineWidths   : float32[] = x?StorageBuffer?LineWidths
+            member x.Colors       : V4f[]   = x?StorageBuffer?Colors
             member x.SelectedId   : int     = x?SelectedId
-            member x.PickingTolerance : float = x?PickingTolerance
+            member x.PickingTolerance : float32 = x?PickingTolerance
 
-            member x.MV : M44d = x?MV
+            member x.MV : M44f = x?MV
 
 
         let indirectLineVertexPicking (v : ThickLineVertex) =
@@ -163,7 +163,7 @@ module PackedRendering =
                     { v with 
                         c = uniform.Colors.[id]; 
                         pos = p
-                        w = width + 5.0 + uniform.PickingTolerance * 5.0
+                        w = width + 5.0f + uniform.PickingTolerance * 5.0f
                         id = id
                     }
             }
@@ -177,7 +177,7 @@ module PackedRendering =
                     { v with 
                         c = v.c 
                         pos = p
-                        w = width + 5.0 + v.tolerance * 5.0
+                        w = width + 5.0f + v.tolerance * 5.0f
                         id = v.obId
                     }
             }
@@ -191,9 +191,9 @@ module PackedRendering =
                 let p = uniform.ProjTrafo * pos
                 return 
                     { v with 
-                        c = if isSelected then V4d.IOOI else uniform.Colors.[id]; 
+                        c = if isSelected then V4f.IOOI else uniform.Colors.[id]; 
                         pos = p
-                        w = if isSelected then width * 2.0 else width
+                        w = if isSelected then width * 2.0f else width
                         id = id
                     }
             }
@@ -207,18 +207,18 @@ module PackedRendering =
                 let p = uniform.ProjTrafo * pos
                 return 
                     { v with 
-                        c = if isSelected then V4d.IOOI else v.c
+                        c = if isSelected then V4f.IOOI else v.c
                         pos = p
-                        w = if isSelected then width * 2.0 else width
+                        w = if isSelected then width * 2.0f else width
                         id = id
                     }
             }
 
         [<GLSLIntrinsic("mix({0}, {1}, {2})")>]
-        let Lerp (a : V4d) (b : V4d) (s : float) : V4d = failwith ""
+        let Lerp (a : V4f) (b : V4f) (s : float32) : V4f = failwith ""
 
         [<ReflectedDefinition>]
-        let clipLine (plane : V4d) (p0 : ref<V4d>) (p1 : ref<V4d>) =
+        let clipLine (plane : V4f) (p0 : ref<V4f>) (p1 : ref<V4f>) =
             let h0 = Vec.dot plane !p0
             let h1 = Vec.dot plane !p1
 
@@ -226,13 +226,13 @@ module PackedRendering =
             // 0 = h0 + (h1 - h0)*t
             // (h0 - h1)*t = h0
             // t = h0 / (h0 - h1)
-            if h0 > 0.0 && h1 > 0.0 then
+            if h0 > 0.0f && h1 > 0.0f then
                 false
-            elif h0 < 0.0 && h1 > 0.0 then
+            elif h0 < 0.0f && h1 > 0.0f then
                 let t = h0 / (h0 - h1)
                 p1 := !p0 + t * (!p1 - !p0)
                 true
-            elif h1 < 0.0 && h0 > 0.0 then
+            elif h1 < 0.0f && h0 > 0.0f then
                 let t = h0 / (h0 - h1)
                 p0 := !p0 + t * (!p1 - !p0)
                 true
@@ -240,7 +240,7 @@ module PackedRendering =
                 true
 
         [<ReflectedDefinition>]
-        let clipLinePure (plane : V4d) (p0 : V4d) (p1 : V4d) =
+        let clipLinePure (plane : V4f) (p0 : V4f) (p1 : V4f) =
             let h0 = Vec.dot plane p0
             let h1 = Vec.dot plane p1
 
@@ -248,13 +248,13 @@ module PackedRendering =
             // 0 = h0 + (h1 - h0)*t
             // (h0 - h1)*t = h0
             // t = h0 / (h0 - h1)
-            if h0 > 0.0 && h1 > 0.0 then
+            if h0 > 0.0f && h1 > 0.0f then
                 (false, p0, p1)
-            elif h0 < 0.0 && h1 > 0.0 then
+            elif h0 < 0.0f && h1 > 0.0f then
                 let t = h0 / (h0 - h1)
                 let p11 = p0 + t * (p1 - p0)
                 (true, p0, p11)
-            elif h1 < 0.0 && h0 > 0.0 then
+            elif h1 < 0.0f && h0 > 0.0f then
                 let t = h0 / (h0 - h1)
                 let p01 = p0 + t * (p1 - p0)
             
@@ -265,19 +265,19 @@ module PackedRendering =
         let thickLine (line : Line<ThickLineVertex>) =
             triangle {
                 let t = line.P0.w
-                let sizeF = V3d(float uniform.ViewportSize.X, float uniform.ViewportSize.Y, 1.0)
+                let sizeF = V3f(float32 uniform.ViewportSize.X, float32 uniform.ViewportSize.Y, 1.0f)
 
                 let mutable pp0 = line.P0.pos
                 let mutable pp1 = line.P1.pos        
                             
-                let add = 2.0 * V2d(t,t) / sizeF.XY
+                let add = 2.0f * V2f(t,t) / sizeF.XY
                             
-                let a0 = clipLine (V4d( 1.0,  0.0,  0.0, -(1.0 + add.X))) &&pp0 &&pp1
-                let a1 = clipLine (V4d(-1.0,  0.0,  0.0, -(1.0 + add.X))) &&pp0 &&pp1
-                let a2 = clipLine (V4d( 0.0,  1.0,  0.0, -(1.0 + add.Y))) &&pp0 &&pp1
-                let a3 = clipLine (V4d( 0.0, -1.0,  0.0, -(1.0 + add.Y))) &&pp0 &&pp1
-                let a4 = clipLine (V4d( 0.0,  0.0,  1.0, -1.0)) &&pp0 &&pp1
-                let a5 = clipLine (V4d( 0.0,  0.0, -1.0, -1.0)) &&pp0 &&pp1
+                let a0 = clipLine (V4f( 1.0f,  0.0f,  0.0f, -(1.0f + add.X))) &&pp0 &&pp1
+                let a1 = clipLine (V4f(-1.0f,  0.0f,  0.0f, -(1.0f + add.X))) &&pp0 &&pp1
+                let a2 = clipLine (V4f( 0.0f,  1.0f,  0.0f, -(1.0f + add.Y))) &&pp0 &&pp1
+                let a3 = clipLine (V4f( 0.0f, -1.0f,  0.0f, -(1.0f + add.Y))) &&pp0 &&pp1
+                let a4 = clipLine (V4f( 0.0f,  0.0f,  1.0f, -1.0f)) &&pp0 &&pp1
+                let a5 = clipLine (V4f( 0.0f,  0.0f, -1.0f, -1.0f)) &&pp0 &&pp1
 
                 if a0 && a1 && a2 && a3 && a4 && a5 then
                     let p0 = pp0.XYZ / pp0.W
@@ -285,8 +285,8 @@ module PackedRendering =
 
                     let fwp = (p1.XYZ - p0.XYZ) * sizeF
 
-                    let fw = V3d(fwp.XY, 0.0) |> Vec.normalize
-                    let r = V3d(-fw.Y, fw.X, 0.0) / sizeF
+                    let fw = V3f(fwp.XY, 0.0f) |> Vec.normalize
+                    let r = V3f(-fw.Y, fw.X, 0.0f) / sizeF
                     let d = fw / sizeF
                     let p00 = p0 - r * t - d * t
                     let p10 = p0 + r * t - d * t
@@ -295,10 +295,10 @@ module PackedRendering =
 
                     let rel = t / (Vec.length fwp)
 
-                    yield { line.P0 with i = 0; pos = V4d(p00 * pp0.W, pp0.W); lc = V2d(-1.0, -rel); w = rel }      // restore W component for depthOffset
-                    yield { line.P0 with i = 0; pos = V4d(p10 * pp1.W, pp1.W); lc = V2d( 1.0, -rel); w = rel }      // restore W component for depthOffset
-                    yield { line.P1 with i = 1; pos = V4d(p01 * pp0.W, pp0.W); lc = V2d(-1.0, 1.0 + rel); w = rel } // restore W component for depthOffset
-                    yield { line.P1 with i = 1; pos = V4d(p11 * pp1.W, pp1.W); lc = V2d( 1.0, 1.0 + rel); w = rel } // restore W component for depthOffset
+                    yield { line.P0 with i = 0; pos = V4f(p00 * pp0.W, pp0.W); lc = V2f(-1.0f, -rel); w = rel }      // restore W component for depthOffset
+                    yield { line.P0 with i = 0; pos = V4f(p10 * pp1.W, pp1.W); lc = V2f( 1.0f, -rel); w = rel }      // restore W component for depthOffset
+                    yield { line.P1 with i = 1; pos = V4f(p01 * pp0.W, pp0.W); lc = V2f(-1.0f, 1.0f + rel); w = rel } // restore W component for depthOffset
+                    yield { line.P1 with i = 1; pos = V4f(p11 * pp1.W, pp1.W); lc = V2f( 1.0f, 1.0f + rel); w = rel } // restore W component for depthOffset
             }
 
         let Effect =
@@ -314,20 +314,20 @@ module PackedRendering =
                 id : int
 
                 [<Position>] 
-                pos : V4d
+                pos : V4f
 
                 [<Color>]
-                c : V4d
+                c : V4f
 
             }
 
         [<GLSLIntrinsic("intBitsToFloat({0})")>]
-        let intBitsToFloat (i : int) : float = failwith ""
+        let intBitsToFloat (i : int) : float32 = failwith ""
 
         let pickId (v : Vertex) = 
             fragment {
                 let i = v.id
-                return V4d(v.c.X, v.c.Y, v.c.Z, float i)
+                return V4f(v.c.X, v.c.Y, v.c.Z, float32 i)
             }
         
 
@@ -345,11 +345,11 @@ module PackedRendering =
             }
 
         type UniformScope with
-            member x.MousePosition : V2d = uniform?MousePosition
+            member x.MousePosition : V2f = uniform?MousePosition
 
         let lens (v : Vertex) =
             fragment {
-                return s.SampleLevel(v.tc.XY * 0.1 - V2d.II*0.05  + uniform.MousePosition,0.0)
+                return s.SampleLevel(v.tc.XY * 0.1f - V2f.II*0.05f  + uniform.MousePosition,0.0f)
             }
 
 
@@ -418,7 +418,7 @@ module PackedRendering =
                 let r = Array.map (fun m -> let r : M44d = v * m in M44f.op_Explicit r) i.modelTrafos
                 r
             )
-          let indirect = instanceAttribs |> AVal.map (fun i -> IndirectBuffer.ofArray' true i.drawCallInfos)
+          let indirect = instanceAttribs |> AVal.map (fun i -> IndirectBuffer.ofArray' true 0 i.drawCallInfos.Length i.drawCallInfos)
           let sg = 
               Sg.indirectDraw IndexedGeometryMode.LineList indirect
               |> Sg.vertexAttribute DefaultSemantic.Positions (instanceAttribs |> AVal.map (fun i -> i.points))

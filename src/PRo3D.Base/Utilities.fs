@@ -70,7 +70,7 @@ module OPCFilter =
         let improvedDiffuseTextureAndColor (v : Effects.Vertex) =
             fragment {
                 if uniform.HasDiffuseColorTexture then
-                    let texColor = diffuseSampler.Sample(v.tc,-1.0)
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0f)
                     return texColor
                 else
                     return v.c
@@ -78,7 +78,7 @@ module OPCFilter =
 
         let improvedDiffuseTexture (v : Effects.Vertex) =
             fragment {
-                let texColor = diffuseSampler.Sample(v.tc,-1.0)
+                let texColor = diffuseSampler.Sample(v.tc,-1.0f)
                 return texColor
             }
 
@@ -86,10 +86,10 @@ module OPCFilter =
             fragment { 
             //if uniform.HasDiffuseColorTexture then
                 if uniform.selected then
-                    if (v.tc.X >= 0.99) && (v.tc.X <= 1.0) || (v.tc.X >= 0.0) && (v.tc.X <= 0.01) then
-                        return V4d(0.69, 0.85, 0.0, 1.0)
-                    elif (v.tc.Y >= 0.99) && (v.tc.Y <= 1.0) || (v.tc.Y >= 0.0) && (v.tc.Y <= 0.01) then
-                        return V4d(0.69, 0.85, 0.0, 1.0)
+                    if (v.tc.X >= 0.99f) && (v.tc.X <= 1.0f) || (v.tc.X >= 0.0f) && (v.tc.X <= 0.01f) then
+                        return V4f(0.69f, 0.85f, 0.0f, 1.0f)
+                    elif (v.tc.Y >= 0.99f) && (v.tc.Y <= 1.0f) || (v.tc.Y >= 0.0f) && (v.tc.Y <= 0.01f) then
+                        return V4f(0.69f, 0.85f, 0.0f, 1.0f)
                     else
                         return v.c
                 else return v.c
@@ -244,62 +244,62 @@ module Shader =
         open Aardvark.Rendering.Effects
 
         type UniformScope with
-            member x.DepthOffset : float = x?DepthOffset
+            member x.DepthOffset : float32 = x?DepthOffset
 
         type VertexDepth = 
             {   
-                [<Color>] c : V4d; 
-                [<Depth>] d : float
-                [<Position>] pos : V4d
+                [<Color>] c : V4f; 
+                [<Depth>] d : float32
+                [<Position>] pos : V4f
             }
 
         [<GLSLIntrinsic("gl_DepthRange.near")>]
-        let depthNear()  : float = onlyInShaderCode ""
+        let depthNear()  : float32 = onlyInShaderCode ""
 
         [<GLSLIntrinsic("gl_DepthRange.far")>]
-        let depthFar()  : float = onlyInShaderCode ""
+        let depthFar()  : float32 = onlyInShaderCode ""
 
         [<GLSLIntrinsic("(gl_DepthRange.far - gl_DepthRange.near)")>]
-        let depthDiff()  : float = onlyInShaderCode ""
+        let depthDiff()  : float32 = onlyInShaderCode ""
 
         let depthOffsetFS (v : VertexDepth) =
             fragment {
                 let depthOffset = uniform.DepthOffset
                 let d = (v.pos.Z - depthOffset)  / v.pos.W
-                return { v with c = v.c;  d = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0  }
+                return { v with c = v.c;  d = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0f  }
             }
 
         let Effect =
             toEffect depthOffsetFS
    
     type UniformScope with
-        member x.PointSize : float = uniform?PointSize
+        member x.PointSize : float32 = uniform?PointSize
 
     type PointVertex =
         {
-            [<Position>] pos : V4d
-            [<PointSize>] p : float
-            [<Color>] c : V4d
-            [<TexCoord; Interpolation(InterpolationMode.Sample)>] tc : V2d
+            [<Position>] pos : V4f
+            [<PointSize>] p : float32
+            [<Color>] c : V4f
+            [<TexCoord; Interpolation(InterpolationMode.Sample)>] tc : V2f
             [<SourceVertexIndex>] i : int
         }
 
-    let constantColor (color : V4d) (v : PointVertex) =
+    let constantColor (color : V4f) (v : PointVertex) =
         vertex {
-            let ps : float = uniform?PointSize
+            let ps : float32 = uniform?PointSize
             return { v with c = color; p = ps }
         }
 
     let singleColor (v : PointVertex) =
         vertex {
-            let ps : float = uniform?PointSize
-            let c  : V4d   = uniform?SingleColor
+            let ps : float32 = uniform?PointSize
+            let c  : V4f   = uniform?SingleColor
             return { v with c = c; p = ps }
         }
 
     let differentColor (v : PointVertex) =
         vertex {
-            let ps : float = uniform?PointSize
+            let ps : float32 = uniform?PointSize
             return { v with c = v.c; p = ps }
         }
 
@@ -315,18 +315,18 @@ module Shader =
     //type InstancedVertex = 
     //    {
     //        [<Semantic("MV")>]
-    //        mv : M44d
+    //        mv : M44f
     //        [<Position>]
-    //        pos : V4d
+    //        pos : V4f
     //        [<Color>]
-    //        c : V4d
+    //        c : V4f
     //    }
 
     //let stableMVTrafo (v : InstancedVertex) =
     //    vertex {
     //        let vp = v.mv * v.pos
     //        let p = uniform.ProjTrafo * vp
-    //        let color : V4d = uniform?Color
+    //        let color : V4f = uniform?Color
     //        return { 
     //            v with 
     //                pos = p
@@ -338,8 +338,8 @@ module Shader =
         fragment {
             let tc = v.tc
 
-            let c = 2.0 * tc - V2d.II
-            if c.Length > 1.0 then
+            let c = 2.0f * tc - V2f.II
+            if c.Length > 1.0f then
                 discard()
 
             return v
@@ -364,52 +364,52 @@ module Shader =
     let markPatchBorders (v : Effects.Vertex) =
         fragment { 
             if uniform?selected then
-                if   (v.tc.X >= 0.99) && (v.tc.X <= 1.0) || (v.tc.X >= 0.0) && (v.tc.X <= 0.01) then
-                    return V4d(0.69, 0.85, 0.0, 1.0)
-                elif (v.tc.Y >= 0.99) && (v.tc.Y <= 1.0) || (v.tc.Y >= 0.0) && (v.tc.Y <= 0.01) then
-                    return V4d(0.69, 0.85, 0.0, 1.0)
+                if   (v.tc.X >= 0.99f) && (v.tc.X <= 1.0f) || (v.tc.X >= 0.0f) && (v.tc.X <= 0.01f) then
+                    return V4f(0.69f, 0.85f, 0.0f, 1.0f)
+                elif (v.tc.Y >= 0.99f) && (v.tc.Y <= 1.0f) || (v.tc.Y >= 0.0f) && (v.tc.Y <= 0.01f) then
+                    return V4f(0.69f, 0.85f, 0.0f, 1.0f)
                 else
                     return v.c
             else return v.c
         }
 
     [<ReflectedDefinition>]
-    let transformNormal (n : V3d) =
-        uniform.ModelViewTrafoInv.Transposed * V4d(n, 0.0)
+    let transformNormal (n : V3f) =
+        uniform.ModelViewTrafoInv.Transposed * V4f(n, 0.0f)
         |> Vec.xyz
         |> Vec.normalize
 
     let stableTrafo' (v : AttrVertex) =
         vertex {
-            let mvp : M44d = uniform?MVP?ModelViewTrafo
+            let mvp : M44f = uniform?MVP?ModelViewTrafo
             let vp = mvp * v.pos
             return  
                 { v with
                     pos  = uniform.ProjTrafo * vp
                     wp   = v.pos
                     n    = transformNormal v.n
-                    ldir = V3d.Zero - vp.XYZ |> Vec.normalize
+                    ldir = V3f.Zero - vp.XYZ |> Vec.normalize
                 } 
         } 
     
     [<ReflectedDefinition>]
-    let hsv2rgb (h : float) (s : float) (v : float) =
+    let hsv2rgb (h : float32) (s : float32) (v : float32) =
         let h = Fun.Frac(h)
         let chr = v * s
-        let x = chr * (1.0 - Fun.Abs(Fun.Frac(h * 3.0) * 2.0 - 1.0))
+        let x = chr * (1.0f - Fun.Abs(Fun.Frac(h * 3.0f) * 2.0f - 1.0f))
         let m = v - chr
-        let t = (int)(h * 6.0)
+        let t = (int)(h * 6.0f)
         match t with
-            | 0 -> V3d(chr + m, x + m, m)
-            | 1 -> V3d(x + m, chr + m, m)
-            | 2 -> V3d(m, chr + m, x + m)
-            | 3 -> V3d(m, x + m, chr + m)
-            | 4 -> V3d(x + m, m, chr + m)
-            | 5 -> V3d(chr + m, m, x + m)
-            | _ -> V3d(chr + m, x + m, m)
+            | 0 -> V3f(chr + m, x + m, m)
+            | 1 -> V3f(x + m, chr + m, m)
+            | 2 -> V3f(m, chr + m, x + m)
+            | 3 -> V3f(m, x + m, chr + m)
+            | 4 -> V3f(x + m, m, chr + m)
+            | 5 -> V3f(chr + m, m, x + m)
+            | _ -> V3f(chr + m, x + m, m)
     
     [<ReflectedDefinition>]
-    let mapFalseColors value : float =         
+    let mapFalseColors value : float32 =         
         let invert           = uniform?inverted
         let fcUpperBound     = uniform?upperBound
         let fcLowerBound     = uniform?lowerBound
@@ -419,7 +419,7 @@ module Shader =
     
         let low         = if (invert = false) then fcLowerBound else fcUpperBound
         let up          = if (invert = false) then fcUpperBound else fcLowerBound
-        let interval    = if (invert = false) then fcInterval   else -1.0 * fcInterval        
+        let interval    = if (invert = false) then fcInterval   else -1.0f * fcInterval        
     
         let rangeValue = up - low + interval
         let normInterv = (interval / rangeValue)
@@ -429,17 +429,17 @@ module Shader =
     
         //discretize lookup
         let bucket = floor (k / normInterv)
-        let k = ((float) bucket) * normInterv |> clamp 0.0 1.0
+        let k = ((float32) bucket) * normInterv |> clamp 0.0f 1.0f
     
-        let uH = fcUpperHueBound * 255.0
-        let lH = fcLowerHueBound * 255.0
+        let uH = fcUpperHueBound * 255.0f
+        let lH = fcLowerHueBound * 255.0f
         //map values to hue range
-        let fcHueUpperBound = if (uH < lH) then uH + 1.0 else uH
+        let fcHueUpperBound = if (uH < lH) then uH + 1.0f else uH
         let rangeHue = uH - lH // fcHueUpperBound - lH
         (k * rangeHue) + lH
     
     [<ReflectedDefinition>]
-    let mapFalseColors2 value : float =
+    let mapFalseColors2 value : float32 =
         let fcInterval     = uniform?interval
         let startColorHue  = uniform?startC
         let endColorHue    = uniform?endC
@@ -452,13 +452,13 @@ module Shader =
         let numOfStops     = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
         //let numOfStops = if (numOfRangeGaps + 2) > 200 then 200 else (numOfRangeGaps + 2)
     
-        let startColor = startColorHue *255.0
-        let endColor   = endColorHue *255.0
+        let startColor = startColorHue *255.0f
+        let endColor   = endColorHue *255.0f
         let hStepSize  =
             if startColor < endColor then 
-                (endColor - startColor) / ((float)(numOfStops-1))
+                (endColor - startColor) / ((float32)(numOfStops-1))
             else 
-                ((endColor + 1.0) - startColor) / ((float)(numOfStops-1))
+                ((endColor + 1.0f) - startColor) / ((float32)(numOfStops-1))
                 
         let pos = 
             match fcLowerBound < value with
@@ -472,9 +472,9 @@ module Shader =
                      
         let currColorH = 
             if invertMapping then
-                (endColor - (hStepSize * ((float)(pos1))))
+                (endColor - (hStepSize * ((float32)(pos1))))
             else 
-                (startColor + (hStepSize * ((float)(pos1))))
+                (startColor + (hStepSize * ((float32)(pos1))))
         currColorH
 
     let falseColorLegend2 (v : AttrVertex) =
@@ -483,72 +483,72 @@ module Shader =
             if (uniform?falseColors) 
             then
                 let hue = mapFalseColors v.scalar //mapFalseColors2 v.scalar
-                let c = hsv2rgb ((clamp 0.0 255.0 hue)/ 255.0 ) 1.0 1.0 // 
-                return v.c * V4d(c.X, c.Y, c.Z, 1.0)
+                let c = hsv2rgb ((clamp 0.0f 255.0f hue)/ 255.0f ) 1.0f 1.0f // 
+                return v.c * V4f(c.X, c.Y, c.Z, 1.0f)
             else
                 return v.c
         }
 
     [<ReflectedDefinition>]
-    let myTrunc (value : float) =
-        clamp 0.0 255.0 value
+    let myTrunc (value : float32) =
+        clamp 0.0f 255.0f value
 
     //TODO LF ... put all color adaptation mechanisms into 1 shader. Shader code produced by FShade has a ridiculous size ~6500 lines of code
 
     [<ReflectedDefinition>]
-    let mapContrast (col : V4d) =
+    let mapContrast (col : V4f) =
         if (uniform?useContrastS) then
             let c = uniform?contrastS
-            let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)
+            let nc = V4f(col.X*255.0f, col.Y*255.0f, col.Z*255.0f, 255.0f)
         
-            let factor = (259.0 * (c + 255.0)) / (255.0 * (259.0 - c))
-            let red    = (myTrunc (factor * (nc.X   - 128.0) + 128.0)) / 255.0
-            let green  = (myTrunc (factor * (nc.Y   - 128.0) + 128.0)) / 255.0
-            let blue   = (myTrunc (factor * (nc.Z   - 128.0) + 128.0)) / 255.0
-            V4d(red, green, blue, 1.0)
+            let factor = (259.0f * (c + 255.0f)) / (255.0f * (259.0f - c))
+            let red    = (myTrunc (factor * (nc.X   - 128.0f) + 128.0f)) / 255.0f
+            let green  = (myTrunc (factor * (nc.Y   - 128.0f) + 128.0f)) / 255.0f
+            let blue   = (myTrunc (factor * (nc.Z   - 128.0f) + 128.0f)) / 255.0f
+            V4f(red, green, blue, 1.0f)
         else
             col
 
     [<ReflectedDefinition>]
-    let mapBrightness (col : V4d) =     
+    let mapBrightness (col : V4f) =     
         if (uniform?useBrightnS) then
             let b = uniform?brightnessS
-            let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)        
+            let nc = V4f(col.X*255.0f, col.Y*255.0f, col.Z*255.0f, 255.0f)        
         
-            let red   = (myTrunc(nc.X + b)) / 255.0 
-            let green = (myTrunc(nc.Y + b)) / 255.0 
-            let blue  = (myTrunc(nc.Z + b)) / 255.0 
-            V4d(red, green, blue, 1.0)
+            let red   = (myTrunc(nc.X + b)) / 255.0f 
+            let green = (myTrunc(nc.Y + b)) / 255.0f 
+            let blue  = (myTrunc(nc.Z + b)) / 255.0f 
+            V4f(red, green, blue, 1.0f)
         else
             col
     
     [<ReflectedDefinition>]
-    let mapGamma (col : V4d) =    
+    let mapGamma (col : V4f) =    
         if (uniform?useGammaS) then
             let g = uniform?gammaS
-            let gammaCorrection = 1.0 / g
-            V4d(col.X**gammaCorrection, col.Y**gammaCorrection, col.Z**gammaCorrection, 1.0)
+            let gammaCorrection = 1.0f / g
+            V4f(col.X**gammaCorrection, col.Y**gammaCorrection, col.Z**gammaCorrection, 1.0f)
         else
             col
 
     [<ReflectedDefinition>]
-    let grayscale (col : V4d) =    
+    let grayscale (col : V4f) =    
         if (uniform?useGrayS) then
-            let value = col.X * 0.299 + col.Y * 0.587 + col.Z * 0.114
-            V4d(value, value, value, 1.0)
+            let value = col.X * 0.299f + col.Y * 0.587f + col.Z * 0.114f
+            V4f(value, value, value, 1.0f)
         else
             col
     
     [<ReflectedDefinition>]
-    let addColor (col : V4d) =    
+    let addColor (col : V4f) =    
         if (uniform?useColorS) then
-            let hue : V3d =  uniform?colorS
-            let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)
+            let hue : V3f =  uniform?colorS
+            let nc = V4f(col.X*255.0f, col.Y*255.0f, col.Z*255.0f, 255.0f)
 
-            let red   = (myTrunc( nc.X * hue.X)) / 255.0
-            let green = (myTrunc( nc.Y * hue.Y)) / 255.0
-            let blue  = (myTrunc( nc.Z * hue.Z)) / 255.0
-            V4d(red, green, blue, 1.0)
+            let red   = (myTrunc( nc.X * hue.X)) / 255.0f
+            let green = (myTrunc( nc.Y * hue.Y)) / 255.0f
+            let blue  = (myTrunc( nc.Z * hue.Z)) / 255.0f
+            V4f(red, green, blue, 1.0f)
         else
             col
         
@@ -565,10 +565,10 @@ module Shader =
     let mapRadiometry (v : Effects.Vertex) =
         fragment { 
             if (uniform?useRadiometry) then
-                let abR : V3d =  uniform?abR
-                let abG : V3d =  uniform?abG
-                let abB : V3d =  uniform?abB
-                let nc = V4d(v.c.X*255.0, v.c.Y*255.0, v.c.Z*255.0, 255.0)
+                let abR : V3f =  uniform?abR
+                let abG : V3f =  uniform?abG
+                let abB : V3f =  uniform?abB
+                let nc = V4f(v.c.X*255.0f, v.c.Y*255.0f, v.c.Z*255.0f, 255.0f)
         
                 let rClamped = clamp abR.X abR.Y nc.X 
                 let red = ((rClamped - abR.X) / (abR.Y - abR.X))
@@ -579,7 +579,7 @@ module Shader =
                 let bClamped = clamp abB.X abB.Y nc.Z 
                 let blue = ((bClamped - abB.X) / (abB.Y - abB.X))
 
-                return V4d(red, green, blue, 1.0)
+                return V4f(red, green, blue, 1.0f)
             else
                 return v.c
         }
@@ -595,23 +595,23 @@ module Shader =
 
     type FootPrintVertex =
         {
-            [<Position>]                pos     : V4d            
-            //[<WorldPosition>]           wp      : V4d
-            //[<TexCoord>]                tc      : V2d
-            [<Color>]                   c       : V4d
-            //[<Normal>]                  n       : V3d
+            [<Position>]                pos     : V4f            
+            //[<WorldPosition>]           wp      : V4f
+            //[<TexCoord>]                tc      : V2f
+            [<Color>]                   c       : V4f
+            //[<Normal>]                  n       : V3f
             //[<SourceVertexIndex>]       sv      : int
-            //[<Semantic("Scalar")>]      scalar  : float
-            //[<Semantic("LightDir")>]    ldir    : V3d
-            [<Semantic("FootPrintProj")>] tc0     : V4d
-            //[<Semantic("Tex1")>]        tc1     : V4d
+            //[<Semantic("Scalar")>]      scalar  : float32
+            //[<Semantic("LightDir")>]    ldir    : V3f
+            [<Semantic("FootPrintProj")>] tc0     : V4f
+            //[<Semantic("Tex1")>]        tc1     : V4f
         }
 
     //let private footprintmap =
     //    sampler2d {
     //        texture uniform?FootPrintTexture
     //        filter Filter.MinMagMipPoint
-    //        borderColor (C4f(0.0,0.0,0.0,0.0))
+    //        borderColor (C4f(0.0f,0.0f,0.0f,0.0f))
     //        addressU WrapMode.Border
     //        addressV WrapMode.Border
     //        addressW WrapMode.Border
@@ -619,7 +619,7 @@ module Shader =
 
     let footprintV (v : FootPrintVertex) =
         vertex {
-            let footprintProjM  : M44d   = uniform?FootprintModelViewProj // was proj * view (earlier there was pretransform in it?)
+            let footprintProjM  : M44f   = uniform?FootprintModelViewProj // was proj * view (earlier there was pretransform in it?)
             return { 
                 v with 
                     tc0 = footprintProjM * v.pos; 
@@ -634,18 +634,18 @@ module Shader =
                 let fpt = v.tc0.XYZ / v.tc0.W
 
                 // enable this code to use texture based border (and patterns on etc if needed)
-                //if fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && fpt.Z > -1.0 && fpt.Z < 1.0 then   
-                //    let s = footprintmap.Sample(fpt.XY * 0.5 + V2d.II * 0.5)
-                //    color.XYZ <- color.XYZ * (1.0 - s.W) + s.XYZ * s.W
+                //if fpt.X > -1.0f && fpt.X < 1.0f && fpt.Y > -1.0f && fpt.Y < 1.0f && fpt.Z > -1.0f && fpt.Z < 1.0f then   
+                //    let s = footprintmap.Sample(fpt.XY * 0.5f + V2f.II * 0.5f)
+                //    color.XYZ <- color.XYZ * (1.0f - s.W) + s.XYZ * s.W
 
                 // TODO: more efficient formuation e.g. using step
-                if fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && fpt.Z > -1.0 && fpt.Z < 1.0 then   
-                    let threshold = 0.05
-                    let X = fpt.X < -1.0 + threshold || fpt.X > 1.0 - threshold
-                    let Y = fpt.Y < -1.0 + threshold || fpt.Y > 1.0 - threshold
-                    let Z = fpt.Z < -1.0 + threshold 
+                if fpt.X > -1.0f && fpt.X < 1.0f && fpt.Y > -1.0f && fpt.Y < 1.0f && fpt.Z > -1.0f && fpt.Z < 1.0f then   
+                    let threshold = 0.05f
+                    let X = fpt.X < -1.0f + threshold || fpt.X > 1.0f - threshold
+                    let Y = fpt.Y < -1.0f + threshold || fpt.Y > 1.0f - threshold
+                    let Z = fpt.Z < -1.0f + threshold 
                     if X || Y || Z then  
-                        color.X <- 1.0
+                        color.X <- 1.0f
                         
             return color
         }
@@ -671,9 +671,9 @@ module Shader =
     type UniformScope with
         member x.TextureCombiner : TextureCombiner = uniform?TextureCombiner
         member x.TransferFunctionMode : TransferFunctionMode = uniform?TransferFunctionMode
-        member x.TFRange : V2d = uniform?TFRange
-        member x.TFBlendFactor : float = uniform?TFBlendFactor
-        member x.SecondaryTextureContour : V4d = uniform?SecondaryTextureContour 
+        member x.TFRange : V2f = uniform?TFRange
+        member x.TFBlendFactor : float32 = uniform?TFBlendFactor
+        member x.SecondaryTextureContour : V4f = uniform?SecondaryTextureContour 
 
     let secondaryTexture (v : Effects.Vertex) =
         fragment {    
@@ -692,7 +692,7 @@ module Shader =
                     match uniform.TransferFunctionMode with
                     | TransferFunctionMode.Ramp -> 
                         if e.X >= range.X && e.X <= range.Y then
-                            let mappedColor = transferFunctionSampler.Sample(V2d(my,0.0))
+                            let mappedColor = transferFunctionSampler.Sample(V2f(my,0.0f))
                             mappedColor
                         else
                             v.c
@@ -704,9 +704,9 @@ module Shader =
                 | TextureCombiner.Secondary -> 
                     color <- secondaryColor
                 | TextureCombiner.Multiply -> 
-                    color <- V4d(v.c.XYZ * secondaryColor.XYZ, 1.0)
+                    color <- V4f(v.c.XYZ * secondaryColor.XYZ, 1.0f)
                 | TextureCombiner.Blend ->
-                    color <- V4d(v.c.XYZ * (1.0 - uniform.TFBlendFactor) + secondaryColor.XYZ * uniform.TFBlendFactor, 1.0)
+                    color <- V4f(v.c.XYZ * (1.0f - uniform.TFBlendFactor) + secondaryColor.XYZ * uniform.TFBlendFactor, 1.0f)
                 | _ -> 
                     color <- v.c
 
@@ -714,15 +714,15 @@ module Shader =
         }
 
     [<ReflectedDefinition>]
-    let lineAlpha (v : float) (center : float) (lineWidth: float) (lineSmooth : float) = 
-        let start = center - lineWidth * 0.5
-        let stop = center + lineSmooth * 0.5
+    let lineAlpha (v : float32) (center : float32) (lineWidth: float32) (lineSmooth : float32) = 
+        let start = center - lineWidth * 0.5f
+        let stop = center + lineSmooth * 0.5f
         if v >= start && v <= stop then
-            1.0
+            1.0f
         else
            let alpha = 
-                Fun.Smoothstep(v, start - lineSmooth * 0.5, start) -
-                Fun.Smoothstep(v, stop, stop + lineSmooth * 0.5)
+                Fun.Smoothstep(v, start - lineSmooth * 0.5f, start) -
+                Fun.Smoothstep(v, stop, stop + lineSmooth * 0.5f)
            alpha
 
 
@@ -731,7 +731,7 @@ module Shader =
             let contourSettings = uniform.SecondaryTextureContour
                             
             let lineColor = 
-                if contourSettings.X > 0 then
+                if contourSettings.X > 0.0f then
 
                     let range = uniform.TFRange
                     let e = secondaryTextureSampler.Sample(v.tc)
@@ -743,15 +743,15 @@ module Shader =
                     let lineSmoothing = contourSettings.Z
 
                     let contourDistance = my % distance
-                    let lineAlpha = lineAlpha contourDistance (distance * 0.5) lineWidth lineSmoothing
+                    let lineAlpha = lineAlpha contourDistance (distance * 0.5f) lineWidth lineSmoothing
 
-                    V4d(0.0,0.0,0.0, Fun.Clamp(lineAlpha, 0.0, 1.0))
+                    V4f(0.0f,0.0f,0.0f, Fun.Clamp(lineAlpha, 0.0f, 1.0f))
                 else
-                    V4d.OOOO
+                    V4f.OOOO
 
 
-            let finalColor = v.c.XYZ * (1.0 - lineColor.W)
-            return V4d(finalColor, 1.0)
+            let finalColor = v.c.XYZ * (1.0f - lineColor.W)
+            return V4f(finalColor, 1.0f)
         }
 
 
@@ -762,8 +762,8 @@ module Shader =
                 let depth = v.tc0.Z 
 
                 let hue = mapFalseColors depth 
-                let c = hsv2rgb ((clamp 0.0 255.0 hue)/ 255.0 ) 1.0 1.0 
-                let texColor = v.c * V4d(c.X, c.Y, c.Z, 1.0)
+                let c = hsv2rgb ((clamp 0.0f 255.0f hue)/ 255.0f ) 1.0f 1.0f 
+                let texColor = v.c * V4f(c.X, c.Y, c.Z, 1.0f)
                 color <- texColor
 
             return color
@@ -1018,12 +1018,12 @@ module Sg =
         open Aardvark.Rendering.Effects
 
         type UniformScope with
-            member x.Size : float = x?Size
+            member x.Size : float32 = x?Size
 
 
         type InstanceVertex = { 
-               [<Position>]            pos   : V4d 
-               [<InstanceTrafo>]       mv : M44d
+               [<Position>]            pos : V4f
+               [<InstanceTrafo>]       mv  : M44f
            }
     
         let screenSpaceScale (v : InstanceVertex) =
@@ -1031,10 +1031,10 @@ module Sg =
                 let vp = v.mv * v.pos
 
                 let dist = abs vp.Z   
-                let hvp    = float uniform.ViewportSize.X
+                let hvp    = float32 uniform.ViewportSize.X
                 let scale = dist * uniform.Size / hvp 
 
-                let vps = v.mv * V4d(v.pos.X * scale, v.pos.Y * scale, v.pos.Z * scale, 1.0)
+                let vps = v.mv * V4f(v.pos.X * scale, v.pos.Y * scale, v.pos.Z * scale, 1.0f)
 
                 return { v with pos = uniform.ProjTrafo * vps }
                 //let loc     = uniform.CameraLocation       
@@ -1055,8 +1055,8 @@ module Sg =
             }
 
         type Vertex = {
-            [<Position>]                pos     : V4d
-            [<Semantic("LightDir")>]    ldir    : V3d
+            [<Position>]                pos     : V4f
+            [<Semantic("LightDir")>]    ldir    : V3f
         }
 
         let lightDir (v : Vertex) = 

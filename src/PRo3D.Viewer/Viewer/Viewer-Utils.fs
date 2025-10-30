@@ -43,8 +43,7 @@ module ViewerUtils =
     //let _surfaceModelLens = Model.Lens.scene |. Scene.Lens.surfacesModel
     //let _flatSurfaces = Scene.Lens.surfacesModel |. SurfaceModel.Lens.surfaces |. GroupsModel.Lens.flat
         
-    let colormap = 
-        let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
+    let colormap =
         let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
         let pi = PixImage.Load(s)
         PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
@@ -231,37 +230,20 @@ module ViewerUtils =
             let! texture = s.primaryTexture 
             let attr : AttributeParameters = 
                 {
-                    selectedTexture = texture |> Option.map(fun x -> x.index)
+                    selectedTexture = texture |> Option.map (fun x -> { texture = TextureReference.LegacyId x.index; channel = ChannelReference.NoChannelSelection })
                     selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
                 }
 
             return attr
         }
 
-    let attributeParameters' (surf:Surface) =
-            let s = surf
-            let scalar = s.selectedScalar
-            let scalar' = 
-                match scalar with
-                | Some m -> m.label |> Some
-                | None -> None
-            
-            let texture = s.primaryTexture 
-            let attr : AttributeParameters = 
-                {
-                    selectedTexture = texture |> Option.map(fun x -> x.index)
-                    selectedScalar  = scalar'
-                }
-
-            attr    
-
     type Vertex = {
-        [<Position>]        pos     : V4d
-        [<Color>]           c       : V4d
-        [<TexCoord>]        tc      : V2d
-        [<Semantic("ViewSpacePos")>]  vp    : V4d
-        [<Semantic("FootPrintProj")>] tc0   : V4d
-        [<Semantic("DepthTex")>]      tc1   : V4d
+        [<Position>]        pos     : V4f
+        [<Color>]           c       : V4f
+        [<TexCoord>]        tc      : V2f
+        [<Semantic("ViewSpacePos")>]  vp    : V4f
+        [<Semantic("FootPrintProj")>] tc0   : V4f
+        [<Semantic("DepthTex")>]      tc1   : V4f
     }
 
         
@@ -440,11 +422,11 @@ module ViewerUtils =
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
                     
                     |> SecondaryTexture.Sg.applySecondaryTextureId (
-                            surf.secondaryTexture 
-                            |> AVal.map (function
-                                | None -> -1
-                                | Some s -> s.index
-                            )
+                        surf.secondaryTexture
+                        |> AVal.map (function
+                            | None -> None
+                            | Some s -> Some { texture = TextureReference.LegacyId s.index; channel = ChannelReference.NoChannelSelection }
+                        )
                     )
                     |> Sg.pickable' pickable
                     |> Sg.noEvents 
@@ -709,24 +691,24 @@ module ViewerUtils =
         open FShade
 
         type Vertex = {
-            [<FShade.InstrinsicAttributes.Position>]        pos     : V4d
-            [<WorldPosition>]   wp      : V4d
-            [<Color>]           c       : V4d
-            [<TexCoord>]        tc      : V2d
+            [<FShade.InstrinsicAttributes.Position>]        pos     : V4f
+            [<WorldPosition>]   wp      : V4f
+            [<Color>]           c       : V4f
+            [<TexCoord>]        tc      : V2f
 
             [<Semantic("ViewSpacePos")>] 
-            vp : V4d
+            vp : V4f
 
             [<Semantic("FootPrintProj")>] 
-            tc0     : V4d
+            tc0     : V4f
 
-            [<Normal>] n : V3d
+            [<Normal>] n : V3f
             //[<SourceVertexIndex>]  sv      : int
         }
 
         //let stableTrafo (v : Vertex) =
         //      vertex {
-        //          let mvp : M44d = uniform?MVP?ModelViewTrafo
+        //          let mvp : M44f = uniform?MVP?ModelViewTrafo
         //          let vp = mvp * v.pos
 
         //          return 
@@ -739,7 +721,7 @@ module ViewerUtils =
 
         let fixAlpha (v : Vertex) =
             fragment {         
-               return V4d(v.c.X, v.c.Y,v.c.Z, 1.0)           
+               return V4f(v.c.X, v.c.Y,v.c.Z, 1.0f)           
             }
 
         let triangleFilterX (input : Triangle<Vertex>) =
@@ -762,8 +744,8 @@ module ViewerUtils =
                 let triangleSizeCheck = (alpha && beta && gamma)
 
                 if filterDistanceActive then
-                    let filterRange : float = uniform?FilterDistance
-                    let homePositionVSp : V3d = uniform?HomePositionViewSpace
+                    let filterRange : float32 = uniform?FilterDistance
+                    let homePositionVSp : V3f = uniform?HomePositionViewSpace
 
                     let inRange = 
                         (Vec.Distance(homePositionVSp, p0)) < filterRange &&
@@ -811,15 +793,15 @@ module ViewerUtils =
         let textureOrLightingIfPossible (v : Vertex) =
             fragment {
                 if uniform.HasDiffuseColorTexture then
-                    let texColor = diffuseSampler.Sample(v.tc,-1.0) // TODO: to why is -1 being used here as lod offset?
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0f) // TODO: to why is -1 being used here as lod offset?
                     return texColor
                 else
                     if uniform.HasNormals then 
-                        let ambient = 0.2
-                        let lView = V3d.OOO - v.vp.XYZ |> Vec.normalize
+                        let ambient = 0.2f
+                        let lView = V3f.OOO - v.vp.XYZ |> Vec.normalize
                         let nView = uniform.ModelViewTrafo.TransformDir(v.n) |> Vec.normalize
                         let diffuse = Vec.dot nView lView |> abs
-                        return V4d(v.c.XYZ * diffuse + ambient * V3d.III, 1.0)
+                        return V4f(v.c.XYZ * diffuse + ambient * V3f.III, 1.0f)
                     else
                         return v.c
             }
