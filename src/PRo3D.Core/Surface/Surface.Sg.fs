@@ -60,6 +60,12 @@ module LodDecider =
                //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
            px > unitPxSize * (exp lodParams.factor)
 
+    let lodDeciderFixed 
+        (preTrafo    : Trafo3d) (self        : AdaptiveToken) (viewTrafo   : aval<Trafo3d>) (_projection : aval<Trafo3d>) (p : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
+        (lodParams   : aval<LodParameters>) (isActive    : aval<bool>) =
+
+        true
+
 module FootprintSg = 
     open Aardvark.SceneGraph.Sg
     

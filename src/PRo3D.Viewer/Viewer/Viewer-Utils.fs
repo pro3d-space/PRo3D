@@ -643,13 +643,13 @@ module ViewerUtils =
             
         let surfacesToSg surfaces =
             surfaces
-              |> AMap.map (fun guid sf -> 
-                    let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
-                    getSimpleSingleSurfaceSg sf surfs m.frustum refSystem observationSystem observerSystem
+            |> AMap.map (fun guid sf -> 
+                  let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
+                  getSimpleSingleSurfaceSg sf surfs m.frustum refSystem observationSystem observerSystem
                )
-              |> AMap.toASet 
-              |> ASet.map snd    
-              |> Sg.set
+            |> AMap.toASet 
+            |> ASet.map snd    
+            |> Sg.set
 
         let grouped = 
             sgGrouped |> AList.map surfacesToSg

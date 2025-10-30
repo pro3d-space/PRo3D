@@ -73,11 +73,14 @@ module Viewer =
         let defaultDashboard = DashboardModes.gis
         // use this one for PROVEX workflows if needed.
         //let defaultDashboard = DashboardModes.provenance
-        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
-        let viewConfigModel = { ViewConfigModel.initial with showExplorationPointGui = startupArgs.showExplorationPoint }
+        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020   
+        
+        let viewConfigModel = 
+            { ViewConfigModel.initial with showExplorationPointGui = startupArgs.showExplorationPoint }
 
         let applyProvenaceIfEnabled (m : Model) =
             ProvenanceApp.emptyWithModel startupArgs.enableProvenanceTracking m
+        
         {     
             scene = 
                 {
