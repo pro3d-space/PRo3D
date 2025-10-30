@@ -1,4 +1,4 @@
-![Windows](https://github.com/vrvis/PRo3D/workflows/Windows/badge.svg)![Linux](https://github.com/vrvis/PRo3D/workflows/Linux/badge.svg)![Mac OS](https://github.com/vrvis/PRo3D/workflows/MacOS/badge.svg)
+![Build](https://github.com/vrvis/PRo3D/workflows/Build/badge.svg)
 
 ![](http://www.pro3d.space/images/garden.jpg)
 
