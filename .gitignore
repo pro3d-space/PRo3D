@@ -56,3 +56,4 @@ src\Aardvark.OpcViewer.psess
 **/bin/Release/**
 /notebooks/result.obj
 /.vscode/settings.json
+**/.idea

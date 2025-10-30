@@ -3,13 +3,13 @@
   "isRoot": true,
   "tools": {
     "aardpack": {
-      "version": "1.0.10",
+      "version": "2.0.5",
       "commands": [
         "aardpack"
       ]
     },
     "adaptify": {
-      "version": "1.3.3",
+      "version": "1.3.5",
       "commands": [
         "adaptify"
       ]
