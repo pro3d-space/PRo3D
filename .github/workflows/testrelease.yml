@@ -9,12 +9,12 @@ jobs:
     name: windows
     runs-on: windows-latest
     steps:  
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - name: Checkout
-        uses: actions/checkout@v2
       - name: Yarn Install
         working-directory: aardium
         run: yarn install
