@@ -611,7 +611,7 @@ Target.create "CompileInstruments" (fun _ ->
 
 
 Target.create "CopyJRWRapper" (fun _ -> 
-    File.Copy("bin/Debug/netstandard2.0/JR.Wrappers.dll", "lib/JR.Wrappers.dll", true)
+    File.Copy("bin/Debug/netstandard2.1/JR.Wrappers.dll", "lib/JR.Wrappers.dll", true)
 )
 
 
