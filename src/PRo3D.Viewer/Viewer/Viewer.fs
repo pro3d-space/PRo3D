@@ -1452,6 +1452,8 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No surface updates found."
         //        m
+        | RecalculateNearFarPlane nearFarPlane,_,_ ->
+            m
         | Translate (_,b),_,_ ->
             m
             //match _selectedSurface.Get(m) with

@@ -2,7 +2,7 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": "--opc \"D:\\Pro3d_Datasets\\Hera\\Rendering_Snapshots\\Dimorphos_DRACO_RGB_meters;D:\\Pro3d_Datasets\\Hera\\Rendering_Snapshots\\Didymain\" --out \"./data\" --asnap \"./data/PRo3D.json\"  --empty"
+      "commandLineArgs": "--opc \"D:\\Pro3d_Datasets\\Hera\\Rendering_Snapshots\\Didymain;D:\\Pro3d_Datasets\\Hera\\Rendering_Snapshots\\Dimorphos_DRACO_RGB_meters\" --out \"./data\" --asnap \"./data/PRo3D.json\"  --empty --noMagFilter"
     }
   }
 }

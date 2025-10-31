@@ -104,8 +104,8 @@ module SnapshotApp =
             | Some fov -> fov
             | None -> defaultFoV
         let frustum =
-          Frustum.perspective foV near far 
-                              (float(resolution.X)/float(resolution.Y))
+            Frustum.perspective foV near far 
+                (float(resolution.X)/float(resolution.Y))
         frustum, recalcOption, near, far, foV
 
     let calculateFrustum (snapshotAnimation : BookmarkSnapshotAnimation)  = 
