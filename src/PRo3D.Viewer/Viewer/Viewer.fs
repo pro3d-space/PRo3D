@@ -1453,7 +1453,11 @@ module ViewerApp =
         //        Log.line "[Viewer] No surface updates found."
         //        m
         | RecalculateNearFarPlane nearFarPlane,_,_ ->
-            m
+            let fov = m.frustum |> Frustum.horizontalFieldOfViewInDegrees
+            let asp = m.frustum |> Frustum.aspect
+            let f' = Frustum.perspective fov nearFarPlane.X nearFarPlane.Y asp                    
+
+            { m with frustum = f' }
         | Translate (_,b),_,_ ->
             m
             //match _selectedSurface.Get(m) with
