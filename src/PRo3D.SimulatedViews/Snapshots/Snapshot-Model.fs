@@ -486,7 +486,7 @@ type CameraSnapshotAnimation = {
   snapshots     : list<SurfaceSnapshot>
 }
 with 
-  static member defaultNearplane = 1.0
+  static member defaultNearplane = 0.001
   static member defaultFarplane  = 10000000.0
   static member defaultFoV = 30.0
   static member fromPanoramaCollection (pc : PanoramaSnapshotCollection) =

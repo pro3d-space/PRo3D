@@ -167,7 +167,7 @@ module SnapshotApp =
             a.snapshots
                 |> List.indexed
                 |> List.filter (fun (i, x) -> i >= id && i < id + count)
-                |> List.map snd            
+                |> List.map (fun (f,s) -> {s with nearFarPlane = Some(s.nearFarPlane |> Option.defaultValue (V2d(near, far))) })
         let snapshots =
             match app.renderMask, a.renderMask with
             | true, _ | _, Some true ->
