@@ -65,6 +65,8 @@ module TransformationApp =
     | SetRefSysSize         of Numeric.Action
     | ExportTrafoData       of string //list<string>
     | ImportTrafoData       of list<string>
+    | SetRefSysMode         of ReferenceSystemMode
+    | SetPivotMode          of PivotMode
 
 
     // calc reference system from pivot
@@ -182,13 +184,20 @@ module TransformationApp =
         (refSys : ReferenceSystem)
         (localRefSys : Option<Affine3d>)
         (pivot : V3d)
-        (usePivot : bool) =
+        (pivotMode : PivotMode) =
+
+        let usePivot = (pivotMode = PivotMode.BBCenter) || (pivotMode = PivotMode.PickPivot)
 
         match localRefSys, usePivot with
         // uses the local reference system of the surface for reference system basis calculations
         | Some lrs, true -> let rSB = getReferenceSystemBasis_local lrs refSys.planet
                             let oT = pivot |> Trafo3d.Translation
                             rSB, oT
+        // not recommended
+        |_, true -> let rSB = getReferenceSystemBasis_global refSys
+                    let oT = pivot |> Trafo3d.Translation
+                    rSB, oT
+        // not recommended
         | _, _ -> let rSB = getReferenceSystemBasis_global refSys
                   let oT = refSys.origin |> Trafo3d.Translation
                   rSB, oT
@@ -206,13 +215,13 @@ module TransformationApp =
            let! roll = transform.roll.value
            let! pivot = transform.pivot.value
            let! scale = transform.scaling.value
-           let! usePivot = transform.usePivot
            let! observedSystem = observedSystem
            let! observerSystem = observerSystem
            let! mode = transform.eulerMode 
            let! localRefSys = transform.refSys
+           let! pivotMode  = transform.pivotMode
 
-           let refSysBasis, originTrafo = getReferenceSystemBasisAndOriginTrafo refSys localRefSys pivot usePivot
+           let refSysBasis, originTrafo = getReferenceSystemBasisAndOriginTrafo refSys localRefSys pivot pivotMode
            let newTrafo = calcFullTrafo translation yaw pitch roll observedSystem observerSystem scale mode refSysBasis originTrafo
            return newTrafo
         }
@@ -224,7 +233,10 @@ module TransformationApp =
         (observedSystem : Option<SpiceReferenceSystem>)
         (observerSystem : Option<ObserverSystem>) =
 
-        let refSysBasis, originTrafo = getReferenceSystemBasisAndOriginTrafo refsys transform.refSys transform.pivot.value transform.usePivot
+        let refSysBasis, originTrafo = getReferenceSystemBasisAndOriginTrafo 
+                                                refsys transform.refSys 
+                                                transform.pivot.value 
+                                                transform.pivotMode
         let newTrafo = calcFullTrafo 
                                 transform.translation.value 
                                 transform.yaw.value 
@@ -236,6 +248,7 @@ module TransformationApp =
                                 transform.eulerMode
                                 refSysBasis
                                 originTrafo
+                                
         newTrafo
 
 
@@ -287,23 +300,33 @@ module TransformationApp =
             Log.error "%s" e.Message
             None
       
-    let refSysTranslation 
-        (transform : Transformations)
-        (translation : V3d)
-        (pivot       : V3d)
-        (refSys : ReferenceSystem) =
+    //let refSysTranslation 
+    //    (transform : Transformations)
+    //    (translation : V3d)
+    //    (pivot       : V3d)
+    //    (refSys : ReferenceSystem) =
 
-            let refSysRotation = 
-                match transform.refSys, transform.usePivot with
-                | Some lrs, true -> getReferenceSystemBasis_local lrs refSys.planet
-                | _, _ -> getReferenceSystemBasis_global refSys
-            let trans = translation |> Trafo3d.Translation
-            (refSysRotation.Inverse * trans * refSysRotation)
+    //        let refSysRotation = 
+    //            match transform.refSys, transform.usePivot with
+    //            | Some lrs, true -> getReferenceSystemBasis_local lrs refSys.planet
+    //            | _, _ -> getReferenceSystemBasis_global refSys
+    //        let trans = translation |> Trafo3d.Translation
+    //        (refSysRotation.Inverse * trans * refSysRotation)
+
+    let getLocalRefSys 
+        (refSys : ReferenceSystem)
+        (p : V3d) = // world space
+        let newRefSys = ReferenceSystemApp.updateCoordSystem p refSys.planet refSys
+        let north = newRefSys.northO.Normalized        
+        let up    = newRefSys.up.value.Normalized
+        let east  = north.Cross(up).Normalized
+        Affine3d(M33d.FromCols(north, east, up), p) 
 
     let update<'a> 
         (model : Transformations)
         (act : Action) 
-        (refSys : ReferenceSystem) =
+        (refSys : ReferenceSystem) 
+        (bbCenter : V3d) =
         match act with
         | SetTranslation t ->    
             let t' = Vector3d.update model.translation t
@@ -328,24 +351,24 @@ module TransformationApp =
         | ToggleSketchFab   -> 
             { model with isSketchFab = not model.isSketchFab; pivotChanged = false }
         | SetPivotPoint p -> // object space
-            if model.usePivot then
+            if not (model.pivotMode = PivotMode.NoPivot) then
                 let p' = Vector3d.update model.pivot p
                 { model with pivot = p'; oldPivot = p'.value; trafoChanged = false} 
             else model
         | SetPickedPivotPoint p -> // world space.......
-            if model.usePivot then
-                //let newRefSys = ReferenceSystemApp.updateCoordSystem p refSys.planet refSys
+            if (model.pivotMode = PivotMode.PickPivot) then
                 let fulTrafo : Trafo3d = fullTrafo' model refSys None None
                 let pivotObjectSpace = fulTrafo.Inverse.TransformPos(p) 
                 let p' = Vector3d.updateV3d model.pivot pivotObjectSpace
-                { model with pivot = p'; oldPivot = p'.value; trafoChanged = false} 
+                let af = 
+                    if (model.refSysMode = ReferenceSystemMode.PivotCenter) then
+                        Some (getLocalRefSys refSys p'.value)
+                    else model.refSys
+                    
+                { model with pivot = p'; oldPivot = p'.value; trafoChanged = false; refSys = af} 
              else model
         | SetPickedReferenceSystem p -> // world space.......
-            let newRefSys = ReferenceSystemApp.updateCoordSystem p refSys.planet refSys
-            let north = newRefSys.northO.Normalized        
-            let up    = newRefSys.up.value.Normalized
-            let east  = north.Cross(up).Normalized
-            let af = Affine3d(M33d.FromCols(north, east, up), p) 
+            let af = getLocalRefSys refSys p
             { model with refSys = Some af}
         | TogglePivotVisible -> 
             { model with showPivot = not model.showPivot}
@@ -389,6 +412,29 @@ module TransformationApp =
                                 refSys          = data.refSys
                                 } 
             | None -> model
+        | SetRefSysMode mode ->
+            let af =
+                match mode with
+                | ReferenceSystemMode.LEGACY_Global -> None
+                | ReferenceSystemMode.PivotCenter -> 
+                    match model.pivotMode with 
+                    | PivotMode.NoPivot -> None
+                    | _-> Some (getLocalRefSys refSys model.pivot.value)
+                | ReferenceSystemMode.PickedLocal -> model.refSys
+                | _ -> model.refSys
+            { model with refSysMode = mode; refSys = af }
+        | SetPivotMode mode ->
+            let pivot, af =
+                match mode with
+                | PivotMode.BBCenter -> 
+                    let p' = Vector3d.updateV3d model.pivot bbCenter 
+                    let af = 
+                        match model.refSysMode with 
+                        | ReferenceSystemMode.PivotCenter -> Some (getLocalRefSys refSys p'.value)
+                        | _ -> model.refSys
+                    p', af
+                | _ -> model.pivot, model.refSys
+            { model with pivotMode = mode; pivot = pivot; refSys = af}
    
     module UI = 
 
@@ -458,6 +504,9 @@ module TransformationApp =
             require GuiEx.semui (
                 Html.table [  
                     //Html.row "Visible:" [GuiEx.iconCheckBox model.useTranslationArrows ToggleVisible ]
+                    UI.wrapToolTip DataPosition.Bottom "East(X)/North(Y)/Up(Z) is defined by this reference system. Using the global reference system is considered harmful since re-setting it changes all transformations." (
+                        Html.row "ReferenceSystem:"    [Html.SemUi.dropDown model.refSysMode SetRefSysMode] 
+                    )
                     Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map Action.SetTranslation ]
                     Html.row "Scale:"           [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map Action.SetScaling ]
                     Html.row "Yaw   (Z,deg):"     [Numeric.view' [InputBox] model.yaw |> UI.map Action.SetYaw]
@@ -465,16 +514,19 @@ module TransformationApp =
                     Html.row "Roll  (X,deg):"     [Numeric.view' [InputBox] model.roll |> UI.map Action.SetRoll]
                     Html.row "flip Z:"          [GuiEx.iconCheckBox model.flipZ Action.FlipZ ]
                     Html.row "sketchFab:"       [GuiEx.iconCheckBox model.isSketchFab Action.ToggleSketchFab ]
-                    Html.row "use Pivot:"       [GuiEx.iconCheckBox model.usePivot Action.ToggleUsePivot ]
-                    Html.row "show PivotPoint:" [GuiEx.iconCheckBox model.showPivot Action.TogglePivotVisible ]
+                    //Html.row "use Pivot:"       [GuiEx.iconCheckBox model.usePivot Action.ToggleUsePivot ]
+                    UI.wrapToolTip DataPosition.Bottom "Defines what Pivot Point is used for Rotations." (
+                        Html.row "pivot mode:"    [Html.SemUi.dropDown model.pivotMode SetPivotMode] 
+                    )
+                    Html.row "Show PivotPoint:" [GuiEx.iconCheckBox model.showPivot Action.TogglePivotVisible ]
                     Html.row "Pivot Point (m):" [viewPivotPointInput model.pivot |> UI.map Action.SetPivotPoint ]
-                    Html.row "Pivot Size:"      [Numeric.view' [InputBox] model.pivotSize |> UI.map Action.SetPivotSize]
-                    Html.row "show local RefSys:" [GuiEx.iconCheckBox model.showTrafoRefSys Action.ToggleRefSysVisible ]
+                    Html.row "Pivot visualization size:"      [Numeric.view' [InputBox] model.pivotSize |> UI.map Action.SetPivotSize]
+                    Html.row "Show local RefSys:" [GuiEx.iconCheckBox model.showTrafoRefSys Action.ToggleRefSysVisible ]
                     Html.row "Local Reference System:" [viewLocalRefSysData model.refSys]
                     Html.row "RefSys Size:"      [Numeric.view' [InputBox] model.refSysSize |> UI.map Action.SetRefSysSize]
                     Html.row "Mode" [modeDropDown]
-                    Html.row "import Trafodata:"  [ loadTrafoButton ]
-                    Html.row "export Trafodata:"  [ saveTrafoButton ]
+                    Html.row "Import Trafodata:"  [ loadTrafoButton ]
+                    Html.row "Export Trafodata:"  [ saveTrafoButton ]
                 ]
             )
 
