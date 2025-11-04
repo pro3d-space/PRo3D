@@ -5,8 +5,27 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release\</OutputPath>
+  </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ColorMapping.fs" />
+    <EmbeddedResource Include="resources/plasma.png"/>
+    <EmbeddedResource Include="resources/piyg.png"/>
+    <EmbeddedResource Include="resources/twilight_shifted.png"/>
+    <EmbeddedResource Include="resources/vanimo.png"/>
+    <EmbeddedResource Include="resources/viridis.png"/>
+    <EmbeddedResource Include="resources/magma.png"/>
+    <EmbeddedResource Include="resources/hot.png"/>
+    <EmbeddedResource Include="resources/coolwarm.png"/>
     <Compile Include="InstrumentMetadata.fs" />
+    <Compile Include="GeoTiff.fs" />
+    <Compile Include="Tiff.fs" />
+    <Compile Include="InstrumentImage.fs" />
+    <Compile Include="Visualization.fs" />
     <Compile Include="MarsTaggedLocations.fs" />
     <Compile Include="ProjectedImagesModel.fs" />
     <Compile Include="OpcShaders.fs" />

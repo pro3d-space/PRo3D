@@ -8,14 +8,17 @@ open Aardvark.GeoSpatial.Opc
 [<EntryPoint>]
 let main args = 
     
+
+    let molaOpcs =
+        Seq.delay (fun _ -> 
+            System.IO.Directory.GetDirectories(@"C:\pro3ddata\MOLA") 
+        )
+
     let mola =
         { 
             useCompressedTextures = true
             preTransform     = Trafo3d.Identity
-            patchHierarchies = 
-                    Seq.delay (fun _ -> 
-                        System.IO.Directory.GetDirectories(@"C:\pro3ddata\MOLA") 
-                    )
+            patchHierarchies = molaOpcs
             boundingBox      = Box3d.Parse("[[1042657.138109462, 3023778.035968372, -472791.711967824], [1492041.915577915, 3230435.734121298, -231.611523378]]") 
             near             = 0.1
             far              = 10000.0
@@ -59,10 +62,7 @@ let main args =
         Directory.GetDirectories(@"C:\pro3ddata\JezeroRGB\Jezero1")
         |> Seq.collect Directory.GetDirectories
       
-    let gale = 
-         Directory.GetDirectories(@"C:\pro3ddata\MSL\")
-         |> Seq.collect Directory.GetDirectories
 
-    let additional = Seq.append jezero gale
+    let additional = Seq.append jezero molaOpcs
 
-    TestViewer.run mola additional
+    TestViewer.run mola jezero

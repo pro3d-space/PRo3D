@@ -56,7 +56,8 @@ module ImageProjection =
 
                 let c = 
                     if uniform.ProjectedImageModelViewProjValid && inRange && normal.Z < 0.0 then
-                        let c = projectedTexture.Sample(V2d(tc.X, tc.Y)) 
+                        let AFC2 = V2d(tc.X, tc.Y)
+                        let c = projectedTexture.Sample(AFC2).X |>  PRo3D.InstrumentVisualization.Shaders.remap
                         let xBorder = (smoothstep 0.0 borderWidth tc.X) * smoothstep 1.0 (1.0 - borderWidth) tc.X 
                         let yBorder = (smoothstep 0.0 borderWidth tc.Y) * smoothstep 1.0 (1.0 - borderWidth) tc.Y
                         let borderFactor = xBorder * yBorder
