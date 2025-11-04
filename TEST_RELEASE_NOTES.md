@@ -1,3 +1,6 @@
+## 5.0.7-prerelease1
+- Snapshot configuration fixed
+- Snapshots transformations fixed
 
 ## 5.0.6 
 - added traverse priority feature
