@@ -1,3 +1,6 @@
+## 5.2.0-prerelease1            
+- reworked trafo system
+
 ## 5.1.1            
 - added phobos/deimos/moon options in planet selection combo box.
 

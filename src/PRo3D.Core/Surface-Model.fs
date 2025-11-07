@@ -614,8 +614,10 @@ module Init =
         scaling              = Transformations.Initial.scaling
         trafoChanged         = false
         usePivot             = false
+        pivotMode            = PivotMode.NoPivot
         pivotSize            = Transformations.Initial.initPivotSize 0.4
         eulerMode            = EulerMode.defaultMode
+        refSysMode           = ReferenceSystemMode.PivotCenter
     }
     
 
