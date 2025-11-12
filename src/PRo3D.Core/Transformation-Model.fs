@@ -15,6 +15,16 @@ type EulerMode = XYZ | XZY | YXZ | YZX | ZXY | ZYX
 module EulerMode = 
     let defaultMode = EulerMode.XYZ
 
+type ReferenceSystemMode =
+    | LEGACY_Global = 0
+    | PivotCenter = 1
+    | PickedLocal  = 2
+    
+type PivotMode =
+    | NoPivot   = 0
+    | BBCenter  = 1
+    | PickPivot = 2
+
 [<ModelType>]
 type Transformations = { 
     version               : int
@@ -36,8 +46,10 @@ type Transformations = {
     scaling               : NumericInput
     trafoChanged          : bool
     usePivot              : bool
+    pivotMode             : PivotMode
     pivotSize             : NumericInput
     eulerMode             : EulerMode 
+    refSysMode            : ReferenceSystemMode
 } 
 
 
@@ -139,8 +151,10 @@ module Transformations =
                 scaling              = Initial.scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotMode            = PivotMode.NoPivot
                 pivotSize            = Initial.initPivotSize 4.0
-                eulerMode            = EulerMode.defaultMode  
+                eulerMode            = EulerMode.defaultMode 
+                refSysMode           = ReferenceSystemMode.PivotCenter
             }
         }
 
@@ -174,8 +188,10 @@ module Transformations =
                 scaling              = Initial.scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotMode            = PivotMode.NoPivot
                 pivotSize            = Initial.initPivotSize 4.0
-                eulerMode            = EulerMode.defaultMode  
+                eulerMode            = EulerMode.defaultMode
+                refSysMode           = ReferenceSystemMode.PivotCenter
             }
         }
 
@@ -210,8 +226,10 @@ module Transformations =
                 scaling              = Initial.scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotMode            = PivotMode.NoPivot
                 pivotSize            = Initial.initPivotSize 4.0
-                eulerMode            = EulerMode.defaultMode  
+                eulerMode            = EulerMode.defaultMode
+                refSysMode           = ReferenceSystemMode.PivotCenter
             }
         }
 
@@ -249,8 +267,10 @@ module Transformations =
                 scaling              = Initial.scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotMode            = PivotMode.NoPivot
                 pivotSize            = Initial.initPivotSize 4.0
-                eulerMode            = EulerMode.defaultMode  
+                eulerMode            = EulerMode.defaultMode
+                refSysMode           = ReferenceSystemMode.PivotCenter
             }
         }
 
@@ -289,8 +309,10 @@ module Transformations =
                 scaling              = Initial.scaling //scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotMode            = PivotMode.NoPivot
                 pivotSize            = Initial.initPivotSize 4.0
-                eulerMode            = EulerMode.defaultMode  
+                eulerMode            = EulerMode.defaultMode
+                refSysMode           = ReferenceSystemMode.PivotCenter
             }
         }
 
@@ -328,8 +350,10 @@ module Transformations =
                 scaling              = scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotMode            = PivotMode.NoPivot
                 pivotSize            = Initial.initPivotSize 4.0
-                eulerMode            = EulerMode.defaultMode  
+                eulerMode            = EulerMode.defaultMode
+                refSysMode           = ReferenceSystemMode.PivotCenter
             }
         }
     
@@ -352,6 +376,8 @@ module Transformations =
             let! showTrafoRefSys      = Json.tryRead "showTrafoRefSys"
             let! refSysTrafo          = Json.tryReadWith Ext.fromJson<Option<Trafo3d>,Ext> "refSys" 
             let! refSysSize           = Json.tryRead "refSysSize"
+            let! refSysMode           = Json.tryRead "refSysMode"
+            let! pivotMode            = Json.tryRead "pivotMode"
 
             let rfSys = match refSysTrafo with 
                         | Some s -> 
@@ -381,8 +407,15 @@ module Transformations =
                 scaling              = scaling
                 trafoChanged         = false
                 usePivot             = usePivot
+                pivotMode            = match pivotMode with 
+                                       | Some pm -> pm |> enum<PivotMode>
+                                       | None -> PivotMode.NoPivot
                 pivotSize            = match pivotSize with |Some p -> Initial.initPivotSize p | None -> Initial.initPivotSize 4.0
-                eulerMode            = EulerMode.defaultMode  
+                eulerMode            = EulerMode.defaultMode 
+                refSysMode           = match refSysMode with 
+                                       | Some rsm -> rsm |> enum<ReferenceSystemMode>
+                                       | None -> ReferenceSystemMode.PivotCenter
+                
             }
         }
 
@@ -431,6 +464,8 @@ type Transformations with
             do! Json.writeWith Ext.toJson<Trafo3d,Ext> "refSys" tRefSys
             do! Json.write "showTrafoRefSys" x.showTrafoRefSys
             do! Json.write "refSysSize" x.refSysSize.value
+            do! Json.write "refSysMode" (x.refSysMode |> int)
+            do! Json.write "pivotMode" (x.pivotMode |> int)
         }
 
 

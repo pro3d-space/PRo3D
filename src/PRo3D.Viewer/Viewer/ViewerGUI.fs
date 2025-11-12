@@ -130,7 +130,10 @@ module Gui =
                     | Planet.JPL   -> "JPL Rover Frame"
                     | Planet.None  -> "None xyz"          
                     | Planet.ENU   -> "ENU"
-                    | _ -> "[TextOverlays] missing enum"
+                    | Planet.Moon  -> "Moon"
+                    | Planet.Deimos -> "Deimos"
+                    | Planet.Phobos -> "Phobos"
+                    | _ -> "[TextOverlays] missing text representation for selected planet."
                 )  
             
             let pnb = pitchAndBearing m cv
