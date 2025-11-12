@@ -12,6 +12,8 @@ open PRo3D.Base.Gis
 open Chiron
 open Aardvark.UI.Primitives
 
+open Aardvark.Base
+
 
 type GisSurface = {
     surfaceId       : SurfaceId
@@ -154,7 +156,8 @@ type InstrumentProjection =
         instrumentName : string
         supportBody : string
         time : DateTime
-    }
+        boresightAdjustment : Option<Trafo3d>
+    } 
 
 
 module InstrumentProjection = 

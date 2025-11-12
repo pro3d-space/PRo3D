@@ -13,15 +13,16 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ColorMapping.fs" />
-    <EmbeddedResource Include="resources/plasma.png"/>
-    <EmbeddedResource Include="resources/piyg.png"/>
-    <EmbeddedResource Include="resources/twilight_shifted.png"/>
-    <EmbeddedResource Include="resources/vanimo.png"/>
-    <EmbeddedResource Include="resources/viridis.png"/>
-    <EmbeddedResource Include="resources/magma.png"/>
-    <EmbeddedResource Include="resources/hot.png"/>
-    <EmbeddedResource Include="resources/coolwarm.png"/>
-    <Compile Include="InstrumentMetadata.fs" />
+    <EmbeddedResource Include="resources/plasma.png" />
+    <EmbeddedResource Include="resources/piyg.png" />
+    <EmbeddedResource Include="resources/twilight_shifted.png" />
+    <EmbeddedResource Include="resources/vanimo.png" />
+    <EmbeddedResource Include="resources/viridis.png" />
+    <EmbeddedResource Include="resources/magma.png" />
+    <EmbeddedResource Include="resources/hot.png" />
+    <EmbeddedResource Include="resources/coolwarm.png" />
+
+	<Compile Include="InstrumentMetadata.fs" />
     <Compile Include="GeoTiff.fs" />
     <Compile Include="Tiff.fs" />
     <Compile Include="InstrumentImage.fs" />
@@ -34,9 +35,12 @@
     <Compile Include="ImageProjection.fs" />
     <Compile Include="Rendering.fs" />
     <Compile Include="Markers.fs" />
+	  
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
     <Compile Include="ImagesView.fs" />
+    <Compile Include="ProjectedImageApp.fs" />
+    <Compile Include="ProjectedImageListApp.fs" />
     <Compile Include="GisApp.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

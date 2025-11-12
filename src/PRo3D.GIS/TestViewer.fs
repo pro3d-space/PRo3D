@@ -205,6 +205,7 @@ module TestViewer =
                         instrumentName = "HERA_AFC-1"
                         supportBody = "SUN"
                         time = obsTime
+                        boresightAdjustment = None
                     }
                 mbi.obs_date, ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
             )
