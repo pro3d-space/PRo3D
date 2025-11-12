@@ -622,9 +622,9 @@ Target.create "CopyJRWRapper" (fun _ ->
 
 Target.create "GitHubRelease" (fun _ ->
     let newVersion = notes.NugetVersion
+    let tagName = "v" + newVersion
     try
         try
-            let tagName = "v" + newVersion
             Branches.tag "." tagName
             let token =
                 match Environment.environVarOrDefault "GH_TOKEN" "" with
@@ -633,7 +633,10 @@ Target.create "GitHubRelease" (fun _ ->
 
             //let files = System.IO.Directory.EnumerateFiles("bin/publish") 
             let release = sprintf "bin/PRo3D.Viewer-standalone.%s.zip" notes.NugetVersion
-            let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
+            let z = 
+                if File.Exists release then
+                    File.Delete(release)
+                System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
             let release =
                 GitHub.createClientWithToken token
@@ -642,11 +645,11 @@ Target.create "GitHubRelease" (fun _ ->
                 //|> GitHub.publishDraft
                 |> Async.RunSynchronously
 
-            try Branches.pushTag "." "origin" newVersion with e -> Trace.logf "could not create tag: %A" e
+            try Branches.pushTag "." "origin" tagName with e -> Trace.logf "could not create tag: %A" e
 
         with e -> 
             Trace.logf "failed to create github release: %A" e
-            Branches.deleteTag "." newVersion
+            Branches.deleteTag "." tagName
     finally
         ()
         
