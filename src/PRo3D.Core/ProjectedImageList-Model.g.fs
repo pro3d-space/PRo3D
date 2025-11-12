@@ -1,17 +1,17 @@
-//032c4b68-4eb1-7d27-3b6d-a3208d742797
-//a8321013-277f-3a36-4c9f-2f2c1ced0b52
+//86894f71-eb54-b569-147e-ff9a02df0192
+//f2b26066-6e3e-c6c8-70d3-0daa12a451e6
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
 #nowarn "1182" // value is unused
-namespace rec PRo3D.ImageMapping.Model
+namespace rec PRo3D.ImageMapping
 
 open System
 open FSharp.Data.Adaptive
 open Adaptify
-open PRo3D.ImageMapping.Model
+open PRo3D.ImageMapping
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-type AdaptiveImage(value : Image) =
+type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
     let _colorMap_ = FSharp.Data.Adaptive.cval(value.colorMap)
     let _useFalseColor_ = FSharp.Data.Adaptive.cval(value.useFalseColor)
     let _selectedChannel_ = FSharp.Data.Adaptive.cval(value.selectedChannel)
@@ -26,10 +26,10 @@ type AdaptiveImage(value : Image) =
     let _time_ = FSharp.Data.Adaptive.cval(value.time)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
-    static member Create(value : Image) = AdaptiveImage(value)
-    static member Unpersist = Adaptify.Unpersist.create (fun (value : Image) -> AdaptiveImage(value)) (fun (adaptive : AdaptiveImage) (value : Image) -> adaptive.Update(value))
-    member __.Update(value : Image) =
-        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<Image>.ShallowEquals(value, __value))) then
+    static member Create(value : ProjectedImageModel) = AdaptiveProjectedImageModel(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : ProjectedImageModel) -> AdaptiveProjectedImageModel(value)) (fun (adaptive : AdaptiveProjectedImageModel) (value : ProjectedImageModel) -> adaptive.Update(value))
+    member __.Update(value : ProjectedImageModel) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<ProjectedImageModel>.ShallowEquals(value, __value))) then
             __value <- value
             __adaptive.MarkOutdated()
             _colorMap_.Value <- value.colorMap
@@ -58,20 +58,20 @@ type AdaptiveImage(value : Image) =
     member __.distance = _distance_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.time = _time_ :> FSharp.Data.Adaptive.aval<System.DateTime>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-module ImageLenses = 
-    type Image with
-        static member colorMap_ = ((fun (self : Image) -> self.colorMap), (fun (value : ColorMap) (self : Image) -> { self with colorMap = value }))
-        static member useFalseColor_ = ((fun (self : Image) -> self.useFalseColor), (fun (value : Microsoft.FSharp.Core.bool) (self : Image) -> { self with useFalseColor = value }))
-        static member selectedChannel_ = ((fun (self : Image) -> self.selectedChannel), (fun (value : Channel) (self : Image) -> { self with selectedChannel = value }))
-        static member channelOptions_ = ((fun (self : Image) -> self.channelOptions), (fun (value : Microsoft.FSharp.Collections.list<Channel>) (self : Image) -> { self with channelOptions = value }))
-        static member dataType_ = ((fun (self : Image) -> self.dataType), (fun (value : DataType) (self : Image) -> { self with dataType = value }))
-        static member defaultMinValues_ = ((fun (self : Image) -> self.defaultMinValues), (fun (value : Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.float>) (self : Image) -> { self with defaultMinValues = value }))
-        static member defaultMaxValues_ = ((fun (self : Image) -> self.defaultMaxValues), (fun (value : Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.float>) (self : Image) -> { self with defaultMaxValues = value }))
-        static member inputMinValue_ = ((fun (self : Image) -> self.inputMinValue), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Image) -> { self with inputMinValue = value }))
-        static member inputMaxValue_ = ((fun (self : Image) -> self.inputMaxValue), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Image) -> { self with inputMaxValue = value }))
-        static member texture_ = ((fun (self : Image) -> self.texture), (fun (value : Microsoft.FSharp.Core.string) (self : Image) -> { self with texture = value }))
-        static member distance_ = ((fun (self : Image) -> self.distance), (fun (value : Microsoft.FSharp.Core.float) (self : Image) -> { self with distance = value }))
-        static member time_ = ((fun (self : Image) -> self.time), (fun (value : System.DateTime) (self : Image) -> { self with time = value }))
+module ProjectedImageModelLenses = 
+    type ProjectedImageModel with
+        static member colorMap_ = ((fun (self : ProjectedImageModel) -> self.colorMap), (fun (value : ColorMap) (self : ProjectedImageModel) -> { self with colorMap = value }))
+        static member useFalseColor_ = ((fun (self : ProjectedImageModel) -> self.useFalseColor), (fun (value : Microsoft.FSharp.Core.bool) (self : ProjectedImageModel) -> { self with useFalseColor = value }))
+        static member selectedChannel_ = ((fun (self : ProjectedImageModel) -> self.selectedChannel), (fun (value : Channel) (self : ProjectedImageModel) -> { self with selectedChannel = value }))
+        static member channelOptions_ = ((fun (self : ProjectedImageModel) -> self.channelOptions), (fun (value : Microsoft.FSharp.Collections.list<Channel>) (self : ProjectedImageModel) -> { self with channelOptions = value }))
+        static member dataType_ = ((fun (self : ProjectedImageModel) -> self.dataType), (fun (value : DataType) (self : ProjectedImageModel) -> { self with dataType = value }))
+        static member defaultMinValues_ = ((fun (self : ProjectedImageModel) -> self.defaultMinValues), (fun (value : Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.float>) (self : ProjectedImageModel) -> { self with defaultMinValues = value }))
+        static member defaultMaxValues_ = ((fun (self : ProjectedImageModel) -> self.defaultMaxValues), (fun (value : Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.float>) (self : ProjectedImageModel) -> { self with defaultMaxValues = value }))
+        static member inputMinValue_ = ((fun (self : ProjectedImageModel) -> self.inputMinValue), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ProjectedImageModel) -> { self with inputMinValue = value }))
+        static member inputMaxValue_ = ((fun (self : ProjectedImageModel) -> self.inputMaxValue), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ProjectedImageModel) -> { self with inputMaxValue = value }))
+        static member texture_ = ((fun (self : ProjectedImageModel) -> self.texture), (fun (value : Microsoft.FSharp.Core.string) (self : ProjectedImageModel) -> { self with texture = value }))
+        static member distance_ = ((fun (self : ProjectedImageModel) -> self.distance), (fun (value : Microsoft.FSharp.Core.float) (self : ProjectedImageModel) -> { self with distance = value }))
+        static member time_ = ((fun (self : ProjectedImageModel) -> self.time), (fun (value : System.DateTime) (self : ProjectedImageModel) -> { self with time = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveBoresightAdjustment(value : BoresightAdjustment) =
     let _roll_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.roll)
@@ -99,12 +99,12 @@ module BoresightAdjustmentLenses =
         static member pitch_ = ((fun (self : BoresightAdjustment) -> self.pitch), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : BoresightAdjustment) -> { self with pitch = value }))
         static member yaw_ = ((fun (self : BoresightAdjustment) -> self.yaw), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : BoresightAdjustment) -> { self with yaw = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-type AdaptiveProjectedImagesModel(value : ProjectedImagesModel) =
+type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
     let _images_ =
-        let inline __arg2 (m : AdaptiveImage) (v : Image) =
+        let inline __arg2 (m : AdaptiveProjectedImageModel) (v : ProjectedImageModel) =
             m.Update(v)
             m
-        FSharp.Data.Traceable.ChangeableModelList(value.images, (fun (v : Image) -> AdaptiveImage(v)), __arg2, (fun (m : AdaptiveImage) -> m))
+        FSharp.Data.Traceable.ChangeableModelList(value.images, (fun (v : ProjectedImageModel) -> AdaptiveProjectedImageModel(v)), __arg2, (fun (m : AdaptiveProjectedImageModel) -> m))
     let _selectedImage_ = FSharp.Data.Adaptive.cval(value.selectedImage)
     let _editImages_ = FSharp.Data.Adaptive.cval(value.editImages)
     let _projectionOpacity_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.projectionOpacity)
@@ -112,10 +112,10 @@ type AdaptiveProjectedImagesModel(value : ProjectedImagesModel) =
     let _cameraState_ = Aardvark.UI.Primitives.AdaptiveOrbitState(value.cameraState)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
-    static member Create(value : ProjectedImagesModel) = AdaptiveProjectedImagesModel(value)
-    static member Unpersist = Adaptify.Unpersist.create (fun (value : ProjectedImagesModel) -> AdaptiveProjectedImagesModel(value)) (fun (adaptive : AdaptiveProjectedImagesModel) (value : ProjectedImagesModel) -> adaptive.Update(value))
-    member __.Update(value : ProjectedImagesModel) =
-        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<ProjectedImagesModel>.ShallowEquals(value, __value))) then
+    static member Create(value : ProjectedImageListModel) = AdaptiveProjectedImageListModel(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : ProjectedImageListModel) -> AdaptiveProjectedImageListModel(value)) (fun (adaptive : AdaptiveProjectedImageListModel) (value : ProjectedImageListModel) -> adaptive.Update(value))
+    member __.Update(value : ProjectedImageListModel) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<ProjectedImageListModel>.ShallowEquals(value, __value))) then
             __value <- value
             __adaptive.MarkOutdated()
             _images_.Update(value.images)
@@ -125,19 +125,19 @@ type AdaptiveProjectedImagesModel(value : ProjectedImagesModel) =
             _boresightAdjustment_.Update(value.boresightAdjustment)
             _cameraState_.Update(value.cameraState)
     member __.Current = __adaptive
-    member __.images = _images_ :> FSharp.Data.Adaptive.alist<AdaptiveImage>
+    member __.images = _images_ :> FSharp.Data.Adaptive.alist<AdaptiveProjectedImageModel>
     member __.selectedImage = _selectedImage_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>>
     member __.editImages = _editImages_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<FSharp.Data.Adaptive.Index>>
     member __.projectionOpacity = _projectionOpacity_
     member __.boresightAdjustment = _boresightAdjustment_
     member __.cameraState = _cameraState_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-module ProjectedImagesModelLenses = 
-    type ProjectedImagesModel with
-        static member images_ = ((fun (self : ProjectedImagesModel) -> self.images), (fun (value : FSharp.Data.Adaptive.IndexList<Image>) (self : ProjectedImagesModel) -> { self with images = value }))
-        static member selectedImage_ = ((fun (self : ProjectedImagesModel) -> self.selectedImage), (fun (value : Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>) (self : ProjectedImagesModel) -> { self with selectedImage = value }))
-        static member editImages_ = ((fun (self : ProjectedImagesModel) -> self.editImages), (fun (value : Microsoft.FSharp.Collections.list<FSharp.Data.Adaptive.Index>) (self : ProjectedImagesModel) -> { self with editImages = value }))
-        static member projectionOpacity_ = ((fun (self : ProjectedImagesModel) -> self.projectionOpacity), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ProjectedImagesModel) -> { self with projectionOpacity = value }))
-        static member boresightAdjustment_ = ((fun (self : ProjectedImagesModel) -> self.boresightAdjustment), (fun (value : BoresightAdjustment) (self : ProjectedImagesModel) -> { self with boresightAdjustment = value }))
-        static member cameraState_ = ((fun (self : ProjectedImagesModel) -> self.cameraState), (fun (value : Aardvark.UI.Primitives.OrbitState) (self : ProjectedImagesModel) -> { self with cameraState = value }))
+module ProjectedImageListModelLenses = 
+    type ProjectedImageListModel with
+        static member images_ = ((fun (self : ProjectedImageListModel) -> self.images), (fun (value : FSharp.Data.Adaptive.IndexList<ProjectedImageModel>) (self : ProjectedImageListModel) -> { self with images = value }))
+        static member selectedImage_ = ((fun (self : ProjectedImageListModel) -> self.selectedImage), (fun (value : Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>) (self : ProjectedImageListModel) -> { self with selectedImage = value }))
+        static member editImages_ = ((fun (self : ProjectedImageListModel) -> self.editImages), (fun (value : Microsoft.FSharp.Collections.list<FSharp.Data.Adaptive.Index>) (self : ProjectedImageListModel) -> { self with editImages = value }))
+        static member projectionOpacity_ = ((fun (self : ProjectedImageListModel) -> self.projectionOpacity), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ProjectedImageListModel) -> { self with projectionOpacity = value }))
+        static member boresightAdjustment_ = ((fun (self : ProjectedImageListModel) -> self.boresightAdjustment), (fun (value : BoresightAdjustment) (self : ProjectedImageListModel) -> { self with boresightAdjustment = value }))
+        static member cameraState_ = ((fun (self : ProjectedImageListModel) -> self.cameraState), (fun (value : Aardvark.UI.Primitives.OrbitState) (self : ProjectedImageListModel) -> { self with cameraState = value }))
 

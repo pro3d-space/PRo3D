@@ -1,5 +1,5 @@
-//a52ec2ca-d328-08f9-51aa-8d99f414c549
-//f59aeaac-abe3-5c03-c779-165143182d77
+//a6bbc5c7-9d68-af51-0b5a-2fdd2afc7753
+//944d6e70-0503-e331-7ec0-8593074c2181
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -68,28 +68,6 @@ module MissionTimeEntryLenses =
         static member name_ = ((fun (self : MissionTimeEntry) -> self.name), (fun (value : Microsoft.FSharp.Core.string) (self : MissionTimeEntry) -> { self with name = value }))
         static member value_ = ((fun (self : MissionTimeEntry) -> self.value), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : MissionTimeEntry) -> { self with value = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-type AdaptiveProjectedImages(value : ProjectedImages) =
-    let _images_ = FSharp.Data.Adaptive.clist(value.images)
-    let _selectedImage_ = FSharp.Data.Adaptive.cval(value.selectedImage)
-    let mutable __value = value
-    let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
-    static member Create(value : ProjectedImages) = AdaptiveProjectedImages(value)
-    static member Unpersist = Adaptify.Unpersist.create (fun (value : ProjectedImages) -> AdaptiveProjectedImages(value)) (fun (adaptive : AdaptiveProjectedImages) (value : ProjectedImages) -> adaptive.Update(value))
-    member __.Update(value : ProjectedImages) =
-        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<ProjectedImages>.ShallowEquals(value, __value))) then
-            __value <- value
-            __adaptive.MarkOutdated()
-            _images_.Value <- value.images
-            _selectedImage_.Value <- value.selectedImage
-    member __.Current = __adaptive
-    member __.images = _images_ :> FSharp.Data.Adaptive.alist<ProjectedImage>
-    member __.selectedImage = _selectedImage_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>>
-[<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-module ProjectedImagesLenses = 
-    type ProjectedImages with
-        static member images_ = ((fun (self : ProjectedImages) -> self.images), (fun (value : FSharp.Data.Adaptive.IndexList<ProjectedImage>) (self : ProjectedImages) -> { self with images = value }))
-        static member selectedImage_ = ((fun (self : ProjectedImages) -> self.selectedImage), (fun (value : Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>) (self : ProjectedImages) -> { self with selectedImage = value }))
-[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveGisApp(value : GisApp) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _defaultObservationInfo_ = AdaptiveObservationInfo(value.defaultObservationInfo)
@@ -123,7 +101,7 @@ type AdaptiveGisApp(value : GisApp) =
     let _spiceKernel_ = FSharp.Data.Adaptive.cval(value.spiceKernel)
     let _spiceKernelLoadSuccess_ = FSharp.Data.Adaptive.cval(value.spiceKernelLoadSuccess)
     let _cameraInObserver_ = FSharp.Data.Adaptive.cval(value.cameraInObserver)
-    let _projectedImages_ = AdaptiveProjectedImages(value.projectedImages)
+    let _projectedImageList_ = PRo3D.ImageMapping.AdaptiveProjectedImageListModel(value.projectedImageList)
     let _showMarkers_ = FSharp.Data.Adaptive.cval(value.showMarkers)
     let _selectedMissionTimeRow_ = FSharp.Data.Adaptive.cval(value.selectedMissionTimeRow)
     let _missionTimesEntries_ =
@@ -162,7 +140,7 @@ type AdaptiveGisApp(value : GisApp) =
             _spiceKernel_.Value <- value.spiceKernel
             _spiceKernelLoadSuccess_.Value <- value.spiceKernelLoadSuccess
             _cameraInObserver_.Value <- value.cameraInObserver
-            _projectedImages_.Update(value.projectedImages)
+            _projectedImageList_.Update(value.projectedImageList)
             _showMarkers_.Value <- value.showMarkers
             _selectedMissionTimeRow_.Value <- value.selectedMissionTimeRow
             _missionTimesEntries_.Update(value.missionTimesEntries)
@@ -177,7 +155,7 @@ type AdaptiveGisApp(value : GisApp) =
     member __.spiceKernel = _spiceKernel_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<PRo3D.Base.CooTransformation.SPICEKernel>>
     member __.spiceKernelLoadSuccess = _spiceKernelLoadSuccess_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.cameraInObserver = _cameraInObserver_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
-    member __.projectedImages = _projectedImages_
+    member __.projectedImageList = _projectedImageList_
     member __.showMarkers = _showMarkers_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.selectedMissionTimeRow = _selectedMissionTimeRow_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>>
     member __.missionTimesEntries = _missionTimesEntries_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<FSharp.Data.Adaptive.IndexList<MissionTimeEntry>, FSharp.Data.Adaptive.alist<AdaptiveMissionTimeEntry>, FSharp.Data.Adaptive.alist<AdaptiveMissionTimeEntry>>>
@@ -194,7 +172,7 @@ module GisAppLenses =
         static member spiceKernel_ = ((fun (self : GisApp) -> self.spiceKernel), (fun (value : Microsoft.FSharp.Core.Option<PRo3D.Base.CooTransformation.SPICEKernel>) (self : GisApp) -> { self with spiceKernel = value }))
         static member spiceKernelLoadSuccess_ = ((fun (self : GisApp) -> self.spiceKernelLoadSuccess), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with spiceKernelLoadSuccess = value }))
         static member cameraInObserver_ = ((fun (self : GisApp) -> self.cameraInObserver), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with cameraInObserver = value }))
-        static member projectedImages_ = ((fun (self : GisApp) -> self.projectedImages), (fun (value : ProjectedImages) (self : GisApp) -> { self with projectedImages = value }))
+        static member projectedImageList_ = ((fun (self : GisApp) -> self.projectedImageList), (fun (value : PRo3D.ImageMapping.ProjectedImageListModel) (self : GisApp) -> { self with projectedImageList = value }))
         static member showMarkers_ = ((fun (self : GisApp) -> self.showMarkers), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with showMarkers = value }))
         static member selectedMissionTimeRow_ = ((fun (self : GisApp) -> self.selectedMissionTimeRow), (fun (value : Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>) (self : GisApp) -> { self with selectedMissionTimeRow = value }))
         static member missionTimesEntries_ = ((fun (self : GisApp) -> self.missionTimesEntries), (fun (value : Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.IndexList<MissionTimeEntry>>) (self : GisApp) -> { self with missionTimesEntries = value }))

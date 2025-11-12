@@ -651,10 +651,12 @@ module Gui =
                                             text "Load SPICE kernel"
                                         ]
 
-                                        let jsImportImages = "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to import images from', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.ImageProjection (ImageProjectionMessage.LoadImagesDir p)) | _ -> ViewerAction.Nop); clientEvent "onclick" jsImportImages ] [
-                                            text "Load Image Projections"
-                                        ]
+
+                                        // SP: remove code if loading of projected images does work
+                                        //let jsImportImages = "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to import images from', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+                                        //div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (ImageProjectionMessage.LoadImagesDir p)) | _ -> ViewerAction.Nop); clientEvent "onclick" jsImportImages ] [
+                                        //    text "Load Image Projections"
+                                        //]
 
                                         
 

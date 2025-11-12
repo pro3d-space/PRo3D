@@ -38,7 +38,6 @@
 	  
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
-    <Compile Include="ImagesView.fs" />
     <Compile Include="ProjectedImageApp.fs" />
     <Compile Include="ProjectedImageListApp.fs" />
     <Compile Include="GisApp.fs" />

@@ -1,10 +1,10 @@
-﻿namespace PRo3D.ImageMapping.Model
-
-open Aardvark.UI.Primitives
-open Adaptify
+﻿namespace PRo3D.ImageMapping
 
 open FSharp.Data.Adaptive
 
+open Aardvark.Base
+open Aardvark.UI.Primitives
+open Adaptify
 
 type ColorMap =
     | Magma = 0
@@ -38,7 +38,7 @@ type Channel =
     }
 
 [<ModelType>]
-type Image =
+type ProjectedImageModel =
     {
         colorMap        : ColorMap
         useFalseColor   : bool
@@ -72,14 +72,24 @@ module BoresightAdjustment =
         }
 
 [<ModelType>]
-type ProjectedImagesModel =
+type ProjectedImageListModel =
     {
-        images          : IndexList<Image>
+        images          : IndexList<ProjectedImageModel>
         selectedImage   : Option<Index>
         editImages      : Index list
         projectionOpacity : NumericInput
         boresightAdjustment : BoresightAdjustment
         cameraState     : OrbitState
+    }
+
+module ProjectedImageListModel =
+    let initial : ProjectedImageListModel = {
+        images = IndexList.Empty;
+        selectedImage = None;
+        editImages = List.Empty;
+        projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
+        boresightAdjustment = BoresightAdjustment.identity
+        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
     }
 
 type ImageMessage =
@@ -93,7 +103,7 @@ type ImageMessage =
     | Empty
 
 
-type ProjectedImagesMessage = 
+type ProjectedImageListMessage = 
     | OrbitCameraMessage of OrbitMessage
     | SelectImage of Index
     | EditImage of Index

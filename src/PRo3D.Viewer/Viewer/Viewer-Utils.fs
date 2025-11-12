@@ -1032,11 +1032,11 @@ module ViewerUtils =
             ]
 
         let singleProjectedImage  = 
-            m.scene.gisApp.projectedImages.selectedImage 
+            m.scene.gisApp.projectedImageList.selectedImage 
             |> AVal.bind (function 
                 | None -> AVal.constant None
                 | Some s -> 
-                    AList.tryGet s m.scene.gisApp.projectedImages.images 
+                    AList.tryGet s m.scene.gisApp.projectedImageList.images 
                     |> AVal.map (function 
                         | None -> None
                         | Some img -> 
@@ -1050,7 +1050,7 @@ module ViewerUtils =
                                     | _ -> 
                                         Some Trafo3d.Identity
                                     )
-                                Some (img.fullName, trafo)
+                                Some (img.texture, trafo)
                     )
              )
 
@@ -1060,11 +1060,9 @@ module ViewerUtils =
         let singleImageProjectionTexture = 
             singleProjectedImage |> AVal.map (function None -> NullTexture.Instance | Some (s, p) -> FileTexture(s, true) :> ITexture)
 
-
-
         let projectedImages (surfaceId : Guid) (body : string) (refSystem :  string) : aval<Option<Sg.ProjectedImages>> = 
             if body.ToLower() = "mars" then
-                m.scene.gisApp.projectedImages.images.Content
+                m.scene.gisApp.projectedImageList.images.Content
                 |> AVal.map (fun images -> 
                     let sunDirection = Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
                     let arr = IndexList.toArray images

@@ -6,7 +6,7 @@ open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Rendering
 open FSharp.Data.Adaptive
-open PRo3D.ImageMapping.Model
+open PRo3D.ImageMapping
 
 open System.IO
 
@@ -67,7 +67,7 @@ module Shaders =
         }
 
 
-module Image =
+module ProjectedImageApp =
 
     let initialPath = ""
 
@@ -170,7 +170,7 @@ module Image =
             time = time;
         }
 
-    let update (m : Image) (msg : ImageMessage) =
+    let update (m : ProjectedImageModel) (msg : ImageMessage) =
         match msg with
             | SetDataTypeAndRange (dataType, min, max) ->
                 { m with inputMinValue = { minValue with min = min}; inputMaxValue = {minValue with max = max} }
@@ -203,7 +203,7 @@ module Image =
     let whiteTex =
         PixTexture2d(PixImageMipMap [| whitePix :> PixImage |], false) :> ITexture
 
-    let view (m : AdaptiveImage) =
+    let view (m : AdaptiveProjectedImageModel) =
         let content = 
             Html.table [ 
                 Html.row "EXR Channel:" [
@@ -263,7 +263,7 @@ module Image =
         )
 
 
-    let view2DRelative (m : AdaptiveImage) =
+    let view2DRelative (m : AdaptiveProjectedImageModel) =
 
         let colormapTexture : aval<ITexture> =
             m.colorMap

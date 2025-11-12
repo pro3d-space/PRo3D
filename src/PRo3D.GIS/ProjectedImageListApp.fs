@@ -5,7 +5,7 @@ open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
-open PRo3D.ImageMapping.Model
+open PRo3D.ImageMapping
 
 open PRo3D.Base
 
@@ -13,20 +13,11 @@ open System.IO
 
 type Self = Self
 
-module App =
+module ProjectedImageListApp =
 
     let borderColor = "rgba(255,255,255,.1)"
 
-    let initial : ProjectedImagesModel = {
-        images = IndexList.Empty;
-        selectedImage = None;
-        editImages = List.Empty;
-        projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
-        boresightAdjustment = BoresightAdjustment.identity
-        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
-    }
-
-    let update (m : ProjectedImagesModel) (msg : ProjectedImagesMessage) = 
+    let update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) = 
         match msg with
         | Nop -> m
         | OrbitCameraMessage msg ->
@@ -45,7 +36,7 @@ module App =
                     List.contains e imageExts 
                 )
                 |> Seq.map (fun path -> 
-                    Image.loadFile(path)
+                    ProjectedImageApp.loadFile(path)
                 ) |> IndexList.ofSeq
             let firstIndex = 
                 if IndexList.isEmpty images' then
@@ -66,7 +57,7 @@ module App =
         | ImageMessage (idx, imageMessage) ->
             let images' = m.images |> IndexList.mapi (fun index img ->
                     if index = idx then
-                        Image.update img imageMessage
+                        ProjectedImageApp.update img imageMessage
                     else
                         img
                 )
@@ -131,9 +122,9 @@ module App =
 
 
     let view 
-        (m : AdaptiveProjectedImagesModel)
-        (showDOM : AdaptiveImage -> DomNode<ImageMessage>) 
-        (showRelative2DImage : AdaptiveImage -> DomNode<ImageMessage>) =
+        (m : AdaptiveProjectedImageListModel)
+        (showDOM : AdaptiveProjectedImageModel -> DomNode<ImageMessage>) 
+        (showRelative2DImage : AdaptiveProjectedImageModel -> DomNode<ImageMessage>) =
         
         let listAttributes =
             amap {
@@ -209,7 +200,7 @@ module App =
                                                     let! isInEditMode = m.editImages |> AVal.map (fun editEntries -> List.contains index editEntries)
                                                     if isInEditMode then
                                                         div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
-                                                            showDOM img |> UI.map (fun msg -> ProjectedImagesMessage.ImageMessage (index, msg))
+                                                            showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (index, msg))
                                                         ]
                                                     else
                                                         div [] []
@@ -260,7 +251,7 @@ module App =
                         | Some sel -> 
                             let! img = AList.tryGet sel m.images
                             match img with
-                            | Some img' -> return showRelative2DImage img' |> UI.map (fun msg -> ProjectedImagesMessage.ImageMessage (sel, msg))
+                            | Some img' -> return showRelative2DImage img' |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (sel, msg))
                             | None -> return div [] []
                         | None -> return div [] []
                     }
@@ -286,6 +277,7 @@ module App =
                 ]
             ])
 
+    (*
     let app () =
         {
             initial = initial
@@ -294,3 +286,4 @@ module App =
             threads = constF ThreadPool.empty
             unpersist = Unpersist.instance
         }
+    *)

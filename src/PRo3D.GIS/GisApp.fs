@@ -15,6 +15,8 @@ open PRo3D.Base.Gis
 open Aether
 open PRo3D.Core.SequencedBookmarks
 
+open PRo3D.ImageMapping
+
 open Aardvark.Rendering
 open Aardvark.SceneGraph
 
@@ -243,21 +245,22 @@ module GisApp =
             viewer, {m with cameraInObserver = not m.cameraInObserver}
         | GisAppAction.ToggleDrawMarkers -> 
             viewer, {m with showMarkers = not m.showMarkers }
-        | GisAppAction.ImageProjection msg -> 
-            let m = 
-                match msg with 
-                | ImageProjectionMessage.SelectImage idx -> 
-                    match IndexList.tryGet idx m.projectedImages.images with
-                    | None -> m
-                    | Some img -> 
-                        match img.projection with
-                        | None -> m
-                        | Some p ->
-                            let info = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime p.time)
-                            let m = {m with defaultObservationInfo = info}
-                            m
-                | _ -> m
-            viewer, {m with projectedImages = ProjectedImagesApp.update msg m.projectedImages }
+        | GisAppAction.ProjectedImageListMessage msg -> 
+            // SP: Change time of GIS App
+            //let m = 
+            //    match msg with 
+            //    | ImageProjectionMessage.SelectImage idx -> 
+            //        match IndexList.tryGet idx m.projectedImages.images with
+            //        | None -> m
+            //        | Some img -> 
+            //            match img.projection with
+            //            | None -> m
+            //            | Some p ->
+            //                let info = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime p.time)
+            //                let m = {m with defaultObservationInfo = info}
+            //                m
+            //    | _ -> m
+            viewer, {m with projectedImageList = ProjectedImageListApp.update m.projectedImageList msg }
         | GisAppAction.InitializeMissionTimeEntries ->
              let data : list<MissionTimeEntry> = getMissionTimeEntriesData()
              viewer, {m with missionTimesEntries = Some (IndexList.ofList data) }
@@ -696,7 +699,8 @@ module GisApp =
             ]
 
             GuiEx.accordion "Projected Images" "Images" false [
-                ProjectedImagesApp.viewProjectedImages m.projectedImages |> UI.map GisAppAction.ImageProjection
+                //ProjectedImagesApp.viewProjectedImages m.projectedImages |> UI.map GisAppAction.ProjectedImageListMessage
+                ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative |> UI.map GisAppAction.ProjectedImageListMessage
             ]
 
             let kernelPathTextBox = 
@@ -1069,7 +1073,7 @@ module GisApp =
                 spiceKernel             = spiceKernel |> Option.map CooTransformation.SPICEKernel.ofPath  
                 spiceKernelLoadSuccess  = true
                 cameraInObserver        = false
-                projectedImages         = ProjectedImages.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
+                projectedImageList      = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
                 showMarkers             = false
                 selectedMissionTimeRow  = None
                 missionTimesEntries     = Some (IndexList.ofList missionTimeEntries)
