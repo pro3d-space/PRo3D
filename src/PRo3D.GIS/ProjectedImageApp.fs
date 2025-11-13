@@ -16,7 +16,6 @@ open PRo3D.InstrumentData
 open PRo3D.InstrumentProjection
 open PRo3D.InstrumentVisualization
 open PRo3D.Core
-open PRo3D.Core.Gis
 open PRo3D.SPICE
 
 
@@ -263,53 +262,69 @@ module ProjectedImageApp =
             ]
         )
 
-
-    let view2DRelative (m : AdaptiveProjectedImageModel) =
+    let createInstrumentScene (img : aval<Option<AdaptiveProjectedImageModel>>) =
+        let extract  (defaultValue : aval<'a>) (f : AdaptiveProjectedImageModel -> aval<'a>) (m : aval<Option<AdaptiveProjectedImageModel>>) =
+            m |> AVal.bind (function
+                | None -> defaultValue 
+                | Some v -> f v
+            )
 
         let colormapTexture : aval<ITexture> =
-            m.colorMap
-            |> AVal.map (fun map ->
-                let resourceName = ColorMap.getColorMapFileName(map)
-                InstrumentImageVisualization.getColorMapTexture resourceName
+            img |> extract DefaultTextures.checkerboard (fun img -> 
+                img.colorMap
+                |> AVal.map (fun map ->
+                    let resourceName = ColorMap.getColorMapFileName(map)
+                    InstrumentImageVisualization.getColorMapTexture resourceName
+                )
             )
 
         let imageTexture : aval<ITexture> =
-            (m.texture, m.selectedChannel) 
-            ||> AVal.map2 (fun (path : string) channel ->
-                    match Path.GetExtension(path).ToLower() with
-                    | ".exr" ->
-                        let stream = File.OpenRead path
-                        let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
-                        PixTexture2d(exrTexture, TextureParams.empty)
-                    | ".tiff" | ".tif" -> 
-                        let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
-                        match MultiBandReader.tryReadMultiBandTiff path false with
-                        | Result.Ok img -> 
-                            let images = InstrumentImageTextures.instrumentImageToTexture true img 
-                            match Array.tryItem channel.idx images with
-                            | Some img -> 
-                                PixTexture2d(img.pi, TextureParams.empty)
+            img |> extract DefaultTextures.checkerboard (fun img -> 
+                (img.texture, img.selectedChannel) 
+                ||> AVal.map2 (fun (path : string) channel ->
+                        match Path.GetExtension(path).ToLower() with
+                        | ".exr" ->
+                            let stream = File.OpenRead path
+                            let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
+                            PixTexture2d(exrTexture, TextureParams.empty)
+                        | ".tiff" | ".tif" -> 
+                            let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
+                            match MultiBandReader.tryReadMultiBandTiff path false with
+                            | Result.Ok img -> 
+                                let images = InstrumentImageTextures.instrumentImageToTexture true img 
+                                match Array.tryItem channel.idx images with
+                                | Some img -> 
+                                    PixTexture2d(img.pi, TextureParams.empty)
+                                | _ -> 
+                                    Log.warn "channel of out of bounds"
+                                    DefaultTextures.checkerboard.GetValue()
                             | _ -> 
-                                Log.warn "channel of out of bounds"
+                                Log.warn "could not load texture"
                                 DefaultTextures.checkerboard.GetValue()
-                        | _ -> 
-                            Log.warn "could not load texture"
-                            DefaultTextures.checkerboard.GetValue()
-                    | ".png" | _ -> whiteTex 
-            ) 
+                        | ".png" | _ -> whiteTex 
+                ) 
+            )
 
-        let instrumentVisualization = 
-            Sg.fullScreenQuad
-            |> Sg.noEvents
-            |> Sg.texture "InstrumentImage" imageTexture
-            |> Sg.texture "ColormapTexture" colormapTexture
-            |> Sg.uniform "MinValue" (m.inputMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
-            |> Sg.uniform "MaxValue" (m.inputMaxValue.value |> AVal.map (fun v -> float v))
-            |> Sg.uniform "UseFalseColor" m.useFalseColor
-            |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
-            |> Sg.shader {
-                do! (Shaders.hshColors)
-            }
+        let min = img |> extract (AVal.constant 0.0) (fun m -> m.inputMinValue.value |> AVal.map (fun v -> float v))
+        let max = img |> extract (AVal.constant 1.0) (fun m -> m.inputMaxValue.value |> AVal.map (fun v -> float v))
+        let falseColor = img |> extract (AVal.constant false) (fun m -> m.useFalseColor)
+        let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
+
+        Sg.fullScreenQuad
+        |> Sg.noEvents
+        |> Sg.texture "InstrumentImage" imageTexture
+        |> Sg.texture "ColormapTexture" colormapTexture
+        |> Sg.uniform "MinValue" min
+        |> Sg.uniform "MaxValue" max
+        |> Sg.uniform "UseFalseColor" falseColor
+        |> Sg.uniform "DataType" dataType
+        |> Sg.shader {
+            do! (Shaders.hshColors)
+        }
+
+    let view2DRelative (img : aval<Option<AdaptiveProjectedImageModel>>) =
+
+        let instrumentVisualization = createInstrumentScene img
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
