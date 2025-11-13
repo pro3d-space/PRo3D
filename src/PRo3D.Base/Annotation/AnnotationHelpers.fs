@@ -95,6 +95,35 @@ module Calculations =
                 yield getSegmentDistance s
         ] 
         |> List.sum
+
+    
+    let calculateVertexPlane (points: V3d[]) = 
+        if points.Length < 3 then Plane3d.Invalid
+        else 
+            (PlaneFitting.planeFit(points))
+
+    let calculatePolygonArea (points:IndexList<V3d>) = 
+        if points.Count < 3 then
+            0.0
+        else
+            let points = points |> IndexList.filter(fun x -> not x.IsNaN)
+            let v3dArray = points.AsArray
+
+            let vertexPlane = calculateVertexPlane v3dArray
+
+            if vertexPlane.IsValid then 
+             
+                let w2Plane = vertexPlane.GetWorldToPlane()
+
+                let v2dArray = 
+                    v3dArray 
+                    |> Array.map(fun p -> (w2Plane.TransformPos p).XY)
+
+                let p2D = Polygon2d(v2dArray)                
+                p2D.ComputeArea()
+            else
+                0.0
+
                                                                
     let calcResultsLine (annotation : Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
         let count = annotation.points.Count
@@ -136,6 +165,14 @@ module Calculations =
                 planeHeight, verticalDistance
             | _ -> Double.NaN, Double.NaN
 
+        let area = 
+            match (annotation.geometry) with
+            | Geometry.Polygon
+            | Geometry.Ellipse
+            | Geometry.AxisEllipse ->
+                calculatePolygonArea annotation.points
+            | _ -> Double.NaN
+
         {   
             version           = AnnotationResults.current
             height            = height
@@ -147,6 +184,7 @@ module Calculations =
             slope             = slope
             trueThickness     = trueThickness
             verticalThickness = verticalThickness
+            area              = area
         }
     
     let calculateAnnotationResults (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
@@ -195,34 +233,6 @@ module DipAndStrike =
                 |> List.map(fun x -> (plane.Height x))
     
             distances
-
-    let calculateVertexPlane (points: V3d[]) = 
-        if points.Length < 3 then Plane3d.Invalid
-        else 
-            (PlaneFitting.planeFit(points))
-
-    let calculate2DPolygon (points:IndexList<V3d>) = 
-        if points.Count < 3 then
-            0.0
-        else
-            let points = points |> IndexList.filter(fun x -> not x.IsNaN)
-            let v3dArray = points.AsArray
-
-            let vertexPlane = calculateVertexPlane v3dArray
-
-            if vertexPlane.IsValid then 
-             
-                let w2Plane = vertexPlane.GetWorldToPlane()
-
-                let v2dArray = 
-                    v3dArray 
-                    |> Array.map(fun p -> (w2Plane.TransformPos p).XY)
-
-                let p2D = Polygon2d(v2dArray)                
-                p2D.ComputeArea()
-            else
-                0.0
-
       
     let signedOrientation up (plane : Plane3d) =
          let horP = new Plane3d(up, V3d.Zero)                

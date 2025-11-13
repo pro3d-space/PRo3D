@@ -257,6 +257,7 @@ type AnnotationResults = {
     slope             : float
     trueThickness     : float
     verticalThickness : float
+    area              : float
 }
 with 
     static member current = 2
@@ -281,6 +282,7 @@ with
                 slope             = slope            
                 trueThickness     = Double.NaN
                 verticalThickness = Double.NaN
+                area              = Double.NaN
             }
         }
 
@@ -306,6 +308,7 @@ with
                 slope             = slope
                 trueThickness     = trueThickness
                 verticalThickness = Double.NaN
+                area              = Double.NaN
             }
         }
 
@@ -332,6 +335,7 @@ with
                 slope             = slope
                 trueThickness     = trueThickness
                 verticalThickness = verticalThickness
+                area              = Double.NaN
             }
         }
 
@@ -409,6 +413,7 @@ module AnnotationResults =
             slope             = Double.NaN
             trueThickness     = Double.NaN
             verticalThickness = Double.NaN
+            area              = Double.NaN
         }  
 
 type SemanticId = SemanticId of string

@@ -1,5 +1,5 @@
-//bfe6acfa-0299-89a4-8870-5436b29c454b
-//124b09b1-6601-961c-adac-7438070f4a0a
+//ca158446-c55e-80f1-fd94-53891ff61322
+//f8c5a4a6-357e-5ffe-e148-5d422bdaddc4
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -140,6 +140,7 @@ type AdaptiveAnnotationResults(value : AnnotationResults) =
     let _slope_ = FSharp.Data.Adaptive.cval(value.slope)
     let _trueThickness_ = FSharp.Data.Adaptive.cval(value.trueThickness)
     let _verticalThickness_ = FSharp.Data.Adaptive.cval(value.verticalThickness)
+    let _area_ = FSharp.Data.Adaptive.cval(value.area)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : AnnotationResults) = AdaptiveAnnotationResults(value)
@@ -158,6 +159,7 @@ type AdaptiveAnnotationResults(value : AnnotationResults) =
             _slope_.Value <- value.slope
             _trueThickness_.Value <- value.trueThickness
             _verticalThickness_.Value <- value.verticalThickness
+            _area_.Value <- value.area
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.height = _height_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
@@ -169,6 +171,7 @@ type AdaptiveAnnotationResults(value : AnnotationResults) =
     member __.slope = _slope_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.trueThickness = _trueThickness_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.verticalThickness = _verticalThickness_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
+    member __.area = _area_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module AnnotationResultsLenses = 
     type AnnotationResults with
@@ -182,6 +185,7 @@ module AnnotationResultsLenses =
         static member slope_ = ((fun (self : AnnotationResults) -> self.slope), (fun (value : Microsoft.FSharp.Core.float) (self : AnnotationResults) -> { self with slope = value }))
         static member trueThickness_ = ((fun (self : AnnotationResults) -> self.trueThickness), (fun (value : Microsoft.FSharp.Core.float) (self : AnnotationResults) -> { self with trueThickness = value }))
         static member verticalThickness_ = ((fun (self : AnnotationResults) -> self.verticalThickness), (fun (value : Microsoft.FSharp.Core.float) (self : AnnotationResults) -> { self with verticalThickness = value }))
+        static member area_ = ((fun (self : AnnotationResults) -> self.area), (fun (value : Microsoft.FSharp.Core.float) (self : AnnotationResults) -> { self with area = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveAnnotation(value : Annotation) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
