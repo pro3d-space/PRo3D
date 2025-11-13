@@ -331,7 +331,7 @@ module ProjectedImageApp =
 
         require Html.semui (
             div [style "width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; margin-top: 10px; border: solid 2px black; background: rgb(0, 0, 0, 0.5);"] [
-                let style = [style "position: relative; width: 200px; height: 200px; padding: 2px"; attribute "showLoader" "false"]
+                let style = [style "position: relative; width: 200px; height: 100%; padding: 2px; display: block; min-width: 0;"; attribute "showLoader" "false"]
                 renderControl (AVal.constant (Camera.create cameraView frustum')) style instrumentVisualization
             ]
         )

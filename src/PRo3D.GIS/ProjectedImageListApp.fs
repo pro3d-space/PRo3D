@@ -269,7 +269,7 @@ module ProjectedImageListApp =
                 ]
 
                 div [] [
-                    div [] [showRelative2DImage (selectedImage m)]
+                    div [style "width: 100%"] [showRelative2DImage (selectedImage m)]
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                     ]
