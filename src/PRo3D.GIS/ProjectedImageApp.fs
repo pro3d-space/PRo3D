@@ -170,6 +170,7 @@ module ProjectedImageApp =
             time = time;
         }
 
+
     let update (m : ProjectedImageModel) (msg : ImageMessage) =
         match msg with
             | SetDataTypeAndRange (dataType, min, max) ->

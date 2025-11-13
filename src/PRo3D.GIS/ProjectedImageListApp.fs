@@ -22,6 +22,9 @@ module ProjectedImageListApp =
 
     let borderColor = "rgba(255,255,255,.1)"
 
+    let loadDirMessage (dir : string) = ProjectedImageListMessage.LoadImagesDir dir
+
+
     let update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) = 
         match msg with
         | ProjectedImageListMessage.Nop -> m
@@ -282,23 +285,6 @@ module ProjectedImageListApp =
                 ]
             ])
 
-
-    //let getSelectedTexture (m : AdaptiveProjectedImageListModel) : aval<Option<string * ITexture>> = 
-    //    adaptive {
-    //        let! selected = m.selectedImage
-    //        match selected with
-    //        | None -> return None
-    //        | Some idx -> 
-    //            let! img = AList.tryGet idx m.images
-    //            match img with
-    //            | None -> return None
-    //            | Some img -> 
-    //                let metaData = 
-    //                    img.texture |> AVal.map InstrumentMetadata.tryParseMetadataForImagePath 
-    //                let! t = img.texture
-    //                let! m = metaData
-    //                return Some (t, m)
-    //    }
 
     (*
     let app () =

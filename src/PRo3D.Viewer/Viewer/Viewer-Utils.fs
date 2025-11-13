@@ -1024,26 +1024,26 @@ module ViewerUtils =
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
                                
 
-        let instruments =
-            let frustum = Frustum.perspective 5.5306897076421 1000.0 100000000000.0 1.0
-            Map.ofList [
-                "HERA_AFC-1", frustum
-                "HERA_AFC-2", frustum
-            ]
+        //let instruments =
+        //    let frustum = Frustum.perspective 5.5306897076421 1000.0 100000000000.0 1.0
+        //    Map.ofList [
+        //        "HERA_AFC-1", frustum
+        //        "HERA_AFC-2", frustum
+        //    ]
 
-        let singleProjectedImage  = 
-            m.scene.gisApp.projectedImageList.selectedImage 
-            |> AVal.bind (function 
-                | None -> AVal.constant None
-                | Some s -> 
-                    AList.tryGet s m.scene.gisApp.projectedImageList.images 
-                    |> AVal.map (function 
-                        | None -> None
-                        | Some img -> Some img
-                    )
-             )
+        //let singleProjectedImage  = 
+        //    m.scene.gisApp.projectedImageList.selectedImage 
+        //    |> AVal.bind (function 
+        //        | None -> AVal.constant None
+        //        | Some s -> 
+        //            AList.tryGet s m.scene.gisApp.projectedImageList.images 
+        //            |> AVal.map (function 
+        //                | None -> None
+        //                | Some img -> Some img
+        //            )
+        //     )
 
-        let a = PRo3D.InstrumentProjection.Visualization.createProjectedTexture 
+        //let a = PRo3D.InstrumentProjection.Visualization.createProjectedTexture 
 
 
         //let singleImageProjectionTrafo (body : string) (refSystem :string) =
@@ -1081,11 +1081,21 @@ module ViewerUtils =
         //        AVal.constant None
 
         let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
+            let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
             sg
             |> Sg.applyProjectedImages (fun body -> 
-                body |> AVal.bind (function None -> AVal.constant None | Some p -> AVal.constant None) //projectedImages surfaceId p "IAU_MARS")
+                body 
+                |> AVal.map (function 
+                    | Some b when b.ToLower() = "mars" -> 
+                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp surfaceId "MARS"
+                        r
+                    | _ -> None 
+                )
             )
-            |> Sg.texture "ProjectedTexture" (NullTexture.InstanceConst) //singleImageProjectionTexture
+            |> Sg.texture "ProjectedTexture" projectedTexture
+            |> Sg.uniform' "ProjectedImageModelViewProjValid" true
+            |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  PRo3D.InstrumentVisualization.VisualizationProperties.empty with instrumentImage = projectedTexture }
+            |> Sg.noEvents
 
 
         sgGrouped 

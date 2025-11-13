@@ -168,7 +168,8 @@ let main argv =
     try
         CooTransformation.initCooTrafo startupArgs.defaultSpiceKernelPath appData
         cooTrafoInitialized <- true
-
+        //CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
+        let r = PRo3D.SPICE.CooTransformation.getRelState "HERA" "SUN" "MARS" (DateTime.Parse("2025-03-12T11:26:13.011Z")) "HERA_AFC-1"
         //use app = new VulkanApplication()
         //Glfw.Config.hideCocoaMenuBar <- true
         use app = new OpenGlApplication()
