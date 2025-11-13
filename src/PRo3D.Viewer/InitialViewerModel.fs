@@ -1,4 +1,5 @@
-﻿namespace PRo3D.Viewer
+﻿#nowarn  "0044"
+namespace PRo3D.Viewer
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
@@ -175,6 +176,10 @@ module Viewer =
             animator            = Animation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid
+            surfaceIntersection   = None
+            ellipseModel = None
+            backgroundPicking = ThreadPool.empty
+            pickPreviewRequested = new ConsumableAsyncValue<_>()
         } |> applyProvenaceIfEnabled
 
 

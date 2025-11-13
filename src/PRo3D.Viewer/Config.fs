@@ -14,3 +14,8 @@ module Config =
   let mutable disableMultisampling = false
 
   let mutable title = "PRo3D"
+
+
+  let previewIntersections = true
+
+  let diagnosticTimings = false

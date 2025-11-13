@@ -37,6 +37,7 @@
     <EmbeddedResource Remove="Drawing\**" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ResettableAsyncValue.fs" />
     <None Include="RunAdaptify.fsx" />
     <None Include="paket.references" />
     <Compile Include="Traverse\TraverseUtilities.fs" />
@@ -63,12 +64,15 @@
     <Compile Include="InitialViewerModel.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />
+    <Compile Include="Viewer\Shaders.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Scene.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\ViewerLenses.fs" />
+    <Compile Include="Viewer\Picking.fs" />
+    <Compile Include="Viewer\EllipseAnnotations.fs" />
     <Compile Include="Viewer\Viewer.fs" />
     <Compile Include="Viewer\SnapshotSg.fs" />
     <Compile Include="CommandLine\CommandLineUtils.fs" />

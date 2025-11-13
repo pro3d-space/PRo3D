@@ -683,7 +683,7 @@ module RemoteApi =
                         | None -> AVal.constant None
                         | Some annotation -> 
                             annotation.Current 
-                            |> AVal.map (Base.Annotation.GeoJSONExport.annotationToGeoJsonGeometry planet >> Some)
+                            |> AVal.map (Base.Annotation.GeoJSONExport.annotationToGeoJsonGeometry (fun _ -> false) planet >> Some)
                     ) 
 
                 let elementsReader = geoJsonGeometries.GetReader()
