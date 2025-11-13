@@ -70,19 +70,11 @@ module ProjectedImageApp =
 
     let initialPath = ""
 
-    let minValue = {
+    let numericInput = {
         value   = 0.0
         min     = 0.0
         max     = 65000.0
-        step    = 1
-        format  = "{0:0.00}"
-    }
-
-    let maxValue = {
-        value   = 0.0
-        min     = 0.0
-        max     = 65000.0
-        step    = 1
+        step    = 0.1
         format  = "{0:0.00}"
     }
 
@@ -92,10 +84,10 @@ module ProjectedImageApp =
         selectedChannel = { idx = 0; name = None }
         channelOptions = [];
         dataType = DataType.UInt16;
-        defaultMinValues = [minValue.value];
-        defaultMaxValues = [maxValue.value];
-        inputMinValue = minValue;
-        inputMaxValue = maxValue;
+        defaultMinValues = [numericInput.value];
+        defaultMaxValues = [numericInput.value];
+        inputMinValue = numericInput;
+        inputMaxValue = numericInput;
         texture = initialPath;
         distance = 0;
         time = new DateTime();
@@ -136,15 +128,15 @@ module ProjectedImageApp =
                 | _ -> DataType.UInt16
             | None -> DataType.UInt16
 
-        let (rangeMin, rangeMax) =
-            match dataType with
-            | DataType.Float -> (defaultMinValues[selectedChannelIdx], defaultMaxValues[selectedChannelIdx])
-            | DataType.UInt16 
-            | _ -> (0, 65536)
+        let rangeOffset = 0.1 * (defaultMaxValues[selectedChannelIdx] - defaultMinValues[selectedChannelIdx])
 
-        let inputMinValue = { minValue with value = defaultMinValues[selectedChannelIdx]; min = rangeMin; max = rangeMax}
+        let (rangeMin, rangeMax) = (defaultMinValues[selectedChannelIdx] - rangeOffset, defaultMaxValues[selectedChannelIdx] + rangeOffset)
 
-        let inputMaxValue = { minValue with value = defaultMaxValues[selectedChannelIdx]; min = rangeMin; max = rangeMax }
+        let stepSize = (rangeMax-rangeMin) / 1000.0;
+
+        let inputMinValue = { numericInput with value = defaultMinValues[selectedChannelIdx]; min = rangeMin; max = rangeMax; step = stepSize}
+
+        let inputMaxValue = { numericInput with value = defaultMaxValues[selectedChannelIdx]; min = rangeMin; max = rangeMax; step = stepSize }
 
         let distance =
             match tiffMbiJson with
@@ -172,21 +164,19 @@ module ProjectedImageApp =
 
     let update (m : ProjectedImageModel) (msg : ImageMessage) =
         match msg with
-            | SetDataTypeAndRange (dataType, min, max) ->
-                { m with inputMinValue = { minValue with min = min}; inputMaxValue = {minValue with max = max} }
             | SetCustomMin v -> 
-                { m with inputMinValue = {minValue with value = v} }
+                { m with inputMinValue = {m.inputMinValue with value = v} }
             | SetCustomMax v -> 
-                { m with inputMaxValue = {maxValue with value = v} }
+                { m with inputMaxValue = {m.inputMaxValue with value = v} }
             | ResetCustomMinMax ->
-                { m with inputMinValue = {minValue with value = m.defaultMinValues[m.selectedChannel.idx]}; inputMaxValue = {maxValue with value = m.defaultMaxValues[m.selectedChannel.idx]} }
+                { m with inputMinValue = {m.inputMinValue with value = m.defaultMinValues[m.selectedChannel.idx]}; inputMaxValue = {m.inputMaxValue with value = m.defaultMaxValues[m.selectedChannel.idx]} }
             | SetColorMap (map : ColorMap) ->
                 { m with colorMap = map }
             | SetEXRChannel channel ->
                 let (min, max) = (m.defaultMinValues[channel.idx], m.defaultMaxValues[channel.idx])
                 { m with 
-                    inputMinValue = {minValue with value = min};
-                    inputMaxValue = {maxValue with value = max};
+                    inputMinValue = {m.inputMinValue with value = min};
+                    inputMaxValue = {m.inputMaxValue with value = max};
                     selectedChannel = channel
                 }
             | ToggleFalseColor ->
