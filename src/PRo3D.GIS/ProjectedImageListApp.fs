@@ -275,12 +275,7 @@ module ProjectedImageListApp =
             ]
             
 
-        require Html.semui (
-            body [] [
-                div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
-                    accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]
-                ]
-            ])
+        require Html.semui (content)
 
 
     //let getSelectedTexture (m : AdaptiveProjectedImageListModel) : aval<Option<string * ITexture>> = 
