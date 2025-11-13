@@ -6,10 +6,15 @@ open Aardvark.UI
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping
+open Aardvark.Rendering
 
 open PRo3D.Base
 
 open System.IO
+open Aardvark.GeoSpatial.Opc
+open Aardvark.PixImage.LibTiff
+open PRo3D.InstrumentData
+open PRo3D.Core
 
 type Self = Self
 
@@ -19,7 +24,7 @@ module ProjectedImageListApp =
 
     let update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) = 
         match msg with
-        | Nop -> m
+        | ProjectedImageListMessage.Nop -> m
         | OrbitCameraMessage msg ->
             { m with cameraState = OrbitController.update m.cameraState msg }
         | SetProjectionOpacity opacity -> 
@@ -276,6 +281,24 @@ module ProjectedImageListApp =
                     accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]
                 ]
             ])
+
+
+    //let getSelectedTexture (m : AdaptiveProjectedImageListModel) : aval<Option<string * ITexture>> = 
+    //    adaptive {
+    //        let! selected = m.selectedImage
+    //        match selected with
+    //        | None -> return None
+    //        | Some idx -> 
+    //            let! img = AList.tryGet idx m.images
+    //            match img with
+    //            | None -> return None
+    //            | Some img -> 
+    //                let metaData = 
+    //                    img.texture |> AVal.map InstrumentMetadata.tryParseMetadataForImagePath 
+    //                let! t = img.texture
+    //                let! m = metaData
+    //                return Some (t, m)
+    //    }
 
     (*
     let app () =

@@ -1,15 +1,17 @@
-﻿namespace PRo3D.Core
+﻿namespace PRo3D.SPICE
 
 open System
+
 open Aardvark.Base
 open Aardvark.Rendering
 
-open PRo3D.SPICE
-open PRo3D.Core.Gis
+open PRo3D.Extensions
+open PRo3D.Extensions.FSharp
+open PRo3D.Core
 
+module InstrumentImages = 
 
-module ProjectedImages =
-
+    open Aardvark.Rendering
 
     type Extrinsics = 
         | Plain of CameraView
@@ -27,21 +29,29 @@ module ProjectedImages =
             image      : Option<ImageData>
         }
 
+    type CameraFocus = 
+        | FocusBody of focusedBody : string
+
+    type CameraSource =
+        | InBody of body : string
+
     type Intrinsics with
         member x.ProjTrafo = 
             match x with
             | Intrinsics.Plain frustum -> Frustum.projTrafo frustum
 
-    //type ProjectionInfo = 
-    //    {
-    //        worldReferenceSystem : string
-    //        observer : string
-    //        sourceReferenceFrame : string
-    //        target : CameraFocus
-    //        cameraSource : CameraSource
-    //        instrument : Intrinsics
-    //        supportBody : string
-    //    }
+type InstrumentProjection = 
+    {
+        instrumentReferenceFrame : string
+        target : InstrumentImages.CameraFocus
+        cameraSource : InstrumentImages.CameraSource
+        instrumentName : string
+        supportBody : string
+        time : DateTime
+        boresightAdjustment : Option<Trafo3d>
+    }
+
+module InstrumentProjection =
 
     let getLookAt (viewerBody : string) (observer : string) (referenceFrame : string) (supportBody : string) (time : DateTime) =
         let afc1Pos = CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
@@ -108,9 +118,3 @@ module ProjectedImages =
 
     let instrument2SpiceName (fitsName : string) = 
         Map.tryFind fitsName instrumentNames
-
-
-    let splitTimes (startTime : DateTime) (endTime : DateTime) (nrOfShots : int) =
-        let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
-        let interval = (endTime - startTime) / float shots
-        [| 0 .. shots |] |> Array.map (fun i -> startTime + interval * float i) 

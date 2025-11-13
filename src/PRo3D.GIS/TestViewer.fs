@@ -235,10 +235,12 @@ module TestViewer =
             )
 
         let projectedTexture =
-            currentProjectedImage
-            |> AVal.bind (fun (s, _) -> 
-                PRo3D.InstrumentProjection.Visualization.createProjectedTexture (AVal.constant (Some s))
-            )
+            let image : aval<Option<string * InstrumentMetadata.ParsedMetadata>> =
+                currentProjectedImage 
+                |> AVal.map (fun (s, (mbi, imgInfo)) -> 
+                    Some (s, (Some mbi, imgInfo))
+                )
+            PRo3D.InstrumentProjection.Visualization.createProjectedTexture image
 
         let minMax = 
             currentProjectedImage |> AVal.map (fun img -> 
