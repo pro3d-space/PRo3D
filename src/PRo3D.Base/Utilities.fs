@@ -1190,7 +1190,25 @@ module Sg =
     let stableTrafoShader = 
         Effect.compose [toEffect Shader.StableTrafo.stableTrafo]
 
-    let consolasFont = Font.create "Consolas" FontStyle.Regular
+    module private Font =
+        open System.Reflection
+
+        let private getEmbeddedFont (name: string) =
+            try
+                let asm = Assembly.GetExecutingAssembly()
+                let resourceName =
+                    asm.GetManifestResourceNames()
+                    |> Array.find (String.toLowerInvariant >> String.endsWith (String.toLowerInvariant name))
+
+                asm.GetManifestResourceStream resourceName
+            with _ ->
+                Log.error $"Failed to load embedded font '{name}'"
+                reraise()
+
+
+        let RobotoMono =
+            use stream = getEmbeddedFont "RobotoMono-Regular.ttf"
+            Font(stream)
 
     let text 
         (view       : aval<CameraView>) 
@@ -1209,7 +1227,7 @@ module Sg =
                 return screenAlignedTrafo v.Forward v.Up modelt
             }
         color |> AVal.map( fun c ->
-            Sg.text consolasFont c text
+            Sg.text Font.RobotoMono c text
             |> Sg.noEvents
             |> Sg.effect [stableTrafoShader]         
             |> Sg.trafo (invariantScaleTrafo view near pos size hfov)  // fixed pixel size scaling
@@ -1223,7 +1241,7 @@ module Sg =
             { 
                 TextConfig.Default with
                     renderStyle = RenderStyle.Billboard
-                    font = consolasFont
+                    font = Font.RobotoMono
                     color = C4b.White
                     align = TextAlignment.Center
             }
@@ -1242,7 +1260,7 @@ module Sg =
                 return screenAlignedTrafo v.Forward v.Up modelt
             }
     
-        Sg.text consolasFont C4b.White text
+        Sg.text Font.RobotoMono C4b.White text
         |> Sg.noEvents
         |> Sg.effect [stableTrafoShader]      
         |> Sg.trafo (0.1 |> Trafo3d.Scale |> AVal.constant )

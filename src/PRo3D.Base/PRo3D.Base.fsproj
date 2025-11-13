@@ -31,7 +31,7 @@
     <EmbeddedResource Include="resources\plasma.png" />
     <EmbeddedResource Include="resources\oranges.png" />
     <EmbeddedResource Include="resources\spectral.png" />
-    
+    <EmbeddedResource Include="..\..\data\fonts\Roboto Mono\RobotoMono-Regular.ttf" Link="resources\RobotoMono-Regular.ttf" />
     
     <Compile Include="MissingHelpers.fs" />
     <None Include="paket.references" />

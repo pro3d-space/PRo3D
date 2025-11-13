@@ -333,7 +333,7 @@ module App =
                 | None -> yield style "display:none"
                 | Some p -> 
                     let p = p + V2i(35,-20)
-                    yield style (sprintf "position: absolute; left: %d; top: %d; pointer-events: none; font-family: consolas; color: white" p.X p.Y)
+                    yield style (sprintf "position: absolute; left: %d; top: %d; pointer-events: none; font-family: Roboto Mono; color: white" p.X p.Y)
             } |> AttributeMap.ofAMap
 
         let cursorText = 

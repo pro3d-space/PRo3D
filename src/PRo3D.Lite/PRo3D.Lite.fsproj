@@ -26,12 +26,10 @@
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
     <EmbeddedResource Include="resources\style.css" />
+    <EmbeddedResource Include="..\..\data\fonts\Roboto Mono\RobotoMono-Regular.ttf" Link="resources\RobotoMono-Regular.ttf" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="resources\" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
