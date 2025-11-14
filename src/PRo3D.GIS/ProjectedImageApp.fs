@@ -16,7 +16,6 @@ open PRo3D.InstrumentData
 open PRo3D.InstrumentProjection
 open PRo3D.InstrumentVisualization
 open PRo3D.Core
-open PRo3D.Core.Gis
 open PRo3D.SPICE
 
 
@@ -71,19 +70,11 @@ module ProjectedImageApp =
 
     let initialPath = ""
 
-    let minValue = {
+    let numericInput = {
         value   = 0.0
         min     = 0.0
         max     = 65000.0
-        step    = 1
-        format  = "{0:0.00}"
-    }
-
-    let maxValue = {
-        value   = 0.0
-        min     = 0.0
-        max     = 65000.0
-        step    = 1
+        step    = 0.1
         format  = "{0:0.00}"
     }
 
@@ -93,10 +84,10 @@ module ProjectedImageApp =
         selectedChannel = { idx = 0; name = None }
         channelOptions = [];
         dataType = DataType.UInt16;
-        defaultMinValues = [minValue.value];
-        defaultMaxValues = [maxValue.value];
-        inputMinValue = minValue;
-        inputMaxValue = maxValue;
+        defaultMinValues = [numericInput.value];
+        defaultMaxValues = [numericInput.value];
+        inputMinValue = numericInput;
+        inputMaxValue = numericInput;
         texture = initialPath;
         distance = 0;
         time = new DateTime();
@@ -137,15 +128,15 @@ module ProjectedImageApp =
                 | _ -> DataType.UInt16
             | None -> DataType.UInt16
 
-        let (rangeMin, rangeMax) =
-            match dataType with
-            | DataType.Float -> (defaultMinValues[selectedChannelIdx], defaultMaxValues[selectedChannelIdx])
-            | DataType.UInt16 
-            | _ -> (0, 65536)
+        let rangeOffset = 0.1 * (defaultMaxValues[selectedChannelIdx] - defaultMinValues[selectedChannelIdx])
 
-        let inputMinValue = { minValue with value = defaultMinValues[selectedChannelIdx]; min = rangeMin; max = rangeMax}
+        let (rangeMin, rangeMax) = (defaultMinValues[selectedChannelIdx] - rangeOffset, defaultMaxValues[selectedChannelIdx] + rangeOffset)
 
-        let inputMaxValue = { minValue with value = defaultMaxValues[selectedChannelIdx]; min = rangeMin; max = rangeMax }
+        let stepSize = (rangeMax-rangeMin) / 1000.0;
+
+        let inputMinValue = { numericInput with value = defaultMinValues[selectedChannelIdx]; min = rangeMin; max = rangeMax; step = stepSize}
+
+        let inputMaxValue = { numericInput with value = defaultMaxValues[selectedChannelIdx]; min = rangeMin; max = rangeMax; step = stepSize }
 
         let distance =
             match tiffMbiJson with
@@ -173,21 +164,19 @@ module ProjectedImageApp =
 
     let update (m : ProjectedImageModel) (msg : ImageMessage) =
         match msg with
-            | SetDataTypeAndRange (dataType, min, max) ->
-                { m with inputMinValue = { minValue with min = min}; inputMaxValue = {minValue with max = max} }
             | SetCustomMin v -> 
-                { m with inputMinValue = {minValue with value = v} }
+                { m with inputMinValue = {m.inputMinValue with value = v} }
             | SetCustomMax v -> 
-                { m with inputMaxValue = {maxValue with value = v} }
+                { m with inputMaxValue = {m.inputMaxValue with value = v} }
             | ResetCustomMinMax ->
-                { m with inputMinValue = {minValue with value = m.defaultMinValues[m.selectedChannel.idx]}; inputMaxValue = {maxValue with value = m.defaultMaxValues[m.selectedChannel.idx]} }
+                { m with inputMinValue = {m.inputMinValue with value = m.defaultMinValues[m.selectedChannel.idx]}; inputMaxValue = {m.inputMaxValue with value = m.defaultMaxValues[m.selectedChannel.idx]} }
             | SetColorMap (map : ColorMap) ->
                 { m with colorMap = map }
             | SetEXRChannel channel ->
                 let (min, max) = (m.defaultMinValues[channel.idx], m.defaultMaxValues[channel.idx])
                 { m with 
-                    inputMinValue = {minValue with value = min};
-                    inputMaxValue = {maxValue with value = max};
+                    inputMinValue = {m.inputMinValue with value = min};
+                    inputMaxValue = {m.inputMaxValue with value = max};
                     selectedChannel = channel
                 }
             | ToggleFalseColor ->
@@ -263,60 +252,76 @@ module ProjectedImageApp =
             ]
         )
 
-
-    let view2DRelative (m : AdaptiveProjectedImageModel) =
+    let createInstrumentScene (img : aval<Option<AdaptiveProjectedImageModel>>) =
+        let extract  (defaultValue : aval<'a>) (f : AdaptiveProjectedImageModel -> aval<'a>) (m : aval<Option<AdaptiveProjectedImageModel>>) =
+            m |> AVal.bind (function
+                | None -> defaultValue 
+                | Some v -> f v
+            )
 
         let colormapTexture : aval<ITexture> =
-            m.colorMap
-            |> AVal.map (fun map ->
-                let resourceName = ColorMap.getColorMapFileName(map)
-                InstrumentImageVisualization.getColorMapTexture resourceName
+            img |> extract DefaultTextures.checkerboard (fun img -> 
+                img.colorMap
+                |> AVal.map (fun map ->
+                    let resourceName = ColorMap.getColorMapFileName(map)
+                    InstrumentImageVisualization.getColorMapTexture resourceName
+                )
             )
 
         let imageTexture : aval<ITexture> =
-            (m.texture, m.selectedChannel) 
-            ||> AVal.map2 (fun (path : string) channel ->
-                    match Path.GetExtension(path).ToLower() with
-                    | ".exr" ->
-                        let stream = File.OpenRead path
-                        let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
-                        PixTexture2d(exrTexture, TextureParams.empty)
-                    | ".tiff" | ".tif" -> 
-                        let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
-                        match MultiBandReader.tryReadMultiBandTiff path false with
-                        | Result.Ok img -> 
-                            let images = InstrumentImageTextures.instrumentImageToTexture true img 
-                            match Array.tryItem channel.idx images with
-                            | Some img -> 
-                                PixTexture2d(img.pi, TextureParams.empty)
+            img |> extract DefaultTextures.checkerboard (fun img -> 
+                (img.texture, img.selectedChannel) 
+                ||> AVal.map2 (fun (path : string) channel ->
+                        match Path.GetExtension(path).ToLower() with
+                        | ".exr" ->
+                            let stream = File.OpenRead path
+                            let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
+                            PixTexture2d(exrTexture, TextureParams.empty)
+                        | ".tiff" | ".tif" -> 
+                            let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
+                            match MultiBandReader.tryReadMultiBandTiff path false with
+                            | Result.Ok img -> 
+                                let images = InstrumentImageTextures.instrumentImageToTexture true img 
+                                match Array.tryItem channel.idx images with
+                                | Some img -> 
+                                    PixTexture2d(img.pi, TextureParams.empty)
+                                | _ -> 
+                                    Log.warn "channel of out of bounds"
+                                    DefaultTextures.checkerboard.GetValue()
                             | _ -> 
-                                Log.warn "channel of out of bounds"
+                                Log.warn "could not load texture"
                                 DefaultTextures.checkerboard.GetValue()
-                        | _ -> 
-                            Log.warn "could not load texture"
-                            DefaultTextures.checkerboard.GetValue()
-                    | ".png" | _ -> whiteTex 
-            ) 
+                        | ".png" | _ -> whiteTex 
+                ) 
+            )
 
-        let instrumentVisualization = 
-            Sg.fullScreenQuad
-            |> Sg.noEvents
-            |> Sg.texture "InstrumentImage" imageTexture
-            |> Sg.texture "ColormapTexture" colormapTexture
-            |> Sg.uniform "MinValue" (m.inputMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
-            |> Sg.uniform "MaxValue" (m.inputMaxValue.value |> AVal.map (fun v -> float v))
-            |> Sg.uniform "UseFalseColor" m.useFalseColor
-            |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
-            |> Sg.shader {
-                do! (Shaders.hshColors)
-            }
+        let min = img |> extract (AVal.constant 0.0) (fun m -> m.inputMinValue.value |> AVal.map (fun v -> float v))
+        let max = img |> extract (AVal.constant 1.0) (fun m -> m.inputMaxValue.value |> AVal.map (fun v -> float v))
+        let falseColor = img |> extract (AVal.constant false) (fun m -> m.useFalseColor)
+        let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
+
+        Sg.fullScreenQuad
+        |> Sg.noEvents
+        |> Sg.texture "InstrumentImage" imageTexture
+        |> Sg.texture "ColormapTexture" colormapTexture
+        |> Sg.uniform "MinValue" min
+        |> Sg.uniform "MaxValue" max
+        |> Sg.uniform "UseFalseColor" falseColor
+        |> Sg.uniform "DataType" dataType
+        |> Sg.shader {
+            do! (Shaders.hshColors)
+        }
+
+    let view2DRelative (img : aval<Option<AdaptiveProjectedImageModel>>) =
+
+        let instrumentVisualization = createInstrumentScene img
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
         require Html.semui (
             div [style "width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; margin-top: 10px; border: solid 2px black; background: rgb(0, 0, 0, 0.5);"] [
-                let style = [style "position: relative; width: 200px; height: 200px; padding: 2px"; attribute "showLoader" "false"]
+                let style = [style "position: relative; width: 200px; height: 100%; padding: 2px; display: block; min-width: 0;"; attribute "showLoader" "false"]
                 renderControl (AVal.constant (Camera.create cameraView frustum')) style instrumentVisualization
             ]
         )

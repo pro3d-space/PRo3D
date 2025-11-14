@@ -99,7 +99,6 @@ type ImageMessage =
     | SetColorMap of ColorMap
     | ToggleFalseColor
     | SetEXRChannel of Channel
-    | SetDataTypeAndRange of DataType * float * float
     | Empty
 
 

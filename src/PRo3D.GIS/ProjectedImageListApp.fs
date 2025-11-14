@@ -6,15 +6,10 @@ open Aardvark.UI
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping
-open Aardvark.Rendering
-
+open PRo3D.Extensions.FSharp
 open PRo3D.Base
 
 open System.IO
-open Aardvark.GeoSpatial.Opc
-open Aardvark.PixImage.LibTiff
-open PRo3D.InstrumentData
-open PRo3D.Core
 
 type Self = Self
 
@@ -24,10 +19,18 @@ module ProjectedImageListApp =
 
     let loadDirMessage (dir : string) = ProjectedImageListMessage.LoadImagesDir dir
 
+    let initial : ProjectedImageListModel = {
+        images = IndexList.Empty;
+        selectedImage = None;
+        editImages = List.Empty;
+        projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
+        boresightAdjustment = BoresightAdjustment.identity
+        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
+    }
 
     let update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) = 
         match msg with
-        | ProjectedImageListMessage.Nop -> m
+        | Nop -> m
         | OrbitCameraMessage msg ->
             { m with cameraState = OrbitController.update m.cameraState msg }
         | SetProjectionOpacity opacity -> 
@@ -128,12 +131,24 @@ module ProjectedImageListApp =
                 selectedImage = newSelectedIdx;
                 editImages = editImages'}
 
+    let selectedImage
+        (m : AdaptiveProjectedImageListModel) = 
+        adaptive {
+            let! selectedImage = m.selectedImage
+            match selectedImage with
+            | Some sel -> 
+                let! img = AList.tryGet sel m.images
+                match img with
+                | Some img' -> return Some img'
+                | None -> return None
+            | None -> return None
+        }
 
     let view 
         (m : AdaptiveProjectedImageListModel)
         (showDOM : AdaptiveProjectedImageModel -> DomNode<ImageMessage>) 
-        (showRelative2DImage : AdaptiveProjectedImageModel -> DomNode<ImageMessage>) =
-        
+        (showRelative2DImage : aval<Option<AdaptiveProjectedImageModel>> -> DomNode<ProjectedImageListMessage>) =
+    
         let listAttributes =
             amap {
                 yield clazz "ui divided list inverted segment"
@@ -142,6 +157,7 @@ module ProjectedImageListApp =
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select directory', filters: [{ name: 'directories'}], properties: ['openDirectory']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
 
         let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
@@ -252,25 +268,8 @@ module ProjectedImageListApp =
                     ]
                 ]
 
-                let preview2D = 
-                    adaptive {
-                        let! selectedImage = m.selectedImage
-                        match selectedImage with
-                        | Some sel -> 
-                            let! img = AList.tryGet sel m.images
-                            match img with
-                            | Some img' -> return showRelative2DImage img' |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (sel, msg))
-                            | None -> return div [] []
-                        | None -> return div [] []
-                    }
-
                 div [] [
-                    Incremental.div AttributeMap.empty (
-                        alist {
-                            let! preview2D' = preview2D
-                            yield preview2D'
-                        }
-                    )
+                    div [style "width: 100%"] [showRelative2DImage (selectedImage m)]
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                     ]
@@ -279,15 +278,3 @@ module ProjectedImageListApp =
             
 
         require Html.semui (content)
-
-
-    (*
-    let app () =
-        {
-            initial = initial
-            update = update
-            view = (fun m -> view m Image.view Image.view2DRelative) 
-            threads = constF ThreadPool.empty
-            unpersist = Unpersist.instance
-        }
-    *)

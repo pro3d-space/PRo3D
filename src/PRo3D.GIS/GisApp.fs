@@ -699,7 +699,6 @@ module GisApp =
             ]
 
             GuiEx.accordion "Projected Images" "Images" false [
-                //ProjectedImagesApp.viewProjectedImages m.projectedImages |> UI.map GisAppAction.ProjectedImageListMessage
                 ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative |> UI.map GisAppAction.ProjectedImageListMessage
             ]
 
