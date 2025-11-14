@@ -70,10 +70,17 @@ module ProjectedImagesListAppHelper =
                     )
         }
 
-    let getProjectedImageData (g : AdaptiveGisApp) (surfaceId : Guid) (projectionSurfaceBodyName : string) : Option<Sg.ProjectedImages> =
+    let getProjectedImageData (g : AdaptiveGisApp)  (surfaceId : Guid) (projectionSurfaceBodyName : string) : Option<Sg.ProjectedImages> =
         let currentProjectedImage =  g.projectedImageList |> getSelectedTexture
+        let selectedImage = g.projectedImageList |> getSelectedImage
         let observer = GisApp.getObserverSystemAdaptive g
         let sunDirection = Gis.GisApp.getSunDirection g surfaceId
+        let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive g surfaceId
+        let computeBoresight (b : AdaptiveBoresightAdjustment) : aval<Trafo3d> = 
+            b.Current |> AVal.map (fun b -> 
+                Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
+            )
+        let boresightAdjustment = computeBoresight g.projectedImageList.boresightAdjustment
         let imageTrafo = 
             AVal.custom (fun t -> 
                 match observer.GetValue(t) with
@@ -81,19 +88,24 @@ module ProjectedImagesListAppHelper =
                 | Some o -> 
                     let (EntitySpiceName observer) = o.body
                     let time = o.time
-                    let (FrameSpiceName referenceFrame) = o.referenceFrame
+                    //let (FrameSpiceName referenceFrame) = o.referenceFrame
+                    let surfaceReferenceFrame = surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
+                    boresightAdjustment.GetValue(t)
                     let p = 
-                        {
-                            target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                            cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                            instrumentReferenceFrame = "HERA_AFC-1"
-                            instrumentName = "HERA_AFC-1"
-                            supportBody = "SUN"
-                            time = DateTime.Now
-                            boresightAdjustment = None
-                        } |> AVal.constant
-                    currentProjectedImage.GetValue(t)
-                    let r = Visualization.creatProjectionFunction (AVal.constant observer) (AVal.constant o.time) (AVal.constant referenceFrame) currentProjectedImage p
+                        boresightAdjustment 
+                        |> AVal.map (fun boresight -> 
+                            {
+                                target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                                cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                                instrumentReferenceFrame = "HERA_AFC-1"
+                                instrumentName = "HERA_AFC-1"
+                                supportBody = "SUN"
+                                time = DateTime.Now
+                                boresightAdjustment = Some boresight
+                            } 
+                        )
+                    let img = currentProjectedImage.GetValue(t)
+                    let r = Visualization.creatProjectionFunction (AVal.constant observer) surfaceReferenceFrame currentProjectedImage p
                     let result = r projectionSurfaceBodyName
                     result.GetValue(t)
                     

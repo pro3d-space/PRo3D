@@ -216,7 +216,7 @@ module ProjectedImageListApp =
                                                     div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
                                                     div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
-                                                    div [attributesAttr2] [ Incremental.text (img.time |> AVal.map string) ]
+                                                    div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
                                                 ]
                                         
                                             Incremental.div AttributeMap.empty (

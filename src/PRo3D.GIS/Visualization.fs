@@ -51,7 +51,7 @@ module Visualization =
                 DefaultTextures.checkerboard
         )
 
-    let creatProjectionFunction (observer : aval<string>) (time : aval<DateTime>) (referenceFrame : aval<string>) 
+    let creatProjectionFunction (observer : aval<string>) (referenceFrame : aval<string>) 
                                 (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (projection : aval<InstrumentProjection>) =
 
     
@@ -73,12 +73,11 @@ module Visualization =
                     match img with
                     | Some (_, (Some mbi,_)) -> 
                         let observer = observer.GetValue t
-                        let time = time.GetValue t
                         let referenceFrame = referenceFrame.GetValue t
                         let projection = projection.GetValue t
                         let p = {
                             projection with
-                                time = time
+                                time = mbi.obs_date
                             }
                         let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
                         let spice = InstrumentProjection.projectOnto referenceFrame observer instruments p

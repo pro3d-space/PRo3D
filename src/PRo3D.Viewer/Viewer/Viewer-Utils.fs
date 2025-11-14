@@ -1026,6 +1026,8 @@ module ViewerUtils =
         let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
             let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
             let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
+            let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
+
             sg
             |> Sg.applyProjectedImages (fun body -> 
                 body 
