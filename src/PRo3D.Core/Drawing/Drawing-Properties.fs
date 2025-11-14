@@ -143,7 +143,7 @@ module AnnotationProperties =
                 yield Html.row "Horizontal Distance:"   [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "True Thickness:"        [Incremental.text (trueThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Vertical Thickness:"    [Incremental.text (verticalThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
-                yield Html.row "Area:"                  [Incremental.text (area |> AVal.map  (fun d -> sprintf "%.4f m\²" (d)))]
+                yield Html.row "Area:"                  [Incremental.text (area |> AVal.map  (fun d -> sprintf "%.4f m\xB2" (d)))]
             ]
         )
        

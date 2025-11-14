@@ -225,6 +225,8 @@ module UI =
 
                 staticClickIcon "bookmark icon"         "Select All"   (GroupsMessage(GroupsAppAction.SetSelection(path,true)))
                 staticClickIcon "bookmark outline icon" "Deselect All" (GroupsMessage(GroupsAppAction.SetSelection(path,false)))
+
+                staticClickIcon "calculator icon"       "Recalculate selected Polygon Measurements" (RecalculateMeasurements)
             ]
            
         let itemAttributes =
