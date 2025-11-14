@@ -63,6 +63,5 @@ let main args =
         |> Seq.collect Directory.GetDirectories
       
 
-    let additional = Seq.append jezero molaOpcs
 
     TestViewer.run mola jezero

@@ -1,8 +1,10 @@
 ﻿namespace PRo3D.GIS
 
+
 open System
 open FSharp.Data.Adaptive
 
+open Aardvark.Base
 open Aardvark.Rendering
 
 open PRo3D.Core
@@ -13,9 +15,11 @@ open PRo3D.InstrumentProjection
 open PRo3D.Base.Gis
 open PRo3D.SPICE
 
+open PRo3D.InstrumentVisualization
+
 module ProjectedImagesListAppHelper =
 
-    let getSelectedTexture (m : AdaptiveProjectedImageListModel) : aval<Option<string * InstrumentMetadata.ParsedMetadata>> = 
+    let getSelectedImage (m : AdaptiveProjectedImageListModel) =
         adaptive {
             let! selected = m.selectedImage
             match selected with
@@ -25,15 +29,46 @@ module ProjectedImagesListAppHelper =
                 match img with
                 | None -> return None
                 | Some img -> 
-                    let metaData = 
-                        img.texture |> AVal.map InstrumentMetadata.tryParseMetadataForImagePath 
-                    let! t = img.texture
-                    let! m = metaData
-                    return Some (t, m)
+                    return Some img
+        }
+
+    let getSelectedTexture (m : AdaptiveProjectedImageListModel) : aval<Option<string * InstrumentMetadata.ParsedMetadata>> = 
+        adaptive {
+            match! getSelectedImage m with
+            | None -> return None
+            | Some img -> 
+                let metaData = 
+                    img.texture |> AVal.map InstrumentMetadata.tryParseMetadataForImagePath 
+                let! t = img.texture
+                let! m = metaData
+                return Some (t, m)
         }
 
     let getProjectedTexture (g : AdaptiveGisApp) : aval<ITexture> =
         g.projectedImageList |> getSelectedTexture |> Visualization.createProjectedTexture 
+
+    let getProjectionVisualizationProperties (g : AdaptiveGisApp) =
+        let selectedImage = getSelectedImage g.projectedImageList
+        { 
+            VisualizationProperties.empty with 
+                projectionOpacity = g.projectedImageList.projectionOpacity.value
+                visualizationRange = 
+                    selectedImage |> AVal.bind (function 
+                        | None -> Range1d.Unit |> AVal.constant
+                        | Some img -> (img.inputMinValue.value, img.inputMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min, max))
+                    )
+                colorMapping = 
+                    selectedImage |> AVal.bind (function
+                        | None -> AVal.constant None
+                        | Some img -> 
+                            img.colorMap |> AVal.map (Some << InstrumentImageVisualization.getColorMapTexture << ColorMap.getColorMapFileName)
+                    )
+                dataType = 
+                    selectedImage |> AVal.bind (function 
+                        | None -> AVal.constant DataType.Float
+                        | Some img -> img.dataType
+                    )
+        }
 
     let getProjectedImageData (g : AdaptiveGisApp) (surfaceId : Guid) (projectionSurfaceBodyName : string) : Option<Sg.ProjectedImages> =
         let currentProjectedImage =  g.projectedImageList |> getSelectedTexture

@@ -1022,66 +1022,10 @@ module ViewerUtils =
             AVal.constant true
 
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-                               
-
-        //let instruments =
-        //    let frustum = Frustum.perspective 5.5306897076421 1000.0 100000000000.0 1.0
-        //    Map.ofList [
-        //        "HERA_AFC-1", frustum
-        //        "HERA_AFC-2", frustum
-        //    ]
-
-        //let singleProjectedImage  = 
-        //    m.scene.gisApp.projectedImageList.selectedImage 
-        //    |> AVal.bind (function 
-        //        | None -> AVal.constant None
-        //        | Some s -> 
-        //            AList.tryGet s m.scene.gisApp.projectedImageList.images 
-        //            |> AVal.map (function 
-        //                | None -> None
-        //                | Some img -> Some img
-        //            )
-        //     )
-
-        //let a = PRo3D.InstrumentProjection.Visualization.createProjectedTexture 
-
-
-        //let singleImageProjectionTrafo (body : string) (refSystem :string) =
-        //    singleProjectedImage  |> AVal.bind (function None -> AVal.constant None | Some (_, p) -> p)
-        //let singleImageProjectionTexture = 
-        //    singleProjectedImage |> AVal.map (function None -> NullTexture.Instance | Some (s, p) -> FileTexture(s, true) :> ITexture)
-
-        //let projectedImages (surfaceId : Guid) (body : string) (refSystem :  string) : aval<Option<Sg.ProjectedImages>> = 
-        //    if body.ToLower() = "mars" then
-        //        m.scene.gisApp.projectedImageList.images.Content
-        //        |> AVal.map (fun images -> 
-        //            let sunDirection = Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
-        //            let arr = IndexList.toArray images
-        //            let trafos = 
-        //                observerSystem |> AVal.map (function
-        //                    | None -> [||]
-        //                    | Some o -> 
-        //                        arr |> Array.choose (fun a -> 
-        //                            match a.projection with
-        //                            | None -> None
-        //                            | Some p -> 
-        //                                ProjectedImages.projectOnto "IAU_MARS" o.body.Value instruments p
-        //                        )
-        //                )
-
-         
-        //            Some { 
-        //                imageProjection = singleImageProjectionTrafo body refSystem
-        //                localImageProjectionTrafos = trafos
-        //                sunDirection = sunDirection
-        //                sunLightEnabled = sunDirection |> AVal.map Option.isSome
-        //            }
-        //        )
-        //    else
-        //        AVal.constant None
-
+                              
         let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
             let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
+            let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
             sg
             |> Sg.applyProjectedImages (fun body -> 
                 body 
@@ -1094,7 +1038,7 @@ module ViewerUtils =
             )
             |> Sg.texture "ProjectedTexture" projectedTexture
             |> Sg.uniform' "ProjectedImageModelViewProjValid" true
-            |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  PRo3D.InstrumentVisualization.VisualizationProperties.empty with instrumentImage = projectedTexture }
+            |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
             |> Sg.noEvents
 
 

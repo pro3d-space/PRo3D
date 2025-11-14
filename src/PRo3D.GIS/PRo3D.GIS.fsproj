@@ -28,7 +28,6 @@
     <Compile Include="InstrumentImage.fs" />
     <Compile Include="Visualization.fs" />
     <Compile Include="MarsTaggedLocations.fs" />
-    <Compile Include="ProjectedImagesModel.fs" />
     <Compile Include="OpcShaders.fs" />
     <Compile Include="Shaders.fs" />
     <Compile Include="CelestialBodies.fs" />
