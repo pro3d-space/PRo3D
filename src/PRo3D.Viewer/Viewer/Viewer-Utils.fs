@@ -1055,7 +1055,7 @@ module ViewerUtils =
                 )
             )
             |> Sg.texture "ProjectedTexture" projectedTexture
-            |> Sg.uniform' "ProjectedImageModelViewProjValid" true
+            |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
             |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
             |> Sg.noEvents
 

@@ -134,6 +134,8 @@ module Gui =
                     | Planet.Moon  -> "Moon"
                     | Planet.Deimos -> "Deimos"
                     | Planet.Phobos -> "Phobos"
+                    | Planet.Dimorphos -> "Dimorphos"
+                    | Planet.Didymos -> "Didymos"
                     | _ -> "[TextOverlays] missing text representation for selected planet."
                 )  
             
