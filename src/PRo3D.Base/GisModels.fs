@@ -58,7 +58,6 @@ type ReferenceFrame =
         spiceName   : FrameSpiceName
         spiceNameText : string
         isEditing   : bool
-        entity      : option<EntitySpiceName>
     } 
 with
     static member current = 0
@@ -67,7 +66,6 @@ with
             let! label       = Json.read    "label"
             let! description = Json.tryRead "description"
             let! spiceName   = Json.read    "spiceName"
-            let! entity      = Json.tryRead "entity"
             
             return {
                 version      = ReferenceFrame.current
@@ -76,7 +74,6 @@ with
                 spiceName    = spiceName  
                 spiceNameText = spiceName.Value
                 isEditing    = false
-                entity       = entity
             }
         }
     static member FromJson(_ : ReferenceFrame) = 
@@ -93,8 +90,6 @@ with
             if x.description.IsSome then
                 do! Json.write  "description"  x.description.Value
             do! Json.write      "spiceName"    x.spiceName  
-            if x.entity.IsSome then
-                do! Json.write  "entity"       x.entity.Value
         }
 
 /// Entities are natural bodies or spacecraft.
@@ -114,7 +109,6 @@ type Entity = {
     color        : C4f
     radius       : float
     trajectoryLength : float
-    geometryPath : option<string>
     textureName  : option<string>
     showTrajectory : bool
     defaultFrame : option<FrameSpiceName>
@@ -126,7 +120,6 @@ type Entity = {
             let! spiceName    = Json.read    "spiceName"   
             let! color        = Json.read    "color"       
             let! radius       = Json.read    "radius"      
-            let! geometryPath = Json.tryRead "geometryPath"
             let! textureName  = Json.tryRead "textureName" 
             let! defaultFrame = Json.read    "defaultFrame"
             let! (draw : option<bool>) = Json.tryRead "draw"
@@ -143,7 +136,6 @@ type Entity = {
                 color        = C4f.Parse color       
                 radius       = radius      
                 trajectoryLength = 1.0
-                geometryPath = geometryPath
                 textureName  = textureName 
                 defaultFrame = defaultFrame
                 showTrajectory = Option.defaultValue false showTrajectory
@@ -156,7 +148,6 @@ type Entity = {
             let! color        = Json.read    "color"       
             let! radius       = Json.read    "radius" 
             let! trajectoryLength       = Json.read    "trajectoryLength" 
-            let! geometryPath = Json.tryRead "geometryPath"
             let! textureName  = Json.tryRead "textureName" 
             let! defaultFrame = Json.read    "defaultFrame"
             let! (draw : option<bool>) = Json.tryRead "draw"
@@ -173,7 +164,6 @@ type Entity = {
                 color        = C4f.Parse color       
                 radius       = radius      
                 trajectoryLength = trajectoryLength
-                geometryPath = geometryPath
                 textureName  = textureName 
                 defaultFrame = defaultFrame
                 showTrajectory = Option.defaultValue false showTrajectory
@@ -195,7 +185,6 @@ type Entity = {
             do! Json.write "color"        (string x.color)
             do! Json.write "radius"       x.radius   
             do! Json.write "trajectoryLength" x.trajectoryLength   
-            do! Json.write "geometryPath" x.geometryPath
             do! Json.write "textureName"  x.textureName 
             do! Json.write "defaultFrame" x.defaultFrame
             do! Json.write "draw"         x.draw
@@ -213,7 +202,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Red       
-            geometryPath  = None
             radius        = 3376200.0 //polar radius in meter
             trajectoryLength = 1.0
             textureName   = None
@@ -230,11 +218,10 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Gray       
-            geometryPath  = None
             radius        = 6250.0 //polar radius in meter
             trajectoryLength = 1.0
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
+            defaultFrame  = Some (FrameSpiceName "IAU_DEIMOS")
             showTrajectory = false
         }
 
@@ -247,11 +234,10 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.DarkGoldenRod       
-            geometryPath  = None
             trajectoryLength = 1.0
             radius        = 11266.5 //polar radius in meter
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
+            defaultFrame  = Some (FrameSpiceName "IAU_PHOBOS")
             showTrajectory = false
         }
 
@@ -264,7 +250,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Blue       
-            geometryPath  = None
             radius        = 6356800.0 // polar radius in meter
             trajectoryLength = 1.0
             textureName   = None
@@ -281,7 +266,6 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Silver       
-            geometryPath  = None
             radius        = 1736000.0 //polar radius in meter
             trajectoryLength = 1.0
             textureName   = None
@@ -298,11 +282,10 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Grey       
-            geometryPath  = None
             radius        = 382.5 //mean radius +/- 2.5m
             trajectoryLength = 1.0
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
+            defaultFrame  = Some (FrameSpiceName "J2000") 
             showTrajectory = false
         }
 
@@ -315,27 +298,25 @@ module Entity =
             isEditing     = false
             draw          = false
             color         = C4f.Grey       
-            geometryPath  = None
             radius        = 75.5 //mean radius +/- 2.5m
             trajectoryLength = 1.0
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
+            defaultFrame  = Some (FrameSpiceName "J2000") 
             showTrajectory = false
         }
     let heraSpacecraft =
         {
             version       = Entity.current
             label         = "Hera Spacecraft"
-            spiceName     = EntitySpiceName "HERA" // ?? Need to check!
+            spiceName     = EntitySpiceName "HERA" 
             spiceNameText = "HERA"
             isEditing     = false
             draw          = false
             color         = C4f.Grey       
-            geometryPath  = None
-            radius        = 2.0 // ?
+            radius        = 2.0 
             trajectoryLength = 1.0
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") // DIMORPHOS_FIXED ?
+            defaultFrame  = Some (FrameSpiceName "HERA_SPACECRAFT") // DIMORPHOS_FIXED ?
             showTrajectory = false
         }
         
@@ -350,7 +331,6 @@ module ReferenceFrame =
             description = Some "Defined with Earth's Mean Equator and Mean Equinox (MEME) at 12:00 Terrestrial Time on 1 January 2000"
             spiceName   = FrameSpiceName "J2000"
             spiceNameText = "J2000"
-            entity      = None
             isEditing   = false
         }
     let eclipJ2000 = 
@@ -360,7 +340,6 @@ module ReferenceFrame =
             description = Some "Ecliptic coordinates based upon the J2000 frame."
             spiceName   = FrameSpiceName "ECLIPJ2000"
             spiceNameText = "ECLIPJ2000"
-            entity      = None
             isEditing   = false
         }
     let iauMars = 
@@ -370,7 +349,6 @@ module ReferenceFrame =
             description = Some "Mars body-fixed frame"
             spiceName   = FrameSpiceName "IAU_MARS"
             spiceNameText = "IAU_MARS"
-            entity      = Some (EntitySpiceName "Mars")
             isEditing   = false
         }
     let iauEarth = 
@@ -380,7 +358,60 @@ module ReferenceFrame =
             description = Some "Earth body-fixed frame"
             spiceName   = FrameSpiceName "IAU_EARTH"
             spiceNameText = "IAU_EARTH"
-            entity      = Some (EntitySpiceName "Earth")
+            isEditing   = false
+        }
+    let heraSpacecraft = 
+        {
+            version     = ReferenceFrame.current
+            label       = "HERA_SPACECRAFT"
+            description = Some "Spacecraft body-fixed frame"
+            spiceName   = FrameSpiceName "HERA_SPACECRAFT"
+            spiceNameText = "HERA_SPACECRAFT"
+            isEditing   = false
+        }
+    let iauDeimos = 
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_DEIMOS"
+            description = Some "Deimos body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_DEIMOS"
+            spiceNameText = "IAU_DEIMOS"
+            isEditing   = false
+        }
+    let iauPhobos = 
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_PHOBOS"
+            description = Some "Phobos body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_PHOBOS"
+            spiceNameText = "IAU_PHOBOS"
+            isEditing   = false
+        }
+    let iauMoon = 
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_MOON"
+            description = Some "Moon body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_MOON"
+            spiceNameText = "IAU_MOON"
+            isEditing   = false
+        }
+    let iauDidymos = // TODO: how is the correct reference frame name?
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_DIDY"
+            description = Some "Didymos body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_DIDY"
+            spiceNameText = "IAU_DIDY"
+            isEditing   = false
+        }
+    let iauDimorphos = // TODO: how is the corrent reference frame name?
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_DIMO"
+            description = Some "Dimorphos body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_DIMO"
+            spiceNameText = "IAU_DIMO"
             isEditing   = false
         }
 

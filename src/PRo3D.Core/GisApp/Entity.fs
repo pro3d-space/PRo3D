@@ -23,7 +23,6 @@ module Entity =
             spiceName     = EntitySpiceName "New Entity"    
             spiceNameText = "New Entity"
             color         = C4f.White       
-            geometryPath  = None
             radius        = 1.0
             trajectoryLength = 1.0
             textureName   = None
@@ -41,8 +40,6 @@ module Entity =
             {m with spiceNameText = name}
         | EntityAction.SetReferenceFrame frame ->
             {m with defaultFrame = frame}
-        | EntityAction.SetGeometryPath geometryPath ->
-            {m with geometryPath = Some geometryPath}
         | EntityAction.SetRadius radius ->
             {m with radius = radius}
         | EntityAction.SetTrajectoryLength trajectoryLength ->
@@ -154,13 +151,6 @@ module Entity =
                 ]
                 //Html.row "Label" [Html.SemUi.textBox m.label EntityAction.SetLabel]
                 Html.row "Reference Frame" [refFramesSelectionGui referenceFrames m]
-                Html.row "Geometry Path" 
-                         [Html.SemUi.textBox 
-                            (m.geometryPath 
-                                |> AVal.map (fun x ->
-                                Option.defaultValue "" x
-                            )) EntityAction.SetGeometryPath
-                         |> fullWidthText]
                 Html.row "Texture Path" 
                          [Html.SemUi.textBox 
                             (m.textureName 
@@ -170,7 +160,7 @@ module Entity =
                             EntityAction.SetTextureName
                          |> fullWidthText]
                 Html.row "Radius" [radiusInput]
-                Html.row "Draw Entity" [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
+                Html.row "Draw Proxy" [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
                 Html.row "Show Trajectory" [GuiEx.iconCheckBox m.showTrajectory EntityAction.ToggleTrajectory]
                 Html.row "Trajectory Length (days)" [trajectoryLengthInput]
                 actions

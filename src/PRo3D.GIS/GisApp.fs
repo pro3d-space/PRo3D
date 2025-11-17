@@ -467,7 +467,7 @@ module GisApp =
                 tr [] [
                     th [] [text "Spice Name"]
                     th [] [text "Reference Frame"]
-                    th [] [text "Draw"]
+                    th [] [text "Proxy"]
                     th [] [text "Actions"]
                 ]
             ] |> AList.ofList
@@ -617,7 +617,6 @@ module GisApp =
                 tr [] [
                     //th [] [text "Label"]
                     th [] [text "Spice Name"]
-                    th [] [text "Associated Entity"]
                     th [] []
                 ]
             ] |> AList.ofList
@@ -861,8 +860,6 @@ module GisApp =
                 )
             )
 
-
-
         let markers = 
             showMarkers 
             |> AVal.map (function 
@@ -1056,6 +1053,12 @@ module GisApp =
                 (ReferenceFrame.eclipJ2000.spiceName, ReferenceFrame.eclipJ2000)
                 (ReferenceFrame.iauMars.spiceName, ReferenceFrame.iauMars)
                 (ReferenceFrame.iauEarth.spiceName, ReferenceFrame.iauEarth)
+                (ReferenceFrame.heraSpacecraft.spiceName, ReferenceFrame.heraSpacecraft)
+                (ReferenceFrame.iauDeimos.spiceName, ReferenceFrame.iauDeimos)
+                (ReferenceFrame.iauPhobos.spiceName, ReferenceFrame.iauPhobos)
+                (ReferenceFrame.iauMoon.spiceName, ReferenceFrame.iauMoon)
+                // (ReferenceFrame.iauDidymos.spiceName, ReferenceFrame.iauDidymos)
+                // (ReferenceFrame.iauDimorphos.spiceName, ReferenceFrame.iauDimorphos)
             ] |> HashMap.ofList
 
         let missionTimeEntries : list<MissionTimeEntry> = getMissionTimeEntriesData()
