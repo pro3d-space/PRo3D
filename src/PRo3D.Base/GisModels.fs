@@ -221,7 +221,7 @@ module Entity =
             radius        = 6250.0 //polar radius in meter
             trajectoryLength = 1.0
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
+            defaultFrame  = Some (FrameSpiceName "IAU_DEIMOS")
             showTrajectory = false
         }
 
@@ -237,7 +237,7 @@ module Entity =
             trajectoryLength = 1.0
             radius        = 11266.5 //polar radius in meter
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
+            defaultFrame  = Some (FrameSpiceName "IAU_PHOBOS")
             showTrajectory = false
         }
 
@@ -285,7 +285,7 @@ module Entity =
             radius        = 382.5 //mean radius +/- 2.5m
             trajectoryLength = 1.0
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
+            defaultFrame  = Some (FrameSpiceName "J2000") 
             showTrajectory = false
         }
 
@@ -301,7 +301,7 @@ module Entity =
             radius        = 75.5 //mean radius +/- 2.5m
             trajectoryLength = 1.0
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
+            defaultFrame  = Some (FrameSpiceName "J2000") 
             showTrajectory = false
         }
     let heraSpacecraft =
@@ -367,6 +367,51 @@ module ReferenceFrame =
             description = Some "Spacecraft body-fixed frame"
             spiceName   = FrameSpiceName "HERA_SPACECRAFT"
             spiceNameText = "HERA_SPACECRAFT"
+            isEditing   = false
+        }
+    let iauDeimos = 
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_DEIMOS"
+            description = Some "Deimos body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_DEIMOS"
+            spiceNameText = "IAU_DEIMOS"
+            isEditing   = false
+        }
+    let iauPhobos = 
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_PHOBOS"
+            description = Some "Phobos body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_PHOBOS"
+            spiceNameText = "IAU_PHOBOS"
+            isEditing   = false
+        }
+    let iauMoon = 
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_MOON"
+            description = Some "Moon body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_MOON"
+            spiceNameText = "IAU_MOON"
+            isEditing   = false
+        }
+    let iauDidymos = // TODO: how is the correct reference frame name?
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_DIDY"
+            description = Some "Didymos body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_DIDY"
+            spiceNameText = "IAU_DIDY"
+            isEditing   = false
+        }
+    let iauDimorphos = // TODO: how is the corrent reference frame name?
+        {
+            version     = ReferenceFrame.current
+            label       = "IAU_DIMO"
+            description = Some "Dimorphos body-fixed frame"
+            spiceName   = FrameSpiceName "IAU_DIMO"
+            spiceNameText = "IAU_DIMO"
             isEditing   = false
         }
 

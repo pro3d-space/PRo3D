@@ -18,7 +18,7 @@ open PRo3D.Extensions.FSharp
 
 let logDir = Path.Combine(".", "logs")
 let spiceRoot = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..")
-let spiceFileName = Path.Combine(spiceRoot, @"./spice/kernels/mk/hera_ops.tm")
+let spiceFileName = Path.Combine(spiceRoot, "spice", "kernels", "mk", "hera_ops.tm")
 
 do Aardvark.Base.Aardvark.UnpackNativeDependencies(typeof<CooTransformation.RelState>.Assembly)
 
@@ -71,8 +71,9 @@ let tests () =
         }
 
         use _ = init()
-        System.Environment.CurrentDirectory <- Path.GetDirectoryName(spiceFileName)
-        let init = CooTransformation.AddSpiceKernel(spiceFileName)
+        let fullPath = Path.GetFullPath(spiceFileName)
+        System.Environment.CurrentDirectory <- Path.GetDirectoryName(fullPath)
+        let init = CooTransformation.AddSpiceKernel(fullPath)
         Expect.equal 0 init "spice adding"
 
         test "GetRelState" {

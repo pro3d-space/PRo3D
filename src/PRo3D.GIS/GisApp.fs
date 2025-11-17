@@ -1054,6 +1054,11 @@ module GisApp =
                 (ReferenceFrame.iauMars.spiceName, ReferenceFrame.iauMars)
                 (ReferenceFrame.iauEarth.spiceName, ReferenceFrame.iauEarth)
                 (ReferenceFrame.heraSpacecraft.spiceName, ReferenceFrame.heraSpacecraft)
+                (ReferenceFrame.iauDeimos.spiceName, ReferenceFrame.iauDeimos)
+                (ReferenceFrame.iauPhobos.spiceName, ReferenceFrame.iauPhobos)
+                (ReferenceFrame.iauMoon.spiceName, ReferenceFrame.iauMoon)
+                // (ReferenceFrame.iauDidymos.spiceName, ReferenceFrame.iauDidymos)
+                // (ReferenceFrame.iauDimorphos.spiceName, ReferenceFrame.iauDimorphos)
             ] |> HashMap.ofList
 
         let missionTimeEntries : list<MissionTimeEntry> = getMissionTimeEntriesData()
