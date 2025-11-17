@@ -587,12 +587,12 @@ module TestViewer =
                         | None -> TimeSpan.Zero
                         | Some l -> sw.Elapsed - l
                     if not paused then
-                        time.Value <- time.Value + dt * 50.0
+                        time.Value <- time.Value + dt * 250.0
 
                     let frustum = instruments.["HERA_AFC-1"]
                     let view = (getLookAt "HERA" observer.Value referenceFrame.Value "SUN" time.Value).Value
                     //customObservationCamera.Value <- Some (Camera.create view frustum)
-                    //initialView.Value <- view
+                    initialView.Value <- view
                     //animationStep()
                     lastFrame <- Some sw.Elapsed
                 )
