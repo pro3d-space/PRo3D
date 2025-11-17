@@ -50,6 +50,7 @@
     <Compile Include="OutlineEffect.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Navigation-Model.g.fs" />
+    <Compile Include="InstrumentProjection.fs" />
     <Compile Include="GisModels.fs" />
     <Compile Include="GisModels.g.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />

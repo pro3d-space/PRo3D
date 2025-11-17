@@ -5,10 +5,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.SceneGraph
 open Aardvark.Rendering
-
-type DataType = 
-    | Int16 = 1
-    | Float32 = 2
+open PRo3D.ImageMapping
 
 
 type VisualizationProperties = 
@@ -25,7 +22,7 @@ module VisualizationProperties =
     let empty = 
         {
             visualizationRange = AVal.constant Range1d.Unit
-            dataType = AVal.constant DataType.Float32
+            dataType = AVal.constant DataType.Float
             instrumentImage = DefaultTextures.checkerboard
             colorMapping = AVal.constant None
             projectionOpacity = AVal.constant 1.0
@@ -57,7 +54,7 @@ module InstrumentImageVisualization =
         |> Sg.uniform "UseFalseColor" (p.colorMapping |> AVal.map Option.isSome)
         |> Sg.texture "InstrumentImage" p.instrumentImage
         |> Sg.uniform "DataType" (p.dataType |> AVal.map int)
-        |> Sg.uniform "ProjectedImageOpacity" p.projectionOpacity
+        |> Sg.uniform "ProjectedImageOpacity2" (p.projectionOpacity |> AVal.map (fun v -> v))
         |> Sg.texture "ColormapTexture" (
             p.colorMapping |> AVal.bind (function
                 | None -> DefaultTextures.blackTex 

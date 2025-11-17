@@ -6,11 +6,14 @@ open FSharp.Data.Adaptive
 open Adaptify
 open PRo3D.Base
 open PRo3D.Core
+open PRo3D.ImageMapping
 
 open PRo3D.Core.Surface
 open PRo3D.Base.Gis
 open Chiron
 open Aardvark.UI.Primitives
+
+open Aardvark.Base
 
 
 type GisSurface = {
@@ -115,78 +118,6 @@ type MissionTimeEntry = {
     value : NumericInput
 }
 
-module InstrumentImages = 
-
-    open Aardvark.Rendering
-
-    type Extrinsics = 
-        | Plain of CameraView
-
-    type Intrinsics = 
-        | Plain of Frustum
-
-    type ImageData = 
-        | FilePath of string
-
-    type ProjectedImage =
-        {
-            intrinsics : Intrinsics
-            extrinsics : Extrinsics
-            image      : Option<ImageData>
-        }
-
-    type CameraFocus = 
-        | FocusBody of focusedBody : string
-
-    type CameraSource =
-        | InBody of body : string
-
-    type Intrinsics with
-        member x.ProjTrafo = 
-            match x with
-            | Intrinsics.Plain frustum -> Frustum.projTrafo frustum
-
-type InstrumentProjection = 
-    {
-        instrumentReferenceFrame : string
-        target : InstrumentImages.CameraFocus
-        cameraSource : InstrumentImages.CameraSource
-        instrumentName : string
-        supportBody : string
-        time : DateTime
-    }
-
-
-module InstrumentProjection = 
-
-    module Serialization =
-
-        open FSharp.Json
-
-        let serialize (projection: InstrumentProjection) : string =
-            let json = Json.serialize projection
-            json
-
-        let deserialize (json: string) : InstrumentProjection =
-            let projection = Json.deserialize<InstrumentProjection>(json)
-            projection
-
-
-type ProjectedImage = 
-    {
-        fullName : string
-        projection : Option<InstrumentProjection>
-    }
-
-[<ModelType>]
-type ProjectedImages =
-    {
-        images : IndexList<ProjectedImage>
-        selectedImage : Option<Index>
-    }
-
-module ProjectedImages = 
-    let initial = { images = IndexList.empty; selectedImage = None }
 
 [<ModelType>]
 type GisApp = 
@@ -201,7 +132,7 @@ type GisApp =
         spiceKernel            : Option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
         cameraInObserver       : bool
-        projectedImages        : ProjectedImages
+        projectedImageList        : ProjectedImageListModel
         showMarkers            : bool // whether line + text markers are displayed (for known planets)
 
         selectedMissionTimeRow : Option<Index>
@@ -246,7 +177,7 @@ module GisAppJson =
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
-                projectedImages        = ProjectedImages.initial //{ ProjectedImages.initial with images = System.IO.Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
+                projectedImageList        = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = System.IO.Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
                 showMarkers            = Option.defaultValue false showMarkers
 
                 selectedMissionTimeRow = None
@@ -303,11 +234,6 @@ type ReferenceFrameAction =
     | Cancel
     | Save      
 
-
-type ImageProjectionMessage = 
-    | SelectImage of Index
-    | LoadImagesDir of string
-
 type GisAppAction =
     | Observe
     | AssignBody                of (SurfaceId * option<EntitySpiceName>)
@@ -321,7 +247,7 @@ type GisAppAction =
     | ToggleCameraInObserver    
     | NewEntity
     | NewFrame
-    | ImageProjection           of ImageProjectionMessage
+    | ProjectedImageListMessage of ProjectedImageListMessage
     | ToggleDrawMarkers
     | SetMissionTimesRowAndSetDate of (MissionTimeEntry * Index)
     | InitializeMissionTimeEntries

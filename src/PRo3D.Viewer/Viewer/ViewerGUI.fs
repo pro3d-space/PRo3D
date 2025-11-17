@@ -26,6 +26,7 @@ open PRo3D.SimulatedViews
 open Adaptify
 open FSharp.Data.Adaptive
 open PRo3D.Core.Gis
+open PRo3D.ImageMapping
 
 module Gui =            
     
@@ -651,8 +652,10 @@ module Gui =
                                             text "Load SPICE kernel"
                                         ]
 
+
+                                        // SP: remove code if loading of projected images does work
                                         let jsImportImages = "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to import images from', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.ImageProjection (ImageProjectionMessage.LoadImagesDir p)) | _ -> ViewerAction.Nop); clientEvent "onclick" jsImportImages ] [
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (ProjectedImageListApp.loadDirMessage p)) | _ -> ViewerAction.Nop); clientEvent "onclick" jsImportImages ] [
                                             text "Load Image Projections"
                                         ]
 

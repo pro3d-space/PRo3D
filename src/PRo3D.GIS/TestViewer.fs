@@ -30,7 +30,6 @@ open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 open PRo3D.SPICE
 
-open PRo3D.Core.ProjectedImages
 open PRo3D.Core.Gis
 
 open FSharp.Data
@@ -205,19 +204,25 @@ module TestViewer =
                         instrumentName = "HERA_AFC-1"
                         supportBody = "SUN"
                         time = obsTime
+                        boresightAdjustment = None
                     }
-                mbi.obs_date, ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
+                mbi.obs_date, InstrumentProjection.projectOnto referenceFrame.Value observer.Value instruments p
             )
 
+        let userIndex = cval 94
+
         let nearestProjectionIndex =
-            time |> AVal.map (fun currentTime  -> 
-                match observations |> Array.tryFindIndex (fun (observationTime,_) -> observationTime > currentTime) with
-                | Some i -> 
-                    printfn "observation id: %A" i
-                    i
-                | _ -> 
-                    0
-            )
+            if true then
+               userIndex  :> aval<_>
+            else
+                time |> AVal.map (fun currentTime  -> 
+                    match observations |> Array.tryFindIndex (fun (observationTime,_) -> observationTime > currentTime) with
+                    | Some i -> 
+                        printfn "observation id: %A" i
+                        i
+                    | _ -> 
+                        0
+                )
 
 
         let currentProjectedImage = 
@@ -234,10 +239,13 @@ module TestViewer =
             )
 
         let projectedTexture =
-            currentProjectedImage
-            |> AVal.bind (fun (s, _) -> 
-                PRo3D.InstrumentProjection.Visualization.createProjectedTexture (AVal.constant (Some s))
-            )
+            let image : aval<Option<string * InstrumentMetadata.ParsedMetadata>> =
+                currentProjectedImage 
+                |> AVal.map (fun (s, (mbi, imgInfo)) -> 
+                    Log.line "projecting: %A" mbi.obs_date
+                    Some (s, (Some mbi, imgInfo))
+                )
+            PRo3D.InstrumentProjection.Visualization.createProjectedTexture image
 
         let minMax = 
             currentProjectedImage |> AVal.map (fun img -> 
@@ -259,6 +267,8 @@ module TestViewer =
             }
 
         let prio = RenderPass.after "priority" RenderPassOrder.Arbitrary RenderPass.main 
+
+        let opacity = cval 1.0
 
         let hierarchies = 
             let runner = win.Runtime.CreateLoadRunner 1
@@ -312,7 +322,7 @@ module TestViewer =
                                 }
                             )
                      )
-                     |> InstrumentImageVisualization.applyProperties { imageSettings with instrumentImage = projectedTexture }
+                     |> InstrumentImageVisualization.applyProperties { imageSettings with instrumentImage = projectedTexture; projectionOpacity = opacity }
                 ) 
  
             let mola = 
@@ -448,7 +458,6 @@ module TestViewer =
             |> Sg.uniform "LodVisEnabled" (cval false)
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount //count
             |> Sg.texture "ProjectedTexture" projectedTexture 
-            |> InstrumentImageVisualization.applyProperties { imageSettings with instrumentImage = projectedTexture }
             |> Sg.trafo (transformation |> AVal.map fst)
             |> Sg.onOff (transformation |> AVal.map snd)
 
@@ -610,6 +619,26 @@ module TestViewer =
 
         win.Keyboard.KeyDown(Keys.Space).Values.Add(fun _ -> 
             paused <- not paused
+        )
+
+        win.Keyboard.KeyDown(Keys.N).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                userIndex.Value <- (userIndex.Value + 1) % instrumentData.Length
+                printfn "idx: %A" userIndex.Value
+            )
+        )
+
+        win.Keyboard.KeyDown(Keys.OemPlus).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                opacity.Value <- min 1.0 (opacity.Value + 0.1)
+            )
+            printfn "opacity: %A" opacity.Value
+        )
+        win.Keyboard.KeyDown(Keys.OemMinus).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                opacity.Value <- max 0.0 (opacity.Value - 0.1)
+            )
+            printfn "opacity: %A" opacity.Value
         )
 
         let task =
