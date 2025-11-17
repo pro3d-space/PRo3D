@@ -103,7 +103,7 @@ module TransformationApp =
         | Planet.Earth
         | Planet.ENU -> 
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
-        | Planet.Mars ->
+        | Planet.Mars | Planet.Moon | Planet.Phobos | Planet.Deimos | Planet.Dimorphos | Planet.Didymos ->
             let north, up, east =
                 let north = refSystem.northO.Normalized        
                 let up    = refSystem.up.value.Normalized

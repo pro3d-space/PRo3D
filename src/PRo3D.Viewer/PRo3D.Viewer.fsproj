@@ -37,8 +37,15 @@
     <EmbeddedResource Remove="Drawing\**" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ResettableAsyncValue.fs" />
     <None Include="RunAdaptify.fsx" />
     <None Include="paket.references" />
+    <Compile Include="Traverse\TraverseUtilities.fs" />
+    <Compile Include="Traverse\PlannedTargetsTraverse.fs" />
+    <Compile Include="Traverse\StrategicAnnotationsTraverse.fs" />
+    <Compile Include="Traverse\WayPointsTraverse.fs" />
+    <Compile Include="Traverse\RIMFAXTraverse.fs" />
+    <Compile Include="Traverse\RoverTraverse.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\Model.g.fs" />
@@ -57,12 +64,15 @@
     <Compile Include="InitialViewerModel.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />
-    <Compile Include="Scene.fs" />
+    <Compile Include="Viewer\Shaders.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
+    <Compile Include="Scene.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\ViewerLenses.fs" />
+    <Compile Include="Viewer\Picking.fs" />
+    <Compile Include="Viewer\EllipseAnnotations.fs" />
     <Compile Include="Viewer\Viewer.fs" />
     <Compile Include="Viewer\SnapshotSg.fs" />
     <Compile Include="CommandLine\CommandLineUtils.fs" />
@@ -127,7 +137,7 @@
     </EmbeddedResource>
     <EmbeddedResource Include="resources\semui-overrides.css" />
     <EmbeddedResource Include="resources\ElementQueries.js" />
-	<EmbeddedResource Include="resources\ResizeSensor.js" />
+  <EmbeddedResource Include="resources\ResizeSensor.js" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />

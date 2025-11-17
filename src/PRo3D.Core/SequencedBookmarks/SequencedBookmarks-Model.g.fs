@@ -1,5 +1,5 @@
 //9d9091e1-5600-7fb5-3f95-4778d9ab3384
-//bfd03032-6633-a8ce-9257-594dc3cdcc0a
+//9c0a8433-b2af-4b30-af55-ecea5fad2fd2
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -13,9 +13,9 @@ open PRo3D.Core.SequencedBookmarks
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
     let mutable _key_ = FSharp.Data.Adaptive.cval(value.key)
+    let mutable _filename_ = FSharp.Data.Adaptive.cval(value.filename)
     let mutable _cameraView_ = FSharp.Data.Adaptive.cval(value.cameraView)
     let mutable _name_ = FSharp.Data.Adaptive.cval(value.name)
-    let mutable _filename_ = FSharp.Data.Adaptive.cval(value.filename)
     let mutable _path_ = FSharp.Data.Adaptive.cval(value.path)
     let _bookmark_ = PRo3D.Core.AdaptiveBookmark(value.bookmark)
     let _metadata_ = FSharp.Data.Adaptive.cval(value.metadata)
@@ -42,9 +42,9 @@ type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
             __value <- value
             __adaptive.MarkOutdated()
             _key_.Value <- value.key
+            _filename_.Value <- value.filename
             _cameraView_.Value <- value.cameraView
             _name_.Value <- value.name
-            _filename_.Value <- value.filename
             _path_.Value <- value.path
             _bookmark_.Update(value.bookmark)
             _metadata_.Value <- value.metadata
@@ -57,9 +57,9 @@ type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
             _observationInfo_.Update(value.observationInfo)
     member __.Current = __adaptive
     member __.key = _key_ :> FSharp.Data.Adaptive.aval<System.Guid>
+    member __.filename = _filename_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.cameraView = _cameraView_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
     member __.name = _name_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
-    member __.filename = _filename_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.path = _path_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.version = __value.version
     member __.bookmark = _bookmark_

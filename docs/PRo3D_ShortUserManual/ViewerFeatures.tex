@@ -844,21 +844,36 @@ interactive presentations for science.
 
 Currently the GIS settings are not stored to scene files.
 
-\subsubsection{Instrument projections}
-\label{sec:instrumentProjections}
 
-In the main menu (three vertical bars top left) you will find "Load Image Projections" in the "Extras" menu.
-The visualization control for projected images can be found in the GIS tab in "Projected Images".
-See \autoref{fig:hera-projectedImages} for an active instrument image projection setup.
+\subsubsection{Mission Phases}
+\label{sec:missionTimes}
+
+The mission time settings, shown in Figure \ref{label:mission_phases} allow the user to choose a mission time frame and to navigate through the simulation using the slider. The mission phases include the Deimos Flyby, the Mars Flyby and the Didymos Orbital Insertion. 
 
 \begin{figure}[h!]
 	\centering
-	\includegraphics[width=0.8\textwidth]{pics/hera-projectedImages.png}
-	\caption{Simulated instrument data being projected onto Mars' MOLA reconstruction.}
-	\label{fig:hera-projectedImages}
+	\includegraphics[width=0.8\textwidth]{./pics/mission_interface.png}
+	\caption{Mission Phases}
+    \label{label:mission_phases}
 \end{figure}
 
-For simulated images the images must contain a json file with the same name of as the image an should contain at least the field as shown in this example:
+\subsubsection{Markers}
+\label{sec:markers}
+
+Celestial bodies can be annotated with markers as shown in Figure \ref{fig:markers_on_mars}. 
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\textwidth]{./pics/markers_on_mars.png}
+	\caption{Markers on Mars}
+    \label{fig:markers_on_mars}
+\end{figure}
+
+\subsubsection{Instrument projections}
+\label{sec:instrumentProjections}
+
+Simulated images the images must contain a json file with the same name and the suffix .mbi, i.e. <image\_name>.mbi.json, which stores information about the instrument, the time and the target body. This file should contain at least the following fields:
+
 \begin{verbatim}
 	{
 	"instrumentReferenceFrame": "ECLIPJ2000",
@@ -868,6 +883,73 @@ For simulated images the images must contain a json file with the same name of a
 	"time": "2025-03-12T11:50:31.0110000Z"
 	}
 \end{verbatim}
+
+Those are required to project the image onto a celestial body. 
+
+A second json file with the format <image\_name>.json contains information about the image. We require this file to store information about the number of channels and the minimum and maximum pixel values that were used to capture the image.   
+
+The images captured with the Hera instruments can be loaded using the main menu or the \textit{Projected Images} tab in the Gis panel, as shown in Figure \ref{fig:load_instrument_images}.
+
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./pics/load_instrument_images_main_menu.PNG}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./pics/load_instrument_images_gis_view.PNG}
+    \end{subfigure}
+    \caption{Load Instrument Images}
+    \label{fig:load_instrument_images}
+\end{figure}
+
+Figure \ref{fig:image_settings} shows the parameters the user can adjust after loading an image. The user can choose a channel using the \textit{Channel} parameter in case that a layered \textit{tiff} file is loaded. The \textit{false color visualization} can be activated to enhance properties and the corresponding dropdown offers different color maps to choose from. \textit{Minimum} and \textit{maximum} are set to the minimum and maximum values that were used by the instrument to capture the image. Those values are extracted from the json file that is delivered with the instrument image. The user is not limited to a range if they want use the text field to set a minimum and maximum value to map the color values to a new range. The sliders are set to the used color range +/- 10\%.        
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./pics/projected_images_settings_1.PNG}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./pics/projected_images_settings_2.PNG}
+    \end{subfigure}
+    \caption{Settings for Images}
+    \label{fig:image_settings}
+\end{figure}
+
+Figure \ref{fig:image_projection} shows the settings the user can adjust to control the image projection onto a body. The \textit{visualization} slider controls the opacity of the image projection and the registration properties \textit{roll}, \textit{pitch} and \textit{yaw} register the orientation of the projected image. 
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{./pics/projected_images_settings.png}
+	\caption{Settings for Image Projection}
+    \label{fig:image_projection}
+\end{figure}
+
+
+Figure \ref{fig:hera-projectedImages} and Figure \ref{fig:hera-projectedImages2} display the image projection onto Mars.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/hera-projectedImages.png}
+	\caption{Simulated instrument data being projected onto Mars' MOLA reconstruction.}
+	\label{fig:hera-projectedImages}
+\end{figure}
+
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\textwidth]{./pics/loaded_images.png}
+	\caption{Image Projection on Mars}
+    \label{fig:hera-projectedImages2}
+\end{figure}
+
 
 
 %----------------------------------------------------------------------------------------
@@ -945,5 +1027,4 @@ Currently we only read opcx files as opposed to opcx.json files which also provi
 
 \paragraph{Data Example}
 An example of currently available data can be found in the Appendix \ref{multitexturingAppendix}.
-
 

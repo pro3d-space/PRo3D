@@ -24,6 +24,7 @@ open PRo3D.SimulatedViews
 
 open Adaptify.FSharp.Core
 open Aardvark.GeoSpatial.Opc
+open PRo3D.InstrumentVisualization
 
 module ViewerUtils =    
     type Self = Self
@@ -231,29 +232,12 @@ module ViewerUtils =
             let! texture = s.primaryTexture 
             let attr : AttributeParameters = 
                 {
-                    selectedTexture = texture |> Option.map(fun x -> x.index)
+                    selectedTexture = texture |> Option.map (fun x -> { texture = TextureReference.LegacyId x.index; channel = ChannelReference.NoChannelSelection })
                     selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
                 }
 
             return attr
         }
-
-    let attributeParameters' (surf:Surface) =
-            let s = surf
-            let scalar = s.selectedScalar
-            let scalar' = 
-                match scalar with
-                | Some m -> m.label |> Some
-                | None -> None
-            
-            let texture = s.primaryTexture 
-            let attr : AttributeParameters = 
-                {
-                    selectedTexture = texture |> Option.map(fun x -> x.index)
-                    selectedScalar  = scalar'
-                }
-
-            attr    
 
     type Vertex = {
         [<Position>]        pos     : V4d
@@ -281,6 +265,7 @@ module ViewerUtils =
         (filterTexture   : aval<bool>)
         (allowFootprint  : bool)  
         (allowDepthview  : bool) 
+        (cursorWorldSpace : aval<Option<V3d * float>>)
         (view            : aval<CameraView>) =
 
         adaptive {
@@ -411,7 +396,26 @@ module ViewerUtils =
                             return! surf.filterByDistance 
                         | None ->
                             return false
-                    }               
+                    }  
+                    
+                let cusorViewSpace = 
+                    (view, cursorWorldSpace) ||> AVal.map2 (fun view p -> 
+                        match p with
+                        | None -> V4d.Zero
+                        | Some (p, _) -> 
+                            let vp = (CameraView.viewTrafo view).Forward.TransformPos p
+                            V4d(vp, 1.0) // w for indication if valid
+                    )
+
+                let colorMap = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+
+                let visualizationProperties = 
+                    { 
+                        VisualizationProperties.empty with 
+                            projectionOpacity = AVal.constant 1.0
+                            visualizationRange = Range1d(0.0, 1.0) |> AVal.constant
+                            colorMapping = colorMap
+                    }
 
                 let surfaceSg =
                     surface.sceneGraph
@@ -429,6 +433,20 @@ module ViewerUtils =
                     |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
                     |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
+
+
+                    |> Sg.uniform "CursorViewSpace" cusorViewSpace
+                    |> Sg.uniform "CursorWorldSizeSquared" (
+                        cursorWorldSpace |> AVal.map (function 
+                            | None -> V4f.Zero 
+                            | Some (_, s) -> 
+                                let r = s * 0.2
+                                // radius start gradient, radius start inner cirucle, radius end gradient
+                                V4f(r, r + 0.1 * r, r + 0.2 * r, r + 0.25 * r) ////(V4f(2.0, 2.1, 2.2, 2.3)  |> AVal.constant)
+                        )
+                    ) 
+                    |> Sg.uniform "CursorShaderEnabled" (AVal.constant true)
+
                     |> addImageCorrectionParameters  surf
                     |> addRadiometryParameters surf
                     |> Sg.uniform "DepthVisible" depthVisible //(AVal.constant(true)) //
@@ -442,13 +460,20 @@ module ViewerUtils =
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
                     
                     |> SecondaryTexture.Sg.applySecondaryTextureId (
-                            surf.secondaryTexture 
-                            |> AVal.map (function
-                                | None -> -1
-                                | Some s -> s.index
+                            (surf.secondaryTexture, surf.secondaryTextureLayer) 
+                            ||> AVal.map2 (fun texture layer ->
+                                match texture, layer with
+                                | Some s, Some l -> Some { texture = TextureReference.LegacyId s.index; channel = ChannelReference.ChannelWithIndex l }
+                                | Some s, None -> 
+                                    Some { texture = TextureReference.LegacyId s.index; channel = ChannelReference.NoChannelSelection }
+                                | _ -> None
                             )
                     )
                     |> Sg.pickable' pickable
+                    
+                    // TODO HERA
+                    |> InstrumentImageVisualization.applyProperties visualizationProperties
+
                     |> Sg.noEvents 
 
                     |> Sg.texture "SecondaryTextureTransferFunction" (
@@ -493,19 +518,21 @@ module ViewerUtils =
                     )
 
 
+
                     |> Sg.withEvents [
-                        //SceneEventKind.Move, (
-                        //    fun sceneHit -> 
-                        //        let name  = surf.name |> AVal.force        
-                        //        let surfacePicking = surfacePicking |> AVal.force
-                        //        true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
-                        //)
-                        SceneEventKind.Click, (
+                        if Config.previewIntersections then
+                            yield SceneEventKind.Move, (
+                                fun sceneHit -> 
+                                    let name  = surf.name |> AVal.force        
+                                    let surfacePicking = surfacePicking |> AVal.force
+                                    true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                            )
+                        yield SceneEventKind.Click, (
                            fun sceneHit -> 
-                             let name  = surf.name |> AVal.force        
-                             let surfacePicking = surfacePicking |> AVal.force
-                             //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)]
+                                let name  = surf.name |> AVal.force        
+                                let surfacePicking = surfacePicking |> AVal.force
+                                //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
+                                true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)]
                          )
                        ]  
                     // handle surface visibility
@@ -851,9 +878,9 @@ module ViewerUtils =
             PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect
             ImageProjection.Shaders.generateNormal |> toEffect
             
+            Shaders.donutVertex |> toEffect
             Shader.footprintV        |> toEffect 
             Shader.stableTrafo       |> toEffect
-            // TODO HERA: this removed this temporarily
             //Shader.triangleFilterX   |> toEffect
            
            
@@ -873,7 +900,9 @@ module ViewerUtils =
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
             Shader.secondaryTexture |> toEffect 
+
             Shader.contourLines |> toEffect
+            Shaders.donutFragment |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
@@ -943,6 +972,7 @@ module ViewerUtils =
                             usehighlighting m.filterTexture
                             true
                             false
+                            (AVal.constant None)
                             view)
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -993,84 +1023,41 @@ module ViewerUtils =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         //let view = m.navigation.camera.view
+
+
+        let cursorWorldPos = 
+            (m.surfaceIntersection, m.scene.config.previewIntersectionWorldSize.value, m.scene.config.showPreviewIntersection) 
+            |||> AVal.map3 (fun hitPoint previewSize showIt -> 
+                match hitPoint with
+                | Some hitPoint when showIt -> Some (hitPoint.hitPoint, previewSize)
+                | _ -> None
+            )
+
         let validSurfacePriority v = 
             // only relevant in secondary pass with overlayed geometry to render "missing" traverses
             AVal.constant true
+
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-
-        let instruments =
-            let frustum = Frustum.perspective 5.5306897076421 1000.0 100000000000.0 1.0
-            Map.ofList [
-                "HERA_AFC-1", frustum
-                "HERA_AFC-2", frustum
-            ]
-
-        let singleProjectedImage  = 
-            m.scene.gisApp.projectedImages.selectedImage 
-            |> AVal.bind (function 
-                | None -> AVal.constant None
-                | Some s -> 
-                    AList.tryGet s m.scene.gisApp.projectedImages.images 
-                    |> AVal.map (function 
-                        | None -> None
-                        | Some img -> 
-                            match img.projection with
-                            | None -> None
-                            | Some p -> 
-                                let trafo = 
-                                    observerSystem |> AVal.map (function 
-                                    | Some o -> 
-                                        ProjectedImages.projectOnto "IAU_MARS" o.body.Value instruments p
-                                    | _ -> 
-                                        Some Trafo3d.Identity
-                                    )
-                                Some (img.fullName, trafo)
-                    )
-             )
-
-
-        let singleImageProjectionTrafo (body : string) (refSystem :string) =
-            singleProjectedImage  |> AVal.bind (function None -> AVal.constant None | Some (_, p) -> p)
-        let singleImageProjectionTexture = 
-            singleProjectedImage |> AVal.map (function None -> NullTexture.Instance | Some (s, p) -> FileTexture(s, true) :> ITexture)
-
-
-
-        let projectedImages (surfaceId : Guid) (body : string) (refSystem :  string) : aval<Option<Sg.ProjectedImages>> = 
-            if body.ToLower() = "mars" then
-                m.scene.gisApp.projectedImages.images.Content
-                |> AVal.map (fun images -> 
-                    let sunDirection = Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
-                    let arr = IndexList.toArray images
-                    let trafos = 
-                        observerSystem |> AVal.map (function
-                            | None -> [||]
-                            | Some o -> 
-                                arr |> Array.choose (fun a -> 
-                                    match a.projection with
-                                    | None -> None
-                                    | Some p -> 
-                                        ProjectedImages.projectOnto "IAU_MARS" o.body.Value instruments p
-                                )
-                        )
-
-         
-                    Some { 
-                        imageProjection = singleImageProjectionTrafo body refSystem
-                        localImageProjectionTrafos = trafos
-                        sunDirection = sunDirection
-                        sunLightEnabled = sunDirection |> AVal.map Option.isSome
-                    }
-                )
-            else
-                AVal.constant None
-
+                              
         let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
+            let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
+            let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
+            let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
+
             sg
             |> Sg.applyProjectedImages (fun body -> 
-                body |> AVal.bind (function None -> AVal.constant None | Some p -> projectedImages surfaceId p "IAU_MARS")
+                body 
+                |> AVal.map (function 
+                    | Some b when b.ToLower() = "mars" -> 
+                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp surfaceId "MARS"
+                        r
+                    | _ -> None 
+                )
             )
-            |> Sg.texture "ProjectedTexture" singleImageProjectionTexture
+            |> Sg.texture "ProjectedTexture" projectedTexture
+            |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
+            |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
+            |> Sg.noEvents
 
 
         sgGrouped 
@@ -1098,6 +1085,7 @@ module ViewerUtils =
                             usehighlighting filterTexture
                             allowFootprint
                             allowDepthview
+                            cursorWorldPos
                             view
 
 

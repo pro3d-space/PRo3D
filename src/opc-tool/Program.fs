@@ -43,15 +43,16 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
                     let texturePath = TexturePaths.extractTexturePath patchHierarchy.opcPaths texture
                     let extension, errors =
                         match Path.GetExtension(texturePath).ToLower() with
-                        | ".dds" -> Some ImageLoading.DDS, 0
-                        | ".tiff" | ".tif" -> Some ImageLoading.TIFF, 0
+                        | ".dds" -> Some TextureLoading.DDS, 0
+                        | ".tiff" | ".tif" -> Some TextureLoading.TIFF, 0
+                        | ".exr" -> Some TextureLoading.OpenEXR, 0
                         | _ -> 
                             None, 1
 
                     let mip = 
                         use stream = Prinziple.openRead texturePath
                         
-                        ImageLoading.loadImageFromStream stream extension
+                        TextureLoading.loadImageFromStream stream ChannelReference.NoChannelSelection extension
 
                     match mip.ImageArray |> Seq.tryHead with
                     | Some i -> 
@@ -60,8 +61,9 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
                         if greaterZero && smallerHuge then 
                             let writeDDS =
                                 match extension with
-                                | Some ImageLoading.DDS  -> overwriteDdds
-                                | Some ImageLoading.TIFF -> true
+                                | Some TextureLoading.DDS  -> overwriteDdds
+                                | Some TextureLoading.TIFF -> true
+                                | Some TextureLoading.OpenEXR -> false
                                 | _ -> false
                             if generateDds && writeDDS then
                                 try

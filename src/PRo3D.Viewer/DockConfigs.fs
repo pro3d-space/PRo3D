@@ -260,7 +260,7 @@ module DockConfigs =
                             { id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "config";     title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "scalebars";  title = Some " Scale Bars"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "traverse";   title = Some " Traverse"; weight = 0.4; deleteInvisible = None; isCloseable = None }                            
+                            { id = "traverse";   title = Some " Traverse"; weight = 0.4; deleteInvisible = None; isCloseable = None }  
                         ]
                     ]
                 ]                        

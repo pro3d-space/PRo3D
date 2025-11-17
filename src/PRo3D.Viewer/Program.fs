@@ -52,7 +52,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "5.0.7-prerelease1"
+let viewerVersion       = "5.1.1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -166,9 +166,12 @@ let main argv =
     let mutable cooTrafoInitialized = false
     let disposables = List<IDisposable>()
     try
+        //let p = Path.GetFullPath(startupArgs.defaultSpiceKernelPath)
+        //Log.line "full spice "
         CooTransformation.initCooTrafo startupArgs.defaultSpiceKernelPath appData
         cooTrafoInitialized <- true
-
+        //CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
+        let r = PRo3D.SPICE.CooTransformation.getRelState "HERA" "SUN" "MARS" (DateTime.Parse("2025-03-12T11:26:13.011Z")) "HERA_AFC-1"
         //use app = new VulkanApplication()
         //Glfw.Config.hideCocoaMenuBar <- true
         use app = new OpenGlApplication()

@@ -666,6 +666,7 @@ type Surface = {
     textureLayers   : IndexList<TextureLayer>
     primaryTexture     : Option<TextureLayer>
     secondaryTexture   : Option<TextureLayer>
+    secondaryTextureLayer : Option<int>
     transferFunction   : TransferFunction
     opcxPath        : Option<string>
 
@@ -774,6 +775,7 @@ module Surface =
                     textureLayers   = textureLayers
                     primaryTexture   = selectedTexture
                     secondaryTexture = None
+                    secondaryTextureLayer = None
                     transferFunction = TransferFunction.empty
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
@@ -868,6 +870,7 @@ module Surface =
                     textureLayers   = textureLayers
                     primaryTexture   = selectedTexture
                     secondaryTexture = None
+                    secondaryTextureLayer = None
                     transferFunction = TransferFunction.empty
                     opcxPath        = None
                     surfaceType     = surfaceType     |> enum<SurfaceType>
@@ -970,11 +973,14 @@ type SgSurface = {
     opcScene    : Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>
     [<NonAdaptive>]
     dataSource  : DataSource
-
     [<NonAdaptive>]
     isObj       : bool
+    // "sgImportPath" property is not names "importPath", as "importPath" is a property of the type "Surface",
+    // which leads to type confusion during build and would enforce typing everywhere.
+    // We need this property not only for the surface type, but also for the SgSurface type, as it is required
+    // to render the RIMFAX surfaces.
+    sgImportPath  : string
 }
-
 
 
 

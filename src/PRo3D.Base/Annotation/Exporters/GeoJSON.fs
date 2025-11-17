@@ -14,6 +14,7 @@ open Chiron
 open System.Text.RegularExpressions
 open System.IO
 
+open PRo3D.Base
       
 module GeoJSON =        
     type Coordinate =
@@ -104,42 +105,88 @@ module GeoJSON =
             json{
                 do! Json.write "coordinates"  (x |> List.map(fun x -> x |> List.map(fun x -> x|> List.map(fun x -> x |> Ext.CoordinateToArray))))
             }
-    
+
+    type GeometryProperties = 
+        | EllipseProperties of center : V2d * major : V2d * min : V2d
+        | NoProperties
+         with
+            static member ToJson(v : GeometryProperties) =
+                match v with
+                | NoProperties ->
+                    json {
+                        return ()
+                    }
+                | EllipseProperties(center, major, minor) -> 
+                    json {
+                        do! Json.write "specialGeometry" "ellipse"
+                        do! Json.write "center" [| center.X; center.Y |]
+                        do! Json.write "major" [| major.X; major.Y |]
+                        do! Json.write "minor" [| minor.X; minor.Y |]
+                    }
+
+    type GeoJsonGeometryProperties = 
+        { geometry : GeometryProperties; selected : bool }
+        with
+            static member ToJson(v : GeoJsonGeometryProperties) =
+                json {
+                    do! Json.write "geometryProperties" v.geometry
+                    do! Json.write "isSelected" v.selected
+                }
+
     type GeoJsonGeometry =
-    | Point                 of coordinates : Coordinate
-    | MultiPoint            of coordinates : List<Coordinate>
-    | LineString            of coordinates : List<Coordinate>
-    | MultiLineString       of coordinates : List<List<Coordinate>>
-    | Polygon               of coordinates : List<List<Coordinate>>
-    | MultiPolygon          of coordinates : List<List<List<Coordinate>>>
-    | GeometryCollection    of geometries :  List<GeoJsonGeometry>
+    | Point                 of coordinates : Coordinate * Option<GeoJsonGeometryProperties>
+    | MultiPoint            of coordinates : List<Coordinate> * Option<GeoJsonGeometryProperties>
+    | LineString            of coordinates : List<Coordinate> * Option<GeoJsonGeometryProperties>
+    | MultiLineString       of coordinates : List<List<Coordinate>> * Option<GeoJsonGeometryProperties>
+    | Polygon               of coordinates : List<List<Coordinate>> * Option<GeoJsonGeometryProperties>
+    | MultiPolygon          of coordinates : List<List<List<Coordinate>>> * Option<GeoJsonGeometryProperties>
+    | GeometryCollection    of geometries :  List<GeoJsonGeometry> * Option<GeoJsonGeometryProperties>
     
         with 
+
+        static member PolygonEmptyProperties (coordinates : List<List<Coordinate>>) = GeoJsonGeometry.Polygon(coordinates, None)
         
         static member ToJson (x: GeoJsonGeometry) = 
+            let writeProperties (props : Option<GeoJsonGeometryProperties>) = 
+                match props with
+                | None -> 
+                    json {
+                        return ()
+                    }
+                | Some props ->
+                    json {
+                        do! Json.write "properties" props
+                    }
             json {
                 match x with
-                | Point(c) -> 
-                    do! Ext.ToGeoJson c
+                | Point(c,p) -> 
                     do! Json.write "type" "Point"
-                | MultiPoint(c) -> 
-                    do! Ext.ToGeoJson  c
+                    do! writeProperties p
+                    do! Ext.ToGeoJson c
+                | MultiPoint(c,p) -> 
                     do! Json.write "type" "MultiPoint"
-                | LineString(c) ->
+                    do! writeProperties p
                     do! Ext.ToGeoJson  c
+                | LineString(c,p) ->
                     do! Json.write "type" "LineString"
-                | MultiLineString(c) -> 
+                    do! writeProperties p
                     do! Ext.ToGeoJson  c
+                | MultiLineString(c,p) -> 
                     do! Json.write "type" "MultiLineString"
-                | Polygon(c) ->
+                    do! writeProperties p
                     do! Ext.ToGeoJson  c
+                | Polygon(c, p) ->
                     do! Json.write "type" "Polygon"
-                | MultiPolygon(c) ->
+                    do! writeProperties p
                     do! Ext.ToGeoJson  c
+                | MultiPolygon(c,p) ->
                     do! Json.write "type" "MultiPolygon"
-                | GeometryCollection(c) ->
-                    do! Json.write "geometries" c
+                    do! writeProperties p
+                    do! Ext.ToGeoJson  c
+                | GeometryCollection(c,p) ->
                     do! Json.write "type" "GeometryCollection"
+                    do! writeProperties p
+                    do! Json.write "geometries" c
             }
         
         static member FromJson (_: GeoJsonGeometry) = 
@@ -148,32 +195,59 @@ module GeoJSON =
                 match x with
                 | "Point" -> 
                     let! y = Ext.readCoordinate "coordinates"
-                    return Point(y)
+                    return Point(y,None)
                 | "MultiPoint" -> 
                     let! y = Ext.readCoordinateL "coordinates"
-                    return MultiPoint(y)
+                    return MultiPoint(y,None)
                 | "LineString" -> 
                     let! y = Ext.readCoordinateL "coordinates"
-                    return LineString(y)
+                    return LineString(y,None)
                 | "MultiLineString" -> 
                     let! y = Ext.readCoordinateLL "coordinates"
-                    return MultiLineString(y)
+                    return MultiLineString(y,None)
                 | "Polygon" -> 
                     let! y = Ext.readCoordinateLL "coordinates"
-                    return Polygon(y)
+                    return Polygon(y,None)
                 | "MultiPolygon" -> 
                     let! y = Ext.readCoordinateLLL "coordinates"
-                    return MultiPolygon(y)
+                    return MultiPolygon(y,None)
                 | "GeometryCollection" -> 
                     let! y = Json.read "geometries"
-                    return GeometryCollection(y)
+                    return GeometryCollection(y,None)
                 | _ ->
-                    return Point(V3d.NaN |> ThreeDim)
+                    return Point(V3d.NaN |> ThreeDim, None)
             }
 
-    
+    type GeoJsonProperties = {
+        generatedBy : string
+        segmentCount : int
+        timestamp : string
+        traverseType : string
+    }
+    with    
+        static member ToJson (gp: GeoJsonProperties) =
+            json{
+                do! Json.write "generatedBy" gp.generatedBy
+                do! Json.write "segmentCount" gp.segmentCount
+                do! Json.write "timestamp" gp.timestamp
+                do! Json.write "type" gp.traverseType
+            }
         
+        static member FromJson (_: GeoJsonProperties) =
+            json{
+                let! generatedBy = Json.read "generatedBy"
+                let! segmentCount = Json.read "segmentCount"
+                let! timestamp = Json.read "timestamp"
+                let! traverseType = Json.read "type"
 
+                return {
+                    generatedBy = generatedBy;
+                    segmentCount = segmentCount; 
+                    timestamp = timestamp
+                    traverseType = traverseType
+                }
+            }   
+        
 
     type GeoJsonFeature = {
         geometry   : GeoJsonGeometry
@@ -205,7 +279,7 @@ module GeoJSON =
     type GeoJsonFeatureCollection = {
         features   : List<GeoJsonFeature>
         bbox       : Option<List<float>>
-        //properties : Option<List<string * string>>
+        properties : Option<GeoJsonProperties>
     }
     with            
         static member ToJson (x: GeoJsonFeatureCollection) =
@@ -215,16 +289,16 @@ module GeoJSON =
                 | Some b -> do! Json.write "bbox" b
                 | None -> ()
                 do! Json.write "type" "FeatureCollection"
+                do! Json.writeOption "properties" x.properties
             }
             
         static member FromJson (_: GeoJsonFeatureCollection) =
             json{
                 let! g = Json.read "features"
                 let! (b:Option<List<float>>) = Json.tryRead "bbox"
-                return {features = g;bbox =b}
+                let! properties = Json.readOrDefault "properties" None
+                return {features = g; bbox = b; properties = properties}
             }
-        
 
         
-
 

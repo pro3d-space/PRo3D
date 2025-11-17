@@ -26,6 +26,7 @@ open PRo3D.SimulatedViews
 open Adaptify
 open FSharp.Data.Adaptive
 open PRo3D.Core.Gis
+open PRo3D.ImageMapping
 
 module Gui =            
     
@@ -130,7 +131,12 @@ module Gui =
                     | Planet.JPL   -> "JPL Rover Frame"
                     | Planet.None  -> "None xyz"          
                     | Planet.ENU   -> "ENU"
-                    | _ -> "[TextOverlays] missing enum"
+                    | Planet.Moon  -> "Moon"
+                    | Planet.Deimos -> "Deimos"
+                    | Planet.Phobos -> "Phobos"
+                    | Planet.Dimorphos -> "Dimorphos"
+                    | Planet.Didymos -> "Didymos"
+                    | _ -> "[TextOverlays] missing text representation for selected planet."
                 )  
             
             let pnb = pitchAndBearing m cv
@@ -479,7 +485,7 @@ module Gui =
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
                     ] [
-                        text "Import"
+                        text "Import Directory"
                     ]
                     div [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
@@ -648,8 +654,10 @@ module Gui =
                                             text "Load SPICE kernel"
                                         ]
 
+
+                                        // SP: remove code if loading of projected images does work
                                         let jsImportImages = "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to import images from', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.ImageProjection (ImageProjectionMessage.LoadImagesDir p)) | _ -> ViewerAction.Nop); clientEvent "onclick" jsImportImages ] [
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (ProjectedImageListApp.loadDirMessage p)) | _ -> ViewerAction.Nop); clientEvent "onclick" jsImportImages ] [
                                             text "Load Image Projections"
                                         ]
 
@@ -958,20 +966,36 @@ module Gui =
             |> UI.map SceneObjectsMessage      
           
     module Traverse =
+
         let traverseUI (m : AdaptiveModel) =
             div [] [
+                yield GuiEx.accordion "Rover Traverses" "Write" true [
+                    RoverTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                ]
+                yield
+                    GuiEx.accordion
+                        "RIMFAX Traverses"
+                        "Write"
+                        true
+                        [RimfaxTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses]
+                yield GuiEx.accordion "WayPoint Traverses" "Write" true [
+                    WayPointsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                ]
+                //yield GuiEx.accordion "Strategic Annotations" "Write" true [
+                    // not yet implemented
+                    // StrategicAnnotationsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                //]
+                //yield GuiEx.accordion "Planned Targets" "Write" true [
+                    // not yet implemented
+                    // PlannedTargetsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                //]
                 yield GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
                 ]
                 yield GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]
-
-                yield GuiEx.accordion "Traverses" "Write" true [
-                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
-                ]
                 yield GuiEx.accordion "Sols" "road" true [
-                    //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
                 ]
             ] 
@@ -979,7 +1003,7 @@ module Gui =
 
     module ScaleBars = 
         
-        let scaleBarsUI (m : AdaptiveModel) =             
+        let scaleBarsUI (m : AdaptiveModel) = 
             div [] [
                 GuiEx.accordion "ScaleBars" "Write" true [
                     ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars

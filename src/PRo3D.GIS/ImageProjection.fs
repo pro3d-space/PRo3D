@@ -20,6 +20,7 @@ module ImageProjection =
             member x.ProjectedImageModelViewProj : M44d = uniform?ProjectedImageModelViewProj
             member x.ProjectedImagesLocalTrafos : M44d[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
             member x.ProjectedImagesCount : int = uniform?ProjectedImagesLocalTrafosCount
+            member x.ProjectedImageOpacity : float = uniform?ProjectedImageOpacity2
 
         type Vertex = {
             [<Position>]    pos     : V4d
@@ -56,13 +57,16 @@ module ImageProjection =
 
                 let c = 
                     if uniform.ProjectedImageModelViewProjValid && inRange && normal.Z < 0.0 then
-                        let c = projectedTexture.Sample(V2d(tc.X, tc.Y)) 
+                        let AFC2 = V2d(tc.X, tc.Y)
+                        let c = projectedTexture.Sample(AFC2).X |>  PRo3D.InstrumentVisualization.Shaders.remap
                         let xBorder = (smoothstep 0.0 borderWidth tc.X) * smoothstep 1.0 (1.0 - borderWidth) tc.X 
                         let yBorder = (smoothstep 0.0 borderWidth tc.Y) * smoothstep 1.0 (1.0 - borderWidth) tc.Y
                         let borderFactor = xBorder * yBorder
                         let borderColor = V3d(0.0, 1.0, 0.0)
-                        let c = c.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
-                        V4d(c.XYZ, 1.0)
+                        let a = clamp 0.0 1.0 uniform.ProjectedImageOpacity
+                        let blendedProjected = c.XYZ * a + (1.0 - a) * v.c.XYZ
+                        let borderImage = blendedProjected.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
+                        V4d(borderImage.XYZ, 1.0) 
                     else
                         v.c
                 return { v with c = c }

@@ -1,5 +1,5 @@
-//7ee60322-ffc9-9bed-080f-d357fa699a22
-//98622bb4-7bf2-1f2e-b011-a4b0e555e5e7
+//bfe6acfa-0299-89a4-8870-5436b29c454b
+//124b09b1-6601-961c-adac-7438070f4a0a
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -215,6 +215,7 @@ type AdaptiveAnnotation(value : Annotation) =
             (unbox<AdaptiveDipAndStrikeResults> o).Update(v)
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Base.Annotation.DipAndStrikeResults, PRo3D.Base.Annotation.AdaptiveDipAndStrikeResults, PRo3D.Base.Annotation.AdaptiveDipAndStrikeResults>(value.dnsResults, (fun (v : DipAndStrikeResults) -> AdaptiveDipAndStrikeResults(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveDipAndStrikeResults> o), (fun (v : DipAndStrikeResults) -> AdaptiveDipAndStrikeResults(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveDipAndStrikeResults> o))
+    let _ellipticResults_ = FSharp.Data.Adaptive.cval(value.ellipticResults)
     let _visible_ = FSharp.Data.Adaptive.cval(value.visible)
     let _showDns_ = FSharp.Data.Adaptive.cval(value.showDns)
     let _text_ = FSharp.Data.Adaptive.cval(value.text)
@@ -247,6 +248,7 @@ type AdaptiveAnnotation(value : Annotation) =
             _thickness_.Update(value.thickness)
             _results_.Update(value.results)
             _dnsResults_.Update(value.dnsResults)
+            _ellipticResults_.Value <- value.ellipticResults
             _visible_.Value <- value.visible
             _showDns_.Value <- value.showDns
             _text_.Value <- value.text
@@ -273,6 +275,7 @@ type AdaptiveAnnotation(value : Annotation) =
     member __.thickness = _thickness_
     member __.results = _results_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<AnnotationResults, AdaptiveAnnotationResults, AdaptiveAnnotationResults>>
     member __.dnsResults = _dnsResults_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<DipAndStrikeResults, AdaptiveDipAndStrikeResults, AdaptiveDipAndStrikeResults>>
+    member __.ellipticResults = _ellipticResults_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<EllipticAnnotationResult>>
     member __.visible = _visible_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showDns = _showDns_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.text = _text_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
@@ -301,6 +304,7 @@ module AnnotationLenses =
         static member thickness_ = ((fun (self : Annotation) -> self.thickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Annotation) -> { self with thickness = value }))
         static member results_ = ((fun (self : Annotation) -> self.results), (fun (value : Microsoft.FSharp.Core.Option<AnnotationResults>) (self : Annotation) -> { self with results = value }))
         static member dnsResults_ = ((fun (self : Annotation) -> self.dnsResults), (fun (value : Microsoft.FSharp.Core.Option<DipAndStrikeResults>) (self : Annotation) -> { self with dnsResults = value }))
+        static member ellipticResults_ = ((fun (self : Annotation) -> self.ellipticResults), (fun (value : Microsoft.FSharp.Core.Option<EllipticAnnotationResult>) (self : Annotation) -> { self with ellipticResults = value }))
         static member visible_ = ((fun (self : Annotation) -> self.visible), (fun (value : Microsoft.FSharp.Core.bool) (self : Annotation) -> { self with visible = value }))
         static member showDns_ = ((fun (self : Annotation) -> self.showDns), (fun (value : Microsoft.FSharp.Core.bool) (self : Annotation) -> { self with showDns = value }))
         static member text_ = ((fun (self : Annotation) -> self.text), (fun (value : Microsoft.FSharp.Core.string) (self : Annotation) -> { self with text = value }))

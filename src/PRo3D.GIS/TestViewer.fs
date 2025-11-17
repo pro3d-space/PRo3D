@@ -30,11 +30,12 @@ open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 open PRo3D.SPICE
 
-open PRo3D.Core.ProjectedImages
 open PRo3D.Core.Gis
 
 open FSharp.Data
 open FSharp.Data.JsonExtensions
+
+open PRo3D.InstrumentVisualization
 
 [<Struct>]
 type RelState = 
@@ -71,20 +72,22 @@ module TestViewer =
             { new IDisposable with member x.Dispose() = CooTransformation.DeInit() }
 
 
-        let spiceFileName = @"C:\Users\haral\Desktop\pro3d\spice\kernels\mk\hera_plan.tm"
+        let spiceFileName = @"C:\Users\haral\Desktop\pro3d\spice\kernels\mk\hera_ops.tm"
         System.Environment.CurrentDirectory <- Path.GetDirectoryName(spiceFileName)
         let r = CooTransformation.AddSpiceKernel(spiceFileName)
         if r <> 0 then failwith "could not add spice kernel"
 
 
+        let observer = cval "HERA_AFC-1" 
+        let observer = cval "HERA_AFC-1"
         let observer = cval "MARS" //"HERA_AFC-1" 
         let supportBody = cval "SUN"
-        let referenceFrame = cval "IAU_MARS" 
         let referenceFrame = cval "ECLIPJ2000"
+        let referenceFrame = cval "IAU_MARS" 
+
         let time = 
             let startTime = "2025-03-12 11:50:30.000Z"
             cval (DateTime.Parse(startTime))
-
 
         let hera = 
             match CooTransformation.getRelState "HERA" "SUN" observer.Value time.Value referenceFrame.Value  with
@@ -124,7 +127,7 @@ module TestViewer =
         let bb =  Box3d.Parse("[[701677.203042967, 3141128.733093360, 1075935.257765322], [701942.935458576, 3141252.724183598, 1076182.681085336]]").Transformed(marsToReferenceFrame)
         let initialView = CameraView.lookAt bb.Max bb.Center bb.Center.Normalized |> cval
         let initialView = CameraView.lookAt -hera bb.Center V3d.OOI |> cval
-        let initialView = (getLookAt "DEIMOS" observer.Value referenceFrame.Value "SUN" time.Value).Value |> cval
+        let initialView = (getLookAt "HERA" observer.Value referenceFrame.Value "SUN" time.Value).Value |> cval
         let speed = 7900.0 * 100.0 |> cval
         let cameraMode = cval CameraMode.Orbit
 
@@ -156,15 +159,17 @@ module TestViewer =
             ]
 
 
-        let distanceSunPluto = 5906380000.0 * 1000.0
         let farPlaneMars = 30101626.50 * 1000.0
         let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 100.0 farPlaneMars (float s.X / float s.Y))
-        //let frustum = instruments["HERA_AFC-1"] |> AVal.constant
-        //let frustumMars = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 1000.0 farPlaneMars (float s.X / float s.Y))
         let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
+        let showMola = true
 
-        let opcSurfaces = ["mars"]//["mars"]// ["mars"] //["mars"]
+        let opcSurfaces = 
+            if showMola then 
+                ["mars"]
+            else
+                []
 
 
         let getRenderingParameters (b : string) : Rendering.BodyRenderingParameters = 
@@ -181,64 +186,89 @@ module TestViewer =
             }
 
 
-
-
-        let startTime = DateTime.Parse("2025-03-12 10:30:20.482190Z", CultureInfo.InvariantCulture)
-        let endTime = DateTime.Parse("2025-03-12 13:20:20.482190Z", CultureInfo.InvariantCulture)
-        let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
-        let observationTimes = ProjectedImages.splitTimes startTime endTime shots
-
-        //let allObservationsFor (viewerBody : string)  (bodyReferenceFrame : string) (targetRefSystem : string) = 
-        //    let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
-        //    let interval = (endTime - startTime) / float shots
-        //    let snapshots = [ 0 .. shots ] |> List.map (fun i -> startTime + interval * float i) |> List.toArray
-        //    time |> AVal.map (fun _ -> 
-        //        snapshots 
-        //        |> Array.choose (fun time -> 
-        //            match getLookAt viewerBody observer.Value targetRefSystem "SUN" time,  CooTransformation.getRotationTrafo bodyReferenceFrame targetRefSystem time  with
-        //            | Some camInMarsSpace, Some t -> 
-        //                let frustum = instruments["HERA_AFC-1"]
-        //                let forward = (t * CameraView.viewTrafo camInMarsSpace * Frustum.projTrafo frustum)
-        //                (time, forward) |> Some
-
-        //            | _ -> 
-        //                None
-        //        )
-        //    )
-
-        //let marsObservations = allObservationsFor "HERA" "IAU_MARS" referenceFrame.Value
-        let marsObservations = 
-            observationTimes 
-            |> Array.map (fun t -> 
-                let p = {
-                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                    instrumentReferenceFrame = "HERA_AFC-1"
-                    instrumentName = "HERA_AFC-1"
-                    supportBody = "SUN"
-                    time = t
-                }
-                t, ProjectedImages.projectOnto "IAU_MARS" observer.Value instruments p
+        let instrumentData = 
+            InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\AFC1-1B\1B"
+            |> Seq.toArray
+            |> Array.choose (function | (s, (Some mbi,imgInfo)) -> Some (s, (mbi, imgInfo)) | _ -> None)
+            |> Array.sortBy (fun (s,(mbi,_)) -> mbi.obs_date)
+            
+        let observations = 
+            instrumentData 
+            |> Array.map (fun (s, (mbi, _)) -> 
+                let obsTime = mbi.obs_date
+                let p = 
+                    {
+                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                        instrumentReferenceFrame = "HERA_AFC-1"
+                        instrumentName = "HERA_AFC-1"
+                        supportBody = "SUN"
+                        time = obsTime
+                        boresightAdjustment = None
+                    }
+                mbi.obs_date, InstrumentProjection.projectOnto referenceFrame.Value observer.Value instruments p
             )
 
+        let userIndex = cval 94
 
+        let nearestProjectionIndex =
+            if true then
+               userIndex  :> aval<_>
+            else
+                time |> AVal.map (fun currentTime  -> 
+                    match observations |> Array.tryFindIndex (fun (observationTime,_) -> observationTime > currentTime) with
+                    | Some i -> 
+                        printfn "observation id: %A" i
+                        i
+                    | _ -> 
+                        0
+                )
+
+
+        let currentProjectedImage = 
+            nearestProjectionIndex 
+            |> AVal.map (fun idx -> 
+                instrumentData[idx]
+            )
 
         let currentProjection =   
-            AVal.custom (fun t -> 
-                let time = time.GetValue(t)
-                let observer = observer.GetValue(t)
-                let referenceFrame = referenceFrame.GetValue()
-                let p = {
-                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                    instrumentReferenceFrame = "HERA_AFC-1"
-                    instrumentName = "HERA_AFC-1"
-                    supportBody = "SUN"
-                    time = time
-                }
-                ProjectedImages.projectOnto "IAU_MARS" observer instruments p
+            nearestProjectionIndex 
+            |> AVal.map (fun idx -> 
+                let (_,t) = observations[idx]
+                t
             )
+
+        let projectedTexture =
+            let image : aval<Option<string * InstrumentMetadata.ParsedMetadata>> =
+                currentProjectedImage 
+                |> AVal.map (fun (s, (mbi, imgInfo)) -> 
+                    Log.line "projecting: %A" mbi.obs_date
+                    Some (s, (Some mbi, imgInfo))
+                )
+            PRo3D.InstrumentProjection.Visualization.createProjectedTexture image
+
+        let minMax = 
+            currentProjectedImage |> AVal.map (fun img -> 
+                match img with
+                |  (_, (_, Some imgMeta)) -> 
+                    Range1d(imgMeta.image_statistics[0].minimum, imgMeta.image_statistics[0].maximum)
+                | _ -> 
+                    Range1d.Unit
+            )
+
+        let colorMap = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+
+        let imageSettings = 
+            { 
+                VisualizationProperties.empty with 
+                    projectionOpacity = AVal.constant 1.0
+                    visualizationRange = minMax
+                    colorMapping = colorMap
+            }
+
         let prio = RenderPass.after "priority" RenderPassOrder.Arbitrary RenderPass.main 
+
+        let opacity = cval 1.0
 
         let hierarchies = 
             let runner = win.Runtime.CreateLoadRunner 1
@@ -264,7 +294,7 @@ module TestViewer =
                     let t = PatchLod.toRoseTree h.tree
 
                     //let imageProjection = firstProjection |> AVal.map Option.Some
-                    let localImageProjectionTrafos = marsObservations |> Array.map snd |> Array.choose id  |> AVal.constant
+                    let localImageProjectionTrafos = observations |> Array.map snd |> Array.choose id  |> AVal.constant
                     let sunLight = sunLightDirection |> AVal.map Option.Some
 
                     //let additionalUniforms = 
@@ -292,6 +322,7 @@ module TestViewer =
                                 }
                             )
                      )
+                     |> InstrumentImageVisualization.applyProperties { imageSettings with instrumentImage = projectedTexture; projectionOpacity = opacity }
                 ) 
  
             let mola = 
@@ -309,73 +340,10 @@ module TestViewer =
                 hirise
             ]
             
-        let timeClampedCount =
-            time |> AVal.map (fun currentTime  -> 
-                match marsObservations |> Array.tryFindIndex (fun (observationTime,_) -> observationTime > currentTime) with
-                | Some i -> 
-                    printfn "i: %A" i
-                    i
-                | _ -> 
-                    marsObservations.Length
-            )
 
         let count = cval 0
-        let projectionCount = timeClampedCount 
+        let projectionCount = nearestProjectionIndex 
 
-        let instrumentData = 
-            InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\20250314\HSH_converted\HSH_converted"
-            |> Seq.toArray
-            |> Array.sortBy (fun (_, _, mbi) -> mbi?hera?DATE?value)
-            
-        let hshObservations = 
-            instrumentData 
-            |> Array.map (fun (_, _, mbi) -> 
-                let obsTime = 
-                    match mbi?hera?DATE?value with
-                    | JsonValue.String v -> DateTime.Parse(v, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal)
-                    | _ -> failwith ""
-                let p = {
-                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                    instrumentReferenceFrame = "HERA_HSH"
-                    instrumentName = "HERA_HSH"
-                    supportBody = "SUN"
-                    time = obsTime
-                }
-                ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
-            )
-    
-        let hshProjection =   
-            observer |> AVal.map (fun observer -> 
-                let p = {
-                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                    instrumentReferenceFrame = "HERA_HSH"
-                    instrumentName = "HERA_HSH"
-                    supportBody = "SUN"
-                    time = DateTime.Parse("2025-03-12T12:22:46.456", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal)
-                }
-                ProjectedImages.projectOnto "IAU_MARS" observer instruments p
-            )
-            
-
-        let simulated = 
-            observationTimes 
-            |> Array.map (fun t -> 
-                let p = {
-                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                    instrumentReferenceFrame = "HERA_AFC-1"
-                    instrumentName = "HERA_AFC-1"
-                    supportBody = "SUN"
-                    time = t
-                }
-                ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
-            )
-
-        let observations = simulated
-        //let currentProjection = hshProjection
-        //let projectedTexture = @"C:\pro3ddata\HERA\20250314\HSH_converted\HSH_converted\HSH_0CRSJ8_250312T122246_1A.tif"
 
         let bodies = CelestialBodies.bodySources |> Array.map (fun b -> b.name, b) |> AMap.ofArray
         let wrapModel (planet : string) (sg : ISg) =
@@ -384,9 +352,9 @@ module TestViewer =
             sg
             // projected frusta
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount 
-            |> Sg.uniform' "ProjectedImagesLocalTrafos" (observations |> Array.choose id |> Array.map (Trafo.forward >> M44f))
+            |> Sg.uniform' "ProjectedImagesLocalTrafos" (observations |> Array.choose snd |> Array.map (Trafo.forward >> M44f))
             // projected texture
-            |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Pictures\OIP.jpg" true
+            |> Sg.texture "ProjectedTexture" projectedTexture 
             |> Sg.applyProjectedImage getProjectionTrafo 
             |> Sg.uniform' "ProjectedImageModelViewProjValid" true
             //|> Rendering.StableTrafoSceneGraphExtension.Sg.wrapStableShadowViewProjTrafo (shadowMapCamera |> AVal.map Camera.viewProjTrafo) 
@@ -414,9 +382,10 @@ module TestViewer =
                 //do! Shaders.shadow
                 //do! Rendering.Shaders.shadowPCF
                 do! Shaders.solarLighting
-                //do! ImageProjection.Shaders.stableImageProjection
-                //do! ImageProjection.Shaders.localImageProjections
+                do! ImageProjection.Shaders.stableImageProjection
+                do! ImageProjection.Shaders.localImageProjections
             }
+            |> InstrumentImageVisualization.applyProperties { imageSettings with instrumentImage = projectedTexture }
 
         let trajectories = 
             let getTrajectoryProperties (bodyName : string) =
@@ -456,7 +425,7 @@ module TestViewer =
                 | Keys.Up -> clamp 0.0 1.0 (percentage + 0.05)
                 | _ -> percentage
 
-            let c = marsObservations.Length
+            let c = observations.Length
             let v = float c * percentage |> int
             transact (fun _ -> 
                 count.Value <- clamp 0 c v
@@ -464,6 +433,9 @@ module TestViewer =
             )
                 
         )
+
+        let defaultSecondaryTextureId = 
+            Some { texture = TextureReference.LegacyId 0; channel = ChannelReference.NoChannelSelection }
 
 
 
@@ -477,15 +449,15 @@ module TestViewer =
                 do! DefaultSurfaces.constantColor C4f.White 
                 do! DefaultSurfaces.diffuseTexture 
                 do! Shaders.solarLighting
-                //do! ImageProjection.Shaders.localImageProjections
+                do! ImageProjection.Shaders.localImageProjections
                 do! ImageProjection.Shaders.stableImageProjection
                 //do! Shader.LoDColor 
             }
             |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
-            |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant 0)
+            |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant defaultSecondaryTextureId)
             |> Sg.uniform "LodVisEnabled" (cval false)
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount //count
-            |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Desktop\pro3d\pro3d-hera\src\PRo3D.GIS\resources\AFC_1020x1020 (2).png" true
+            |> Sg.texture "ProjectedTexture" projectedTexture 
             |> Sg.trafo (transformation |> AVal.map fst)
             |> Sg.onOff (transformation |> AVal.map snd)
 
@@ -553,7 +525,7 @@ module TestViewer =
         
 
         let sg =
-            Sg.ofList [ planets; marsSg; trajectories; (List.map fst markers |> Sg.ofList) ] 
+            Sg.ofList [ planets; if showMola then marsSg; trajectories; (List.map fst markers |> Sg.ofList) ] 
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
 
@@ -615,7 +587,7 @@ module TestViewer =
                         | None -> TimeSpan.Zero
                         | Some l -> sw.Elapsed - l
                     if not paused then
-                        time.Value <- time.Value + dt * 200.0
+                        time.Value <- time.Value + dt * 250.0
 
                     let frustum = instruments.["HERA_AFC-1"]
                     let view = (getLookAt "HERA" observer.Value referenceFrame.Value "SUN" time.Value).Value
@@ -647,6 +619,26 @@ module TestViewer =
 
         win.Keyboard.KeyDown(Keys.Space).Values.Add(fun _ -> 
             paused <- not paused
+        )
+
+        win.Keyboard.KeyDown(Keys.N).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                userIndex.Value <- (userIndex.Value + 1) % instrumentData.Length
+                printfn "idx: %A" userIndex.Value
+            )
+        )
+
+        win.Keyboard.KeyDown(Keys.OemPlus).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                opacity.Value <- min 1.0 (opacity.Value + 0.1)
+            )
+            printfn "opacity: %A" opacity.Value
+        )
+        win.Keyboard.KeyDown(Keys.OemMinus).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                opacity.Value <- max 0.0 (opacity.Value - 0.1)
+            )
+            printfn "opacity: %A" opacity.Value
         )
 
         let task =
