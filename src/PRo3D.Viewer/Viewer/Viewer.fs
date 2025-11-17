@@ -1137,8 +1137,9 @@ module ViewerApp =
                                     let dir = (p-camLocation).Normalized
                                     FastRay3d(camLocation, dir)  
                                 | Projection.Sky -> 
-                                    let up = m.scene.referenceSystem.up.value
-                                    FastRay3d(p + (up * 5000.0), -up)  
+                                    let up = CooTransformation.getUpVector p m.scene.referenceSystem.planet
+                                    //let up = m.scene.referenceSystem.up.value
+                                    FastRay3d(p + (up * 100.0), -up)  
                                 | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
                             match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache Config.diagnosticTimings with
