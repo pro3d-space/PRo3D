@@ -103,9 +103,10 @@ module TransformationApp =
         let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
 
         match refSystem.planet with
-        | Planet.Earth
-        | Planet.ENU -> 
+        | Planet.Earth ->
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
+        | Planet.ENU -> 
+            Trafo3d.FromOrthoNormalBasis( V3d.OIO, V3d.IOO, V3d.OOI) * northCorrection
         | Planet.Mars | Planet.Moon | Planet.Phobos | Planet.Deimos ->
             let north, up, east =
                 let north = refSystem.northO.Normalized        
@@ -128,9 +129,10 @@ module TransformationApp =
         (planet : Planet) =
 
         match planet with
-        | Planet.Earth
-        | Planet.ENU -> 
+        | Planet.Earth ->
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI)
+        | Planet.ENU -> 
+            Trafo3d.FromOrthoNormalBasis( V3d.OIO, V3d.IOO, V3d.OOI)
         | Planet.Mars ->
             let north, up, east = getNorthUpEastFromLocalRefSys directions
             let refSysRotation = 
