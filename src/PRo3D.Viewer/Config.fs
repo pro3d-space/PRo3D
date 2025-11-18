@@ -16,6 +16,6 @@ module Config =
   let mutable title = "PRo3D"
 
 
-  let previewIntersections = true
+  let mutable previewIntersections = true
 
   let diagnosticTimings = false

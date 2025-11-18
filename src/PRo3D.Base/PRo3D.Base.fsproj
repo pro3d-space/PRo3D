@@ -19,7 +19,7 @@
   <ItemGroup>
     <!-- <Compile Include="InteropHelpers.fs" /> -->
     <Compile Include="PatchOverrides.fs" />
-    <Compile Include="KdTrees.fs" />
+    <!--<Compile Include="KdTrees.fs" />-->
     <Compile Include="WebClientDeprecation.fs" />
     <Compile Include="SpiceInterfacing.fs" />
     <Compile Include="DeprecatedModel.fs" />

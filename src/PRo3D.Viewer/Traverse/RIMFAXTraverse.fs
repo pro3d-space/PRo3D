@@ -264,6 +264,9 @@ module RimfaxTraverseApp =
                                 ]
                             ]
                         | _ -> 
+                            Log.warn "[RoverTraverseApp] inconsistent traverse metrics: %A, should be rimfaxM)" (
+                                reversedSols |> List.tryHead |> Option.map (string << _.solMetrics) |> Option.defaultValue "unknown"
+                            )
                             yield div [clazz "item"; style white] [
                                 yield div [clazz "header";] [
                                     span [] [text "Inconsistent Data"]

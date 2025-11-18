@@ -30,7 +30,7 @@ module Navigation =
             up                    : Lens<'b, V3d>
         }
 
-    let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (model : NavigationModel) (act : Action) =
+    let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) =
         match act with            
         | ArcBallAction a -> 
             let model =
@@ -64,6 +64,24 @@ module Navigation =
             }
         | SetNavigationMode mode ->
             match mode with
+            | NavigationMode.ArcBall -> 
+                let model = { model with navigationMode = mode }
+                let orbitCenter = 
+                    match pickFunction with
+                    | None -> None
+                    | Some f -> 
+                        Log.startTimed "pick new orbit"
+                        let point = f()
+                        Log.stop()
+                        point
+
+                match orbitCenter with
+                | None -> 
+                    Log.warn "could not get new orbit center"
+                    model
+                | Some p -> 
+                    Log.line "new orbit implicitly set to center ray"
+                    { model with exploreCenter = p }
             | NavigationMode.FreeFly ->
                 let center = 
                     match model.camera.orbitCenter with

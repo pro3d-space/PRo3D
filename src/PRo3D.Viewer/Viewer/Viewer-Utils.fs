@@ -255,6 +255,7 @@ module ViewerUtils =
         (frustum         : aval<Frustum>) 
         (selectedId      : aval<Option<Guid>>)
         (surfacePicking  : aval<bool>)
+        (previewPickingEnabled : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
         (observedSystem  : aval<Option<SpiceReferenceSystem>>) 
@@ -520,7 +521,7 @@ module ViewerUtils =
 
 
                     |> Sg.withEvents [
-                        if Config.previewIntersections then
+                        if Config.previewIntersections && previewPickingEnabled.GetValue() then
                             yield SceneEventKind.Move, (
                                 fun sceneHit -> 
                                     let name  = surf.name |> AVal.force        
@@ -963,6 +964,7 @@ module ViewerUtils =
                             m.frustum 
                             selected 
                             m.ctrlFlag 
+                            m.scene.config.showPreviewIntersection
                             sf.globalBB 
                             refSystem 
                             observationSystem
@@ -1076,6 +1078,7 @@ module ViewerUtils =
                             m.frustum 
                             selected 
                             surfacePicking
+                            m.scene.config.showPreviewIntersection
                             surface.globalBB
                             refSystem 
                             observationSystem

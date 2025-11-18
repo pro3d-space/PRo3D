@@ -76,6 +76,8 @@ type StartupArgs = {
 
     defaultSpiceKernelPath : Option<string>
 
+    allowPreviewIntersections : bool
+
     verbose               : bool    
 
 } with 
@@ -98,6 +100,7 @@ type StartupArgs = {
           isBatchRendering         = false
           defaultSpiceKernelPath   = None
           loadScene                = None
+          allowPreviewIntersections = true
       }
 
 

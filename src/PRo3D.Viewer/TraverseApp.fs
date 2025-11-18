@@ -130,8 +130,19 @@ module TraverseApp =
                     | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, Rimfax, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t
                 Some (sols, traverseType, showLines, showText, showDots)
             | None -> 
-                Log.warn "[TraverseApp] Error parsing traverse %s : Missing properties" name
-                None
+                match traverse.features with 
+                    | [] -> 
+                        Log.error "[TraverseApp] Missing properties for traverse %s; Empty feature list. Not able to load traverse. " name
+                        None 
+                    | h::_ -> 
+                        match h.geometry with
+                        | GeoJsonGeometry.Point(p, _) -> 
+                            Log.warn "[TraverseApp] Missing properties for traverse %s. Fallback waypoint traverse " name
+                            Some (WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true)
+                        | e -> 
+                            Log.warn "[TraverseApp] Missing properties for traverse %s; Features not having waypoint geometry type. Not able to load traverse. " name
+                            None
+
 
     let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
         // this function is not in use at the moment

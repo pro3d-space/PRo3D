@@ -281,7 +281,7 @@ module ViewerApp =
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
             let navigation' = 
-                Navigation.update c ref navConf true m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p))
+                Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p))
             { m with navigation = navigation' }
         | Interactions.PlaceRover, ViewerMode.Standard ->
             let ref = m.scene.referenceSystem 
@@ -468,7 +468,21 @@ module ViewerApp =
         | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
-            let nav = Navigation.update c ref navConf true m.navigation msg               
+
+            let pickRayNdc (ndc : V3d) =
+                let v = m.navigation.camera.view
+                let trafo = Frustum.projTrafo m.frustum
+                let viewDir = trafo.Backward.TransformPosProj ndc |> Vec.Normalized
+                let worldDir = v.ViewTrafo.Backward.TransformDir viewDir
+                let r = Ray3d(v.Location, Vec.normalize worldDir) |> FastRay3d
+                match Picking.pickRay m r None with
+                | None -> None
+                | Some (o, p) -> Some p
+
+            let pickingFunction () = 
+                V3d(0.0, 0.0, 0.0) |> pickRayNdc
+
+            let nav = Navigation.update c ref navConf true (Some pickingFunction) m.navigation msg               
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
@@ -1005,14 +1019,13 @@ module ViewerApp =
             match m.scene.surfacesModel.surfaces.singleSelectLeaf with
             | Some s -> 
                 let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                //match trafoFile |> List.tryHead with
-                //| Some path -> 
                 let msg = (TransformationApp.Action.ImportTrafoData [trafoFile])
+                let sgSurface = m.scene.surfacesModel.sgSurfaces |> HashMap.find s 
+                let bbCenter = sgSurface.globalBB.Center
                 let transformation' = 
-                    (TransformationApp.update surface.transformation msg m.scene.referenceSystem) 
+                    (TransformationApp.update surface.transformation msg m.scene.referenceSystem bbCenter) 
                 let s' = m.scene.surfacesModel |> SurfaceModel.updateSingleSurface { surface with transformation = transformation' } 
                 { m with scene = { m.scene with surfacesModel = s' } }
-                //| None -> m
             | None -> m
         | DeleteLast,_,_ -> 
             if File.Exists @".\last" then
@@ -1034,7 +1047,7 @@ module ViewerApp =
                             let ct = Async.DefaultCancellationToken
                             while not ct.IsCancellationRequested do
                                 let! (m, sceneHit, name) = Async.AwaitTask <| m.pickPreviewRequested.WaitAsync()
-                                let pick = Picking.pickRay m sceneHit.globalRay.Ray name
+                                let pick = Picking.pickRay m sceneHit.globalRay.Ray (Some name)
                                 let previewIntersection = PreviewPickSurfaceFinished(p, name, pick)
                                 mailbox.Post(MailboxAction.ViewerAction previewIntersection)
                         }
@@ -1055,7 +1068,7 @@ module ViewerApp =
                 let project p = 
                     let up = m.scene.referenceSystem.up.value
                     let fr = FastRay3d(p + (up * 5000.0), -up)  
-                    match Picking.pickRay m fr name with
+                    match Picking.pickRay m fr (Some name) with
                     | Some (p, hitPosOnRay) -> 
                         hitPosOnRay
                     | _ -> 
@@ -1075,13 +1088,13 @@ module ViewerApp =
             let fray = p.globalRay.Ray
             let r = fray.Ray
             if m.drawing.geometry = Geometry.Ellipse then
-                match Picking.pickRay m fray name with
+                match Picking.pickRay m fray (Some name) with
                 | Some (p, hitPosOnRay) -> 
                     let info = p.GetIntersectionRayHitInfo()
                     let project p = 
                         let up = m.scene.referenceSystem.up.value
                         let fr = FastRay3d(p + (up * 5000.0), -up)  
-                        match Picking.pickRay m fr name with
+                        match Picking.pickRay m fr (Some name) with
                         | Some (p, hitPosOnRay) -> 
                             hitPosOnRay
                         | _ -> 

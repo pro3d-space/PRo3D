@@ -161,7 +161,8 @@ let main argv =
             Log.warn "system aardium"; 
             Aardium.init()
 
-    
+    Config.previewIntersections <- startupArgs.allowPreviewIntersections
+
     Aardvark.Init()
     let mutable cooTrafoInitialized = false
     let disposables = List<IDisposable>()
