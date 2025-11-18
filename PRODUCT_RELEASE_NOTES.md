@@ -1,3 +1,6 @@
+## 5.4.0
+- planets updates for local resSys in transforamtions
+
 ## 5.1.2           
 - fixed legacy traverse scene file / m20 waypoint loading
 
