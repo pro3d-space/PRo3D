@@ -24,14 +24,16 @@ module Picking =
 
     let mutable cache = HashMap.Empty
 
-    let pickRay (m : Model) (r : FastRay3d) (surfaceName : string) =
+    let pickRay (m : Model) (r : FastRay3d) (surfaceName : Option<string>) =
         let ray = r.Ray
         let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
         let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
                 
         let endLog = 
             if Config.diagnosticTimings then 
-                Log.startTimed "[PickSurface] try intersect kdtree of %s" surfaceName    
+                match surfaceName with
+                | None -> Log.startTimed "[PickSurface] general surface picking without surface restriction"
+                | Some surfaceName -> Log.startTimed "[PickSurface] try intersect kdtree of %s" surfaceName    
             Config.diagnosticTimings
                          
         let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
