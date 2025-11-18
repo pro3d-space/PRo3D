@@ -67,6 +67,7 @@ module TransformationApp =
     | ImportTrafoData       of list<string>
     | SetRefSysMode         of ReferenceSystemMode
     | SetPivotMode          of PivotMode
+    | UpdatePlanetInLocalRefSys
 
 
     // calc reference system from pivot
@@ -118,7 +119,8 @@ module TransformationApp =
         | Planet.JPL -> 
             Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI) * northCorrection
         | Planet.None -> 
-            northCorrection
+            // northCorrection
+            Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
         | _ -> failwith ""
 
     let getReferenceSystemBasis_local 
@@ -137,7 +139,8 @@ module TransformationApp =
         | Planet.JPL -> 
             Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI)
         | Planet.None -> 
-            Trafo3d(directions)
+            //Trafo3d(directions)
+            Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI)
         | _ -> failwith ""
 
     let translationFromReferenceSystemBasis
@@ -435,6 +438,13 @@ module TransformationApp =
                     p', af
                 | _ -> model.pivot, model.refSys
             { model with pivotMode = mode; pivot = pivot; refSys = af}
+        | UpdatePlanetInLocalRefSys ->
+            match model.refSys with
+            | Some rf ->
+                let af = getLocalRefSys refSys rf.Trans
+                { model with refSys = Some af}
+            | None -> model
+            
    
     module UI = 
 
