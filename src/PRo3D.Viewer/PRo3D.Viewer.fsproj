@@ -133,7 +133,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="resources\semui-overrides.css" />
     <EmbeddedResource Include="resources\ElementQueries.js" />
-  <EmbeddedResource Include="resources\ResizeSensor.js" />
+    <EmbeddedResource Include="resources\ResizeSensor.js" />
+    <EmbeddedResource Include="resources\fonts.css" />
+    <EmbeddedResource Include="..\..\data\fonts\Roboto Mono\RobotoMono-Regular.ttf" Link="resources\RobotoMono-Regular.ttf" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
