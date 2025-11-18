@@ -116,8 +116,12 @@ type ViewerAction =
 | ConfigPropertiesMessage         of ConfigProperties.Action
 | DeleteLast
 | AddSg                           of ISg
+
 | PickSurface                     of SceneHit * string * bool
 | PreviewPickSurface              of SceneHit * string * bool
+| PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d>
+
+
 | PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
@@ -535,6 +539,36 @@ type MultiSelectionBox =
         selectionBox: Box3d
     }
 
+type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
+
+type ProjectedEllipse = 
+    {
+        surfaceProjectedPoints : Option<array<V3d>>
+        approximatePoints : array<V3d>
+        ellipse : Ellipse2d
+    }
+
+type EllipseType = 
+    | BoundaryEllipse
+    | ThreePointEllipse
+
+[<ModelType>]
+type EllipseModel = 
+    {
+        firstWorldPick : SurfaceIntersection
+        currentWorldPos : Option<SurfaceIntersection>
+        secondWorldPick : Option<SurfaceIntersection>
+        boundaryVertices : Option<V3d[]>
+        projectionPlane  : Option<Plane3d>
+        projectedEllipse : Option<ProjectedEllipse>
+    }
+
+module EllipseModel = 
+    let initial (p : SurfaceIntersection) = 
+        {   firstWorldPick = p; currentWorldPos = None; secondWorldPick = None; 
+            boundaryVertices = None; projectionPlane = None; projectedEllipse = None 
+        }
+
 [<ModelType>]
 type Model = { 
     viewerVersion        : string
@@ -604,6 +638,12 @@ type Model = {
     animator             : Animation.Animator<Model>
 
     provenanceModel      : ProvenanceModel
+
+    backgroundPicking    : ThreadPool<ViewerAction>
+
+    surfaceIntersection : Option<SurfaceIntersection>
+    ellipseModel        : Option<EllipseModel>
+    pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
 } 
 
 type ViewerAnimationAction =
