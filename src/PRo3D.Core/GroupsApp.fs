@@ -536,7 +536,7 @@ module GroupsApp =
             if isSelected then
                 { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
             else
-                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }        
+                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }              
         | MoveLeaves  -> 
             moveChildren model
         | ClearSelection ->

@@ -113,6 +113,7 @@ module AnnotationProperties =
         let slope             = AVal.bindOption results Double.NaN (fun a -> a.slope)
         let trueThickness     = AVal.bindOption results Double.NaN (fun a -> a.trueThickness)
         let verticalThickness = AVal.bindOption results Double.NaN (fun a -> a.verticalThickness)
+        let area              = AVal.bindOption results Double.NaN (fun a -> a.area)
  
         // TODO refactor: why so complicated to list stuff?, not incremental
         let vertDist = AVal.map( fun u -> Calculations.verticalDelta   (model.points |> AList.force |> IndexList.toList) u ) up 
@@ -142,6 +143,7 @@ module AnnotationProperties =
                 yield Html.row "Horizontal Distance:"   [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "True Thickness:"        [Incremental.text (trueThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Vertical Thickness:"    [Incremental.text (verticalThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "Area:"                  [Incremental.text (area |> AVal.map  (fun d -> sprintf "%.4f m\xB2" (d)))]
             ]
         )
        

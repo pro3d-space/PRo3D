@@ -56,6 +56,7 @@ type DrawingAction =
 | UpVectorChanged        of V3d
 | NorthVectorChanged     of V3d
 | GroupsMessage          of GroupsAppAction
+| RecalculateMeasurements
 | DnsColorLegendMessage  of FalseColorLegendApp.Action  
 | ExportAsAnnotations    of string
 | AddAnnotations         of list<string>
