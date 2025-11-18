@@ -382,7 +382,9 @@ module TestViewer =
                 //do! Shaders.shadow
                 //do! Rendering.Shaders.shadowPCF
                 do! Shaders.solarLighting
+
                 do! ImageProjection.Shaders.stableImageProjection
+                
                 do! ImageProjection.Shaders.localImageProjections
             }
             |> InstrumentImageVisualization.applyProperties { imageSettings with instrumentImage = projectedTexture }

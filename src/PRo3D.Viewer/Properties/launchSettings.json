@@ -22,7 +22,7 @@
     },
     "PRo3D.GIS": {
       "commandName": "Project",
-      "commandLineArgs": "-loadRecent --disableCors --port 4321 --remoteApi --defaultSpiceKernel \"../../../../spice/kernels/mk/hera_ops.tm\"",
+      "commandLineArgs": "--disableCors --port 4321 --remoteApi --defaultSpiceKernel \"../../../../spice/kernels/mk/hera_ops.tm\"",
       "nativeDebugging": true
     }
   }

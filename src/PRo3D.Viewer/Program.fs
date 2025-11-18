@@ -88,7 +88,7 @@ let main argv =
 
     // use this one to get path to self-contained exe (not temp expanded dll)
     let executeablePath = 
-        if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
+        if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then 
             System.Environment.GetCommandLineArgs().[0]
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then
             System.Environment.GetCommandLineArgs().[0]
@@ -117,6 +117,10 @@ let main argv =
     // --noMapping --samples 8 --backgroundColor red
     Config.backgroundColor <- startupArgs.backgroundColor
     Config.useMapping <- startupArgs.useMapping
+
+    let limitedShaderCapabilities = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+    Config.limitedShaderCapabilities <- limitedShaderCapabilities
+    Log.line "limited shader capabilities: %b" limitedShaderCapabilities
 
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     

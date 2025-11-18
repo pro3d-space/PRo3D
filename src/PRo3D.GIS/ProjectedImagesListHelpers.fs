@@ -90,7 +90,9 @@ module ProjectedImagesListAppHelper =
                     let time = o.time
                     //let (FrameSpiceName referenceFrame) = o.referenceFrame
                     let surfaceReferenceFrame = surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
-                    boresightAdjustment.GetValue(t)
+                    // pull dependencies
+                    let borsight = boresightAdjustment.GetValue(t)
+                    let img = currentProjectedImage.GetValue(t)
                     let p = 
                         boresightAdjustment 
                         |> AVal.map (fun boresight -> 
@@ -104,7 +106,6 @@ module ProjectedImagesListAppHelper =
                                 boresightAdjustment = Some boresight
                             } 
                         )
-                    let img = currentProjectedImage.GetValue(t)
                     let r = Visualization.creatProjectionFunction (AVal.constant observer) surfaceReferenceFrame currentProjectedImage p
                     let result = r projectionSurfaceBodyName
                     result.GetValue(t)

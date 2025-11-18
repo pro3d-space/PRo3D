@@ -408,16 +408,6 @@ module ViewerUtils =
                             V4d(vp, 1.0) // w for indication if valid
                     )
 
-                let colorMap = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
-
-                let visualizationProperties = 
-                    { 
-                        VisualizationProperties.empty with 
-                            projectionOpacity = AVal.constant 1.0
-                            visualizationRange = Range1d(0.0, 1.0) |> AVal.constant
-                            colorMapping = colorMap
-                    }
-
                 let surfaceSg =
                     surface.sceneGraph
                     |> AVal.map createSg
@@ -471,9 +461,6 @@ module ViewerUtils =
                             )
                     )
                     |> Sg.pickable' pickable
-                    
-                    // TODO HERA
-                    |> InstrumentImageVisualization.applyProperties visualizationProperties
 
                     |> Sg.noEvents 
 
@@ -912,7 +899,10 @@ module ViewerUtils =
 
             // TODO HERA: make this optional
             ImageProjection.Shaders.stableImageProjection |> toEffect
-            ImageProjection.Shaders.localImageProjections |> toEffect
+
+            if not Config.limitedShaderCapabilities then
+                ImageProjection.Shaders.localImageProjections |> toEffect
+
             PRo3D.SPICE.Shaders.solarLighting |> toEffect
         ]
         //Effect.compose [

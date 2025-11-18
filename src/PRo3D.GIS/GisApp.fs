@@ -957,7 +957,7 @@ module GisApp =
                     do! Shaders.generateUv
                     do! Shaders.texture
                 }
-                |> Sg.cullMode' CullMode.Back 
+                |> Sg.cullMode' CullMode.None 
 
             Sg.ofList [bodies; bodyTrajectory]
 
