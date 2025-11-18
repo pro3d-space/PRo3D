@@ -56,6 +56,7 @@ type GuiMode =
 
 type StartupArgs = {
     showExplorationPoint  : bool
+    showReferenceSystem   : bool
     startEmpty            : bool
     useAsyncLoading       : bool
     serverMode            : bool
@@ -84,6 +85,7 @@ type StartupArgs = {
     static member initArgs =
       {
           showExplorationPoint  = true
+          showReferenceSystem   = true
           startEmpty            = false
           useAsyncLoading       = false
           magnificationFilter   = false

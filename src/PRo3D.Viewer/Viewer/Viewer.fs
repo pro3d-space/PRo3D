@@ -51,6 +51,7 @@ open Aether.Operators
 open Chiron 
 open PRo3D.Core.Surface
 open Aardvark.UI.Animation.Deprecated
+open PRo3D.SimulatedViews.SnapshotApp
 
 type UserFeedback<'a> = {
     id      : string
@@ -1445,13 +1446,14 @@ module ViewerApp =
         | TransforAdaptiveSurface (guid, trafo),_,_ ->
             //transforAdaptiveSurface m guid trafo //TODO moved function?
             m
-        //| TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
-        //    match surfaceUpdates.IsEmptyOrNull () with
-        //    | false ->
-        //        transformAllSurfaces m surfaceUpdates
-        //    | true ->
-        //        Log.line "[Viewer] No surface updates found."
-        //        m
+        | TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
+            match surfaceUpdates.IsEmptyOrNull () with
+            | false ->
+                let sM' = transformAllSurfaces m.scene.surfacesModel surfaceUpdates
+                { m with scene = { m.scene with surfacesModel = sM' }}
+            | true ->
+                Log.line "[Viewer] No surface updates found."
+                m
         //| TransformAllSurfaces (surfaceUpdates,scs),_,_ ->
         //    match surfaceUpdates.IsEmptyOrNull () with
         //    | false ->
@@ -1464,6 +1466,12 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No surface updates found."
         //        m
+        | RecalculateNearFarPlane nearFarPlane,_,_ ->
+            let fov = m.frustum |> Frustum.horizontalFieldOfViewInDegrees
+            let asp = m.frustum |> Frustum.aspect
+            let f' = Frustum.perspective fov nearFarPlane.X nearFarPlane.Y asp                    
+
+            { m with frustum = f' }
         | Translate (_,b),_,_ ->
             m
             //match _selectedSurface.Get(m) with
