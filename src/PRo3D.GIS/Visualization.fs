@@ -51,10 +51,10 @@ module Visualization =
                 DefaultTextures.checkerboard
         )
 
-    let creatProjectionFunction (observer : aval<string>) (referenceFrame : aval<string>) 
-                                (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (projection : aval<InstrumentProjection>) =
 
-    
+    let projectDirect (observer : string) (referenceFrame : string) (metadata : ParsedMetadata) 
+                (targetBody : string) (boresight : Option<Trafo3d> ): Option<Trafo3d> =
+
         let farPlaneMars = 30101626.50 * 1000.0
         let instruments =
             let frustum = Frustum.perspective 5.5306897076421 1000.0 farPlaneMars 1.0
@@ -66,25 +66,74 @@ module Visualization =
                 "HERA_AFC-2", frustum
                 "HERA_HSH", hsh2
             ]
+        match metadata with
+        | Some mbi, _ -> 
+            match InstrumentProjection.instrument2SpiceName mbi.instrument with
+            | None -> 
+                Log.warn "could not get instrument spice name"
+                None
+            | Some spiceName -> 
+                let p = {
+                        instrumentReferenceFrame = spiceName
+                        target = InstrumentImages.FocusBody targetBody
+                        cameraSource = InstrumentImages.CameraSource.InBody "HERA"
+                        instrumentName = spiceName
+                        supportBody = "SUN"
+                        time = mbi.obs_date
+                        boresightAdjustment =boresight
+                    }
+                let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
+                let spice = InstrumentProjection.projectOnto referenceFrame observer instruments p
+                spice
+        | _  -> 
+            None
 
+    let project (observer : string) (referenceFrame : string) (currentProjectedImage : Option<string * ParsedMetadata>) 
+                (projection : InstrumentProjection) : Option<Trafo3d> =
+
+        let farPlaneMars = 30101626.50 * 1000.0
+        let instruments =
+            let frustum = Frustum.perspective 5.5306897076421 1000.0 farPlaneMars 1.0
+            let hsh = Frustum.perspective 15.23999 1000.0 farPlaneMars (217.0 / 409.0)
+            let hsh2 = Frustum.perspective 15.23999  1000.0 farPlaneMars (409.0 / 217.0)
+            let hsh3 = Frustum.perspective 9.9 1000.0 farPlaneMars (217.0 / 409.0)
+            Map.ofList [
+                "HERA_AFC-1", frustum
+                "HERA_AFC-2", frustum
+                "HERA_HSH", hsh2
+            ]
+        match currentProjectedImage with
+        | Some (_, (Some mbi,_)) -> 
+            let p = {
+                projection with
+                    time = mbi.obs_date
+                }
+            let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
+            let spice = InstrumentProjection.projectOnto referenceFrame observer instruments p
+            spice
+        | _  -> 
+            None
+
+    let creatProjectionFunction (observer : aval<string>) (referenceFrame : aval<string>) 
+                                (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (instrumentProjection : aval<InstrumentProjection>) =
+
+    
         let projectImage (targetPlanet : string) = 
-                AVal.custom (fun t -> 
-                    let img = currentProjectedImage.GetValue t
-                    match img with
-                    | Some (_, (Some mbi,_)) -> 
-                        let observer = observer.GetValue t
-                        let referenceFrame = referenceFrame.GetValue t
-                        let projection = projection.GetValue t
-                        let p = {
-                            projection with
-                                time = mbi.obs_date
-                            }
-                        let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
-                        let spice = InstrumentProjection.projectOnto referenceFrame observer instruments p
-                        spice
-                    | _  -> 
-                        None
-                )
+            AVal.custom (fun t -> 
+                let img = currentProjectedImage.GetValue t
+                match img with
+                | Some (_, (Some mbi,_)) -> 
+                    let observer = observer.GetValue t
+                    let referenceFrame = referenceFrame.GetValue t
+                    let instrumentProjection = instrumentProjection.GetValue t
+                    let p = {
+                        instrumentProjection with
+                            time = mbi.obs_date
+                        }
+                    project observer referenceFrame img p
+                | _  -> 
+                    None
+            )
 
         projectImage
 

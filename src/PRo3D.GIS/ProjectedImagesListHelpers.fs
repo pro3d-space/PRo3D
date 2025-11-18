@@ -87,34 +87,42 @@ module ProjectedImagesListAppHelper =
                 | None -> None
                 | Some o -> 
                     let (EntitySpiceName observer) = o.body
-                    let time = o.time
-                    //let (FrameSpiceName referenceFrame) = o.referenceFrame
                     let surfaceReferenceFrame = surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
-                    // pull dependencies
+
                     let borsight = boresightAdjustment.GetValue(t)
                     let img = currentProjectedImage.GetValue(t)
-                    let p = 
-                        boresightAdjustment 
-                        |> AVal.map (fun boresight -> 
-                            {
-                                target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                                cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                                instrumentReferenceFrame = "HERA_AFC-1"
-                                instrumentName = "HERA_AFC-1"
-                                supportBody = "SUN"
-                                time = DateTime.Now
-                                boresightAdjustment = Some boresight
-                            } 
-                        )
-                    let r = Visualization.creatProjectionFunction (AVal.constant observer) surfaceReferenceFrame currentProjectedImage p
-                    let result = r projectionSurfaceBodyName
-                    result.GetValue(t)
-                    
+                    let surfaceReferenceFrame = surfaceReferenceFrame.GetValue(t)
+
+                    match img with 
+                    | Some (_, metadata) -> 
+                        Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some borsight)
+                    | _ -> 
+                        None
+            )
+
+        let trafos = 
+            AVal.custom (fun t -> 
+                match observer.GetValue(t) with
+                | None -> [||]
+                | Some o -> 
+                    let (EntitySpiceName observer) = o.body
+                    let surfaceReferenceFrame = surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
+
+                    let borsight = boresightAdjustment.GetValue(t)
+                    let surfaceReferenceFrame = surfaceReferenceFrame.GetValue(t)
+                    let images = g.projectedImageList.images.Content.GetValue(t)
+
+                    images 
+                    |> IndexList.toArray
+                    |> Array.choose (fun img -> 
+                        let metaData = img.texture.GetValue(t) |>  InstrumentMetadata.tryParseMetadataForImagePath 
+                        Visualization.projectDirect observer surfaceReferenceFrame metaData projectionSurfaceBodyName (Some borsight)
+                    )
             )
         
         Some { 
                 imageProjection = imageTrafo
-                localImageProjectionTrafos = AVal.constant [||]
+                localImageProjectionTrafos = trafos
                 sunDirection = sunDirection
                 sunLightEnabled = sunDirection |> AVal.map Option.isSome
             }
