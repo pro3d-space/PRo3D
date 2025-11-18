@@ -504,12 +504,10 @@ In the main view the footprint of the selected camera is shown in light gray. Fo
 \label{sec:gisview}
 
     
-Summary: This feature allows to interpret celestial bodies and surfaces
+This feature allows to interpret celestial bodies and surfaces
 from within PRo3D and serves as a basis for GIS functionality in PRo3D.
-General concept: A new UI tab allows to assign coordiante frames and
-celestial body information to surfaces and GIS entities. By setting
-observeration time and by choosing an observer body, views or fly-by
-scenarious can be modelled.
+Within the GIS UI tab the user can assign coordinate frames and
+celestial body information to surfaces and to GIS entities. Fly-by scenarios can be modeled by setting the observation time and choosing an observer body.
 
 \hypertarget{spice}{%
 	\subsubsection{SPICE}\label{spice}}
@@ -517,9 +515,8 @@ scenarious can be modelled.
 \hypertarget{pre-requisistes}{%
 	\textbf{Pre-requisistes}\label{pre-requisistes}}
 
-Pro3d allows to load custom spice kernels. In this documentation we use the
-\href{https://s2e2.cosmos.esa.int/bitbucket/projects/spice_kernels/repos/hera/browse}{HERA
-	spice kernels}, which are also used in the
+Pro3d provides the option to load custom spice kernels. In this documentation, we use the
+\href{https://s2e2.cosmos.esa.int/bitbucket/projects/spice_kernels/repos/hera/browse}{HERA spice kernels}, which are also used in the
 \href{https://github.com/pro3d-space/PRo3D.SPICE}{solar-system demo}
 
 To follow the demo download or clone the
@@ -531,7 +528,7 @@ To follow the demo download or clone the
 There are two options to load SPICE kernels.
 
 \hypertarget{the-command-line}{%
-	\paragraph{The command line}\label{the-command-line}}
+	\paragraph{Option 1: The command line}\label{the-command-line}}
 
 \begin{itemize}
 	\tightlist
@@ -545,13 +542,13 @@ There are two options to load SPICE kernels.
 \newpage
 
 \hypertarget{the-ui}{%
-	\paragraph{The UI}\label{the-ui}}
+	\paragraph{Option 2: The UI}\label{the-ui}}
 
 \begin{enumerate}
 	\def\labelenumi{\arabic{enumi}.}
 	\tightlist
 	\item
-	Initially PRo3D with GIS view enabled looks like this:
+	PRo3D with GIS view enabled looks like this initially:
 \end{enumerate}
 
 \begin{figure}[h!]
@@ -575,15 +572,7 @@ There are two options to load SPICE kernels.
 \end{figure}
 
 
-
-\begin{enumerate}
-	\def\labelenumi{\arabic{enumi}.}
-	\setcounter{enumi}{2}
-	\tightlist
-	\item
-	Then the Gis View should print the path to the kernel. Scroll down,
-	and look at the settings pane within the GIS view.
-\end{enumerate}
+After loading the kernel, its path is automatically inserted in the settings pane within the GIS view.
 
 \begin{figure}[h!]
 	\centering
@@ -592,9 +581,8 @@ There are two options to load SPICE kernels.
 \end{figure}
 
 A green check mark appears below the path if loading the kernel was
-successful. If there is a red exclamation mark beneath the path loading
-was not successful. PRo3D's text output will give more detailed
-information why, it might be that the path to the kernel is not correct.
+successful. If there is a red exclamation mark beneath the path, loading
+was not successful. PRo3D's text output will provide more detailed information about the error, e.g. if the kernel path is incorrect.
 
 \hypertarget{pro3d-gis-view-tab}{%
 	\subsubsection{PRO3D GIS View Tab}\label{pro3d-gis-view-tab}}
@@ -635,11 +623,8 @@ point in time, and a reference frame.
 	\textbf{Surfaces}\label{surfaces}}
 
 To use a surface with PRo3D's GIS functionality, it has to be associated
-with a reference frame, and can be associated with an entity. This
-reference frame in which the surface is defined is needed to transform
-the surface to the global reference system used by PRo3D. Assigning a
-reference frame and entity to a loaded surfaces is done in the
-``Surfaces'' tab.
+with a reference frame and can be associated with an entity. The
+reference frame is required to transform the surface to the global reference system used by PRo3D. The assignment is done in the ``Surfaces'' tab.
 
 \begin{figure}[h!]
 	\centering
@@ -649,7 +634,7 @@ reference frame and entity to a loaded surfaces is done in the
 
 
 Select the correct reference frame (and optionally entity) from the
-dropdown menu. If the entity or reference frame needed is not in the
+dropdown menu. If the required entity or reference frame is not in the
 dropdown menu, it can be created in the ``Entities''/``Reference
 Frames'' tab.
 \\
@@ -657,73 +642,64 @@ Frames'' tab.
 \hypertarget{entities}{%
 	\textbf{Entities}\label{entities}}
 
-Entities can be celestial bodies or spacecraft. To work with PRo3D's GIS
-functionality the Spice Name of the entity needs to be defined in the
-loaded spice kernel.
+Entities can be celestial bodies or an spacecraft. To work with PRo3D's GIS
+functionality, the loaded spice kernel needs to define the selected Spice Name of the entity.
 
-The entity tab lists all entities. There are some default entities
-already present in PRo3D.
+The entity tab lists all entities. Some default entities are already set in PRo3D.
+
+Each entity can set a reference frame in the column ``Reference
+Frame''. Each entity can be represented by a proxy geometry, which is activated in the ''Proxy'' column, circled in blue in Figure \ref{fig:entitiesWithCircles}. 
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.6\textwidth]{pics/entities.png}
 	\caption{Entities in the GIS view.}
+    \label{fig:entitiesWithCircles}
 \end{figure}
 
-
-
-An entity can be edited by clicking on the right hand icon in the
+An entity can be edited by clicking on the \textit{edit} icon in the
 ``Actions'' column. The icon used to edit the HERA entity is circled in
-red in the screenshot below.
+red in Figure \ref{fig:entitiesWithCircles}.
 
-\begin{figure}[h!]
-	\centering
-	\includegraphics[width=0.6\textwidth]{pics/editEntities.png}
-	\caption{Editing Entities.}
-\end{figure}
-
-The red cross to the left of the edit icon deletes the corresponding
-entity.
-
-Each entity can be assigned a reference frame in the column ``Reference
-Frame''. For each entity, a sphere can be drawn in the scene. Whether a
-sphere is drawn is determined by the checkbox in the ``Draw'' column.
-
-A new entity can be created by clicking on the green plus icon at the
-bottom right hand side of the Entities tab. The spice name can only be
-set when creating an entity, it cannot be changed once the entity is
-created. To change a spice name you need to deleted the old entity and
-create a new one with the new spice name and the settings of the old
-entity. Spice names are unique, so you cannot create two entities with
-the same spice name.
-
-Clicking on the edit icon of an entity (see above), opens a section for
-the entity:
+Clicking the \textit{edit} icon opens a section for the entity, shown in Figure \ref{fig_editEntity}:
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.6\textwidth]{pics/editEntity.png}
 	\caption{Editing Entities.}
+    \label{fig_editEntity}
 \end{figure}
 
-The reference frame and whether to draw an entity can be selected in
-this view as well as the following settings:
+The user can set the reference frame and choose whether to draw the proxy geometry. They can as well set the following settings:
 
 \begin{itemize}
 	\tightlist
 	\item
-	\textbf{Geometry Path} (not yet implemented) path to a geometry that
-	is displayed at the location of this entity instead of a simple sphere
-	\item
 	\textbf{Texture Path} The path to an image (for example a jpeg file)
 	that is rendered onto the entity.
 	\item
-	\textbf{Radius} The radius of the sphere that is drawn in the location
+	\textbf{Radius} The radius of the proxy sphere that is drawn in the location
+	of the entity in meters.
+    \item
+	\textbf{Show Trajectory} Toggle the display of a celestial body's movement path, showing the trajectory it follows over time.
+    \item
+	\textbf{Trajectory Length} The number of days that the trajectory represents.
 	of the entity in meters.
 \end{itemize}
 
 The green save icon at the bottom right hand corner closes the edit
 view.
+
+The red \textit{cross} icon in the ``Actions'' column deletes the corresponding
+entity.
+
+A new entity is created with the green \textit{plus} icon at the
+bottom right hand side of the Entities tab. The spice name can only be
+set when creating an entity. It cannot be changed once the entity is
+created. To change a spice name you need to delete the old entity and
+create a new one with the new spice name and the settings of the old
+entity. Spice names are unique; It is not possible to create two entities with
+the same spice name.
 
 Below an example of the entity Moon with a radius of 1736000 meters and
 a texture path.
@@ -739,90 +715,69 @@ a texture path.
 \hypertarget{reference-frames}{%
 	\subsubsection{Reference Frames}\label{reference-frames}}
 
-Reference frames can be deleted (red cross icon) and created (green plus
-icon in the bottom right corner) in this view. They can also be assigned
-an entity which is associated with them.
+Reference frames can be deleted (\textit{red cross} icon) and created (\textit{green plus} icon in the bottom right corner) in this view, shown in Figure \ref{fig:referenceFrames}.
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.6\textwidth]{pics/referenceFrames.png}
 	\caption{Reference Frames.}
+    \label{fig:referenceFrames}
 \end{figure}
 
-A new reference frame can be created by clicking on the green plus icon
-at the bottom right hand side of the Reference Frames tab. The spice
-name can only be set when creating a reference frame, it cannot be
-changed once the reference frame is created. To change a spice name you
-need to deleted the old reference frame and create a new one with the
-new spice name and the settings of the old reference frame. Spice names
-are unique, so you cannot create two reference frame with the same spice
-name.
+The spice name can only be set when a reference frame is created. To change a spice name, the old reference frame must be deleted and a new one needs to be generated. Spice names are unique; it is not possible to create two reference frames with the same spice name.
 
 \hypertarget{observing-mars}{%
 	\subsubsection{Observing mars}\label{observing-mars}}
 
-Let us now observe Mars from, say Phobos.
+In the following demonstration we observe Mars from Phobos.
 
-1. Set the observation settings (including a time which is in available in the kernel)
+1. Set the observation settings (including a time which is in available in the kernel) as shown in Figure \ref{fig:observationSettings}.
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.6\textwidth]{pics/observe.png}
 	\caption{Observing Settings.}
+    \label{fig:observationSettings}
 \end{figure}
 
-2. Next, make sure the proxy visualization for Mars is enabled:
+2. Ensure the proxy visualization for Mars is enabled, as indicated in Figure \ref{fig:entitiesWithCircles} with the blue circle.
 
-\begin{figure}[h!]
-	\centering
-	\includegraphics[width=0.6\textwidth]{./pics/MarsProperties.png}
-	\caption{Proxy visualization for Mars is enabled.}
-\end{figure}
-
-\begin{figure}[h!]
-	\centering
-	\includegraphics[width=0.6\textwidth]{./pics/visibleMars.png}
-	\caption{Mars is now visible.}
-\end{figure}
-
-Also make sure to have the far plane set far away for viewing Mars from
-phobos. Ajust the near \emph{and} far planes accordingly.
+3. Adjust the near \emph{and} far planes to ensure that Mars and Phobos are visible in the rendering as shown in Figure \ref{fig_nearAndFarPlanes}.
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=1\textwidth]{./pics/farplane.png}
 	\caption{The far plane needs to be set far enough away so objects are visible.}
+    \label{fig_nearAndFarPlanes}
 \end{figure}
 
-Now Mars should be visible from the observation point of view.
-
-By using the visualization properties in the entity list the element can
-be textured as well.
+4. Optionally choose a texture for the entity, shown in Figure \ref{fig_entityTexture}.
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=1\textwidth]{./pics/textured.png}
 	\caption{Textures can be specified and mapped onto entities.}
+    \label{fig_entityTexture}
 \end{figure}
 
-Next let us load the mola dataset. In the Surfaces pane witin the Gis
-View, now specifiy reference frame and celestial body for the surface
-(if it does not appear change the observation settings, e.g.~by setting
-the time).
+5. To replace the proxy geometry with a real Mars model load the mola dataset. Specify a reference frame and a celestial body in the Surfaces pane within the Gis View (if it does not appear change the observation settings, e.g.~by setting the time).
 
-\begin{figure}[h!]
-	\centering
-	\includegraphics[width=1\textwidth]{pics/surfaceRefFrame.png}
-	\caption{Specifiy reference frame and celestial body.}
-\end{figure}
+6. Since we have a full surface for Mars now, we can disable the proxy geometry, shown in Figure \ref{fig:disableProxy}.
 
-Since we have a full surface for Mars now, we can switch off the proxy
-geometry:
 
-\begin{figure}[h!]
-	\centering
-	\includegraphics[width=1\textwidth]{pics/molaObservation.png}
-	\caption{After switching off the proxy geometry, the loaded OPC is visible.}
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./pics/surfaceRefFrame.png}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./pics/molaObservation.png}
+    \end{subfigure}
+    \caption{After disabling the proxy geometry, the loaded OPC is visible.}
+    \label{fig:disableProxy}
 \end{figure}
 
 \newpage
@@ -830,25 +785,25 @@ geometry:
 \hypertarget{extended-features}{%
 	\subsubsection{Extended features}\label{extended-features}}
 
-It is possible to add new celestial bodies, new reference frames.
+It is possible to add new celestial bodies and new reference frames.
 
 \hypertarget{extended-concept}{%
 	\subsubsection{Extended concept}\label{extended-concept}}
 
-For story telling, PRo3D also supports to create GIS bookmarks.
-Similarly to stories on surfaces this can be used to create movies and
-interactive presentations for science.
+For story telling, PRo3D also supports the creation GIS bookmarks.
+Similarly to storytelling for surfaces, this can be used to create movies and
+interactive presentations.
 
 \hypertarget{caveats}{%
 	\subsubsection{Caveats}\label{caveats}}
 
-Currently the GIS settings are not stored to scene files.
+Currently, the GIS settings are not stored in the scene files.
 
 
 \subsubsection{Mission Phases}
 \label{sec:missionTimes}
 
-The mission time settings, shown in Figure \ref{label:mission_phases} allow the user to choose a mission time frame and to navigate through the simulation using the slider. The mission phases include the Deimos Flyby, the Mars Flyby and the Didymos Orbital Insertion. 
+The mission time settings, shown in Figure \ref{label:mission_phases} allow the user to choose a mission time frame and navigate through the simulation using the slider. The mission phases include the Deimos Flyby, the Mars Flyby and the Didymos Orbital Insertion. 
 
 \begin{figure}[h!]
 	\centering
@@ -872,7 +827,7 @@ Celestial bodies can be annotated with markers as shown in Figure \ref{fig:marke
 \subsubsection{Instrument projections}
 \label{sec:instrumentProjections}
 
-Simulated images the images must contain a json file with the same name and the suffix .mbi, i.e. <image\_name>.mbi.json, which stores information about the instrument, the time and the target body. This file should contain at least the following fields:
+It is possible to project images that were captured with Spacecraft instruments onto celestial bodies. Metadata is needed for the projection, which is stored in a json file with the image name and the suffix .mbi, i.e. <image\_name>.mbi.json. It stores information about the instrument, the time and the target body. The .mbi file should contain at least the following fields:
 
 \begin{verbatim}
 	{
@@ -884,7 +839,6 @@ Simulated images the images must contain a json file with the same name and the 
 	}
 \end{verbatim}
 
-Those are required to project the image onto a celestial body. 
 
 A second json file with the format <image\_name>.json contains information about the image. We require this file to store information about the number of channels and the minimum and maximum pixel values that were used to capture the image.   
 
@@ -906,7 +860,7 @@ The images captured with the Hera instruments can be loaded using the main menu 
     \label{fig:load_instrument_images}
 \end{figure}
 
-Figure \ref{fig:image_settings} shows the parameters the user can adjust after loading an image. The user can choose a channel using the \textit{Channel} parameter in case that a layered \textit{tiff} file is loaded. The \textit{false color visualization} can be activated to enhance properties and the corresponding dropdown offers different color maps to choose from. \textit{Minimum} and \textit{maximum} are set to the minimum and maximum values that were used by the instrument to capture the image. Those values are extracted from the json file that is delivered with the instrument image. The user is not limited to a range if they want use the text field to set a minimum and maximum value to map the color values to a new range. The sliders are set to the used color range +/- 10\%.        
+Figure \ref{fig:image_settings} shows the parameters the user can adjust after loading an image. The user can choose a channel using the \textit{Channel} parameter in case that a layered \textit{tiff} file is loaded. The \textit{false color visualization} can be activated to enhance properties and the corresponding dropdown offers different color maps to choose from. \textit{Minimum} and \textit{maximum} are set to the minimum and maximum values that were used by the instrument to capture the image. Those values are extracted from the json file that is delivered with the instrument image. The user is not limited to a range if they want use the text field to set a minimum and maximum value to map the color values to a new range. The sliders are set to the captured color range +/- 10\%.        
 
 \begin{figure}[h]
     \centering
@@ -950,7 +904,34 @@ Figure \ref{fig:hera-projectedImages} and Figure \ref{fig:hera-projectedImages2}
     \label{fig:hera-projectedImages2}
 \end{figure}
 
+\subsubsection{Ellipse annotations}
 
+Ellipse annotation (using the AxisEllipse) geometry type is inspired by SBMT elliptic annotations.
+
+It is based on three points that the user sets:
+
+\begin{itemize}
+
+\item First point: End point of major axis
+\item Second point: Second end point of major axis
+\item Third point: Specifies length of the minor axis (normal distance to major axis)
+
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./pics/AnnotationEllipse1.PNG}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./pics/AnnotationEllipse2.PNG}
+    \end{subfigure}
+    \caption{AxisEllipse Annotation}
+    \label{fig:annotation_ellipse}
+\end{figure}
 
 %----------------------------------------------------------------------------------------
 %	SubSection: 
@@ -1027,4 +1008,3 @@ Currently we only read opcx files as opposed to opcx.json files which also provi
 
 \paragraph{Data Example}
 An example of currently available data can be found in the Appendix \ref{multitexturingAppendix}.
-
