@@ -546,7 +546,7 @@ module Traverse =
     let empty() = {
         version = current
         guid = Guid.NewGuid()
-        traverseType = TraverseType.Rover
+        traverseType = TraverseType.WayPoints
         showRimfaxSurfaces = true
         tName = ""
         sols = []
@@ -656,7 +656,29 @@ module Traverse =
             let! color = Json.readWith Ext.fromJson<ColorInput, Ext> "color"
             let! heightOffset = Json.tryRead "heightOffset"
             let! priorityEnabled = Json.tryRead "priorityEnabled"
-            let! traverseType = Json.read "traverseType"
+            let! readTraverseType = Json.read "traverseType"
+
+            let traverseType =
+                // some legacy data have "wrong" traverse type in file. this one tries to find it out and repair if necessary
+                // (don't know how we arrived in this situation... :/)
+                let firstSolMetricType = sols |> List.tryHead |> Option.bind _.solMetrics
+                let changeTraverseType = // None if no change is needed 
+                    match firstSolMetricType,readTraverseType  with
+                    | Some (SolMetrics.RimfaxM _), TraverseType.Rimfax -> None
+                    | Some (SolMetrics.RoverM _), TraverseType.Rover -> None
+                    | Some (SolMetrics.WaypointM _), TraverseType.WayPoints -> None
+                    | Some (SolMetrics.RimfaxM _), _ -> Some TraverseType.Rimfax
+                    | Some (SolMetrics.RoverM _), _ -> Some TraverseType.Rover
+                    | Some (SolMetrics.WaypointM _), _ -> Some TraverseType.WayPoints
+                    | None, _ -> None
+
+                match changeTraverseType with
+                | None -> readTraverseType
+                | Some inferredTraverseType -> 
+                    Log.warn $"needed to change traverse type to match sols from {readTraverseType} to {inferredTraverseType} because of {firstSolMetricType} being found in first sol"
+                    inferredTraverseType
+
+
             let! showRimfaxSurfaces = Json.read "showRimfaxSurfaces"
             let! rimfaxRootDirectory = Json.read "rimfaxRootDirectory"
 

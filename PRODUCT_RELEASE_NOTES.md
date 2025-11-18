@@ -1,3 +1,6 @@
+## 5.1.2           
+- fixed legacy traverse scene file / m20 waypoint loading
+
 ## 5.2.0-prerelease1            
 - reworked trafo system
 
