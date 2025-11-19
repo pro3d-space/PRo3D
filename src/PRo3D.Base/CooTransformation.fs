@@ -177,6 +177,7 @@ module CooTransformation =
             radian    = 0.0
         }
 
+
     let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
         match planet with
         | Planet.None | Planet.JPL | Planet.ENU ->
@@ -263,6 +264,18 @@ module CooTransformation =
             
             let v2 = getXYZFromLatLonAlt ({sc with altitude = height}) planet
             (v2 - p).Normalized
+
+
+    let planetFromString (spiceBodyName : string) = 
+        match spiceBodyName.ToLower() with
+        | "earth" -> Some Planet.Earth
+        | "mars"  -> Some Planet.Mars
+        | "moon"  -> Some Planet.Moon
+        | "phobos" -> Some Planet.Phobos
+        | "deimos" -> Some Planet.Deimos
+        | "didymos" -> Some Planet.Didymos
+        | "dimorphos" -> Some Planet.Dimorphos
+        | _       -> None
 
     module SphericalCoo =
         let toV3d (spherical : SphericalCoo) =

@@ -26,11 +26,17 @@ module ProjectedImageListApp =
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
+        instrumentVisibility = InstrumentVisibilityMode.Off
+        lightingMode = LightingMode.Off
     }
 
     let update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) = 
         match msg with
         | Nop -> m
+        | SetLightingMode mode -> 
+            { m with lightingMode = mode }
+        | SetInstrumentVisbilityMode mode -> 
+            { m with instrumentVisibility = mode }
         | OrbitCameraMessage msg ->
             { m with cameraState = OrbitController.update m.cameraState msg }
         | SetProjectionOpacity opacity -> 
@@ -258,6 +264,21 @@ module ProjectedImageListApp =
                             Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
                         ]
                     ]
+
+                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                        div [] [text "Visibility:"]
+                        div [style "margin-left: auto;"] [
+                            Html.SemUi.dropDown m.instrumentVisibility SetInstrumentVisbilityMode
+                        ]
+                    ]
+
+                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                        div [] [text "Sun / Lighting Mode:"]
+                        div [style "margin-left: auto;"] [
+                            Html.SemUi.dropDown m.lightingMode SetLightingMode
+                        ]
+                    ]
+
                     div [clazz "item"; style "margin-top: 10px;"] [
                         div [style "padding-left: 5px"] [text "Registration:"]
                         Html.table [  

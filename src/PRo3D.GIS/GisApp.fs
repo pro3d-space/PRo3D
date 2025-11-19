@@ -94,9 +94,9 @@ module GisApp =
         let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
         [
             {
-                minDate = DateTime(2025, 3, 10)
-                maxDate = DateTime(2025, 3, 14)
-                value = getNumericInput 0.626 // 12 March 2025, 12:07
+                minDate = DateTime.Parse("2025-03-12 12:07:08.00Z")
+                maxDate = DateTime.Parse("2025-03-12 12:10:08.00Z")
+                value = getNumericInput 0.5 // 12 March 2025, 12:07
                 name    = "Deimos Flyby"
             };
             {

@@ -1144,16 +1144,31 @@ module ViewerApp =
                             | Interactions.PickSurface -> visibleAndActive
                             | _ -> onlyActive
 
-                        let hitF (camLocation : V3d) (p : V3d) = 
+                        let hitF (surfaceId : SurfaceId) (camLocation : V3d) (p : V3d) = 
+                            let sky (planet : Planet) = 
+                                let up = CooTransformation.getUpVector p planet
+                                let reprojectionDistance = 
+                                    match planet with
+                                    | Planet.Mars -> 1000000.0
+                                    | _ -> 100.0
+                                FastRay3d(p - (up * reprojectionDistance), up)  
+
                             let ray =
                                 match m.drawing.projection with
                                 | Projection.Viewpoint -> 
                                     let dir = (p-camLocation).Normalized
                                     FastRay3d(camLocation, dir)  
                                 | Projection.Sky -> 
-                                    let up = CooTransformation.getUpVector p m.scene.referenceSystem.planet
-                                    //let up = m.scene.referenceSystem.up.value
-                                    FastRay3d(p + (up * 100.0), -up)  
+                                    match PRo3D.Core.Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp surfaceId with
+                                    | None -> 
+                                        sky m.scene.referenceSystem.planet
+                                    | Some ob -> 
+                                        let (EntitySpiceName n) = ob.body
+                                        match CooTransformation.planetFromString n with
+                                        | None -> 
+                                            sky m.scene.referenceSystem.planet
+                                        | Some p -> 
+                                            sky p
                                 | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
                             match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache Config.diagnosticTimings with
@@ -1171,7 +1186,7 @@ module ViewerApp =
                                 Log.line "[PickSurface] surface hit at %A" hit
 
                                 let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
-                                let hitF = hitF cameraLocation
+                                let hitF = hitF surf.guid cameraLocation
                    
                                 lastHash <- rayHash
 

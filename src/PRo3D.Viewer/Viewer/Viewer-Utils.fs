@@ -1040,7 +1040,7 @@ module ViewerUtils =
             |> Sg.applyProjectedImages (fun body -> 
                 body 
                 |> AVal.map (function 
-                    | Some b when b.ToLower() = "mars" -> 
+                    | Some b -> 
                         let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp surfaceId "MARS"
                         r
                     | _ -> None 

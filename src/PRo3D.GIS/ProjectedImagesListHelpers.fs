@@ -105,24 +105,29 @@ module ProjectedImagesListAppHelper =
                 match observer.GetValue(t) with
                 | None -> [||]
                 | Some o -> 
-                    let (EntitySpiceName observer) = o.body
-                    let surfaceReferenceFrame = surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
+                    let m = g.projectedImageList.instrumentVisibility.GetValue(t)
+                    match m with
+                    |  PRo3D.ImageMapping.InstrumentVisibilityMode.RelativeCount ->
+                        let (EntitySpiceName observer) = o.body
+                        let surfaceReferenceFrame = surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
 
-                    let borsight = boresightAdjustment.GetValue(t)
-                    let surfaceReferenceFrame = surfaceReferenceFrame.GetValue(t)
-                    let images = g.projectedImageList.images.Content.GetValue(t)
+                        let borsight = boresightAdjustment.GetValue(t)
+                        let surfaceReferenceFrame = surfaceReferenceFrame.GetValue(t)
+                        let images = g.projectedImageList.images.Content.GetValue(t)
 
-                    images 
-                    |> IndexList.toArray
-                    |> Array.choose (fun img -> 
-                        let metaData = img.texture.GetValue(t) |>  InstrumentMetadata.tryParseMetadataForImagePath 
-                        Visualization.projectDirect observer surfaceReferenceFrame metaData projectionSurfaceBodyName (Some borsight)
-                    )
+                        images 
+                        |> IndexList.toArray
+                        |> Array.choose (fun img -> 
+                            let metaData = img.texture.GetValue(t) |>  InstrumentMetadata.tryParseMetadataForImagePath 
+                            Visualization.projectDirect observer surfaceReferenceFrame metaData projectionSurfaceBodyName (Some borsight)
+                        )
+                    | _ -> [||]
             )
         
         Some { 
                 imageProjection = imageTrafo
                 localImageProjectionTrafos = trafos
                 sunDirection = sunDirection
-                sunLightEnabled = sunDirection |> AVal.map Option.isSome
+                sunLightEnabled = 
+                    (g.projectedImageList.lightingMode, sunDirection) ||> AVal.map2 (fun l hasDir -> l <> PRo3D.ImageMapping.LightingMode.Off && Option.isSome hasDir)
             }

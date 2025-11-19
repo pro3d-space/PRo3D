@@ -71,6 +71,15 @@ module BoresightAdjustment =
             yaw = { Numeric.init with min = -180.0; max = 180.0; value = 0.0 }
         }
 
+type InstrumentVisibilityMode = 
+    | Off = 0
+    | RelativeCount = 1
+
+type LightingMode = 
+    | Off = 0
+    | SunDirect = 1
+    | SunShadow = 2
+
 [<ModelType>]
 type ProjectedImageListModel =
     {
@@ -80,6 +89,8 @@ type ProjectedImageListModel =
         projectionOpacity : NumericInput
         boresightAdjustment : BoresightAdjustment
         cameraState     : OrbitState
+        instrumentVisibility : InstrumentVisibilityMode
+        lightingMode : LightingMode
     }
 
 module ProjectedImageListModel =
@@ -90,6 +101,8 @@ module ProjectedImageListModel =
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
+        instrumentVisibility = InstrumentVisibilityMode.Off
+        lightingMode = LightingMode.Off
     }
 
 type ImageMessage =
@@ -114,4 +127,6 @@ type ProjectedImageListMessage =
     | SetRoll of Numeric.Action
     | SetYaw of Numeric.Action
     | SetPitch of Numeric.Action
+    | SetInstrumentVisbilityMode of InstrumentVisibilityMode
+    | SetLightingMode of LightingMode
     | Nop

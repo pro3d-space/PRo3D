@@ -1,5 +1,5 @@
-//2d2476c2-b11a-580c-de5f-81533c728518
-//f2b26066-6e3e-c6c8-70d3-0daa12a451e6
+//9da4d01a-d6c4-8cae-0eda-65d1457da239
+//e65e7c55-e005-3f49-7e3e-7d7fda5f5be0
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -110,6 +110,8 @@ type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
     let _projectionOpacity_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.projectionOpacity)
     let _boresightAdjustment_ = AdaptiveBoresightAdjustment(value.boresightAdjustment)
     let _cameraState_ = Aardvark.UI.Primitives.AdaptiveOrbitState(value.cameraState)
+    let _instrumentVisibility_ = FSharp.Data.Adaptive.cval(value.instrumentVisibility)
+    let _lightingMode_ = FSharp.Data.Adaptive.cval(value.lightingMode)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ProjectedImageListModel) = AdaptiveProjectedImageListModel(value)
@@ -124,6 +126,8 @@ type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
             _projectionOpacity_.Update(value.projectionOpacity)
             _boresightAdjustment_.Update(value.boresightAdjustment)
             _cameraState_.Update(value.cameraState)
+            _instrumentVisibility_.Value <- value.instrumentVisibility
+            _lightingMode_.Value <- value.lightingMode
     member __.Current = __adaptive
     member __.images = _images_ :> FSharp.Data.Adaptive.alist<AdaptiveProjectedImageModel>
     member __.selectedImage = _selectedImage_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>>
@@ -131,6 +135,8 @@ type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
     member __.projectionOpacity = _projectionOpacity_
     member __.boresightAdjustment = _boresightAdjustment_
     member __.cameraState = _cameraState_
+    member __.instrumentVisibility = _instrumentVisibility_ :> FSharp.Data.Adaptive.aval<InstrumentVisibilityMode>
+    member __.lightingMode = _lightingMode_ :> FSharp.Data.Adaptive.aval<LightingMode>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ProjectedImageListModelLenses = 
     type ProjectedImageListModel with
@@ -140,4 +146,6 @@ module ProjectedImageListModelLenses =
         static member projectionOpacity_ = ((fun (self : ProjectedImageListModel) -> self.projectionOpacity), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ProjectedImageListModel) -> { self with projectionOpacity = value }))
         static member boresightAdjustment_ = ((fun (self : ProjectedImageListModel) -> self.boresightAdjustment), (fun (value : BoresightAdjustment) (self : ProjectedImageListModel) -> { self with boresightAdjustment = value }))
         static member cameraState_ = ((fun (self : ProjectedImageListModel) -> self.cameraState), (fun (value : Aardvark.UI.Primitives.OrbitState) (self : ProjectedImageListModel) -> { self with cameraState = value }))
+        static member instrumentVisibility_ = ((fun (self : ProjectedImageListModel) -> self.instrumentVisibility), (fun (value : InstrumentVisibilityMode) (self : ProjectedImageListModel) -> { self with instrumentVisibility = value }))
+        static member lightingMode_ = ((fun (self : ProjectedImageListModel) -> self.lightingMode), (fun (value : LightingMode) (self : ProjectedImageListModel) -> { self with lightingMode = value }))
 
