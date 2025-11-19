@@ -1,3 +1,7 @@
+
+## 5.4.0
+- planets updates for local resSys in transforamtions
+
 ## 5.3.0-prerelease1
 - axis-ellipses added 
 - area calculation for closed polygons and ellipses included
