@@ -104,6 +104,7 @@ type AttributeLayer =
 [<ModelType>]
 type ContourLineModel =
     {
+        version : int
         enabled  : bool
         targetLayer : Option<TextureLayer>
         distance : NumericInput
@@ -113,8 +114,11 @@ type ContourLineModel =
 
 module ContourLineModel =
 
+    let current = 0
+
     let initial = 
         {
+            version = current
             enabled = false
             distance = {
                 value = 0
@@ -138,4 +142,43 @@ module ContourLineModel =
                 format = "{0:0.0000}"
             }
             targetLayer = None
+        }
+
+    let read0 = 
+        json {
+            let! enabled = Json.read "enabled"
+            let! targetLayer = Json.readOrDefault "targetLayer" None
+            let! distanceValue = Json.readFloat "distance"
+            let! widthValue = Json.readFloat "width"
+            let! borderValue = Json.readFloat "border"
+            
+            return {
+                version = current
+                enabled = enabled
+                targetLayer = targetLayer
+                distance = { initial.distance with value = distanceValue }
+                width = { initial.width with value = widthValue }
+                border = { initial.border with value = borderValue }
+            }
+        }
+
+type ContourLineModel with 
+    static member FromJson(_ : ContourLineModel) =
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! ContourLineModel.read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of TextureLayer" 
+                |> Json.error 
+        }
+    static member ToJson (x : ContourLineModel) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "enabled" x.enabled
+            do! Json.writeOption "targetLayer" x.targetLayer
+            do! Json.writeFloat "distance" x.distance.value
+            do! Json.writeFloat "width" x.width.value
+            do! Json.writeFloat "border" x.border.value
         }

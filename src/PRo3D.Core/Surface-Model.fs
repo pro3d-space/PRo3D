@@ -624,13 +624,51 @@ module Init =
 
 type TransferFunction =
     {
+        version: int
         tf : ColorMaps.TF
         textureCombiner : TextureCombiner
         blendFactor : float
     }
 
 module TransferFunction =
-    let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0 }
+
+    let current = 0
+
+    let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0; version = current }
+
+    let read0 = 
+        json {
+            let! tf  = Json.read "tf"
+            let! textureCombiner  = Json.read "textureCombiner"
+            let! blendFactor = Json.readFloat "blendFactor"
+
+            return {
+                version = current
+                tf = tf
+                textureCombiner   = textureCombiner |> enum<TextureCombiner>
+                blendFactor   = blendFactor
+            }
+        }
+
+type TransferFunction with 
+    static member FromJson(_ : TransferFunction) =
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! TransferFunction.read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of TextureLayer" 
+                |> Json.error 
+        }
+    static member ToJson (x : TransferFunction) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "tf" x.tf
+            do! Json.write "textureCombiner" (x.textureCombiner |> int)
+            do! Json.writeFloat "blendFactor" x.blendFactor
+        }
+
 
 type SurfaceId = System.Guid
 
@@ -822,6 +860,13 @@ module Surface =
             let! selectedScalar  = Json.read "selectedScalar"
             let! textureLayers   = Json.read "textureLayers"
             let! selectedTexture = Json.read "selectedTexture"
+
+            let! secondaryTexture = Json.readOrDefault "secondaryTexture" None
+            let! secondaryTextureLayer = Json.readOrDefault "secondaryTextureLayer" None
+            let! transferFunction = Json.readOrDefault "transferFunction" TransferFunction.empty
+            let! opcxPath = Json.readOrDefault "opcxPath" None
+            let! contourModel = Json.readOrDefault "contourModel" ContourLineModel.initial
+
             let! surfaceType     = Json.read "surfaceType"    
             let! colorCorrection = Json.read "colorCorrection"
             let! transformation  = Json.read "transformation"
@@ -871,10 +916,13 @@ module Surface =
                     selectedScalar  = selectedScalar
                     textureLayers   = textureLayers
                     primaryTexture   = selectedTexture
-                    secondaryTexture = None
-                    secondaryTextureLayer = None
-                    transferFunction = TransferFunction.empty
-                    opcxPath        = None
+
+                    secondaryTexture = secondaryTexture
+                    secondaryTextureLayer = secondaryTextureLayer
+                    transferFunction = transferFunction
+                    opcxPath        = opcxPath
+                    contourModel = contourModel
+
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
                     colorCorrection = colorCorrection
@@ -884,9 +932,6 @@ module Surface =
 
                     filterByDistance = match filterByDistance with |Some v -> v |None -> false
                     filterDistance   = match filterDistance with |Some d -> Initial.filterDistance d |None -> Initial.filterDistance 10.0
-
-                    
-                    contourModel = ContourLineModel.initial
 
                     highlightSelected = match highlightSel with |Some v -> v |None -> true
                     highlightAlways   = match highlightAl with |Some v -> v |None -> false
@@ -928,6 +973,13 @@ type Surface with
             do! Json.write "selectedScalar" x.selectedScalar
             do! Json.write "textureLayers" (x.textureLayers |> IndexList.toList)
             do! Json.write "selectedTexture" x.primaryTexture
+
+            do! Json.write "secondaryTexture" x.secondaryTexture
+            do! Json.write "secondaryTextureLayer" x.secondaryTextureLayer
+            do! Json.write "transferFunction" x.transferFunction
+            do! Json.write "opcxPath" x.opcxPath
+            do! Json.write "contourModel" x.contourModel
+
             do! Json.write "surfaceType" (x.surfaceType |> int)
             do! Json.write "colorCorrection" x.colorCorrection
             do! Json.write "preferredMeshLoader" (x.preferredLoader |> int)
