@@ -341,6 +341,7 @@ module Sg =
                 match planet with
                 | Planet.Mars | Planet.Earth -> refsystem
                 | Planet.ENU -> refsystem2
+                | Planet.Moon | Planet.Dimorphos | Planet.Deimos | Planet.Didymos | Planet.Phobos -> refsystem
                 | _ -> xyzSystem 
             )
             

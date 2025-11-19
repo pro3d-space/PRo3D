@@ -1297,6 +1297,14 @@ module ViewerApp =
                     let m = { m with shiftFlag = true}
                     Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
                     m
+                | Aardvark.Application.Keys.C -> 
+                    Log.line "[Viewer] reset orbit to center"
+                    let c   = m.scene.config
+                    let ref = m.scene.referenceSystem
+                    let navigation' = 
+                        Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero))
+                    { m with navigation = navigation' }       
+                    
                 | _ -> m
           
 

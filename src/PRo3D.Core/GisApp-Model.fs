@@ -90,6 +90,7 @@ type ObservationInfoAction =
     | SetObserver       of option<EntitySpiceName>
     | SetTime           of DateTime
     | SetReferenceFrame of option<FrameSpiceName>
+    | Reset
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisSurface =

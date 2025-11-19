@@ -26,6 +26,11 @@ module ObservationInfo =
             {m with time = {m.time with date = time}}
         | ObservationInfoAction.SetReferenceFrame frame ->
             {m with referenceFrame = frame}
+        | ObservationInfoAction.Reset -> 
+            match m.target with
+            | None -> { m with target = None }
+            | Some (EntitySpiceName n) -> // hack: perform dummy change to trigger recomputation of all parameters 
+                {m with target = Some (EntitySpiceName (n + "")) }
 
     let view (m : AdaptiveObservationInfo)
              (entities : amap<EntitySpiceName, AdaptiveEntity>) 
@@ -73,6 +78,7 @@ module ObservationInfo =
                                       Calendar.CalendarType.DateTime
                     ] |> UI.map CalendarMessage
                 Html.row "Reference Frame:" [frameDropdown]
+                Html.row "Reset" [button [onClick (fun _ -> Reset)] [text "Re-use settings above"]]
             ]
         )
 
