@@ -136,7 +136,7 @@ module TraverseApp =
                         None 
                     | h::_ -> 
                         match h.geometry with
-                        | GeoJsonGeometry.Point p -> 
+                        | GeoJsonGeometry.Point(p, _) -> 
                             Log.warn "[TraverseApp] Missing properties for traverse %s. Fallback waypoint traverse " name
                             Some (WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true)
                         | e -> 

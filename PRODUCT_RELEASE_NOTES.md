@@ -1,5 +1,11 @@
+
 ## 5.4.0
 - planets updates for local resSys in transforamtions
+
+## 5.3.0-prerelease1
+- axis-ellipses added 
+- area calculation for closed polygons and ellipses included
+- surface intersection preview added
 
 ## 5.1.2           
 - fixed legacy traverse scene file / m20 waypoint loading

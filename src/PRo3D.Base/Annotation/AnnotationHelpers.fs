@@ -95,6 +95,35 @@ module Calculations =
                 yield getSegmentDistance s
         ] 
         |> List.sum
+
+    
+    let calculateVertexPlane (points: V3d[]) = 
+        if points.Length < 3 then Plane3d.Invalid
+        else 
+            (PlaneFitting.planeFit(points))
+
+    let calculatePolygonArea (points:IndexList<V3d>) = 
+        if points.Count < 3 then
+            0.0
+        else
+            let points = points |> IndexList.filter(fun x -> not x.IsNaN)
+            let v3dArray = points.AsArray
+
+            let vertexPlane = calculateVertexPlane v3dArray
+
+            if vertexPlane.IsValid then 
+             
+                let w2Plane = vertexPlane.GetWorldToPlane()
+
+                let v2dArray = 
+                    v3dArray 
+                    |> Array.map(fun p -> (w2Plane.TransformPos p).XY)
+
+                let p2D = Polygon2d(v2dArray)                
+                p2D.ComputeArea()
+            else
+                0.0
+
                                                                
     let calcResultsLine (annotation : Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
         let count = annotation.points.Count
@@ -136,6 +165,14 @@ module Calculations =
                 planeHeight, verticalDistance
             | _ -> Double.NaN, Double.NaN
 
+        let area = 
+            match (annotation.geometry) with
+            | Geometry.Polygon
+            | Geometry.Ellipse
+            | Geometry.AxisEllipse ->
+                calculatePolygonArea annotation.points
+            | _ -> Double.NaN
+
         {   
             version           = AnnotationResults.current
             height            = height
@@ -147,6 +184,7 @@ module Calculations =
             slope             = slope
             trueThickness     = trueThickness
             verticalThickness = verticalThickness
+            area              = area
         }
     
     let calculateAnnotationResults (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
@@ -170,14 +208,14 @@ module DipAndStrike =
       
     let projectOntoPlane (x:V3d) (n:V3d) = (x - (x * n)).Normalized
     
-    let computeStandardDeviation avg (input : List<float>) =
+    let computeStandardDeviation avg (input : array<float>) =
     
         let sosq = 
             input 
-            |> List.map(fun (x:double) ->
+            |> Array.sumBy(fun (x:double) ->
                 let k = (x.Abs() - avg)
-                Math.Pow(k,2.0))
-            |> List.sum
+                Math.Pow(k,2.0)
+            )
         
         Math.Sqrt (sosq / float (input.Length - 1))          
     
@@ -258,18 +296,13 @@ module DipAndStrike =
         Some dns
 
     let calculateDipAndStrikeResults (up:V3d) (north : V3d) (points:IndexList<V3d>) =
+
+        let points = points |> IndexList.toArray |> Array.filter (_.IsNaN >> not)
     
-        let points = points |> IndexList.filter(fun x -> not x.IsNaN)
-    
-        match points.Count with 
+        match points.Length with 
         | x when x > 2 ->
-    
-            let v3dArray = points.AsList |> List.toArray // points.toArray not possible because of: int -> V3d[]
-    
-            //let p = v3dArray.[0]
-           // let up = p.Normalized        
-    
-            let linRegression = (new LinearRegression3d(v3dArray)).TryGetRegressionInfo()
+
+            let linRegression = LinearRegression3d(points).TryGetRegressionInfo()
 
             Log.line "[AnnotationHelpers.fs] %A" linRegression
 
@@ -278,18 +311,17 @@ module DipAndStrike =
                 | Some lr -> lr.Plane
                 | None ->
                     Log.line "[dns computation] linear regression failed, fallback to evd"
-                    PlaneFitting.planeFit(v3dArray)
+                    PlaneFitting.planeFit(points)
     
             let distances = 
                 points 
-                |> IndexList.toList
-                |> List.map(fun x -> (plane.Height x).Abs())
+                |> Array.map(fun x -> (plane.Height x).Abs())
     
-            let sos = distances |> List.map(fun x -> x * x) |> List.sum /// (float distances.Length)
+            let sos = distances |> Array.map (fun x -> x * x) |> Array.sum /// (float distances.Length)
             
-            let avg = distances |> List.average
-            let max = distances |> List.max
-            let min = distances |> List.min
+            let avg = distances |> Array.average
+            let max = distances |> Array.max
+            let min = distances |> Array.min
          
             let std = distances |> computeStandardDeviation avg
     
@@ -311,8 +343,8 @@ module DipAndStrike =
             let v = strike.Cross(up).Normalized                       
     
             let centerOfMass =
-                let sum = IndexList.sum points
-                sum / (float)points.Count
+                let sum = Array.sum points
+                sum / float points.Length
 
             let dns = {
                 version         = DipAndStrikeResults.current

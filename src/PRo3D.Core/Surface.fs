@@ -174,7 +174,8 @@ module DebugKdTreesX =
                     false
             
             if kdi.Intersect(ray, null, Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter), 0.0, Double.MaxValue, &hit) then              
-                Some (hit.RayHit.T, hitObject),c
+                let info = hit.GetIntersectionRayHitInfo()
+                Some (hit, hitObject),c
             else            
                 None,c
         with 
@@ -192,10 +193,11 @@ module SurfaceIntersection =
         (observerSystem : Option<ObserverSystem>)
         (r             : FastRay3d) 
         (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
-        cache
-        : option<float * Surface> * HashMap<_,_> = 
+        (loadedKdTrees : HashMap<string, ConcreteKdIntersectionTree>)
+        (verboseLogging : bool)
+        : option<ObjectRayHit * Surface> * HashMap<_,_> = 
         
-        let mutable cache = cache
+        let mutable loadedKdTrees = loadedKdTrees
         let activeSgSurfaces = 
             m.surfaces.flat
             |> HashMap.toList 
@@ -248,7 +250,7 @@ module SurfaceIntersection =
                         let closestHit =
                             hitBoxes
                             |> List.choose(fun key -> 
-                                Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value                                                             
+                                if verboseLogging then Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value                                                             
                                 //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform         
                                 let backward = 
                                     if surf.transformation.flipZ then
@@ -260,12 +262,12 @@ module SurfaceIntersection =
 
                                 let ray = r.Ray.Transformed(backward) |> FastRay3d
                                 let hit, c = 
-                                  kd |> DebugKdTreesX.intersectKdTrees key surf cache ray
-                                Log.stop()
-                                cache <- c
+                                    kd |> DebugKdTreesX.intersectKdTrees key surf loadedKdTrees ray
+                                if verboseLogging then Log.stop()
+                                loadedKdTrees <- c
                                 hit
                             )
-                            |> List.sortBy(fun (t,_)-> t)
+                            |> List.sortBy(fun (t,_)-> t.RayHit.T)
                             |> List.tryHead
                         
                         closestHit
@@ -273,9 +275,9 @@ module SurfaceIntersection =
             )
             |> List.groupBy(fun (_,surf) -> surf.priority.value) |> List.sortByDescending fst
             |> List.tryHead
-            |> Option.bind(fun (_,b) -> b |> List.sortBy fst |> List.tryHead)
+            |> Option.bind(fun (_,b) -> b |> List.sortBy (fun (hit, _) -> hit.RayHit.T) |> List.tryHead)
             //|> List.sortBy(fun (t,_) -> t)
             //|> List.tryPick(fun d -> Some d)
             
-        hits, cache    
+        hits, loadedKdTrees    
 

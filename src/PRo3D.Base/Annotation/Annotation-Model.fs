@@ -29,6 +29,8 @@ type Geometry =
 | Polygon   = 3 
 | DnS       = 4
 | TT        = 5
+| Ellipse   = 6
+| AxisEllipse = 7
 
 type Semantic = 
 | Horizon0 = 0 
@@ -255,9 +257,10 @@ type AnnotationResults = {
     slope             : float
     trueThickness     : float
     verticalThickness : float
+    area              : float
 }
 with 
-    static member current = 2
+    static member current = 3
     static member private readV0 =
         json {      
             let! height      = Json.readFloat "height"     
@@ -279,6 +282,7 @@ with
                 slope             = slope            
                 trueThickness     = Double.NaN
                 verticalThickness = Double.NaN
+                area              = Double.NaN
             }
         }
 
@@ -304,6 +308,7 @@ with
                 slope             = slope
                 trueThickness     = trueThickness
                 verticalThickness = Double.NaN
+                area              = Double.NaN
             }
         }
 
@@ -330,6 +335,35 @@ with
                 slope             = slope
                 trueThickness     = trueThickness
                 verticalThickness = verticalThickness
+                area              = Double.NaN
+            }
+        }
+
+    static member private readV3 = 
+        json {      
+            let! height             = Json.readFloat "height"     
+            let! heightDelta        = Json.readFloat "heightDelta"
+            let! avgAltitude        = Json.readFloat "avgAltitude"
+            let! length             = Json.readFloat "length"     
+            let! wayLength          = Json.readFloat "wayLength"  
+            let! bearing            = Json.readFloat "bearing"    
+            let! slope              = Json.readFloat "slope"
+            let! trueThickness      = Json.readFloat "trueThickness"
+            let! verticalThickness  = Json.readFloat "verticalThickness"
+            let! area               = Json.readFloat "area"
+            
+            return {
+                version           = AnnotationResults.current    
+                height            = height     
+                heightDelta       = heightDelta
+                avgAltitude       = avgAltitude
+                length            = length
+                wayLength         = wayLength  
+                bearing           = bearing
+                slope             = slope
+                trueThickness     = trueThickness
+                verticalThickness = verticalThickness
+                area              = area
             }
         }
 
@@ -340,6 +374,7 @@ with
             | 0 -> return! AnnotationResults.readV0
             | 1 -> return! AnnotationResults.readV1
             | 2 -> return! AnnotationResults.readV2
+            | 3 -> return! AnnotationResults.readV3
             | _ -> return! v |> sprintf "don't know version %A  of AnnotationResults" |> Json.error
         }
     
@@ -355,7 +390,44 @@ with
             do! Json.writeFloat "slope"             x.slope       
             do! Json.writeFloat "trueThickness"     x.trueThickness
             do! Json.writeFloat "verticalThickness" x.verticalThickness
+            do! Json.writeFloat "area"              x.area
         }
+
+
+type EllipticAnnotationResult = 
+    {
+        geographicalEllipse : Ellipse2d
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {      
+                let! center             = Json.read "center"     
+                let! major              = Json.read "major"
+                let! minor              = Json.read "minor"
+            
+                return {
+                    geographicalEllipse = Ellipse2d(V2d.Parse(center), V2d.Parse(major), V2d.Parse(minor))
+                }
+            }
+
+        static member FromJson(_: EllipticAnnotationResult) =
+            json {
+                let! v = Json.read "version"
+                match v with 
+                | 0 -> return! EllipticAnnotationResult.readV0
+                | _ -> return! v |> sprintf "don't know version %A  of AnnotationResults" |> Json.error
+            }
+    
+        static member ToJson (x : EllipticAnnotationResult) =
+            json {
+                do! Json.write   "version"  version
+                do! Json.write   "center"   (string x.geographicalEllipse.Center)
+                do! Json.write   "major"    (string x.geographicalEllipse.Axis0)
+                do! Json.write   "minor"    (string x.geographicalEllipse.Axis1)
+            }
+    
 
 module AnnotationResults =    
     
@@ -371,6 +443,7 @@ module AnnotationResults =
             slope             = Double.NaN
             trueThickness     = Double.NaN
             verticalThickness = Double.NaN
+            area              = Double.NaN
         }  
 
 type SemanticId = SemanticId of string
@@ -400,6 +473,7 @@ type Annotation = {
                    
     results        : Option<AnnotationResults>
     dnsResults     : Option<DipAndStrikeResults>
+    ellipticResults : Option<EllipticAnnotationResult>
                    
     visible          : bool
     showDns          : bool
@@ -490,6 +564,7 @@ with
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = None
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -551,6 +626,7 @@ with
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = None
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -612,6 +688,7 @@ with
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = None
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -676,6 +753,7 @@ with
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -741,6 +819,7 @@ with
                 manualDipAzimuth = manualDipAzimuth
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
+                ellipticResults  = None
             }
         }
 
@@ -780,6 +859,8 @@ with
     
             let! manualDipAngle = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAngle"
             let! manualDipAzimuth = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAzimuth"
+
+            let! ellipseProperties = Json.tryRead "ellipseResults" 
             
             return {
                 version          = Annotation.current
@@ -807,6 +888,7 @@ with
                 manualDipAzimuth = manualDipAzimuth
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
+                ellipticResults  = ellipseProperties
             }
         }
 
@@ -856,7 +938,12 @@ with
             do! Json.write "semanticType" (x.semanticType |> int)
 
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAngle" (x.manualDipAngle)
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAzimuth" (x.manualDipAzimuth)          
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAzimuth" (x.manualDipAzimuth)    
+            
+            match x.ellipticResults with
+            | None -> ()
+            | Some e -> 
+                do! Json.write "ellipseResults" x.ellipticResults
         }
 
 module Annotation =
@@ -937,6 +1024,7 @@ module Annotation =
             manualDipAzimuth = Annotation.initialmanualDipAzimuth 
             bookmarkId       = bookmarkId
             referenceSystem  = referenceSystem
+            ellipticResults  = None
         }
 
     let initial =
