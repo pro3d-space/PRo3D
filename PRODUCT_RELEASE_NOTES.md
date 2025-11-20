@@ -1,5 +1,5 @@
 ## 5.2.0-prerelease-hera-3
-- Linux support
+- Linux support 
 
 ## 5.2.0-prerelease-hera-2
 - ellipse drawing

@@ -43,11 +43,8 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
                     let texturePath = TexturePaths.extractTexturePath patchHierarchy.opcPaths texture
                     let extension, errors =
                         match Path.GetExtension(texturePath).ToLower() with
-                        | ".dds" -> Some ImageLoading.DDS, 0
-                        | ".tiff" | ".tif" -> Some ImageLoading.TIFF, 0
                         | ".dds" -> Some TextureLoading.DDS, 0
                         | ".tiff" | ".tif" -> Some TextureLoading.TIFF, 0
-
                         | _ -> 
                             None, 1
 
