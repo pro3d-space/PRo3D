@@ -18,6 +18,7 @@
     <!-- this is replaced by build script-->
     <!-- <PublishSingleFile>true</PublishSingleFile> -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
     <!--<PublishTrimmed>true</PublishTrimmed>-->
   </PropertyGroup>
 
