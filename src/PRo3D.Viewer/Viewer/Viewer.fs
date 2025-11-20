@@ -2176,6 +2176,7 @@ module ViewerApp =
                 annotationSg
                 traverses
                 distancePoints
+                surfaceIntersection
             ] |> Sg.ofList
 
         let heightValidationDiscs =
@@ -2197,7 +2198,6 @@ module ViewerApp =
             sceneObjects; 
             geologicSurfacesSg
             gisEntities
-            surfaceIntersection
             ellipseDrawing
         ] |> Sg.ofList
 

@@ -517,12 +517,15 @@ module ViewerUtils =
 
 
                     |> Sg.withEvents [
-                        if Config.previewIntersections && previewPickingEnabled.GetValue() then
+                        if Config.previewIntersections  then
                             yield SceneEventKind.Move, (
                                 fun sceneHit -> 
-                                    let name  = surf.name |> AVal.force        
-                                    let surfacePicking = surfacePicking |> AVal.force
-                                    true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                                    if previewPickingEnabled.GetValue() then
+                                        let name  = surf.name |> AVal.force        
+                                        let surfacePicking = surfacePicking |> AVal.force
+                                        true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                                    else
+                                        true, Seq.empty
                             )
                         yield SceneEventKind.Click, (
                            fun sceneHit -> 
