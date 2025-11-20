@@ -40,8 +40,8 @@ module Shaders =
         }
 
     type UniformScope with
-        member x.MinValue : float = uniform?MinValue
-        member x.MaxValue : float = uniform?MaxValue
+        member x.MinValue : float32 = uniform?MinValue
+        member x.MaxValue : float32 = uniform?MaxValue
         member x.UseFalseColor : bool = uniform?UseFalseColor
         member x.DataType : int = uniform?DataType
 
@@ -49,19 +49,19 @@ module Shaders =
         fragment {
             let hshValueX = instrumentSampler.Sample(v.tc).X 
             let remappedClampedNormalizedXInt16 =
-                ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
+                ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0f))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
             let remappedClampedNormalizedXFloat =
                 (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
             let remapClampNormalize =
                 if uniform.UseFalseColor then
-                    V4d(
+                    V4f(
                         (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
                         (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
                         (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        1.0
+                        1.0f
                     )
                 else 
-                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
+                    colormapTextureSampler.Sample(V2f ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0f))
             return remapClampNormalize
         }
 
@@ -276,7 +276,7 @@ module ProjectedImageApp =
                         | ".exr" ->
                             let stream = File.OpenRead path
                             let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
-                            PixTexture2d(exrTexture, TextureParams.empty)
+                            PixTexture2d(exrTexture, true)
                         | ".tiff" | ".tif" -> 
                             let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
                             match MultiBandReader.tryReadMultiBandTiff path false with
@@ -284,7 +284,7 @@ module ProjectedImageApp =
                                 let images = InstrumentImageTextures.instrumentImageToTexture true img 
                                 match Array.tryItem channel.idx images with
                                 | Some img -> 
-                                    PixTexture2d(img.pi, TextureParams.empty)
+                                    PixTexture2d(img.pi, true)
                                 | _ -> 
                                     Log.warn "channel of out of bounds"
                                     DefaultTextures.checkerboard.GetValue()

@@ -10,17 +10,17 @@ module Shaders =
 
 
     type UniformScope with  
-        member x.SunDirectionWorld : V3d = uniform?SunDirectionWorld
+        member x.SunDirectionWorld : V3f = uniform?SunDirectionWorld
         member x.SunLightEnabled : bool = uniform?SunLightEnabled
 
     type Vertex = {
-        [<Position>]                pos     : V4d
-        [<Normal>]                  n       : V3d
-        [<BiNormal>]                b       : V3d
-        [<Tangent>]                 t       : V3d
-        [<Color>]                   c       : V4d
-        [<TexCoord>]                tc      : V2d
-        [<Semantic("LightDir")>]    vldir    : V3d
+        [<Position>]                pos     : V4f
+        [<Normal>]                  n       : V3f
+        [<BiNormal>]                b       : V3f
+        [<Tangent>]                 t       : V3f
+        [<Color>]                   c       : V4f
+        [<TexCoord>]                tc      : V2f
+        [<Semantic("LightDir")>]    vldir    : V3f
     }
 
     let stableTrafo (v : Vertex) =
@@ -36,16 +36,16 @@ module Shaders =
 
     type PlanetNormals = 
         {
-            [<Position>] pos : V4d
-            [<Semantic("ViewPos")>] vp: V4d
-            [<Semantic("LightDir")>]  vldir    : V3d
-            [<Normal>] n : V3d
+            [<Position>] pos : V4f
+            [<Semantic("ViewPos")>] vp: V4f
+            [<Semantic("LightDir")>]  vldir    : V3f
+            [<Normal>] n : V3f
         }
 
     let planetLocalLightingViewSpace (v : PlanetNormals) = 
         vertex {
             let vp = uniform.ModelViewTrafo * v.pos
-            let planetCenter = uniform.ViewTrafo.TransformPos(V3d.Zero)
+            let planetCenter = uniform.ViewTrafo.TransformPos(V3f.Zero)
             return 
                 { v with
                     vp = vp
@@ -69,13 +69,13 @@ module Shaders =
             let n = v.n |> Vec.normalize
             let c = v.vldir |> Vec.normalize
 
-            let ambient = 0.01
-            let diffuse = Vec.dot c n |> max 0.0
+            let ambient = 0.01f 
+            let diffuse = Vec.dot c n |> max 0.0f 
 
-            let l = ambient + (1.0 - ambient) * diffuse
+            let l = ambient + (1.0f - ambient) * diffuse
 
             if uniform.SunLightEnabled then
-                return V4d(v.c.XYZ * l, v.c.W)
+                return V4f(v.c.XYZ * l, v.c.W)
             else
                 return v.c
         }
@@ -97,44 +97,44 @@ module Shaders =
             let n = v.n |> Vec.normalize
             let c = v.vldir |> Vec.normalize
 
-            let ambient = 0.2
-            let diffuse = Vec.dot c n |> clamp 0.0 1.0
+            let ambient = 0.2f 
+            let diffuse = Vec.dot c n |> clamp 0.0f 1.0f 
 
-            let l = ambient + (1.0 - ambient) * diffuse
+            let l = ambient + (1.0f- ambient) * diffuse
 
             let s = Vec.dot c n 
 
             let specColor =
                 if uniform.HasSpecularColorTexture then 
                     let v = specular.Sample(v.tc).XYZ
-                    v.X * V3d.III
+                    v.X * V3f.III
                 else 
-                    V3d.III
+                    V3f.III
 
-            let specularTerm = clamp 0.0 1.0 (pown s 32)
+            let specularTerm = clamp 0.0f 1.0f (pown s 32)
             let specShininess = specColor * specularTerm
 
             let c = v.c.XYZ * l //+ specShininess
 
-            return V4d(Fun.Min(c, 1.0), v.c.W)
+            return V4f(Fun.Min(c, 1.0f ), v.c.W)
         }
     let viewProjSpaceDepthToColor (v : Vertex) =
         fragment {
             let vp = uniform.ModelViewProjTrafo * v.pos
 
             let d = vp.Z / vp.W
-            return V4d(d, 0.0, 0.0, 1.0)
+            return V4f(d, 0.0f , 0.0f , 1.0f )
         }
 
     type TexturedVertex = {
-        [<TexCoord>] tc : V2d
-        [<Normal>] n : V3d
-        [<Tangent>] t : V3d
+        [<TexCoord>] tc : V2f
+        [<Normal>] n : V3f
+        [<Tangent>] t : V3f
     }
 
     let genAndFlipTextureCoord (v : TexturedVertex) =
         vertex {
-            return { v with tc = V2d(v.tc.X + 0.5, 1.0 - v.tc.Y) }
+            return { v with tc = V2f(v.tc.X + 0.5f, 1.0f - v.tc.Y) }
         }
 
 
@@ -152,7 +152,7 @@ module Shaders =
             let hasNormalMap : bool = uniform?HasNormalMap
             if hasNormalMap then
                 let texColor = normalSampler.Sample(v.tc).XYZ
-                let texNormal = (2.0 * texColor - V3d.III) |> Vec.normalize
+                let texNormal = (2.0f * texColor - V3f.III) |> Vec.normalize
 
                 // make sure tangent space basis is orthonormal -> perform gram-smith normalization
                 let n = v.n.Normalized
@@ -173,13 +173,13 @@ module Shaders =
             
 
     type ShadowVertex = {
-        [<Position>]                       p   : V4d
-        [<Semantic("PosShadowViewProj")>]  viewProjPos : V4d
-        [<Color>]                          c  : V4d
+        [<Position>]                       p   : V4f
+        [<Semantic("PosShadowViewProj")>]  viewProjPos : V4f
+        [<Color>]                          c  : V4f
     }
 
     type UniformScope with
-        member x.StableModelViewProjTexture : M44d = uniform?StableModelViewProjTexture
+        member x.StableModelViewProjTexture : M44f = uniform?StableModelViewProjTexture
         member x.HasShadowMap : bool = uniform?HasShadowMap
 
     let private shadowSampler =
@@ -203,36 +203,36 @@ module Shaders =
 
     let shadow (v : ShadowVertex) =
         fragment {
-            let bias : float = uniform?ShadowMapBias
+            let bias : float32 = uniform?ShadowMapBias
             let p = v.viewProjPos.XYZ / v.viewProjPos.W
-            let tc = V3d(0.5, 0.5,0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
-            let d = min 1.0 (max 0.2 (shadowSampler.Sample(tc.XY, tc.Z + bias)))
-            return V4d(v.c.XYZ * d, v.c.W)
+            let tc = V3f(0.5f , 0.5f ,0.5f ) + V3f(0.5f , 0.5f , 0.5f ) * p.XYZ
+            let d = min 1.0f (max 0.2f (shadowSampler.Sample(tc.XY, tc.Z + bias)))
+            return V4f(v.c.XYZ * d, v.c.W)
         }
 
     let offsets = 
         [|
-            V2d(-1.0, -1.0)
-            V2d(1.0, -1.0)
-            V2d(-1.0, 1.0)
-            V2d(1.0, 1.0)
+            V2f(-1.0f , -1.0f )
+            V2f(1.0f , -1.0f )
+            V2f(-1.0f , 1.0f )
+            V2f(1.0f , 1.0f )
         |]
 
     let shadowPCF (v : ShadowVertex) =
         fragment {
-            let bias : float = uniform?ShadowMapBias
+            let bias : float32 = uniform?ShadowMapBias
             let p = v.viewProjPos.XYZ / v.viewProjPos.W
-            let tc = V3d(0.5, 0.5, 0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
+            let tc = V3f(0.5f , 0.5f , 0.5f ) + V3f(0.5f , 0.5f , 0.5f ) * p.XYZ
 
-            let sampleRadius = 1.0 / (float (Vec.MaxElement shadowSampler.Size)) 
+            let sampleRadius = 1.0f / (float32 (Vec.MaxElement shadowSampler.Size)) 
             let numSamples = 4
 
-            let mutable shadow = 0.0
+            let mutable shadow = 0.0f 
             for i in 0 .. offsets.Length - 1 do
                 shadow <- shadow + shadowSampler.Sample(tc.XY + offsets[i] * sampleRadius, tc.Z + bias)
 
-            shadow <- shadow / float numSamples
+            shadow <- shadow / float32 numSamples
 
-            let d = min 1.0 (max 0.2 shadow)
-            return V4d(v.c.XYZ * d, v.c.W)
+            let d = min 1.0f (max 0.2f shadow)
+            return V4f(v.c.XYZ * d, v.c.W)
         }

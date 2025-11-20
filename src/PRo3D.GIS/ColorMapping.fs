@@ -83,26 +83,26 @@ module Shaders =
         }
 
     type UniformScope with
-        member x.MinValue : float = uniform?MinValue
-        member x.MaxValue : float = uniform?MaxValue
+        member x.MinValue : float32 = uniform?MinValue
+        member x.MaxValue : float32 = uniform?MaxValue
         member x.UseFalseColor : bool = uniform?UseFalseColor
         member x.DataType : int = uniform?DataType
 
     [<ReflectedDefinition>]
-    let remap (v : float) = 
+    let remap (v : float32) = 
         let remappedClampedNormalizedXInt16 =
-            ((min uniform.MaxValue (max uniform.MinValue (v * 65000.0))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
+            ((min uniform.MaxValue (max uniform.MinValue (v * 65000.0f))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
         let remappedClampedNormalizedXFloat =
             (v - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
         let remapClampNormalize =
             if uniform.UseFalseColor then
-                colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
+                colormapTextureSampler.Sample(V2f ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0f))
             else 
-                V4d(
+                V4f(
                     (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
                     (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
                     (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                    1.0
+                    1.0f
                 )
         remapClampNormalize
 

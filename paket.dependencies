@@ -41,6 +41,8 @@ nuget Aardvark.Data.Opc                     ~> 0.11.0
 nuget Aardvark.Data.Wavefront               ~> 5.3.10
 nuget Aardvark.GeoSpatial.Opc               ~> 5.13.0-prerelease0002
 
+nuget Aardium                               ~> 2.1.1
+
 nuget Aardvark.PixImage.FreeImage           ~> 5.3.8
 nuget Aardvark.PixImage.DevIL               ~> 5.2.33
 
@@ -54,6 +56,8 @@ nuget Chiron                                ~> 6.3.1
 
 nuget Microsoft.Diagnostics.Runtime         ~> 2.0.1
 nuget Microsoft.AspNetCore.Authentication.JwtBearer ~> 6.0.10
+
+nuget FSharp.Json ~> 0.4.1
 
 nuget Giraffe                               ~> 7.0.2
 nuget Saturn                                ~> 0.17.0

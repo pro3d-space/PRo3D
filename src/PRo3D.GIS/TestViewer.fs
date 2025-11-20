@@ -150,16 +150,16 @@ module TestViewer =
                             ]
             }
 
+        let farPlaneMars = 30101626.50 * 1000.0
         let instruments =
-            let frustum = Frustum.perspective 5.5306897076421 1000.0 distanceSunPluto 1.0
+            let frustum = Frustum.perspective 5.5306897076421 1000.0 farPlaneMars 1.0
             Map.ofList [
                 "HERA_AFC-1", frustum
                 "HERA_AFC-2", frustum
-                "HERA_HSH", Frustum.perspective 15.23999 1000.0 distanceSunPluto (2048.0 / 1088.0)
+                "HERA_HSH", Frustum.perspective 15.23999 1000.0 farPlaneMars (2048.0 / 1088.0)
             ]
 
 
-        let farPlaneMars = 30101626.50 * 1000.0
         let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 100.0 farPlaneMars (float s.X / float s.Y))
         let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 

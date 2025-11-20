@@ -40,7 +40,7 @@ module Visualization =
                     let images = InstrumentImageTextures.instrumentImageToTexture true img 
                     match Array.tryItem 0 images with
                     | Some img -> 
-                        PixTexture2d(img.pi, TextureParams.empty) :> ITexture |> AVal.constant
+                        PixTexture2d(img.pi, false) :> ITexture |> AVal.constant
                     | _ -> 
                         Log.warn "channel of out of bounds"
                         DefaultTextures.checkerboard
@@ -162,7 +162,7 @@ module Visualization =
     //        |> Sg.diffuseTexture' marsTexture
     //        |> Sg.applyProjectedImage projectImage
     //        |> Sg.applyPlanet "mars"
-    //        |> Sg.scale (3389.5 * 1000.0) // mars radius in km
+    //        |> Sg.scale (3389.5f * 1000.0) // mars radius in km
     //        |> Sg.trafo marsTrafo
     //        |> Sg.shader {
     //            do! Shaders.genAndFlipTextureCoord
