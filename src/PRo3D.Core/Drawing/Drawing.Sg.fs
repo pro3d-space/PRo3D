@@ -520,19 +520,19 @@ module Sg =
     let thickLine' (line : Line<OpcViewer.Base.Shader.ThickLineNew.ThickLineVertex>) =
         triangle {
             let t = uniform.LineWidth
-            let sizeF = V3d(float uniform.ViewportSize.X, float uniform.ViewportSize.Y, 1.0)
+            let sizeF = V3f(float32 uniform.ViewportSize.X, float32 uniform.ViewportSize.Y, 1.0f)
     
             let mutable pp0 = line.P0.pos
             let mutable pp1 = line.P1.pos        
                             
-            let add = 2.0 * V2d(t,t) / sizeF.XY
+            let add = 2.0f * V2f(t,t) / sizeF.XY
                             
-            let a0 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 1.0,  0.0,  0.0, -(1.0 + add.X))) &&pp0 &&pp1
-            let a1 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d(-1.0,  0.0,  0.0, -(1.0 + add.X))) &&pp0 &&pp1
-            let a2 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 0.0,  1.0,  0.0, -(1.0 + add.Y))) &&pp0 &&pp1
-            let a3 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 0.0, -1.0,  0.0, -(1.0 + add.Y))) &&pp0 &&pp1
-            let a4 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 0.0,  0.0,  1.0, -1.0)) &&pp0 &&pp1
-            let a5 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 0.0,  0.0, -1.0, -1.0)) &&pp0 &&pp1
+            let a0 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4f( 1.0f,  0.0f,  0.0f, -(1.0f + add.X))) &&pp0 &&pp1
+            let a1 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4f(-1.0f,  0.0f,  0.0f, -(1.0f + add.X))) &&pp0 &&pp1
+            let a2 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4f( 0.0f,  1.0f,  0.0f, -(1.0f + add.Y))) &&pp0 &&pp1
+            let a3 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4f( 0.0f, -1.0f,  0.0f, -(1.0f + add.Y))) &&pp0 &&pp1
+            let a4 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4f( 0.0f,  0.0f,  1.0f, -1.0f)) &&pp0 &&pp1
+            let a5 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4f( 0.0f,  0.0f, -1.0f, -1.0f)) &&pp0 &&pp1
     
             if a0 && a1 && a2 && a3 && a4 && a5 then
                 let p0 = pp0.XYZ / pp0.W
@@ -540,8 +540,8 @@ module Sg =
     
                 let fwp = (p1.XYZ - p0.XYZ) * sizeF
     
-                let fw = V3d(fwp.XY, 0.0) |> Vec.normalize
-                let r = V3d(-fw.Y, fw.X, 0.0) / sizeF
+                let fw = V3f(fwp.XY, 0.0f) |> Vec.normalize
+                let r = V3f(-fw.Y, fw.X, 0.0f) / sizeF
                 let d = fw / sizeF
                 let p00 = p0 - r * t - d * t
                 let p10 = p0 + r * t - d * t
@@ -550,10 +550,10 @@ module Sg =
     
                 let rel = t / (Vec.length fwp)
     
-                yield { line.P0 with i = 0; pos = V4d(p00, 1.0); lc = V2d(-1.0, -rel); w = rel }
-                yield { line.P0 with i = 0; pos = V4d(p10, 1.0); lc = V2d( 1.0, -rel); w = rel }
-                yield { line.P1 with i = 1; pos = V4d(p01, 1.0); lc = V2d(-1.0, 1.0 + rel); w = rel }
-                yield { line.P1 with i = 1; pos = V4d(p11, 1.0); lc = V2d( 1.0, 1.0 + rel); w = rel }
+                yield { line.P0 with i = 0; pos = V4f(p00, 1.0f); lc = V2f(-1.0f, -rel); w = rel }
+                yield { line.P0 with i = 0; pos = V4f(p10, 1.0f); lc = V2f( 1.0f, -rel); w = rel }
+                yield { line.P1 with i = 1; pos = V4f(p01, 1.0f); lc = V2f(-1.0f, 1.0f + rel); w = rel }
+                yield { line.P1 with i = 1; pos = V4f(p11, 1.0f); lc = V2f( 1.0f, 1.0f + rel); w = rel }
         }
 
     let drawColoredEdges width edges = 

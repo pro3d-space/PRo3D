@@ -752,15 +752,15 @@ module GisApp =
         open FShade
 
         type Vertex = {
-            [<Position>] pos : V4d
-            [<TexCoord>] tc : V2d
-            [<Color>] c : V4d
-            [<Semantic("modelPos")>] modelPos : V3d
-            [<Normal>] normal : V3d
+            [<Position>] pos : V4f
+            [<TexCoord>] tc : V2f
+            [<Color>] c : V4f
+            [<Semantic("modelPos")>] modelPos : V3f
+            [<Normal>] normal : V3f
         }
 
         type UniformScope with
-            member x.UniformColor : V4d = uniform?UniformColor
+            member x.UniformColor : V4f = uniform?UniformColor
             member x.HasTexture : bool = uniform?HasTexture
 
         let private diffuseSampler =
@@ -785,9 +785,9 @@ module GisApp =
         let generateUv (v : Vertex) =
             fragment {
                 let p = v.modelPos
-                let thetha = acos (p.Z) / Math.PI
-                let phi = ((float (sign p.Y)) * acos (p.X / Vec.length p.XY)) / (Math.PI * 2.0)
-                return { v with tc = V2d(phi, thetha); normal = v.modelPos } 
+                let thetha = acos (p.Z) / ConstantF.Pi
+                let phi = ((float32 (sign p.Y)) * acos (p.X / Vec.length p.XY)) / ConstantF.PiTimesTwo
+                return { v with tc = V2f(phi, thetha); normal = v.modelPos } 
             }
 
         let texture (v : Vertex) =

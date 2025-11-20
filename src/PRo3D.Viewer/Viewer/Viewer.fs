@@ -2009,7 +2009,7 @@ module ViewerApp =
         AttributeMap.unionMany [
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
-                attribute "data-samples" "4"
+                attribute "data-samples" (string dataSamples)
                 attribute "useMapping" "true"
                 onKeyDown (KeyDown)
                 onKeyUp (KeyUp)
@@ -2331,6 +2331,7 @@ module ViewerApp =
         let viewerDependencies = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
             { kind = Stylesheet;  name = "semui-overrides"; url = "./resources/semui-overrides.css" }
+            { kind = Stylesheet;  name = "fonts";           url = "./resources/fonts.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
             { kind = Script;      name = "errorReporting";  url = "./resources/errorReporting.js"  }
             { kind = Script;      name = "resize";  url = "./resources/ResizeSensor.js"  }

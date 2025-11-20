@@ -219,10 +219,10 @@ let main argv =
         Config.title <- titlestr
     
         let signature =
-            runtime.CreateFramebufferSignature [
+            runtime.CreateFramebufferSignature([
                 DefaultSemantic.Colors, TextureFormat.Rgba8
                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-            ]
+            ], samples = ViewerApp.dataSamples)
 
         use sendQueue = new BlockingCollection<string>()    
         

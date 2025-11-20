@@ -66,8 +66,7 @@ let getFreePort() =
     l.Stop()
     ep.Port
 
-let startApplication (startupArgs : CLStartupArgs) = 
-    GL.RuntimeConfig.UseNewRenderTask <- true
+let startApplication (startupArgs : CLStartupArgs) =
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
       
     // ensure appdata is here
@@ -263,7 +262,6 @@ let main argv =
     // ensure appdata is here
     
     // check if there are command line arguments, and if they are valid
-    Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
     Sg.useAsyncLoading <- false 
     let startupArgs = (SimulatedViews.CommandLine.parseArguments argv)
     match startupArgs.hasValidAnimationArgs with

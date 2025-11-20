@@ -174,7 +174,7 @@ module Gui =
                 
             let alt2 = altitude |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    
-            let style' = "color: white; font-family:Consolas;"
+            let style' = "color: white; font-family: Roboto Mono"
             
             yield div [
                 clazz "ui"; 
@@ -234,7 +234,7 @@ module Gui =
                 //arrowOverlay
                 yield table [] [
                     tr [] [
-                        td [style "color: white; font-family:Consolas"] [Incremental.text instrument]
+                        td [style "color: white; font-family: Roboto Mono"] [Incremental.text instrument]
                     ]
                 ]
             ]                              
@@ -242,7 +242,7 @@ module Gui =
     
     let textOverlaysUserFeedback (m : AdaptiveScene)  = 
         div [js "oncontextmenu" "event.preventDefault();"] [ 
-            let style' = "color: white; font-family:Consolas; font-size:16;"
+            let style' = "color: white; font-family: Roboto Mono; font-size:16;"
             
             yield div [clazz "ui"; style "text-align: right; width: 250px; position: absolute; top: 15px; right: 15px; float:right" ] [ //float:left
                 //arrowOverlay
@@ -719,7 +719,7 @@ module Gui =
                   return div [] []
             }
             
-        let style' = "color: white; font-family:Consolas;"
+        let style' = "color: white; font-family: Roboto Mono"
 
         let scenepath (m:AdaptiveModel) = 
             Incremental.div (AttributeMap.Empty) (

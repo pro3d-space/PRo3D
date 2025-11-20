@@ -30,6 +30,7 @@ let notes =
 printfn "%A" notes
 
 let solutionName = "src/PRo3D.sln"
+let framework = "net9.0"
 
 
 //Target.create "Compile" (fun _ ->
@@ -101,7 +102,7 @@ Target.create "AddNativeResources" (fun _ ->
 
         let binDirs =
             (
-                dirs "bin" "(^netcoreapp.*$)|(^net4.*$)|(^net5.0$)|(^net6.0$)|^Debug$|^Release$" SearchOption.AllDirectories
+                dirs "bin" "(^netcoreapp.*$)|(^net[0-9]+\.[0-9]+$)|^Debug$|^Release$" SearchOption.AllDirectories
                 |> Array.toList
             )
 
@@ -136,7 +137,7 @@ Target.create "AddNativeResources" (fun _ ->
                 ()
     )
 
-let outDirs = [ @"bin\Debug\net6.0"; @"bin\Release\net6.0";  @"bin\Release\net5.0";  @"bin\Debug\net5.0"; ]
+let outDirs = [ @"bin\Debug\" + framework; @"bin\Release" + framework ]
 let resources = 
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
@@ -355,7 +356,7 @@ Target.create "CopyToElectron" (fun _ ->
     if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
          "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
              { o with
-                 Framework = Some "net6.0"
+                 Framework = Some framework
                  Runtime = Some "osx-x64"
                  Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                  //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
@@ -373,7 +374,7 @@ Target.create "CopyToElectron" (fun _ ->
     elif System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux) then
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
                 { o with
-                    Framework = Some "net6.0"
+                    Framework = Some framework
                     Runtime = Some "linux-x64"
                     Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                     //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
@@ -393,8 +394,8 @@ Target.create "CopyToElectron" (fun _ ->
     else
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
             { o with
-                Framework = Some "net6.0"
-                Runtime = Some "win10-x64" 
+                Framework = Some framework
+                Runtime = Some "win-x64" 
                 Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
@@ -441,8 +442,8 @@ Target.create "Publish" (fun _ ->
     // vuewer
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "net6.0"
-            Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
+            Framework = Some framework
+            Runtime = Some "win-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
             Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
@@ -455,8 +456,8 @@ Target.create "Publish" (fun _ ->
     //// snapshots
     "src/PRo3D.Snapshots/PRo3D.Snapshots.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "net6.0"
-            Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
+            Framework = Some framework
+            Runtime = Some "win-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
             Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
@@ -470,7 +471,7 @@ Target.create "Publish" (fun _ ->
     // mac
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "net6.0"
+            Framework = Some framework
             Runtime = Some "osx-x64"
             Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
@@ -608,7 +609,7 @@ Target.create "CompileInstruments" (fun _ ->
 
 
 Target.create "CopyJRWRapper" (fun _ -> 
-    File.Copy("bin/Debug/netstandard2.0/JR.Wrappers.dll", "lib/JR.Wrappers.dll", true)
+    File.Copy("bin/Debug/netstandard2.1/JR.Wrappers.dll", "lib/JR.Wrappers.dll", true)
 )
 
 
