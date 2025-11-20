@@ -624,7 +624,7 @@ Target.create "GitHubRelease" (fun _ ->
     let tagName = "v" + newVersion
     try
         try
-            Branches.tag "." tagName
+            try Branches.tag "." tagName with e -> Trace.logf "could not create tag: %A" e
             let token =
                 match Environment.environVarOrDefault "GH_TOKEN" "" with
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
