@@ -19,7 +19,7 @@
   <PropertyGroup Condition="$(InPublish)">
     <!-- this is replaced by build script-->
     <PublishSingleFile>true</PublishSingleFile>
-    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <!--<PublishTrimmed>true</PublishTrimmed>-->
   </PropertyGroup>
 

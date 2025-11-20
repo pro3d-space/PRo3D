@@ -397,7 +397,7 @@ Target.create "CopyToElectron" (fun _ ->
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
             { o with
                 Framework = Some framework
-                Runtime = Some "win10-x64" 
+                Runtime = Some "win-x64" 
                 Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
@@ -445,7 +445,7 @@ Target.create "Publish" (fun _ ->
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some framework
-            Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
+            Runtime = Some "win-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
             Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
@@ -459,7 +459,7 @@ Target.create "Publish" (fun _ ->
     "src/PRo3D.Snapshots/PRo3D.Snapshots.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some framework
-            Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
+            Runtime = Some "win-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
             Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
