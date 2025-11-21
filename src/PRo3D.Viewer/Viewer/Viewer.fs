@@ -103,15 +103,20 @@ module ViewerApp =
             m |> lookAtBoundingBox s.globalBB
         | None -> m
 
-    let logScreen timeout m text = 
-      let feedback = 
-        {
-          id      = System.Guid.NewGuid().ToString()
-          text    = text
-          timeout = timeout
-          msg     = ViewerAction.NoAction ""
+    let logScreen timeout text m = 
+        let feedback = {
+            id      = System.Guid.NewGuid().ToString()
+            text    = text
+            timeout = timeout
+            msg     = ViewerAction.NoAction ""
         }
-      m |> UserFeedback.queueFeedback feedback
+        m |> UserFeedback.queueFeedback feedback
+
+    let logScreenOption timeout text m = 
+        text 
+        |> Option.map (fun t -> logScreen timeout t m)
+        |> Option.defaultValue m
+
 
     let stash (model : Model) =
         { model with past = Some model.drawing; future = None }
@@ -280,9 +285,10 @@ module ViewerApp =
         | Interactions.PickExploreCenter, ViewerMode.Standard ->
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
-            let navigation' = 
+            let navigation', feedback = 
                 Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p))
             { m with navigation = navigation' }
+            |> logScreenOption 10000 feedback
         | Interactions.PlaceRover, ViewerMode.Standard ->
             let ref = m.scene.referenceSystem 
 
@@ -482,11 +488,12 @@ module ViewerApp =
             let pickingFunction () = 
                 V3d(0.0, 0.0, 0.0) |> pickRayNdc
 
-            let nav = Navigation.update c ref navConf true (Some pickingFunction) m.navigation msg               
+            let nav, feedback = Navigation.update c ref navConf true (Some pickingFunction) m.navigation msg               
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
             m 
+            |> logScreenOption 10000 feedback 
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
         | NavigationMessage msg, _, _ ->

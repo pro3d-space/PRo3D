@@ -30,20 +30,41 @@ module Navigation =
             up                    : Lens<'b, V3d>
         }
 
+    let pickOrbitCenter (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) = 
+        let orbitCenter = 
+            match pickFunction with
+            | None -> None
+            | Some f -> 
+                Log.startTimed "pick new orbit"
+                let point = f()
+                Log.stop()
+                point
+
+        match orbitCenter with
+        | None -> 
+            Log.warn "could not get new orbit center, please center view to surface"
+
+            { model with navigationMode = NavigationMode.FreeFly }, Some "could not pick new orbit center with center ray.\n Please center view to surface before changing to ArcBall or select explore center manually"
+        | Some p -> 
+            Log.line "new orbit implicitly set to center ray"
+            { model with exploreCenter = p; navigationMode = NavigationMode.ArcBall }, Some("New orbit set with center ray")
+
     let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) =
         match act with            
         | ArcBallAction a -> 
-            let model =
+            let model, feedback =
                 match a with 
                 | ArcBallController.Message.Pick a when switchToArcball->
-                    { model with navigationMode =  NavigationMode.ArcBall; exploreCenter = a }
-                | _ ->  { model with navigationMode =  NavigationMode.ArcBall } //model
+                    { model with navigationMode =  NavigationMode.ArcBall; exploreCenter = a }, None
+                | _ ->                      
+                    model, None
+                    
             
             let cam = ArcBallController.update model.camera a
             let cam = { cam with sensitivity = smallConfig.navigationSensitivity.Get(bigConfigA); orbitCenter = Some model.exploreCenter } 
             match cam.orbitCenter with
-            | Some oc -> { model with camera = cam; exploreCenter = oc}
-            | None -> { model with camera = cam }
+            | Some oc -> { model with camera = cam; exploreCenter = oc}, feedback
+            | None -> { model with camera = cam }, feedback
                   
         | FreeFlyAction a ->
             let cam' = FreeFlyController.update model.camera a
@@ -61,27 +82,11 @@ module Navigation =
             
             { 
               model with camera = { cam' with freeFlyConfig = config }
-            }
+            }, None
         | SetNavigationMode mode ->
             match mode with
             | NavigationMode.ArcBall -> 
-                let model = { model with navigationMode = mode }
-                let orbitCenter = 
-                    match pickFunction with
-                    | None -> None
-                    | Some f -> 
-                        Log.startTimed "pick new orbit"
-                        let point = f()
-                        Log.stop()
-                        point
-
-                match orbitCenter with
-                | None -> 
-                    Log.warn "could not get new orbit center"
-                    model
-                | Some p -> 
-                    Log.line "new orbit implicitly set to center ray"
-                    { model with exploreCenter = p }
+                pickOrbitCenter pickFunction model
             | NavigationMode.FreeFly ->
                 let center = 
                     match model.camera.orbitCenter with
@@ -91,8 +96,8 @@ module Navigation =
                 let view' =
                     CameraView.lookAt model.camera.view.Location center (smallConfig.up.Get(bigConfigB))
                 
-                { model with camera = { model.camera with view = view'}; navigationMode = mode} 
-            | _ ->  { model with navigationMode = mode }
+                { model with camera = { model.camera with view = view'}; navigationMode = mode}, None
+            | _ ->  { model with navigationMode = mode }, None
                
     module UI =        
 
