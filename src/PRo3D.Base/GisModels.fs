@@ -113,41 +113,14 @@ type Entity = {
     showTrajectory : bool
     defaultFrame : option<FrameSpiceName>
 } with
-    static member current = 1
-    static member private readV0 = 
-        json {
-            let! label        = Json.read    "label"       
-            let! spiceName    = Json.read    "spiceName"   
-            let! color        = Json.read    "color"       
-            let! radius       = Json.read    "radius"      
-            let! textureName  = Json.tryRead "textureName" 
-            let! defaultFrame = Json.read    "defaultFrame"
-            let! (draw : option<bool>) = Json.tryRead "draw"
-            let draw = Option.defaultValue false draw
-            let! showTrajectory = Json.tryRead "showTrajectory"
-            
-            return {
-                version      = Entity.current
-                label        = label       
-                spiceName    = spiceName   
-                spiceNameText = spiceName.Value
-                isEditing    = false
-                draw         = draw
-                color        = C4f.Parse color       
-                radius       = radius      
-                trajectoryLength = 1.0
-                textureName  = textureName 
-                defaultFrame = defaultFrame
-                showTrajectory = Option.defaultValue false showTrajectory
-            }
-        }
-    static member private readV1 = 
+    static member current = 0
+    static member private readV0_1 = 
         json {
             let! label        = Json.read    "label"       
             let! spiceName    = Json.read    "spiceName"   
             let! color        = Json.read    "color"       
             let! radius       = Json.read    "radius" 
-            let! trajectoryLength       = Json.read    "trajectoryLength" 
+            let! trajectoryLength       = Json.tryRead "trajectoryLength" 
             let! textureName  = Json.tryRead "textureName" 
             let! defaultFrame = Json.read    "defaultFrame"
             let! (draw : option<bool>) = Json.tryRead "draw"
@@ -163,7 +136,7 @@ type Entity = {
                 draw         = draw
                 color        = C4f.Parse color       
                 radius       = radius      
-                trajectoryLength = trajectoryLength
+                trajectoryLength = Option.defaultValue 1.0 trajectoryLength
                 textureName  = textureName 
                 defaultFrame = defaultFrame
                 showTrajectory = Option.defaultValue false showTrajectory
@@ -173,8 +146,9 @@ type Entity = {
         json {
             let! v = Json.read "version"
             match v with            
-            | 0 -> return! Entity.readV0
-            | 1 -> return! Entity.readV1
+            // 1 was introduced but is not really necessary, to increase compatibility we collapsed
+            // 0 and 1, and use the 0_1 variant which optionally reads trajectory length (which was added in 1)
+            | 0 | 1 -> return! Entity.readV0_1
             | _ -> return! v |> sprintf "don't know version %A  of ReferenceFrame" |> Json.error
         }
     static member ToJson (x : Entity) =
