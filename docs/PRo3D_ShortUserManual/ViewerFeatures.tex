@@ -592,8 +592,7 @@ was not successful. PRo3D's text output will provide more detailed information a
 		Settings}\label{current-observation-settings}}
 
 At the top of the GIS tab there is a section entitled ``Current
-Observation Settings''. This is used to define the observed target, a camera location, a
-point in time, and a reference frame.
+Observation Settings''. This is used to define the observed target, a camera location, a point in time, and a reference frame.
 
 \begin{figure}[h!]
 	\centering
@@ -616,6 +615,8 @@ point in time, and a reference frame.
 	Reference Frame: The reference frame into which all other frames will
 	be converted. Which frame is selected here should not change the
 	visual result (except for trajectories).
+	\item
+	Reset: Re-applies the camera settings for the current observation, i.e. sets the camera to the location of the observer and points it towards the observed body.
 \end{itemize}
 
 \hypertarget{surfaces}{%
@@ -764,7 +765,7 @@ In the following demonstration we observe Mars from Phobos.
 6. Since we have a full surface for Mars now, we can disable the proxy geometry, shown in Figure \ref{fig:disableProxy}.
 
 
-\begin{figure}[h]
+\begin{figure}[h!]
     \centering  
     \subfigure{
         \centering
@@ -852,7 +853,7 @@ The images captured with the Hera instruments can be loaded
 using the main menu or the \textit{Projected Images} tab in the Gis panel, as shown in Figure \ref{fig:load_instrument_images}.
 
 
-\begin{figure}[h]
+\begin{figure}[h!]
     \subfigure{
         \includegraphics[width=0.499\textwidth]{./pics/load_instrument_images_main_menu.PNG}
 	}
@@ -865,7 +866,7 @@ using the main menu or the \textit{Projected Images} tab in the Gis panel, as sh
 
 Figure \ref{fig:image_settings} shows the parameters the user can adjust after loading an image. The user can choose a channel using the \textit{Channel} parameter in case that a layered \textit{tiff} file is loaded. The \textit{false color visualization} can be activated to enhance properties and the corresponding dropdown offers different color maps to choose from. \textit{Minimum} and \textit{maximum} are set to the minimum and maximum values that were used by the instrument to capture the image. Those values are extracted from the json file that is delivered with the instrument image. The user is not limited to a range if they want use the text field to set a minimum and maximum value to map the color values to a new range. The sliders are set to the captured color range +/- 10\%.        
 
-\begin{figure}[h]
+\begin{figure}[h!]
     \subfigure{
         \includegraphics[width=0.499\textwidth]{./pics/projected_images_settings_1.PNG}
     }
@@ -876,7 +877,7 @@ Figure \ref{fig:image_settings} shows the parameters the user can adjust after l
     \label{fig:image_settings}
 \end{figure}
 
-Figure \ref{fig:image_projection} shows the settings the user can adjust to control the image projection onto a body. The \textit{visualization} slider controls the opacity of the image projection and the registration properties \textit{roll}, \textit{pitch} and \textit{yaw} register the orientation of the projected image. 
+Figure \ref{fig:image_projection} shows the settings the user can adjust to control the image projection onto a body. The \textit{visualization} slider controls the opacity of the image projection and the registration properties \textit{roll}, \textit{pitch} and \textit{yaw} register the orientation of the projected image. The visibility can be set to \textit{RelativeCount}. The sun / lighting mode provides the options \textit{Off, SunDirect} and \textit{SunShadow}.
 
 \begin{figure}[h!]
 	\centering
@@ -917,7 +918,7 @@ It is based on three points that the user sets:
 
 \end{itemize}
 
-\begin{figure}[h]
+\begin{figure}[h!]
     \subfigure{
         \includegraphics[width=0.499\textwidth]{./pics/AnnotationEllipse1.PNG}
     }
