@@ -46,7 +46,7 @@
     <Compile Include="GeologicSurface-Model.fs" />
     <Compile Include="GeologicSurface-Model.g.fs" />
     <Compile Include="ViewConfigModel.fs" />
-    <Compile Include="ViewConfigModel.g.fs" />
+	<Compile Include="ViewConfigModel.g.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Sg.fs" />
     <Compile Include="UI.fs" />
@@ -67,7 +67,7 @@
     <Compile Include="Surface\SurfaceUtils.fs" />
     <Compile Include="Drawing\Drawing-Properties.fs" />
     <Compile Include="Drawing\Drawing-Model.fs" />
-    <Compile Include="Drawing\Drawing-Model.g.fs" />
+	<Compile Include="Drawing\Drawing-Model.g.fs" />
     <Compile Include="Drawing\DrawingUtilities.fs" />
     <Compile Include="Drawing\Drawing.UI.fs" />
     <Compile Include="Drawing\Drawing.Sg.fs" />
@@ -81,7 +81,7 @@
     <Compile Include="GisApp-Model.fs" />
     <Compile Include="GisApp-Model.g.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarks-Model.fs" />
-    <Compile Include="SequencedBookmarks\SequencedBookmarks-Model.g.fs" />
+	<Compile Include="SequencedBookmarks\SequencedBookmarks-Model.g.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmark.fs" />
     <Compile Include="SequencedBookmarks\BookmarkUtils.fs" />
     <Compile Include="SequencedBookmarks\BookmarkAnimations.fs" />

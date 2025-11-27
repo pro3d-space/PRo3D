@@ -49,7 +49,7 @@
     <Compile Include="Traverse\RoverTraverse.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Models\Model.fs" />
-    <Compile Include="Models\Model.g.fs" />
+	<Compile Include="Models\Model.g.fs" />
     <Compile Include="Models\Lenses.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="Navigation-Model.fs" />

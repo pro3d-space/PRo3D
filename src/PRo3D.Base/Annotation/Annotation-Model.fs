@@ -257,9 +257,10 @@ type AnnotationResults = {
     slope             : float
     trueThickness     : float
     verticalThickness : float
+    area              : float
 }
 with 
-    static member current = 2
+    static member current = 3
     static member private readV0 =
         json {      
             let! height      = Json.readFloat "height"     
@@ -281,6 +282,7 @@ with
                 slope             = slope            
                 trueThickness     = Double.NaN
                 verticalThickness = Double.NaN
+                area              = Double.NaN
             }
         }
 
@@ -306,6 +308,7 @@ with
                 slope             = slope
                 trueThickness     = trueThickness
                 verticalThickness = Double.NaN
+                area              = Double.NaN
             }
         }
 
@@ -332,6 +335,35 @@ with
                 slope             = slope
                 trueThickness     = trueThickness
                 verticalThickness = verticalThickness
+                area              = Double.NaN
+            }
+        }
+
+    static member private readV3 = 
+        json {      
+            let! height             = Json.readFloat "height"     
+            let! heightDelta        = Json.readFloat "heightDelta"
+            let! avgAltitude        = Json.readFloat "avgAltitude"
+            let! length             = Json.readFloat "length"     
+            let! wayLength          = Json.readFloat "wayLength"  
+            let! bearing            = Json.readFloat "bearing"    
+            let! slope              = Json.readFloat "slope"
+            let! trueThickness      = Json.readFloat "trueThickness"
+            let! verticalThickness  = Json.readFloat "verticalThickness"
+            let! area               = Json.readFloat "area"
+            
+            return {
+                version           = AnnotationResults.current    
+                height            = height     
+                heightDelta       = heightDelta
+                avgAltitude       = avgAltitude
+                length            = length
+                wayLength         = wayLength  
+                bearing           = bearing
+                slope             = slope
+                trueThickness     = trueThickness
+                verticalThickness = verticalThickness
+                area              = area
             }
         }
 
@@ -342,6 +374,7 @@ with
             | 0 -> return! AnnotationResults.readV0
             | 1 -> return! AnnotationResults.readV1
             | 2 -> return! AnnotationResults.readV2
+            | 3 -> return! AnnotationResults.readV3
             | _ -> return! v |> sprintf "don't know version %A  of AnnotationResults" |> Json.error
         }
     
@@ -357,6 +390,7 @@ with
             do! Json.writeFloat "slope"             x.slope       
             do! Json.writeFloat "trueThickness"     x.trueThickness
             do! Json.writeFloat "verticalThickness" x.verticalThickness
+            do! Json.writeFloat "area"              x.area
         }
 
 
@@ -409,6 +443,7 @@ module AnnotationResults =
             slope             = Double.NaN
             trueThickness     = Double.NaN
             verticalThickness = Double.NaN
+            area              = Double.NaN
         }  
 
 type SemanticId = SemanticId of string

@@ -52,7 +52,8 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "5.1.1"
+let viewerVersion       = "5.4.0"
+
 let catchDomainErrors   = false
 
 open System.IO

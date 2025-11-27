@@ -1,5 +1,5 @@
 //9d9091e1-5600-7fb5-3f95-4778d9ab3384
-//eab22947-896d-05d4-e4b9-eb4df0f31310
+//07c4e7cd-6ca4-9380-e8d4-36ba571d6c7c
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -12,11 +12,11 @@ open Adaptify
 open PRo3D.Core.SequencedBookmarks
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
-    let mutable _name_ = FSharp.Data.Adaptive.cval(value.name)
-    let mutable _filename_ = FSharp.Data.Adaptive.cval(value.filename)
     let mutable _cameraView_ = FSharp.Data.Adaptive.cval(value.cameraView)
+    let mutable _filename_ = FSharp.Data.Adaptive.cval(value.filename)
     let mutable _key_ = FSharp.Data.Adaptive.cval(value.key)
     let mutable _path_ = FSharp.Data.Adaptive.cval(value.path)
+    let mutable _name_ = FSharp.Data.Adaptive.cval(value.name)
     let _bookmark_ = PRo3D.Core.AdaptiveBookmark(value.bookmark)
     let _metadata_ = FSharp.Data.Adaptive.cval(value.metadata)
     let _frustumParameters_ = FSharp.Data.Adaptive.cval(value.frustumParameters)
