@@ -245,7 +245,7 @@ module TestViewer =
                     Log.line "projecting: %A" mbi.obs_date
                     Some (s, (Some mbi, imgInfo))
                 )
-            PRo3D.InstrumentProjection.Visualization.createProjectedTexture image
+            PRo3D.InstrumentProjection.Visualization.createProjectedTexture image (AVal.constant { idx = 0; name = None})
 
         let minMax = 
             currentProjectedImage |> AVal.map (fun img -> 

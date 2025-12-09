@@ -32,6 +32,19 @@ module ProjectedImagesListAppHelper =
                     return Some img
         }
 
+    let getSelectedImageChannel (m : AdaptiveProjectedImageListModel) =
+        m.selectedImage |> AVal.map (fun imgIdx ->
+            match imgIdx with
+            | None -> {idx = 0; name = None}
+            | Some idx -> 
+                let img = AList.tryGet idx m.images |> AVal.map (fun img ->
+                    match img with
+                    | None -> { idx = 0; name = None}
+                    | Some img -> img.selectedChannel.GetValue()
+                )
+                img.GetValue()
+        )
+
     let getSelectedTexture (m : AdaptiveProjectedImageListModel) : aval<Option<string * InstrumentMetadata.ParsedMetadata>> = 
         adaptive {
             match! getSelectedImage m with
@@ -45,7 +58,7 @@ module ProjectedImagesListAppHelper =
         }
 
     let getProjectedTexture (g : AdaptiveGisApp) : aval<ITexture> =
-        g.projectedImageList |> getSelectedTexture |> Visualization.createProjectedTexture 
+        g.projectedImageList |> getSelectedTexture |> fun md -> Visualization.createProjectedTexture md (getSelectedImageChannel g.projectedImageList)
 
     let getProjectionVisualizationProperties (g : AdaptiveGisApp) =
         let selectedImage = getSelectedImage g.projectedImageList
