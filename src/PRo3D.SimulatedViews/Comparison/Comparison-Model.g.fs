@@ -1,5 +1,5 @@
 //8bdb2dc3-f63a-6728-ac1d-ce75aca47a54
-//e37b052d-2b8c-092f-c6db-ba02a17fa06e
+//f52206ac-4f4f-1fd0-2986-b9401e69f95e
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -15,8 +15,8 @@ type AdaptiveVertexStatistics(value : VertexStatistics) =
     let _avgDistance_ = FSharp.Data.Adaptive.cval(value.avgDistance)
     let _maxDistance_ = FSharp.Data.Adaptive.cval(value.maxDistance)
     let _minDistance_ = FSharp.Data.Adaptive.cval(value.minDistance)
-    let _diffPoints1_ = FSharp.Data.Adaptive.cval(value.diffPoints1)
-    let _diffPoints2_ = FSharp.Data.Adaptive.cval(value.diffPoints2)
+    let _diffPoints1_ = Adaptify.ChangeableValueCustomEquality(value.diffPoints1, (fun (va : (Aardvark.Base.V3d)[]) (vb : (Aardvark.Base.V3d)[]) -> FSharp.Data.Adaptive.ShallowEqualityComparer<(Aardvark.Base.V3d)[]>.ShallowEquals(va, vb)))
+    let _diffPoints2_ = Adaptify.ChangeableValueCustomEquality(value.diffPoints2, (fun (va : (Aardvark.Base.V3d)[]) (vb : (Aardvark.Base.V3d)[]) -> FSharp.Data.Adaptive.ShallowEqualityComparer<(Aardvark.Base.V3d)[]>.ShallowEquals(va, vb)))
     let _trafo1_ = FSharp.Data.Adaptive.cval(value.trafo1)
     let _trafo2_ = FSharp.Data.Adaptive.cval(value.trafo2)
     let _distances_ = FSharp.Data.Adaptive.cval(value.distances)

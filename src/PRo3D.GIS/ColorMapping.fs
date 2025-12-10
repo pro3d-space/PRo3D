@@ -78,8 +78,8 @@ module Shaders =
         sampler2d {
             texture uniform?ColormapTexture
             filter Filter.MinMagMipLinear
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
+            addressU WrapMode.Clamp
+            addressV WrapMode.Clamp
         }
 
     type UniformScope with
@@ -91,7 +91,7 @@ module Shaders =
     [<ReflectedDefinition>]
     let remap (v : float32) = 
         let remappedClampedNormalizedXInt16 =
-            ((min uniform.MaxValue (max uniform.MinValue (v * 65000.0f))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
+            min uniform.MaxValue ((max uniform.MinValue (v * 65000.0f)) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
         let remappedClampedNormalizedXFloat =
             (v - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
         let remapClampNormalize =

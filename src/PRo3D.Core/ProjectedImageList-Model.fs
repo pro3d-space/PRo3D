@@ -5,6 +5,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI.Primitives
 open Adaptify
+open PRo3D.Base
 
 type ColorMap =
     | Magma = 0
@@ -40,18 +41,17 @@ type Channel =
 [<ModelType>]
 type ProjectedImageModel =
     {
-        colorMap        : ColorMap
-        useFalseColor   : bool
-        selectedChannel : Channel
-        channelOptions  : list<Channel>
-        dataType        : DataType
+        colorMap         : ColorMap
+        useFalseColor    : bool
+        selectedChannel  : Channel
+        channelOptions   : list<Channel>
+        dataType         : DataType
         defaultMinValues : list<float>
         defaultMaxValues : list<float>
-        inputMinValue : NumericInput
-        inputMaxValue : NumericInput
-        texture : string
-        distance: float
-        time: System.DateTime
+        texture          : string
+        distance         : float
+        time             : System.DateTime
+        falseColorModel  : FalseColorsModel
     }
 
 [<ModelType>]

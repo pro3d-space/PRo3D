@@ -210,7 +210,7 @@ module AreaComparison =
 
         let create (colorLegend : AdaptiveFalseColorsModel) = 
             Incremental.Svg.svg attributes 
-                                (PRo3D.FalseColorLegendApp.Draw.createFalseColorLegendBasics 
+                                (PRo3D.FalseColorLegendApp.Draw.createFalseColorLegendWithLinearGradient 
                                   "ScalarLegend" colorLegend)
         
         let legend = 

@@ -213,7 +213,7 @@ module FalseColorLegendApp =
 
                 Svg.stop ["offset" => offset; style color]
     
-        let createFalseColorLegendBasics (id : string) (falseColor : AdaptiveFalseColorsModel) =
+        let createFalseColorLegendBasics (id : string) (gradient : alist<DomNode<'a>> -> DomNode<'a>) (falseColor : AdaptiveFalseColorsModel) =
             alist { 
                 let! enabled        = falseColor.useFalseColors                    
                 let! fcUpperBound   = falseColor.upperBound.value
@@ -222,7 +222,7 @@ module FalseColorLegendApp =
                 let! startColor     = falseColor.upperColor.c
                 let! endColor       = falseColor.lowerColor.c
                 let! invertMapping  = falseColor.invertMapping
-
+                
 
                 if enabled then
                     let range = (fcUpperBound - fcLowerBound) |> abs
@@ -245,18 +245,14 @@ module FalseColorLegendApp =
                     
                     yield Svg.defs [] [
                         onBoot ("$('#__ID__').attr('id','" + id + "')") (
-                            Incremental.Svg.linearGradient 
-                                (AttributeMap.ofList [  "x1" => "0%"; "y1" => "0%"; 
-                                                        "x2" => "0%"; "y2" => "100%";
-                                                        "pointer-events" => "none";]) // x1 = x2 => vertical Gradient
-                                svgstopList
+                            gradient svgstopList
                         )]
                         
                     yield Svg.rect [
                         "fill"          => "#EEEEEE";
                                     "width"         => "42px";
                         "width"         => "42px";
-                        "height"        => "95%"; //95%
+                        "height"        => "98%"; //95%
                         "x"             => "8px";    
                         "y"             => "1.75%";
                         "rx"            => "5";       
@@ -312,6 +308,33 @@ module FalseColorLegendApp =
                                                                                         "pointer-events" => "none";]) label
                 }
 
+        let createFalseColorLegendWithLinearGradient (id : string) (falseColor : AdaptiveFalseColorsModel) = 
+            let gradient stopList = 
+                Incremental.Svg.linearGradient 
+                    (AttributeMap.ofList [  "x1" => "0%"; "y1" => "0%"; 
+                        "x2" => "0%"; "y2" => "100%";
+                        "pointer-events" => "none";]) stopList // x1 = x2 => vertical Gradient
+
+            createFalseColorLegendBasics id gradient falseColor
+
+
+        let createFalseColorLendWithGradientFromImage (id : string) (imageFile : string) (falseColor : AdaptiveFalseColorsModel) = 
+            let gradient _ =
+                Incremental.Svg.image 
+                    (AttributeMap.ofList [  
+                        "src" => id; "alt" => "False Colors"; 
+                        "transform" => "rotate(90deg);"; 
+                        "x1" => "0%"; "y1" => "0%"; 
+                        "x2" => "0%"; "y2" => "100%";
+                        "pointer-events" => "none";
+                    ])
+
+            createFalseColorLegendBasics id gradient falseColor
+                
+                
+            
+
+
     let viewDnSLegendProperties paletteFile lifter (model : AdaptiveFalseColorsModel) = 
         UI.viewScalarMappingProperties paletteFile model |> UI.map lifter
 
@@ -320,5 +343,5 @@ module FalseColorLegendApp =
 
     let viewDepthLegendProperties lifter (model : AdaptiveFalseColorsModel) = 
         UI.viewDepthLegendProperties  model |> UI.map lifter
-
+   
    

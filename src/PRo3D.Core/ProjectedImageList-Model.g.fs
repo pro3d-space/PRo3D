@@ -1,5 +1,5 @@
-//9da4d01a-d6c4-8cae-0eda-65d1457da239
-//e65e7c55-e005-3f49-7e3e-7d7fda5f5be0
+//510420a8-3e59-8258-66a4-fd8954056ec7
+//246a9246-109e-7d34-0634-ab14a32def2a
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -19,11 +19,10 @@ type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
     let _dataType_ = FSharp.Data.Adaptive.cval(value.dataType)
     let _defaultMinValues_ = FSharp.Data.Adaptive.cval(value.defaultMinValues)
     let _defaultMaxValues_ = FSharp.Data.Adaptive.cval(value.defaultMaxValues)
-    let _inputMinValue_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.inputMinValue)
-    let _inputMaxValue_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.inputMaxValue)
     let _texture_ = FSharp.Data.Adaptive.cval(value.texture)
     let _distance_ = FSharp.Data.Adaptive.cval(value.distance)
     let _time_ = FSharp.Data.Adaptive.cval(value.time)
+    let _falseColorModel_ = PRo3D.Base.AdaptiveFalseColorsModel(value.falseColorModel)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ProjectedImageModel) = AdaptiveProjectedImageModel(value)
@@ -39,11 +38,10 @@ type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
             _dataType_.Value <- value.dataType
             _defaultMinValues_.Value <- value.defaultMinValues
             _defaultMaxValues_.Value <- value.defaultMaxValues
-            _inputMinValue_.Update(value.inputMinValue)
-            _inputMaxValue_.Update(value.inputMaxValue)
             _texture_.Value <- value.texture
             _distance_.Value <- value.distance
             _time_.Value <- value.time
+            _falseColorModel_.Update(value.falseColorModel)
     member __.Current = __adaptive
     member __.colorMap = _colorMap_ :> FSharp.Data.Adaptive.aval<ColorMap>
     member __.useFalseColor = _useFalseColor_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -52,11 +50,10 @@ type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
     member __.dataType = _dataType_ :> FSharp.Data.Adaptive.aval<DataType>
     member __.defaultMinValues = _defaultMinValues_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.float>>
     member __.defaultMaxValues = _defaultMaxValues_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.float>>
-    member __.inputMinValue = _inputMinValue_
-    member __.inputMaxValue = _inputMaxValue_
     member __.texture = _texture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.distance = _distance_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.time = _time_ :> FSharp.Data.Adaptive.aval<System.DateTime>
+    member __.falseColorModel = _falseColorModel_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ProjectedImageModelLenses = 
     type ProjectedImageModel with
@@ -67,11 +64,10 @@ module ProjectedImageModelLenses =
         static member dataType_ = ((fun (self : ProjectedImageModel) -> self.dataType), (fun (value : DataType) (self : ProjectedImageModel) -> { self with dataType = value }))
         static member defaultMinValues_ = ((fun (self : ProjectedImageModel) -> self.defaultMinValues), (fun (value : Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.float>) (self : ProjectedImageModel) -> { self with defaultMinValues = value }))
         static member defaultMaxValues_ = ((fun (self : ProjectedImageModel) -> self.defaultMaxValues), (fun (value : Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.float>) (self : ProjectedImageModel) -> { self with defaultMaxValues = value }))
-        static member inputMinValue_ = ((fun (self : ProjectedImageModel) -> self.inputMinValue), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ProjectedImageModel) -> { self with inputMinValue = value }))
-        static member inputMaxValue_ = ((fun (self : ProjectedImageModel) -> self.inputMaxValue), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ProjectedImageModel) -> { self with inputMaxValue = value }))
         static member texture_ = ((fun (self : ProjectedImageModel) -> self.texture), (fun (value : Microsoft.FSharp.Core.string) (self : ProjectedImageModel) -> { self with texture = value }))
         static member distance_ = ((fun (self : ProjectedImageModel) -> self.distance), (fun (value : Microsoft.FSharp.Core.float) (self : ProjectedImageModel) -> { self with distance = value }))
         static member time_ = ((fun (self : ProjectedImageModel) -> self.time), (fun (value : System.DateTime) (self : ProjectedImageModel) -> { self with time = value }))
+        static member falseColorModel_ = ((fun (self : ProjectedImageModel) -> self.falseColorModel), (fun (value : PRo3D.Base.FalseColorsModel) (self : ProjectedImageModel) -> { self with falseColorModel = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveBoresightAdjustment(value : BoresightAdjustment) =
     let _roll_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.roll)

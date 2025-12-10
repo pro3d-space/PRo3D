@@ -127,18 +127,28 @@ module FalseColorsModel =
         lowerColor      = { c = C4b.Blue }
         upperColor      = { c = C4b.Red }
     }
+
+    let projectedImageLegend (range : Range1d) = {
+        version         = current
+        useFalseColors  = true
+        lowerBound      = initlb range
+        upperBound      = initub range 
+        interval        = scalarsInterv 
+        invertMapping   = false
+        lowerColor      = { c = C4b.Blue }
+        upperColor      = { c = C4b.Red }
+    }
     
-    let initShaderParams = 
-        {
-            hsvStart = V3d(0.0, 0.0, 0.0) 
-            hsvEnd   = V3d(0.0, 0.0, 0.0) 
-            interval = 1.0
-            inverted = false
-            lowerBound = 0.0
-            upperBound = 1.0
-            stepS     = 1.0
-            numOfRG  = 1.0
-        }
+    let initShaderParams = {
+        hsvStart = V3d(0.0, 0.0, 0.0) 
+        hsvEnd   = V3d(0.0, 0.0, 0.0) 
+        interval = 1.0
+        inverted = false
+        lowerBound = 0.0
+        upperBound = 1.0
+        stepS     = 1.0
+        numOfRG  = 1.0
+    }
 
     let depthInterv  = {
         value   = 5.0
@@ -162,17 +172,17 @@ module FalseColorsModel =
         format  = "{0:0.0}"
     }
 
-    let initDepthLegend = 
-        {
-            version         = current
-            useFalseColors  = false
-            lowerBound      = initMinDepth
-            upperBound      = initMaxDepth
-            interval        = depthInterv
-            invertMapping   = false
-            lowerColor      = { c = C4b.Blue }
-            upperColor      = { c = C4b.Red }
-        }
+    let initDepthLegend = {
+        version         = current
+        useFalseColors  = false
+        lowerBound      = initMinDepth
+        upperBound      = initMaxDepth
+        interval        = depthInterv
+        invertMapping   = false
+        lowerColor      = { c = C4b.Blue }
+        upperColor      = { c = C4b.Red }
+    }
+
 
 type FalseColorsModel with
     static member FromJson(_ : FalseColorsModel) =

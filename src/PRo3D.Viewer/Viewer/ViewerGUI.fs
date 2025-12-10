@@ -41,7 +41,7 @@ module Gui =
     
     let dnsColorLegend (m : AdaptiveModel) =
 
-        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DnsLegend" m.drawing.dnsColorLegend
+        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendWithLinearGradient "DnsLegend" m.drawing.dnsColorLegend
                 
         let attributes =
             [        
@@ -73,7 +73,7 @@ module Gui =
 
     let depthColorLegend (m : AdaptiveModel) =
 
-        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DepthLegend" m.footPrint.depthColorLegend
+        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendWithLinearGradient "DepthLegend" m.footPrint.depthColorLegend
                 
         let attributes =
             [        
