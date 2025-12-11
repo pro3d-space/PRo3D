@@ -386,16 +386,16 @@ module SequencedBookmarksApp =
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
                 (System.Runtime.InteropServices.OSPlatform.Windows) then
                     
-            let exeName = "./PRo3D.Snapshots.exe"
+            let exeName = "./PRo3D.Viewer.exe"
             match File.Exists exeName with
             | true -> 
                 let args = 
                     match m.debug with
                     | true ->
-                        sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --verbose" 
+                        sprintf "--batch --scn \"%s\" --asnap \"%s\" --out \"%s\" --verbose" 
                                         scenePath jsonPathName m.outputPath
                     | false ->
-                        sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
+                        sprintf "--batch --scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
                                         scenePath jsonPathName m.outputPath
                 Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
                 snapshotProcess <- Some (runProcess exeName args None)

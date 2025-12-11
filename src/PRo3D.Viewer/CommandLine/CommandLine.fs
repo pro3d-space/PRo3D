@@ -10,6 +10,7 @@ module CommandLine =
     let printHelp () = 
         Log.line @"PRo3D COMMANDLINE OPTIONS\n"
         Log.line @"--help                              show help"
+        Log.line @"--batch                             start PRo3D in batch rendering mode without GUI"
         Log.line @"--obj [path];[path];[path];[...]    load OBJ(s) from one or more paths"
         Log.line @"--opc [path];[path];[path];[...]    load OPC(s) from one or more paths"
         Log.line @"--asnap [path\snapshot.json]        path to a snapshot file, refer to PRo3D User Manual for the correct format"

@@ -1,28 +1,73 @@
 namespace PRo3D
 
-open Aardvark.Service
+open System 
 
-open System
-open Aardvark.Base
-open FSharp.Data.Adaptive
-open Aardvark.Rendering
-open Aardvark.SceneGraph
-open Aardvark.UI
-open Aardvark.UI.Primitives
-open Aardvark.Rendering.Text
+//open System.Windows.Forms
 open System.Collections.Concurrent
-open System.Runtime.Serialization
+
+open Aardvark.Base
+open Aardvark.Application.Slim
+open Aardvark.UI
+open OpcViewer.Base
+open Aardvark.Rendering
+
 open PRo3D
 open PRo3D.Base
+open PRo3D.Core
 open PRo3D.Core.Surface
+open RemoteControlModel
 open PRo3D.Viewer
-open PRo3D.OrientationCube
-open PRo3D.SimulatedViews
-open Adaptify
-open Chiron
-open System.IO
 
-module SnapshotGenerator =
+
+open FSharp.Data.Adaptive
+
+open PRo3D.SimulatedViews
+
+module SnapshotGenerator = 
+    let start 
+        (runtime             : IRuntime) 
+        (signature           : IFramebufferSignature)
+        (startEmpty          : bool)
+        (messagingMailbox    : MessagingMailbox)
+        (sendQueue           : BlockingCollection<string>)
+        (dumpFile            : string)
+        (cacheFile           : string)
+        (renderingUrl        : string)
+        (dataSamples         : int)
+        (screenshotDirectory : string)
+        (viewerVersion       : string) =
+
+        let startupArgs = 
+            {StartupArgs.initArgs with isBatchRendering = true}
+        let m = 
+            if startEmpty |> not then
+                PRo3D.Viewer.Viewer.initial messagingMailbox startupArgs renderingUrl 
+                                            dataSamples screenshotDirectory ViewerLenses._animator
+                                            viewerVersion
+                |> SceneLoader.loadLastScene runtime signature                
+                |> SceneLoader.loadLogBrush
+                |> ViewerIO.loadRoverData                
+                |> ViewerIO.loadAnnotations
+                |> ViewerIO.loadCorrelations
+                |> ViewerIO.loadLastFootPrint
+                //|> ViewerIO.loadMinerva dumpFile cacheFile
+                //|> ViewerIO.loadLinking
+                |> SceneLoader.addScaleBarSegments
+                |> SceneLoader.addGeologicSurfaces
+            else
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
+                                            dataSamples screenshotDirectory ViewerLenses._animator
+                                            viewerVersion
+                |> ViewerIO.loadRoverData
+
+        SimulatedViews.AppExtension.start' {
+            unpersist = Unpersist.instance
+            threads   = ViewerApp.threadPool
+            view      = ViewerApp.view runtime //localhost
+            update    = ViewerApp.updateInternal runtime signature sendQueue messagingMailbox
+            initial   = m
+        }
+
     let loadData (args  : PRo3D.SimulatedViews.CLStartupArgs) 
                  (mApp  : MutableApp<Model, ViewerAnimationAction>) =
         match args.snapshotPath, args.snapshotType with
@@ -268,3 +313,4 @@ module SnapshotGenerator =
         | false -> 
             Log.error "[SNAPSHOT] No valid paths to surfaces found."
             ()
+

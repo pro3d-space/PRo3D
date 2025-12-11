@@ -82,6 +82,7 @@
     <Compile Include="RemoteControlApp.fs" />
     <Compile Include="QueriesRemoteApi.fs" />
     <Compile Include="RemoteApi.fs" />
+    <Compile Include="SnapshotGenerator.fs" />
     <Compile Include="Program.fs" />
     <EmbeddedResource Include="resources\calendar.css" />
     <EmbeddedResource Include="resources\calendar.js" />
