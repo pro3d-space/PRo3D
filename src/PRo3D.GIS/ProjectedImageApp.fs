@@ -82,7 +82,6 @@ module ProjectedImageApp =
 
     let initial = { 
         colorMap = ColorMap.Magma;
-        useFalseColor = true;
         selectedChannel = { idx = 0; name = None }
         channelOptions = [];
         dataType = DataType.UInt16;
@@ -91,7 +90,7 @@ module ProjectedImageApp =
         texture = initialPath;
         distance = 0;
         time = new DateTime();
-        falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max))
+        falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (ColorMap.getColorMapFileName ColorMap.Magma)
     }
 
     let loadFile (texturePath : string) =
@@ -151,23 +150,23 @@ module ProjectedImageApp =
 
 
         let falseColorModel = {
-            projectedImageLegend (Range1d(inputMinValue.value, inputMaxValue.value)) with
+            projectedImageLegend (Range1d(inputMinValue.value, inputMaxValue.value)) (ColorMap.getColorMapFileName initial.colorMap) with
                 lowerBound = inputMinValue;
                 upperBound = inputMaxValue;
                 //interval   = 
             }
-            
 
-        { initial with
-            texture          = Path.GetFullPath(texturePath);
-            defaultMinValues = defaultMinValues;
-            defaultMaxValues = defaultMaxValues;
-            selectedChannel  = channelOptions[selectedChannelIdx];
-            channelOptions   = channelOptions;
-            dataType         = dataType;
-            distance         = distance;
-            time             = time;
-            falseColorModel  = falseColorModel
+        { 
+            initial with
+                texture          = Path.GetFullPath(texturePath);
+                defaultMinValues = defaultMinValues;
+                defaultMaxValues = defaultMaxValues;
+                selectedChannel  = channelOptions[selectedChannelIdx];
+                channelOptions   = channelOptions;
+                dataType         = dataType;
+                distance         = distance;
+                time             = time;
+                falseColorModel  = falseColorModel
         }
 
 
@@ -187,7 +186,9 @@ module ProjectedImageApp =
                 }
                 { m with falseColorModel = falseColorModel }
             | SetColorMap (map : ColorMap) ->
-                { m with colorMap = map }
+                let falseColorModel = { m.falseColorModel with imageFileName = Some(ColorMap.getColorMapFileName map) }
+                
+                { m with colorMap = map; falseColorModel = falseColorModel }
             | SetEXRChannel channel ->
                 let (min, max) = (m.defaultMinValues[channel.idx], m.defaultMaxValues[channel.idx])
 
@@ -199,7 +200,7 @@ module ProjectedImageApp =
 
                 { m with falseColorModel = falseColorModel }
             | ToggleFalseColor ->
-                { m with useFalseColor = not m.useFalseColor }
+                { m with falseColorModel = { m.falseColorModel with useFalseColors = not m.falseColorModel.useFalseColors } }
             | ImageMessage.Empty ->
                 m
 
@@ -227,7 +228,7 @@ module ProjectedImageApp =
                 ]
                 Html.row "False Color:" [
                     text "Activate: " 
-                    Html.SemUi.toggleBox m.useFalseColor ToggleFalseColor
+                    Html.SemUi.toggleBox m.falseColorModel.useFalseColors ToggleFalseColor
                     br []
                     Html.SemUi.dropDown m.colorMap SetColorMap
                 ]
@@ -316,7 +317,7 @@ module ProjectedImageApp =
 
         let min = img |> extract (AVal.constant 0.0) (fun m -> m.falseColorModel.lowerBound.value |> AVal.map (fun v -> float v))
         let max = img |> extract (AVal.constant 1.0) (fun m -> m.falseColorModel.upperBound.value |> AVal.map (fun v -> float v))
-        let falseColor = img |> extract (AVal.constant false) (fun m -> m.useFalseColor)
+        let falseColor = img |> extract (AVal.constant false) (fun m -> m.falseColorModel.useFalseColors)
         let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
 
         Sg.fullScreenQuad
@@ -343,16 +344,7 @@ module ProjectedImageApp =
                 let style = [style "position: relative; width: 200px; height: 100%; padding: 2px; display: block; min-width: 0;"; attribute "showLoader" "false"]
                 renderControl (AVal.constant (Camera.create cameraView frustum')) style instrumentVisualization
             ]
-        )
-
-    let viewFalseColorLegend (img : aval<Option<AdaptiveProjectedImageModel>>) = 
-        alist {
-            let! i = img
-            match i with
-            | None -> yield AList.empty
-            | Some v -> yield createFalseColorLendWithGradientFromImage "Projected Image" "" v.falseColorModel
-        }
-        
+        )        
     
         
         

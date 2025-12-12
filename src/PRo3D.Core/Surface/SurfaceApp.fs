@@ -1519,7 +1519,7 @@ module SurfaceApp =
                     let! scalar = scalar
                     match AdaptiveOption.toOption scalar with
                     | Some s ->  
-                        yield Incremental.Svg.svg AttributeMap.empty (FalseColorLegendApp.Draw.createFalseColorLegendWithLinearGradient "ScalarLegend" s.colorLegend)
+                        yield Incremental.Svg.svg AttributeMap.empty (FalseColorLegendApp.Draw.createFalseColorLegendBasics "ScalarLegend" s.colorLegend)
                     | None -> yield div [] []
                 else
                     yield div [] []

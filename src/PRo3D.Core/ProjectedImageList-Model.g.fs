@@ -1,5 +1,5 @@
-//510420a8-3e59-8258-66a4-fd8954056ec7
-//246a9246-109e-7d34-0634-ab14a32def2a
+//5d713e9a-a87c-2a47-b567-491f4682edef
+//36a15ea3-c85d-a51a-fda1-e2ec5ec7e6ec
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -13,7 +13,6 @@ open PRo3D.ImageMapping
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
     let _colorMap_ = FSharp.Data.Adaptive.cval(value.colorMap)
-    let _useFalseColor_ = FSharp.Data.Adaptive.cval(value.useFalseColor)
     let _selectedChannel_ = FSharp.Data.Adaptive.cval(value.selectedChannel)
     let _channelOptions_ = FSharp.Data.Adaptive.cval(value.channelOptions)
     let _dataType_ = FSharp.Data.Adaptive.cval(value.dataType)
@@ -32,7 +31,6 @@ type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
             __value <- value
             __adaptive.MarkOutdated()
             _colorMap_.Value <- value.colorMap
-            _useFalseColor_.Value <- value.useFalseColor
             _selectedChannel_.Value <- value.selectedChannel
             _channelOptions_.Value <- value.channelOptions
             _dataType_.Value <- value.dataType
@@ -44,7 +42,6 @@ type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
             _falseColorModel_.Update(value.falseColorModel)
     member __.Current = __adaptive
     member __.colorMap = _colorMap_ :> FSharp.Data.Adaptive.aval<ColorMap>
-    member __.useFalseColor = _useFalseColor_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.selectedChannel = _selectedChannel_ :> FSharp.Data.Adaptive.aval<Channel>
     member __.channelOptions = _channelOptions_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Channel>>
     member __.dataType = _dataType_ :> FSharp.Data.Adaptive.aval<DataType>
@@ -58,7 +55,6 @@ type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
 module ProjectedImageModelLenses = 
     type ProjectedImageModel with
         static member colorMap_ = ((fun (self : ProjectedImageModel) -> self.colorMap), (fun (value : ColorMap) (self : ProjectedImageModel) -> { self with colorMap = value }))
-        static member useFalseColor_ = ((fun (self : ProjectedImageModel) -> self.useFalseColor), (fun (value : Microsoft.FSharp.Core.bool) (self : ProjectedImageModel) -> { self with useFalseColor = value }))
         static member selectedChannel_ = ((fun (self : ProjectedImageModel) -> self.selectedChannel), (fun (value : Channel) (self : ProjectedImageModel) -> { self with selectedChannel = value }))
         static member channelOptions_ = ((fun (self : ProjectedImageModel) -> self.channelOptions), (fun (value : Microsoft.FSharp.Collections.list<Channel>) (self : ProjectedImageModel) -> { self with channelOptions = value }))
         static member dataType_ = ((fun (self : ProjectedImageModel) -> self.dataType), (fun (value : DataType) (self : ProjectedImageModel) -> { self with dataType = value }))

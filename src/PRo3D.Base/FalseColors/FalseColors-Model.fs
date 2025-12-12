@@ -20,6 +20,7 @@ type FalseColorsModel = {
     invertMapping   : bool
     lowerColor      : ColorInput //C4b
     upperColor      : ColorInput //C4b    
+    imageFileName   : Option<string>
 }
 
 type FalseColorsShaderParams = {
@@ -56,6 +57,7 @@ module FalseColorsModel =
                     invertMapping  = invertMapping
                     lowerColor     = lowerColor
                     upperColor     = upperColor
+                    imageFileName  = None
                 }
         }
         //TODO TO rename inits
@@ -91,6 +93,8 @@ module FalseColorsModel =
             invertMapping   = false
             lowerColor      = { c = C4b.Blue }
             upperColor      = { c = C4b.Red }
+            imageFileName   = None
+            
         }
    
     let scalarsInterv  = {
@@ -126,9 +130,10 @@ module FalseColorsModel =
         invertMapping   = false
         lowerColor      = { c = C4b.Blue }
         upperColor      = { c = C4b.Red }
+        imageFileName   = None
     }
 
-    let projectedImageLegend (range : Range1d) = {
+    let projectedImageLegend (range : Range1d) (fileName : string) = {
         version         = current
         useFalseColors  = true
         lowerBound      = initlb range
@@ -137,6 +142,7 @@ module FalseColorsModel =
         invertMapping   = false
         lowerColor      = { c = C4b.Blue }
         upperColor      = { c = C4b.Red }
+        imageFileName   = Some fileName
     }
     
     let initShaderParams = {
@@ -181,6 +187,7 @@ module FalseColorsModel =
         invertMapping   = false
         lowerColor      = { c = C4b.Blue }
         upperColor      = { c = C4b.Red }
+        imageFileName   = None
     }
 
 

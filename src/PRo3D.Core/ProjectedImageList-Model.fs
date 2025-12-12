@@ -42,7 +42,6 @@ type Channel =
 type ProjectedImageModel =
     {
         colorMap         : ColorMap
-        useFalseColor    : bool
         selectedChannel  : Channel
         channelOptions   : list<Channel>
         dataType         : DataType
@@ -83,14 +82,14 @@ type LightingMode =
 [<ModelType>]
 type ProjectedImageListModel =
     {
-        images          : IndexList<ProjectedImageModel>
-        selectedImage   : Option<Index>
-        editImages      : Index list
-        projectionOpacity : NumericInput
-        boresightAdjustment : BoresightAdjustment
-        cameraState     : OrbitState
+        images               : IndexList<ProjectedImageModel>
+        selectedImage        : Option<Index>
+        editImages           : Index list
+        projectionOpacity    : NumericInput
+        boresightAdjustment  : BoresightAdjustment
+        cameraState          : OrbitState
         instrumentVisibility : InstrumentVisibilityMode
-        lightingMode : LightingMode
+        lightingMode         : LightingMode
     }
 
 module ProjectedImageListModel =

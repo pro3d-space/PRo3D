@@ -22,6 +22,7 @@ module ProjectedImagesListAppHelper =
     let getSelectedImage (m : AdaptiveProjectedImageListModel) =
         adaptive {
             let! selected = m.selectedImage
+            
             match selected with
             | None -> return None
             | Some idx -> 
