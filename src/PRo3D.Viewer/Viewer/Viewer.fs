@@ -465,7 +465,7 @@ module ViewerApp =
         (m         : Model) 
         (msg       : ViewerAction) =
         //Log.line "[Viewer_update] %A inter:%A pick:%A" msg m.interaction m.picking
-        match msg, m.interaction, m.ctrlFlag with
+        match msg, m.interaction, (m.ctrlFlag <> m.inverseFlag) with
         | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
@@ -545,7 +545,7 @@ module ViewerApp =
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
-            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && m.ctrlFlag ->
+            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.inverseFlag) ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
                     //let pickingAction, msg =
@@ -1384,13 +1384,13 @@ module ViewerApp =
                 | Interactions.DrawAnnotation -> 
                     let view = m.navigation.camera.view
                     let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.StopDrawing
-                    { m with drawing = d; ctrlFlag = false; picking = false }
+                    { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
                 | Interactions.PickAnnotation -> 
                     let view = m.navigation.camera.view
                     let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.StopPicking 
-                    { m with drawing = d; ctrlFlag = false; picking = false }
+                    { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
                 //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
-                |_-> { m with ctrlFlag = false; picking = false }
+                |_-> { m with ctrlFlag = false; picking = m.inverseFlag }
             | _ -> m                                  
         | SetInteraction t,_,_ -> 
                 
@@ -2059,11 +2059,12 @@ module ViewerApp =
         // drawing app needs pickable stuff. however whether logs are pickable depends on 
         // outer application state. we consider annotations to pickable if they are visible
         // and we are in "pick annotation" mode.
-        AVal.map2 (fun ctrlPressed interaction -> 
-            match ctrlPressed, interaction with
-            | true, Interactions.PickLog -> true
+        AVal.map3 (fun ctrlPressed inverse interaction -> 
+            match ctrlPressed, inverse, interaction with
+            | true, false, Interactions.PickLog -> true
+            | false, true, Interactions.PickLog -> true
             | _ -> false
-        ) m.ctrlFlag m.interaction
+        ) m.ctrlFlag m.inverseFlag m.interaction
 
     // overlays that occur in instrumentview + main renderview
     let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) (frustum : aval<Frustum>) =

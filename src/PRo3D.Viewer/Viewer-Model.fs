@@ -604,6 +604,7 @@ type Model = {
     picking          : bool
     pivotType        : PickPivot
     ctrlFlag         : bool
+    inverseFlag      : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
