@@ -92,7 +92,7 @@ module ProjectedImageApp =
         distance = 0;
         time = new DateTime();
         falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (InstrumentImageVisualization.getResourceStream (ColorMap.getColorMapFileName ColorMap.Magma) ())
-        falseColorPreview = false
+        falseColorPreview = true
     }
 
     let loadFile (texturePath : string) =
@@ -239,7 +239,7 @@ module ProjectedImageApp =
                     GuiEx.iconCheckBox m.falseColorModel.useFalseColors ToggleFalseColorLegend
                     br[]
                     text "Activate: " 
-                    Html.SemUi.toggleBox m.falseColorModel.useFalseColors ToggleFalseColor
+                    GuiEx.iconCheckBox m.falseColorPreview ToggleFalseColor
                     br []
                     Html.SemUi.dropDown m.colorMap SetColorMap
                     
@@ -331,7 +331,7 @@ module ProjectedImageApp =
 
         let min = img |> extract (AVal.constant 0.0) (fun m -> m.falseColorModel.lowerBound.value |> AVal.map (fun v -> float v))
         let max = img |> extract (AVal.constant 1.0) (fun m -> m.falseColorModel.upperBound.value |> AVal.map (fun v -> float v))
-        let falseColor = img |> extract (AVal.constant false) (fun m -> m.falseColorPreview)
+        let falseColor = img |> extract (AVal.constant true) (fun m -> m.falseColorPreview)
         let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
 
         Sg.fullScreenQuad
