@@ -30,10 +30,10 @@ module VisualizationProperties =
 
 [<AutoOpen>]
 module InstrumentImageVisualization =
-
-
     type Self = Self
-    let private getResourceStream (resourceName: string) () =
+    
+    
+    let getResourceStream (resourceName: string) () =
         let assembly = typeof<Self>.Assembly
         let resourcePath = assembly.GetName().Name + ".resources." + resourceName
         let s = assembly.GetManifestResourceStream(resourcePath)

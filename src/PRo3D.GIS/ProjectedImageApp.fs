@@ -90,7 +90,7 @@ module ProjectedImageApp =
         texture = initialPath;
         distance = 0;
         time = new DateTime();
-        falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (ColorMap.getColorMapFileName ColorMap.Magma)
+        falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (InstrumentImageVisualization.getResourceStream (ColorMap.getColorMapFileName ColorMap.Magma) ())
     }
 
     let loadFile (texturePath : string) =
@@ -149,8 +149,9 @@ module ProjectedImageApp =
             | None -> System.DateTime.MinValue // which default time?
 
 
+
         let falseColorModel = {
-            projectedImageLegend (Range1d(inputMinValue.value, inputMaxValue.value)) (ColorMap.getColorMapFileName initial.colorMap) with
+            projectedImageLegend (Range1d(inputMinValue.value, inputMaxValue.value)) (InstrumentImageVisualization.getResourceStream(ColorMap.getColorMapFileName initial.colorMap)()) with
                 lowerBound = inputMinValue;
                 upperBound = inputMaxValue;
                 //interval   = 
@@ -186,7 +187,9 @@ module ProjectedImageApp =
                 }
                 { m with falseColorModel = falseColorModel }
             | SetColorMap (map : ColorMap) ->
-                let falseColorModel = { m.falseColorModel with imageFileName = Some(ColorMap.getColorMapFileName map) }
+                m.falseColorModel.imageFileStream |> Option.map(fun s -> s.Close()) |> ignore
+
+                let falseColorModel = { m.falseColorModel with imageFileStream = Some(InstrumentImageVisualization.getResourceStream(ColorMap.getColorMapFileName map) ()) }
                 
                 { m with colorMap = map; falseColorModel = falseColorModel }
             | SetEXRChannel channel ->
@@ -317,7 +320,7 @@ module ProjectedImageApp =
 
         let min = img |> extract (AVal.constant 0.0) (fun m -> m.falseColorModel.lowerBound.value |> AVal.map (fun v -> float v))
         let max = img |> extract (AVal.constant 1.0) (fun m -> m.falseColorModel.upperBound.value |> AVal.map (fun v -> float v))
-        let falseColor = img |> extract (AVal.constant false) (fun m -> m.falseColorModel.useFalseColors)
+        let falseColor = img |> extract (AVal.constant true) (fun m -> m.falseColorModel.useFalseColors)
         let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
 
         Sg.fullScreenQuad

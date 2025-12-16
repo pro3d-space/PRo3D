@@ -1,6 +1,7 @@
 namespace PRo3D
 
 open System
+open System.Drawing
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
@@ -159,6 +160,10 @@ module FalseColorLegendApp =
                     numOfRG = (float)numOfRangeGaps
                 }
             }
+
+        let createStoppsSimple (numOfStops : int) = 
+            [ 0 .. numOfStops-1 ]
+            |> List.map (fun i ->  ((float32 i) / (float32 (numOfStops-1))), C3b.White)
            
         let createStopps (numOfStops : int) (startColor : C4b) (endColor : C4b) (inverted : bool) =
             let inverted = (not inverted)
@@ -212,6 +217,22 @@ module FalseColorLegendApp =
                 //printfn "offset : %s  style : %s" offset color                
 
                 Svg.stop ["offset" => offset; style color]
+
+        let buildGradiantsOfImage (rev : bool) (numberOfStops : int) (stream : System.IO.Stream) = 
+            let image = PixImage.Load(stream).AsPixImage<Byte>()
+            let width = image.Width
+            let numberOfStops = if width < numberOfStops then width else numberOfStops
+            let step = (float32 width) / (float32 numberOfStops)            
+            let data = image.Data
+                        
+            [0 .. 1 .. (numberOfStops-1)]
+            |> List.map(fun i -> 
+                let index    = if rev then int ((float32 i) * step) * 4 else int ((float32 (numberOfStops - 1 - i) * step)) * 4
+                let position = ((float32 i) / (float32 numberOfStops))                
+                let value = C3b(data.[index+2], data.[index+1], data.[index])
+                (position,  value)
+                )
+
     
         let createFalseColorLegendBasics (id : string) (falseColor : AdaptiveFalseColorsModel) =
             alist { 
@@ -222,45 +243,75 @@ module FalseColorLegendApp =
                 let! startColor     = falseColor.upperColor.c
                 let! endColor       = falseColor.lowerColor.c
                 let! invertMapping  = falseColor.invertMapping
-                let! imageFile      = falseColor.imageFileName
+                let! imageStream    = falseColor.imageFileStream
                 
 
                 if enabled then
                     let range = (fcUpperBound - fcLowerBound) |> abs
                     let numOfRangeGaps = int (System.Math.Round (range / fcInterval))                    
                     
-                    let numOfBuckets = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
+                    let isImage = imageStream.IsSome
+
+                    let numOfBuckets = 
+                        if isImage then 7
+                        else if (numOfRangeGaps + 2) > 100 then 100 
+                        else if numOfRangeGaps < 4 then 5 
+                        else (numOfRangeGaps + 2)
+                                 
                     let numOfLabels =  
                         if numOfBuckets > 100 then 25
                         else if numOfBuckets > 25 then (numOfBuckets / 4)
                         else numOfBuckets - 2
-                    
-                    let stopList = createStopps numOfBuckets startColor endColor invertMapping
-                    
-                    let svgstopList = 
-                        stopList
-                        |> List.map (fun a ->
-                            let (off, col) = a
-                            buildSvgStop off col)
-                        |> AList.ofList
-                    
-                    
-                    let gradient =
-                        match imageFile with 
+
+                    let stopList, gradient =
+                        match imageStream with 
                         | Some img -> 
-                            Incremental.Svg.image 
-                                (AttributeMap.ofList [  
-                                "src" => img; "alt" => "False Colors"; 
-                                "transform" => "rotate(90deg);"; 
-                                "x1" => "0%"; "y1" => "0%"; 
-                                "x2" => "0%"; "y2" => "100%";
-                                "pointer-events" => "none";
-                            ])
+                            let stopListSimple = createStoppsSimple numOfBuckets
+                            
+                            let stopList = buildGradiantsOfImage invertMapping 100 img
+
+                            let svgStopList = 
+                                stopList
+                                |> List.map (fun a ->
+                                    let (off, col) = a
+                                    buildSvgStop off col)
+                                |> AList.ofList
+
+                            let imgGrad = 
+                                Incremental.Svg.linearGradient 
+                                    (AttributeMap.ofList [  "x1" => "0%"; "y1" => "0%"; 
+                                    "x2" => "0%"; "y2" => "100%";
+                                    "pointer-events" => "none";]) svgStopList
+                                
+                                //Incremental.Svg.image 
+                                //    (AttributeMap.ofList [  
+                                //    "src" => img; 
+                                //    "alt" => "False Colors"; 
+                                //    //"transform" => "rotate(90deg);"; 
+                                //    "x1" => "0%"; "y1" => "0%"; 
+                                //    "x2" => "100%"; "y2" => "100%";
+                                //    "pointer-events" => "none";
+                                //    "object-fit" => "fill";
+                                //])
+
+                            stopListSimple, imgGrad
                         | None -> 
-                            Incremental.Svg.linearGradient 
-                                (AttributeMap.ofList [  "x1" => "0%"; "y1" => "0%"; 
-                                "x2" => "0%"; "y2" => "100%";
-                                "pointer-events" => "none";]) svgstopList
+                            let stopList = createStopps numOfBuckets startColor endColor invertMapping 
+                            
+                            let svgstopList = 
+                                stopList
+                                |> List.map (fun a ->
+                                    let (off, col) = a
+                                    buildSvgStop off col)
+                                |> AList.ofList
+
+                            let grad = 
+                                Incremental.Svg.linearGradient 
+                                    (AttributeMap.ofList [  "x1" => "0%"; "y1" => "0%"; 
+                                    "x2" => "0%"; "y2" => "100%";
+                                    "pointer-events" => "none";]) svgstopList
+
+                            stopList, grad
 
                     //changeWithFileName
                     yield Svg.defs [] [
@@ -294,8 +345,10 @@ module FalseColorLegendApp =
                         "rx"            => "3";
                         "ry"            => "3";
                     ]
+
+                    let startValue = if isImage then 1 else 0
                    
-                    let labelInterval = range / (float numOfLabels)
+                    let labelInterval = range / (float (numOfLabels + startValue))
                     
                     let filteri f s = 
                         s
@@ -306,17 +359,26 @@ module FalseColorLegendApp =
                     let mapOffset (l : list<float32 * C3b>) = 
                         l |> List.map fst    
                     
-                    let labelPosList = 
+                    let numOfLabels, labelPosList = 
                         if (numOfBuckets < 26) then
-                            mapOffset stopList          
-                            |> filteri (fun i _ -> i % 2 = 1)
+                            if isImage then 
+                                let list = stopList |> mapOffset 
+                                list.Length, list
+                            else
+                                let list = 
+                                    stopList          
+                                    |> mapOffset
+                                    |> filteri (fun i _ -> (i % 2) = 1)
+                                numOfLabels, list                            
                         else 
-                            [0 .. numOfLabels]
-                            |> List.map (fun a -> (single a) / (single numOfLabels))
+                            let list = 
+                                [startValue .. numOfLabels]
+                                |> List.map (fun a -> (single a) / (single numOfLabels))
+                            numOfLabels, list
                     
-                    for i in 0..numOfLabels do 
+                    for i in startValue..numOfLabels do 
                         let a = ((List.item (numOfLabels - i) labelPosList) * 0.95f) + 0.03f
-                        let output = fcLowerBound + (labelInterval * (float i))
+                        let output = fcLowerBound + (labelInterval * (float (i-startValue)))
                         let toPercent value = sprintf ("%f") value + "%"
                         let label = sprintf "%.4f" output
                       

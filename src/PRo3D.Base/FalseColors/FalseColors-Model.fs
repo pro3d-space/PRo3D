@@ -20,7 +20,7 @@ type FalseColorsModel = {
     invertMapping   : bool
     lowerColor      : ColorInput //C4b
     upperColor      : ColorInput //C4b    
-    imageFileName   : Option<string>
+    imageFileStream : Option<System.IO.Stream>
 }
 
 type FalseColorsShaderParams = {
@@ -49,15 +49,15 @@ module FalseColorsModel =
 
             return 
                 {
-                    version        = current
-                    useFalseColors = useFalseColors
-                    lowerBound     = lowerBound
-                    upperBound     = upperBound
-                    interval       = interval
-                    invertMapping  = invertMapping
-                    lowerColor     = lowerColor
-                    upperColor     = upperColor
-                    imageFileName  = None
+                    version         = current
+                    useFalseColors  = useFalseColors
+                    lowerBound      = lowerBound
+                    upperBound      = upperBound
+                    interval        = interval
+                    invertMapping   = invertMapping
+                    lowerColor      = lowerColor
+                    upperColor      = upperColor
+                    imageFileStream = None
                 }
         }
         //TODO TO rename inits
@@ -93,7 +93,7 @@ module FalseColorsModel =
             invertMapping   = false
             lowerColor      = { c = C4b.Blue }
             upperColor      = { c = C4b.Red }
-            imageFileName   = None
+            imageFileStream = None
             
         }
    
@@ -130,10 +130,10 @@ module FalseColorsModel =
         invertMapping   = false
         lowerColor      = { c = C4b.Blue }
         upperColor      = { c = C4b.Red }
-        imageFileName   = None
+        imageFileStream = None
     }
 
-    let projectedImageLegend (range : Range1d) (fileName : string) = {
+    let projectedImageLegend (range : Range1d) (fileStream : System.IO.Stream) = {
         version         = current
         useFalseColors  = true
         lowerBound      = initlb range
@@ -142,7 +142,7 @@ module FalseColorsModel =
         invertMapping   = false
         lowerColor      = { c = C4b.Blue }
         upperColor      = { c = C4b.Red }
-        imageFileName   = Some fileName
+        imageFileStream = Some fileStream
     }
     
     let initShaderParams = {
@@ -187,7 +187,7 @@ module FalseColorsModel =
         invertMapping   = false
         lowerColor      = { c = C4b.Blue }
         upperColor      = { c = C4b.Red }
-        imageFileName   = None
+        imageFileStream = None
     }
 
 
