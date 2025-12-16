@@ -41,16 +41,17 @@ type Channel =
 [<ModelType>]
 type ProjectedImageModel =
     {
-        colorMap         : ColorMap
-        selectedChannel  : Channel
-        channelOptions   : list<Channel>
-        dataType         : DataType
-        defaultMinValues : list<float>
-        defaultMaxValues : list<float>
-        texture          : string
-        distance         : float
-        time             : System.DateTime
-        falseColorModel  : FalseColorsModel
+        colorMap          : ColorMap
+        selectedChannel   : Channel
+        channelOptions    : list<Channel>
+        dataType          : DataType
+        defaultMinValues  : list<float>
+        defaultMaxValues  : list<float>
+        texture           : string
+        distance          : float
+        time              : System.DateTime
+        falseColorPreview : bool
+        falseColorModel   : FalseColorsModel
     }
 
 [<ModelType>]
@@ -110,6 +111,7 @@ type ImageMessage =
     | ResetCustomMinMax
     | SetColorMap of ColorMap
     | ToggleFalseColor
+    | ToggleFalseColorLegend
     | SetEXRChannel of Channel
     | Empty
 

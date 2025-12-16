@@ -19,6 +19,7 @@ open PRo3D.Core
 open PRo3D.SPICE
 open PRo3D.FalseColorLegendApp.Draw
 open PRo3D.Base.FalseColorsModel
+open PRo3D.Base
 
 
 module Shaders = 
@@ -91,6 +92,7 @@ module ProjectedImageApp =
         distance = 0;
         time = new DateTime();
         falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (InstrumentImageVisualization.getResourceStream (ColorMap.getColorMapFileName ColorMap.Magma) ())
+        falseColorPreview = false
     }
 
     let loadFile (texturePath : string) =
@@ -203,7 +205,10 @@ module ProjectedImageApp =
 
                 { m with falseColorModel = falseColorModel }
             | ToggleFalseColor ->
+                { m with falseColorPreview = (not m.falseColorPreview) }
+            | ToggleFalseColorLegend -> 
                 { m with falseColorModel = { m.falseColorModel with useFalseColors = not m.falseColorModel.useFalseColors } }
+
             | ImageMessage.Empty ->
                 m
 
@@ -230,11 +235,17 @@ module ProjectedImageApp =
                     ]
                 ]
                 Html.row "False Color:" [
+                    text "Show color legend:" 
+                    GuiEx.iconCheckBox m.falseColorModel.useFalseColors ToggleFalseColorLegend
+                    br[]
                     text "Activate: " 
                     Html.SemUi.toggleBox m.falseColorModel.useFalseColors ToggleFalseColor
                     br []
                     Html.SemUi.dropDown m.colorMap SetColorMap
+                    
+                    
                 ]
+
                 Html.row "Minimum:" [
                     SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.falseColorModel.lowerBound.value) SetCustomMin
                     br []
@@ -320,7 +331,7 @@ module ProjectedImageApp =
 
         let min = img |> extract (AVal.constant 0.0) (fun m -> m.falseColorModel.lowerBound.value |> AVal.map (fun v -> float v))
         let max = img |> extract (AVal.constant 1.0) (fun m -> m.falseColorModel.upperBound.value |> AVal.map (fun v -> float v))
-        let falseColor = img |> extract (AVal.constant true) (fun m -> m.falseColorModel.useFalseColors)
+        let falseColor = img |> extract (AVal.constant false) (fun m -> m.falseColorPreview)
         let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
 
         Sg.fullScreenQuad
