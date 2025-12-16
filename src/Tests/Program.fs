@@ -5,10 +5,10 @@ open NUnit
 
 let allTests () : Test = 
     testList "all tests" [
+        GeoJsonRework.Tests.tests()
+
         // requires spice kernels
         HeraSpiceTests.tests()
-
-        GeoJsonRework.Tests.tests()
     ]
 
 

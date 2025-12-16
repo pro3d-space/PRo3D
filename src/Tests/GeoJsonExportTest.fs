@@ -91,18 +91,13 @@ module Tests =
     open PRo3D.Extensions.FSharp
 
     let logDir = Path.Combine(".", "logs")
-    let spiceRoot = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..")
-    let spiceFileName = Path.Combine(spiceRoot, "spice", "kernels", "mk", "hera_ops.tm")
 
     do Aardvark.Base.Aardvark.UnpackNativeDependencies(typeof<CooTransformation.RelState>.Assembly)
 
     let init () =
-        if not (Directory.Exists(logDir)) then 
-            Directory.CreateDirectory(logDir) |> ignore
-
-        let r = CooTransformation.Init(true, Path.Combine(logDir, "CooTrafo.log"), 4, 4)
-        if r <> 0 then failwith "init failed."
-        { new IDisposable with member x.Dispose() = CooTransformation.DeInit()}
+        let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
+        // this tests here should also work with just the default kernel which comes with pro3d.
+        PRo3D.Base.CooTransformation.initCooTrafo None appData
 
     let latLonAlt2Xyz (body : string) (lat : float) (lon : float) (alt : float) =
         let mutable x, y, z = 0.0, 0.0, 0.0
@@ -112,15 +107,19 @@ module Tests =
         else
             Some(V3d(x, y, z))
 
+    let xyz2LatLonAlt (body : string) (x : float) (y : float) (z : float) =
+        let mutable lat, lon, alt = 0.0, 0.0, 0.0
+        let res = CooTransformation.Xyz2LatLonAlt(body, x, y, z, &lat, &lon, &alt)
+        if res <> 0 then
+            None
+        else
+            Some(V3d(lat, lon, alt))
+
+
     let tests () =
         testSequenced <| testList "init" [
 
-            use _ = init()
-            let fullPath = Path.GetFullPath(spiceFileName)
-            System.Environment.CurrentDirectory <- Path.GetDirectoryName(fullPath)
-            let init = CooTransformation.AddSpiceKernel(fullPath)
-            Expect.equal 0 init "spice adding"
-
+            do init()
 
             test "GetCoords" {
                 // 	18° 22′ 48″ N, 77° 34′ 48″ E  (18.38°, 77.58°)
@@ -128,5 +127,11 @@ module Tests =
 
                 let xyz = latLonAlt2Xyz "mars" lat lon alt
                 Expect.isSome xyz "could get xyz from latlonalt"
+            }
+
+            test "GetLatLon" {
+                let pos = V3d(693177.2106401927, -3147511.6703961412, 1070879.1507304527)
+                let latlon = xyz2LatLonAlt "MARS" pos.X pos.Y pos.Z
+                Expect.isSome latlon "could not get lat lon"
             }
         ]
