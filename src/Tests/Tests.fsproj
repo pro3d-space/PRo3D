@@ -14,6 +14,7 @@
 		<NoWarn>0686</NoWarn>
 	</PropertyGroup>
   <ItemGroup>
+    <Compile Include="GeoJsonExportTest.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="QueriesDSL.fs" />
     <None Include="Playground.fsx" />

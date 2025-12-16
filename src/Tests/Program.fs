@@ -2,10 +2,13 @@
 open Expecto
 open NUnit
 
+
 let allTests () : Test = 
     testList "all tests" [
         // requires spice kernels
         HeraSpiceTests.tests()
+
+        GeoJsonRework.Tests.tests()
     ]
 
 
