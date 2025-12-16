@@ -82,7 +82,8 @@ type PickPivot =
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
-type ViewerAction =                
+type ViewerAction =     
+| InvertDrawing
 | DrawingMessage                  of DrawingAction
 | AnnotationGroupsMessageViewer   of GroupsAppAction
 | NavigationMessage               of Navigation.Action

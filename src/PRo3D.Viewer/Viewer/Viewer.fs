@@ -407,7 +407,7 @@ module ViewerApp =
         | Aardvark.Application.Keys.Enter    -> DrawingAction.Finish
         | Aardvark.Application.Keys.Back     -> DrawingAction.RemoveLastPoint
         | Aardvark.Application.Keys.Escape   -> DrawingAction.ClearWorking
-        | Keyboard.Modifier -> 
+        | Keyboard.Modifier ->
             match interaction with 
             | Interactions.DrawAnnotation -> DrawingAction.StartDrawing
             | Interactions.PickAnnotation -> DrawingAction.StartPicking
@@ -529,6 +529,9 @@ module ViewerApp =
             let ag = m.drawing.annotations 
                 
             { m with drawing = { m.drawing with annotations = GroupsApp.update ag msg}}
+        | InvertDrawing, _, _ ->
+            let updatedInverseFlag = not m.inverseFlag
+            { m with inverseFlag = updatedInverseFlag; drawing = {m.drawing with draw = updatedInverseFlag} }
         | DrawingMessage msg,_,_-> //Interactions.DrawAnnotation
             match msg with
             | Drawing.FlyToAnnotation id ->
@@ -2002,7 +2005,7 @@ module ViewerApp =
                 //attribute "showFPS" "true"        
                 //attribute "data-renderalways" "true"
                 Aardvark.UI.Events.onKeyDown' (fun k -> 
-                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k 
+                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
                     [KeyDown k; DrawingMessage drawingAction]
                 )
                 onKeyUp   (KeyUp)        

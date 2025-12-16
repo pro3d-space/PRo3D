@@ -126,7 +126,7 @@ module Viewer =
             picking         = false
             pivotType       = PickPivot.SurfacePivot
             ctrlFlag        = false
-            inverseFlag     = true
+            inverseFlag     = false
 
             messagingMailbox = msgBox
             mailboxState     = MailboxState.empty
