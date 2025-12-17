@@ -175,6 +175,10 @@ module Files =
            names |> List.map(fun a -> whyEscaping (Path.combine [path; a])) // what is this???
            //names |> List.map(fun a -> (Path.combine [path; a]))
        
+       let isOBJSurface (path : string) =
+           if Path.HasExtension path then (Path.GetExtension path = ".obj")
+           else false
+
        let getSurfaceFolder (surface : Surface) (scenePath : option<string>) =
          if surface.relativePaths 
          then
