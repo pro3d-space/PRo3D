@@ -307,6 +307,7 @@ module ViewerUtils =
                     |> Sg.fillMode(surf.fillMode)
                                                 
                 let triangleFilter = surf.triangleSize.value
+                let triangleFilterEnabled = surf.filterByTriangleSize
 
                 let trafo =
                     adaptive {
@@ -434,6 +435,7 @@ module ViewerUtils =
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     //|> addAttributeFalsecolorMappingParameters surf
                     |> addDepthMappingParameters fp
+                    |> Sg.uniform "FilterTriangleEnabled" triangleFilterEnabled
                     |> Sg.uniform "MaxTriangleSize"   triangleFilter  
                     |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
@@ -739,7 +741,7 @@ module ViewerUtils =
         type UniformScope with
             // size filter stuff
             member x.MaxTriangleSize : float = x?MaxTriangleSize
-            member x.FilterTrinagleEnabled : bool = x?FilterTrinagleEnabled
+            member x.FilterTriangleEnabled : bool = x?FilterTriangleEnabled
 
             // filter for distance to home position
             member x.FilterByDistance : bool = x?FilterByDistance
@@ -766,7 +768,7 @@ module ViewerUtils =
                 let gamma = c.Length < maxSize
 
                 let filterDistanceActive : bool = uniform.FilterByDistance
-                let disabled = false //not uniform.FilterTrinagleEnabled
+                let disabled = not uniform.FilterTriangleEnabled
                 let smallTriangle = alpha && beta && gamma
                 // if disabled, let all trianlges pass
                 let validTriangle = disabled || smallTriangle
