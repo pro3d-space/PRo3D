@@ -5,6 +5,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI.Primitives
 open Adaptify
+open PRo3D.Base
 
 type ColorMap =
     | Magma = 0
@@ -40,18 +41,17 @@ type Channel =
 [<ModelType>]
 type ProjectedImageModel =
     {
-        colorMap        : ColorMap
-        useFalseColor   : bool
-        selectedChannel : Channel
-        channelOptions  : list<Channel>
-        dataType        : DataType
-        defaultMinValues : list<float>
-        defaultMaxValues : list<float>
-        inputMinValue : NumericInput
-        inputMaxValue : NumericInput
-        texture : string
-        distance: float
-        time: System.DateTime
+        colorMap          : ColorMap
+        selectedChannel   : Channel
+        channelOptions    : list<Channel>
+        dataType          : DataType
+        defaultMinValues  : list<float>
+        defaultMaxValues  : list<float>
+        texture           : string
+        distance          : float
+        time              : System.DateTime
+        falseColorPreview : bool
+        falseColorModel   : FalseColorsModel
     }
 
 [<ModelType>]
@@ -83,14 +83,14 @@ type LightingMode =
 [<ModelType>]
 type ProjectedImageListModel =
     {
-        images          : IndexList<ProjectedImageModel>
-        selectedImage   : Option<Index>
-        editImages      : Index list
-        projectionOpacity : NumericInput
-        boresightAdjustment : BoresightAdjustment
-        cameraState     : OrbitState
+        images               : IndexList<ProjectedImageModel>
+        selectedImage        : Option<Index>
+        editImages           : Index list
+        projectionOpacity    : NumericInput
+        boresightAdjustment  : BoresightAdjustment
+        cameraState          : OrbitState
         instrumentVisibility : InstrumentVisibilityMode
-        lightingMode : LightingMode
+        lightingMode         : LightingMode
     }
 
 module ProjectedImageListModel =
@@ -111,6 +111,7 @@ type ImageMessage =
     | ResetCustomMinMax
     | SetColorMap of ColorMap
     | ToggleFalseColor
+    | ToggleFalseColorLegend
     | SetEXRChannel of Channel
     | Empty
 

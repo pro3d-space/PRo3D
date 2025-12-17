@@ -22,6 +22,7 @@ module ProjectedImagesListAppHelper =
     let getSelectedImage (m : AdaptiveProjectedImageListModel) =
         adaptive {
             let! selected = m.selectedImage
+            
             match selected with
             | None -> return None
             | Some idx -> 
@@ -55,7 +56,7 @@ module ProjectedImagesListAppHelper =
                 visualizationRange = 
                     selectedImage |> AVal.bind (function 
                         | None -> Range1d.Unit |> AVal.constant
-                        | Some img -> (img.inputMinValue.value, img.inputMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min, max))
+                        | Some img -> (img.falseColorModel.lowerBound.value, img.falseColorModel.upperBound.value) ||> AVal.map2 (fun min max -> Range1d(min, max))
                     )
                 colorMapping = 
                     selectedImage |> AVal.bind (function

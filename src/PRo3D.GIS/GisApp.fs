@@ -700,7 +700,7 @@ module GisApp =
             GuiEx.accordion "Projected Images" "Images" false [
                 ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative |> UI.map GisAppAction.ProjectedImageListMessage
             ]
-
+            
             let kernelPathTextBox = 
                 div [clazz "fullwidth textcontainer"] [
                     Html.SemUi.textBox 
