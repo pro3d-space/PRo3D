@@ -322,7 +322,6 @@ module FalseColorLegendApp =
                     yield Svg.rect [
                         "fill"          => "#EEEEEE";
                         "width"         => "42px";
-                        "width"         => "42px";
                         "height"        => "98%"; //95%
                         "x"             => "8px";    
                         "y"             => "1.75%";
