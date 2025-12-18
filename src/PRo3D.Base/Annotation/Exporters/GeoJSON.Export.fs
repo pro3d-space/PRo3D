@@ -89,6 +89,8 @@ module GeoJSONExport =
                     }
             
             GeoJsonGeometry.Polygon(coordinates, properties)
+        | Geometry.Axis4PEllipse -> 
+            failwith "4PEllipse export not implemented (maybe look for AxisEllipse)."
         | Geometry.Ellipse -> 
             failwith "ellipse export not implemented (maybe look for AxisEllipse)."
         | _ ->

@@ -169,7 +169,8 @@ module Calculations =
             match (annotation.geometry) with
             | Geometry.Polygon
             | Geometry.Ellipse
-            | Geometry.AxisEllipse ->
+            | Geometry.AxisEllipse
+            | Geometry.Axis4PEllipse ->
                 calculatePolygonArea annotation.points
             | _ -> Double.NaN
 

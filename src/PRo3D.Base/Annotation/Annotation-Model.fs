@@ -23,14 +23,15 @@ type Projection =
 | Bookmark = 3
 
 type Geometry = 
-| Point     = 0 
-| Line      = 1 
-| Polyline  = 2 
-| Polygon   = 3 
-| DnS       = 4
-| TT        = 5
-| Ellipse   = 6
-| AxisEllipse = 7
+| Point         = 0 
+| Line          = 1 
+| Polyline      = 2 
+| Polygon       = 3 
+| DnS           = 4
+| TT            = 5
+| Ellipse       = 6
+| AxisEllipse   = 7
+| Axis4PEllipse = 8
 
 type Semantic = 
 | Horizon0 = 0 
@@ -396,7 +397,8 @@ with
 
 type EllipticAnnotationResult = 
     {
-        geographicalEllipse : Ellipse2d
+        geographicalEllipse      : Ellipse2d
+        geographicalEllipseAssym : Option<Ellipse2d>
     }
     with
         static let version = 0
@@ -406,9 +408,21 @@ type EllipticAnnotationResult =
                 let! center             = Json.read "center"     
                 let! major              = Json.read "major"
                 let! minor              = Json.read "minor"
+
+                let! center2            = Json.tryRead "centerAssim"
+                let! major2             = Json.tryRead "majorAssim"
+                let! minor2             = Json.tryRead "minorAssim"
+
+                let assymEllipse = 
+                    match center2, major2, minor2 with
+                    | Some c, Some ma, Some mi -> 
+                        Some(Ellipse2d(V2d.Parse(c), V2d.Parse(ma), V2d.Parse(mi)))
+                    | _ -> 
+                        None
             
                 return {
-                    geographicalEllipse = Ellipse2d(V2d.Parse(center), V2d.Parse(major), V2d.Parse(minor))
+                    geographicalEllipse      = Ellipse2d(V2d.Parse(center), V2d.Parse(major), V2d.Parse(minor))
+                    geographicalEllipseAssym = assymEllipse
                 }
             }
 
@@ -426,6 +440,13 @@ type EllipticAnnotationResult =
                 do! Json.write   "center"   (string x.geographicalEllipse.Center)
                 do! Json.write   "major"    (string x.geographicalEllipse.Axis0)
                 do! Json.write   "minor"    (string x.geographicalEllipse.Axis1)
+                
+                if x.geographicalEllipseAssym.IsSome then
+                    do! Json.write "centerAssim" (string x.geographicalEllipseAssym.Value.Center)
+                    do! Json.write "majorAssim"  (string x.geographicalEllipseAssym.Value.Axis0)
+                    do! Json.write "minorAssim"  (string x.geographicalEllipseAssym.Value.Axis1)
+    
+
             }
     
 
