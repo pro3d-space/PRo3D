@@ -1392,7 +1392,25 @@ module ViewerApp =
             let m = 
                 m 
                 |> Optic.set _refSystem refsystem'
-                |> SceneLoader.updateCameraUp            
+                |> SceneLoader.updateCameraUp     
+                
+            //changing the planet requires update of local reference systems
+            let m = 
+                match a with
+                | ReferenceSystemAction.SetPlanet planet ->
+                    let flat' = 
+                        m.scene.surfacesModel.surfaces.flat 
+                        |> HashMap.map (fun k v -> 
+                            let s = Leaf.toSurface v
+                            let sgSurface = m.scene.surfacesModel.sgSurfaces |> HashMap.find k 
+                            let bbCenter = sgSurface.globalBB.Center
+                            Leaf.Surfaces { 
+                                s with transformation = 
+                                            (TransformationApp.update s.transformation TransformationApp.Action.UpdatePlanetInLocalRefSys m.scene.referenceSystem bbCenter) 
+                                }
+                            )
+                    { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = flat' }}}}
+                |_ -> m
 
             //changing the reference system also requires adaptation of angular measurement values
             Log.startTimed "[Viewer.fs] recalculating angular values in annos"
@@ -2179,6 +2197,7 @@ module ViewerApp =
                 annotationSg
                 traverses
                 distancePoints
+                surfaceIntersection
             ] |> Sg.ofList
 
         let heightValidationDiscs =
@@ -2200,7 +2219,6 @@ module ViewerApp =
             sceneObjects; 
             geologicSurfacesSg
             gisEntities
-            surfaceIntersection
             ellipseDrawing
         ] |> Sg.ofList
 

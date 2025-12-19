@@ -60,42 +60,43 @@ module SurfaceUtils =
         let names = Files.getOPCNames path                
 
         {
-            version         = Surface.current
-            guid            = Guid.NewGuid()
-            name            = IO.Path.GetFileName path
-            importPath      = path
-            opcNames        = names
-            opcPaths        = names |> Files.expandNamesToPaths path
-            fillMode        = FillMode.Fill
-            cullMode        = CullMode.None
-            isVisible       = true
-            isActive        = true
-            relativePaths   = false
-            quality         = Init.quality
-            priority        = Init.priority
-            scaling         = Transformations.Initial.scaling //Init.scaling
-            preTransform    = Trafo3d.Identity            
-            scalarLayers    = HashMap.Empty //IndexList.empty
-            selectedScalar  = None
-            textureLayers   = IndexList.empty
-            primaryTexture  = None  
-    
-            secondaryTexture = None
-            transferFunction = TransferFunction.empty
-    
-            triangleSize    = { Init.triangleSize with value = maxTriangleSize }
+            version              = Surface.current
+            guid                 = Guid.NewGuid()
+            name                 = IO.Path.GetFileName path
+            importPath           = path
+            opcNames             = names
+            opcPaths             = names |> Files.expandNamesToPaths path
+            fillMode             = FillMode.Fill
+            cullMode             = CullMode.None
+            isVisible            = true
+            isActive             = true
+            relativePaths        = false
+            quality              = Init.quality
+            priority             = Init.priority
+            scaling              = Transformations.Initial.scaling //Init.scaling
+            preTransform         = Trafo3d.Identity            
+            scalarLayers         = HashMap.Empty //IndexList.empty
+            selectedScalar       = None
+            textureLayers        = IndexList.empty
+            primaryTexture       = None  
+        
+            secondaryTexture     = None
+            transferFunction     = TransferFunction.empty
 
-            surfaceType     = stype
-            preferredLoader = preferredLoader
-    
-            colorCorrection = Init.initColorCorrection
-            homePosition    = None
-            transformation  = Init.transformations
-            opcxPath        = None
-            radiometry      = Init.initRadiometry
+            filterByTriangleSize = false    
+            triangleSize         = { Init.triangleSize with value = maxTriangleSize }
 
-            filterByDistance = false
-            filterDistance = Surface.Initial.filterDistance 10.0
+            surfaceType          = stype
+            preferredLoader      = preferredLoader
+                                 
+            colorCorrection      = Init.initColorCorrection
+            homePosition         = None
+            transformation       = Init.transformations
+            opcxPath             = None
+            radiometry           = Init.initRadiometry
+
+            filterByDistance     = false
+            filterDistance       = Surface.Initial.filterDistance 10.0
 
             
             contourModel = ContourLineModel.initial
@@ -551,6 +552,78 @@ module SurfaceUtils =
 
             //        isgs
 
+            let createOBJKdTree (meshes : List<PolyMesh>) kdTreePath importPath = 
+                let mutable count = 0
+
+                meshes
+                |> List.map(fun x ->
+                    let kdPath = sprintf "%s_%i.kd" importPath count
+                    Log.line "loading positions and indices of OBJ-Object"
+                   
+                    //let positions = x.PositionArray 
+                    //let indices = x.VertexIndexArray 
+
+                    Log.line "start building kdTree"
+                    let triMesh = x.TriangulatedCopy()
+                    let test = 
+                        triMesh.Faces 
+                        |> Seq.collect (fun face -> face.Polygon3d.Points )
+                        |> Seq.chunkBySize 3
+                        |> Seq.map(fun x -> Triangle3d x)
+                        |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
+                        |> TriangleSet
+                                                                     
+                    Log.startTimed "Building kdtrees for %s" (Path.GetFileName importPath |> Path.GetFileName)
+                    let tree = 
+                        KdIntersectionTree(test, 
+                            KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
+                    Log.stop()
+                   
+                    saveKdTree (kdPath, tree) |> ignore
+                   
+                    let kd : KdTrees.LazyKdTree = {
+                        kdTree        = Some (tree.ToConcreteKdIntersectionTree());
+                        affine        = Trafo3d.Identity
+                        boundingBox   = tree.BoundingBox3d
+                        kdtreePath    = kdPath
+                        objectSetPath = ""                  
+                        coordinatesPath = ""
+                        texturePath = ""
+                        } 
+                   
+                    count <- count + 1
+                    kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
+                )
+                |> Serialization.save kdTreePath
+
+            let loadOrCreateOBJKdTree (meshes : List<PolyMesh>) kdTreePath importPath = 
+                if File.Exists(kdTreePath) |> not then
+                    createOBJKdTree meshes kdTreePath importPath      
+                else
+                    Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
+                    |> List.map(fun kd -> 
+                        match kd with 
+                        | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
+                        | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
+                           let loadedTree = if File.Exists(tree.kdtreePath) then 
+                                                Some (tree.kdtreePath |> KdTrees.loadKdtree) 
+                                            else None
+                           (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
+                    )
+
+            let createOBJKdTreeFromSurface (surface : Surface) = 
+                let dir = Path.GetDirectoryName(surface.importPath)
+                Log.startTimed "[RebuildKdTrees] loading OBJ data hierarchy"
+                let obj    = ObjParser.Load(surface.importPath, true)
+                let meshes = obj.GetFaceSetMeshes(true) |> Seq.toList
+                Log.stop()
+                Log.startTimed "[RebuildKdTrees] creating kdtrees"
+                let filename = Path.GetFileNameWithoutExtension surface.importPath
+                let kdTreePath = Path.combine [dir; filename + ".aakd"] 
+                let kdTrees = createOBJKdTree meshes kdTreePath surface.importPath
+                Log.stop()
+                kdTrees
+
             // TEST LAURA: load .obj with wavefront (Martins code from dibit) (+ Harris updates Nov.22)
             let loadObjectWavefront (surface : Surface) : SgSurface =
                 Log.line "[OBJ WAVEFRONT] Please wait while the file is being loaded..."
@@ -560,72 +633,7 @@ module SurfaceUtils =
                 let filename = Path.GetFileNameWithoutExtension surface.importPath
                 let kdTreePath = Path.combine [dir; filename + ".aakd"] 
                 let meshes = obj.GetFaceSetMeshes(true) |> Seq.toList
-                let mutable count = 0
-                let kdTrees = 
-                    if File.Exists(kdTreePath) |> not then
-                        meshes
-                        |> List.map(fun x ->
-                            let kdPath = sprintf "%s_%i.kd" surface.importPath count
-                            Log.line "loading positions and indices of OBJ-Object"
-                        
-                            //let positions = x.PositionArray 
-                            //let indices = x.VertexIndexArray 
-
-                            Log.line "start building kdTree"
-                            let triMesh = x.TriangulatedCopy()
-                            let test = 
-                                triMesh.Faces 
-                                |> Seq.collect (fun face -> face.Polygon3d.Points )
-                                |> Seq.chunkBySize 3
-                                |> Seq.map(fun x -> Triangle3d x)
-                                |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
-                                |> TriangleSet
-                                                                                
-
-                            //Log.line "start building kdTree"
-                            //let t = 
-                            //    indices 
-                            //    |> Seq.map(fun x -> positions.[x])
-                            //    |> Seq.chunkBySize 3
-                            //    |> Seq.filter(fun x -> x.Length = 3)
-                            //    |> Seq.map(fun x -> Triangle3d x)
-                            //    |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
-                            //    |> TriangleSet
-                    
-                            Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
-                            let tree = 
-                                KdIntersectionTree(test, 
-                                    KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
-                            Log.stop()
-                        
-                            saveKdTree (kdPath, tree) |> ignore
-                        
-                            let kd : KdTrees.LazyKdTree = {
-                                kdTree        = Some (tree.ToConcreteKdIntersectionTree());
-                                affine        = Trafo3d.Identity
-                                boundingBox   = tree.BoundingBox3d
-                                kdtreePath    = kdPath
-                                objectSetPath = ""                  
-                                coordinatesPath = ""
-                                texturePath = ""
-                                } 
-                        
-                            count <- count + 1
-                            kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
-                        ) 
-                        |> Serialization.save kdTreePath
-                
-                    else
-                        Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
-                        |> List.map(fun kd -> 
-                            match kd with 
-                            | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
-                            | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
-                               let loadedTree = if File.Exists(tree.kdtreePath) then 
-                                                    Some (tree.kdtreePath |> KdTrees.loadKdtree) 
-                                                else None
-                               (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
-                        )
+                let kdTrees = loadOrCreateOBJKdTree meshes kdTreePath surface.importPath                    
 
                 let bb  = 
                     match meshes with
@@ -862,33 +870,46 @@ module SurfaceApp =
             let surf = id |> SurfaceModel.getSurface model
             match surf with
             | Some (Leaf.Surfaces sf) ->                    
-                let path = Files.getSurfaceFolder sf scenePath
-                match path with
-                | Some p ->          
-                    Log.startTimed "[RebuildKdTrees] loading patch hierarchy"
-                    let hs =
-                        Directory.EnumerateDirectories(p) |> Seq.toArray |> Array.choose (fun p ->
-                            if Files.isOpcFolder p then
-                                try 
-                                    PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths.OpcPaths p) |> Some
-                                with e -> 
-                                    Log.warn "[RebuildKdTrees] failed to load patch hierarchy: %s\nException: %A" p e
+                if sf.importPath |> Files.isOBJSurface then                    
+                    let kdTrees = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createOBJKdTreeFromSurface sf      
+                    let picking = Picking.KdTree(kdTrees |> HashMap.ofList)
+                    Log.line "[RebuildKdTrees] created/validated KdTrees for one obj."
+                    let updatedSurface = model.sgSurfaces.Item sf.guid 
+
+                    let updatedSurface = { updatedSurface with picking = picking }
+
+                    let sgSurfaces = model.sgSurfaces |> HashMap.add sf.guid updatedSurface
+
+                    { model with sgSurfaces = sgSurfaces }                
+                    
+                else                
+                    let path = Files.getSurfaceFolder sf scenePath
+                    match path with
+                    | Some p ->          
+                        Log.startTimed "[RebuildKdTrees] loading patch hierarchy"
+                        let hs =
+                            Directory.EnumerateDirectories(p) |> Seq.toArray |> Array.choose (fun p ->
+                                if Files.isOpcFolder p then
+                                    try 
+                                        PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths.OpcPaths p) |> Some
+                                    with e -> 
+                                        Log.warn "[RebuildKdTrees] failed to load patch hierarchy: %s\nException: %A" p e
+                                        None
+                                else
+                                    Log.warn "[RebuildKdTrees] skipping %s for KdTree Generation" p
                                     None
-                            else
-                                Log.warn "[RebuildKdTrees] skipping %s for KdTree Generation" p
-                                None
-                        )
-                    Log.stop()
-                    Log.startTimed "[RebuildKdTrees] creating kdtrees"
-                    let cnt = 
-                        hs |> Array.sumBy (fun h -> 
-                            let m = KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false false KdTrees.KdTreeParameters.legacyDefault   
-                            HashMap.count m
-                        )
-                    Log.stop()
-                    Log.line "[RebuildKdTrees] created/validated KdTrees for %d opcs." cnt
-                    model
-                | None -> model                         
+                            )
+                        Log.stop()
+                        Log.startTimed "[RebuildKdTrees] creating kdtrees"
+                        let cnt = 
+                            hs |> Array.sumBy (fun h -> 
+                                let m = KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false false KdTrees.KdTreeParameters.legacyDefault   
+                                HashMap.count m
+                            )
+                        Log.stop()
+                        Log.line "[RebuildKdTrees] created/validated KdTrees for %d opcs." cnt
+                        model
+                    | None -> model                         
             | _ -> model
         | ToggleActiveFlag id ->               
             let surf = id |> SurfaceModel.getSurface model

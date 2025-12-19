@@ -488,6 +488,40 @@ module DrawingApp =
             | GroupsMessage msg,_, _ ->
                 let m = { model with annotations = GroupsApp.update model.annotations msg}
                 m
+            | RecalculateMeasurements, _,_ -> 
+                let up    = smallConfig.up.Get(bigConfig)
+                let north = smallConfig.north.Get(bigConfig)
+                let planet = smallConfig.planet.Get(bigConfig)
+                
+                let selected = 
+                    model.annotations.selectedLeaves
+                    |> HashSet.map(fun selection -> selection.id)                    
+
+                let selected = 
+                    if selected.IsEmpty then
+                        model.annotations.singleSelectLeaf
+                        |> Option.map(fun leafGuid -> 
+                            HashSet.empty |> HashSet.add leafGuid)
+                        |> Option.defaultValue selected
+                    else
+                        selected
+
+                let annotationsFlat = 
+                    selected
+                    |> HashSet.fold(fun annotations guid -> 
+                        let a = 
+                            model.annotations.flat.TryFind guid
+                            |> Option.map (fun anno -> anno |> Leaf.toAnnotation)
+                            
+                        match a with 
+                        | Some annotation -> 
+                            let results = Calculations.calculateAnnotationResults annotation up north planet
+                            let annotation = { annotation with results = Some(results) }
+                            annotations |> HashMap.add guid (Leaf.Annotations annotation)
+                        | None -> annotations
+                        ) model.annotations.flat
+                
+                { model with annotations = { model.annotations with flat = annotationsFlat }}
             | DnsColorLegendMessage msg,_, _ -> 
                 { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
             | FlyToAnnotation msg, _, _ ->               

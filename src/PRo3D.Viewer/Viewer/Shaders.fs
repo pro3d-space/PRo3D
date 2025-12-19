@@ -44,7 +44,10 @@ module Shaders =
                 let r = 
                     Fun.Smoothstep(d, uniform.CursorWorldSizeSquared.X, uniform.CursorWorldSizeSquared.Y) - 
                     Fun.Smoothstep(d, uniform.CursorWorldSizeSquared.Z, uniform.CursorWorldSizeSquared.W)
-                c <- r * V4d.IIII + v.c * (1.0 - r)
+                if d < uniform.CursorWorldSizeSquared.X * 0.01 then 
+                    c <- V4d.IIII
+                else
+                    c <- r * V4d.IIII + v.c * (1.0 - r)
 
             return c
         }
