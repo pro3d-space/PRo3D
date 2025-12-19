@@ -48,6 +48,7 @@ module UI =
             | Geometry.Polygon      -> "Pick an arbitrary number of points on the surface to create a closed region connecting them. The polygon depends on the projection mode."
             | Geometry.DnS          -> "Pick an arbitrary number of points on the surface to draw a polyline that is used to draw an intersecting plane using least squares computation. The vectors strike (red) and dip (green) represent the directions of least and highest inclination."
             | Geometry.AxisEllipse  -> "Pick two points to create an axis and a radius from there to draw an ellipse"
+            | Geometry.Axis4PEllipse -> "Pick two points to create an axis and two more for a radius in two directions away from this axis"
             | _                     -> ""
 
         let projectionTooltip (i: Projection) : string =

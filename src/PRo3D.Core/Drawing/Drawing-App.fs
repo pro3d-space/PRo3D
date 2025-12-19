@@ -93,13 +93,19 @@ module DrawingApp =
 
             let w = 
                 match w.geometry, sampleSurface with
-                | Geometry.AxisEllipse, Some sampleSurface -> 
+                | Geometry.AxisEllipse, Some sampleSurface
+                | Geometry.Axis4PEllipse, Some sampleSurface -> 
                     match EllipticAnnotations.constructAndSample planet (IndexList.toArray w.points) sampleSurface with
-                    | Some (ellipse, sampledPoints) -> 
+                    | Some (ellipses, sampledPoints) -> 
                         let points = IndexList.ofArray sampledPoints
-                        { w with points = points; ellipticResults = Some { geographicalEllipse = ellipse }}
+                        if ellipses.Length = 1 then 
+                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
+                        else if ellipses.Length = 2 then
+                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = Some(ellipses.[1]) }}
+                        else
+                            w
                     | _ -> 
-                        w
+                        w                
                 | _ -> 
                     w
 
@@ -132,7 +138,7 @@ module DrawingApp =
                 Log.line "working contains %d points" annotation.points.Count
                 
                 // do not generate segments for ellipses as they are sampled when the ellipse is fully constructed (after having the ellipse we know its outline).
-                let allowSegmentGeneration = w.geometry <> Geometry.Ellipse && w.geometry <> Geometry.AxisEllipse
+                let allowSegmentGeneration = w.geometry <> Geometry.Ellipse && w.geometry <> Geometry.AxisEllipse && w.geometry <> Geometry.Axis4PEllipse
 
                 //fetch current drawing segment (projected, polyline or polygon)
                 let result = 
@@ -167,7 +173,7 @@ module DrawingApp =
                                 { annotation with segments = IndexList.add newSegment annotation.segments }, None
                     | Projection.Linear ->
                         annotation, None
-                    | Projection.Sky when w.geometry = Geometry.AxisEllipse -> 
+                    | Projection.Sky when ((w.geometry = Geometry.AxisEllipse) || (w.geometry = Geometry.Axis4PEllipse)) ->
                         annotation, None
                     | _ -> failwith "case does not exist"            
                 result 
@@ -196,6 +202,8 @@ module DrawingApp =
         | Geometry.Ellipse, 3 -> 
             finishAndAppend up north planet (Some samplePoint) view model, None
         | Geometry.AxisEllipse, 3 -> 
+            finishAndAppend up north planet (Some samplePoint) view model, None
+        | Geometry.Axis4PEllipse, 4 ->  
             finishAndAppend up north planet (Some samplePoint) view model, None
         | _ -> 
             model, newSegment 
@@ -451,7 +459,9 @@ module DrawingApp =
             | SetGeometry mode, _, _ ->
                 let projection = 
                     match mode with
-                    | Geometry.AxisEllipse -> Projection.Sky
+                    | Geometry.AxisEllipse
+                    | Geometry.Axis4PEllipse -> 
+                        Projection.Sky
                     // every other tool uses linear as default. TODO: if switching back to default is an UX problem, 
                     // we need to store the user-set projection mode and reset it if needed.
                     | _ -> Projection.Linear

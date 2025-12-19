@@ -40,6 +40,30 @@ module EllipseConstruction =
 
         Ellipse2d(center, majorVec, minorVec)
 
+    /// Compute two ellipses for an assymmetrical one and return the calculated points
+    let constructAssimmetricalEllipse2dPoints
+        (ellipse1 : Ellipse2d)
+        (ellipse2 : Ellipse2d) 
+        (samples  : int)
+        : V2d[] =         
+        
+        Array.init (samples + 1) (fun i ->
+            let calcValue = 
+                if i < samples / 2 then 
+                    i
+                else 
+                    samples - i
+            
+            let t = 2.0 * Constant.Pi * (float calcValue / float samples)
+            let c = cos t
+            let s = sin t
+            
+            if i < (samples / 2) then
+                ellipse1.Center + ellipse1.Axis0 * c + ellipse1.Axis1 * s
+            else
+                ellipse2.Center + ellipse2.Axis0 * c + ellipse2.Axis1 * s
+        )
+
 
     /// Compute ellipse points by sampling the returned Ellipse2d.
     let computeEllipsePoints
