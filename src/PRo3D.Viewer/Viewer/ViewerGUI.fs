@@ -769,8 +769,6 @@ module Gui =
             | _ -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
-
-
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
             Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
