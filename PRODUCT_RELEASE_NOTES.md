@@ -1,3 +1,10 @@
+## 5.5.0
+- triangle Filter for Scene Objects (and Checkbox for de-activation added)
+- Preview Cursor
+- Recalculation of obj-KDTrees fixed
+- Automatic recalculation of Orbit Center when change to ArcBall (to surface in camera center with fallback)
+- Ellipse Tool with second kind of AxisEllipses (assymetric with 4Point Selection)
+
 
 ## 5.4.0
 - planets updates for local resSys in transforamtions
