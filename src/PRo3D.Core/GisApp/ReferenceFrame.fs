@@ -21,7 +21,6 @@ module ReferenceFrame =
             isEditing     = true
             spiceName     = FrameSpiceName "New Frame"    
             spiceNameText = "New Frame"
-            entity        = None
         }
 
     let update (m : ReferenceFrame) (msg : ReferenceFrameAction) =
@@ -32,8 +31,6 @@ module ReferenceFrame =
             {m with spiceName = FrameSpiceName name}
         | ReferenceFrameAction.SetSpiceNameText name ->
             {m with spiceNameText = name}
-        | ReferenceFrameAction.SetEntity entity ->
-            {m with entity = entity}
         | ReferenceFrameAction.Delete id ->
             Log.line "[Entity] Delete action needs to be handled in parent."
             m
@@ -43,19 +40,6 @@ module ReferenceFrame =
         | ReferenceFrameAction.Save ->
             {m with isEditing = false
                     spiceName = FrameSpiceName m.spiceNameText}
-
-    let private entitySelectionGui 
-            (entities : amap<EntitySpiceName, AdaptiveEntity>) 
-            (m : AdaptiveReferenceFrame) =
-        UI.dropDownWithEmptyText
-            (entities 
-                |> AMap.toASet
-                |> ASet.toAList
-                |> AList.map fst)
-            m.entity
-            (fun x -> ReferenceFrameAction.SetEntity x)  
-            (fun x -> x.Value)
-            "Select Entity"
 
     let private editView 
             (m : AdaptiveReferenceFrame)
@@ -75,7 +59,6 @@ module ReferenceFrame =
         [
             //td [] [Html.SemUi.textBox m.label ReferenceFrameAction.SetLabel]
             td [] [Html.SemUi.textBox m.spiceNameText ReferenceFrameAction.SetSpiceNameText ]
-            td [] [entitySelectionGui entites m]
             td [] actions
         ] 
 
@@ -91,7 +74,6 @@ module ReferenceFrame =
         [
             //td [] [Html.SemUi.textBox m.label ReferenceFrameAction.SetLabel]
             td [] [text m.spiceName.Value]
-            td [] [entitySelectionGui entities m]
             td [] [
                 i actions []
             ]

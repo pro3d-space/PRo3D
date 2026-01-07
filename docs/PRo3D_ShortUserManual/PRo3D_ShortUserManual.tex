@@ -33,6 +33,7 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{wallpaper}
+\usepackage{subfigure}
 
 % ********* for code listing ************
 \usepackage{listings}  
@@ -60,7 +61,7 @@
 %\usepackage{mathptmx}  	%mathematical fonts for use with times, I encountered some problems using this package togather with pdftex, which I was not able to resolve
 
 % ********* Graphics definition *******
-%\usepackage[pdftex]{graphicx} % required to import graphic files
+\usepackage{graphicx} % required to import graphic files
 \usepackage{eso-pic} % these two are required to add the little picture on top of every page
 \usepackage{everyshi} % these two are required to add the little picture on top of every page
 \renewcommand{\floatpagefraction}{0.7} %default:0.5 allows two big pictures on one page
@@ -169,7 +170,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  %%%%%%%%%%%%%         CHANGE VERSION NUMBER HERE    %%%%%%%%%%%
-\newcommand{\version}{4.0.1}
+\newcommand{\version}{5.2.0-prerelease-hera-2}
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  
@@ -184,8 +185,8 @@
 	{\scshape\Large User Manual\par}
 	\vspace{1.cm}
 	\includegraphics[width=1.0\textwidth]{pics/CoverPic.png}\par\vspace{1cm}		
-	{\large Authors: \par
-	Thomas Ortner, Laura Fritz, Rebecca Nowak}
+	{\large Authors: \par 
+	Thomas Ortner, Laura Fritz, Rebecca Nowak, Harald Steinlechner}
 	\vfill
 	% Bottom of the page
 	{Last Updated: \today\par}

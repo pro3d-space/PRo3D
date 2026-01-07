@@ -162,19 +162,19 @@ module App =
         open Aardvark.Rendering.Effects
 
         type UniformScope with
-            member x.CursorViewSpace : V3d = uniform?CursorViewSpace
-            member x.CursorWorldSizeSquared : V4d = uniform?CursorWorldSizeSquared
+            member x.CursorViewSpace : V3f = uniform?CursorViewSpace
+            member x.CursorWorldSizeSquared : V4f = uniform?CursorWorldSizeSquared
 
         type CursorVertex = 
             {
                 [<Semantic("ViewPos")>]
-                viewPos : V3d
+                viewPos : V3f
 
                 [<Position>]
-                pos : V4d
+                pos : V4f
 
                 [<Color>]
-                c : V4d
+                c : V4f
             }
 
         let donutVertex (v : CursorVertex) = 
@@ -191,7 +191,7 @@ module App =
                 
                 let d = Vec.lengthSquared (uniform.CursorViewSpace - v.viewPos)
                 let r = Fun.Smoothstep(d, uniform.CursorWorldSizeSquared.X, uniform.CursorWorldSizeSquared.Y) - Fun.Smoothstep(d, uniform.CursorWorldSizeSquared.Z, uniform.CursorWorldSizeSquared.W)
-                return r * V4d.IIII + v.c * (1.0 - r)
+                return r * V4f.IIII + v.c * (1.0f - r)
             }
 
     let viewScene (runner : Load.Load.Runner) (emit : Message -> unit) (model : AdaptiveModel) =
@@ -333,7 +333,7 @@ module App =
                 | None -> yield style "display:none"
                 | Some p -> 
                     let p = p + V2i(35,-20)
-                    yield style (sprintf "position: absolute; left: %d; top: %d; pointer-events: none; font-family: consolas; color: white" p.X p.Y)
+                    yield style (sprintf "position: absolute; left: %d; top: %d; pointer-events: none; font-family: Roboto Mono; color: white" p.X p.Y)
             } |> AttributeMap.ofAMap
 
         let cursorText = 

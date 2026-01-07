@@ -243,7 +243,7 @@ namespace Rabbyte.Drawing
 
 //    //let viewGui (model: AdaptiveDrawingModel) = 
         
-//    //    let style' = "color: white; font-family:Consolas;"
+//    //    let style' = "color: white; font-family: Roboto Mono"
 
 //    //    table [clazz "item"] [
 //    //        tr[][

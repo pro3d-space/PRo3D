@@ -669,6 +669,7 @@ type Surface = {
     textureLayers   : IndexList<TextureLayer>
     primaryTexture     : Option<TextureLayer>
     secondaryTexture   : Option<TextureLayer>
+    secondaryTextureLayer : Option<int>
     transferFunction   : TransferFunction
     opcxPath        : Option<string>
 

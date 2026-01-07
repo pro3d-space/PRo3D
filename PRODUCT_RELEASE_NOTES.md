@@ -14,14 +14,26 @@
 - area calculation for closed polygons and ellipses included
 - surface intersection preview added
 
-## 5.1.2           
-- fixed legacy traverse scene file / m20 waypoint loading
+## 5.2.0-prerelease-hera-3
+- Linux support   
+
+## 5.2.0-prerelease-hera-2
+- ellipse drawing
 
 ## 5.2.0-prerelease1            
 - reworked trafo system
 
+## 5.1.2           
+- fixed legacy traverse scene file / m20 waypoint loading
+
 ## 5.1.1            
 - added phobos/deimos/moon options in planet selection combo box.
+
+## 5.1.1-prerelease-hera-8  
+- ellipse drawing
+
+## 5.1.1-prerelease-hera-7  
+- ellipse drawing
 
 ## 5.1.0
 - native dependency fix for mac
@@ -69,6 +81,9 @@
 - tweaked opc parameters
 - 
 
+## 5.0.0-prerelease-hera-7
+- product style release for hera deliverable
+
 ## 4.26.0-prerelease1
 - fixed surface priority
 - improved handling of large trajectories
@@ -76,6 +91,9 @@
 ## 4.25.0-prerelease7
 - distance- and trianglefilter fix
 - fixed problem with sequenced bookmarks performance problem when a traverse is loaded
+- fixed obj not being rendered with batch rendering
+
+## 4.24.0
 - fixed obj not being rendered with batch rendering
 
 ## 4.21.0-prerelease3

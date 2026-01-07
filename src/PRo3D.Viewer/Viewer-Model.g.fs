@@ -1,5 +1,5 @@
-//34173228-0f1f-ab0b-70c6-7c2f70d13484
-//e3228cee-7733-fb1c-9eed-dc30d4baa6c2
+//d33e4acb-16f4-8acb-6ffc-4a31e47efacf
+//dcd607c4-83d4-0e3e-4663-84e31dc16ed8
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -209,7 +209,6 @@ type AdaptiveModel(value : Model) =
     let _future_ = FSharp.Data.Adaptive.cval(value.future)
     let _footPrint_ = PRo3D.SimulatedViews.AdaptiveFootPrint(value.footPrint)
     let _snapshotThreads_ = FSharp.Data.Adaptive.cval(value.snapshotThreads)
-    let _showExplorationPoint_ = FSharp.Data.Adaptive.cval(value.showExplorationPoint)
     let _heighValidation_ = PRo3D.Core.AdaptiveHeightValidatorModel(value.heighValidation)
     let _filterTexture_ = FSharp.Data.Adaptive.cval(value.filterTexture)
     let _numberOfSamples_ = FSharp.Data.Adaptive.cval(value.numberOfSamples)
@@ -266,7 +265,6 @@ type AdaptiveModel(value : Model) =
             _future_.Value <- value.future
             _footPrint_.Update(value.footPrint)
             _snapshotThreads_.Value <- value.snapshotThreads
-            _showExplorationPoint_.Value <- value.showExplorationPoint
             _heighValidation_.Update(value.heighValidation)
             _filterTexture_.Value <- value.filterTexture
             _numberOfSamples_.Value <- value.numberOfSamples
@@ -309,7 +307,6 @@ type AdaptiveModel(value : Model) =
     member __.future = _future_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<PRo3D.Core.Drawing.DrawingModel>>
     member __.footPrint = _footPrint_
     member __.snapshotThreads = _snapshotThreads_ :> FSharp.Data.Adaptive.aval<FSharp.Data.Adaptive.ThreadPool<ViewerAction>>
-    member __.showExplorationPoint = _showExplorationPoint_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.heighValidation = _heighValidation_
     member __.filterTexture = _filterTexture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.numberOfSamples = _numberOfSamples_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
@@ -355,7 +352,6 @@ module ModelLenses =
         static member future_ = ((fun (self : Model) -> self.future), (fun (value : Microsoft.FSharp.Core.Option<PRo3D.Core.Drawing.DrawingModel>) (self : Model) -> { self with future = value }))
         static member footPrint_ = ((fun (self : Model) -> self.footPrint), (fun (value : PRo3D.SimulatedViews.FootPrint) (self : Model) -> { self with footPrint = value }))
         static member snapshotThreads_ = ((fun (self : Model) -> self.snapshotThreads), (fun (value : FSharp.Data.Adaptive.ThreadPool<ViewerAction>) (self : Model) -> { self with snapshotThreads = value }))
-        static member showExplorationPoint_ = ((fun (self : Model) -> self.showExplorationPoint), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with showExplorationPoint = value }))
         static member heighValidation_ = ((fun (self : Model) -> self.heighValidation), (fun (value : PRo3D.Core.HeightValidatorModel) (self : Model) -> { self with heighValidation = value }))
         static member filterTexture_ = ((fun (self : Model) -> self.filterTexture), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with filterTexture = value }))
         static member numberOfSamples_ = ((fun (self : Model) -> self.numberOfSamples), (fun (value : Microsoft.FSharp.Core.int) (self : Model) -> { self with numberOfSamples = value }))

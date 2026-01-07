@@ -67,7 +67,7 @@ module DrawingApp =
         | _ -> 
             { a with points = a.points |> IndexList.add firstP }
     
-    let getFinishedAnnotation up north planet (sampleSurface : Option<V3d -> Option<V3d>>)  (view:CameraView) (model : DrawingModel) =
+    let getFinishedAnnotation up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>)  (view:CameraView) (model : DrawingModel) =
         match model.working with
         | Some w ->  
             let w = 
@@ -95,17 +95,26 @@ module DrawingApp =
                 match w.geometry, sampleSurface with
                 | Geometry.AxisEllipse, Some sampleSurface
                 | Geometry.Axis4PEllipse, Some sampleSurface -> 
-                    match EllipticAnnotations.constructAndSample planet (IndexList.toArray w.points) sampleSurface with
-                    | Some (ellipses, sampledPoints) -> 
-                        let points = IndexList.ofArray sampledPoints
-                        if ellipses.Length = 1 then 
-                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
-                        else if ellipses.Length = 2 then
-                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = Some(ellipses.[1]) }}
-                        else
+                    let geo = false
+                    if geo then
+                        match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
+                        | Some (ellipse, sampledPoints) -> 
+                            let points = IndexList.ofArray sampledPoints
+                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipse }}
+                        | _ -> 
                             w
-                    | _ -> 
-                        w                
+                    else
+                        match dns with
+                        | None -> w
+                        | Some dns -> 
+                            match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
+                            | Some r -> 
+                                let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
+                                let ellipse = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
+                                { w with points = points; ellipticResults = Some { geographicalEllipse = ellipse }}
+                            | _ -> 
+                                w
+                        
                 | _ -> 
                     w
 
@@ -114,10 +123,10 @@ module DrawingApp =
             Some { w with results = Some results; view = view; }
         | None -> None
 
-    let finishAndAppend up north planet (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel)  = 
+    let finishAndAppend up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel)  = 
       
         let groups = 
-            match getFinishedAnnotation up north planet sampleSurface view model with
+            match getFinishedAnnotation up north planet referenceSystem sampleSurface view model with
             | Some a -> 
                 //let json = a |> JsonTypes.ofAnnotation |> Aardvark.UI.Pickler.jsonToString                 
                 //bc.Add json
@@ -196,13 +205,13 @@ module DrawingApp =
         match (working.geometry, (working.points |> IndexList.count)) with
         | Geometry.Point, 1 -> 
             Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
-            finishAndAppend up north planet (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
         | Geometry.TT, 2 | Geometry.Line, 2 -> 
-            finishAndAppend up north planet (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
         | Geometry.Ellipse, 3 -> 
-            finishAndAppend up north planet (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
         | Geometry.AxisEllipse, 3 -> 
-            finishAndAppend up north planet (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
         | Geometry.Axis4PEllipse, 4 ->  
             finishAndAppend up north planet (Some samplePoint) view model, None
         | _ -> 
@@ -377,7 +386,7 @@ module DrawingApp =
         let north  = smallConfig.north.Get(bigConfig)
         let planet = smallConfig.planet.Get(bigConfig)
 
-        (finishAndAppend up north planet None view model) |> stash
+        (finishAndAppend up north planet None None view model) |> stash
 
     type ProfilePoint = {
         position  : V3d
@@ -419,12 +428,12 @@ module DrawingApp =
                 { model with pick = false}        
             | DrawingAction.Move p, true, false -> 
                 { model with hoverPosition = Some (Trafo3d.Translation p) }
-            | AddPointAdv (point, projectSurface, name, bookmarkId), true, false ->
+            | AddPointAdv (point, projectSurface, referenceFrame, name, bookmarkId), true, false ->
                 let up    = smallConfig.up.Get(bigConfig)
                 let north = smallConfig.north.Get(bigConfig)
                 let planet = smallConfig.planet.Get(bigConfig)
 
-                let model, newSegment = addPoint up north planet referenceSystem projectSurface point view model name webSocket bookmarkId
+                let model, newSegment = addPoint up north planet referenceFrame projectSurface point view model name webSocket bookmarkId
             
                 match newSegment with
                 | None         -> model

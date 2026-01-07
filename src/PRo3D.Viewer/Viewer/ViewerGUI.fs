@@ -26,6 +26,7 @@ open PRo3D.SimulatedViews
 open Adaptify
 open FSharp.Data.Adaptive
 open PRo3D.Core.Gis
+open PRo3D.ImageMapping
 
 module Gui =            
     
@@ -37,55 +38,45 @@ module Gui =
         
           return (Calculations.pitch up v.Forward, Calculations.bearing up north v.Forward)
         }
+
+    let falseColorAttributes =
+        [        
+                "display"               => "block"; 
+                "width"                 => "55px"; 
+                "height"                => "75%"; 
+                "preserveAspectRatio"   => "xMidYMid meet"; 
+                "viewBox"               => "0 0 5% 100%" 
+                "style"                 => "position:absolute; left: 0%; top: 25%"
+                "pointer-events"        => "None"
+        ] 
+        |> AttributeMap.ofList
     
     let dnsColorLegend (m : AdaptiveModel) =
-
         let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DnsLegend" m.drawing.dnsColorLegend
-                
-        let attributes =
-            [        
-                "display"               => "block"; 
-                "width"                 => "55px"; 
-                "height"                => "75%"; 
-                "preserveAspectRatio"   => "xMidYMid meet"; 
-                "viewBox"               => "0 0 5% 100%" 
-                "style"                 => "position:absolute; left: 0%; top: 25%"
-                "pointer-events"        => "None"
-            ] |> AttributeMap.ofList
         
-        Incremental.Svg.svg attributes falseColorSvg
+        Incremental.Svg.svg falseColorAttributes falseColorSvg
                             
     let scalarsColorLegend (m : AdaptiveModel) =
-          
-        let attributes =
-            [            
-                "display"               => "block"; 
-                "width"                 => "55px"; 
-                "height"                => "75%"; 
-                "preserveAspectRatio"   => "xMidYMid meet"; 
-                "viewBox"               => "0 0 5% 100%" 
-                "style"                 => "position:absolute; right: 0px; top: 25%"
-                "pointer-events"        => "None"
-            ] |> AttributeMap.ofList
-    
-        Incremental.Svg.svg attributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
+        Incremental.Svg.svg falseColorAttributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
 
     let depthColorLegend (m : AdaptiveModel) =
+        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DepthLegend" m.footPrint.depthColorLegend                
+        Incremental.Svg.svg falseColorAttributes falseColorSvg
 
-        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DepthLegend" m.footPrint.depthColorLegend
-                
-        let attributes =
-            [        
-                "display"               => "block"; 
-                "width"                 => "55px"; 
-                "height"                => "75%"; 
-                "preserveAspectRatio"   => "xMidYMid meet"; 
-                "viewBox"               => "0 0 5% 100%" 
-                "style"                 => "position:absolute; left: 0%; top: 25%"
-                "pointer-events"        => "None"
-            ] |> AttributeMap.ofList
-        
-        Incremental.Svg.svg attributes falseColorSvg
+    let projectedColorLegend (m : AdaptiveModel) =     
+        let legend = 
+            alist {
+                let! selectedImage = PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage m.scene.gisApp.projectedImageList
+
+                match selectedImage with 
+                | Some iM -> 
+                    let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "ProjectedLegend" iM.falseColorModel
+                    yield Incremental.Svg.svg AttributeMap.empty falseColorSvg
+                | None -> yield div [] []                
+        } 
+
+        Incremental.Svg.svg falseColorAttributes legend
+
     
     let selectionRectangle (m : AdaptiveModel) =
         
@@ -133,6 +124,8 @@ module Gui =
                     | Planet.Moon  -> "Moon"
                     | Planet.Deimos -> "Deimos"
                     | Planet.Phobos -> "Phobos"
+                    | Planet.Dimorphos -> "Dimorphos"
+                    | Planet.Didymos -> "Didymos"
                     | _ -> "[TextOverlays] missing text representation for selected planet."
                 )  
             
@@ -171,7 +164,7 @@ module Gui =
                 
             let alt2 = altitude |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    
-            let style' = "color: white; font-family:Consolas;"
+            let style' = "color: white; font-family: Roboto Mono"
             
             yield div [
                 clazz "ui"; 
@@ -231,7 +224,7 @@ module Gui =
                 //arrowOverlay
                 yield table [] [
                     tr [] [
-                        td [style "color: white; font-family:Consolas"] [Incremental.text instrument]
+                        td [style "color: white; font-family: Roboto Mono"] [Incremental.text instrument]
                     ]
                 ]
             ]                              
@@ -239,7 +232,7 @@ module Gui =
     
     let textOverlaysUserFeedback (m : AdaptiveScene)  = 
         div [js "oncontextmenu" "event.preventDefault();"] [ 
-            let style' = "color: white; font-family:Consolas; font-size:16;"
+            let style' = "color: white; font-family: Roboto Mono; font-size:16;"
             
             yield div [clazz "ui"; style "text-align: right; width: 250px; position: absolute; top: 15px; right: 15px; float:right" ] [ //float:left
                 //arrowOverlay
@@ -651,6 +644,13 @@ module Gui =
                                             text "Load SPICE kernel"
                                         ]
 
+
+                                        // SP: remove code if loading of projected images does work
+                                        let jsImportImages = "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to import images from', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (ProjectedImageListApp.loadDirMessage p)) | _ -> ViewerAction.Nop); clientEvent "onclick" jsImportImages ] [
+                                            text "Load Image Projections"
+                                        ]
+
                                         
 
                                         //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
@@ -709,7 +709,7 @@ module Gui =
                   return div [] []
             }
             
-        let style' = "color: white; font-family:Consolas;"
+        let style' = "color: white; font-family: Roboto Mono"
 
         let scenepath (m:AdaptiveModel) = 
             Incremental.div (AttributeMap.Empty) (
@@ -1179,9 +1179,10 @@ module Gui =
                                 yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
-                                yield dnsColorLegend m
+                                yield dnsColorLegend m                                
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
+                                yield projectedColorLegend m
                                 yield selectionRectangle m
                                 //yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
                                 //                                                           |> UI.map ViewerMessage

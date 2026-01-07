@@ -56,3 +56,13 @@ src\Aardvark.OpcViewer.psess
 **/bin/Release/**
 /notebooks/result.obj
 /.vscode/settings.json
+/docs/PRo3D_ShortUserManual/*.aux
+/docs/PRo3D_ShortUserManual/*.log
+/docs/PRo3D_ShortUserManual/*.out
+/docs/PRo3D_ShortUserManual/*.gz
+/docs/PRo3D_ShortUserManual/*.toc
+/docs/PRo3D_ShortUserManual/*.tps
+/docs/PRo3D_ShortUserManual/*.bbl
+/docs/PRo3D_ShortUserManual/*.blg
+/docs/PRo3D_ShortUserManual/*.fdb_latexmk
+/docs/PRo3D_ShortUserManual/*.fls

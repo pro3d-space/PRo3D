@@ -10,18 +10,18 @@ module Shaders =
     type CursorVertex = 
         {
             [<Semantic("ViewPos")>]
-            viewPos : V3d
+            viewPos : V3f
 
             [<Position>]
-            pos : V4d
+            pos : V4f
 
             [<Color>]
-            c : V4d
+            c : V4f
         }
 
     type UniformScope with
-        member x.CursorViewSpace : V4d = uniform?CursorViewSpace
-        member x.CursorWorldSizeSquared : V4d = uniform?CursorWorldSizeSquared
+        member x.CursorViewSpace : V4f = uniform?CursorViewSpace
+        member x.CursorWorldSizeSquared : V4f = uniform?CursorWorldSizeSquared
         member x.CursorShaderEnabled : bool = uniform?CursorShaderEnabled
 
 
@@ -39,7 +39,7 @@ module Shaders =
             // this is written in mutable style intentionally to reduce code bloat in fshade composition
             let mutable c = v.c
 
-            if uniform.CursorShaderEnabled && uniform.CursorViewSpace.W > 0.0 then
+            if uniform.CursorShaderEnabled && uniform.CursorViewSpace.W > 0.0f then
                 let d = Vec.lengthSquared (uniform.CursorViewSpace.XYZ - v.viewPos)
                 let r = 
                     Fun.Smoothstep(d, uniform.CursorWorldSizeSquared.X, uniform.CursorWorldSizeSquared.Y) - 

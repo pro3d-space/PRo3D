@@ -53,6 +53,7 @@ type Result =
    }
 
 let viewerVersion       = "5.4.0"
+
 let catchDomainErrors   = false
 
 open System.IO
@@ -88,7 +89,7 @@ let main argv =
 
     // use this one to get path to self-contained exe (not temp expanded dll)
     let executeablePath = 
-        if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
+        if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then 
             System.Environment.GetCommandLineArgs().[0]
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then
             System.Environment.GetCommandLineArgs().[0]
@@ -117,6 +118,10 @@ let main argv =
     // --noMapping --samples 8 --backgroundColor red
     Config.backgroundColor <- startupArgs.backgroundColor
     Config.useMapping <- startupArgs.useMapping
+
+    let limitedShaderCapabilities = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+    Config.limitedShaderCapabilities <- limitedShaderCapabilities
+    Log.line "limited shader capabilities: %b" limitedShaderCapabilities
 
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
@@ -167,9 +172,12 @@ let main argv =
     let mutable cooTrafoInitialized = false
     let disposables = List<IDisposable>()
     try
+        //let p = Path.GetFullPath(startupArgs.defaultSpiceKernelPath)
+        //Log.line "full spice "
         CooTransformation.initCooTrafo startupArgs.defaultSpiceKernelPath appData
         cooTrafoInitialized <- true
-
+        //CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
+        let r = PRo3D.SPICE.CooTransformation.getRelState "HERA" "SUN" "MARS" (DateTime.Parse("2025-03-12T11:26:13.011Z")) "HERA_AFC-1"
         //use app = new VulkanApplication()
         //Glfw.Config.hideCocoaMenuBar <- true
         use app = new OpenGlApplication()
@@ -212,10 +220,10 @@ let main argv =
         Config.title <- titlestr
     
         let signature =
-            runtime.CreateFramebufferSignature [
+            runtime.CreateFramebufferSignature([
                 DefaultSemantic.Colors, TextureFormat.Rgba8
                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-            ]
+            ], samples = ViewerApp.dataSamples)
 
         use sendQueue = new BlockingCollection<string>()    
         

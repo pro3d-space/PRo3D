@@ -23,8 +23,8 @@ module Entity =
             spiceName     = EntitySpiceName "New Entity"    
             spiceNameText = "New Entity"
             color         = C4f.White       
-            geometryPath  = None
             radius        = 1.0
+            trajectoryLength = 1.0
             textureName   = None
             defaultFrame  = None
             showTrajectory = false
@@ -40,10 +40,10 @@ module Entity =
             {m with spiceNameText = name}
         | EntityAction.SetReferenceFrame frame ->
             {m with defaultFrame = frame}
-        | EntityAction.SetGeometryPath geometryPath ->
-            {m with geometryPath = Some geometryPath}
         | EntityAction.SetRadius radius ->
             {m with radius = radius}
+        | EntityAction.SetTrajectoryLength trajectoryLength ->
+            {m with trajectoryLength = trajectoryLength}
         | EntityAction.SetTextureName textureName ->
             {m with textureName = Some textureName}
         | EntityAction.ToggleDraw ->
@@ -128,6 +128,14 @@ module Entity =
                 m.radius 
                 SetRadius)
 
+        let trajectoryLengthInput =
+            (Aardvark.UI.NoSemUi.numeric 
+                { min = 0.0000001; max = System.Double.MaxValue; smallStep = 0.1; largeStep= 1.0 } 
+                "text"
+                ([clazz "ui inverted input"] |> AttributeMap.ofList)
+                m.trajectoryLength 
+                SetTrajectoryLength)
+
         let fullWidthText content =
             div [clazz "fullwidth textcontainer"] [
                 content
@@ -143,13 +151,6 @@ module Entity =
                 ]
                 //Html.row "Label" [Html.SemUi.textBox m.label EntityAction.SetLabel]
                 Html.row "Reference Frame" [refFramesSelectionGui referenceFrames m]
-                Html.row "Geometry Path" 
-                         [Html.SemUi.textBox 
-                            (m.geometryPath 
-                                |> AVal.map (fun x ->
-                                Option.defaultValue "" x
-                            )) EntityAction.SetGeometryPath
-                         |> fullWidthText]
                 Html.row "Texture Path" 
                          [Html.SemUi.textBox 
                             (m.textureName 
@@ -159,8 +160,9 @@ module Entity =
                             EntityAction.SetTextureName
                          |> fullWidthText]
                 Html.row "Radius" [radiusInput]
-                Html.row "Draw Entity" [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
+                Html.row "Draw Proxy" [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
                 Html.row "Show Trajectory" [GuiEx.iconCheckBox m.showTrajectory EntityAction.ToggleTrajectory]
+                Html.row "Trajectory Length (days)" [trajectoryLengthInput]
                 actions
             ]
 

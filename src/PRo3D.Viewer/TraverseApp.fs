@@ -648,10 +648,10 @@ module TraverseApp =
             open FShade
             open FShade.Effect
 
-            type InstanceVertex = { [<Semantic("SolNumber")>] solNumber : int; [<Color>] c : V4d }
+            type InstanceVertex = { [<Semantic("SolNumber")>] solNumber : int; [<Color>] c : V4f }
             type UniformScope with
                 member x.SelectedSol : int = uniform?SelectedSol
-                member x.SelectionColor : V4d = uniform?SelectionColor
+                member x.SelectionColor : V4f = uniform?SelectionColor
 
             let selectedColor (v : InstanceVertex) =
                 vertex {
@@ -751,15 +751,15 @@ module TraverseApp =
                     }
 
                 let colorTransformationExpr =
-                    <@ fun (c : V4d) ->
-                        let tolerance = 0.05
+                    <@ fun (c : V4f) ->
+                        let tolerance = 0.05f
                         let isWhite =
-                            abs (c.X - 1.0) < tolerance &&
-                            abs (c.Y - 1.0) < tolerance &&
-                            abs (c.Z - 1.0) < tolerance
+                            abs (c.X - 1.0f) < tolerance &&
+                            abs (c.Y - 1.0f) < tolerance &&
+                            abs (c.Z - 1.0f) < tolerance
 
                         if isWhite then
-                            V4d(1.0, 1.0, 0.0, c.W)
+                            V4f(1.0f, 1.0f, 0.0f, c.W)
                         else
                             c
                     @>

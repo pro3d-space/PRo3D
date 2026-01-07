@@ -2,16 +2,19 @@
 
 
 open System
-open Aardvark.Base
-open Aardvark.UI
 open FSharp.Data.Adaptive
 open Adaptify
 open PRo3D.Base
 open PRo3D.Core
+open PRo3D.ImageMapping
 
 open PRo3D.Core.Surface
 open PRo3D.Base.Gis
 open Chiron
+open Aardvark.UI.Primitives
+
+open Aardvark.Base
+
 
 type GisSurface = {
     surfaceId       : SurfaceId
@@ -87,6 +90,7 @@ type ObservationInfoAction =
     | SetObserver       of option<EntitySpiceName>
     | SetTime           of DateTime
     | SetReferenceFrame of option<FrameSpiceName>
+    | Reset
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisSurface =
@@ -104,18 +108,36 @@ module GisSurface =
         }
 
 [<ModelType>]
+type MissionTimeEntry = {
+    [<NonAdaptive>]
+    minDate : DateTime
+    [<NonAdaptive>]
+    maxDate : DateTime
+    [<NonAdaptive>]
+    name    : string
+
+    value : NumericInput
+}
+
+
+[<ModelType>]
 type GisApp = 
     {
         version                : int
         defaultObservationInfo : ObservationInfo
         entities               : HashMap<EntitySpiceName, Entity>
-        newEntity              : option<Entity>
-        newFrame               : option<ReferenceFrame>
+        newEntity              : Option<Entity>
+        newFrame               : Option<ReferenceFrame>
         referenceFrames        : HashMap<FrameSpiceName, ReferenceFrame>
         gisSurfaces            : HashMap<SurfaceId, GisSurface>
-        spiceKernel            : option<CooTransformation.SPICEKernel>
+        spiceKernel            : Option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
         cameraInObserver       : bool
+        projectedImageList     : ProjectedImageListModel
+        showMarkers            : bool // whether line + text markers are displayed (for known planets)
+
+        selectedMissionTimeRow : Option<Index>
+        missionTimesEntries    : Option<IndexList<MissionTimeEntry>>
     } 
 with
     static member current = 0
@@ -142,6 +164,8 @@ module GisAppJson =
             let! (spiceKernel : option<string>) = Json.tryRead "spiceKernel"
 
             let! cameraInObserver = Json.tryRead "cameraInObserver"
+
+            let! showMarkers = Json.tryRead "showMarkers"
             
             return {
                 version                = ReferenceFrame.current
@@ -154,6 +178,11 @@ module GisAppJson =
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
+                projectedImageList        = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = System.IO.Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
+                showMarkers            = Option.defaultValue false showMarkers
+
+                selectedMissionTimeRow = None
+                missionTimesEntries    = None
             }
         }
     
@@ -166,6 +195,7 @@ type GisApp with
             do! Json.write "entities"                (x.entities |> HashMap.toList |> List.map snd)   
             do! Json.write "gisSurfaces"             (x.gisSurfaces |> HashMap.toList |> List.map snd)
             do! Json.write "spiceKernel"             (Option.map CooTransformation.SPICEKernel.toPath x.spiceKernel)
+            do! Json.write "showMarkers"             x.showMarkers
         }
     static member FromJson (_ : GisApp) =
         json {
@@ -186,7 +216,7 @@ type EntityAction =
     | ToggleTrajectory
     | SetTextureName    of string
     | SetRadius         of float
-    | SetGeometryPath   of string
+    | SetTrajectoryLength of float
     | SetReferenceFrame of option<FrameSpiceName>
     | Delete            of EntitySpiceName
     | Edit              of EntitySpiceName
@@ -199,7 +229,6 @@ type ReferenceFrameAction =
     | SetLabel          of string
     | SetSpiceName      of string
     | SetSpiceNameText  of string
-    | SetEntity         of option<EntitySpiceName>
     | Delete            of FrameSpiceName
     | Cancel
     | Save      
@@ -217,6 +246,10 @@ type GisAppAction =
     | ToggleCameraInObserver    
     | NewEntity
     | NewFrame
+    | ProjectedImageListMessage of ProjectedImageListMessage
+    | ToggleDrawMarkers
+    | SetMissionTimesRowAndSetDate of (MissionTimeEntry * Index)
+    | InitializeMissionTimeEntries
+    | SetTime                   of (MissionTimeEntry * Index * float)
+    | Empty
 
-
-    
