@@ -1,5 +1,4 @@
-﻿
-open Expecto
+﻿open Expecto
 open NUnit
 
 

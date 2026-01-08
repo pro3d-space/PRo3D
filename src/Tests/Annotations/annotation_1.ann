@@ -1,0 +1,57 @@
+{
+  "annotations": {
+    "flat": [
+      
+    ],
+    "groupsLookup": [
+      
+    ],
+    "rootGroup": {
+      "expanded": true,
+      "key": "6980b79e-d965-465e-9d5d-0855e7caedbb",
+      "leaves": [
+        
+      ],
+      "name": "root",
+      "subNodes": [
+        
+      ],
+      "version": 0,
+      "visible": true
+    },
+    "version": 0
+  },
+  "dnsColorLegend": {
+    "interval": {
+      "format": "{0:0.00}",
+      "max": 90,
+      "min": 0,
+      "step": 0.1,
+      "value": 5
+    },
+    "invertMapping": false,
+    "lowerBound": {
+      "format": "{0:0.0}",
+      "max": 90,
+      "min": 0,
+      "step": 1,
+      "value": 0
+    },
+    "lowerColor": {
+      "color": "[0, 0, 255, 255]"
+    },
+    "upperBound": {
+      "format": "{0:0.0}",
+      "max": 90,
+      "min": 1,
+      "step": 1,
+      "value": 45
+    },
+    "upperColor": {
+      "color": "[255, 0, 0, 255]"
+    },
+    "useFalseColors": false,
+    "version": 0
+  },
+  "version": 0
+}
