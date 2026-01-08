@@ -95,25 +95,25 @@ module DrawingApp =
                 match w.geometry, sampleSurface with
                 | Geometry.AxisEllipse, Some sampleSurface
                 | Geometry.Axis4PEllipse, Some sampleSurface -> 
-                    let geo = false
-                    if geo then
-                        match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
-                        | Some (ellipse, sampledPoints) -> 
-                            let points = IndexList.ofArray sampledPoints
-                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipse }}
-                        | _ -> 
-                            w
-                    else
-                        match dns with
-                        | None -> w
-                        | Some dns -> 
-                            match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
-                            | Some r -> 
-                                let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
-                                let ellipse = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
-                                { w with points = points; ellipticResults = Some { geographicalEllipse = ellipse }}
-                            | _ -> 
-                                w
+                    //let geo = false
+                    //if geo then
+                    match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
+                    | Some (ellipses, sampledPoints) -> 
+                        let points = IndexList.ofArray sampledPoints
+                        { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
+                    | _ -> 
+                        w
+                    //else
+                    //    match dns with
+                    //    | None -> w
+                    //    | Some dns -> 
+                    //        match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
+                    //        | Some r -> 
+                    //            let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
+                    //            let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
+                    //            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = Some(ellipses.[1]) }}
+                    //        | _ -> 
+                    //            w
                         
                 | _ -> 
                     w
@@ -213,7 +213,7 @@ module DrawingApp =
         | Geometry.AxisEllipse, 3 -> 
             finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
         | Geometry.Axis4PEllipse, 4 ->  
-            finishAndAppend up north planet (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
         | _ -> 
             model, newSegment 
 

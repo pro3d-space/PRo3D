@@ -707,9 +707,9 @@ module ViewerUtils =
         open FShade
 
         type Vertex = {
-            [<Position>]        pos     : V4d
-            [<Color>]           c       : V4d
-            [<TexCoord>]        tc      : V2d
+            [<Position>]        pos     : V4f
+            [<Color>]           c       : V4f
+            [<TexCoord>]        tc      : V2f
 
             [<Semantic("ViewSpacePos")>] 
             vp : V4f
@@ -718,7 +718,7 @@ module ViewerUtils =
             tc0     : V4f
 
             [<Normal>] 
-            n : V3d
+            n : V3f
 
             [<SourceVertexIndex>]  sourceVertexIndex : int
         }
@@ -764,8 +764,8 @@ module ViewerUtils =
                 let validTriangle = disabled || smallTriangle
 
                 if filterDistanceActive then
-                    let filterRange : float = uniform.FilterDistance
-                    let homePositionVSp : V3d = uniform?HomePositionViewSpace
+                    let filterRange : float32 = float32 uniform.FilterDistance
+                    let homePositionVSp : V3f = uniform?HomePositionViewSpace
 
                     let inRange = 
                         (Vec.distance homePositionVSp p0) < filterRange &&

@@ -1308,7 +1308,7 @@ module ViewerApp =
                     Log.line "[Viewer] reset orbit to center"
                     let c   = m.scene.config
                     let ref = m.scene.referenceSystem
-                    let navigation' = 
+                    let navigation', _ = 
                         Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero))
                     { m with navigation = navigation' }       
                     
