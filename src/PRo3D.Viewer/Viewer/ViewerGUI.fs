@@ -475,6 +475,9 @@ module Gui =
         let jsExportAnnotationsAsGeoJSONDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
 
+        let jsExportAnnotationsAsGeoJSONQGISDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
+
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
@@ -532,6 +535,22 @@ module Gui =
                             ] [
                                 text "visible as GeoJSON xyz (*.json)"
                             ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSON_qgis
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
+                            ] [
+                                text "export as GeoJSON for QGIS (*.json)"
+                            ]
+                            (*
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSON_qgis
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
+                            ] [
+                                text "export as GeoJSON for QGIS + xyz metadata (*.json)"
+                            ]
+                            *)
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ContinuouslyGeoJson

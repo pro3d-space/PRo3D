@@ -61,7 +61,7 @@
     <Compile Include="Annotation\Annotation-Model.fs" />
     <Compile Include="Annotation\Annotation-Model.g.fs" />
     <Compile Include="Annotation\AnnotationHelpers.fs" />
-    <Compile Include="Annotation\Exporters\GeoJSON.Export.Thoth.fs" />
+    <Compile Include="Annotation\Exporters\GeoJSONQGIS.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.Export.fs" />
     <Compile Include="Annotation\Exporters\CSV.fs" />

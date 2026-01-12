@@ -321,11 +321,13 @@ module DrawingApp =
         | ExportAsCsv _         -> false
         | ExportAsProfileCsv _  -> false
         | ExportAsGeoJSON_xyz _ -> false
+        | ExportAsGeoJSON_qgis _ -> false
         | LegacySaveVersioned   -> false
         | _ -> true
 
     // exports geojson, optionally using XYZ format
     let exportGeoJson 
+        (forQGIS : bool)
         (xyz         : bool)
         (bigConfig   : 'a)
         (smallConfig : SmallConfig<'a>)
@@ -345,15 +347,18 @@ module DrawingApp =
             | None -> fun _ -> false
             | Some s -> 
                 fun (a : Annotation) -> a.key = s
-               
-        try
-            if xyz then
-                GeoJSONExport.writeGeoJSON_XYZ path isSelected annotations
-            else 
-                let planet = smallConfig.planet.Get(bigConfig)            
-                GeoJSONExport.writeGeoJSON (Some planet) path isSelected annotations
-        with e -> 
-            Log.warn "[Drawing] exportGeoJson failed with %A" e
+          
+        if forQGIS then
+            GeoJSONExport.writeGeoJSON None path isSelected annotations true
+        else
+            try
+                if xyz then
+                    GeoJSONExport.writeGeoJSON_XYZ path isSelected annotations
+                else 
+                    let planet = smallConfig.planet.Get(bigConfig)            
+                    GeoJSONExport.writeGeoJSON (Some planet) path isSelected annotations false
+            with e -> 
+                Log.warn "[Drawing] exportGeoJson failed with %A" e
 
     // exports geojson, optionally using XYZ format
     let exportGeoJsonStream  
@@ -591,13 +596,19 @@ module DrawingApp =
                 model
             | ExportAsGeoJSON path, _, _ ->        
         
-                exportGeoJson false bigConfig smallConfig model path
+                exportGeoJson false false bigConfig smallConfig model path
 
                 model
 
             | ExportAsGeoJSON_xyz path, _, _ ->                       
                         
-                exportGeoJson true bigConfig smallConfig model path
+                exportGeoJson false true bigConfig smallConfig model path
+            
+                model
+
+            | ExportAsGeoJSON_qgis path, _, _ ->                       
+                        
+                exportGeoJson true true bigConfig smallConfig model path
             
                 model
 

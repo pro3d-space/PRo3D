@@ -115,21 +115,30 @@ module GeoJSONExport =
         |> Json.serialize
         |> Json.formatWith JsonFormattingOptions.Pretty
 
-        
+    let toGeoJsonQGISString 
+        (planet      : option<Planet>) 
+        (isSelected  : Annotation -> bool)
+        (annotations : list<Annotation>) 
+        : string = 
+        GeoJsonThoth.encoder annotations
 
     let writeGeoJSON 
         (planet      : option<Planet>) 
         (path        : string) 
         (isSelected : Annotation -> bool)
         (annotations : list<Annotation>) 
+        (QGIS : bool)
         : unit = 
 
         if path.IsEmpty() then 
             ()
         else
-            toGeoJsonString planet isSelected annotations
-            |> Serialization.writeToFile path
-
+            if QGIS then 
+                toGeoJsonQGISString planet isSelected annotations
+                |> Serialization.writeToFile path
+            else
+                toGeoJsonString planet isSelected annotations
+                |> Serialization.writeToFile path
                  
 
     let writeGeoJSON_XYZ 
@@ -138,7 +147,7 @@ module GeoJSONExport =
         (annotations : list<Annotation>) 
         : unit = 
 
-        writeGeoJSON None path isSelected annotations
+        writeGeoJSON None path isSelected annotations false
 
 
     // exports geojson objects as line delimited json: https://en.wikipedia.org/wiki/JSON_streaming#Line-delimited_JSON

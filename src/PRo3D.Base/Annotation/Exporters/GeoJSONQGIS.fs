@@ -104,5 +104,5 @@ module GeoJsonThoth =
                 "features", Encode.list (annotations |> List.map (fun ann -> feature ann))
             ]
 
-    let encoder (annotations : Annotation list) : JsonValue =
-        featureCollection annotations true
+    let encoder (annotations : Annotation list) : string =
+        (featureCollection annotations true).ToString()
