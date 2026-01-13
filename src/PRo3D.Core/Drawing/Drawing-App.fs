@@ -321,13 +321,13 @@ module DrawingApp =
         | ExportAsCsv _         -> false
         | ExportAsProfileCsv _  -> false
         | ExportAsGeoJSON_xyz _ -> false
-        | ExportAsGeoJSON_qgis _ -> false
+        | ExportAsGeoJSONQGIS _ -> false
+        | ExportAsGeoJSONQGIS_xyz _ -> false
         | LegacySaveVersioned   -> false
         | _ -> true
 
     // exports geojson, optionally using XYZ format
     let exportGeoJson 
-        (forQGIS : bool)
         (xyz         : bool)
         (bigConfig   : 'a)
         (smallConfig : SmallConfig<'a>)
@@ -348,17 +348,39 @@ module DrawingApp =
             | Some s -> 
                 fun (a : Annotation) -> a.key = s
           
-        if forQGIS then
-            GeoJSONExport.writeGeoJSON None path isSelected annotations true
-        else
-            try
-                if xyz then
-                    GeoJSONExport.writeGeoJSON_XYZ path isSelected annotations
-                else 
-                    let planet = smallConfig.planet.Get(bigConfig)            
-                    GeoJSONExport.writeGeoJSON (Some planet) path isSelected annotations false
-            with e -> 
-                Log.warn "[Drawing] exportGeoJson failed with %A" e
+        try
+            if xyz then
+                GeoJSONExport.writeGeoJSON_XYZ path isSelected annotations
+            else 
+                let planet = smallConfig.planet.Get(bigConfig)            
+                GeoJSONExport.writeGeoJSON (Some planet) path isSelected annotations
+        with e -> 
+            Log.warn "[Drawing] exportGeoJson failed with %A" e
+
+    let exportGeoJsonQGIS
+        (xyz         : bool)
+        (bigConfig   : 'a)
+        (smallConfig : SmallConfig<'a>)
+        (model       : DrawingModel) 
+        (path        : string) =
+
+        // export only visible annotations
+        let annotations =
+            model.annotations.flat
+            |> Leaf.toAnnotations
+            |> HashMap.toList 
+            |> List.map snd
+            |> List.filter (fun a -> a.visible)
+
+        let isSelected = 
+            match model.annotations.singleSelectLeaf with
+            | None -> fun _ -> false
+            | Some s -> 
+                fun (a : Annotation) -> a.key = s
+
+        let planet = smallConfig.planet.Get(bigConfig)
+        GeoJSONExport.writeGeoJSONQGIS xyz (Some planet) path isSelected annotations
+
 
     // exports geojson, optionally using XYZ format
     let exportGeoJsonStream  
@@ -596,20 +618,26 @@ module DrawingApp =
                 model
             | ExportAsGeoJSON path, _, _ ->        
         
-                exportGeoJson false false bigConfig smallConfig model path
+                exportGeoJson false bigConfig smallConfig model path
 
                 model
 
             | ExportAsGeoJSON_xyz path, _, _ ->                       
                         
-                exportGeoJson false true bigConfig smallConfig model path
+                exportGeoJson true bigConfig smallConfig model path
             
                 model
 
-            | ExportAsGeoJSON_qgis path, _, _ ->                       
-                        
-                exportGeoJson true true bigConfig smallConfig model path
-            
+            | ExportAsGeoJSONQGIS path, _, _ ->                       
+                
+                exportGeoJsonQGIS true bigConfig smallConfig model path
+
+                model
+
+            | ExportAsGeoJSONQGIS_xyz path, _, _ ->                       
+                
+                exportGeoJsonQGIS true bigConfig smallConfig model path
+
                 model
 
             | ContinuouslyGeoJson path, _, _ -> 

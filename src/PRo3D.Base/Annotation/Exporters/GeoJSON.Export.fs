@@ -116,29 +116,43 @@ module GeoJSONExport =
         |> Json.formatWith JsonFormattingOptions.Pretty
 
     let toGeoJsonQGISString 
+        (xyz : bool)
         (planet      : option<Planet>) 
         (isSelected  : Annotation -> bool)
         (annotations : list<Annotation>) 
         : string = 
-        GeoJsonQGIS.encoder annotations isSelected 
+        let planetString = 
+            match planet with
+            | Some p -> (p.ToString())
+            | None -> ""
+        GeoJsonQGIS.encoder xyz planetString isSelected annotations
 
     let writeGeoJSON 
         (planet      : option<Planet>) 
         (path        : string) 
         (isSelected : Annotation -> bool)
         (annotations : list<Annotation>) 
-        (QGIS : bool)
         : unit = 
 
         if path.IsEmpty() then 
             ()
         else
-            if QGIS then 
-                toGeoJsonQGISString planet isSelected annotations
-                |> Serialization.writeToFile path
-            else
-                toGeoJsonString planet isSelected annotations
-                |> Serialization.writeToFile path
+            toGeoJsonString planet isSelected annotations
+            |> Serialization.writeToFile path
+
+    let writeGeoJSONQGIS
+        (xyz : bool)
+        (planet      : option<Planet>) 
+        (path        : string) 
+        (isSelected : Annotation -> bool)
+        (annotations : list<Annotation>) 
+        : unit = 
+
+        if path.IsEmpty() then 
+            ()
+        else
+            toGeoJsonQGISString xyz planet isSelected annotations
+            |> Serialization.writeToFile path
                  
 
     let writeGeoJSON_XYZ 
@@ -146,8 +160,7 @@ module GeoJSONExport =
         (isSelected : Annotation -> bool)
         (annotations : list<Annotation>) 
         : unit = 
-
-        writeGeoJSON None path isSelected annotations false
+        writeGeoJSON None path isSelected annotations
 
 
     // exports geojson objects as line delimited json: https://en.wikipedia.org/wiki/JSON_streaming#Line-delimited_JSON

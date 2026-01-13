@@ -27,33 +27,41 @@ module GeoJsonQGIS =
         else
             Some(V3d(x, y, z))
 
-    let xyz2LatLonAlt (body : string) (referenceFrame : string) (cartesian : V3d)=
+    let xyz2LatLonAlt
+        (body : string)
+        (cartesian : V3d)=
         let mutable lat, lon, alt = 0.0, 0.0, 0.0
-        Log.warn "reference frame + body  not yet done, assuming IAU_MARS"
         let res = CooTransformation.Xyz2LatLonAlt(body, cartesian.X,cartesian.Y, cartesian.Z, &lat, &lon, &alt)
         if res <> 0 then
             None
         else
             Some(V3d(lat, lon, alt))
 
-    let coordinate (p : V3d) =
-        Encode.list [ Encode.float p.X; Encode.float p.Y; Encode.float p.Z ]
+    let coordinate
+        (planet : string)
+        (cartesian : V3d) =
+        let latLon = xyz2LatLonAlt planet cartesian
+        match latLon with
+        | Some ll -> Encode.list [ Encode.float ll.X; Encode.float ll.Y; Encode.float ll.Z ]
+        | None -> Encode.list [] // what should be the default?
 
     let featureProperties
-        (annotation : Annotation)
-        (isSelected : Annotation -> bool )=
-        match annotation.geometry with
-        | Geometry.AxisEllipse ->
-            Encode.object [
-                "ellipse", Encode.bool true
-                "isSelected", Encode.bool (isSelected annotation)
-            ]
-        | _ -> 
-            Encode.object [
-                "isSelected", Encode.bool (isSelected annotation)
-            ]
+        (xyz : bool)
+        (isSelected : Annotation -> bool)
+        (annotation : Annotation)=
+        let coordinates =
+            annotation.points
+            |> Seq.map (fun point -> Encode.list [ Encode.float point.X; Encode.float point.Y; Encode.float point.Z ])
+            |> Seq.toList
+        Encode.object [
+            "isEllipse", Encode.bool (annotation.geometry = Geometry.AxisEllipse)
+            "isSelected", Encode.bool (isSelected annotation)
+            "cartesian", Encode.list coordinates
+        ]
 
-    let featureGeometry (annotation: Annotation) =
+    let featureGeometry
+        (planet : string)
+        (annotation: Annotation) =
         match annotation.geometry with
         | Geometry.Point ->
             let p =
@@ -61,7 +69,7 @@ module GeoJsonQGIS =
                 |> Seq.head
             Encode.object [
                 "type", Encode.string "Point"
-                "coordinates", coordinate p
+                "coordinates", coordinate planet p
             ]
         | Geometry.Line
         | Geometry.Polyline
@@ -69,7 +77,7 @@ module GeoJsonQGIS =
         | Geometry.TT ->
             let coordinates =
                 annotation.points
-                |> Seq.map coordinate
+                |> Seq.map (fun point -> coordinate planet point)
                 |> Seq.toList
             Encode.object [
                 "type", Encode.string "LineString"
@@ -78,7 +86,7 @@ module GeoJsonQGIS =
         | Geometry.Polygon ->
             let coordinates =
                 annotation.points
-                |> Seq.map coordinate
+                |> Seq.map (fun point -> coordinate planet point)
                 |> Seq.toList
             Encode.object [
                 "type", Encode.string "Polygon"
@@ -87,7 +95,7 @@ module GeoJsonQGIS =
         | Geometry.AxisEllipse ->
             let coordinates =
                 annotation.points
-                |> Seq.map coordinate
+                |> Seq.map (fun point -> coordinate planet point)
                 |> Seq.toList
             let coordinatesClosed =
                 match coordinates with
@@ -105,38 +113,43 @@ module GeoJsonQGIS =
 
 
     let feature
-        (annotation : Annotation)
-        (isSelected : Annotation -> bool)=
+        (xyz : bool)
+        (planet      : string) 
+        (isSelected  : Annotation -> bool)
+        (annotation : Annotation) =
         Encode.object [
             "type", Encode.string "Feature"
-            "geometry", featureGeometry annotation
-            "properties", featureProperties annotation isSelected
+            "geometry", featureGeometry planet annotation
+            "properties", featureProperties xyz isSelected annotation
         ]
 
-    let globalProperties (annotations : Annotation list) =
+    let globalProperties (planet : string) =
         Encode.object [
-            "referenceFrame", Encode.string "IAU_MARS" // TODO
+            "planet", Encode.string planet
         ]
 
     let featureCollection
-        (annotations : Annotation list)
-        (encodeCartesian : bool)
-        (isSelected : Annotation -> bool) =
-        match encodeCartesian with
+        (xyz : bool)
+        (planet      : string) 
+        (isSelected  : Annotation -> bool)
+        (annotations : list<Annotation>)  =
+        match xyz with
         | true ->
             Encode.object [
                 "type", Encode.string "FeatureCollection"
-                "features", Encode.list (annotations |> List.map (fun ann -> feature ann isSelected))
-                "properties", globalProperties annotations
-
+                "features", Encode.list (annotations |> List.map (fun ann -> feature xyz planet isSelected ann))
+                "properties", globalProperties planet
             ]
         | false ->
             Encode.object [
                 "type", Encode.string "FeatureCollection"
-                "features", Encode.list (annotations |> List.map (fun ann -> feature ann isSelected))
+                "features", Encode.list (annotations |> List.map (fun ann -> feature xyz planet isSelected ann))
             ]
 
     let encoder
-        (annotations : Annotation list)
-        (isSelected : Annotation -> bool) : string =
-        (featureCollection annotations true isSelected).ToString()
+        (xyz : bool)
+        (planet      : string) 
+        (isSelected  : Annotation -> bool)
+        (annotations : list<Annotation>) 
+        : string =
+        (featureCollection xyz planet isSelected annotations).ToString()

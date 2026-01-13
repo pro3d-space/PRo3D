@@ -108,11 +108,9 @@ module Tests =
 
 
     let tests () =
-        let isSelected = 
-            match model.annotations.singleSelectLeaf with
-            | None -> fun _ -> false
-            | Some s -> 
-                fun (a : Annotation) -> a.key = s
+
+        let isSelected = fun _ -> false
+
         testSequenced <| testList "init" [
 
             do init()
@@ -134,8 +132,9 @@ module Tests =
             test "SerializeIncome" {
                 let annotations = readJson("annotation_3.ann")
                 let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
-                let parsedAnnotation = GeoJsonQGIS.encoder flattedAnnotations isSelected
-                Expect.isNotEmpty parsedAnnotation "could not serialize annotations"          }
+                let parsedAnnotation = GeoJsonQGIS.encoder true "Mars" isSelected flattedAnnotations
+                Expect.isNotEmpty parsedAnnotation "could not serialize annotations"
+            }
 
             (*
             test "SerializeMarsEllipses" {

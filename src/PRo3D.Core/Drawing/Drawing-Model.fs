@@ -65,7 +65,8 @@ type DrawingAction =
 | ExportAsProfileCsv     of string
 | ExportAsGeoJSON        of string
 | ExportAsGeoJSON_xyz    of string
-| ExportAsGeoJSON_qgis   of string
+| ExportAsGeoJSONQGIS   of string
+| ExportAsGeoJSONQGIS_xyz   of string // also exports geojson with lat lon, but additionally adds xyz information to metadata
 | ContinuouslyGeoJson    of string
 | ExportAsAttitude       of string
 

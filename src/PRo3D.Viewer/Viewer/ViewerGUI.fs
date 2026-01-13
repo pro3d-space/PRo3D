@@ -537,7 +537,7 @@ module Gui =
                             ]
                             div [ 
                                 clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSON_qgis
+                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_xyz
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
                             ] [
                                 text "export as GeoJSON for QGIS (*.json)"
