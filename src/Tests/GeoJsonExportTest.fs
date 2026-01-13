@@ -8,15 +8,12 @@ open FSharp.Data.Adaptive
 module GeoJsonExportTest =
 
     // requirements
-    // - geojson conformant export
-    // - should be compatible with qgis and arcgis
     // - additional properties: isSelected, ellipse
     // - support for cartesian and geographic coordinates
     //    - by default export in geographic coordinates (lon, lat, alt)
     //    - flag while export, whether cartesian coordiantes shall be included (in properties field)
     // - if cartesian coordinates are included, the reference frame must be included as well (in properties field top level meta data)
-    // - support for different annotation types (point, line, polygon, ellipse, ...)
-
+    // read in?
     (*
         {
            "type": "FeatureCollection",
@@ -35,15 +32,6 @@ module GeoJsonExportTest =
              }]
         }
     
-    *)
-
-    (*
-    
-    earlier: Annotations -> GeometryCollection -> Chiron Serilizer 
-    then: Annoations -> string (via json lib)
-
-    read in: string -> Annoations (low prio)
-
     *)
 
 
@@ -120,6 +108,11 @@ module Tests =
 
 
     let tests () =
+        let isSelected = 
+            match model.annotations.singleSelectLeaf with
+            | None -> fun _ -> false
+            | Some s -> 
+                fun (a : Annotation) -> a.key = s
         testSequenced <| testList "init" [
 
             do init()
@@ -141,8 +134,8 @@ module Tests =
             test "SerializeIncome" {
                 let annotations = readJson("annotation_3.ann")
                 let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
-                let parsedAnnotation = GeoJsonThoth.encoder flattedAnnotations
-                Expect.isTrue parsedAnnotation.HasValues "..."            }
+                let parsedAnnotation = GeoJsonQGIS.encoder flattedAnnotations isSelected
+                Expect.isNotEmpty parsedAnnotation "could not serialize annotations"          }
 
             (*
             test "SerializeMarsEllipses" {

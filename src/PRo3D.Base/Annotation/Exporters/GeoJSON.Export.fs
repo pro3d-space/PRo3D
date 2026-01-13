@@ -120,7 +120,7 @@ module GeoJSONExport =
         (isSelected  : Annotation -> bool)
         (annotations : list<Annotation>) 
         : string = 
-        GeoJsonThoth.encoder annotations
+        GeoJsonQGIS.encoder annotations isSelected 
 
     let writeGeoJSON 
         (planet      : option<Planet>) 
