@@ -847,13 +847,14 @@ module ViewerUtils =
             PRo3D.SPICE.Shaders.planetLocalLightingViewSpace   |> toEffect
             ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect
             PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect
-            ImageProjection.Shaders.generateNormal |> toEffect
+            
             
             Shaders.donutVertex |> toEffect
             Shader.footprintV        |> toEffect 
             Shader.stableTrafo       |> toEffect
             Shader.triangleSizeFilter   |> toEffect
-           
+            
+            ImageProjection.Shaders.generateNormal |> toEffect
            
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
