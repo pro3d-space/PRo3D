@@ -10,14 +10,9 @@ open PRo3D.Extensions
 module GeoJsonQGIS =
 
     type CoordinateConfiguration =
-        | CartesianOnly of targetReferenceFrame : string
-        | GeographicOnly
+        | CartesianOnly
+        | GeographicOnly of targetReferenceFrame : string
         | Both of targetReferenceFrame : string
-
-    type LatLonAlt = V3d
-    type Cartesian = V3d
-    type ReferenceFrame = string
-    type Body = string
 
     let latLonAlt2Xyz (body : string) (lat : float) (lon : float) (alt : float) =
         let mutable x, y, z = 0.0, 0.0, 0.0
@@ -38,29 +33,40 @@ module GeoJsonQGIS =
             Some(V3d(lat, lon, alt))
 
     let coordinate
-        (planet : string)
+        (cooConfig : CoordinateConfiguration)
         (cartesian : V3d) =
-        let latLon = xyz2LatLonAlt planet cartesian
-        match latLon with
-        | Some ll -> Encode.list [ Encode.float ll.X; Encode.float ll.Y; Encode.float ll.Z ]
-        | None -> Encode.list [] // what should be the default?
+        match cooConfig with
+        | CoordinateConfiguration.Both planet
+        | CoordinateConfiguration.GeographicOnly planet ->
+            let latLon = xyz2LatLonAlt planet cartesian
+            match latLon with
+            | Some ll -> Encode.list [ Encode.float ll.X; Encode.float ll.Y; Encode.float ll.Z ]
+            | None -> Encode.list [] // what should be the default?
+        | CoordinateConfiguration.CartesianOnly ->
+            Encode.list [ Encode.float cartesian.X; Encode.float cartesian.Y; Encode.float cartesian.Z ]
 
     let featureProperties
-        (xyz : bool)
+        (cooConfig : CoordinateConfiguration)
         (isSelected : Annotation -> bool)
         (annotation : Annotation)=
         let coordinates =
             annotation.points
             |> Seq.map (fun point -> Encode.list [ Encode.float point.X; Encode.float point.Y; Encode.float point.Z ])
             |> Seq.toList
-        Encode.object [
-            "isEllipse", Encode.bool (annotation.geometry = Geometry.AxisEllipse)
-            "isSelected", Encode.bool (isSelected annotation)
-            "cartesian", Encode.list coordinates
-        ]
+        if cooConfig.IsBoth then
+            Encode.object [
+                "isEllipse", Encode.bool (annotation.geometry = Geometry.AxisEllipse)
+                "isSelected", Encode.bool (isSelected annotation)
+                "cartesian", Encode.list coordinates
+            ]
+        else
+            Encode.object [
+                "isEllipse", Encode.bool (annotation.geometry = Geometry.AxisEllipse)
+                "isSelected", Encode.bool (isSelected annotation)
+            ]
 
     let featureGeometry
-        (planet : string)
+        (cooConfig : CoordinateConfiguration)
         (annotation: Annotation) =
         match annotation.geometry with
         | Geometry.Point ->
@@ -69,7 +75,7 @@ module GeoJsonQGIS =
                 |> Seq.head
             Encode.object [
                 "type", Encode.string "Point"
-                "coordinates", coordinate planet p
+                "coordinates", coordinate cooConfig p
             ]
         | Geometry.Line
         | Geometry.Polyline
@@ -77,7 +83,7 @@ module GeoJsonQGIS =
         | Geometry.TT ->
             let coordinates =
                 annotation.points
-                |> Seq.map (fun point -> coordinate planet point)
+                |> Seq.map (fun point -> coordinate cooConfig point)
                 |> Seq.toList
             Encode.object [
                 "type", Encode.string "LineString"
@@ -86,7 +92,7 @@ module GeoJsonQGIS =
         | Geometry.Polygon ->
             let coordinates =
                 annotation.points
-                |> Seq.map (fun point -> coordinate planet point)
+                |> Seq.map (fun point -> coordinate cooConfig point)
                 |> Seq.toList
             Encode.object [
                 "type", Encode.string "Polygon"
@@ -95,7 +101,7 @@ module GeoJsonQGIS =
         | Geometry.AxisEllipse ->
             let coordinates =
                 annotation.points
-                |> Seq.map (fun point -> coordinate planet point)
+                |> Seq.map (fun point -> coordinate cooConfig point)
                 |> Seq.toList
             let coordinatesClosed =
                 match coordinates with
@@ -113,14 +119,13 @@ module GeoJsonQGIS =
 
 
     let feature
-        (xyz : bool)
-        (planet      : string) 
+        (cooConfig : CoordinateConfiguration)
         (isSelected  : Annotation -> bool)
         (annotation : Annotation) =
         Encode.object [
             "type", Encode.string "Feature"
-            "geometry", featureGeometry planet annotation
-            "properties", featureProperties xyz isSelected annotation
+            "geometry", featureGeometry cooConfig annotation
+            "properties", featureProperties cooConfig isSelected annotation
         ]
 
     let globalProperties (planet : string) =
@@ -129,27 +134,26 @@ module GeoJsonQGIS =
         ]
 
     let featureCollection
-        (xyz : bool)
-        (planet      : string) 
+        (cooConfig : CoordinateConfiguration)
         (isSelected  : Annotation -> bool)
         (annotations : list<Annotation>)  =
-        match xyz with
-        | true ->
+        match cooConfig with
+        | CoordinateConfiguration.Both planet
+        | CoordinateConfiguration.GeographicOnly planet ->
             Encode.object [
                 "type", Encode.string "FeatureCollection"
-                "features", Encode.list (annotations |> List.map (fun ann -> feature xyz planet isSelected ann))
+                "features", Encode.list (annotations |> List.map (fun ann -> feature cooConfig isSelected ann))
                 "properties", globalProperties planet
             ]
-        | false ->
+        | CoordinateConfiguration.CartesianOnly ->
             Encode.object [
                 "type", Encode.string "FeatureCollection"
-                "features", Encode.list (annotations |> List.map (fun ann -> feature xyz planet isSelected ann))
+                "features", Encode.list (annotations |> List.map (fun ann -> feature cooConfig isSelected ann))
             ]
 
     let encoder
-        (xyz : bool)
-        (planet      : string) 
+        (cooConfig : CoordinateConfiguration)
         (isSelected  : Annotation -> bool)
         (annotations : list<Annotation>) 
         : string =
-        (featureCollection xyz planet isSelected annotations).ToString()
+        (featureCollection cooConfig isSelected annotations).ToString()

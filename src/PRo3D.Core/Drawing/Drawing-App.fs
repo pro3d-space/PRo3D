@@ -321,8 +321,9 @@ module DrawingApp =
         | ExportAsCsv _         -> false
         | ExportAsProfileCsv _  -> false
         | ExportAsGeoJSON_xyz _ -> false
-        | ExportAsGeoJSONQGIS _ -> false
+        | ExportAsGeoJSONQGIS_latlon _ -> false
         | ExportAsGeoJSONQGIS_xyz _ -> false
+        | ExportAsGeoJSONQGIS_both _ -> false
         | LegacySaveVersioned   -> false
         | _ -> true
 
@@ -358,9 +359,7 @@ module DrawingApp =
             Log.warn "[Drawing] exportGeoJson failed with %A" e
 
     let exportGeoJsonQGIS
-        (xyz         : bool)
-        (bigConfig   : 'a)
-        (smallConfig : SmallConfig<'a>)
+        (cooConfig   : GeoJsonQGIS.CoordinateConfiguration)
         (model       : DrawingModel) 
         (path        : string) =
 
@@ -378,8 +377,7 @@ module DrawingApp =
             | Some s -> 
                 fun (a : Annotation) -> a.key = s
 
-        let planet = smallConfig.planet.Get(bigConfig)
-        GeoJSONExport.writeGeoJSONQGIS xyz (Some planet) path isSelected annotations
+        GeoJSONExport.writeGeoJSONQGIS cooConfig path isSelected annotations
 
 
     // exports geojson, optionally using XYZ format
@@ -628,15 +626,23 @@ module DrawingApp =
             
                 model
 
-            | ExportAsGeoJSONQGIS path, _, _ ->                       
-                
-                exportGeoJsonQGIS true bigConfig smallConfig model path
+            | ExportAsGeoJSONQGIS_latlon path, _, _ ->     
+            
+                let planet = smallConfig.planet.Get(bigConfig).ToString()
+                exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.GeographicOnly planet) model path
 
                 model
 
-            | ExportAsGeoJSONQGIS_xyz path, _, _ ->                       
-                
-                exportGeoJsonQGIS true bigConfig smallConfig model path
+            | ExportAsGeoJSONQGIS_xyz path, _, _ ->      
+            
+                let planet = smallConfig.planet.Get(bigConfig).ToString()
+                exportGeoJsonQGIS GeoJsonQGIS.CoordinateConfiguration.CartesianOnly model path
+
+                model
+
+            | ExportAsGeoJSONQGIS_both path, _, _ ->                       
+                let planet = smallConfig.planet.Get(bigConfig).ToString()
+                exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.Both planet) model path
 
                 model
 

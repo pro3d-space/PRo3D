@@ -5,67 +5,17 @@ open PRo3D.Core
 open PRo3D.Base.Annotation
 open FSharp.Data.Adaptive
 
-module GeoJsonExportTest =
-
-    // requirements
-    // - additional properties: isSelected, ellipse
-    // - support for cartesian and geographic coordinates
-    //    - by default export in geographic coordinates (lon, lat, alt)
-    //    - flag while export, whether cartesian coordiantes shall be included (in properties field)
-    // - if cartesian coordinates are included, the reference frame must be included as well (in properties field top level meta data)
-    // read in?
-    (*
-        {
-           "type": "FeatureCollection",
-           "features": [{
-	           "type": "Feature",
-	           "geometry": {
-		           "type": "Point",
-		           "coordinates": [102.0, 0.5],
-                   "properties": {
-                        "cartesianCoordinates": [x, y, z]
-                    }
-	           },
-	           "properties": {
-		           "referenceFrame": "IAU_MARS" // only if cartesian coordinates are included
-	           }
-             }]
-        }
-    
-    *)
-
-
-    type CoordinateConfiguration =
-        | CartesianOnly of targetReferenceFrame : string
-        | GeographicOnly
-        | Both of targetReferenceFrame : string
-
-    type LatLonAlt = V3d
-    type Cartesian = V3d
-    type ReferenceFrame = string
-    type Body = string
-    
-
-    let toJsonString (configuration : CoordinateConfiguration) 
-                     (toLatLonAlt :   Body -> ReferenceFrame ->  V3d -> Option<LatLonAlt>) // deal with case transformation does not work
-                     (a : Annotations) : string = 
-        failwith ""
-
-    let annotations = 
-        { Annotation.initial with geometry = Geometry.Point; points = IndexList.ofList [V3d(1.0,10.0,10.0)] }
-
 
 module Tests =
 
     open System
     open System.IO
 
-    open System.Text.Json.Nodes
-
     open Expecto
 
     open PRo3D.Extensions
     open PRo3D.Extensions.FSharp
+    open PRo3D.Core.Drawing
 
     open Chiron
 
@@ -81,13 +31,7 @@ module Tests =
 
     let readJson (fileName: string) =
         let fullPath = Path.Combine(__SOURCE_DIRECTORY__, "Annotations", fileName)
-        let jsonString = File.ReadAllText(fullPath)
-        let annotationsJson : string = JsonNode.Parse(jsonString).ToJsonString()
-        let (annotations : Annotations) = 
-            annotationsJson
-            |> Json.parse 
-            |> Json.deserialize   
-        annotations
+        DrawingUtilities.IO.loadAnnotationsFromFile fullPath
 
     let latLonAlt2Xyz (body : string) (lat : float) (lon : float) (alt : float) =
         let mutable x, y, z = 0.0, 0.0, 0.0
@@ -132,16 +76,7 @@ module Tests =
             test "SerializeIncome" {
                 let annotations = readJson("annotation_3.ann")
                 let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
-                let parsedAnnotation = GeoJsonQGIS.encoder true "Mars" isSelected flattedAnnotations
+                let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.Both "Mars") isSelected flattedAnnotations
                 Expect.isNotEmpty parsedAnnotation "could not serialize annotations"
             }
-
-            (*
-            test "SerializeMarsEllipses" {
-                let annotationPath = Path.combine [__SOURCE_DIRECTORY__; "data"; "mola-annotations.pro3d.ann"]
-                let annotations = DrawingUtilities.IO.loadAnnotationsFromFile annotationPath
-                let t = GeoJsonImportExport.toJsonString (Both "IAU_MARS") xyz2LatLonAlt annotations
-                Expect.isNotEmpty t "could not serialize annotations"
-            }
-            *)
         ]
