@@ -115,13 +115,6 @@ module GeoJSONExport =
         |> Json.serialize
         |> Json.formatWith JsonFormattingOptions.Pretty
 
-    let toGeoJsonQGISString 
-        (cooConfig : GeoJsonQGIS.CoordinateConfiguration)
-        (isSelected  : Annotation -> bool)
-        (annotations : list<Annotation>) 
-        : string = 
-        GeoJsonQGIS.encoder cooConfig isSelected annotations
-
     let writeGeoJSON 
         (planet      : option<Planet>) 
         (path        : string) 
@@ -145,7 +138,7 @@ module GeoJSONExport =
         if path.IsEmpty() then 
             ()
         else
-            toGeoJsonQGISString cooConfig isSelected annotations
+            GeoJsonQGIS.encoder cooConfig isSelected annotations
             |> Serialization.writeToFile path
                  
 
