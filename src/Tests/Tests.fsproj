@@ -15,6 +15,9 @@
 	</PropertyGroup>
   <ItemGroup>
     <None Include="Annotations\annotation_1.ann" />
+	<None Include="Annotations\annotation_1_latlon.json" />
+	<None Include="Annotations\annotation_1_xyz.json" />
+	<None Include="Annotations\annotation_1_xyz_latlon.json" />
     <Compile Include="GeoJsonExportTest.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="QueriesDSL.fs" />

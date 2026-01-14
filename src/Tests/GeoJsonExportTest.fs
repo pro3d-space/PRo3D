@@ -73,10 +73,27 @@ module Tests =
                 Expect.isSome latlon "could not get lat lon"
             }
 
-            test "SerializeIncome" {
-                let annotations = readJson("annotation_3.ann")
+            test "SerializeIncome Both" {
+                let annotations = readJson("annotation_1.ann")
+                let groundTruth = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "Annotations", "annotation_1_xyz_latlon.json"))
                 let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
                 let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.Both "Mars") isSelected flattedAnnotations
-                Expect.isNotEmpty parsedAnnotation "could not serialize annotations"
+                Expect.equal parsedAnnotation groundTruth "could not serialize annotations"
+            }
+
+            test "SerializeIncome Cartesian" {
+                let annotations = readJson("annotation_1.ann")
+                let groundTruth = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "Annotations", "annotation_1_xyz.json"))
+                let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
+                let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.CartesianOnly) isSelected flattedAnnotations
+                Expect.equal parsedAnnotation groundTruth "could not serialize annotations"
+            }
+
+            test "SerializeIncome Geographic" {
+                let annotations = readJson("annotation_1.ann")
+                let groundTruth = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "Annotations", "annotation_1_latlon.json"))
+                let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
+                let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.GeographicOnly "Mars") isSelected flattedAnnotations
+                Expect.equal parsedAnnotation groundTruth "could not serialize annotations"
             }
         ]
