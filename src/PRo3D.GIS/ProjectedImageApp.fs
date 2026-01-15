@@ -17,6 +17,9 @@ open PRo3D.InstrumentProjection
 open PRo3D.InstrumentVisualization
 open PRo3D.Core
 open PRo3D.SPICE
+open PRo3D.FalseColorLegendApp.Draw
+open PRo3D.Base.FalseColorsModel
+open PRo3D.Base
 
 
 module Shaders = 
@@ -80,17 +83,16 @@ module ProjectedImageApp =
 
     let initial = { 
         colorMap = ColorMap.Magma;
-        useFalseColor = true;
         selectedChannel = { idx = 0; name = None }
         channelOptions = [];
         dataType = DataType.UInt16;
         defaultMinValues = [numericInput.value];
         defaultMaxValues = [numericInput.value];
-        inputMinValue = numericInput;
-        inputMaxValue = numericInput;
         texture = initialPath;
         distance = 0;
         time = new DateTime();
+        falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (InstrumentImageVisualization.getResourceStream (ColorMap.getColorMapFileName ColorMap.Magma) ())
+        falseColorPreview = false
     }
 
     let loadFile (texturePath : string) =
@@ -148,39 +150,65 @@ module ProjectedImageApp =
             | Some mbi -> mbi.obs_date
             | None -> System.DateTime.MinValue // which default time?
 
-        { initial with
-            texture = Path.GetFullPath(texturePath);
-            defaultMinValues = defaultMinValues;
-            defaultMaxValues = defaultMaxValues;
-            inputMinValue = inputMinValue;
-            inputMaxValue = inputMaxValue;
-            selectedChannel = channelOptions[selectedChannelIdx];
-            channelOptions = channelOptions;
-            dataType = dataType;
-            distance = distance;
-            time = time;
+
+
+        let falseColorModel = {
+            projectedImageLegend (Range1d(inputMinValue.value, inputMaxValue.value)) (InstrumentImageVisualization.getResourceStream(ColorMap.getColorMapFileName initial.colorMap)()) with
+                lowerBound = inputMinValue;
+                upperBound = inputMaxValue;
+                //interval   = 
+            }
+
+        { 
+            initial with
+                texture          = Path.GetFullPath(texturePath);
+                defaultMinValues = defaultMinValues;
+                defaultMaxValues = defaultMaxValues;
+                selectedChannel  = channelOptions[selectedChannelIdx];
+                channelOptions   = channelOptions;
+                dataType         = dataType;
+                distance         = distance;
+                time             = time;
+                falseColorModel  = falseColorModel
         }
 
 
     let update (m : ProjectedImageModel) (msg : ImageMessage) =
         match msg with
             | SetCustomMin v -> 
-                { m with inputMinValue = {m.inputMinValue with value = v} }
+                let falseColorModel = { m.falseColorModel with lowerBound = { m.falseColorModel.lowerBound with value = v}}
+                { m with falseColorModel = falseColorModel}
             | SetCustomMax v -> 
-                { m with inputMaxValue = {m.inputMaxValue with value = v} }
+                let falseColorModel = { m.falseColorModel with upperBound = { m.falseColorModel.upperBound with value = v}}
+                { m with falseColorModel = falseColorModel }
             | ResetCustomMinMax ->
-                { m with inputMinValue = {m.inputMinValue with value = m.defaultMinValues[m.selectedChannel.idx]}; inputMaxValue = {m.inputMaxValue with value = m.defaultMaxValues[m.selectedChannel.idx]} }
+                let falseColorModel = { 
+                    m.falseColorModel with 
+                        lowerBound = { m.falseColorModel.lowerBound with value = m.defaultMinValues[m.selectedChannel.idx]}
+                        upperBound = { m.falseColorModel.upperBound with value = m.defaultMaxValues[m.selectedChannel.idx]}
+                }
+                { m with falseColorModel = falseColorModel }
             | SetColorMap (map : ColorMap) ->
-                { m with colorMap = map }
+                m.falseColorModel.imageFileStream |> Option.map(fun s -> s.Close()) |> ignore
+
+                let falseColorModel = { m.falseColorModel with imageFileStream = Some(InstrumentImageVisualization.getResourceStream(ColorMap.getColorMapFileName map) ()) }
+                
+                { m with colorMap = map; falseColorModel = falseColorModel }
             | SetEXRChannel channel ->
                 let (min, max) = (m.defaultMinValues[channel.idx], m.defaultMaxValues[channel.idx])
-                { m with 
-                    inputMinValue = {m.inputMinValue with value = min};
-                    inputMaxValue = {m.inputMaxValue with value = max};
-                    selectedChannel = channel
+
+                let falseColorModel = { 
+                    m.falseColorModel with 
+                        lowerBound = { m.falseColorModel.lowerBound with value = min }
+                        upperBound = { m.falseColorModel.upperBound with value = max }
                 }
+
+                { m with falseColorModel = falseColorModel }
             | ToggleFalseColor ->
-                { m with useFalseColor = not m.useFalseColor }
+                { m with falseColorPreview = (not m.falseColorPreview) }
+            | ToggleFalseColorLegend -> 
+                { m with falseColorModel = { m.falseColorModel with useFalseColors = not m.falseColorModel.useFalseColors } }
+
             | ImageMessage.Empty ->
                 m
 
@@ -207,15 +235,19 @@ module ProjectedImageApp =
                     ]
                 ]
                 Html.row "False Color:" [
+                    text "Show color legend:" 
+                    GuiEx.iconCheckBox m.falseColorModel.useFalseColors ToggleFalseColorLegend
+                    br[]
                     text "Activate: " 
-                    Html.SemUi.toggleBox m.useFalseColor ToggleFalseColor
+                    GuiEx.iconCheckBox m.falseColorPreview ToggleFalseColor
                     br []
-                    Html.SemUi.dropDown m.colorMap SetColorMap
+                    Html.SemUi.dropDown m.colorMap SetColorMap                    
                 ]
+
                 Html.row "Minimum:" [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMinValue.value) SetCustomMin
+                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.falseColorModel.lowerBound.value) SetCustomMin
                     br []
-                    Numeric.view' [Slider] m.inputMinValue
+                    Numeric.view' [Slider] m.falseColorModel.lowerBound
                     |> UI.map (fun action -> 
                         match action with
                         | Numeric.Action.SetValue v ->
@@ -225,10 +257,10 @@ module ProjectedImageApp =
                         )
                     ]
                 Html.row "Maximum:"  [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMaxValue.value) SetCustomMax
+                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.falseColorModel.upperBound.value) SetCustomMax
                     br []
                     div [style "width: 100%"] [
-                        Numeric.numericField' m.inputMaxValue Slider
+                        Numeric.numericField' m.falseColorModel.upperBound Slider
                         |> UI.map (fun action -> 
                             match action with
                             | Numeric.Action.SetValue v ->
@@ -295,9 +327,9 @@ module ProjectedImageApp =
                 ) 
             )
 
-        let min = img |> extract (AVal.constant 0.0) (fun m -> m.inputMinValue.value |> AVal.map (fun v -> float v))
-        let max = img |> extract (AVal.constant 1.0) (fun m -> m.inputMaxValue.value |> AVal.map (fun v -> float v))
-        let falseColor = img |> extract (AVal.constant false) (fun m -> m.useFalseColor)
+        let min = img |> extract (AVal.constant 0.0) (fun m -> m.falseColorModel.lowerBound.value |> AVal.map (fun v -> float v))
+        let max = img |> extract (AVal.constant 1.0) (fun m -> m.falseColorModel.upperBound.value |> AVal.map (fun v -> float v))
+        let falseColor = img |> extract (AVal.constant false) (fun m -> m.falseColorPreview |> AVal.map (fun f -> not f))
         let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
 
         Sg.fullScreenQuad
@@ -324,4 +356,8 @@ module ProjectedImageApp =
                 let style = [style "position: relative; width: 200px; height: 100%; padding: 2px; display: block; min-width: 0;"; attribute "showLoader" "false"]
                 renderControl (AVal.constant (Camera.create cameraView frustum')) style instrumentVisualization
             ]
-        )
+        )        
+    
+        
+        
+        

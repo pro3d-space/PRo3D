@@ -446,7 +446,7 @@ module Sg =
                     r :> IAdaptiveValue
             ]
 
-        let allUniforms = Map.unionMany [projectedImages; projectedImages; ]
+        let allUniforms = Map.unionMany [Map.empty; projectedImages; ]
 
         // create level of detail hierarchy (Sg)
         let g = 

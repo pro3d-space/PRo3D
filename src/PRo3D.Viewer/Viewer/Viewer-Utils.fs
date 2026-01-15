@@ -143,9 +143,9 @@ module ViewerUtils =
                         )
 
         let upperC = 
-          scalar 
+            scalar 
             |> AVal.bind (fun x ->
-               match x with 
+                 match x with 
                  | AdaptiveSome s -> 
                    s.colorLegend.upperColor.c 
                      |> AVal.map(fun x -> 
@@ -156,9 +156,9 @@ module ViewerUtils =
                  | AdaptiveNone -> AVal.constant(1.0)
                )
         let lowerC = 
-          scalar 
+            scalar 
             |> AVal.bind ( fun x ->
-              match x with 
+                match x with 
                 | AdaptiveSome s -> 
                   s.colorLegend.lowerColor.c 
                     |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H))
@@ -166,22 +166,22 @@ module ViewerUtils =
               )
 
         let rangeToMinMax = 
-          scalar 
+            scalar 
             |> AVal.bind (fun x ->
-              match x with 
-                  | AdaptiveSome s -> s.definedRange |> AVal.map(fun y -> V2d(y.Min, y.Max))
-                  | AdaptiveNone   -> AVal.constant(V2d(0.0,1.0))
+                match x with 
+                | AdaptiveSome s -> s.definedRange |> AVal.map(fun y -> V2d(y.Min, y.Max))
+                | AdaptiveNone   -> AVal.constant(V2d(0.0,1.0))
               )
         isg
-            |> Sg.uniform "falseColors"    selectedScalar
-            |> Sg.uniform "startC"         lowerC  
-            |> Sg.uniform "endC"           upperC
-            |> Sg.uniform "interval"       interval
-            |> Sg.uniform "inverted"       inverted
-            |> Sg.uniform "lowerBound"     lowerB
-            |> Sg.uniform "upperBound"     upperB
-            |> Sg.uniform "MinMax"         rangeToMinMax
-            |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
+        |> Sg.uniform "falseColors"    selectedScalar
+        |> Sg.uniform "startC"         lowerC  
+        |> Sg.uniform "endC"           upperC
+        |> Sg.uniform "interval"       interval
+        |> Sg.uniform "inverted"       inverted
+        |> Sg.uniform "lowerBound"     lowerB
+        |> Sg.uniform "upperBound"     upperB
+        |> Sg.uniform "MinMax"         rangeToMinMax
+        |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
     let addDepthMappingParameters (fp : AdaptiveFootPrint)   (isg:ISg<'a>) =
         isg 
@@ -882,7 +882,7 @@ module ViewerUtils =
             //PRo3D.Base.Shader.differentColor   |> toEffect
                         
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
-            //PRo3D.Base.Shader.falseColorLegend2 |> toEffect
+            //PRo3D.Base.Shader.falseColorsScalars |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 

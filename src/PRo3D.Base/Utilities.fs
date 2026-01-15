@@ -477,7 +477,7 @@ module Shader =
                 (startColor + (hStepSize * ((float32)(pos1))))
         currColorH
 
-    let falseColorLegend2 (v : AttrVertex) =
+    let falseColorsScalars (v : AttrVertex) =
         fragment {    
     
             if (uniform?falseColors) 

@@ -133,7 +133,7 @@ type GisApp =
         spiceKernel            : Option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
         cameraInObserver       : bool
-        projectedImageList        : ProjectedImageListModel
+        projectedImageList     : ProjectedImageListModel
         showMarkers            : bool // whether line + text markers are displayed (for known planets)
 
         selectedMissionTimeRow : Option<Index>
