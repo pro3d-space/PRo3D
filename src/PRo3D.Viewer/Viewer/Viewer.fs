@@ -402,15 +402,15 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
-    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) = 
+    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (inverseFlag : bool) = 
         match k with
         | Aardvark.Application.Keys.Enter    -> DrawingAction.Finish
         | Aardvark.Application.Keys.Back     -> DrawingAction.RemoveLastPoint
         | Aardvark.Application.Keys.Escape   -> DrawingAction.ClearWorking
         | Keyboard.Modifier ->
             match interaction with 
-            | Interactions.DrawAnnotation -> DrawingAction.StartDrawing
-            | Interactions.PickAnnotation -> DrawingAction.StartPicking
+            | Interactions.DrawAnnotation -> (if inverseFlag then DrawingAction.StopDrawing else DrawingAction.StartDrawing)
+            | Interactions.PickAnnotation -> (if inverseFlag then DrawingAction.StopPicking else DrawingAction.StartPicking)
             | _ -> DrawingAction.Nop
         //| Aardvark.Application.Keys.LeftShift -> 
         //    match m.interaction with                     
@@ -1386,11 +1386,11 @@ module ViewerApp =
                 match m.interaction with
                 | Interactions.DrawAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.StopDrawing
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.inverseFlag then DrawingAction.StartDrawing else DrawingAction.StopDrawing)
                     { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
                 | Interactions.PickAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.StopPicking 
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.inverseFlag then DrawingAction.StartPicking else DrawingAction.StopPicking) 
                     { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
                 //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
                 |_-> { m with ctrlFlag = false; picking = m.inverseFlag }
@@ -2005,7 +2005,7 @@ module ViewerApp =
                 //attribute "showFPS" "true"        
                 //attribute "data-renderalways" "true"
                 Aardvark.UI.Events.onKeyDown' (fun k -> 
-                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
+                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k (m.inverseFlag |> AVal.force)
                     [KeyDown k; DrawingMessage drawingAction]
                 )
                 onKeyUp   (KeyUp)        
