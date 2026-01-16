@@ -12,6 +12,7 @@ open Aardvark.Rendering
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Navigation2
+open OverViewCameraController
 
 module Navigation =
     
@@ -19,10 +20,11 @@ module Navigation =
 
 
     type Action =
-        | ArcBallAction         of ArcBallController.Message
-        //| FreeFlyAction         of CameraController.Message
-        | FreeFlyAction         of FreeFlyController.Message
-        | SetNavigationMode     of NavigationMode
+        | ArcBallAction            of ArcBallController.Message        
+        //| FreeFlyAction            of CameraController.Message
+        | FreeFlyAction            of FreeFlyController.Message
+        | OverViewControllerAction of OverViewController.Message
+        | SetNavigationMode        of NavigationMode
 
     type smallConfig<'a,'b> = 
         {

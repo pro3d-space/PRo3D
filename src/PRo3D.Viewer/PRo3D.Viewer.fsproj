@@ -52,6 +52,7 @@
 	<Compile Include="Models\Model.g.fs" />
     <Compile Include="Models\Lenses.fs" />
     <Compile Include="Utilities.fs" />
+    <Compile Include="OverViewCameraController.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Navigation.fs" />  
     <Compile Include="ViewconfigApp.fs" />
