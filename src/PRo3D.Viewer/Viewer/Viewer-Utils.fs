@@ -859,7 +859,6 @@ module ViewerUtils =
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
             PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
-
            
             
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders

@@ -550,7 +550,7 @@ module ViewerApp =
                     let animationMessage = 
                         CameraAnimations.animateForwardAndLocation a.view.Location a.view.Forward a.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
-                    { m with  animations = a'}
+                    { m with animations = a'}              
                 | None -> m
             | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && m.ctrlFlag ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with

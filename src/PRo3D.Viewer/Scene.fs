@@ -340,11 +340,17 @@ module SceneLoader =
         let cam' = { cam with view = view' }
         Optic.set _camera cam' m
 
+        
+    let updateGisApp (m : Model) = 
+        let gisApp = PRo3D.Core.Gis.GisApp.loadSpiceKernelForced m.scene.gisApp
+        { m with scene = { m.scene with gisApp = gisApp }}
+
 
     let private applyScene (scene : Scene) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature)=
         let m = 
             m 
             |> Model.withScene scene
+            |> updateGisApp
             |> resetControllerState
             |> updateNavigation
 
