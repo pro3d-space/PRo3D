@@ -952,7 +952,7 @@ module ViewerUtils =
                             surfaces 
                             m.frustum 
                             selected 
-                            m.ctrlFlag 
+                            (AVal.map2 (&&) m.ctrlFlag m.inverseFlag)
                             m.scene.config.showPreviewIntersection
                             sf.globalBB 
                             refSystem 

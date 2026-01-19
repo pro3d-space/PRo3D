@@ -30,7 +30,7 @@ module Navigation =
             up                    : Lens<'b, V3d>
         }
 
-    let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) =
+    let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) (ctrlFlag : bool) =
         match act with            
         | ArcBallAction a -> 
             let model =
@@ -38,8 +38,16 @@ module Navigation =
                 | ArcBallController.Message.Pick a when switchToArcball->
                     { model with navigationMode =  NavigationMode.ArcBall; exploreCenter = a }
                 | _ ->  { model with navigationMode =  NavigationMode.ArcBall } //model
-            
-            let cam = ArcBallController.update model.camera a
+            let (msg : ArcBallController.Message) =
+                match a with
+                | ArcBallController.Message.Down (button, pos) -> 
+                    let mb = if (ctrlFlag && button = MouseButtons.Right) then MouseButtons.Left else button
+                    ArcBallController.Message.Down (mb, pos)
+                | ArcBallController.Message.Up button -> 
+                    let mb = if (ctrlFlag && button = MouseButtons.Right) then MouseButtons.Left else button
+                    ArcBallController.Message.Up mb
+                | _ -> a
+            let cam = ArcBallController.update model.camera msg
             let cam = { cam with sensitivity = smallConfig.navigationSensitivity.Get(bigConfigA); orbitCenter = Some model.exploreCenter } 
             match cam.orbitCenter with
             | Some oc -> { model with camera = cam; exploreCenter = oc}
