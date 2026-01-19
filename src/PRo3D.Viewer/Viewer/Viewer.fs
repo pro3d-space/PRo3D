@@ -282,7 +282,7 @@ module ViewerApp =
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
             let navigation' = 
-                Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p))
+                Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) m.ctrlFlag
             { m with navigation = navigation' }
         | Interactions.PlaceRover, ViewerMode.Standard ->
             let ref = m.scene.referenceSystem 
@@ -483,7 +483,7 @@ module ViewerApp =
             let pickingFunction () = 
                 V3d(0.0, 0.0, 0.0) |> pickRayNdc
 
-            let nav = Navigation.update c ref navConf true (Some pickingFunction) m.navigation msg               
+            let nav = Navigation.update c ref navConf true (Some pickingFunction) m.navigation msg m.ctrlFlag               
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
@@ -515,8 +515,11 @@ module ViewerApp =
             Log.warn "[Viewer] SetCameraAndFrustum not implemented!"
             m
         | SetCameraAndFrustum2 (cv,frustum),_ ->
-            let m = Optic.set _view cv m
-            { m with frustum = frustum }
+            match m.ctrlFlag with
+            | true -> m
+            | false ->
+                let m = Optic.set _view cv m
+                { m with frustum = frustum }
         | SetFrustum frustum,_ -> 
             Log.line "[Viewer] Setting Frustum %s" (string frustum)
             let frustumModel = 
@@ -1305,7 +1308,7 @@ module ViewerApp =
                     let c   = m.scene.config
                     let ref = m.scene.referenceSystem
                     let navigation' = 
-                        Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero))
+                        Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) m.ctrlFlag
                     { m with navigation = navigation' }       
                     
                 | _ -> m
