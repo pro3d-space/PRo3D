@@ -46,7 +46,12 @@ module Navigation =
         | None -> 
             Log.warn "could not get new orbit center, please center view to surface"
 
-            { model with navigationMode = NavigationMode.FreeFly }, Some "could not pick new orbit center with center ray.\n Please center view to surface before changing to ArcBall or select explore center manually"
+            let oldNavMode = 
+                if model.navigationMode = NavigationMode.ArcBall then NavigationMode.FreeFly
+                else model.navigationMode
+                    
+
+            { model with navigationMode = oldNavMode }, Some "could not pick new orbit center with center ray.\n Please center view to surface before changing to ArcBall or select explore center manually"
         | Some p -> 
             Log.line "new orbit implicitly set to center ray"
             { model with exploreCenter = p; navigationMode = NavigationMode.ArcBall }, Some("New orbit set with center ray")
@@ -85,6 +90,11 @@ module Navigation =
             { 
               model with camera = { cam' with freeFlyConfig = config }
             }, None
+        | OverViewControllerAction a -> 
+            let cam = OverViewController.update model.camera a
+            
+            { model with camera = cam }, None
+
         | SetNavigationMode mode ->
             match mode with
             | NavigationMode.ArcBall -> 
@@ -99,6 +109,8 @@ module Navigation =
                     CameraView.lookAt model.camera.view.Location center (smallConfig.up.Get(bigConfigB))
                 
                 { model with camera = { model.camera with view = view'}; navigationMode = mode}, None
+            | NavigationMode.OverView ->
+                { model with exploreCenter = V3d.OOO; navigationMode = NavigationMode.OverView }, None
             | _ ->  { model with navigationMode = mode }, None
                
     module UI =        
@@ -122,6 +134,7 @@ module Navigation =
                 match state with
                 | NavigationMode.FreeFly -> yield! FreeFlyController.extractAttributes model.camera FreeFlyAction
                 | NavigationMode.ArcBall -> yield! ArcBallController.extractAttributes model.camera ArcBallAction
+                | NavigationMode.OverView -> yield! OverViewController.extractAttributes model.camera OverViewControllerAction
                 | _ -> failwith "Invalid NavigationMode"
             } |> AttributeMap.ofAMap
 

@@ -52,6 +52,7 @@ open Chiron
 open PRo3D.Core.Surface
 open Aardvark.UI.Animation.Deprecated
 open PRo3D.SimulatedViews.SnapshotApp
+open OverViewCameraController
 
 type UserFeedback<'a> = {
     id      : string
@@ -1310,8 +1311,7 @@ module ViewerApp =
                     let ref = m.scene.referenceSystem
                     let navigation', _ = 
                         Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero))
-                    { m with navigation = navigation' }       
-                    
+                    { m with navigation = navigation' }
                 | _ -> m
           
 
@@ -1993,6 +1993,8 @@ module ViewerApp =
                     yield! FreeFlyController.extractAttributes model.camera Navigation.Action.FreeFlyAction
                 | NavigationMode.ArcBall ->                         
                     yield! ArcBallController.extractAttributes model.camera Navigation.Action.ArcBallAction
+                | NavigationMode.OverView -> 
+                    yield! OverViewController.extractAttributes model.camera Navigation.Action.OverViewControllerAction
                 | _ -> 
                     failwith "Invalid NavigationMode"
             } 
@@ -2391,6 +2393,9 @@ module ViewerApp =
             | NavigationMode.ArcBall ->
                 ArcBallController.threads m.navigation.camera
                 |> ThreadPool.map Navigation.ArcBallAction |> ThreadPool.map NavigationMessage
+            | NavigationMode.OverView ->
+                OverViewController.threads m.navigation.camera
+                |> ThreadPool.map Navigation.OverViewControllerAction |> ThreadPool.map NavigationMessage
             | _ -> failwith "invalid nav mode"
          
       //  let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
