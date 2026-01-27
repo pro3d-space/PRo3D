@@ -9,6 +9,7 @@ open Aardvark.Application
 open Aardvark.UI
 
 open Aardvark.UI.Primitives
+open PRo3D.Core
 
 module OverViewController =
     open FSharp.Data.Adaptive.Operators
@@ -72,46 +73,97 @@ module OverViewController =
     let exp x =
         let v = Math.Pow(Math.E, x)        
         v
+
+    let setCameraViewCenter (north : V3d) (view : CameraView) = 
+        let p = V3d.OOO
+        CameraView.lookAt view.Location p north
+
+
+    let switchToOverViewController (north : V3d) (model : CameraControllerState)  = 
+        { model with view = setCameraViewCenter north model.view; orbitCenter = Some(V3d.OOO) }
+
    
     let update (model : CameraControllerState) (message : Message) =
         match message with
             | Nop -> model
             | Blur ->
-                { initial with view = model.view; lastTime = None; orbitCenter = model.orbitCenter }
+                { initial with view = model.view; lastTime = None; orbitCenter = model.orbitCenter; rotationFactor = model.rotationFactor }
             | Pick p -> 
                 let cam = model.view
-                let newForward = p - cam.Location |> Vec.normalize
-                let tempCam = cam.WithForward newForward
+                //let newForward = p - cam.Location |> Vec.normalize
+                //let tempCam = cam.WithForward newForward
+
+                let p = V3d.OOO
                                 
-                { model with orbitCenter = Some p; view = CameraView.lookAt cam.Location p cam.Up }
+                { model with orbitCenter = Some p; view = CameraView.lookAt cam.Location p cam.Up}
             | StepTime ->
               let now = sw.Elapsed.TotalSeconds
               let cam = model.view
 
               let cam, center = 
-                match model.lastTime with
+                  match model.lastTime with
                   | Some last ->
                       let dt = now - last
 
-                      let dir = 
-                          cam.Forward * float model.moveVec.Z +
-                          cam.Right * float model.moveVec.X +
-                          cam.Sky * float model.moveVec.Y
+                      //let dir = 
+                      //    cam.Forward * float model.moveVec.Z +
+                      //    cam.Right * float model.moveVec.X +
+                      //    cam.Sky * float model.moveVec.Y
 
-                      if model.moveVec.AllTiny then
-                          printfn "useless time %A" now
 
-                      let step = dir * (exp model.sensitivity) * dt                      
-                      let loc' = cam.Location + step
-                      let direction = (Vec.Dot(model.orbitCenter.Value - loc', cam.Forward)).Sign()
+                      //if model.moveVec.AllTiny then
+                      //    printfn "useless time %A" now
 
-                      if (model.left || model.right) then 
-                        cam.WithLocation(loc'), (model.orbitCenter.Value + step) |> Some
-                      else if (model.forward || model.backward || model.isWheel) && direction > 0 then      
-                        cam.WithLocation(loc'), model.orbitCenter
+                      //let step = dir * (exp model.sensitivity) * dt                      
+                      //let loc' = cam.Location + step
+                      //let direction = (Vec.Dot(model.orbitCenter.Value - loc', cam.Forward)).Sign()
+
+                      //if (model.left || model.right) then 
+                      //    cam.WithLocation(loc'), (model.orbitCenter.Value + step) |> Some
+                      //else if (model.forward || model.backward || model.isWheel) && direction > 0 then      
+                      //    cam.WithLocation(loc'), model.orbitCenter
+                      //else
+                      //    cam, model.orbitCenter
+                      
+                      if model.isWheel then
+                          let step = model.moveVec.Z * cam.Forward * (exp model.sensitivity) * dt                      
+                          let loc' = cam.Location + step
+                          cam.WithLocation(loc'), model.orbitCenter
+                      else if model.orbitCenter.IsSome then
+                          let distanceToCenter = Vec.distance model.view.Location V3d.OOO
+                          let sensitivity = 10.0 * model.sensitivity * (model.rotationFactor / distanceToCenter)
+
+                          let rot = 
+                              if model.right then
+                                  M44d.Rotation(cam.Up, 0.01 * sensitivity * dt)
+                              else if model.left then
+                                  M44d.Rotation(cam.Up, - 0.01 * sensitivity * dt)
+                              else if model.forward then 
+                                  M44d.Rotation(cam.Left, 0.01 * sensitivity * dt)
+                              else if model.backward then
+                                  M44d.Rotation(cam.Left, -0.01 * sensitivity * dt)
+                              else
+                                  M44d.Identity
+
+                          let trafo = 
+                              M44d.Translation (model.orbitCenter.Value) * 
+                              rot *
+                              M44d.Translation (-model.orbitCenter.Value)
+                          
+                          let newLocation = trafo.TransformPos (cam.Location)
+                          
+                          let newUp = trafo.TransformDir (cam.Up)
+                          let newRight = trafo.TransformDir (cam.Right)
+                          
+                          //let tempcam = cam.WithLocation newLocation
+                          
+                          // make cam with up vector
+                          
+                          //tempcam.WithForward newForward
+                          let newForward = model.orbitCenter.Value - newLocation |> Vec.normalize
+                          CameraView(cam.Sky, newLocation, newForward, newUp, newRight), model.orbitCenter
                       else
-                        cam, model.orbitCenter
-
+                          cam, model.orbitCenter
                   | None -> 
                       cam, model.orbitCenter
 
@@ -194,13 +246,16 @@ module OverViewController =
                 let cam = model.view
                 let delta = pos - model.dragStart
 
+                let distanceToCenter = Vec.distance model.view.Location V3d.OOO
+                let sensitivity = -0.01 * model.sensitivity * (model.rotationFactor / distanceToCenter)
+
                 //orientation
                 let cam =
                     if model.look && model.orbitCenter.IsSome then
                         let trafo = 
                             M44d.Translation (model.orbitCenter.Value) *
-                            M44d.Rotation (cam.Right, float delta.Y * -0.01 ) * 
-                            M44d.Rotation (cam.Up, float delta.X * -0.01 ) *
+                            M44d.Rotation (cam.Right, float delta.Y * sensitivity) * 
+                            M44d.Rotation (cam.Up, float delta.X * sensitivity ) *
                             M44d.Translation (-model.orbitCenter.Value)
                      
                         let newLocation = trafo.TransformPos (cam.Location)

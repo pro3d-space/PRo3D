@@ -13,6 +13,7 @@ open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Navigation2
 open OverViewCameraController
+open OverViewCameraController.OverViewController
 
 module Navigation =
     
@@ -30,6 +31,7 @@ module Navigation =
         {
             navigationSensitivity : Lens<'a, float>
             up                    : Lens<'b, V3d>
+            north                 : Lens<'b, V3d>
         }
 
     let pickOrbitCenter (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) = 
@@ -55,6 +57,35 @@ module Navigation =
         | Some p -> 
             Log.line "new orbit implicitly set to center ray"
             { model with exploreCenter = p; navigationMode = NavigationMode.ArcBall }, Some("New orbit set with center ray")
+
+    //find and distance to the next Surface in the center of the camera - save it in rotationFactor (only used in a LegacyCameraController)
+    let findDistancetoSurface (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) = 
+        let centerPoint = 
+            match pickFunction with
+            | None -> None
+            | Some f -> 
+                Log.startTimed "pick Point on Surface to calculate Distance"
+                let point = f()
+                Log.stop()
+                point
+
+        match centerPoint with
+        | None -> 
+            Log.warn "could not find Point on Surface to get Distance, please center view to surface"
+
+            let oldNavMode = 
+                if model.navigationMode = NavigationMode.OverView then NavigationMode.FreeFly
+                else model.navigationMode                    
+
+            { model with navigationMode = oldNavMode }, Some "could not find Distance to Surface center with center ray.\n Please center view to surface before changing to OverViewCamera"
+        | Some p -> 
+            Log.line "Distance to Surface found"
+
+            let distance = Vec.Distance(p, model.camera.view.Location)
+
+            let cam = { model.camera with rotationFactor = distance }
+
+            { model with camera = cam; navigationMode = NavigationMode.OverView }, Some("Distance to Surface set with center ray")
 
     let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) =
         match act with            
@@ -91,8 +122,16 @@ module Navigation =
               model with camera = { cam' with freeFlyConfig = config }
             }, None
         | OverViewControllerAction a -> 
-            let cam = OverViewController.update model.camera a
+            let view = 
+                model.camera.view 
+                |> CameraView.withUp (smallConfig.north.Get(bigConfigB))
+                |> setCameraViewCenter (smallConfig.up.Get(bigConfigB))
             
+            let cam = 
+                { model.camera with view = view; sensitivity = smallConfig.navigationSensitivity.Get(bigConfigA); orbitCenter = Some model.exploreCenter}
+                
+            let cam = OverViewController.update cam a
+                        
             { model with camera = cam }, None
 
         | SetNavigationMode mode ->
@@ -109,8 +148,12 @@ module Navigation =
                     CameraView.lookAt model.camera.view.Location center (smallConfig.up.Get(bigConfigB))
                 
                 { model with camera = { model.camera with view = view'}; navigationMode = mode}, None
-            | NavigationMode.OverView ->
-                { model with exploreCenter = V3d.OOO; navigationMode = NavigationMode.OverView }, None
+            | NavigationMode.OverView ->                
+                let cam = model.camera |> switchToOverViewController (smallConfig.north.Get(bigConfigB))
+                
+                let model = { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.OverView }
+
+                findDistancetoSurface pickFunction model                
             | _ ->  { model with navigationMode = mode }, None
                
     module UI =        

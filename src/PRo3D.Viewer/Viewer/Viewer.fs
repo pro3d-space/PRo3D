@@ -156,6 +156,7 @@ module ViewerApp =
         {
             navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
+            north                 = ReferenceSystem.north_ >-> V3dInput.value_ |> Aether.toBase
         }    
     
     let mutable cache = HashMap.Empty
