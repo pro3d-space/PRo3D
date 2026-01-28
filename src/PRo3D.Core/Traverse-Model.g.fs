@@ -1,5 +1,5 @@
-//89d392ae-36bd-a5b1-961d-8aa759096e16
-//a72739d7-0c27-cc36-4689-a3f0d8b9df9c
+//ce267fa6-1d94-91e0-79d6-0a5c2a754302
+//96621443-ecb8-8020-1938-4ddc136b0022
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -53,11 +53,7 @@ type AdaptiveRimfaxSurfaceMetrics(value : RimfaxSurfaceMetrics) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _rimfaxImageModeOptions_ = FSharp.Data.Adaptive.cval(value.rimfaxImageModeOptions)
     let _rimfaxImageMode_ = FSharp.Data.Adaptive.cval(value.rimfaxImageMode)
-    let _rimfaxSurfaces_ =
-        let inline __arg2 (m : PRo3D.Core.Surface.AdaptiveSgSurface) (v : PRo3D.Core.Surface.SgSurface) =
-            m.Update(v)
-            m
-        FSharp.Data.Traceable.ChangeableModelMap(value.rimfaxSurfaces, (fun (v : PRo3D.Core.Surface.SgSurface) -> PRo3D.Core.Surface.AdaptiveSgSurface(v)), __arg2, (fun (m : PRo3D.Core.Surface.AdaptiveSgSurface) -> m))
+    let _rimfaxSurfaces_ = AdaptiveSurfaceModel(value.rimfaxSurfaces)
     let _isVisibleS_ = FSharp.Data.Adaptive.cval(value.isVisibleS)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
@@ -76,7 +72,7 @@ type AdaptiveRimfaxSurfaceMetrics(value : RimfaxSurfaceMetrics) =
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.rimfaxImageModeOptions = _rimfaxImageModeOptions_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>>
     member __.rimfaxImageMode = _rimfaxImageMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
-    member __.rimfaxSurfaces = _rimfaxSurfaces_ :> FSharp.Data.Adaptive.amap<System.Guid, PRo3D.Core.Surface.AdaptiveSgSurface>
+    member __.rimfaxSurfaces = _rimfaxSurfaces_
     member __.isVisibleS = _isVisibleS_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module RimfaxSurfaceMetricsLenses = 
@@ -84,7 +80,7 @@ module RimfaxSurfaceMetricsLenses =
         static member version_ = ((fun (self : RimfaxSurfaceMetrics) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : RimfaxSurfaceMetrics) -> { self with version = value }))
         static member rimfaxImageModeOptions_ = ((fun (self : RimfaxSurfaceMetrics) -> self.rimfaxImageModeOptions), (fun (value : Microsoft.FSharp.Collections.List<Microsoft.FSharp.Core.string>) (self : RimfaxSurfaceMetrics) -> { self with rimfaxImageModeOptions = value }))
         static member rimfaxImageMode_ = ((fun (self : RimfaxSurfaceMetrics) -> self.rimfaxImageMode), (fun (value : Microsoft.FSharp.Core.string) (self : RimfaxSurfaceMetrics) -> { self with rimfaxImageMode = value }))
-        static member rimfaxSurfaces_ = ((fun (self : RimfaxSurfaceMetrics) -> self.rimfaxSurfaces), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, PRo3D.Core.Surface.SgSurface>) (self : RimfaxSurfaceMetrics) -> { self with rimfaxSurfaces = value }))
+        static member rimfaxSurfaces_ = ((fun (self : RimfaxSurfaceMetrics) -> self.rimfaxSurfaces), (fun (value : SurfaceModel) (self : RimfaxSurfaceMetrics) -> { self with rimfaxSurfaces = value }))
         static member isVisibleS_ = ((fun (self : RimfaxSurfaceMetrics) -> self.isVisibleS), (fun (value : Microsoft.FSharp.Core.bool) (self : RimfaxSurfaceMetrics) -> { self with isVisibleS = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveRimfaxMetrics(value : RimfaxMetrics) =

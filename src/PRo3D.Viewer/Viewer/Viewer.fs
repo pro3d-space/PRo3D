@@ -1090,8 +1090,19 @@ module ViewerApp =
             | _ -> 
                 Log.line "no hit"
                 m
-            
-        | ViewerAction.PickSurface (p,name,true), _ ,true ->
+        // If we are not currently in annotation mode and a ray hits a rimfaxSurface, we want to select it 
+        | ViewerAction.PickSurface (_,_,_, Some rimfaxSurfaceInfo), _ ,false -> 
+            let rimfaxTraverses' =  
+                m.scene.traverses.rimfaxTraverses 
+                    |> HashMap.alter rimfaxSurfaceInfo.traverseId (function None -> None | Some t -> Some { t with selectedSol = Some rimfaxSurfaceInfo.solNumber})
+            let traverses' = {
+                m.scene.traverses with
+                    selectedRimfaxSurface = Some rimfaxSurfaceInfo.surface
+                    selectedTraverse = Some rimfaxSurfaceInfo.traverseId
+                    rimfaxTraverses = rimfaxTraverses'
+                }
+            { m with scene = { m.scene with traverses = traverses' }}
+        | ViewerAction.PickSurface (p,name,true, _), _ ,true ->
             let fray = p.globalRay.Ray
             let r = fray.Ray
             if m.drawing.geometry = Geometry.Ellipse then
@@ -1161,14 +1172,14 @@ module ViewerApp =
                                     FastRay3d(p + (up * 5000.0), -up)  
                                 | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
-                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache Config.diagnosticTimings with
+                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) (Some m.scene.traverses) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache Config.diagnosticTimings with
                             | Some (t,surf), c ->                             
                                 cache <- c; ray.Ray.GetPointOnRay t.RayHit.T |> Some
                             | None, c ->
                                 cache <- c; None
                                    
                         let result = 
-                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache Config.diagnosticTimings with
+                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) (Some m.scene.traverses) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache Config.diagnosticTimings with
                             | Some (t,surf), c ->                         
                                 cache <- c
                                 let hit = r.GetPointOnRay(t.RayHit.T)
@@ -2232,7 +2243,7 @@ module ViewerApp =
         let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
 
         // instrument view control
-        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed depthTested m.scene.viewPlans.instrumentCam false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped m.scene.traverses ioverlayed depthTested m.scene.viewPlans.instrumentCam false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
                         |> AList.map ViewerUtils.mapRenderCommand
         
         //onBoot "attachResize('__ID__')" (
@@ -2306,6 +2317,7 @@ module ViewerApp =
         let cmds  = 
             ViewerUtils.renderCommands 
                 m.scene.surfacesModel.sgGrouped 
+                m.scene.traverses
                 overlayed depthTested 
                 m.navigation.camera.view 
                 true 

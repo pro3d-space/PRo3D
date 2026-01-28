@@ -89,6 +89,7 @@ module ComparisonUtils =
     
         let ray = new Ray3d (fromLocation, direction)
         let intersected = SurfaceIntersection.doKdTreeIntersection surfaceModel 
+                                                                   None
                                                                    refSystem 
                                                                    (constF None)
                                                                    None

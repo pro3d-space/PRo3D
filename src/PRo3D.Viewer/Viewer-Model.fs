@@ -82,6 +82,12 @@ type PickPivot =
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
+type RimfaxScenePickInfo = {
+    surface : Guid
+    traverseId : Guid
+    solNumber : int
+}
+
 type ViewerAction =                
 | DrawingMessage                  of DrawingAction
 | AnnotationGroupsMessageViewer   of GroupsAppAction
@@ -117,7 +123,7 @@ type ViewerAction =
 | DeleteLast
 | AddSg                           of ISg
 
-| PickSurface                     of SceneHit * string * bool
+| PickSurface                     of hit : SceneHit * name : string * pickingEnabled : bool * rimfaxSurfaceInfo : option<RimfaxScenePickInfo>
 | PreviewPickSurface              of SceneHit * string * bool
 | PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d>
 

@@ -41,7 +41,6 @@ type TraverseAction =
     | RemoveAllTraverses
     | LoadRimfaxSurface of rootDirectory : list<string> * traverseID : Guid 
     | SetRimfaxImageMode of mode : string * traverseID : Guid * solNumber : int
-    | PickRimfaxSurface of surfaceId : Guid * traverseId : Guid * solNumber : int
 
 module InitTraverseParams =
 
@@ -146,7 +145,7 @@ type RimfaxSurfaceMetrics =
         version: int
         rimfaxImageModeOptions: List<string>
         rimfaxImageMode: string
-        rimfaxSurfaces : HashMap<Guid, SgSurface>
+        rimfaxSurfaces : SurfaceModel
         isVisibleS: bool
     }
 
@@ -165,7 +164,7 @@ module RimfaxSurfaceMetrics =
                     version = current
                     rimfaxImageModeOptions = rimfaxImageModeOptions
                     rimfaxImageMode = rimfaxImageMode
-                    rimfaxSurfaces = HashMap.Empty
+                    rimfaxSurfaces = SurfaceModel.initial
                     isVisibleS = isVisibleS
                 }
         }

@@ -15,6 +15,8 @@ open PRo3D.Extensions
 open PRo3D.Core.Surface
 open PRo3DCompability
 open OpcViewer.Base.KdTrees
+open System.IO
+
 
 module SurfaceTransformations = 
     //let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -188,6 +190,7 @@ module SurfaceIntersection =
 
     let doKdTreeIntersection 
         (m             : SurfaceModel)
+        (traverseM  : option<TraverseModel>)
         (refSys        : ReferenceSystem)
         (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
         (observerSystem : Option<ObserverSystem>)
@@ -209,9 +212,67 @@ module SurfaceIntersection =
                 | _ -> None
             )
             
+        let getRimfaxImageModeFromPath (filePath : string) : option<string> =
+            let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
+            if folders.Length >= 1 then
+                Some folders.[folders.Length - 1]
+            else
+                None
+
+        let rimfaxSurfaces =
+            match traverseM with
+            | Some tm -> 
+                tm.rimfaxTraverses
+                |> HashMap.map (fun guid traverse ->
+                    traverse.sols
+                    |> List.map (fun sol -> 
+                        match sol.solMetrics with
+                        | Some (RimfaxM solMetrics) ->
+                            match solMetrics.rimfaxSurfaceProperties with
+                            | Some rimfaxSurfaceProperties ->
+                                let test = 
+                                    rimfaxSurfaceProperties.rimfaxSurfaces.sgSurfaces
+                                    |> HashMap.filter(fun guid surf -> 
+                                        ((getRimfaxImageModeFromPath surf.sgImportPath) = Some rimfaxSurfaceProperties.rimfaxImageMode && rimfaxSurfaceProperties.isVisibleS)
+                                    )
+                                let testL = test |> HashMap.toList |> List.map snd
+                                testL
+                            | None -> List.Empty
+                        | _ -> List.Empty
+                    )
+                    |> List.collect id
+                )
+                |> HashMap.toList
+                |> List.map snd
+                |> List.collect id
+            | None -> List.Empty
+
+        let rimfaxSurfacesFlat = 
+            match traverseM with
+            | Some tm -> 
+                tm.rimfaxTraverses
+                |> HashMap.map (fun guid traverse ->
+                    traverse.sols
+                    |> List.map (fun sol -> 
+                        match sol.solMetrics with
+                        | Some (RimfaxM solMetrics) ->
+                            match solMetrics.rimfaxSurfaceProperties with
+                            | Some rimfaxSurfaceProperties ->
+                                rimfaxSurfaceProperties.rimfaxSurfaces.surfaces.flat
+                            | None -> HashMap.Empty
+                        | _ -> HashMap.Empty
+                    )
+                )
+                |> HashMap.toSeq
+                |> Seq.collect (fun (_, innerList) ->
+                    innerList |> Seq.collect HashMap.toSeq
+                )
+                |> HashMap.ofSeq
+            | None -> HashMap.Empty
+
         let hits = 
-            activeSgSurfaces 
-            |> List.map (fun d -> d.picking, (m.surfaces.flat |> HashMap.find d.surface) |> Leaf.toSurface)                      
+            List.append activeSgSurfaces rimfaxSurfaces
+            |> List.map (fun d -> d.picking, ([m.surfaces.flat; rimfaxSurfacesFlat] |> Seq.collect HashMap.toSeq |> HashMap.ofSeq |> HashMap.find d.surface) |> Leaf.toSurface)                      
             |> List.choose (fun (p ,surf) ->
                 match p with
                 | Picking.NoPicking -> None
