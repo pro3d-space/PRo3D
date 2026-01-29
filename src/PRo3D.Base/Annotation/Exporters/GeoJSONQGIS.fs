@@ -41,7 +41,9 @@ module GeoJsonQGIS =
             let latLon = xyz2LatLonAlt planet cartesian
             match latLon with
             | Some ll -> Encode.list [ Encode.float ll.X; Encode.float ll.Y; Encode.float ll.Z ]
-            | None -> Encode.list [] // what should be the default?
+            | None ->
+                Log.warn "no reference frame set: can not convert from cartesian to geographic coordinates..."
+                Encode.list [ Encode.string "Error: No / invalid reference frame set" ] // or could there be other reasons why xyz2LatLonAlt fails?
         | CoordinateConfiguration.CartesianOnly ->
             Encode.list [ Encode.float cartesian.X; Encode.float cartesian.Y; Encode.float cartesian.Z ]
 

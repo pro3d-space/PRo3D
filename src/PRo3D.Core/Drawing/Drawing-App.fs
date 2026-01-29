@@ -310,6 +310,19 @@ module DrawingApp =
                 (ann, projPoint))
         | _ -> None
 
+    let extractVisibleAnnotations (model : DrawingModel) : Annotation list =
+        model.annotations.flat
+        |> Leaf.toAnnotations
+        |> HashMap.toList 
+        |> List.map snd
+        |> List.filter (fun a -> a.visible)
+
+    let isSelected (model : DrawingModel) = 
+        match model.annotations.singleSelectLeaf with
+        | None -> fun _ -> false
+        | Some s -> 
+            fun (a : Annotation) -> a.key = s
+
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)
     // but blacklist those
@@ -335,26 +348,14 @@ module DrawingApp =
         (model       : DrawingModel) 
         (path        : string) =
 
-        // export only visible annotations
-        let annotations =
-            model.annotations.flat
-            |> Leaf.toAnnotations
-            |> HashMap.toList 
-            |> List.map snd
-            |> List.filter (fun a -> a.visible)
-
-        let isSelected = 
-            match model.annotations.singleSelectLeaf with
-            | None -> fun _ -> false
-            | Some s -> 
-                fun (a : Annotation) -> a.key = s
+        let annotations = extractVisibleAnnotations model
           
         try
             if xyz then
-                GeoJSONExport.writeGeoJSON_XYZ path isSelected annotations
+                GeoJSONExport.writeGeoJSON_XYZ path (isSelected model) annotations
             else 
                 let planet = smallConfig.planet.Get(bigConfig)            
-                GeoJSONExport.writeGeoJSON (Some planet) path isSelected annotations
+                GeoJSONExport.writeGeoJSON (Some planet) path (isSelected model) annotations
         with e -> 
             Log.warn "[Drawing] exportGeoJson failed with %A" e
 
@@ -363,45 +364,19 @@ module DrawingApp =
         (model       : DrawingModel) 
         (path        : string) =
 
-        // export only visible annotations
-        let annotations =
-            model.annotations.flat
-            |> Leaf.toAnnotations
-            |> HashMap.toList 
-            |> List.map snd
-            |> List.filter (fun a -> a.visible)
+        let annotations = extractVisibleAnnotations model
 
-        let isSelected = 
-            match model.annotations.singleSelectLeaf with
-            | None -> fun _ -> false
-            | Some s -> 
-                fun (a : Annotation) -> a.key = s
-
-        GeoJSONExport.writeGeoJSONQGIS cooConfig path isSelected annotations
+        GeoJSONExport.writeGeoJSONQGIS cooConfig path (isSelected model) annotations
 
 
     // exports geojson, optionally using XYZ format
     let exportGeoJsonStream  
-        (xyz         : bool) 
-        (bigConfig   : 'a) 
-        (smallConfig : SmallConfig<'a>)
         (model       : DrawingModel) 
         (path        : string) =
 
-        let annotations =
-            model.annotations.flat
-            |> Leaf.toAnnotations
-            |> HashMap.toList 
-            |> List.map snd
-            |> List.filter (fun a -> a.visible)
-               
-        let isSelected = 
-            match model.annotations.singleSelectLeaf with
-            | None -> fun _ -> false
-            | Some s -> 
-                fun (a : Annotation) -> a.key = s
+        let annotations = extractVisibleAnnotations model
 
-        GeoJSONExport.writeStreamGeoJSON_XYZ isSelected path annotations
+        GeoJSONExport.writeStreamGeoJSON_XYZ (isSelected model) path annotations
 
     let finish (bigConfig  : 'a) (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) =
         let up     = smallConfig.up.Get(bigConfig)
@@ -564,12 +539,7 @@ module DrawingApp =
             | ExportAsCsv p, _, _ ->
                 let up = smallConfig.up.Get(bigConfig)
                 let lookups = GroupsApp.updateGroupsLookup model.annotations
-                let annotations =
-                    model.annotations.flat
-                    |> Leaf.toAnnotations
-                    |> HashMap.toList 
-                    |> List.map snd
-                    |> List.filter(fun a -> a.visible)
+                let annotations = extractVisibleAnnotations model
 
                 CSVExport.writeCSV lookups up p annotations
                         
@@ -653,14 +623,7 @@ module DrawingApp =
                 { model with automaticGeoJsonExport = updatedPath }
 
             | ExportAsAttitude path, _, _ ->
-                let annotations =
-                    model.annotations.flat
-                    |> Leaf.toAnnotations
-                    |> HashMap.toList
-                    |> List.choose(fun (_, v) ->
-                        if v.visible then Some v else None
-                    )
-
+                let annotations = extractVisibleAnnotations model
                 AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
 
                 model
@@ -704,7 +667,7 @@ module DrawingApp =
                 Log.line "[Drawing] automatically writing geojson.xyz file to %s since the annotations have changed." path
                 // virtually finish the annotation (as if closed by interaction) - to let it be part of the exported ones.
                 let artificiallyFinishedModel = finish bigConfig smallConfig model view
-                exportGeoJsonStream true bigConfig smallConfig artificiallyFinishedModel path
+                exportGeoJsonStream artificiallyFinishedModel path
             | _ -> ()
             newModel
         | false -> 
