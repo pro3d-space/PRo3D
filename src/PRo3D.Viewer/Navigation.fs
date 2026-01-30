@@ -79,9 +79,9 @@ module Navigation =
 
             { model with navigationMode = oldNavMode }, Some "could not find Distance to Surface center with center ray.\n Please center view to surface before changing to OverViewCamera"
         | Some p -> 
-            Log.line "Distance to Surface found"
+            Log.line "Distance of Surface to Center found"
 
-            let distance = Vec.Distance(p, model.camera.view.Location)
+            let distance = Vec.Distance(V3d.OOO, p)
 
             let cam = { model.camera with rotationFactor = distance }
 
@@ -149,7 +149,9 @@ module Navigation =
                 
                 { model with camera = { model.camera with view = view'}; navigationMode = mode}, None
             | NavigationMode.OverView ->                
-                let cam = model.camera |> switchToOverViewController (smallConfig.north.Get(bigConfigB))
+                let cam = 
+                    model.camera 
+                    |> switchToOverViewController (smallConfig.north.Get(bigConfigB))
                 
                 let model = { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.OverView }
 

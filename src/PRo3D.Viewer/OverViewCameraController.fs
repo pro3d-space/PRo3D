@@ -126,12 +126,15 @@ module OverViewController =
                       //    cam, model.orbitCenter
                       
                       if model.isWheel then
-                          let step = model.moveVec.Z * cam.Forward * (exp model.sensitivity) * dt                      
+                          let distancetoSurface = (Vec.distance model.view.Location V3d.OOO) - model.rotationFactor
+                          let sensitivity = (exp model.sensitivity) / 500.0
+                          let step = distancetoSurface * (model.moveVec.Z * cam.Forward * sensitivity * dt)                      
                           let loc' = cam.Location + step
                           cam.WithLocation(loc'), model.orbitCenter
                       else if model.orbitCenter.IsSome then
                           let distanceToCenter = Vec.distance model.view.Location V3d.OOO
-                          let sensitivity = 10.0 * model.sensitivity * (model.rotationFactor / distanceToCenter)
+                          let distanceBetweenCameraSurface = Math.Abs(distanceToCenter - model.rotationFactor)
+                          let sensitivity = (exp model.sensitivity) * (distanceBetweenCameraSurface / distanceToCenter)
 
                           let rot = 
                               if model.right then
@@ -244,10 +247,15 @@ module OverViewController =
             | Move pos  ->
                 
                 let cam = model.view
+                
                 let delta = pos - model.dragStart
 
                 let distanceToCenter = Vec.distance model.view.Location V3d.OOO
-                let sensitivity = -0.01 * model.sensitivity * (model.rotationFactor / distanceToCenter)
+                let distanceBetweenCameraSurface = Math.Abs(distanceToCenter - model.rotationFactor)
+                let sensitivity = 0.01 * (exp model.sensitivity) * (distanceBetweenCameraSurface / distanceToCenter)
+
+                //let distanceToCenter = Vec.distance model.view.Location V3d.OOO
+                //let sensitivity = -0.01 * model.sensitivity * (model.rotationFactor / distanceToCenter)
 
                 //orientation
                 let cam =
@@ -312,7 +320,7 @@ module OverViewController =
                         let modKey = if b = MouseButtons.Left && isControl = "true" then MouseButtons.Right else b
                         cb modKey (V2i(x,y))
                     | _ ->
-                        failwith "asdasd"
+                        failwith "Mousedown Event Failed in OverViewCameraController"
             )
 
     (*let onMouseUp (cb : MouseButtons -> V2i -> 'msg) = 
