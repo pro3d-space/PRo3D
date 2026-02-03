@@ -122,8 +122,5 @@ module AttitudeExport =
         |> Json.formatWith JsonFormattingOptions.Pretty
 
     let writeAttitudeJson (path:string) (up : V3d) (annotations : list<Annotation>) : unit = 
-
-        if path.IsNullOrEmpty() |> not then
-            
-            serializeToAttitudeJson up annotations
-            |> Serialization.writeToFile path        
+        serializeToAttitudeJson up annotations
+        |> Serialization.writeToFile path        

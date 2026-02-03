@@ -349,10 +349,10 @@ module DrawingApp =
         (path        : string) =
 
         let annotations = extractVisibleAnnotations model
-          
+
         try
             if xyz then
-                GeoJSONExport.writeGeoJSON_XYZ path (isSelected model) annotations
+                GeoJSONExport.writeGeoJSON None path (isSelected model) annotations
             else 
                 let planet = smallConfig.planet.Get(bigConfig)            
                 GeoJSONExport.writeGeoJSON (Some planet) path (isSelected model) annotations
@@ -535,16 +535,18 @@ module DrawingApp =
                 | None ->
                     model
             | ExportAsAnnotations path, _, _ ->
-                Drawing.IO.saveVersioned model path
-            | ExportAsCsv p, _, _ ->
-                let up = smallConfig.up.Get(bigConfig)
-                let lookups = GroupsApp.updateGroupsLookup model.annotations
-                let annotations = extractVisibleAnnotations model
-
-                CSVExport.writeCSV lookups up p annotations
-                        
+                if path.IsNullOrEmpty() |> not then
+                    Drawing.IO.saveVersioned model path
+                else
+                    model
+            | ExportAsCsv path, _, _ ->
+                if path.IsNullOrEmpty() |> not then 
+                    let up = smallConfig.up.Get(bigConfig)
+                    let lookups = GroupsApp.updateGroupsLookup model.annotations
+                    let annotations = extractVisibleAnnotations model
+                    CSVExport.writeCSV lookups up path annotations
                 model      
-            | ExportAsProfileCsv p, _, _ ->
+            | ExportAsProfileCsv path, _, _ ->
                 //get selected annotation
                 let selected =  GroupsModel.tryGetSelectedAnnotation model.annotations
                 match selected with
@@ -572,61 +574,56 @@ module DrawingApp =
                         |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
                         |> CSV.Seq.csv "," true id
 
-                    if p.IsEmptyOrNull() |> not then 
-                        csvTable |> CSV.Seq.write p
+                    if path.IsEmptyOrNull() |> not then 
+                        csvTable |> CSV.Seq.write path
 
-                    Log.line "[DrawingApp] wrote %A to %s" profile p
+                    Log.line "[DrawingApp] wrote %A to %s" profile path
                 | None -> 
                     Log.line "please select annotation to export"
-                    
-                
-
                 //write csv
 
                 model
             | ExportAsGeoJSON path, _, _ ->        
-        
-                exportGeoJson false bigConfig smallConfig model path
-
+                if path.IsNullOrEmpty() |> not then 
+                    exportGeoJson false bigConfig smallConfig model path
                 model
 
             | ExportAsGeoJSON_xyz path, _, _ ->                       
-                        
-                exportGeoJson true bigConfig smallConfig model path
-            
+                if path.IsNullOrEmpty() |> not then         
+                    exportGeoJson true bigConfig smallConfig model path
                 model
 
             | ExportAsGeoJSONQGIS_latlon path, _, _ ->     
-            
-                let planet = smallConfig.planet.Get(bigConfig).ToString()
-                exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.GeographicOnly planet) model path
-
+                if path.IsNullOrEmpty() |> not then 
+                    let planet = smallConfig.planet.Get(bigConfig).ToString()
+                    exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.GeographicOnly planet) model path
                 model
 
             | ExportAsGeoJSONQGIS_xyz path, _, _ ->      
-            
-                let planet = smallConfig.planet.Get(bigConfig).ToString()
-                exportGeoJsonQGIS GeoJsonQGIS.CoordinateConfiguration.CartesianOnly model path
-
+                if path.IsNullOrEmpty() |> not then 
+                    exportGeoJsonQGIS GeoJsonQGIS.CoordinateConfiguration.CartesianOnly model path
                 model
 
-            | ExportAsGeoJSONQGIS_both path, _, _ ->                       
-                let planet = smallConfig.planet.Get(bigConfig).ToString()
-                exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.Both planet) model path
-
+            | ExportAsGeoJSONQGIS_both path, _, _ ->    
+                if path.IsNullOrEmpty() |> not then 
+                    let planet = smallConfig.planet.Get(bigConfig).ToString()
+                    exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.Both planet) model path
                 model
 
             | ContinuouslyGeoJson path, _, _ -> 
-                
-                // remember this path in order to drive the automatic export feature.
-                let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true }
-                { model with automaticGeoJsonExport = updatedPath }
+                if path.IsNullOrEmpty() |> not then 
+                    // remember this path in order to drive the automatic export feature.
+                    let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true }
+                    { model with automaticGeoJsonExport = updatedPath }
+                else
+                    model
 
             | ExportAsAttitude path, _, _ ->
-                let annotations = extractVisibleAnnotations model
-                AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
-
+                if path.IsNullOrEmpty() |> not then
+                    let annotations = extractVisibleAnnotations model
+                    AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
                 model
+
             | LegacySaveVersioned, _,_ ->
                 let path = "./annotations.json"
                 let pathgGrouping = "./annotations.grouping"
