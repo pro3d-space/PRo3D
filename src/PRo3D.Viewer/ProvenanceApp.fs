@@ -76,7 +76,7 @@ module ProvenanceApp =
             Ignore
         | ViewerMessage (ViewerAction.LoadScene s) ->   
             TrackMessage (PMessage.LoadScene s)
-        | ViewerMessage (ViewerAction.DrawingMessage _) | ViewerMessage (ViewerAction.PickSurface(_,_,_)) -> 
+        | ViewerMessage (ViewerAction.DrawingMessage _) | ViewerMessage (ViewerAction.PickSurface(_,_,_,_)) -> 
             match oldModel.drawing.working, newModel.drawing.working with
             | Some o, None -> PMessage.FinishAnnotation o.key |> TrackMessage
             | _ -> Ignore

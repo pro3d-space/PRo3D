@@ -278,6 +278,7 @@ module AreaComparison =
 
             let sendRay ray surfFilter =
                 let hitInfo, c = SurfaceIntersection.doKdTreeIntersection surfaceModel 
+                                                                           None
                                                                            referenceSystem 
                                                                            (constF None)
                                                                            None

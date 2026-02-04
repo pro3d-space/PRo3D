@@ -534,7 +534,7 @@ module ViewerUtils =
                                 let name  = surf.name |> AVal.force        
                                 let surfacePicking = surfacePicking |> AVal.force
                                 //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                                true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)]
+                                true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking, None)]
                          )
                        ]  
                     // handle surface visibility
@@ -971,6 +971,117 @@ module ViewerUtils =
             }                              
         sgs
 
+    let createRimfaxSurfaces
+        (traverse : AdaptiveTraverse) 
+        (traverseModel  : AdaptiveTraverseModel)
+        : ISg<ViewerAction> =
+
+        let pickable
+            (bb : aval<Box3d>)
+            (trafo : aval<Trafo3d>) = 
+            (bb, trafo)
+            ||>  AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
+                { shape = PickShape.Box (a); trafo = Trafo3d.Identity }
+            ) 
+
+        let createSg 
+            (sgSurface : SgSurface)
+            (surfaceModel : SurfaceModel)
+            (traverseId : Guid)
+            (solNumber : int) =
+
+            let surface = HashMap.tryFind sgSurface.surface surfaceModel.surfaces.flat
+            let name = 
+                match surface with
+                | Some (Surfaces s) -> s.name
+                | _ -> ""
+
+            let isSelected = 
+                adaptive {
+                    let! (selected : Option<Guid>) =  traverseModel.selectedRimfaxSurface
+                    match selected with
+                    | Some id -> return (id = sgSurface.surface)
+                    | None -> return false
+                }
+
+            let colorTransformationExpr =
+                <@ fun (c : V4d) ->
+                    let tolerance = 0.05
+                    let isWhite =
+                        abs (c.X - 1.0) < tolerance &&
+                        abs (c.Y - 1.0) < tolerance &&
+                        abs (c.Z - 1.0) < tolerance
+
+                    if isWhite then
+                        V4d(1.0, 1.0, 0.0, c.W)
+                    else
+                        c
+                @>
+
+            let sg = 
+                sgSurface.sceneGraph 
+                |> Sg.pickable' (pickable (adaptive { return sgSurface.globalBB }) (adaptive { return sgSurface.trafo.previewTrafo }))
+                |> Sg.noEvents
+                |> Sg.withEvents [
+                    yield SceneEventKind.Click, (
+                        fun sceneHit -> 
+                            //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
+                            true, Seq.ofList [PickSurface (sceneHit, name, true, Some ({
+                                surface = sgSurface.surface
+                                traverseId = traverseId
+                                solNumber = solNumber
+                            }))]
+                        )
+                    ] 
+                |> Sg.uniform "selected" isSelected
+                |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
+
+            let sg = 
+                isSelected
+                |> AVal.map (fun s ->
+                    sg
+                    |> Sg.shader {
+                        do! DefaultSurfaces.stableTrafo
+                        do! DefaultSurfaces.diffuseTexture 
+                        if s then do! DefaultSurfaces.transformColor colorTransformationExpr
+                    }
+                )
+                |> Sg.dynamic
+
+            sg
+
+        let getRimfaxImageModeFromPath (filePath : string) : option<string> =
+            let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
+            if folders.Length >= 1 then
+                Some folders.[folders.Length - 1]
+            else
+                None
+
+        let surfaceSg =
+            traverse.sols
+            |> AVal.map (List.map (fun sol -> 
+                match sol.solMetrics with
+                | Some (RimfaxM solMetrics) ->
+                    match solMetrics.rimfaxSurfaceProperties with
+                    | Some rimfaxSurfaceProperties ->
+                        rimfaxSurfaceProperties.rimfaxSurfaces.sgSurfaces
+                        |> HashMap.filter(fun guid surf -> 
+                            ((getRimfaxImageModeFromPath surf.sgImportPath) = Some rimfaxSurfaceProperties.rimfaxImageMode && rimfaxSurfaceProperties.isVisibleS)
+                        )
+                        |> HashMap.map (fun x value -> createSg value rimfaxSurfaceProperties.rimfaxSurfaces traverse.guid sol.solNumber)
+                    | None -> HashMap.Empty
+                | _ -> HashMap.Empty
+            ) 
+            >> HashMap.unionMany
+            )
+
+        surfaceSg
+        |> AMap.ofAVal
+        |> ASet.ofAMap
+        |> ASet.map (snd)
+        |> Sg.set
+        |> Sg.noEvents 
+
     let createGroupedSgs 
         (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
         (view           : aval<CameraView>)
@@ -1018,7 +1129,6 @@ module ViewerUtils =
                 group
                 |> AMap.map(fun guid surface ->   
 
-
                     let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                     let s =
                         viewSingleSurfaceSg 
@@ -1054,7 +1164,6 @@ module ViewerUtils =
                             |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                             |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
-
                     surfaceSg
                 )
 
@@ -1071,8 +1180,41 @@ module ViewerUtils =
                                     s.priority.value |> AVal.map (int >> Some) 
                                 | _ -> AVal.constant None
                             )
-                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority
-                        |> Sg.map ViewerAction.TraverseMessage
+                        (*
+                        m.scene.traverses.rimfaxTraverses 
+                        |> AMap.filterA (fun k v -> 
+                            (priority, v.priority.value, v.priorityEnabled) 
+                            |||> AVal.bind3 (fun filterPriority p enabled -> 
+                                match filterPriority, enabled with
+                                | Some priority, true-> // we have it priorities enabled and we are in a surface pass. check if this is the right prio
+                                    AVal.constant (int p = priority)
+                                | Some _, false -> // we are in a surface pass here, but priorty rendering is not enabled => skip
+                                        AVal.constant false
+                                | None, true -> 
+                                    // we are in overlay pass here.
+                                    // but it has priority enabled -> it was already rendered with the surfaces?
+                                    let surfaceExists = validSurfacePriority (int p)
+                                    surfaceExists |> AVal.map not // if it does not exist, render it now.
+                                | None, false ->  // we are in overlay pass here and prios are not enabled => we need to render it now.
+                                    AVal.constant true
+                            )
+                        )
+                        |> AMap.map(fun id traverse ->
+                            Sg.ofList [createRimfaxSurfaces traverse m.scene.traverses |> Sg.onOff traverse.showRimfaxSurfaces]
+                        )
+                        |> AMap.toASet 
+                        |> ASet.map snd 
+                        |> Sg.set
+                        *)
+                        m.scene.traverses.rimfaxTraverses
+                        |> AMap.map(fun id traverse ->
+                            Sg.ofList [
+                                createRimfaxSurfaces traverse m.scene.traverses |> Sg.onOff traverse.showRimfaxSurfaces
+                            ]
+                        )
+                        |> AMap.toASet 
+                        |> ASet.map snd 
+                        |> Sg.set
                 )
                 |> Sg.dynamic
 
@@ -1087,6 +1229,7 @@ module ViewerUtils =
 
     let renderCommands 
         (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
+        (traverseModel  : AdaptiveTraverseModel)
         (overlayed      : ISg<ViewerAction>)
         (depthTested    : ISg<ViewerAction>)
         (view           : aval<CameraView>)
@@ -1095,10 +1238,19 @@ module ViewerUtils =
         (runtime        : IRuntime) 
         (m              : AdaptiveModel)  =
 
+        let traverseSg = 
+            traverseModel.rimfaxTraverses
+            |> AMap.map(fun id traverse ->
+                Sg.ofList [
+                    createRimfaxSurfaces traverse traverseModel |> Sg.onOff traverse.showRimfaxSurfaces
+                ]
+            )
+            |> AMap.toASet 
+            |> ASet.map snd 
+            |> Sg.set
+
         let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview m
-
-
-
+        
         alist {                    
             for sg in grouped do  
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)

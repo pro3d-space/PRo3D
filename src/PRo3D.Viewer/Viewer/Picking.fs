@@ -47,7 +47,7 @@ module Picking =
                       
 
         let hit = 
-            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem r surfaceFilter cache Config.diagnosticTimings with
+            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) (Some m.scene.traverses) m.scene.referenceSystem observedSystem observerSystem r surfaceFilter cache Config.diagnosticTimings with
             | Some (hit,surf), c ->                         
                 cache <- c
                 let t = hit.RayHit.T

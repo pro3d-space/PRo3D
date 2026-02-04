@@ -19,6 +19,10 @@ open PRo3D.Core.Surface
 open OpcViewer.Base
 open Viewer
 
+open Aether
+open Aether.Operators
+
+
 module TraversePropertiesApp =
 
     let update (model : Traverse) (action : TraversePropertiesAction) : Traverse = 
@@ -73,6 +77,8 @@ module TraversePropertiesApp =
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ] 
+                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
                 ]
             )
 
@@ -343,17 +349,43 @@ module TraverseApp =
                     else
                         false
 
+                let importRimfaxObjsForSol (solNumber : int)=
+
+                    let surfaces =       
+                        IndexList.ofList
+                            (
+                            Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) 
+                            |> Array.filter (fun filePath -> (pathBelongsToSol filePath solNumber))
+                            |> Array.toList
+                            |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront Int32.MaxValue file)
+                            )
+      
+                    let leafs = surfaces |> IndexList.map Leaf.Surfaces
+
+                    let sgSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront surfaces
+
+                    let surfaceModel = SurfaceModel.initial
+
+                    let surfaceModel = 
+                        { surfaceModel with 
+                            surfaces = 
+                                surfaceModel.surfaces
+                                |> GroupsApp.addLeaves surfaceModel.surfaces.activeGroup.path leafs;
+                            sgSurfaces = sgSurfaces
+                        }
+                    
+                    surfaceModel 
+                      |> SurfaceModel.triggerSgGrouping 
+
                 let sols = 
                         model.rimfaxTraverses[traverseID].sols 
                         |> List.map (fun sol ->
                             match sol.solMetrics with
                             | Some (SolMetrics.RimfaxM solMetrics) ->
-                                let objSurfaces =                   
-                                    Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) 
-                                    |> Array.filter (fun filePath -> (pathBelongsToSol filePath sol.solNumber))
-                                    |> Array.toList
-                                    |> List.map(fun file -> SurfaceUtils.mk SurfaceType.Mesh MeshLoaderType.Wavefront Int32.MaxValue file) 
-                                let rimfaxSurfaces = SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront (IndexList.ofList objSurfaces)
+                                let rimfaxSurfaceModel = 
+                                    match solMetrics.rimfaxSurfaceProperties with
+                                    | Some _
+                                    | None -> importRimfaxObjsForSol sol.solNumber
                                 let rimfaxImageModeOptions =
                                     Directory.GetFiles(path, "*.obj", SearchOption.AllDirectories) 
                                     |> Array.filter (fun filePath -> (pathBelongsToSol filePath sol.solNumber))
@@ -369,7 +401,7 @@ module TraverseApp =
                                     | _ ->
                                         Some { 
                                             version = RimfaxSurfaceMetrics.current
-                                            rimfaxSurfaces = rimfaxSurfaces
+                                            rimfaxSurfaces = rimfaxSurfaceModel
                                             rimfaxImageModeOptions = (rimfaxImageModeOptions)
                                             rimfaxImageMode = rimfaxImageModeOptions.[0]
                                             isVisibleS = true
@@ -410,15 +442,6 @@ module TraverseApp =
                 model.rimfaxTraverses 
                     |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with sols = sols})
             { model with
-                rimfaxTraverses = rimfaxTraverses'
-            }
-        | PickRimfaxSurface (surfaceID, traverseID, solNumber) ->
-            let rimfaxTraverses' =  
-                model.rimfaxTraverses 
-                    |> HashMap.alter traverseID (function None -> None | Some t -> Some { t with selectedSol = Some solNumber})
-            { model with
-                selectedRimfaxSurface = Some surfaceID
-                selectedTraverse = Some traverseID
                 rimfaxTraverses = rimfaxTraverses'
             }
         |_-> model
@@ -723,105 +746,6 @@ module TraverseApp =
             |> Sg.noEvents
             |> Sg.onOff traverse.showDots
 
-
-        let viewRimfaxSurfaces
-            (refSystem : AdaptiveReferenceSystem)
-            (traverse : AdaptiveTraverse) 
-            (traverseModel  : AdaptiveTraverseModel)
-            : ISg<TraverseAction> =
-
-            let pickable
-                (bb : aval<Box3d>)
-                (trafo : aval<Trafo3d>) = 
-                (bb, trafo)
-                ||>  AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
-                    { shape = PickShape.Box (a); trafo = Trafo3d.Identity }
-                ) 
-
-            let createSg 
-                (surface : SgSurface)
-                (traverseId : Guid)
-                (solNumber : int)=
-                let isSelected = 
-                    adaptive {
-                        let! (selected : Option<Guid>) =  traverseModel.selectedRimfaxSurface
-                        match selected with
-                        | Some id -> return (id = surface.surface)
-                        | None -> return false
-                    }
-
-                let colorTransformationExpr =
-                    <@ fun (c : V4d) ->
-                        let tolerance = 0.05
-                        let isWhite =
-                            abs (c.X - 1.0) < tolerance &&
-                            abs (c.Y - 1.0) < tolerance &&
-                            abs (c.Z - 1.0) < tolerance
-
-                        if isWhite then
-                            V4d(1.0, 1.0, 0.0, c.W)
-                        else
-                            c
-                    @>
-
-                let sg = 
-                    surface.sceneGraph 
-                    |> Sg.pickable' (pickable (adaptive { return surface.globalBB }) (adaptive { return surface.trafo.previewTrafo }))
-                    |> Sg.noEvents
-                    |> Sg.withEvents [
-                        SceneEventKind.Click, (
-                            fun (sceneHit : SceneHit) -> 
-                                true, Seq.ofList [PickRimfaxSurface (surface.surface, traverseId, solNumber)])
-                        ] 
-                    |> Sg.uniform "selected" isSelected
-                    |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
-
-                let sg = 
-                    isSelected
-                    |> AVal.map (fun s ->
-                        sg
-                        |> Sg.shader {
-                            do! DefaultSurfaces.stableTrafo
-                            do! DefaultSurfaces.diffuseTexture 
-                            if s then do! DefaultSurfaces.transformColor colorTransformationExpr
-                        }
-                    )
-                    |> Sg.dynamic
-
-                sg
-
-            let getRimfaxImageModeFromPath (filePath : string) : option<string> =
-                let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
-                if folders.Length >= 1 then
-                    Some folders.[folders.Length - 1]
-                else
-                    None
-
-            let surfaceSg =
-                traverse.sols
-                |> AVal.map (List.map (fun sol -> 
-                    match sol.solMetrics with
-                    | Some (RimfaxM solMetrics) ->
-                        match solMetrics.rimfaxSurfaceProperties with
-                        | Some rimfaxSurfaceProperties ->
-                            rimfaxSurfaceProperties.rimfaxSurfaces
-                            |> HashMap.filter(fun guid surf -> 
-                                ((getRimfaxImageModeFromPath surf.sgImportPath) = Some rimfaxSurfaceProperties.rimfaxImageMode && rimfaxSurfaceProperties.isVisibleS)
-                            )
-                            |> HashMap.map (fun x value -> createSg value traverse.guid sol.solNumber)
-                        | None -> HashMap.Empty
-                    | _ -> HashMap.Empty
-                ) 
-                >> HashMap.unionMany
-                )
-
-            surfaceSg
-            |> AMap.ofAVal
-            |> ASet.ofAMap
-            |> ASet.map (snd)
-            |> Sg.set
-            |> Sg.noEvents 
-
             
         let viewTraverseFast  
             (view : aval<CameraView>)
@@ -831,7 +755,6 @@ module TraverseApp =
             Sg.ofList [
                 viewTraverseCoordinateFrames view refSystem traverse
                 viewTraverseDots refSystem view traverse
-                viewRimfaxSurfaces refSystem traverse traverseModel |> Sg.onOff traverse.showRimfaxSurfaces
             ]
             |> Sg.onOff traverse.isVisibleT
 
