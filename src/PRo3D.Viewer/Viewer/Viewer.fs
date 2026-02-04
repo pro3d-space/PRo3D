@@ -2158,6 +2158,7 @@ module ViewerApp =
                 m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
        
+
         let traverses =
         
             let isThereASurfaceWithPriority (p : int) = 

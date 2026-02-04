@@ -971,118 +971,6 @@ module ViewerUtils =
             }                              
         sgs
 
-    let createGroupedSgs 
-        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
-        (view           : aval<CameraView>)
-        (allowFootprint : bool) 
-        (allowDepthview : bool) 
-        (m              : AdaptiveModel)  =
-
-        let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
-        let filterTexture = ~~true
-        //let mutable useTC = true
-        //avoids kdtree intersections for certain interactions
-        let surfacePicking = 
-            m.interaction 
-            |> AVal.map(fun x -> 
-                match x with
-                | Interactions.PickAnnotation | Interactions.PickLog -> false
-                | _ -> true
-            )
-
-        let vpVisible = isViewPlanVisible m
-        let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
-        let refSystem = m.scene.referenceSystem
-        //let view = m.navigation.camera.view
-
-
-        let cursorWorldPos = 
-            (m.surfaceIntersection, m.scene.config.previewIntersectionWorldSize.value, m.scene.config.showPreviewIntersection) 
-            |||> AVal.map3 (fun hitPoint previewSize showIt -> 
-                match hitPoint with
-                | Some hitPoint when showIt -> Some (hitPoint.hitPoint, previewSize)
-                | _ -> None
-            )
-
-        let validSurfacePriority v = 
-            // only relevant in secondary pass with overlayed geometry to render "missing" traverses
-            AVal.constant true
-
-        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-                               
-
-        sgGrouped 
-        |> AList.map (fun group -> 
-                
-            let surfaces = 
-                group
-                |> AMap.map(fun guid surface ->   
-
-                    let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
-                    let s =
-                        viewSingleSurfaceSg 
-                            surface 
-                            m.scene.surfacesModel.surfaces.flat
-                            m.frustum 
-                            selected 
-                            surfacePicking
-                            m.scene.config.showPreviewIntersection
-                            surface.globalBB
-                            refSystem 
-                            observationSystem
-                            observerSystem
-                            m.footPrint 
-                            vpVisible
-                            usehighlighting filterTexture
-                            allowFootprint
-                            allowDepthview
-                            cursorWorldPos
-                            view
-
-
-                    let surfaceSg = 
-                        match surface.isObj with
-                        | true -> 
-                            s 
-                            |> Sg.effect [
-                                objEffect
-                            ] 
-                        | false -> 
-                            s
-                            |> Sg.effect [surfaceEffect] 
-                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-
-                    surfaceSg
-                )
-
-            let depthComposed = 
-                group.Content
-                |> AVal.map (fun surfaces -> 
-                    match surfaces |> HashMap.toValueSeq |> Seq.tryHead with
-                    | None -> Sg.empty
-                    | Some someSurf -> 
-                        let priority = 
-                            AMap.tryFind someSurf.surface m.scene.surfacesModel.surfaces.flat
-                            |> AVal.bind (function
-                                | (Some (AdaptiveSurfaces s)) -> 
-                                    s.priority.value |> AVal.map (int >> Some) 
-                                | _ -> AVal.constant None
-                            )
-                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority
-                        |> Sg.map ViewerAction.TraverseMessage
-                )
-                |> Sg.dynamic
-
-            let surfaces = 
-                surfaces
-                |> AMap.toASet 
-                |> ASet.map snd           
-                |> Sg.set
-                    
-            Sg.ofList [surfaces; depthComposed]
-        )  
-
     let createRimfaxSurfaces
         (traverse : AdaptiveTraverse) 
         (traverseModel  : AdaptiveTraverseModel)
@@ -1194,6 +1082,151 @@ module ViewerUtils =
         |> Sg.set
         |> Sg.noEvents 
 
+    let createGroupedSgs 
+        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
+        (view           : aval<CameraView>)
+        (allowFootprint : bool) 
+        (allowDepthview : bool) 
+        (m              : AdaptiveModel)  =
+
+        let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
+        let filterTexture = ~~true
+        //let mutable useTC = true
+        //avoids kdtree intersections for certain interactions
+        let surfacePicking = 
+            m.interaction 
+            |> AVal.map(fun x -> 
+                match x with
+                | Interactions.PickAnnotation | Interactions.PickLog -> false
+                | _ -> true
+            )
+
+        let vpVisible = isViewPlanVisible m
+        let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
+        let refSystem = m.scene.referenceSystem
+        //let view = m.navigation.camera.view
+
+
+        let cursorWorldPos = 
+            (m.surfaceIntersection, m.scene.config.previewIntersectionWorldSize.value, m.scene.config.showPreviewIntersection) 
+            |||> AVal.map3 (fun hitPoint previewSize showIt -> 
+                match hitPoint with
+                | Some hitPoint when showIt -> Some (hitPoint.hitPoint, previewSize)
+                | _ -> None
+            )
+
+        let validSurfacePriority v = 
+            // only relevant in secondary pass with overlayed geometry to render "missing" traverses
+            AVal.constant true
+
+        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
+                               
+
+        sgGrouped 
+        |> AList.map (fun group -> 
+                
+            let surfaces = 
+                group
+                |> AMap.map(fun guid surface ->   
+
+                    let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
+                    let s =
+                        viewSingleSurfaceSg 
+                            surface 
+                            m.scene.surfacesModel.surfaces.flat
+                            m.frustum 
+                            selected 
+                            surfacePicking
+                            m.scene.config.showPreviewIntersection
+                            surface.globalBB
+                            refSystem 
+                            observationSystem
+                            observerSystem
+                            m.footPrint 
+                            vpVisible
+                            usehighlighting filterTexture
+                            allowFootprint
+                            allowDepthview
+                            cursorWorldPos
+                            view
+
+
+                    let surfaceSg = 
+                        match surface.isObj with
+                        | true -> 
+                            s 
+                            |> Sg.effect [
+                                objEffect
+                            ] 
+                        | false -> 
+                            s
+                            |> Sg.effect [surfaceEffect] 
+                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+
+                    surfaceSg
+                )
+
+            let depthComposed = 
+                group.Content
+                |> AVal.map (fun surfaces -> 
+                    match surfaces |> HashMap.toValueSeq |> Seq.tryHead with
+                    | None -> Sg.empty
+                    | Some someSurf -> 
+                        let priority = 
+                            AMap.tryFind someSurf.surface m.scene.surfacesModel.surfaces.flat
+                            |> AVal.bind (function
+                                | (Some (AdaptiveSurfaces s)) -> 
+                                    s.priority.value |> AVal.map (int >> Some) 
+                                | _ -> AVal.constant None
+                            )
+                        (*
+                        m.scene.traverses.rimfaxTraverses 
+                        |> AMap.filterA (fun k v -> 
+                            (priority, v.priority.value, v.priorityEnabled) 
+                            |||> AVal.bind3 (fun filterPriority p enabled -> 
+                                match filterPriority, enabled with
+                                | Some priority, true-> // we have it priorities enabled and we are in a surface pass. check if this is the right prio
+                                    AVal.constant (int p = priority)
+                                | Some _, false -> // we are in a surface pass here, but priorty rendering is not enabled => skip
+                                        AVal.constant false
+                                | None, true -> 
+                                    // we are in overlay pass here.
+                                    // but it has priority enabled -> it was already rendered with the surfaces?
+                                    let surfaceExists = validSurfacePriority (int p)
+                                    surfaceExists |> AVal.map not // if it does not exist, render it now.
+                                | None, false ->  // we are in overlay pass here and prios are not enabled => we need to render it now.
+                                    AVal.constant true
+                            )
+                        )
+                        |> AMap.map(fun id traverse ->
+                            Sg.ofList [createRimfaxSurfaces traverse m.scene.traverses |> Sg.onOff traverse.showRimfaxSurfaces]
+                        )
+                        |> AMap.toASet 
+                        |> ASet.map snd 
+                        |> Sg.set
+                        *)
+                        m.scene.traverses.rimfaxTraverses
+                        |> AMap.map(fun id traverse ->
+                            Sg.ofList [
+                                createRimfaxSurfaces traverse m.scene.traverses |> Sg.onOff traverse.showRimfaxSurfaces
+                            ]
+                        )
+                        |> AMap.toASet 
+                        |> ASet.map snd 
+                        |> Sg.set
+                )
+                |> Sg.dynamic
+
+            let surfaces = 
+                surfaces
+                |> AMap.toASet 
+                |> ASet.map snd           
+                |> Sg.set
+                    
+            Sg.ofList [surfaces; depthComposed]
+        )  
+
     let renderCommands 
         (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
         (traverseModel  : AdaptiveTraverseModel)
@@ -1216,7 +1249,7 @@ module ViewerUtils =
             |> ASet.map snd 
             |> Sg.set
 
-        let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview m |> AList.append (AList.single traverseSg)
+        let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview m
         
         alist {                    
             for sg in grouped do  

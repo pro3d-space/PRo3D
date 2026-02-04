@@ -77,6 +77,8 @@ module TraversePropertiesApp =
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ] 
+                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
                 ]
             )
 
