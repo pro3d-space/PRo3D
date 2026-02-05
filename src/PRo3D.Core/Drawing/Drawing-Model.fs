@@ -38,7 +38,7 @@ type DrawingAction =
 | StopPicking  
 | StartPickingMulti     
 | StopPickingMulti  
-| AddPointAdv         of V3d * (V3d -> Option<V3d>) * string * option<Guid>
+| AddPointAdv         of V3d * (V3d -> Option<V3d>) * Option<PRo3D.Base.Gis.SpiceReferenceSystem> * string * option<Guid>
 | RemoveLastPoint  
 | ClearWorking
 | ClearSelection

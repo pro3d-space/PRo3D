@@ -70,13 +70,17 @@ module Viewer =
         : Model = 
 
         let defaultDashboard =  DashboardModes.defaultDashboard //DashboardModes.defaultDashboard
+        let defaultDashboard = DashboardModes.gis
         // use this one for PROVEX workflows if needed.
         //let defaultDashboard = DashboardModes.provenance
-        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
-        let viewConfigModel = ViewConfigModel.initial 
+        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020   
+        
+        let viewConfigModel = 
+            { ViewConfigModel.initial with showExplorationPointGui = startupArgs.showExplorationPoint }
 
         let applyProvenaceIfEnabled (m : Model) =
             ProvenanceApp.emptyWithModel startupArgs.enableProvenanceTracking m
+        
         {     
             scene = 
                 {
@@ -90,7 +94,7 @@ module Viewer =
                     config          = viewConfigModel
                     scenePath       = None
 
-                    referenceSystem       = ReferenceSystem.initial                    
+                    referenceSystem       = { ReferenceSystem.initial with isVisible = startupArgs.showReferenceSystem }
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
                     dockConfig            = defaultDockConfig                
@@ -165,7 +169,6 @@ module Viewer =
             viewPortSizes   = HashMap.empty
 
             snapshotThreads      = ThreadPool.empty
-            showExplorationPoint = startupArgs.showExplorationPoint
             heighValidation      = HeightValidatorModel.init()
             
             filterTexture = false

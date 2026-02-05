@@ -60,43 +60,43 @@ module SurfaceUtils =
         let names = Files.getOPCNames path                
 
         {
-            version              = Surface.current
-            guid                 = Guid.NewGuid()
-            name                 = IO.Path.GetFileName path
-            importPath           = path
-            opcNames             = names
-            opcPaths             = names |> Files.expandNamesToPaths path
-            fillMode             = FillMode.Fill
-            cullMode             = CullMode.None
-            isVisible            = true
-            isActive             = true
-            relativePaths        = false
-            quality              = Init.quality
-            priority             = Init.priority
-            scaling              = Transformations.Initial.scaling //Init.scaling
-            preTransform         = Trafo3d.Identity            
-            scalarLayers         = HashMap.Empty //IndexList.empty
-            selectedScalar       = None
-            textureLayers        = IndexList.empty
-            primaryTexture       = None  
-        
-            secondaryTexture     = None
-            transferFunction     = TransferFunction.empty
-
-            filterByTriangleSize = false    
-            triangleSize         = { Init.triangleSize with value = maxTriangleSize }
-
-            surfaceType          = stype
-            preferredLoader      = preferredLoader
-                                 
-            colorCorrection      = Init.initColorCorrection
-            homePosition         = None
-            transformation       = Init.transformations
-            opcxPath             = None
-            radiometry           = Init.initRadiometry
-
-            filterByDistance     = false
-            filterDistance       = Surface.Initial.filterDistance 10.0
+            version               = Surface.current
+            guid                  = Guid.NewGuid()
+            name                  = IO.Path.GetFileName path
+            importPath            = path
+            opcNames              = names
+            opcPaths              = names |> Files.expandNamesToPaths path
+            fillMode              = FillMode.Fill
+            cullMode              = CullMode.None
+            isVisible             = true
+            isActive              = true
+            relativePaths         = false
+            quality               = Init.quality
+            priority              = Init.priority
+            scaling               = Transformations.Initial.scaling //Init.scaling
+            preTransform          = Trafo3d.Identity            
+            scalarLayers          = HashMap.Empty //IndexList.empty
+            selectedScalar        = None
+            textureLayers         = IndexList.empty
+            primaryTexture        = None  
+            secondaryTexture      = None
+            secondaryTextureLayer = None
+            transferFunction      = TransferFunction.empty
+                                  
+            filterByTriangleSize  = false    
+            triangleSize          = { Init.triangleSize with value = maxTriangleSize }
+                                  
+            surfaceType           = stype
+            preferredLoader       = preferredLoader
+                                  
+            colorCorrection       = Init.initColorCorrection
+            homePosition          = None
+            transformation        = Init.transformations
+            opcxPath              = None
+            radiometry            = Init.initRadiometry
+                                  
+            filterByDistance      = false
+            filterDistance        = Surface.Initial.filterDistance 10.0
 
             
             contourModel = ContourLineModel.initial

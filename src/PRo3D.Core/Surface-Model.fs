@@ -669,6 +669,7 @@ type Surface = {
     textureLayers   : IndexList<TextureLayer>
     primaryTexture     : Option<TextureLayer>
     secondaryTexture   : Option<TextureLayer>
+    secondaryTextureLayer : Option<int>
     transferFunction   : TransferFunction
     opcxPath        : Option<string>
 
@@ -756,36 +757,37 @@ module Surface =
 
             return 
                 {
-                    version              = current
-                    guid                 = guid |> Guid
-                    name                 = name
-                    importPath           = importPath
-                    opcNames             = opcNames
-                    opcPaths             = opcPaths
-                    relativePaths        = relativePaths
-                    fillMode             = fillMode |> enum<FillMode>
-                    cullMode             = cullMode |> enum<CullMode>
-                    isVisible            = isVisible
-                    isActive             = isActive
-                    quality              = quality
-                    priority             = priority
-                    filterByTriangleSize = false
-                    triangleSize         = triangleSize
-                    scaling              = scaling
-                    preTransform         = preTransform |> Trafo3d.Parse
-                    scalarLayers         = scalarLayers
-                    selectedScalar       = selectedScalar
-                    textureLayers        = textureLayers
-                    primaryTexture       = selectedTexture
-                    secondaryTexture     = None
-                    transferFunction     = TransferFunction.empty
-                    surfaceType          = surfaceType     |> enum<SurfaceType>
-                    preferredLoader      = preferredLoader |> enum<MeshLoaderType>
-                    colorCorrection      = colorCorrection
-                    homePosition         = view
-                    transformation       = transformation
-                    radiometry           = Init.initRadiometry
-                    opcxPath             = None
+                    version               = current
+                    guid                  = guid |> Guid
+                    name                  = name
+                    importPath            = importPath
+                    opcNames              = opcNames
+                    opcPaths              = opcPaths
+                    relativePaths         = relativePaths
+                    fillMode              = fillMode |> enum<FillMode>
+                    cullMode              = cullMode |> enum<CullMode>
+                    isVisible             = isVisible
+                    isActive              = isActive
+                    quality               = quality
+                    priority              = priority
+                    filterByTriangleSize  = false
+                    triangleSize          = triangleSize
+                    scaling               = scaling
+                    preTransform          = preTransform |> Trafo3d.Parse
+                    scalarLayers          = scalarLayers
+                    selectedScalar        = selectedScalar
+                    textureLayers         = textureLayers
+                    primaryTexture        = selectedTexture
+                    secondaryTexture      = None
+                    secondaryTextureLayer = None
+                    transferFunction      = TransferFunction.empty
+                    surfaceType           = surfaceType     |> enum<SurfaceType>
+                    preferredLoader       = preferredLoader |> enum<MeshLoaderType>
+                    colorCorrection       = colorCorrection
+                    homePosition          = view
+                    transformation        = transformation
+                    radiometry            = Init.initRadiometry
+                    opcxPath              = None
 
                     filterByDistance = false
                     filterDistance   = Initial.filterDistance 10.0
@@ -853,36 +855,37 @@ module Surface =
 
             return 
                 {
-                    version              = current
-                    guid                 = guid |> Guid
-                    name                 = name
-                    importPath           = importPath
-                    opcNames             = opcNames
-                    opcPaths             = opcPaths
-                    relativePaths        = relativePaths
-                    fillMode             = fillMode |> enum<FillMode>
-                    cullMode             = cullMode |> enum<CullMode>
-                    isVisible            = isVisible
-                    isActive             = isActive
-                    quality              = quality
-                    priority             = priority
-                    filterByTriangleSize = filterByTriangleSize |> Option.defaultValue false
-                    triangleSize         = triangleSize
-                    scaling              = scaling
-                    preTransform         = preTransform |> Trafo3d.Parse
-                    scalarLayers         = scalarLayers
-                    selectedScalar       = selectedScalar
-                    textureLayers        = textureLayers
-                    primaryTexture       = selectedTexture
-                    secondaryTexture     = None
-                    transferFunction     = TransferFunction.empty
-                    opcxPath             = None
-                    surfaceType          = surfaceType     |> enum<SurfaceType>
-                    preferredLoader      = preferredLoader |> enum<MeshLoaderType>
-                    colorCorrection      = colorCorrection
-                    homePosition         = view
-                    transformation       = transformation
-                    radiometry           = radiometry
+                    version               = current
+                    guid                  = guid |> Guid
+                    name                  = name
+                    importPath            = importPath
+                    opcNames              = opcNames
+                    opcPaths              = opcPaths
+                    relativePaths         = relativePaths
+                    fillMode              = fillMode |> enum<FillMode>
+                    cullMode              = cullMode |> enum<CullMode>
+                    isVisible             = isVisible
+                    isActive              = isActive
+                    quality               = quality
+                    priority              = priority
+                    filterByTriangleSize  = filterByTriangleSize |> Option.defaultValue false
+                    triangleSize          = triangleSize
+                    scaling               = scaling
+                    preTransform          = preTransform |> Trafo3d.Parse
+                    scalarLayers          = scalarLayers
+                    selectedScalar        = selectedScalar
+                    textureLayers         = textureLayers
+                    primaryTexture        = selectedTexture
+                    secondaryTexture      = None
+                    secondaryTextureLayer = None
+                    transferFunction      = TransferFunction.empty
+                    opcxPath              = None
+                    surfaceType           = surfaceType     |> enum<SurfaceType>
+                    preferredLoader       = preferredLoader |> enum<MeshLoaderType>
+                    colorCorrection       = colorCorrection
+                    homePosition          = view
+                    transformation        = transformation
+                    radiometry            = radiometry
 
                     filterByDistance = match filterByDistance with |Some v -> v |None -> false
                     filterDistance   = match filterDistance with |Some d -> Initial.filterDistance d |None -> Initial.filterDistance 10.0

@@ -27,7 +27,6 @@ type SequencedBookmarkAction =
     | SetDelay       of Numeric.Action
     | SetDuration    of Numeric.Action
 
-[<Struct>]
 type AnimationLoopMode = 
     | NoLoop = 0
     | Repeat = 1

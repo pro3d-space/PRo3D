@@ -86,10 +86,14 @@ module SnapshotGenerator =
                 | None -> []
         
             let recalcNearFarAction =
-                match recalcNearFar with
-                | NearFarRecalculation.Both -> [ViewerAction.RecalculateNearFarPlane]
-                | NearFarRecalculation.FarPlane -> [ViewerAction.RecalculateFarPlane]
-                | NearFarRecalculation.NoRecalculation -> []
+                snapshot.nearFarPlane
+                |> Option.map (fun nfp -> [ViewerAction.RecalculateNearFarPlane nfp])
+                |> Option.defaultValue []
+                
+                //match recalcNearFar with
+                //| NearFarRecalculation.Both -> [ViewerAction.RecalculateNearFarPlane]
+                //| NearFarRecalculation.FarPlane -> [ViewerAction.RecalculateFarPlane]
+                //| NearFarRecalculation.NoRecalculation -> []
 
             // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
 

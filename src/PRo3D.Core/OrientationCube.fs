@@ -19,10 +19,10 @@ module Shader =
     let aspectTrafo (v : Effects.Vertex) =
         vertex {
             let vps = uniform.ViewportSize
-            let aspect = (float vps.X) / (float vps.Y)
-            let tx = 0.75
-            let ty = 0.75
-            return {v with pos = V4d(v.pos.X / aspect + tx, v.pos.Y + ty, v.pos.Z, v.pos.W)}
+            let aspect = (float32 vps.X) / (float32 vps.Y)
+            let tx = 0.75f
+            let ty = 0.75f
+            return {v with pos = V4f(v.pos.X / aspect + tx, v.pos.Y + ty, v.pos.Z, v.pos.W)}
         }
     
     let samplerAniso =
@@ -40,21 +40,21 @@ module Shader =
     let screenSpaceScaleTrafo (v : Effects.Vertex) =
         vertex {
             let loc = uniform.CameraLocation
-            let hvp = float uniform.ViewportSize.X
+            let hvp = float32 uniform.ViewportSize.X
 
             //let mt = uniform?modelTrafo
-            let ct : M44d = uniform?posTrafo
+            let ct : M44f = uniform?posTrafo
 
-            let p    : V4d   = uniform?WorldPos
-            let size : float = uniform?Size
+            let p    : V4f   = uniform?WorldPos
+            let size : float32 = uniform?Size
 
             let t = ct*p
-            let dist = (V3d(t.X, t.Y, t.Z) - loc).Length      
+            let dist = (V3f(t.X, t.Y, t.Z) - loc).Length
             let scale = dist * size / hvp
     
             return { 
               v with
-                pos = V4d(v.pos.X * scale, v.pos.Y * scale, v.pos.Z * scale, v.pos.W)
+                pos = V4f(v.pos.X * scale, v.pos.Y * scale, v.pos.Z * scale, v.pos.W)
             }
         }
         

@@ -51,6 +51,7 @@ open Aether.Operators
 open Chiron 
 open PRo3D.Core.Surface
 open Aardvark.UI.Animation.Deprecated
+open PRo3D.SimulatedViews.SnapshotApp
 
 type UserFeedback<'a> = {
     id      : string
@@ -266,7 +267,7 @@ module ViewerApp =
                 | ViewerMode.Standard -> m.navigation.camera.view
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
-            let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name, None)
+            let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
@@ -549,7 +550,7 @@ module ViewerApp =
                     let animationMessage = 
                         CameraAnimations.animateForwardAndLocation a.view.Location a.view.Forward a.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
-                    { m with  animations = a'}
+                    { m with animations = a'}              
                 | None -> m
             | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && m.ctrlFlag ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
@@ -1150,15 +1151,31 @@ module ViewerApp =
                             | Interactions.PickSurface -> visibleAndActive
                             | _ -> onlyActive
 
-                        let hitF (camLocation : V3d) (p : V3d) = 
+                        let hitF (surfaceId : SurfaceId) (camLocation : V3d) (p : V3d) = 
+                            let sky (planet : Planet) = 
+                                let up = CooTransformation.getUpVector p planet
+                                let reprojectionDistance = 
+                                    match planet with
+                                    | Planet.Mars -> 1000000.0
+                                    | _ -> 100.0
+                                FastRay3d(p - (up * reprojectionDistance), up)  
+
                             let ray =
                                 match m.drawing.projection with
                                 | Projection.Viewpoint -> 
                                     let dir = (p-camLocation).Normalized
                                     FastRay3d(camLocation, dir)  
                                 | Projection.Sky -> 
-                                    let up = m.scene.referenceSystem.up.value
-                                    FastRay3d(p + (up * 5000.0), -up)  
+                                    match PRo3D.Core.Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp surfaceId with
+                                    | None -> 
+                                        sky m.scene.referenceSystem.planet
+                                    | Some ob -> 
+                                        let (EntitySpiceName n) = ob.body
+                                        match CooTransformation.planetFromString n with
+                                        | None -> 
+                                            sky m.scene.referenceSystem.planet
+                                        | Some p -> 
+                                            sky p
                                 | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
                             match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache Config.diagnosticTimings with
@@ -1176,7 +1193,7 @@ module ViewerApp =
                                 Log.line "[PickSurface] surface hit at %A" hit
 
                                 let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
-                                let hitF = hitF cameraLocation
+                                let hitF = hitF surf.guid cameraLocation
                    
                                 lastHash <- rayHash
 
@@ -1287,6 +1304,14 @@ module ViewerApp =
                     let m = { m with shiftFlag = true}
                     Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
                     m
+                | Aardvark.Application.Keys.C -> 
+                    Log.line "[Viewer] reset orbit to center"
+                    let c   = m.scene.config
+                    let ref = m.scene.referenceSystem
+                    let navigation', _ = 
+                        Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero))
+                    { m with navigation = navigation' }       
+                    
                 | _ -> m
           
 
@@ -1469,13 +1494,14 @@ module ViewerApp =
         | TransforAdaptiveSurface (guid, trafo),_,_ ->
             //transforAdaptiveSurface m guid trafo //TODO moved function?
             m
-        //| TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
-        //    match surfaceUpdates.IsEmptyOrNull () with
-        //    | false ->
-        //        transformAllSurfaces m surfaceUpdates
-        //    | true ->
-        //        Log.line "[Viewer] No surface updates found."
-        //        m
+        | TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
+            match surfaceUpdates.IsEmptyOrNull () with
+            | false ->
+                let sM' = transformAllSurfaces m.scene.surfacesModel surfaceUpdates
+                { m with scene = { m.scene with surfacesModel = sM' }}
+            | true ->
+                Log.line "[Viewer] No surface updates found."
+                m
         //| TransformAllSurfaces (surfaceUpdates,scs),_,_ ->
         //    match surfaceUpdates.IsEmptyOrNull () with
         //    | false ->
@@ -1488,6 +1514,12 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No surface updates found."
         //        m
+        | RecalculateNearFarPlane nearFarPlane,_,_ ->
+            let fov = m.frustum |> Frustum.horizontalFieldOfViewInDegrees
+            let asp = m.frustum |> Frustum.aspect
+            let f' = Frustum.perspective fov nearFarPlane.X nearFarPlane.Y asp                    
+
+            { m with frustum = f' }
         | Translate (_,b),_,_ ->
             m
             //match _selectedSurface.Get(m) with
@@ -2002,7 +2034,7 @@ module ViewerApp =
         AttributeMap.unionMany [
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
-                attribute "data-samples" "4"
+                attribute "data-samples" (string dataSamples)
                 attribute "useMapping" "true"
                 onKeyDown (KeyDown)
                 onKeyUp (KeyUp)
@@ -2211,7 +2243,9 @@ module ViewerApp =
             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
             |> Sg.map GeologicSurfacesMessage 
 
-        let gisEntities = Gis.GisApp.viewGisEntities m.scene.gisApp |> Sg.noEvents
+        let gisEntities = 
+            let camera = (view, frustum) ||> AVal.map2 Camera.create
+            Gis.GisApp.viewGisEntities camera m.scene.gisApp |> Sg.noEvents
 
         [
             depthTested; 
@@ -2322,6 +2356,7 @@ module ViewerApp =
         let viewerDependencies = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
             { kind = Stylesheet;  name = "semui-overrides"; url = "./resources/semui-overrides.css" }
+            { kind = Stylesheet;  name = "fonts";           url = "./resources/fonts.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
             { kind = Script;      name = "errorReporting";  url = "./resources/errorReporting.js"  }
             { kind = Script;      name = "resize";  url = "./resources/ResizeSensor.js"  }
