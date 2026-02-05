@@ -33,16 +33,17 @@ module ProjectedImagesListAppHelper =
         }
 
     let getSelectedImageChannel (m : AdaptiveProjectedImageListModel) =
-        m.selectedImage |> AVal.map (fun imgIdx ->
+        m.selectedImage |> AVal.bind (fun imgIdx ->
             match imgIdx with
-            | None -> {idx = 0; name = None}
+            | None -> AVal.constant {idx = 0; name = None}
             | Some idx -> 
-                let img = AList.tryGet idx m.images |> AVal.map (fun img ->
-                    match img with
-                    | None -> { idx = 0; name = None}
-                    | Some img -> img.selectedChannel.GetValue()
+                m.images
+                |> AList.tryGet idx
+                |> AVal.bind (function
+                    | None ->
+                        AVal.constant { idx = 0; name = None }
+                    | Some img -> img.selectedChannel
                 )
-                img.GetValue()
         )
 
     let getSelectedTexture (m : AdaptiveProjectedImageListModel) : aval<Option<string * InstrumentMetadata.ParsedMetadata>> = 
