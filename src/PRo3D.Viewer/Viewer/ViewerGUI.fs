@@ -866,6 +866,16 @@ module Gui =
                     | SelectedItem.Group -> annotationGroupButtons m
                     | _ -> annotationLeafButtonns m 
                 )
+
+            let toggleIcon = 
+                AVal.map( fun toggle -> if toggle then "toggle on icon" else "toggle off icon") m.inverseFlag
+
+            let toggleMap = 
+                amap {
+                    let! toggleIcon = toggleIcon
+                    yield clazz toggleIcon
+                    yield onClick (fun _ -> ViewerAction.InvertDrawing)
+                } |> AttributeMap.ofAMap  
             
             div [] [
                 GuiEx.accordion "Annotations" "Write" true [
@@ -878,6 +888,10 @@ module Gui =
                 ] 
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
+                ]
+                div [style "padding: 10px; display: flex; color: white; align-items: center;"] [
+                    Incremental.i toggleMap AList.empty
+                    text "Invert Drawing"
                 ]
             ]    
 
