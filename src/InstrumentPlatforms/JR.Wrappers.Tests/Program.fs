@@ -1,7 +1,6 @@
 ﻿#nowarn "9"
 open System
 open Microsoft.FSharp.NativeInterop  
-open Expecto
 open JR
 open System.IO
 
