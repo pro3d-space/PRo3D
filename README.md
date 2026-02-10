@@ -86,8 +86,20 @@ If you have any questions, feel free to contact us on [discord](https://discord.
 
 # Development
 
+## Adaptify
+
 The project makes heavy use of the [`adaptify`](https://github.com/krauthaufen/Adaptify) tool. Until 20.11.2024 all model type generation was handled by the msbuild tool implicitly. For better development experience we now use local adaptify mode, some documentation can be found [here](./docs/ModelTypes.md).
 This allows developers to use a much wider set of IDEs. Development in vscode or rider should work out-of-the box!
+
+## Notebooks
+
+To keep notebooks clean, please strip outputs before committing. You can set this up by installing `nbstripout` in the PRo3D root directory:
+
+```
+pip install nbstripout
+nbstripout --install
+```
+Once installed, outputs will automatically be removed from notebooks on commit.
 
 # Packages
 
