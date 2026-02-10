@@ -1,5 +1,5 @@
-//7fed990e-71f7-dd6f-9d9b-84a1a2910271
-//0626e286-27f2-3999-e60e-ddd06ff18201
+//208e6d7e-da2e-6162-2540-818b829e6350
+//aec4bb6b-dd66-a898-cb45-d84ab3a6dd1f
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -163,6 +163,7 @@ type AdaptiveSurface(value : Surface) =
     let _isActive_ = FSharp.Data.Adaptive.cval(value.isActive)
     let _quality_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.quality)
     let _priority_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.priority)
+    let _filterByTriangleSize_ = FSharp.Data.Adaptive.cval(value.filterByTriangleSize)
     let _triangleSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.triangleSize)
     let _scaling_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.scaling)
     let _filterByDistance_ = FSharp.Data.Adaptive.cval(value.filterByDistance)
@@ -216,6 +217,7 @@ type AdaptiveSurface(value : Surface) =
             _isActive_.Value <- value.isActive
             _quality_.Update(value.quality)
             _priority_.Update(value.priority)
+            _filterByTriangleSize_.Value <- value.filterByTriangleSize
             _triangleSize_.Update(value.triangleSize)
             _scaling_.Update(value.scaling)
             _filterByDistance_.Value <- value.filterByDistance
@@ -251,6 +253,7 @@ type AdaptiveSurface(value : Surface) =
     member __.isActive = _isActive_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.quality = _quality_
     member __.priority = _priority_
+    member __.filterByTriangleSize = _filterByTriangleSize_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.triangleSize = _triangleSize_
     member __.scaling = _scaling_
     member __.filterByDistance = _filterByDistance_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -289,6 +292,7 @@ module SurfaceLenses =
         static member isActive_ = ((fun (self : Surface) -> self.isActive), (fun (value : Microsoft.FSharp.Core.bool) (self : Surface) -> { self with isActive = value }))
         static member quality_ = ((fun (self : Surface) -> self.quality), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Surface) -> { self with quality = value }))
         static member priority_ = ((fun (self : Surface) -> self.priority), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Surface) -> { self with priority = value }))
+        static member filterByTriangleSize_ = ((fun (self : Surface) -> self.filterByTriangleSize), (fun (value : Microsoft.FSharp.Core.bool) (self : Surface) -> { self with filterByTriangleSize = value }))
         static member triangleSize_ = ((fun (self : Surface) -> self.triangleSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Surface) -> { self with triangleSize = value }))
         static member scaling_ = ((fun (self : Surface) -> self.scaling), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Surface) -> { self with scaling = value }))
         static member filterByDistance_ = ((fun (self : Surface) -> self.filterByDistance), (fun (value : Microsoft.FSharp.Core.bool) (self : Surface) -> { self with filterByDistance = value }))

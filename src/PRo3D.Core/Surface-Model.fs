@@ -624,13 +624,51 @@ module Init =
 
 type TransferFunction =
     {
+        version: int
         tf : ColorMaps.TF
         textureCombiner : TextureCombiner
         blendFactor : float
     }
 
 module TransferFunction =
-    let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0 }
+
+    let current = 0
+
+    let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0; version = current }
+
+    let read0 = 
+        json {
+            let! tf  = Json.read "tf"
+            let! textureCombiner  = Json.read "textureCombiner"
+            let! blendFactor = Json.readFloat "blendFactor"
+
+            return {
+                version = current
+                tf = tf
+                textureCombiner   = textureCombiner |> enum<TextureCombiner>
+                blendFactor   = blendFactor
+            }
+        }
+
+type TransferFunction with 
+    static member FromJson(_ : TransferFunction) =
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! TransferFunction.read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of TextureLayer" 
+                |> Json.error 
+        }
+    static member ToJson (x : TransferFunction) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "tf" x.tf
+            do! Json.write "textureCombiner" (x.textureCombiner |> int)
+            do! Json.writeFloat "blendFactor" x.blendFactor
+        }
+
 
 type SurfaceId = System.Guid
 
@@ -654,8 +692,9 @@ type Surface = {
     quality         : NumericInput
     priority        : NumericInput
                     
-    triangleSize    : NumericInput
-    scaling         : NumericInput
+    filterByTriangleSize : bool
+    triangleSize         : NumericInput
+    scaling              : NumericInput
 
     filterByDistance : bool
     filterDistance   : NumericInput
@@ -756,36 +795,37 @@ module Surface =
 
             return 
                 {
-                    version         = current
-                    guid            = guid |> Guid
-                    name            = name
-                    importPath      = importPath
-                    opcNames        = opcNames
-                    opcPaths        = opcPaths
-                    relativePaths   = relativePaths
-                    fillMode        = fillMode |> enum<FillMode>
-                    cullMode        = cullMode |> enum<CullMode>
-                    isVisible       = isVisible
-                    isActive        = isActive
-                    quality         = quality
-                    priority        = priority
-                    triangleSize    = triangleSize
-                    scaling         = scaling
-                    preTransform    = preTransform |> Trafo3d.Parse
-                    scalarLayers    = scalarLayers
-                    selectedScalar  = selectedScalar
-                    textureLayers   = textureLayers
-                    primaryTexture   = selectedTexture
-                    secondaryTexture = None
+                    version               = current
+                    guid                  = guid |> Guid
+                    name                  = name
+                    importPath            = importPath
+                    opcNames              = opcNames
+                    opcPaths              = opcPaths
+                    relativePaths         = relativePaths
+                    fillMode              = fillMode |> enum<FillMode>
+                    cullMode              = cullMode |> enum<CullMode>
+                    isVisible             = isVisible
+                    isActive              = isActive
+                    quality               = quality
+                    priority              = priority
+                    filterByTriangleSize  = false
+                    triangleSize          = triangleSize
+                    scaling               = scaling
+                    preTransform          = preTransform |> Trafo3d.Parse
+                    scalarLayers          = scalarLayers
+                    selectedScalar        = selectedScalar
+                    textureLayers         = textureLayers
+                    primaryTexture        = selectedTexture
+                    secondaryTexture      = None
                     secondaryTextureLayer = None
-                    transferFunction = TransferFunction.empty
-                    surfaceType     = surfaceType     |> enum<SurfaceType>
-                    preferredLoader = preferredLoader |> enum<MeshLoaderType>
-                    colorCorrection = colorCorrection
-                    homePosition    = view
-                    transformation  = transformation
-                    radiometry      = Init.initRadiometry
-                    opcxPath        = None
+                    transferFunction      = TransferFunction.empty
+                    surfaceType           = surfaceType     |> enum<SurfaceType>
+                    preferredLoader       = preferredLoader |> enum<MeshLoaderType>
+                    colorCorrection       = colorCorrection
+                    homePosition          = view
+                    transformation        = transformation
+                    radiometry            = Init.initRadiometry
+                    opcxPath              = None
 
                     filterByDistance = false
                     filterDistance   = Initial.filterDistance 10.0
@@ -799,19 +839,21 @@ module Surface =
 
     let read1 =
         json {
-            let! guid            = Json.read "guid"
-            let! name            = Json.read "name"
-            let! importPath      = Json.read "importPath"  
-            let! opcNames        = Json.read "opcNames"       
-            let! opcPaths        = Json.read "opcPaths"       
-            let! relativePaths   = Json.read "relativePaths"
-            let! fillMode        = Json.read "fillMode"       
-            let! cullMode        = Json.read "cullMode"       
-            let! isVisible       = Json.read "isVisible"      
-            let! isActive        = Json.read "isActive"       
-            let! quality         = Json.readWith Ext.fromJson<NumericInput,Ext> "quality"
-            let! priority        = Json.readWith Ext.fromJson<NumericInput,Ext> "priority"
-            let! triangleSize    = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize"   
+            let! guid                 = Json.read "guid"
+            let! name                 = Json.read "name"
+            let! importPath           = Json.read "importPath"  
+            let! opcNames             = Json.read "opcNames"       
+            let! opcPaths             = Json.read "opcPaths"       
+            let! relativePaths        = Json.read "relativePaths"
+            let! fillMode             = Json.read "fillMode"       
+            let! cullMode             = Json.read "cullMode"       
+            let! isVisible            = Json.read "isVisible"      
+            let! isActive             = Json.read "isActive"       
+            let! quality              = Json.readWith Ext.fromJson<NumericInput,Ext> "quality"
+            let! priority             = Json.readWith Ext.fromJson<NumericInput,Ext> "priority"
+            let! filterByTriangleSize = Json.tryRead "filterByTriangleSize"
+            let! triangleSize         = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize" 
+            
 
             let! filterByDistance = Json.tryRead "filterByDistance" 
             let! filterDistance   = Json.tryRead "filterDistance"
@@ -822,6 +864,13 @@ module Surface =
             let! selectedScalar  = Json.read "selectedScalar"
             let! textureLayers   = Json.read "textureLayers"
             let! selectedTexture = Json.read "selectedTexture"
+
+            let! secondaryTexture = Json.readOrDefault "secondaryTexture" None
+            let! secondaryTextureLayer = Json.readOrDefault "secondaryTextureLayer" None
+            let! transferFunction = Json.readOrDefault "transferFunction" TransferFunction.empty
+            let! opcxPath = Json.readOrDefault "opcxPath" None
+            let! contourModel = Json.readOrDefault "contourModel" ContourLineModel.initial
+
             let! surfaceType     = Json.read "surfaceType"    
             let! colorCorrection = Json.read "colorCorrection"
             let! transformation  = Json.read "transformation"
@@ -851,30 +900,34 @@ module Surface =
 
             return 
                 {
-                    version         = current
-                    guid            = guid |> Guid
-                    name            = name
-                    importPath      = importPath
-                    opcNames        = opcNames
-                    opcPaths        = opcPaths
-                    relativePaths   = relativePaths
-                    fillMode        = fillMode |> enum<FillMode>
-                    cullMode        = cullMode |> enum<CullMode>
-                    isVisible       = isVisible
-                    isActive        = isActive
-                    quality         = quality
-                    priority        = priority
-                    triangleSize    = triangleSize
-                    scaling         = scaling
-                    preTransform    = preTransform |> Trafo3d.Parse
-                    scalarLayers    = scalarLayers
-                    selectedScalar  = selectedScalar
-                    textureLayers   = textureLayers
-                    primaryTexture   = selectedTexture
-                    secondaryTexture = None
-                    secondaryTextureLayer = None
-                    transferFunction = TransferFunction.empty
-                    opcxPath        = None
+                    version              = current
+                    guid                 = guid |> Guid
+                    name                 = name
+                    importPath           = importPath
+                    opcNames             = opcNames
+                    opcPaths             = opcPaths
+                    relativePaths        = relativePaths
+                    fillMode             = fillMode |> enum<FillMode>
+                    cullMode             = cullMode |> enum<CullMode>
+                    isVisible            = isVisible
+                    isActive             = isActive
+                    quality              = quality
+                    priority             = priority
+                    filterByTriangleSize = (filterByTriangleSize |> Option.defaultValue false)
+                    triangleSize         = triangleSize
+                    scaling              = scaling
+                    preTransform         = preTransform |> Trafo3d.Parse
+                    scalarLayers         = scalarLayers
+                    selectedScalar       = selectedScalar
+                    textureLayers        = textureLayers
+                    primaryTexture       = selectedTexture
+
+                    secondaryTexture = secondaryTexture
+                    secondaryTextureLayer = secondaryTextureLayer
+                    transferFunction = transferFunction
+                    opcxPath        = opcxPath
+                    contourModel = contourModel
+
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
                     colorCorrection = colorCorrection
@@ -884,9 +937,6 @@ module Surface =
 
                     filterByDistance = match filterByDistance with |Some v -> v |None -> false
                     filterDistance   = match filterDistance with |Some d -> Initial.filterDistance d |None -> Initial.filterDistance 10.0
-
-                    
-                    contourModel = ContourLineModel.initial
 
                     highlightSelected = match highlightSel with |Some v -> v |None -> true
                     highlightAlways   = match highlightAl with |Some v -> v |None -> false
@@ -921,6 +971,7 @@ type Surface with
             do! Json.write "isActive" x.isActive
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "quality" x.quality
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "priority" x.priority
+            do! Json.write "filterByTriangleSize" x.filterByTriangleSize
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "triangleSize" x.triangleSize
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "scaling" x.scaling
             do! Json.write "preTransform" (x.preTransform.ToString())
@@ -928,6 +979,13 @@ type Surface with
             do! Json.write "selectedScalar" x.selectedScalar
             do! Json.write "textureLayers" (x.textureLayers |> IndexList.toList)
             do! Json.write "selectedTexture" x.primaryTexture
+
+            do! Json.write "secondaryTexture" x.secondaryTexture
+            do! Json.write "secondaryTextureLayer" x.secondaryTextureLayer
+            do! Json.write "transferFunction" x.transferFunction
+            do! Json.write "opcxPath" x.opcxPath
+            do! Json.write "contourModel" x.contourModel
+
             do! Json.write "surfaceType" (x.surfaceType |> int)
             do! Json.write "colorCorrection" x.colorCorrection
             do! Json.write "preferredMeshLoader" (x.preferredLoader |> int)

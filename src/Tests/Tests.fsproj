@@ -14,6 +14,11 @@
 		<NoWarn>0686</NoWarn>
 	</PropertyGroup>
   <ItemGroup>
+    <None Include="Annotations\annotation_1.ann" />
+	<None Include="Annotations\annotation_1_latlon.json" />
+	<None Include="Annotations\annotation_1_xyz.json" />
+	<None Include="Annotations\annotation_1_xyz_latlon.json" />
+    <Compile Include="GeoJsonExportTest.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="QueriesDSL.fs" />
     <None Include="Playground.fsx" />
@@ -25,6 +30,9 @@
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Thoth.Json.Net" Version="12.0.0" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

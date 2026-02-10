@@ -93,26 +93,27 @@ module DrawingApp =
 
             let w = 
                 match w.geometry, sampleSurface with
-                | Geometry.AxisEllipse, Some sampleSurface -> 
-                    let geo = false
-                    if geo then
-                        match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
-                        | Some (ellipse, sampledPoints) -> 
-                            let points = IndexList.ofArray sampledPoints
-                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipse }}
-                        | _ -> 
-                            w
-                    else
-                        match dns with
-                        | None -> w
-                        | Some dns -> 
-                            match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
-                            | Some r -> 
-                                let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
-                                let ellipse = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
-                                { w with points = points; ellipticResults = Some { geographicalEllipse = ellipse }}
-                            | _ -> 
-                                w
+                | Geometry.AxisEllipse, Some sampleSurface
+                | Geometry.Axis4PEllipse, Some sampleSurface -> 
+                    //let geo = false
+                    //if geo then
+                    match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
+                    | Some (ellipses, sampledPoints) -> 
+                        let points = IndexList.ofArray sampledPoints
+                        { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
+                    | _ -> 
+                        w
+                    //else
+                    //    match dns with
+                    //    | None -> w
+                    //    | Some dns -> 
+                    //        match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
+                    //        | Some r -> 
+                    //            let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
+                    //            let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
+                    //            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = Some(ellipses.[1]) }}
+                    //        | _ -> 
+                    //            w
                         
                 | _ -> 
                     w
@@ -146,7 +147,7 @@ module DrawingApp =
                 Log.line "working contains %d points" annotation.points.Count
                 
                 // do not generate segments for ellipses as they are sampled when the ellipse is fully constructed (after having the ellipse we know its outline).
-                let allowSegmentGeneration = w.geometry <> Geometry.Ellipse && w.geometry <> Geometry.AxisEllipse
+                let allowSegmentGeneration = w.geometry <> Geometry.Ellipse && w.geometry <> Geometry.AxisEllipse && w.geometry <> Geometry.Axis4PEllipse
 
                 //fetch current drawing segment (projected, polyline or polygon)
                 let result = 
@@ -181,7 +182,7 @@ module DrawingApp =
                                 { annotation with segments = IndexList.add newSegment annotation.segments }, None
                     | Projection.Linear ->
                         annotation, None
-                    | Projection.Sky when w.geometry = Geometry.AxisEllipse -> 
+                    | Projection.Sky when ((w.geometry = Geometry.AxisEllipse) || (w.geometry = Geometry.Axis4PEllipse)) ->
                         annotation, None
                     | _ -> failwith "case does not exist"            
                 result 
@@ -210,6 +211,8 @@ module DrawingApp =
         | Geometry.Ellipse, 3 -> 
             finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
         | Geometry.AxisEllipse, 3 -> 
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
+        | Geometry.Axis4PEllipse, 4 ->  
             finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
         | _ -> 
             model, newSegment 
@@ -310,6 +313,19 @@ module DrawingApp =
                 (ann, projPoint))
         | _ -> None
 
+    let extractVisibleAnnotations (model : DrawingModel) : Annotation list =
+        model.annotations.flat
+        |> Leaf.toAnnotations
+        |> HashMap.toList 
+        |> List.map snd
+        |> List.filter (fun a -> a.visible)
+
+    let isSelected (model : DrawingModel) = 
+        match model.annotations.singleSelectLeaf with
+        | None -> fun _ -> false
+        | Some s -> 
+            fun (a : Annotation) -> a.key = s
+
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)
     // but blacklist those
@@ -321,6 +337,9 @@ module DrawingApp =
         | ExportAsCsv _         -> false
         | ExportAsProfileCsv _  -> false
         | ExportAsGeoJSON_xyz _ -> false
+        | ExportAsGeoJSONQGIS_latlon _ -> false
+        | ExportAsGeoJSONQGIS_xyz _ -> false
+        | ExportAsGeoJSONQGIS_both _ -> false
         | LegacySaveVersioned   -> false
         | _ -> true
 
@@ -332,51 +351,35 @@ module DrawingApp =
         (model       : DrawingModel) 
         (path        : string) =
 
-        // export only visible annotations
-        let annotations =
-            model.annotations.flat
-            |> Leaf.toAnnotations
-            |> HashMap.toList 
-            |> List.map snd
-            |> List.filter (fun a -> a.visible)
+        let annotations = extractVisibleAnnotations model
 
-        let isSelected = 
-            match model.annotations.singleSelectLeaf with
-            | None -> fun _ -> false
-            | Some s -> 
-                fun (a : Annotation) -> a.key = s
-               
         try
             if xyz then
-                GeoJSONExport.writeGeoJSON_XYZ path isSelected annotations
+                GeoJSONExport.writeGeoJSON None path (isSelected model) annotations
             else 
                 let planet = smallConfig.planet.Get(bigConfig)            
-                GeoJSONExport.writeGeoJSON (Some planet) path isSelected annotations
+                GeoJSONExport.writeGeoJSON (Some planet) path (isSelected model) annotations
         with e -> 
             Log.warn "[Drawing] exportGeoJson failed with %A" e
 
-    // exports geojson, optionally using XYZ format
-    let exportGeoJsonStream  
-        (xyz         : bool) 
-        (bigConfig   : 'a) 
-        (smallConfig : SmallConfig<'a>)
+    let exportGeoJsonQGIS
+        (cooConfig   : GeoJsonQGIS.CoordinateConfiguration)
         (model       : DrawingModel) 
         (path        : string) =
 
-        let annotations =
-            model.annotations.flat
-            |> Leaf.toAnnotations
-            |> HashMap.toList 
-            |> List.map snd
-            |> List.filter (fun a -> a.visible)
-               
-        let isSelected = 
-            match model.annotations.singleSelectLeaf with
-            | None -> fun _ -> false
-            | Some s -> 
-                fun (a : Annotation) -> a.key = s
+        let annotations = extractVisibleAnnotations model
 
-        GeoJSONExport.writeStreamGeoJSON_XYZ isSelected path annotations
+        GeoJSONExport.writeGeoJSONQGIS cooConfig path (isSelected model) annotations
+
+
+    // exports geojson, optionally using XYZ format
+    let exportGeoJsonStream  
+        (model       : DrawingModel) 
+        (path        : string) =
+
+        let annotations = extractVisibleAnnotations model
+
+        GeoJSONExport.writeStreamGeoJSON_XYZ (isSelected model) path annotations
 
     let finish (bigConfig  : 'a) (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) =
         let up     = smallConfig.up.Get(bigConfig)
@@ -465,7 +468,9 @@ module DrawingApp =
             | SetGeometry mode, _, _ ->
                 let projection = 
                     match mode with
-                    | Geometry.AxisEllipse -> Projection.Sky
+                    | Geometry.AxisEllipse
+                    | Geometry.Axis4PEllipse -> 
+                        Projection.Sky
                     // every other tool uses linear as default. TODO: if switching back to default is an UX problem, 
                     // we need to store the user-set projection mode and reset it if needed.
                     | _ -> Projection.Linear
@@ -569,21 +574,18 @@ module DrawingApp =
                 | None ->
                     model
             | ExportAsAnnotations path, _, _ ->
-                Drawing.IO.saveVersioned model path
-            | ExportAsCsv p, _, _ ->
-                let up = smallConfig.up.Get(bigConfig)
-                let lookups = GroupsApp.updateGroupsLookup model.annotations
-                let annotations =
-                    model.annotations.flat
-                    |> Leaf.toAnnotations
-                    |> HashMap.toList 
-                    |> List.map snd
-                    |> List.filter(fun a -> a.visible)
-
-                CSVExport.writeCSV lookups up p annotations
-                        
+                if path.IsNullOrEmpty() |> not then
+                    Drawing.IO.saveVersioned model path
+                else
+                    model
+            | ExportAsCsv path, _, _ ->
+                if path.IsNullOrEmpty() |> not then 
+                    let up = smallConfig.up.Get(bigConfig)
+                    let lookups = GroupsApp.updateGroupsLookup model.annotations
+                    let annotations = extractVisibleAnnotations model
+                    CSVExport.writeCSV lookups up path annotations
                 model      
-            | ExportAsProfileCsv p, _, _ ->
+            | ExportAsProfileCsv path, _, _ ->
                 //get selected annotation
                 let selected =  GroupsModel.tryGetSelectedAnnotation model.annotations
                 match selected with
@@ -611,48 +613,56 @@ module DrawingApp =
                         |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
                         |> CSV.Seq.csv "," true id
 
-                    if p.IsEmptyOrNull() |> not then 
-                        csvTable |> CSV.Seq.write p
+                    if path.IsEmptyOrNull() |> not then 
+                        csvTable |> CSV.Seq.write path
 
-                    Log.line "[DrawingApp] wrote %A to %s" profile p
+                    Log.line "[DrawingApp] wrote %A to %s" profile path
                 | None -> 
                     Log.line "please select annotation to export"
-                    
-                
-
                 //write csv
 
                 model
             | ExportAsGeoJSON path, _, _ ->        
-        
-                exportGeoJson false bigConfig smallConfig model path
-
+                if path.IsNullOrEmpty() |> not then 
+                    exportGeoJson false bigConfig smallConfig model path
                 model
 
             | ExportAsGeoJSON_xyz path, _, _ ->                       
-                        
-                exportGeoJson true bigConfig smallConfig model path
-            
+                if path.IsNullOrEmpty() |> not then         
+                    exportGeoJson true bigConfig smallConfig model path
+                model
+
+            | ExportAsGeoJSONQGIS_latlon path, _, _ ->     
+                if path.IsNullOrEmpty() |> not then 
+                    let planet = smallConfig.planet.Get(bigConfig).ToString()
+                    exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.GeographicOnly planet) model path
+                model
+
+            | ExportAsGeoJSONQGIS_xyz path, _, _ ->      
+                if path.IsNullOrEmpty() |> not then 
+                    exportGeoJsonQGIS GeoJsonQGIS.CoordinateConfiguration.CartesianOnly model path
+                model
+
+            | ExportAsGeoJSONQGIS_both path, _, _ ->    
+                if path.IsNullOrEmpty() |> not then 
+                    let planet = smallConfig.planet.Get(bigConfig).ToString()
+                    exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.Both planet) model path
                 model
 
             | ContinuouslyGeoJson path, _, _ -> 
-                
-                // remember this path in order to drive the automatic export feature.
-                let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true }
-                { model with automaticGeoJsonExport = updatedPath }
+                if path.IsNullOrEmpty() |> not then 
+                    // remember this path in order to drive the automatic export feature.
+                    let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true }
+                    { model with automaticGeoJsonExport = updatedPath }
+                else
+                    model
 
             | ExportAsAttitude path, _, _ ->
-                let annotations =
-                    model.annotations.flat
-                    |> Leaf.toAnnotations
-                    |> HashMap.toList
-                    |> List.choose(fun (_, v) ->
-                        if v.visible then Some v else None
-                    )
-
-                AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
-
+                if path.IsNullOrEmpty() |> not then
+                    let annotations = extractVisibleAnnotations model
+                    AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
                 model
+
             | LegacySaveVersioned, _,_ ->
                 let path = "./annotations.json"
                 let pathgGrouping = "./annotations.grouping"
@@ -693,7 +703,7 @@ module DrawingApp =
                 Log.line "[Drawing] automatically writing geojson.xyz file to %s since the annotations have changed." path
                 // virtually finish the annotation (as if closed by interaction) - to let it be part of the exported ones.
                 let artificiallyFinishedModel = finish bigConfig smallConfig model view
-                exportGeoJsonStream true bigConfig smallConfig artificiallyFinishedModel path
+                exportGeoJsonStream artificiallyFinishedModel path
             | _ -> ()
             newModel
         | false -> 

@@ -143,9 +143,9 @@ module ViewerUtils =
                         )
 
         let upperC = 
-          scalar 
+            scalar 
             |> AVal.bind (fun x ->
-               match x with 
+                 match x with 
                  | AdaptiveSome s -> 
                    s.colorLegend.upperColor.c 
                      |> AVal.map(fun x -> 
@@ -156,9 +156,9 @@ module ViewerUtils =
                  | AdaptiveNone -> AVal.constant(1.0)
                )
         let lowerC = 
-          scalar 
+            scalar 
             |> AVal.bind ( fun x ->
-              match x with 
+                match x with 
                 | AdaptiveSome s -> 
                   s.colorLegend.lowerColor.c 
                     |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H))
@@ -166,22 +166,22 @@ module ViewerUtils =
               )
 
         let rangeToMinMax = 
-          scalar 
+            scalar 
             |> AVal.bind (fun x ->
-              match x with 
-                  | AdaptiveSome s -> s.definedRange |> AVal.map(fun y -> V2d(y.Min, y.Max))
-                  | AdaptiveNone   -> AVal.constant(V2d(0.0,1.0))
+                match x with 
+                | AdaptiveSome s -> s.definedRange |> AVal.map(fun y -> V2d(y.Min, y.Max))
+                | AdaptiveNone   -> AVal.constant(V2d(0.0,1.0))
               )
         isg
-            |> Sg.uniform "falseColors"    selectedScalar
-            |> Sg.uniform "startC"         lowerC  
-            |> Sg.uniform "endC"           upperC
-            |> Sg.uniform "interval"       interval
-            |> Sg.uniform "inverted"       inverted
-            |> Sg.uniform "lowerBound"     lowerB
-            |> Sg.uniform "upperBound"     upperB
-            |> Sg.uniform "MinMax"         rangeToMinMax
-            |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
+        |> Sg.uniform "falseColors"    selectedScalar
+        |> Sg.uniform "startC"         lowerC  
+        |> Sg.uniform "endC"           upperC
+        |> Sg.uniform "interval"       interval
+        |> Sg.uniform "inverted"       inverted
+        |> Sg.uniform "lowerBound"     lowerB
+        |> Sg.uniform "upperBound"     upperB
+        |> Sg.uniform "MinMax"         rangeToMinMax
+        |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
     let addDepthMappingParameters (fp : AdaptiveFootPrint)   (isg:ISg<'a>) =
         isg 
@@ -290,6 +290,7 @@ module ViewerUtils =
                     |> Sg.fillMode(surf.fillMode)
                                                 
                 let triangleFilter = surf.triangleSize.value
+                let triangleFilterEnabled = surf.filterByTriangleSize
 
                 let trafo =
                     adaptive {
@@ -419,7 +420,8 @@ module ViewerUtils =
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     //|> addAttributeFalsecolorMappingParameters surf
                     |> addDepthMappingParameters fp
-                    |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
+                    |> Sg.uniform "FilterTriangleEnabled" triangleFilterEnabled
+                    |> Sg.uniform "MaxTriangleSize"   triangleFilter  
                     |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
                     |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
@@ -507,12 +509,15 @@ module ViewerUtils =
 
 
                     |> Sg.withEvents [
-                        if Config.previewIntersections && previewPickingEnabled.GetValue() then
+                        if Config.previewIntersections  then
                             yield SceneEventKind.Move, (
                                 fun sceneHit -> 
-                                    let name  = surf.name |> AVal.force        
-                                    let surfacePicking = surfacePicking |> AVal.force
-                                    true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                                    if previewPickingEnabled.GetValue() then
+                                        let name  = surf.name |> AVal.force        
+                                        let surfacePicking = surfacePicking |> AVal.force
+                                        true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                                    else
+                                        true, Seq.empty
                             )
                         yield SceneEventKind.Click, (
                            fun sceneHit -> 
@@ -591,41 +596,18 @@ module ViewerUtils =
                                 return (fullTrafo * preTransform)
                                 //return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                         }
-
-                let triangleFilterX (input : Triangle<Vertex>) =
-                    triangle {
-                        let p0 = input.P0.pos.XYZ
-                        let p1 = input.P1.pos.XYZ
-                        let p2 = input.P2.pos.XYZ
-
-                        let maxSize = uniform?TriangleSize
-
-                        let a = (p1 - p0)
-                        let b = (p2 - p1)
-                        let c = (p0 - p2)
-
-                        let alpha = a.Length < maxSize
-                        let beta  = b.Length < maxSize
-                        let gamma = c.Length < maxSize
-
-                        let check = (alpha && beta && gamma)
-                        if check then
-                            yield input.P0 
-                            yield input.P1
-                            yield input.P2
-                    }
             
                 let test =             
                   surface.sceneGraph
                     |> AVal.map createSg
                     |> Sg.dynamic
                     |> Sg.trafo trafo 
-                    |> Sg.uniform "TriangleSize"   triangleFilter 
+                    |> Sg.uniform "MaxTriangleSize"   triangleFilter 
                     |> Sg.onOff (surf.isVisible)
                     |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys  observedSystem observerSystem frustum )
                     |> Sg.noEvents 
                     |> Sg.effect [
-                        triangleFilterX     |> toEffect
+                        Shader.TriangleFilter.triangleFilter     |> toEffect
                         Shader.stableTrafo  |> toEffect 
                         Shader.OPCFilter.improvedDiffuseTexture |> toEffect
                     ]
@@ -725,8 +707,7 @@ module ViewerUtils =
         open FShade
 
         type Vertex = {
-            [<FShade.InstrinsicAttributes.Position>]        pos     : V4f
-            [<WorldPosition>]   wp      : V4f
+            [<Position>]        pos     : V4f
             [<Color>]           c       : V4f
             [<TexCoord>]        tc      : V2f
 
@@ -736,35 +717,37 @@ module ViewerUtils =
             [<Semantic("FootPrintProj")>] 
             tc0     : V4f
 
-            [<Normal>] n : V3f
-            //[<SourceVertexIndex>]  sv      : int
+            [<Normal>] 
+            n : V3f
+
+            [<SourceVertexIndex>]  sourceVertexIndex : int
         }
-
-        //let stableTrafo (v : Vertex) =
-        //      vertex {
-        //          let mvp : M44f = uniform?MVP?ModelViewTrafo
-        //          let vp = mvp * v.pos
-
-        //          return 
-        //              { v with
-        //                  pos = uniform.ProjTrafo * vp
-        //                  c = v.c
-        //                  vp = uniform.ModelViewTrafo * v.pos
-        //              }
-        //      }
 
         let fixAlpha (v : Vertex) =
             fragment {         
                return V4f(v.c.X, v.c.Y,v.c.Z, 1.0f)           
             }
 
-        let triangleFilterX (input : Triangle<Vertex>) =
+        type UniformScope with
+            // size filter stuff
+            member x.MaxTriangleSize : float = x?MaxTriangleSize
+            member x.FilterTriangleEnabled : bool = x?FilterTriangleEnabled
+
+            // filter for distance to home position
+            member x.FilterByDistance : bool = x?FilterByDistance
+            member x.FilterDistance : float = x?FilterDistance
+            member x.HomePositionViewSpace : V3d = x?HomePositionViewSpace
+
+
+        // performs all checks in view space
+        let triangleSizeFilter (input : Triangle<Vertex>) =
             triangle {
                 let p0 = input.P0.vp.XYZ
                 let p1 = input.P1.vp.XYZ
                 let p2 = input.P2.vp.XYZ
 
-                let maxSize = uniform?TriangleSize
+                // TriangleSize
+                let maxSize = uniform?MaxTriangleSize
 
                 let a = (p1 - p0)
                 let b = (p2 - p1)
@@ -774,41 +757,42 @@ module ViewerUtils =
                 let beta  = b.Length < maxSize
                 let gamma = c.Length < maxSize
 
-                let filterDistanceActive : bool = uniform?FilterByDistance
-                let triangleSizeCheck = (alpha && beta && gamma)
+                let filterDistanceActive : bool = uniform.FilterByDistance
+                let disabled = not uniform.FilterTriangleEnabled
+                let smallTriangle = alpha && beta && gamma
+                // if disabled, let all trianlges pass
+                let validTriangle = disabled || smallTriangle
 
                 if filterDistanceActive then
-                    let filterRange : float32 = uniform?FilterDistance
+                    let filterRange : float32 = float32 uniform.FilterDistance
                     let homePositionVSp : V3f = uniform?HomePositionViewSpace
 
                     let inRange = 
-                        (Vec.Distance(homePositionVSp, p0)) < filterRange &&
-                        (Vec.Distance(homePositionVSp, p1)) < filterRange &&
-                        (Vec.Distance(homePositionVSp, p2)) < filterRange
+                        (Vec.distance homePositionVSp p0) < filterRange &&
+                        (Vec.distance homePositionVSp p1) < filterRange &&
+                        (Vec.distance homePositionVSp p2) < filterRange
 
-                    if triangleSizeCheck && inRange then
-                        yield input.P0 
-                        yield input.P1
-                        yield input.P2
+                    if validTriangle && inRange then
+                        yield { input.P0 with sourceVertexIndex = 0 } 
+                        yield { input.P1 with sourceVertexIndex = 1 } 
+                        yield { input.P2 with sourceVertexIndex = 2 } 
                 else
-                    if triangleSizeCheck then
-                        yield input.P0 
-                        yield input.P1
-                        yield input.P2
+                    if validTriangle then
+                        yield { input.P0 with sourceVertexIndex = 0 } 
+                        yield { input.P1 with sourceVertexIndex = 1 } 
+                        yield { input.P2 with sourceVertexIndex = 2 } 
             }
          
 
         let stableTrafo (v : Vertex) =
             vertex {
                 let p = uniform.ModelViewProjTrafo * v.pos
-                let wp = uniform.ModelTrafo * v.pos
 
                 return 
                     { v with
                         pos = p
                         c = v.c
                         vp = uniform.ModelViewTrafo * v.pos
-                        wp = wp
                     }
             }
 
@@ -846,7 +830,7 @@ module ViewerUtils =
         Effect.compose [
             //Shader.footprintV       |> toEffect 
             Shader.stableTrafo      |> toEffect
-            Shader.triangleFilterX  |> toEffect
+            Shader.triangleSizeFilter  |> toEffect
 
             Shader.textureOrLightingIfPossible |> toEffect
 
@@ -863,18 +847,18 @@ module ViewerUtils =
             PRo3D.SPICE.Shaders.planetLocalLightingViewSpace   |> toEffect
             ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect
             PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect
-            ImageProjection.Shaders.generateNormal |> toEffect
+            
             
             Shaders.donutVertex |> toEffect
             Shader.footprintV        |> toEffect 
             Shader.stableTrafo       |> toEffect
-            //Shader.triangleFilterX   |> toEffect
-           
+            Shader.triangleSizeFilter   |> toEffect
+            
+            ImageProjection.Shaders.generateNormal |> toEffect
            
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
             PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
-
            
             
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
@@ -882,7 +866,7 @@ module ViewerUtils =
             //PRo3D.Base.Shader.differentColor   |> toEffect
                         
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
-            //PRo3D.Base.Shader.falseColorLegend2 |> toEffect
+            //PRo3D.Base.Shader.falseColorsScalars |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
@@ -952,7 +936,7 @@ module ViewerUtils =
                             surfaces 
                             m.frustum 
                             selected 
-                            m.ctrlFlag 
+                            (AVal.map2 (&&) m.ctrlFlag m.inverseFlag)
                             m.scene.config.showPreviewIntersection
                             sf.globalBB 
                             refSystem 

@@ -89,6 +89,8 @@ module GeoJSONExport =
                     }
             
             GeoJsonGeometry.Polygon(coordinates, properties)
+        | Geometry.Axis4PEllipse -> 
+            failwith "4PEllipse export not implemented (maybe look for AxisEllipse)."
         | Geometry.Ellipse -> 
             failwith "ellipse export not implemented (maybe look for AxisEllipse)."
         | _ ->
@@ -115,30 +117,23 @@ module GeoJSONExport =
         |> Json.serialize
         |> Json.formatWith JsonFormattingOptions.Pretty
 
-        
-
     let writeGeoJSON 
         (planet      : option<Planet>) 
         (path        : string) 
         (isSelected : Annotation -> bool)
         (annotations : list<Annotation>) 
         : unit = 
+        toGeoJsonString planet isSelected annotations
+        |> Serialization.writeToFile path
 
-        if path.IsEmpty() then 
-            ()
-        else
-            toGeoJsonString planet isSelected annotations
-            |> Serialization.writeToFile path
-
-                 
-
-    let writeGeoJSON_XYZ 
-        (path        : string)
+    let writeGeoJSONQGIS
+        (cooConfig : GeoJsonQGIS.CoordinateConfiguration)
+        (path        : string) 
         (isSelected : Annotation -> bool)
         (annotations : list<Annotation>) 
         : unit = 
-
-        writeGeoJSON None path isSelected annotations
+        GeoJsonQGIS.encoder cooConfig isSelected annotations
+        |> Serialization.writeToFile path
 
 
     // exports geojson objects as line delimited json: https://en.wikipedia.org/wiki/JSON_streaming#Line-delimited_JSON

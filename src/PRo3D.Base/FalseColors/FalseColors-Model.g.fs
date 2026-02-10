@@ -1,5 +1,5 @@
-//53b4f687-c192-6ea6-68c6-a5755ba543e0
-//7baf49b2-c0a7-3c53-4b4f-6a6967f2590a
+//c01f1203-d1c3-4765-633f-336259b2b1f6
+//6f2928b4-ce2a-c8f6-8f91-314a9b73b79d
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -20,6 +20,7 @@ type AdaptiveFalseColorsModel(value : FalseColorsModel) =
     let _invertMapping_ = FSharp.Data.Adaptive.cval(value.invertMapping)
     let _lowerColor_ = Aardvark.UI.AdaptiveColorInput(value.lowerColor)
     let _upperColor_ = Aardvark.UI.AdaptiveColorInput(value.upperColor)
+    let _imageFileStream_ = FSharp.Data.Adaptive.cval(value.imageFileStream)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : FalseColorsModel) = AdaptiveFalseColorsModel(value)
@@ -36,6 +37,7 @@ type AdaptiveFalseColorsModel(value : FalseColorsModel) =
             _invertMapping_.Value <- value.invertMapping
             _lowerColor_.Update(value.lowerColor)
             _upperColor_.Update(value.upperColor)
+            _imageFileStream_.Value <- value.imageFileStream
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.useFalseColors = _useFalseColors_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -45,6 +47,7 @@ type AdaptiveFalseColorsModel(value : FalseColorsModel) =
     member __.invertMapping = _invertMapping_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.lowerColor = _lowerColor_
     member __.upperColor = _upperColor_
+    member __.imageFileStream = _imageFileStream_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.IO.Stream>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module FalseColorsModelLenses = 
     type FalseColorsModel with
@@ -56,4 +59,5 @@ module FalseColorsModelLenses =
         static member invertMapping_ = ((fun (self : FalseColorsModel) -> self.invertMapping), (fun (value : Microsoft.FSharp.Core.bool) (self : FalseColorsModel) -> { self with invertMapping = value }))
         static member lowerColor_ = ((fun (self : FalseColorsModel) -> self.lowerColor), (fun (value : Aardvark.UI.ColorInput) (self : FalseColorsModel) -> { self with lowerColor = value }))
         static member upperColor_ = ((fun (self : FalseColorsModel) -> self.upperColor), (fun (value : Aardvark.UI.ColorInput) (self : FalseColorsModel) -> { self with upperColor = value }))
+        static member imageFileStream_ = ((fun (self : FalseColorsModel) -> self.imageFileStream), (fun (value : Microsoft.FSharp.Core.Option<System.IO.Stream>) (self : FalseColorsModel) -> { self with imageFileStream = value }))
 

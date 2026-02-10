@@ -55,6 +55,15 @@ let heraSpecificTests () =
             let trafo = CooTransformation.getRotationTrafo "IAU_PHOBOS" "ECLIPJ2000" time
             Expect.isSome trafo "could transform phobos to eclipj2000"
         }
+
+        test "dimorphos" {
+            let time = DateTime.Parse("2025-03-12 10:30:20.482190Z", CultureInfo.InvariantCulture)
+            let trafo = CooTransformation.getRotationTrafo "IAU_DIMORPHOS" "ECLIPJ2000" time
+            let mutable x,y,z = 0.0,0.0,0.0
+            let r = CooTransformation.LatLonAlt2Xyz("dimorphos", 0.0, 0.0, 0.0, &x, &y, &z)
+
+            Expect.isSome trafo "could transform phobos to eclipj2000"
+        }
     ]
 
 

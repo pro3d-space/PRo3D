@@ -63,9 +63,9 @@ module GisApp =
                GisSurface.fromFrame surfaceId frame
         HashMap.add surfaceId newSurface gisSurfaces
 
-    let loadSpiceKernel (path : string) (m : GisApp) =
-        match m.spiceKernel with
-        | Some s when s = CooTransformation.SPICEKernel.ofPath path -> m 
+    let loadSpiceKernel (force : bool) (path : string) (m : GisApp) =
+        match m.spiceKernel, force with
+        | Some s, false when s = CooTransformation.SPICEKernel.ofPath path -> m
         | _ -> 
             if File.Exists path then
                 let directory = Path.GetDirectoryName path
@@ -86,9 +86,14 @@ module GisApp =
     let loadSpiceKernel' (m : GisApp) =
         match m.spiceKernel with
         | Some kernel ->
-            loadSpiceKernel kernel.FullPath m
+            loadSpiceKernel false kernel.FullPath m
         | None ->
             m
+
+    let loadSpiceKernelForced (m : GisApp) = 
+        match m.spiceKernel with
+        | Some kernel -> loadSpiceKernel true kernel.FullPath m
+        | None -> m
 
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
         let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
@@ -111,8 +116,8 @@ module GisApp =
                 value = getNumericInput 0.5
                 name    = "Didymos Orbital Insertion"
             }
-        ]
-
+        ]    
+        
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
                (viewer : 'viewer)
@@ -239,7 +244,7 @@ module GisApp =
             let gisSurfaces = assignFrame m.gisSurfaces surfaceId frame
             viewer, {m with gisSurfaces = gisSurfaces}
         | GisAppAction.SetSpiceKernel path ->
-            let m = loadSpiceKernel path m
+            let m = loadSpiceKernel false path m
             viewer, m
         | GisAppAction.ToggleCameraInObserver ->
             viewer, {m with cameraInObserver = not m.cameraInObserver}
@@ -700,7 +705,7 @@ module GisApp =
             GuiEx.accordion "Projected Images" "Images" false [
                 ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative |> UI.map GisAppAction.ProjectedImageListMessage
             ]
-
+            
             let kernelPathTextBox = 
                 div [clazz "fullwidth textcontainer"] [
                     Html.SemUi.textBox 
@@ -1083,7 +1088,7 @@ module GisApp =
 
         match spiceKernel with
         | Some spiceKernel ->
-            loadSpiceKernel spiceKernel m
+            loadSpiceKernel false spiceKernel m
         | None ->
             m
 
