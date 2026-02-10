@@ -66,3 +66,5 @@ src\Aardvark.OpcViewer.psess
 /docs/PRo3D_ShortUserManual/*.blg
 /docs/PRo3D_ShortUserManual/*.fdb_latexmk
 /docs/PRo3D_ShortUserManual/*.fls
+
+.ipynb_checkpoints/
