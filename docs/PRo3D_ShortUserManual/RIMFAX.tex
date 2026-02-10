@@ -1,0 +1,72 @@
+%----------------------------------------------------------------------------------------
+%	Section: Rimfax
+%----------------------------------------------------------------------------------------
+\section{RIMFAX}
+
+RIMFAX stands for Radar Imager for Mars' Subsurface Experiment. It is a ground-penetrating radar instrument that was carried to Mars on NASA's Perseverance rover. The user can load the RIMFAX traverses indicating that RIMFAX was active. Those traverses align with subsections of the corresponding rover traverse that displays the path of the rover.
+
+The user can load a RIMFAX traverse using the \textbf{Extra} panel in the menu.
+
+
+ \begin{figure}[h]
+    	\centering
+    		\includegraphics[width=0.5\textwidth]{pics/loadtraverse.PNG}
+    	\label{fig:loadtraverse}
+   \end{figure}
+
+%----------------------------------------------------------------------------------------
+%	SubSection: Start Minerva
+%----------------------------------------------------------------------------------------
+
+\subsection{Loading RIMFAX Surfaces}
+\label{sec:loadRIMFAXSurfaces}
+
+ The user can load and display the RIMFAX images using the \textbf{Import Surfaces} button. 
+ 
+ \begin{figure}[h]
+    	\centering
+    		\includegraphics[width=0.5\textwidth]{pics/importRIMFAXSurfaces.PNG}
+    	\label{fig:importRIMFAXSurfaces}
+   \end{figure}
+
+
+The implementation expects a folder structure generated with the traverse exporter developed at JR:
+
+\begin{verbatim}
+Rimfax Data/
+|-- RIMFAX_traverse.json
+|-- 0000/
+|   |-- 0001/
+|   |   |-- 240/
+|   |   |   |-- ..._SOL0001_..._noaxis.png
+|   |   |   |-- rimfax.mtl
+|   |   |   |-- rimfax.obj
+|   |   |-- 214/
+|   |   |-- 078/
+|   |   |-- 026/
+|   |-- 0002/
+|   |   |-- ..
+|   |   |-- ..
+|   |-- 0003/
+|   |-- .. 
+|-- 0100/
+|   |-- 0105/
+|   |-- 0106/
+    ...
+|-- 0200/
+\end{verbatim}
+
+On the top levels the sols are divided on two granularity levels, the last folder name encodes the \textbf{RIMFAX mode}: For each rimfax traverse usually different wavebands were used to generate the RIMFAX data resulting in multiple images for each RIMFAX traverse. 
+
+After selecting the root folder, the user sees the RIMFAX surface in the render view. The sols of the selected traverse in the attribute window are listed in the \textbf{Sol} panel. The user can set the RIMFAX mode in this list for each sol.
+
+ \begin{figure}[h]
+    	\centering
+    		\includegraphics[width=0.5\textwidth]{pics/RIMFAXsollist.PNG}
+    	\label{fig:RIMFAXsollist}
+   \end{figure}
+
+\subsection{Limitations}
+\label{sec:limitations}
+
+RIMFAX surface loading requires approximately three times more main memory than the actual file size. To load only the necessary surfaces, the best approach is to duplicate the folder containing them and manually remove the subfolders with surface models that are not needed in PRo3D for the analysis.
