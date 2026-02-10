@@ -185,16 +185,35 @@ module Tiff_Mbi_Json =
 type ParsedMetadata = Option<Tiff_Mbi_Json.Mbi> * Option<Tiff_Json.ImageMetadata>
 
 let tryParseMetadataForImagePath (imagePath : string) : ParsedMetadata = 
-    let getJsonInfoPath (imagePath : string) (suffix : string) : string = 
+    let getJsonMbiInfoPath (imagePath : string) (suffix : string) : string = 
         let killPhrases = ["_Stacked"; "_AFC1"; "_AFC2"; "_HSH"]
+        // metadata file naming does not follow a strict pattern, therefore we cover some variations of naming conventions we observed:
         let fi = Path.Combine(Path.GetDirectoryName(imagePath), Path.GetFileNameWithoutExtension(imagePath) + suffix)
         if File.Exists fi then 
             fi
         else
             List.fold (fun (path : string) kill -> path.Replace(kill, "")) fi killPhrases
 
-    let mbi_json = getJsonInfoPath imagePath ".mbi.json"
-    let json = imagePath + ".json"
+    let getJsonInfoPath (imagePath : string) (suffix : string) : string = 
+        let killPhrases = ["_Stacked"; "_AFC1"; "_AFC2"; "_HSH"]
+        let fi = Path.Combine(Path.GetDirectoryName(imagePath), Path.GetFileName(imagePath) + suffix)
+        // metadata file naming does not follow a strict pattern, therefore we cover some variations of naming conventions we observed:
+        if File.Exists fi then 
+            fi
+        else
+            let fiv1 = List.fold (fun (path : string) kill -> path.Replace(kill, "")) fi killPhrases
+            if File.Exists fiv1 then
+                fiv1
+            else
+                let fiv2 = fiv1.Replace(".exr", ".tif")
+                let fiv3 = fi.Replace(".exr", ".tif")
+                if Path.Exists fiv2 then
+                    fiv2
+                else
+                    fiv3
+
+    let mbi_json = getJsonMbiInfoPath imagePath ".mbi.json"
+    let json = getJsonInfoPath imagePath ".json"
     match File.Exists(mbi_json), File.Exists(json) with
     | true, true -> 
         try
