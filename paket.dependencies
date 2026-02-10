@@ -63,7 +63,7 @@ nuget Giraffe                               ~> 7.0.2
 nuget Saturn                                ~> 0.17.0
 
 nuget Cyjs.NET                              ~> 0.0.4
-nuget Thoth.Json.Net                        ~> 11.0.0
+nuget Thoth.Json.Net                        ~> 12.0.0
 
 nuget CommandLineParser.FSharp              ~> 2.9.1
 
