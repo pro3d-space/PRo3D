@@ -210,8 +210,7 @@ module CSVExport =
             |> List.map (toExportAnnotation lookUp upVector)
             |> CSV.Seq.csv "," true id
 
-        if path.IsEmptyOrNull() |> not then 
-            csvTable |> CSV.Seq.write path
+        csvTable |> CSV.Seq.write path
 
     
 

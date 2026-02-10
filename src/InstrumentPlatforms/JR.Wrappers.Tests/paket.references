@@ -1,6 +1,4 @@
-﻿group Test
-
-FsCheck
+﻿FsCheck
 FsCheck.NUnit
 Expecto
 Expecto.FsCheck

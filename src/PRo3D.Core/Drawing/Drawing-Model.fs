@@ -38,7 +38,7 @@ type DrawingAction =
 | StopPicking  
 | StartPickingMulti     
 | StopPickingMulti  
-| AddPointAdv         of V3d * (V3d -> Option<V3d>) * string * option<Guid>
+| AddPointAdv         of V3d * (V3d -> Option<V3d>) * Option<PRo3D.Base.Gis.SpiceReferenceSystem> * string * option<Guid>
 | RemoveLastPoint  
 | ClearWorking
 | ClearSelection
@@ -66,6 +66,9 @@ type DrawingAction =
 | ExportAsProfileCsv     of string
 | ExportAsGeoJSON        of string
 | ExportAsGeoJSON_xyz    of string
+| ExportAsGeoJSONQGIS_latlon    of string
+| ExportAsGeoJSONQGIS_xyz       of string 
+| ExportAsGeoJSONQGIS_both      of string // also exports geojson with lat lon, but additionally adds xyz information to metadata
 | ContinuouslyGeoJson    of string
 | ExportAsAttitude       of string
 

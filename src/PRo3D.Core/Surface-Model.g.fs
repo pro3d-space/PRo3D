@@ -1,5 +1,5 @@
-//4c6fa6f1-f963-04ba-173b-abf30d8f91d5
-//0a12e27e-a6c3-008e-a8d7-3f6dbe2e682d
+//208e6d7e-da2e-6162-2540-818b829e6350
+//aec4bb6b-dd66-a898-cb45-d84ab3a6dd1f
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -185,6 +185,7 @@ type AdaptiveSurface(value : Surface) =
     let _textureLayers_ = FSharp.Data.Adaptive.clist(value.textureLayers)
     let _primaryTexture_ = FSharp.Data.Adaptive.cval(value.primaryTexture)
     let _secondaryTexture_ = FSharp.Data.Adaptive.cval(value.secondaryTexture)
+    let _secondaryTextureLayer_ = FSharp.Data.Adaptive.cval(value.secondaryTextureLayer)
     let _transferFunction_ = FSharp.Data.Adaptive.cval(value.transferFunction)
     let _opcxPath_ = FSharp.Data.Adaptive.cval(value.opcxPath)
     let _preferredLoader_ = FSharp.Data.Adaptive.cval(value.preferredLoader)
@@ -227,6 +228,7 @@ type AdaptiveSurface(value : Surface) =
             _textureLayers_.Value <- value.textureLayers
             _primaryTexture_.Value <- value.primaryTexture
             _secondaryTexture_.Value <- value.secondaryTexture
+            _secondaryTextureLayer_.Value <- value.secondaryTextureLayer
             _transferFunction_.Value <- value.transferFunction
             _opcxPath_.Value <- value.opcxPath
             _preferredLoader_.Value <- value.preferredLoader
@@ -262,6 +264,7 @@ type AdaptiveSurface(value : Surface) =
     member __.textureLayers = _textureLayers_ :> FSharp.Data.Adaptive.alist<TextureLayer>
     member __.primaryTexture = _primaryTexture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<TextureLayer>>
     member __.secondaryTexture = _secondaryTexture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<TextureLayer>>
+    member __.secondaryTextureLayer = _secondaryTextureLayer_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.int>>
     member __.transferFunction = _transferFunction_ :> FSharp.Data.Adaptive.aval<TransferFunction>
     member __.opcxPath = _opcxPath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
     member __.surfaceType = __value.surfaceType
@@ -300,6 +303,7 @@ module SurfaceLenses =
         static member textureLayers_ = ((fun (self : Surface) -> self.textureLayers), (fun (value : FSharp.Data.Adaptive.IndexList<TextureLayer>) (self : Surface) -> { self with textureLayers = value }))
         static member primaryTexture_ = ((fun (self : Surface) -> self.primaryTexture), (fun (value : Microsoft.FSharp.Core.Option<TextureLayer>) (self : Surface) -> { self with primaryTexture = value }))
         static member secondaryTexture_ = ((fun (self : Surface) -> self.secondaryTexture), (fun (value : Microsoft.FSharp.Core.Option<TextureLayer>) (self : Surface) -> { self with secondaryTexture = value }))
+        static member secondaryTextureLayer_ = ((fun (self : Surface) -> self.secondaryTextureLayer), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.int>) (self : Surface) -> { self with secondaryTextureLayer = value }))
         static member transferFunction_ = ((fun (self : Surface) -> self.transferFunction), (fun (value : TransferFunction) (self : Surface) -> { self with transferFunction = value }))
         static member opcxPath_ = ((fun (self : Surface) -> self.opcxPath), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : Surface) -> { self with opcxPath = value }))
         static member surfaceType_ = ((fun (self : Surface) -> self.surfaceType), (fun (value : SurfaceType) (self : Surface) -> { self with surfaceType = value }))

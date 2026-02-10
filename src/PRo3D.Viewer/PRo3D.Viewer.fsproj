@@ -5,7 +5,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <GenerateLenses>True</GenerateLenses>
     <IncludeAllContentForSelfExtract>True</IncludeAllContentForSelfExtract>
   </PropertyGroup>
@@ -17,7 +17,8 @@
   <PropertyGroup Condition="$(InPublish)">
     <!-- this is replaced by build script-->
     <!-- <PublishSingleFile>true</PublishSingleFile> -->
-    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
     <!--<PublishTrimmed>true</PublishTrimmed>-->
   </PropertyGroup>
 
@@ -48,7 +49,7 @@
     <Compile Include="Traverse\RoverTraverse.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Models\Model.fs" />
-    <Compile Include="Models\Model.g.fs" />
+	<Compile Include="Models\Model.g.fs" />
     <Compile Include="Models\Lenses.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="Navigation-Model.fs" />
@@ -137,11 +138,14 @@
     </EmbeddedResource>
     <EmbeddedResource Include="resources\semui-overrides.css" />
     <EmbeddedResource Include="resources\ElementQueries.js" />
-  <EmbeddedResource Include="resources\ResizeSensor.js" />
+    <EmbeddedResource Include="resources\ResizeSensor.js" />
+    <EmbeddedResource Include="resources\fonts.css" />
+    <EmbeddedResource Include="..\..\data\fonts\Roboto Mono\RobotoMono-Regular.ttf" Link="resources\RobotoMono-Regular.ttf" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+    <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
     <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
   </ItemGroup>
   <ItemGroup>

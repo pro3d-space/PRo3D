@@ -19,3 +19,5 @@ module Config =
   let mutable previewIntersections = true
 
   let diagnosticTimings = false
+
+  let mutable limitedShaderCapabilities = false

@@ -9,11 +9,11 @@ open FShade
 module Shader =
 
     type UniformScope with
-        member x.PointSize          : float = uniform?PointSize
-        member x.LightDirection     : V3d = uniform?LightDirection
-        member x.Ambient            : float = uniform?Ambient
-        member x.AmbientShadow      : float = uniform?AmbientShadow
-        member x.LightViewProj      : M44d = uniform?LightViewProj
+        member x.PointSize          : float32 = uniform?PointSize
+        member x.LightDirection     : V3f = uniform?LightDirection
+        member x.Ambient            : float32 = uniform?Ambient
+        member x.AmbientShadow      : float32 = uniform?AmbientShadow
+        member x.LightViewProj      : M44f = uniform?LightViewProj
 
     let private diffuseSampler =
         sampler2d {
@@ -45,7 +45,7 @@ module Shader =
 
     let improvedDiffuseTexture (v : Effects.Vertex) =
         fragment {
-            let texColor = diffuseSampler.Sample(v.tc,-1.0)
+            let texColor = diffuseSampler.Sample(v.tc,-1.0f)
             return texColor
         }
 
@@ -53,22 +53,22 @@ module Shader =
         fragment {
             let n = v.n |> Vec.normalize // viewspace normal
             let l = uniform.LightLocation //debug direction //TODO rename
-            let lv = Vec.normalize (uniform.ViewTrafo * V4d(l,0.0)).XYZ // light direction in view space
-            let texColor = diffuseSampler.Sample(v.tc,-1.0) 
+            let lv = Vec.normalize (uniform.ViewTrafo * V4f(l,0.0f)).XYZ // light direction in view space
+            let texColor = diffuseSampler.Sample(v.tc,-1.0f) 
             let ambient = uniform.Ambient
-            let diffuse = texColor.XYZ * (max 0.0 (Vec.dot n -lv))
-            return V4d(diffuse * (1.0 - ambient) + V3d(ambient), 1.0)
+            let diffuse = texColor.XYZ * (max 0.0f (Vec.dot n -lv))
+            return V4f(diffuse * (1.0f - ambient) + V3f(ambient), 1.0f)
         }
 
     type ShadowVertex =
         {
-            [<Position>]                pos     : V4d            
-            [<WorldPosition>]           wp      : V4d
-            [<TexCoord>]                tc      : V2d
-            [<Color>]                   c       : V4d
-            [<Normal>]                  n       : V3d
+            [<Position>]                pos     : V4f            
+            [<WorldPosition>]           wp      : V4f
+            [<TexCoord>]                tc      : V2f
+            [<Color>]                   c       : V4f
+            [<Normal>]                  n       : V3f
             [<SourceVertexIndex>]       sv      : int
-            [<Semantic("ShadowProj")>]  pProj   : V4d
+            [<Semantic("ShadowProj")>]  pProj   : V4f
 
         }
 
@@ -83,9 +83,9 @@ module Shader =
 
     let showShadowMap (v : Vertex) =
         fragment {
-            let depth = shadowSampler.Sample(v.tc, -1.0)
-            let c = if depth < 1.0 then 1.0 else 0.0
-            return V4d(c, c, c, 1.0)
+            let depth = shadowSampler.Sample(v.tc, -1.0f)
+            let c = if depth < 1.0f then 1.0f else 0.0f
+            return V4f(c, c, c, 1.0f)
         }
 
     let dispatchOPCShader (v : ShadowVertex) = 
@@ -93,18 +93,18 @@ module Shader =
             let drawShadows : bool = uniform?drawShadows
             if  drawShadows then
                 let p = v.pProj.XYZ / v.pProj.W
-                let tc = V3d(0.5, 0.5,0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
+                let tc = V3f(0.5f, 0.5f,0.5f) + V3f(0.5f, 0.5f, 0.5f) * p.XYZ
                 let shadow =
-                    if tc.X < 0.0 || tc.X > 1.0 || tc.Y < 0.0 || tc.Y > 1.0 then 1.0
+                    if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f then 1.0f
                     else
-                    let lightDepth = min tc.Z 1.0
-                    (shadowSampler.Sample(tc.XY, lightDepth - 0.000017))
+                    let lightDepth = min tc.Z 1.0f
+                    (shadowSampler.Sample(tc.XY, lightDepth - 0.000017f))
                 let ambient = uniform.AmbientShadow
-                let ambientShadow = ambient + shadow * (1.0 - ambient) //TODO proper lighting if needed
-                let texColor = diffuseSampler.Sample(v.tc,-1.0) 
-                return V4d(texColor.XYZ * ambientShadow, 1.0)
+                let ambientShadow = ambient + shadow * (1.0f - ambient) //TODO proper lighting if needed
+                let texColor = diffuseSampler.Sample(v.tc,-1.0f) 
+                return V4f(texColor.XYZ * ambientShadow, 1.0f)
             else 
-                return diffuseSampler.Sample(v.tc,-1.0)
+                return diffuseSampler.Sample(v.tc,-1.0f)
         }  
 
     let mask (v : Vertex) = 
@@ -124,11 +124,11 @@ module Shader =
                 if useLighting then
                     let n = v.n |> Vec.normalize // viewspace normal
                     let l = uniform.LightDirection
-                    let lv = Vec.normalize (uniform.ViewTrafo * V4d(l,0.0)).XYZ // light direction in view space
-                    let texColor = diffuseSampler.Sample(v.tc,-1.0) 
+                    let lv = Vec.normalize (uniform.ViewTrafo * V4f(l,0.0f)).XYZ // light direction in view space
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0f) 
                     let ambient = uniform.Ambient
-                    let diffuse = texColor.XYZ * (max 0.0 (Vec.dot n -lv))
-                    return V4d(diffuse * (1.0 - ambient) + V3d(ambient), 1.0)
+                    let diffuse = texColor.XYZ * (max 0.0f (Vec.dot n -lv))
+                    return V4f(diffuse * (1.0f - ambient) + V3f(ambient), 1.0f)
                 else 
-                    return diffuseSampler.Sample(v.tc,-1.0)
+                    return diffuseSampler.Sample(v.tc,-1.0f)
         }   
