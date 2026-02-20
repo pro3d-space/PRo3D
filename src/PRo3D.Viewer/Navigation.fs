@@ -32,6 +32,8 @@ module Navigation =
             navigationSensitivity : Lens<'a, float>
             up                    : Lens<'b, V3d>
             north                 : Lens<'b, V3d>
+            frustum               : Lens<'a, Frustum>
+            windowSize            : Lens<'a, V2i>
         }
 
     let pickOrbitCenter (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) = 
@@ -122,13 +124,25 @@ module Navigation =
               model with camera = { cam' with freeFlyConfig = config }
             }, None
         | OverViewControllerAction a -> 
+            let frustum = smallConfig.frustum.Get(bigConfigA)
+            
+            let angle = Math.Tanh(frustum.right / frustum.near) * 2.0
+
+            let windowSize = smallConfig.windowSize.Get(bigConfigA)
+
             let view = 
                 model.camera.view 
                 |> CameraView.withUp (smallConfig.north.Get(bigConfigB))
                 |> setCameraViewCenter (smallConfig.up.Get(bigConfigB))
             
-            let cam = 
-                { model.camera with view = view; sensitivity = smallConfig.navigationSensitivity.Get(bigConfigA); orbitCenter = Some model.exploreCenter}
+            let cam = { 
+                model.camera with 
+                    //view = view
+                    sensitivity    = smallConfig.navigationSensitivity.Get(bigConfigA)
+                    orbitCenter    = Some model.exploreCenter   
+                    targetPhiTheta = V2d(windowSize.X, windowSize.Y)
+                    panFactor      = angle
+                }
                 
             let cam = OverViewController.update cam a
                         

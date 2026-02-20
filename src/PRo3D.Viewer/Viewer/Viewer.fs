@@ -157,6 +157,8 @@ module ViewerApp =
             navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
             north                 = ReferenceSystem.north_ >-> V3dInput.value_ |> Aether.toBase
+            frustum               = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_ |> Aether.toBase
+            windowSize            = ViewConfigModel.frustumModel_ >-> FrustumModel.windowSize_ |> Aether.toBase
         }    
     
     let mutable cache = HashMap.Empty
@@ -244,6 +246,17 @@ module ViewerApp =
         | DockNodeConfig.Stack (weight,activeId,children) -> Stack(weight, activeId, List.append [de] children)
         | DockNodeConfig.Element element ->  Stack(0.2, None, List.append [de] [element]) 
 
+    let private updateUpNorthForPosition (pos : V3d) (m : Model) = 
+        let (refSystem',_) = 
+            pos
+            |> ReferenceSystemAction.UpdateUpNorth //updates position
+            |> ReferenceSystemApp.update 
+                m.scene.config 
+                LenseConfigs.referenceSystemConfig 
+                m.scene.referenceSystem
+                                                 
+        { m with scene = { m.scene with referenceSystem = refSystem' }} 
+
     let private createMultiSelectBox (startPoint: V2i) (viewPortSize: V2i) (currentPoint: V2i) =
         let clippingBox = Box2i.FromSize viewPortSize
         let newRenderBox = Box2i.FromPoints(clippingBox.Clamped(startPoint), clippingBox.Clamped(currentPoint)) // limited to rendercontrol-size!
@@ -274,15 +287,8 @@ module ViewerApp =
             //Log.stop()
             { m with drawing = drawing } |> stash
         | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                   
-            let (refSystem',_) = 
-                p 
-                |> ReferenceSystemAction.UpdateUpNorth //updates position
-                |> ReferenceSystemApp.update 
-                    m.scene.config 
-                    LenseConfigs.referenceSystemConfig 
-                    m.scene.referenceSystem
-                                                 
-            let m = { m with scene = { m.scene with referenceSystem = refSystem' }} 
+            let m = updateUpNorthForPosition p m
+            
             //update camera upvector
             SceneLoader.updateCameraUp m
         | Interactions.PickExploreCenter, ViewerMode.Standard ->
@@ -439,7 +445,7 @@ module ViewerApp =
                          aspect  = aspect}
             let m = // update FurstumModel to keep it consistent with Frustum in Model
                 m |> Optic.map _frustumModel (fun fm -> 
-                    {fm with frustum = FrustumUtils.withAspect aspect fm.frustum})
+                      {fm with frustum = FrustumUtils.withAspect aspect fm.frustum; windowSize = windowSize })
             m
 
 
@@ -490,7 +496,7 @@ module ViewerApp =
 
             let pickingFunction () = 
                 V3d(0.0, 0.0, 0.0) |> pickRayNdc
-
+                            
             let nav, feedback = Navigation.update c ref navConf true (Some pickingFunction) m.navigation msg               
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
@@ -499,6 +505,7 @@ module ViewerApp =
             |> logScreenOption 10000 feedback 
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
+            |> updateUpNorthForPosition m.navigation.camera.view.Location
         | NavigationMessage msg, _, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_,_ -> // belongs to deprecated animation

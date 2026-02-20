@@ -28,35 +28,35 @@ module OverViewController =
 
     let initial =
         {
-            view        = CameraView.lookAt (6.0 * V3d.III) V3d.Zero V3d.OOI
-            dragStart   = V2i.Zero
-            movePos     = V2i.Zero
-            look        = false
-            zoom        = false
-            pan         = false
-            dolly       = false
-            forward     = false; backward = false; left = false; right = false; isWheel = false; upward = false; downward = false
-            upSpeed = 0.0
-            downSpeed = 0.0
-            moveVec         = V3d.Zero
-            rotateVec       = V3d.Zero
-            lastTime        = None
-            orbitCenter     = None
-            stash           = None
-            sensitivity     = 1.0
-            zoomFactor      = 0.01
-            panFactor       = 0.01
-            rotationFactor  = 0.01
-
-            moveSpeed = 0.0
+            view              = CameraView.lookAt (6.0 * V3d.III) V3d.Zero V3d.OOI
+            dragStart         = V2i.Zero
+            movePos           = V2i.Zero
+            look              = false
+            zoom              = false
+            pan               = false
+            dolly             = false
+            forward           = false; backward = false; left = false; right = false; isWheel = false; upward = false; downward = false
+            upSpeed           = 0.0
+            downSpeed         = 0.0
+            moveVec           = V3d.Zero
+            rotateVec         = V3d.Zero
+            lastTime          = None
+            orbitCenter       = None
+            stash             = None
+            sensitivity       = 1.0
+            zoomFactor        = 0.01
+            panFactor         = 0.01
+            rotationFactor    = 0.01
+                              
+            moveSpeed         = 0.0
             scrollSensitivity = 1.0
-            scrolling = false
-            targetPhiTheta = V2d.Zero
-            animating = false
-            targetPan = V2d.Zero 
-            targetDolly = 0.0
-            panSpeed = 0.0
-            targetZoom = 0.0
+            scrolling         = false
+            targetPhiTheta    = V2d.Zero
+            animating         = false
+            targetPan         = V2d.Zero 
+            targetDolly       = 0.0
+            panSpeed          = 0.0
+            targetZoom        = 0.0
 
             targetJump = None
 
@@ -244,26 +244,44 @@ module OverViewController =
                     | MouseButtons.Right -> { model with zoom = false }
                     | _ -> model
 
-            | Move pos  ->
+            | Move pos ->
                 
                 let cam = model.view
+
+                let angle = model.panFactor
+                let windowSize = model.targetPhiTheta
+                let aspect = windowSize.X / windowSize.Y
                 
                 let delta = pos - model.dragStart
 
                 let distanceToCenter = Vec.distance model.view.Location V3d.OOO
                 let distanceBetweenCameraSurface = Math.Abs(distanceToCenter - model.rotationFactor)
-                let sensitivity = 0.01 * (exp model.sensitivity) * (distanceBetweenCameraSurface / distanceToCenter)
+                //let sensitivity = 0.01 * (exp model.sensitivity) * (distanceBetweenCameraSurface / distanceToCenter)
 
                 //let distanceToCenter = Vec.distance model.view.Location V3d.OOO
                 //let sensitivity = -0.01 * model.sensitivity * (model.rotationFactor / distanceToCenter)
+
+                let relDistance = V2d(delta) / windowSize
+
+                let angleinDeg = Conversion.DegreesFromRadians angle
+
+                Log.line "calculated Angle is %A" angleinDeg
+
+                let halfVisibleSurfaceSizeX = tan (angle / 2.0) * distanceBetweenCameraSurface
+                let halfVisibleSurfaceSizeY = halfVisibleSurfaceSizeX / aspect
+
+                let visibleAngleX = (tanh (halfVisibleSurfaceSizeX / model.rotationFactor) * 2.0)
+                let visibleAngleY = (tanh (halfVisibleSurfaceSizeY / model.rotationFactor) * 2.0)
+                
+                let movingDistance = (V2d(visibleAngleX, visibleAngleY)) * relDistance
 
                 //orientation
                 let cam =
                     if model.look && model.orbitCenter.IsSome then
                         let trafo = 
                             M44d.Translation (model.orbitCenter.Value) *
-                            M44d.Rotation (cam.Right, float delta.Y * sensitivity) * 
-                            M44d.Rotation (cam.Up, float delta.X * sensitivity ) *
+                            M44d.Rotation (cam.Right, -movingDistance.Y) * 
+                            M44d.Rotation (cam.Up, -movingDistance.X) *
                             M44d.Translation (-model.orbitCenter.Value)
                      
                         let newLocation = trafo.TransformPos (cam.Location)
@@ -280,6 +298,7 @@ module OverViewController =
                         CameraView(cam.Sky, newLocation, newForward, newUp, newRight)
                     else
                         cam
+
 
                 // zoom and pan
                 let cam =
