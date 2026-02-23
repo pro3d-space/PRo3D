@@ -505,7 +505,7 @@ module ViewerApp =
             |> logScreenOption 10000 feedback 
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
-            |> updateUpNorthForPosition m.navigation.camera.view.Location
+            |> updateUpNorthForPosition nav.camera.view.Location
         | NavigationMessage msg, _, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_,_ -> // belongs to deprecated animation

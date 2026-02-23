@@ -133,11 +133,11 @@ module Navigation =
             let view = 
                 model.camera.view 
                 |> CameraView.withUp (smallConfig.north.Get(bigConfigB))
-                |> setCameraViewCenter (smallConfig.up.Get(bigConfigB))
+                |> setCameraViewCenter (smallConfig.north.Get(bigConfigB))
             
             let cam = { 
                 model.camera with 
-                    //view = view
+                    view = view
                     sensitivity    = smallConfig.navigationSensitivity.Get(bigConfigA)
                     orbitCenter    = Some model.exploreCenter   
                     targetPhiTheta = V2d(windowSize.X, windowSize.Y)

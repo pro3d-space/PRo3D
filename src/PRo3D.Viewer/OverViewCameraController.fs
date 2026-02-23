@@ -263,10 +263,6 @@ module OverViewController =
 
                 let relDistance = V2d(delta) / windowSize
 
-                let angleinDeg = Conversion.DegreesFromRadians angle
-
-                Log.line "calculated Angle is %A" angleinDeg
-
                 let halfVisibleSurfaceSizeX = tan (angle / 2.0) * distanceBetweenCameraSurface
                 let halfVisibleSurfaceSizeY = halfVisibleSurfaceSizeX / aspect
 
