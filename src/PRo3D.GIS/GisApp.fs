@@ -95,8 +95,6 @@ module GisApp =
         | Some kernel -> loadSpiceKernel true kernel.FullPath m
         | None -> m
 
-
-
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
         let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
         [
@@ -118,8 +116,8 @@ module GisApp =
                 value = getNumericInput 0.5
                 name    = "Didymos Orbital Insertion"
             }
-        ]
-
+        ]    
+        
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
                (viewer : 'viewer)

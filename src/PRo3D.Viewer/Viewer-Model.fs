@@ -82,7 +82,8 @@ type PickPivot =
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
-type ViewerAction =                
+type ViewerAction =     
+| InvertDrawing
 | DrawingMessage                  of DrawingAction
 | AnnotationGroupsMessageViewer   of GroupsAppAction
 | NavigationMessage               of Navigation.Action
@@ -604,6 +605,7 @@ type Model = {
     picking          : bool
     pivotType        : PickPivot
     ctrlFlag         : bool
+    inverseFlag      : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>

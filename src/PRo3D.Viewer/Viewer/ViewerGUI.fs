@@ -465,6 +465,9 @@ module Gui =
         let jsExportAnnotationsAsGeoJSONDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
 
+        let jsExportAnnotationsAsGeoJSONQGISDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
+
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
@@ -521,6 +524,27 @@ module Gui =
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
                             ] [
                                 text "visible as GeoJSON xyz (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_latlon
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
+                            ] [
+                                text "export as latlon GeoJSON for QGIS (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_xyz
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
+                            ] [
+                                text "export as xyz GeoJSON for QGIS (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_both
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
+                            ] [
+                                text "export as latlon GeoJSON for QGIS + xyz metadata (*.json)"
                             ]
                             div [ 
                                 clazz "ui inverted item"
@@ -866,6 +890,16 @@ module Gui =
                     | SelectedItem.Group -> annotationGroupButtons m
                     | _ -> annotationLeafButtonns m 
                 )
+
+            let toggleIcon = 
+                AVal.map( fun toggle -> if toggle then "toggle on icon" else "toggle off icon") m.inverseFlag
+
+            let toggleMap = 
+                amap {
+                    let! toggleIcon = toggleIcon
+                    yield clazz toggleIcon
+                    yield onClick (fun _ -> ViewerAction.InvertDrawing)
+                } |> AttributeMap.ofAMap  
             
             div [] [
                 GuiEx.accordion "Annotations" "Write" true [
@@ -878,6 +912,10 @@ module Gui =
                 ] 
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
+                ]
+                div [style "padding: 10px; display: flex; color: white; align-items: center;"] [
+                    Incremental.i toggleMap AList.empty
+                    text "Invert Drawing"
                 ]
             ]    
 
