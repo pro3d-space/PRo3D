@@ -127,24 +127,37 @@ module OverViewController =
                       
                       if model.isWheel then
                           let distancetoSurface = (Vec.distance model.view.Location V3d.OOO) - model.rotationFactor
-                          let sensitivity = (exp model.sensitivity) / 500.0
+                          let sensitivity = ((model.sensitivity + 2.0) * 5.0) / 100.0
                           let step = distancetoSurface * (model.moveVec.Z * cam.Forward * sensitivity * dt)                      
                           let loc' = cam.Location + step
                           cam.WithLocation(loc'), model.orbitCenter
                       else if model.orbitCenter.IsSome then
                           let distanceToCenter = Vec.distance model.view.Location V3d.OOO
                           let distanceBetweenCameraSurface = Math.Abs(distanceToCenter - model.rotationFactor)
-                          let sensitivity = (exp model.sensitivity) * (distanceBetweenCameraSurface / distanceToCenter)
+                          
+                          let angle = model.panFactor
+                          let windowSize = model.targetPhiTheta
+                          let aspect = windowSize.X / windowSize.Y
+                          
+                          let halfVisibleSurfaceSizeX = tan (angle / 2.0) * distanceBetweenCameraSurface
+                          let halfVisibleSurfaceSizeY = halfVisibleSurfaceSizeX / aspect
+                          
+                          let visibleAngleX = (tanh (halfVisibleSurfaceSizeX / model.rotationFactor) * 2.0)
+                          let visibleAngleY = (tanh (halfVisibleSurfaceSizeY / model.rotationFactor) * 2.0)
+                          
+                          let sensitivity = ((model.sensitivity + 5.0) * 4.0) / 100.0 //(exp model.sensitivity) * (distanceBetweenCameraSurface / distanceToCenter)
+
+                          let movingDistance = (V2d(visibleAngleX, visibleAngleY)) * sensitivity
 
                           let rot = 
                               if model.right then
-                                  M44d.Rotation(cam.Up, 0.01 * sensitivity * dt)
+                                  M44d.Rotation(cam.Up, movingDistance.X * dt)
                               else if model.left then
-                                  M44d.Rotation(cam.Up, - 0.01 * sensitivity * dt)
+                                  M44d.Rotation(cam.Up, -movingDistance.X * dt)
                               else if model.forward then 
-                                  M44d.Rotation(cam.Left, 0.01 * sensitivity * dt)
+                                  M44d.Rotation(cam.Left, movingDistance.Y * dt)
                               else if model.backward then
-                                  M44d.Rotation(cam.Left, -0.01 * sensitivity * dt)
+                                  M44d.Rotation(cam.Left, -movingDistance.Y * dt)
                               else
                                   M44d.Identity
 
