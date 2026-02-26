@@ -386,8 +386,9 @@ module SequencedBookmarksApp =
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
                 (System.Runtime.InteropServices.OSPlatform.Windows) then
                     
-            let exeName = "./PRo3D.Snapshots.exe"
-            match File.Exists exeName with
+            let exeName = "PRo3D.Snapshots.exe"
+            Log.line "source directory: %s" (Path.Combine(System.AppContext.BaseDirectory, exeName))
+            match File.Exists (Path.Combine(System.AppContext.BaseDirectory, exeName)) with
             | true -> 
                 let args = 
                     match m.debug with

@@ -18,7 +18,7 @@ open System.Threading.Tasks
 module SnapshotUtils =
         
     let runProcess (processName : string) (args : string) (startDir : Option<string>) = 
-        let fullPath = Path.GetFullPath(processName)
+        let fullPath = Path.Combine(System.AppContext.BaseDirectory, processName)
         Log.line "[Snapshots] Starting process %s with args %s in %A" fullPath args startDir
         if File.Exists(fullPath) |> not then
             failwithf "[Snapshots] Could not find process %s" fullPath

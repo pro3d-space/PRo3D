@@ -618,7 +618,7 @@ with
             //| Some legacy -> 
             //    return SnapshotAnimation.LegacyAnimation legacy
             //| None ->
-            let! animation = Json.read "CameraAnimation"
+            let! animation = Json.tryRead "CameraAnimation"
             match animation with
             | Some cameraAnimation ->
                 return SnapshotAnimation.CameraAnimation cameraAnimation
