@@ -34,6 +34,7 @@ module Navigation =
             north                 : Lens<'b, V3d>
             frustum               : Lens<'a, Frustum>
             windowSize            : Lens<'a, V2i>
+            planet                : Lens<'b, Planet>
         }
 
     let pickOrbitCenter (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) = 
@@ -137,6 +138,7 @@ module Navigation =
             let angle = Math.Tanh(frustum.right / frustum.near) * 2.0
 
             let windowSize = smallConfig.windowSize.Get(bigConfigA)
+            let planet     = smallConfig.planet.Get(bigConfigB)
 
             let view = 
                 model.camera.view 
@@ -152,7 +154,9 @@ module Navigation =
                     panFactor      = angle
                 }
                 
-            let cam = OverViewController.update cam a
+            let cam = 
+                OverViewController.update cam a
+                |> OverViewController.updateCameratoNorth planet
                         
             { model with camera = cam }, None
 
@@ -171,9 +175,12 @@ module Navigation =
                 
                 { model with camera = { model.camera with view = view'}; navigationMode = mode}, None
             | NavigationMode.OverView ->                
+                let planet     = smallConfig.planet.Get(bigConfigB)
+                
                 let cam = 
                     model.camera 
                     |> switchToOverViewController (smallConfig.north.Get(bigConfigB))
+                    |> OverViewController.updateCameratoNorth planet
                 
                 let model = { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.OverView }
 

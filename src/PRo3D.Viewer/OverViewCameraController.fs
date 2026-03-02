@@ -10,6 +10,8 @@ open Aardvark.UI
 
 open Aardvark.UI.Primitives
 open PRo3D.Core
+open PRo3D.Base.Gis
+open PRo3D.Base
 
 module OverViewController =
     open FSharp.Data.Adaptive.Operators
@@ -81,6 +83,15 @@ module OverViewController =
 
     let switchToOverViewController (north : V3d) (model : CameraControllerState)  = 
         { model with view = setCameraViewCenter north model.view; orbitCenter = Some(V3d.OOO) }
+
+    let updateCameratoNorth (planet : Planet) (model : CameraControllerState) = 
+        let point = model.view.Location
+        let up = CooTransformation.getUpVector point planet |> Vec.Normalized
+        let east = V3d.OOI.Cross(up).Normalized
+        let north = up.Cross(east).Normalized
+        let view = CameraView.withUp north model.view
+
+        { model with view = view}
 
    
     let update (model : CameraControllerState) (message : Message) =

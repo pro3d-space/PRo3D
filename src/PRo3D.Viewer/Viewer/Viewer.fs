@@ -159,6 +159,7 @@ module ViewerApp =
             north                 = ReferenceSystem.north_ >-> V3dInput.value_ |> Aether.toBase
             frustum               = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_ |> Aether.toBase
             windowSize            = ViewConfigModel.frustumModel_ >-> FrustumModel.windowSize_ |> Aether.toBase
+            planet                = (ReferenceSystem.planet_ |> Aether.toBase)
         }    
     
     let mutable cache = HashMap.Empty
