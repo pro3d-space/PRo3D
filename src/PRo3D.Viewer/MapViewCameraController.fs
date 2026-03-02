@@ -1,4 +1,4 @@
-﻿module OverViewCameraController
+﻿module MapViewCameraController
 
 open System
 
@@ -13,7 +13,7 @@ open PRo3D.Core
 open PRo3D.Base.Gis
 open PRo3D.Base
 
-module OverViewController =
+module MapViewController =
     open FSharp.Data.Adaptive.Operators
 
     type Message = 
@@ -79,19 +79,22 @@ module OverViewController =
     let setCameraViewCenter (north : V3d) (view : CameraView) = 
         let p = V3d.OOO
         CameraView.lookAt view.Location p north
-
-
-    let switchToOverViewController (north : V3d) (model : CameraControllerState)  = 
-        { model with view = setCameraViewCenter north model.view; orbitCenter = Some(V3d.OOO) }
-
-    let updateCameratoNorth (planet : Planet) (model : CameraControllerState) = 
+                
+    let updateCameraForMapView (planet : Planet) (model : CameraControllerState) =
         let point = model.view.Location
         let up = CooTransformation.getUpVector point planet |> Vec.Normalized
         let east = V3d.OOI.Cross(up).Normalized
         let north = up.Cross(east).Normalized
-        let view = CameraView.withUp north model.view
+        let view = 
+            model.view
+            |> CameraView.withUp north
+            |> setCameraViewCenter north
 
-        { model with view = view}
+        { model with view = view}        
+
+    let switchToMapViewController (planet : Planet) (model : CameraControllerState)  = 
+        { model with orbitCenter = Some(V3d.OOO) }
+        |> updateCameraForMapView planet
 
    
     let update (model : CameraControllerState) (message : Message) =
@@ -359,7 +362,7 @@ module OverViewController =
                         let modKey = if b = MouseButtons.Left && isControl = "true" then MouseButtons.Right else b
                         cb modKey (V2i(x,y))
                     | _ ->
-                        failwith "Mousedown Event Failed in OverViewCameraController"
+                        failwith "Mousedown Event Failed in MapViewCameraController"
             )
 
     (*let onMouseUp (cb : MouseButtons -> V2i -> 'msg) = 

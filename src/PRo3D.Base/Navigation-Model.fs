@@ -9,7 +9,7 @@ open Aardvark.UI.Primitives
 type NavigationMode = 
     | FreeFly = 0 
     | ArcBall = 1
-    | OverView = 2
+    | MapView = 2
 
 [<ModelType>]
 type NavigationModel = {

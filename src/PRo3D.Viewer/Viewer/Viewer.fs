@@ -52,7 +52,7 @@ open Chiron
 open PRo3D.Core.Surface
 open Aardvark.UI.Animation.Deprecated
 open PRo3D.SimulatedViews.SnapshotApp
-open OverViewCameraController
+open MapViewCameraController
 
 type UserFeedback<'a> = {
     id      : string
@@ -2010,11 +2010,11 @@ module ViewerApp =
                     yield! FreeFlyController.extractAttributes model.camera Navigation.Action.FreeFlyAction
                 | NavigationMode.ArcBall, true ->                         
                     yield! ArcBallController.extractAttributes model.camera Navigation.Action.ArcBallAction
-                | NavigationMode.OverView, true -> 
-                    yield! OverViewController.extractAttributes model.camera Navigation.Action.OverViewControllerAction
+                | NavigationMode.MapView, true -> 
+                    yield! MapViewController.extractAttributes model.camera Navigation.Action.MapViewControllerAction
                 | NavigationMode.FreeFly, false                
                 | NavigationMode.ArcBall, false 
-                | NavigationMode.OverView, false ->
+                | NavigationMode.MapView, false ->
                     yield! AMap.empty
                 
                 | _ -> 
@@ -2416,9 +2416,9 @@ module ViewerApp =
             | NavigationMode.ArcBall ->
                 ArcBallController.threads m.navigation.camera
                 |> ThreadPool.map Navigation.ArcBallAction |> ThreadPool.map NavigationMessage
-            | NavigationMode.OverView ->
-                OverViewController.threads m.navigation.camera
-                |> ThreadPool.map Navigation.OverViewControllerAction |> ThreadPool.map NavigationMessage
+            | NavigationMode.MapView ->
+                MapViewController.threads m.navigation.camera
+                |> ThreadPool.map Navigation.MapViewControllerAction |> ThreadPool.map NavigationMessage
             | _ -> failwith "invalid nav mode"
          
       //  let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions

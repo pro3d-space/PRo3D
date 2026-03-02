@@ -12,8 +12,8 @@ open Aardvark.Rendering
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Navigation2
-open OverViewCameraController
-open OverViewCameraController.OverViewController
+open MapViewCameraController
+open MapViewCameraController.MapViewController
 
 module Navigation =
     
@@ -24,7 +24,7 @@ module Navigation =
         | ArcBallAction            of ArcBallController.Message        
         //| FreeFlyAction            of CameraController.Message
         | FreeFlyAction            of FreeFlyController.Message
-        | OverViewControllerAction of OverViewController.Message
+        | MapViewControllerAction of MapViewController.Message
         | SetNavigationMode        of NavigationMode
 
     type smallConfig<'a,'b> = 
@@ -77,10 +77,10 @@ module Navigation =
             Log.warn "could not find Point on Surface to get Distance, please center view to surface"
 
             let oldNavMode = 
-                if model.navigationMode = NavigationMode.OverView then NavigationMode.FreeFly
+                if model.navigationMode = NavigationMode.MapView then NavigationMode.FreeFly
                 else model.navigationMode                    
 
-            { model with navigationMode = oldNavMode }, Some "could not find Distance to Surface center with center ray.\n Please center view to surface before changing to OverViewCamera"
+            { model with navigationMode = oldNavMode }, Some "could not find Distance to Surface center with center ray.\n Please center view to surface before changing to MapViewCamera"
         | Some p -> 
             Log.line "Distance of Surface to Center found"
 
@@ -88,7 +88,7 @@ module Navigation =
 
             let cam = { model.camera with rotationFactor = distance }
 
-            { model with camera = cam; navigationMode = NavigationMode.OverView }, Some("Distance to Surface set with center ray")
+            { model with camera = cam; navigationMode = NavigationMode.MapView }, Some("Distance to Surface set with center ray")
 
     let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) (ctrlFlag : bool) =
         match act with            
@@ -132,7 +132,7 @@ module Navigation =
             { 
               model with camera = { cam' with freeFlyConfig = config }
             }, None
-        | OverViewControllerAction a -> 
+        | MapViewControllerAction a -> 
             let frustum = smallConfig.frustum.Get(bigConfigA)
             
             let angle = Math.Tanh(frustum.right / frustum.near) * 2.0
@@ -140,24 +140,30 @@ module Navigation =
             let windowSize = smallConfig.windowSize.Get(bigConfigA)
             let planet     = smallConfig.planet.Get(bigConfigB)
 
-            let view = 
-                model.camera.view 
-                |> CameraView.withUp (smallConfig.north.Get(bigConfigB))
-                |> setCameraViewCenter (smallConfig.north.Get(bigConfigB))
+            //let view = 
+            //    model.camera.view 
+            //    |> CameraView.withUp (smallConfig.north.Get(bigConfigB))
+            //    |> setCameraViewCenter (smallConfig.north.Get(bigConfigB))
             
             let cam = { 
                 model.camera with 
-                    view = view
+                    view = model.camera.view
                     sensitivity    = smallConfig.navigationSensitivity.Get(bigConfigA)
                     orbitCenter    = Some model.exploreCenter   
                     targetPhiTheta = V2d(windowSize.X, windowSize.Y)
                     panFactor      = angle
                 }
-                
+            
+            let cam = MapViewController.update cam a
+                                    
             let cam = 
-                OverViewController.update cam a
-                |> OverViewController.updateCameratoNorth planet
-                        
+                match a with 
+                | KeyUp _ 
+                | Up _ -> 
+                    cam 
+                    |> MapViewController.updateCameraForMapView planet                    
+                | _ -> cam
+
             { model with camera = cam }, None
 
         | SetNavigationMode mode ->
@@ -174,15 +180,12 @@ module Navigation =
                     CameraView.lookAt model.camera.view.Location center (smallConfig.up.Get(bigConfigB))
                 
                 { model with camera = { model.camera with view = view'}; navigationMode = mode}, None
-            | NavigationMode.OverView ->                
+            | NavigationMode.MapView ->                
                 let planet     = smallConfig.planet.Get(bigConfigB)
                 
-                let cam = 
-                    model.camera 
-                    |> switchToOverViewController (smallConfig.north.Get(bigConfigB))
-                    |> OverViewController.updateCameratoNorth planet
-                
-                let model = { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.OverView }
+                let cam = model.camera |> switchToMapViewController planet
+                                    
+                let model = { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.MapView }
 
                 findDistancetoSurface pickFunction model                
             | _ ->  { model with navigationMode = mode }, None
@@ -208,7 +211,7 @@ module Navigation =
                 match state with
                 | NavigationMode.FreeFly -> yield! FreeFlyController.extractAttributes model.camera FreeFlyAction
                 | NavigationMode.ArcBall -> yield! ArcBallController.extractAttributes model.camera ArcBallAction
-                | NavigationMode.OverView -> yield! OverViewController.extractAttributes model.camera OverViewControllerAction
+                | NavigationMode.MapView -> yield! MapViewController.extractAttributes model.camera MapViewControllerAction
                 | _ -> failwith "Invalid NavigationMode"
             } |> AttributeMap.ofAMap
 
