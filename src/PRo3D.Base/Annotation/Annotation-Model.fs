@@ -509,6 +509,8 @@ type Annotation = {
                    
     semanticId     : SemanticId
     semanticType   : SemanticType
+
+    crossSectionClipping : bool
 }
 with 
     static member current = 5
@@ -586,6 +588,7 @@ with
                 bookmarkId       = None
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
             }
         }
 
@@ -648,6 +651,7 @@ with
                 bookmarkId       = None
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
             }
         }
 
@@ -710,6 +714,7 @@ with
                 bookmarkId       = None
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
             }
         }
 
@@ -775,6 +780,7 @@ with
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
             }
         }
 
@@ -841,6 +847,7 @@ with
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
             }
         }
 
@@ -881,12 +888,14 @@ with
             let! manualDipAngle = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAngle"
             let! manualDipAzimuth = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAzimuth"
 
-            let! ellipseProperties = Json.tryRead "ellipseResults" 
-            
+            let! ellipseProperties = Json.tryRead "ellipseResults"
+
+            let! crossSectionClipping = Json.tryRead "crossSectionClipping"
+
             return {
                 version          = Annotation.current
                 key              = key           |> Guid.Parse
-                modelTrafo       = modelTrafo    |> Trafo3d.Parse        
+                modelTrafo       = modelTrafo    |> Trafo3d.Parse
                 geometry         = geometry      |> enum<Geometry>
                 projection       = projection    |> enum<Projection>
                 semantic         = semantic      |> enum<Semantic>
@@ -910,6 +919,7 @@ with
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
                 ellipticResults  = ellipseProperties
+                crossSectionClipping = crossSectionClipping |> Option.defaultValue false
             }
         }
 
@@ -963,8 +973,10 @@ with
             
             match x.ellipticResults with
             | None -> ()
-            | Some e -> 
+            | Some e ->
                 do! Json.write "ellipseResults" x.ellipticResults
+
+            do! Json.write "crossSectionClipping" x.crossSectionClipping
         }
 
 module Annotation =
@@ -1046,6 +1058,7 @@ module Annotation =
             bookmarkId       = bookmarkId
             referenceSystem  = referenceSystem
             ellipticResults  = None
+            crossSectionClipping = false
         }
 
     let initial =
