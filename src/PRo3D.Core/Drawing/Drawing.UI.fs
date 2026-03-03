@@ -304,14 +304,25 @@ module UI =
     let viewCurtainSettings (model : AdaptiveDrawingModel) =
         require GuiEx.semui (
             Html.table [
-                Html.row "Curtain:"      [ GuiEx.iconCheckBox model.curtainEnabled ToggleCurtainEnabled ]
-                Html.row "Texture Path:" [
+                Html.row "Curtain:"           [ GuiEx.iconCheckBox model.curtainEnabled ToggleCurtainEnabled ]
+                Html.row "Absolute Altitude:" [ GuiEx.iconCheckBox model.curtainAbsoluteMode ToggleCurtainAbsoluteMode ]
+                Html.row "Texture Path:"      [
                     Incremental.input (AttributeMap.ofAMap (amap {
                         let! path = model.curtainTexturePath
                         yield attribute "type" "text"
                         yield attribute "value" (path |> Option.defaultValue "")
                         yield onChange SetCurtainTexturePath
                     })) ]
-                Html.row "Depth (m):"   [ Numeric.view' [InputBox] model.curtainExtrusionDepth |> UI.map SetCurtainExtrusionDepth ]
+                Html.row "Depth / Alt (m):" [
+                    Incremental.div AttributeMap.empty (
+                        alist {
+                            let! abs = model.curtainAbsoluteMode
+                            if abs then
+                                yield Numeric.view' [InputBox] model.curtainTargetAltitude |> UI.map SetCurtainTargetAltitude
+                            else
+                                yield Numeric.view' [InputBox] model.curtainExtrusionDepth |> UI.map SetCurtainExtrusionDepth
+                        }
+                    )
+                ]
             ]
         )

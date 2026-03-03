@@ -74,6 +74,8 @@ type DrawingAction =
 | ToggleCurtainEnabled
 | SetCurtainTexturePath of string
 | SetCurtainExtrusionDepth of Numeric.Action
+| ToggleCurtainAbsoluteMode
+| SetCurtainTargetAltitude of Numeric.Action
 
 [<ModelType>]
 type AutomaticGeoJsonExport = 
@@ -127,6 +129,8 @@ type DrawingModel = {
     curtainEnabled        : bool
     curtainTexturePath    : Option<string>
     curtainExtrusionDepth : NumericInput
+    curtainAbsoluteMode   : bool
+    curtainTargetAltitude : NumericInput
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -188,6 +192,11 @@ module DrawingModel =
         curtainTexturePath    = None
         curtainExtrusionDepth = {
             value = 100.0; min = 1.0; max = 10000.0
+            step = 10.0; format = "{0:0}"
+        }
+        curtainAbsoluteMode   = false
+        curtainTargetAltitude = {
+            value = 0.0; min = -10000.0; max = 100000.0
             step = 10.0; format = "{0:0}"
         }
     }

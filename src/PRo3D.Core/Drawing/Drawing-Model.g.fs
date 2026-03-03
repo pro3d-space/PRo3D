@@ -1,5 +1,5 @@
-//b8804857-d2fb-5ef7-6af1-e16fbfdb3dd8
-//b93decef-33ae-785b-fcfe-d0b29fdb0d98
+//a964ca16-5bad-9cee-acd2-dc3afa058046
+//59e31746-b475-0869-daeb-9604bfdffee6
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -69,6 +69,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     let _curtainEnabled_ = FSharp.Data.Adaptive.cval(value.curtainEnabled)
     let _curtainTexturePath_ = FSharp.Data.Adaptive.cval(value.curtainTexturePath)
     let _curtainExtrusionDepth_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.curtainExtrusionDepth)
+    let _curtainAbsoluteMode_ = FSharp.Data.Adaptive.cval(value.curtainAbsoluteMode)
+    let _curtainTargetAltitude_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.curtainTargetAltitude)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : DrawingModel) = AdaptiveDrawingModel(value)
@@ -101,6 +103,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
             _curtainEnabled_.Value <- value.curtainEnabled
             _curtainTexturePath_.Value <- value.curtainTexturePath
             _curtainExtrusionDepth_.Update(value.curtainExtrusionDepth)
+            _curtainAbsoluteMode_.Value <- value.curtainAbsoluteMode
+            _curtainTargetAltitude_.Update(value.curtainTargetAltitude)
     member __.Current = __adaptive
     member __.draw = _draw_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.pick = _pick_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -126,6 +130,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     member __.curtainEnabled = _curtainEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.curtainTexturePath = _curtainTexturePath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
     member __.curtainExtrusionDepth = _curtainExtrusionDepth_
+    member __.curtainAbsoluteMode = _curtainAbsoluteMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.curtainTargetAltitude = _curtainTargetAltitude_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module DrawingModelLenses = 
     type DrawingModel with
@@ -153,4 +159,6 @@ module DrawingModelLenses =
         static member curtainEnabled_ = ((fun (self : DrawingModel) -> self.curtainEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : DrawingModel) -> { self with curtainEnabled = value }))
         static member curtainTexturePath_ = ((fun (self : DrawingModel) -> self.curtainTexturePath), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : DrawingModel) -> { self with curtainTexturePath = value }))
         static member curtainExtrusionDepth_ = ((fun (self : DrawingModel) -> self.curtainExtrusionDepth), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with curtainExtrusionDepth = value }))
+        static member curtainAbsoluteMode_ = ((fun (self : DrawingModel) -> self.curtainAbsoluteMode), (fun (value : Microsoft.FSharp.Core.bool) (self : DrawingModel) -> { self with curtainAbsoluteMode = value }))
+        static member curtainTargetAltitude_ = ((fun (self : DrawingModel) -> self.curtainTargetAltitude), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with curtainTargetAltitude = value }))
 

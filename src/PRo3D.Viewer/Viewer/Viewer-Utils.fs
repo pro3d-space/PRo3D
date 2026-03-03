@@ -851,8 +851,8 @@ module ViewerUtils =
         }
 
         type UniformScope with
-            member x.UpVS          : V3f     = uniform?UpVS
-            member x.CurtainHeight : float32 = uniform?CurtainHeight
+            member x.UpVS : V3f = uniform?UpVS
+            // CurtainHeight removed — depth is now per-vertex in tc.Y
 
         let curtainVertex (v : CurtainVertex) =
             vertex {
@@ -863,17 +863,20 @@ module ViewerUtils =
         let curtainGeometry (line : Line<CurtainVertex>) =
             triangle {
                 let up     = uniform.UpVS |> Vec.normalize
-                let height = uniform.CurtainHeight
-                let offset = V4f(up * height, 0.0f)
+                // Per-vertex extrusion depths encoded in tc.Y by the CPU
+                let depth0 = line.P0.tc.Y
+                let depth1 = line.P1.tc.Y
+                let offset0 = V4f(up * depth0, 0.0f)
+                let offset1 = V4f(up * depth1, 0.0f)
                 let p0 = line.P0.vp
                 let p1 = line.P1.vp
                 let u0 = line.P0.tc.X
                 let u1 = line.P1.tc.X
                 // top edge (surface, v=1); bottom edge (extruded down, v=0)
-                yield { line.P0 with pos = uniform.ProjTrafo * p0;            tc = V2f(u0, 1.0f) }
-                yield { line.P0 with pos = uniform.ProjTrafo * (p0 - offset); tc = V2f(u0, 0.0f) }
-                yield { line.P1 with pos = uniform.ProjTrafo * p1;            tc = V2f(u1, 1.0f) }
-                yield { line.P1 with pos = uniform.ProjTrafo * (p1 - offset); tc = V2f(u1, 0.0f) }
+                yield { line.P0 with pos = uniform.ProjTrafo * p0;             tc = V2f(u0, 1.0f) }
+                yield { line.P0 with pos = uniform.ProjTrafo * (p0 - offset0); tc = V2f(u0, 0.0f) }
+                yield { line.P1 with pos = uniform.ProjTrafo * p1;             tc = V2f(u1, 1.0f) }
+                yield { line.P1 with pos = uniform.ProjTrafo * (p1 - offset1); tc = V2f(u1, 0.0f) }
             }
 
     let objEffect =
@@ -1222,6 +1225,8 @@ module ViewerUtils =
                 let enabled    = m.drawing.curtainEnabled.GetValue(token)
                 let texPath    = m.drawing.curtainTexturePath.GetValue(token)
                 let depth      = m.drawing.curtainExtrusionDepth.value.GetValue(token)
+                let absMode    = m.drawing.curtainAbsoluteMode.GetValue(token)
+                let targetAlt  = m.drawing.curtainTargetAltitude.value.GetValue(token)
                 let flatMap    = (m.drawing.annotations.flat |> AMap.toAVal).GetValue(token)
                 let planet     = m.scene.referenceSystem.planet.GetValue(token)
                 let camView    = view.GetValue(token)
@@ -1260,7 +1265,17 @@ module ViewerUtils =
 
                             // Geometry: LineList
                             let positions : V3f[] = ptsLocal |> Array.map V3f
-                            let texcoords : V2f[] = u |> Array.map (fun uu -> V2f(uu, 0.0f))
+
+                            // Per-vertex extrusion depth encoded in tc.Y
+                            let depths : float32[] =
+                                if absMode then
+                                    ptsWS |> Array.map (fun p ->
+                                        let alt = CooTransformation.getElevation' planet p
+                                        float32 (max 0.0 (alt - targetAlt)))
+                                else
+                                    Array.create n (float32 depth)
+
+                            let texcoords : V2f[] = Array.map2 (fun (uu : float32) (d : float32) -> V2f(uu, d)) u depths
                             let indices : int[] =
                                 Array.init ((n-1)*2) (fun k ->
                                     let i = k / 2
@@ -1288,8 +1303,7 @@ module ViewerUtils =
                                 do! DefaultSurfaces.diffuseTexture
                             }
                             |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
-                            |> Sg.uniform "UpVS"          (AVal.constant upVS)
-                            |> Sg.uniform "CurtainHeight" (AVal.constant (float32 depth))
+                            |> Sg.uniform "UpVS" (AVal.constant upVS)
                             |> Sg.cullMode (AVal.constant CullMode.None)
                             |> Sg.noEvents
             )
