@@ -633,17 +633,27 @@ module ViewerApp =
                     let a = x |> Leaf.toAnnotation
                     let a = AnnotationProperties.update m.scene.referenceSystem a msg
 
+                    // freeze/clear camera ref point when cross-section clipping is toggled
+                    let a =
+                        match msg with
+                        | AnnotationProperties.ToggleCrossSectionClipping ->
+                            if a.crossSectionClipping then
+                                { a with crossSectionRefPoint = Some m.navigation.camera.view.Location }
+                            else
+                                { a with crossSectionRefPoint = None }
+                        | _ -> a
+
                     //update true thickness computation on dip angle change
-                    let a = 
-                        if (a.geometry = Geometry.TT) then                                                         
+                    let a =
+                        if (a.geometry = Geometry.TT) then
                            let up = m.scene.referenceSystem.up.value
                            let north = m.scene.referenceSystem.north.value
                            let planet = m.scene.referenceSystem.planet
-                           
+
                            let results = Calculations.calcResultsLine a up north planet |> Some
                            { a with results = results }
                         else
-                            a                    
+                            a
                     a |> Leaf.Annotations)
 
                 let a = m.drawing.annotations |> Groups.updateLeaf selected f

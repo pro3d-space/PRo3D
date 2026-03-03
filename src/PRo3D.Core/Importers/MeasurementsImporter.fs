@@ -171,6 +171,7 @@ module MeasurementsImporter =
             referenceSystem  = None
             ellipticResults  = None
             crossSectionClipping = false
+            crossSectionRefPoint = None
         }
         
 

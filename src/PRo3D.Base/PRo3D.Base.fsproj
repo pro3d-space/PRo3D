@@ -58,6 +58,7 @@
     <Compile Include="FalseColors\FalseColors-Model.g.fs" />
     <Compile Include="FalseColors\FalseColorLegendApp.fs" />
     <Compile Include="Annotation\RegressionInfo.fs" />
+    <Compile Include="Annotation\CrossSectionClipping.fs" />
     <Compile Include="Annotation\Annotation-Model.fs" />
     <Compile Include="Annotation\Annotation-Model.g.fs" />
     <Compile Include="Annotation\AnnotationHelpers.fs" />

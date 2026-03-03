@@ -456,10 +456,43 @@ module Sg =
 
                     let extractTextureScope f (p : OpcPaths) (lodScope : obj) (r : RenderPatch) =
                         let context = unbox<OpcRenderingExtensions.Context> lodScope
-                        f p context.texturesScope r 
+                        f p context.texturesScope r
 
                     let getTextures = extractTextureScope SecondaryTexture.textures
-                    let getVertexAttributes = extractTextureScope SecondaryTexture.vertexAttributes
+
+                    let getVertexAttributes (p : OpcPaths) (lodScope : obj) (r : PatchLod.RenderPatch) =
+                        let context = unbox<OpcRenderingExtensions.Context> lodScope
+                        let baseAttrs = SecondaryTexture.vertexAttributes p context.texturesScope r
+
+                        let crossSectionBuf : aval<IBuffer> =
+                            context.crossSectionData
+                            |> AVal.bind (fun csOpt ->
+                                match csOpt with
+                                | Some cs ->
+                                    let (g, _) = Aardvark.Data.Opc.Patch.load h.opcPaths r.modality r.info
+                                    let positions = g.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
+                                    let arr : V4f[] = Array.zeroCreate positions.Length
+                                    let poly = cs.polygon
+                                    let basis = cs.basis
+                                    Log.startTimed "computing inside"
+                                    for i = 0 to positions.Length - 1 do
+                                        if i % 100 = 0 then Log.line "%A/%A" i positions.Length
+                                        let pLocal = V3d positions.[i]
+                                        let pWorld = r.info.Local2Global.TransformPos pLocal
+                                        let q2 = PRo3D.Base.Annotation.CrossSection.projectTo2d basis pWorld
+                                        let inside =
+                                            q2.AnyNaN || 
+                                            poly.Contains q2
+                                        let s = if inside then -1.0f else 1.0f
+                                        arr.[i] <- V4f(s, 0.0f, 0.0f, 0.0f)
+                                    Log.stop()
+                                    AVal.constant (ArrayBuffer(arr) :> IBuffer)
+                                | None ->
+                                    SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
+                            )
+
+                        baseAttrs
+                        |> Map.add (Sym.ofString "InsideOutsideV4") (BufferView(crossSectionBuf, typeof<V4f>))
 
                     PatchNode(
                         signature, 

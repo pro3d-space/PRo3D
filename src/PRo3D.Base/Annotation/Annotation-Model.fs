@@ -511,8 +511,9 @@ type Annotation = {
     semanticType   : SemanticType
 
     crossSectionClipping : bool
+    crossSectionRefPoint : Option<V3d>
 }
-with 
+with
     static member current = 5
     static member initialManualDipAngle = {
         value   = Double.NaN
@@ -589,6 +590,7 @@ with
                 referenceSystem  = None
                 ellipticResults  = None
                 crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -652,6 +654,7 @@ with
                 referenceSystem  = None
                 ellipticResults  = None
                 crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -715,6 +718,7 @@ with
                 referenceSystem  = None
                 ellipticResults  = None
                 crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -781,6 +785,7 @@ with
                 referenceSystem  = None
                 ellipticResults  = None
                 crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -848,6 +853,7 @@ with
                 referenceSystem  = None
                 ellipticResults  = None
                 crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -891,6 +897,9 @@ with
             let! ellipseProperties = Json.tryRead "ellipseResults"
 
             let! crossSectionClipping = Json.tryRead "crossSectionClipping"
+            let! crossSectionRefPoint = Json.tryRead "crossSectionRefPoint"
+            let crossSectionRefPoint : Option<V3d> =
+                crossSectionRefPoint |> Option.map V3d.Parse
 
             return {
                 version          = Annotation.current
@@ -920,10 +929,11 @@ with
                 referenceSystem  = None
                 ellipticResults  = ellipseProperties
                 crossSectionClipping = crossSectionClipping |> Option.defaultValue false
+                crossSectionRefPoint = crossSectionRefPoint
             }
         }
 
-    static member FromJson(_:Annotation) = 
+    static member FromJson(_:Annotation) =
         json {
             let! v = Json.read "version"
             match v with
@@ -977,6 +987,9 @@ with
                 do! Json.write "ellipseResults" x.ellipticResults
 
             do! Json.write "crossSectionClipping" x.crossSectionClipping
+            match x.crossSectionRefPoint with
+            | Some rp -> do! Json.write "crossSectionRefPoint" (rp.ToString())
+            | None -> ()
         }
 
 module Annotation =
@@ -1059,6 +1072,7 @@ module Annotation =
             referenceSystem  = referenceSystem
             ellipticResults  = None
             crossSectionClipping = false
+            crossSectionRefPoint = None
         }
 
     let initial =

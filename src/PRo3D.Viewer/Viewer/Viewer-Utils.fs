@@ -826,6 +826,21 @@ module ViewerUtils =
 
        
 
+    module CrossSectionShader =
+        open FShade
+
+        type CrossSectionVertex = {
+            [<Semantic("InsideOutsideV4")>]
+            insideOutside : V4f
+        }
+
+        let crossSectionClip (v : CrossSectionVertex) =
+            fragment {
+                if v.insideOutside.X < 0.0f then
+                    discard()
+                return v
+            }
+
     let objEffect =
         Effect.compose [
             //Shader.footprintV       |> toEffect 
@@ -874,6 +889,8 @@ module ViewerUtils =
 
             Shader.contourLines |> toEffect
             Shaders.donutFragment |> toEffect
+
+            CrossSectionShader.crossSectionClip |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
@@ -1035,12 +1052,64 @@ module ViewerUtils =
             |> Sg.noEvents
 
 
-        sgGrouped 
-        |> AList.map (fun group -> 
-                
-            let surfaces = 
+        // Compute cross-section clipping data from annotations
+        let crossSectionData : aval<Option<Sg.CrossSectionData>> =
+            m.drawing.annotations.flat
+            |> AMap.toAVal
+            |> AVal.bind (fun flatMap ->
+                // Collect adaptive annotations that have crossSectionClipping
+                let candidates =
+                    flatMap
+                    |> HashMap.toSeq
+                    |> Seq.choose (fun (_, leaf) ->
+                        match leaf with
+                        | AdaptiveAnnotations a -> Some a
+                        | _ -> None
+                    )
+                    |> Seq.toArray
+
+                if candidates.Length = 0 then
+                    AVal.constant None
+                else
+                    // Bind to .Current of all candidate annotations to track changes
+                    let allCurrents = candidates |> Array.map (fun a -> a.Current)
+                    let combined = allCurrents |> Array.fold (fun (acc : aval<_>) cur -> AVal.map2 (fun _ _ -> ()) acc cur) (AVal.constant ())
+                    combined |> AVal.bind (fun () ->
+                        m.scene.referenceSystem.planet |> AVal.bind (fun planet ->
+                            let found =
+                                candidates
+                                |> Array.tryPick (fun a ->
+                                    let anno = a.Current.GetValue()
+                                    if anno.crossSectionClipping && anno.crossSectionRefPoint.IsSome then
+                                        Some anno
+                                    else None
+                                )
+                            match found with
+                            | Some anno ->
+                                let points = anno.points |> IndexList.toArray
+                                if points.Length >= 2 then
+                                    let refPoint = anno.crossSectionRefPoint.Value
+                                    let up = CooTransformation.getUpVector (points.[0]) planet
+                                    let basis = PRo3D.Base.Annotation.CrossSection.buildBasisFromUp up
+                                    match PRo3D.Base.Annotation.CrossSection.buildPolygon basis points refPoint with
+                                    | Some poly ->
+                                        AVal.constant (Some { Sg.CrossSectionData.polygon = poly; basis = basis })
+                                    | None ->
+                                        AVal.constant None
+                                else
+                                    AVal.constant None
+                            | None ->
+                                AVal.constant None
+                        )
+                    )
+            )
+
+        sgGrouped
+        |> AList.map (fun group ->
+
+            let surfaces =
                 group
-                |> AMap.map(fun guid surface ->   
+                |> AMap.map(fun guid surface ->
 
 
                     let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
@@ -1101,12 +1170,14 @@ module ViewerUtils =
                 )
                 |> Sg.dynamic
 
-            let surfaces = 
+            let surfaces =
                 surfaces
-                |> AMap.toASet 
-                |> ASet.map snd           
+                |> AMap.toASet
+                |> ASet.map snd
                 |> Sg.set
-                    
+                |> Sg.applyCrossSection crossSectionData
+                |> Sg.noEvents
+
             Sg.ofList [surfaces; depthComposed]
         )  
 

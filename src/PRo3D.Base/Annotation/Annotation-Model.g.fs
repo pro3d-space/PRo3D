@@ -1,5 +1,5 @@
-//14dc52c3-02e1-eee9-77e1-35138925d7c3
-//5f9aa5fa-4ff0-b579-d80d-c2a7afa48ced
+//02f7b0e2-2f2f-a35e-ea38-b810240cec41
+//20cca9a3-0146-ffe1-59ca-65f794a9c26b
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -232,6 +232,7 @@ type AdaptiveAnnotation(value : Annotation) =
     let _semanticId_ = FSharp.Data.Adaptive.cval(value.semanticId)
     let _semanticType_ = FSharp.Data.Adaptive.cval(value.semanticType)
     let _crossSectionClipping_ = FSharp.Data.Adaptive.cval(value.crossSectionClipping)
+    let _crossSectionRefPoint_ = FSharp.Data.Adaptive.cval(value.crossSectionRefPoint)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Annotation) = AdaptiveAnnotation(value)
@@ -266,6 +267,7 @@ type AdaptiveAnnotation(value : Annotation) =
             _semanticId_.Value <- value.semanticId
             _semanticType_.Value <- value.semanticType
             _crossSectionClipping_.Value <- value.crossSectionClipping
+            _crossSectionRefPoint_.Value <- value.crossSectionRefPoint
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.key = __value.key
@@ -294,6 +296,7 @@ type AdaptiveAnnotation(value : Annotation) =
     member __.semanticId = _semanticId_ :> FSharp.Data.Adaptive.aval<SemanticId>
     member __.semanticType = _semanticType_ :> FSharp.Data.Adaptive.aval<SemanticType>
     member __.crossSectionClipping = _crossSectionClipping_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.crossSectionRefPoint = _crossSectionRefPoint_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Base.V3d>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module AnnotationLenses = 
     type Annotation with
@@ -324,4 +327,5 @@ module AnnotationLenses =
         static member semanticId_ = ((fun (self : Annotation) -> self.semanticId), (fun (value : SemanticId) (self : Annotation) -> { self with semanticId = value }))
         static member semanticType_ = ((fun (self : Annotation) -> self.semanticType), (fun (value : SemanticType) (self : Annotation) -> { self with semanticType = value }))
         static member crossSectionClipping_ = ((fun (self : Annotation) -> self.crossSectionClipping), (fun (value : Microsoft.FSharp.Core.bool) (self : Annotation) -> { self with crossSectionClipping = value }))
+        static member crossSectionRefPoint_ = ((fun (self : Annotation) -> self.crossSectionRefPoint), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Base.V3d>) (self : Annotation) -> { self with crossSectionRefPoint = value }))
 
