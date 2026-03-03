@@ -1,5 +1,5 @@
-//2a5c1294-597f-bf5c-1fba-c0190c248415
-//011fab16-2e0f-378e-5edf-99b0128f7a93
+//b8804857-d2fb-5ef7-6af1-e16fbfdb3dd8
+//b93decef-33ae-785b-fcfe-d0b29fdb0d98
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -66,6 +66,9 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     let _dnsColorLegend_ = PRo3D.Base.AdaptiveFalseColorsModel(value.dnsColorLegend)
     let _haltonPoints_ = FSharp.Data.Adaptive.cval(value.haltonPoints)
     let _automaticGeoJsonExport_ = AdaptiveAutomaticGeoJsonExport(value.automaticGeoJsonExport)
+    let _curtainEnabled_ = FSharp.Data.Adaptive.cval(value.curtainEnabled)
+    let _curtainTexturePath_ = FSharp.Data.Adaptive.cval(value.curtainTexturePath)
+    let _curtainExtrusionDepth_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.curtainExtrusionDepth)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : DrawingModel) = AdaptiveDrawingModel(value)
@@ -95,6 +98,9 @@ type AdaptiveDrawingModel(value : DrawingModel) =
             _dnsColorLegend_.Update(value.dnsColorLegend)
             _haltonPoints_.Value <- value.haltonPoints
             _automaticGeoJsonExport_.Update(value.automaticGeoJsonExport)
+            _curtainEnabled_.Value <- value.curtainEnabled
+            _curtainTexturePath_.Value <- value.curtainTexturePath
+            _curtainExtrusionDepth_.Update(value.curtainExtrusionDepth)
     member __.Current = __adaptive
     member __.draw = _draw_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.pick = _pick_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -117,6 +123,9 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     member __.dnsColorLegend = _dnsColorLegend_
     member __.haltonPoints = _haltonPoints_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>>
     member __.automaticGeoJsonExport = _automaticGeoJsonExport_
+    member __.curtainEnabled = _curtainEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.curtainTexturePath = _curtainTexturePath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
+    member __.curtainExtrusionDepth = _curtainExtrusionDepth_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module DrawingModelLenses = 
     type DrawingModel with
@@ -141,4 +150,7 @@ module DrawingModelLenses =
         static member dnsColorLegend_ = ((fun (self : DrawingModel) -> self.dnsColorLegend), (fun (value : PRo3D.Base.FalseColorsModel) (self : DrawingModel) -> { self with dnsColorLegend = value }))
         static member haltonPoints_ = ((fun (self : DrawingModel) -> self.haltonPoints), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>) (self : DrawingModel) -> { self with haltonPoints = value }))
         static member automaticGeoJsonExport_ = ((fun (self : DrawingModel) -> self.automaticGeoJsonExport), (fun (value : AutomaticGeoJsonExport) (self : DrawingModel) -> { self with automaticGeoJsonExport = value }))
+        static member curtainEnabled_ = ((fun (self : DrawingModel) -> self.curtainEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : DrawingModel) -> { self with curtainEnabled = value }))
+        static member curtainTexturePath_ = ((fun (self : DrawingModel) -> self.curtainTexturePath), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : DrawingModel) -> { self with curtainTexturePath = value }))
+        static member curtainExtrusionDepth_ = ((fun (self : DrawingModel) -> self.curtainExtrusionDepth), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with curtainExtrusionDepth = value }))
 

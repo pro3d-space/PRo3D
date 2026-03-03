@@ -55,7 +55,7 @@ module UI =
             match i with
             | Projection.Linear     -> "Produces straight line segments as point-to-point connections with linear interpolation between them, no actual projection is performed."
             | Projection.Viewpoint  -> "Between two points the space is sampled by shooting additional rays to intersect with the surface."
-            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene’s up-vector."
+            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the sceneï¿½s up-vector."
             | _                     -> ""
 
         let thicknessTooltip = "Thickness of annotation"
@@ -290,13 +290,28 @@ module UI =
         | AdaptiveAnnotations a -> a
         | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveAnnotations'" |> failwith
 
-    let viewAnnotationGroups (model:AdaptiveDrawingModel) = 
-        let a = 
-          model.annotations.flat 
-            |> AMap.map(fun _ v -> v |> toAdaptiveAnnotation)              
-         
+    let viewAnnotationGroups (model:AdaptiveDrawingModel) =
+        let a =
+          model.annotations.flat
+            |> AMap.map(fun _ v -> v |> toAdaptiveAnnotation)
+
         require GuiEx.semui (
             let tree = viewTree [] model.annotations.rootGroup model.annotations a
             //Incremental.div (AttributeMap.ofList [clazz "ui list"]) ([])
             div [clazz "ui list"] [tree]
+        )
+
+    let viewCurtainSettings (model : AdaptiveDrawingModel) =
+        require GuiEx.semui (
+            Html.table [
+                Html.row "Curtain:"      [ GuiEx.iconCheckBox model.curtainEnabled ToggleCurtainEnabled ]
+                Html.row "Texture Path:" [
+                    Incremental.input (AttributeMap.ofAMap (amap {
+                        let! path = model.curtainTexturePath
+                        yield attribute "type" "text"
+                        yield attribute "value" (path |> Option.defaultValue "")
+                        yield onChange SetCurtainTexturePath
+                    })) ]
+                Html.row "Depth (m):"   [ Numeric.view' [InputBox] model.curtainExtrusionDepth |> UI.map SetCurtainExtrusionDepth ]
+            ]
         )

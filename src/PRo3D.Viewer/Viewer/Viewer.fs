@@ -2245,6 +2245,8 @@ module ViewerApp =
             |> Sg.dynamic
             
             
+        let curtainSg = ViewerUtils.createCurtainSg view m
+
         let depthTested =
             [
                 scaleBars;
@@ -2252,6 +2254,7 @@ module ViewerApp =
                 traverses
                 distancePoints
                 surfaceIntersection
+                curtainSg
             ] |> Sg.ofList
 
         let heightValidationDiscs =

@@ -841,6 +841,41 @@ module ViewerUtils =
                 return v
             }
 
+    module CurtainShader =
+        open FShade
+
+        type CurtainVertex = {
+            [<Position>]            pos : V4f
+            [<TexCoord>]            tc  : V2f
+            [<Semantic("ViewPos")>] vp  : V4f
+        }
+
+        type UniformScope with
+            member x.UpVS          : V3f     = uniform?UpVS
+            member x.CurtainHeight : float32 = uniform?CurtainHeight
+
+        let curtainVertex (v : CurtainVertex) =
+            vertex {
+                let vp = uniform.ModelViewTrafo * v.pos
+                return { v with vp = vp }
+            }
+
+        let curtainGeometry (line : Line<CurtainVertex>) =
+            triangle {
+                let up     = uniform.UpVS |> Vec.normalize
+                let height = uniform.CurtainHeight
+                let offset = V4f(up * height, 0.0f)
+                let p0 = line.P0.vp
+                let p1 = line.P1.vp
+                let u0 = line.P0.tc.X
+                let u1 = line.P1.tc.X
+                // top edge (surface, v=1); bottom edge (extruded down, v=0)
+                yield { line.P0 with pos = uniform.ProjTrafo * p0;            tc = V2f(u0, 1.0f) }
+                yield { line.P0 with pos = uniform.ProjTrafo * (p0 - offset); tc = V2f(u0, 0.0f) }
+                yield { line.P1 with pos = uniform.ProjTrafo * p1;            tc = V2f(u1, 1.0f) }
+                yield { line.P1 with pos = uniform.ProjTrafo * (p1 - offset); tc = V2f(u1, 0.0f) }
+            }
+
     let objEffect =
         Effect.compose [
             //Shader.footprintV       |> toEffect 
@@ -1179,9 +1214,88 @@ module ViewerUtils =
                 |> Sg.noEvents
 
             Sg.ofList [surfaces; depthComposed]
-        )  
+        )
 
-    let renderCommands 
+    let createCurtainSg (view : aval<CameraView>) (m : AdaptiveModel) : ISg<ViewerAction> =
+        let curtainSgOpt =
+            AVal.custom (fun token ->
+                let enabled    = m.drawing.curtainEnabled.GetValue(token)
+                let texPath    = m.drawing.curtainTexturePath.GetValue(token)
+                let depth      = m.drawing.curtainExtrusionDepth.value.GetValue(token)
+                let flatMap    = (m.drawing.annotations.flat |> AMap.toAVal).GetValue(token)
+                let planet     = m.scene.referenceSystem.planet.GetValue(token)
+                let camView    = view.GetValue(token)
+
+                if not enabled then Sg.empty
+                else
+                    match texPath with
+                    | None -> Sg.empty
+                    | Some path when not (System.IO.File.Exists path) -> Sg.empty
+                    | Some path ->
+                        let annOpt =
+                            flatMap
+                            |> HashMap.toSeq
+                            |> Seq.choose (fun (_, leaf) ->
+                                match leaf with
+                                | AdaptiveAnnotations a -> Some (a.Current.GetValue(token))
+                                | _ -> None)
+                            |> Seq.tryFind (fun a -> a.crossSectionClipping && a.points.Count >= 2)
+                        match annOpt with
+                        | None -> Sg.empty
+                        | Some ann ->
+                            let ptsWS    = ann.points |> IndexList.toArray
+                            let n        = ptsWS.Length
+                            let modelTrafo = Trafo3d.Translation(ptsWS.[0])
+                            let ptsLocal   = ptsWS |> Array.map modelTrafo.Backward.TransformPos
+
+                            // Arc-length UV
+                            let segs = ptsLocal |> Array.pairwise |> Array.map (fun (a,b) -> Vec.distance a b)
+                            let cum  = Array.zeroCreate n
+                            let mutable s = 0.0
+                            for i in 1 .. n-1 do
+                                s <- s + segs.[i-1]
+                                cum.[i] <- s
+                            let total = max 1e-12 s
+                            let u = cum |> Array.map (fun x -> float32 (x / total))
+
+                            // Geometry: LineList
+                            let positions : V3f[] = ptsLocal |> Array.map V3f
+                            let texcoords : V2f[] = u |> Array.map (fun uu -> V2f(uu, 0.0f))
+                            let indices : int[] =
+                                Array.init ((n-1)*2) (fun k ->
+                                    let i = k / 2
+                                    if k % 2 = 0 then i else i + 1)
+                            let ig =
+                                IndexedGeometry(
+                                    Mode = IndexedGeometryMode.LineList,
+                                    IndexedAttributes = SymDict.ofList [
+                                        DefaultSemantic.Positions,               (positions :> Array)
+                                        DefaultSemantic.DiffuseColorCoordinates, (texcoords :> Array)
+                                    ],
+                                    IndexArray = indices
+                                )
+
+                            // Up vector in view space
+                            let upWorld = CooTransformation.getUpVector ptsWS.[0] planet
+                            let viewTrafo = camView |> CameraView.viewTrafo
+                            let upVS = viewTrafo.TransformDir upWorld |> V3f
+
+                            Sg.ofIndexedGeometry ig
+                            |> Sg.trafo (AVal.constant modelTrafo)
+                            |> Sg.shader {
+                                do! CurtainShader.curtainVertex
+                                do! CurtainShader.curtainGeometry
+                                do! DefaultSurfaces.diffuseTexture
+                            }
+                            |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
+                            |> Sg.uniform "UpVS"          (AVal.constant upVS)
+                            |> Sg.uniform "CurtainHeight" (AVal.constant (float32 depth))
+                            |> Sg.cullMode (AVal.constant CullMode.None)
+                            |> Sg.noEvents
+            )
+        curtainSgOpt |> Sg.dynamic
+
+    let renderCommands
         (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
         (overlayed      : ISg<ViewerAction>)
         (depthTested    : ISg<ViewerAction>)
