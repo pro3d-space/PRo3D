@@ -142,9 +142,16 @@ module MapViewController =
                       if model.isWheel then
                           let distancetoSurface = (Vec.distance model.view.Location V3d.OOO) - model.rotationFactor
                           let sensitivity = ((model.sensitivity + 2.0) * 5.0) / 100.0
-                          let step = distancetoSurface * (model.moveVec.Z * cam.Forward * sensitivity * dt)                      
-                          let loc' = cam.Location + step
-                          cam.WithLocation(loc'), model.orbitCenter
+                          let step = (Math.Max(distancetoSurface, 10.0)) * (model.moveVec.Z * cam.Forward * sensitivity * dt)
+                          
+                          if step.Length > distancetoSurface && (model.moveVec.Z > 0.0)then
+                              cam, model.orbitCenter
+                          else
+                              let loc' = cam.Location + step
+                              cam.WithLocation(loc'), model.orbitCenter
+
+
+                          
                       else if model.orbitCenter.IsSome then
                           let distanceToCenter = Vec.distance model.view.Location V3d.OOO
                           let distanceBetweenCameraSurface = Math.Abs(distanceToCenter - model.rotationFactor)
