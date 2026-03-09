@@ -30,6 +30,11 @@ now use the draw profile tool to create an svg/png of which shows the profile
 python draw_profile.py --profile testProfile2.csv --curtain-height 100 --min-altitude -2200 --vertical-px 2000 --overlay --x-interval 20 --y-interval 20 --x-grid 25 --y-grid 1 --output profile.svg --grid-opacity 1.0 --grid-width 3.0
 ```
 
+- choose curtain height to match the full vertical span you need
+- min-alititude should be where the profile ends (lowest point of profile)
+- curtain height is height in meters
+- all this needs to be later matched up in (6)
+
 Look at the profile or the info in pro3d to find good parameters.
 
 
