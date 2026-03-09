@@ -71,11 +71,6 @@ type DrawingAction =
 | ExportAsGeoJSONQGIS_both      of string // also exports geojson with lat lon, but additionally adds xyz information to metadata
 | ContinuouslyGeoJson    of string
 | ExportAsAttitude       of string
-| ToggleCurtainEnabled
-| SetCurtainTexturePath of string
-| SetCurtainExtrusionDepth of Numeric.Action
-| ToggleCurtainAbsoluteMode
-| SetCurtainTargetAltitude of Numeric.Action
 
 [<ModelType>]
 type AutomaticGeoJsonExport = 
@@ -125,12 +120,6 @@ type DrawingModel = {
     haltonPoints   : list<V3d>
 
     automaticGeoJsonExport : AutomaticGeoJsonExport
-
-    curtainEnabled        : bool
-    curtainTexturePath    : Option<string>
-    curtainExtrusionDepth : NumericInput
-    curtainAbsoluteMode   : bool
-    curtainTargetAltitude : NumericInput
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -187,16 +176,4 @@ module DrawingModel =
         haltonPoints = []
 
         automaticGeoJsonExport = { enabled = false; lastGeoJsonPath = None; lastGeoJsonPathXyz = None }
-
-        curtainEnabled        = false
-        curtainTexturePath    = None
-        curtainExtrusionDepth = {
-            value = 100.0; min = 1.0; max = 10000.0
-            step = 10.0; format = "{0:0}"
-        }
-        curtainAbsoluteMode   = false
-        curtainTargetAltitude = {
-            value = 0.0; min = -10000.0; max = 100000.0
-            step = 10.0; format = "{0:0}"
-        }
     }

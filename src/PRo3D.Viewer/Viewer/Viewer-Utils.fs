@@ -845,14 +845,16 @@ module ViewerUtils =
         open FShade
 
         type CurtainVertex = {
-            [<Position>]            pos : V4f
-            [<TexCoord>]            tc  : V2f
-            [<Semantic("ViewPos")>] vp  : V4f
+            [<Position>]                pos        : V4f
+            [<TexCoord>]                tc         : V2f
+            [<Semantic("ViewPos")>]     vp         : V4f
+            [<Semantic("TotalDepth")>]  totalDepth : float32
         }
 
         type UniformScope with
             member x.UpVS : V3f = uniform?UpVS
-            // CurtainHeight removed — depth is now per-vertex in tc.Y
+            member x.TextureDepth : float32 = uniform?TextureDepth
+            member x.CurtainBaseColor : V4f = uniform?CurtainBaseColor
 
         let curtainVertex (v : CurtainVertex) =
             vertex {
@@ -873,10 +875,33 @@ module ViewerUtils =
                 let u0 = line.P0.tc.X
                 let u1 = line.P1.tc.X
                 // top edge (surface, v=1); bottom edge (extruded down, v=0)
-                yield { line.P0 with pos = uniform.ProjTrafo * p0;             tc = V2f(u0, 1.0f) }
-                yield { line.P0 with pos = uniform.ProjTrafo * (p0 - offset0); tc = V2f(u0, 0.0f) }
-                yield { line.P1 with pos = uniform.ProjTrafo * p1;             tc = V2f(u1, 1.0f) }
-                yield { line.P1 with pos = uniform.ProjTrafo * (p1 - offset1); tc = V2f(u1, 0.0f) }
+                yield { line.P0 with pos = uniform.ProjTrafo * p0;             tc = V2f(u0, 1.0f); totalDepth = depth0 }
+                yield { line.P0 with pos = uniform.ProjTrafo * (p0 - offset0); tc = V2f(u0, 0.0f); totalDepth = depth0 }
+                yield { line.P1 with pos = uniform.ProjTrafo * p1;             tc = V2f(u1, 1.0f); totalDepth = depth1 }
+                yield { line.P1 with pos = uniform.ProjTrafo * (p1 - offset1); tc = V2f(u1, 0.0f); totalDepth = depth1 }
+            }
+
+        let private curtainSampler =
+            sampler2d {
+                texture uniform?DiffuseColorTexture
+                filter Filter.MinMagLinear
+                addressU WrapMode.Clamp
+                addressV WrapMode.Clamp
+            }
+
+        let curtainFragment (v : CurtainVertex) =
+            fragment {
+                let texDepth  = uniform.TextureDepth
+                let baseColor = uniform.CurtainBaseColor
+                let totalD    = v.totalDepth
+                // v.tc.Y = 1.0 at surface, 0.0 at bottom
+                let distFromSurface = (1.0f - v.tc.Y) * totalD
+                if distFromSurface <= texDepth && texDepth > 0.0f then
+                    // Remap: texture V=1 at surface, V=0 at textureDepth boundary
+                    let remappedV = 1.0f - distFromSurface / texDepth
+                    return curtainSampler.SampleLevel(V2f(v.tc.X, remappedV), 0.0f)
+                else
+                    return baseColor
             }
 
     let objEffect =
@@ -1090,55 +1115,25 @@ module ViewerUtils =
             |> Sg.noEvents
 
 
-        // Compute cross-section clipping data from annotations
+        // Compute cross-section clipping data from scene-level cross section model
         let crossSectionData : aval<Option<Sg.CrossSectionData>> =
-            m.drawing.annotations.flat
-            |> AMap.toAVal
-            |> AVal.bind (fun flatMap ->
-                // Collect adaptive annotations that have crossSectionClipping
-                let candidates =
-                    flatMap
-                    |> HashMap.toSeq
-                    |> Seq.choose (fun (_, leaf) ->
-                        match leaf with
-                        | AdaptiveAnnotations a -> Some a
-                        | _ -> None
-                    )
-                    |> Seq.toArray
-
-                if candidates.Length = 0 then
-                    AVal.constant None
-                else
-                    // Bind to .Current of all candidate annotations to track changes
-                    let allCurrents = candidates |> Array.map (fun a -> a.Current)
-                    let combined = allCurrents |> Array.fold (fun (acc : aval<_>) cur -> AVal.map2 (fun _ _ -> ()) acc cur) (AVal.constant ())
-                    combined |> AVal.bind (fun () ->
-                        m.scene.referenceSystem.planet |> AVal.bind (fun planet ->
-                            let found =
-                                candidates
-                                |> Array.tryPick (fun a ->
-                                    let anno = a.Current.GetValue()
-                                    if anno.crossSectionClipping && anno.crossSectionRefPoint.IsSome then
-                                        Some anno
-                                    else None
-                                )
-                            match found with
-                            | Some anno ->
-                                let points = anno.points |> IndexList.toArray
-                                if points.Length >= 2 then
-                                    let refPoint = anno.crossSectionRefPoint.Value
-                                    let up = CooTransformation.getUpVector (points.[0]) planet
-                                    let basis = PRo3D.Base.Annotation.CrossSection.buildBasisFromUp up
-                                    match PRo3D.Base.Annotation.CrossSection.buildPolygon basis points refPoint with
-                                    | Some poly ->
-                                        AVal.constant (Some { Sg.CrossSectionData.polygon = poly; basis = basis })
-                                    | None ->
-                                        AVal.constant None
-                                else
-                                    AVal.constant None
-                            | None ->
-                                AVal.constant None
-                        )
+            m.scene.crossSectionModel.crossSection
+            |> AVal.bind (fun csOpt ->
+                match csOpt with
+                | None -> AVal.constant None
+                | Some cs ->
+                    m.scene.referenceSystem.planet |> AVal.map (fun planet ->
+                        match cs.geometry with
+                        | LineOnSurface points ->
+                            if points.Length >= 2 then
+                                let refPoint = cs.refPoint
+                                let up = CooTransformation.getUpVector (points.[0]) planet
+                                let basis = PRo3D.Base.Annotation.CrossSection.buildBasisFromUp up
+                                match PRo3D.Base.Annotation.CrossSection.buildPolygon basis points refPoint with
+                                | Some poly ->
+                                    Some { Sg.CrossSectionData.polygon = poly; basis = basis }
+                                | None -> None
+                            else None
                     )
             )
 
@@ -1222,12 +1217,15 @@ module ViewerUtils =
     let createCurtainSg (view : aval<CameraView>) (m : AdaptiveModel) : ISg<ViewerAction> =
         let curtainSgOpt =
             AVal.custom (fun token ->
-                let enabled    = m.drawing.curtainEnabled.GetValue(token)
-                let texPath    = m.drawing.curtainTexturePath.GetValue(token)
-                let depth      = m.drawing.curtainExtrusionDepth.value.GetValue(token)
-                let absMode    = m.drawing.curtainAbsoluteMode.GetValue(token)
-                let targetAlt  = m.drawing.curtainTargetAltitude.value.GetValue(token)
-                let flatMap    = (m.drawing.annotations.flat |> AMap.toAVal).GetValue(token)
+                let csm        = m.scene.crossSectionModel
+                let enabled    = csm.curtainEnabled.GetValue(token)
+                let texPath    = csm.curtainTexturePath.GetValue(token)
+                let depth      = csm.curtainExtrusionDepth.value.GetValue(token)
+                let absMode    = csm.curtainAbsoluteMode.GetValue(token)
+                let targetAlt  = csm.curtainTargetAltitude.value.GetValue(token)
+                let texDepth   = csm.curtainTextureDepth.value.GetValue(token)
+                let baseColor  = csm.curtainBaseColor.c.GetValue(token)
+                let csOpt      = csm.crossSection.GetValue(token)
                 let planet     = m.scene.referenceSystem.planet.GetValue(token)
                 let camView    = view.GetValue(token)
 
@@ -1237,18 +1235,14 @@ module ViewerUtils =
                     | None -> Sg.empty
                     | Some path when not (System.IO.File.Exists path) -> Sg.empty
                     | Some path ->
-                        let annOpt =
-                            flatMap
-                            |> HashMap.toSeq
-                            |> Seq.choose (fun (_, leaf) ->
-                                match leaf with
-                                | AdaptiveAnnotations a -> Some (a.Current.GetValue(token))
-                                | _ -> None)
-                            |> Seq.tryFind (fun a -> a.crossSectionClipping && a.points.Count >= 2)
-                        match annOpt with
+                        match csOpt with
                         | None -> Sg.empty
-                        | Some ann ->
-                            let ptsWS    = ann.points |> IndexList.toArray
+                        | Some cs ->
+                            let ptsWS =
+                                match cs.geometry with
+                                | LineOnSurface pts -> pts
+                            if ptsWS.Length < 2 then Sg.empty
+                            else
                             let n        = ptsWS.Length
                             let modelTrafo = Trafo3d.Translation(ptsWS.[0])
                             let ptsLocal   = ptsWS |> Array.map modelTrafo.Backward.TransformPos
@@ -1300,10 +1294,12 @@ module ViewerUtils =
                             |> Sg.shader {
                                 do! CurtainShader.curtainVertex
                                 do! CurtainShader.curtainGeometry
-                                do! DefaultSurfaces.diffuseTexture
+                                do! CurtainShader.curtainFragment
                             }
                             |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
                             |> Sg.uniform "UpVS" (AVal.constant upVS)
+                            |> Sg.uniform "TextureDepth" (AVal.constant (float32 texDepth))
+                            |> Sg.uniform "CurtainBaseColor" (AVal.constant (baseColor.ToC4f().ToV4f()))
                             |> Sg.cullMode (AVal.constant CullMode.None)
                             |> Sg.noEvents
             )

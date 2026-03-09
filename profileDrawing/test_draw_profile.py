@@ -24,7 +24,11 @@ def main():
     print(f"  curtain_height = {curtain_height:.1f} m")
     print(f"  vertical_px    = {vertical_px}")
 
-    draw_profile(csv_path, curtain_height, min_altitude, vertical_px, output_path="test_profile_output.svg")
+    print("\n--- Normal mode (labels outside) ---")
+    draw_profile(csv_path, curtain_height, min_altitude, vertical_px, output_path="test_profile_normal.svg")
+
+    print("\n--- Overlay mode (labels on data, UV = 0-1) ---")
+    draw_profile(csv_path, curtain_height, min_altitude, vertical_px, output_path="test_profile_overlay.svg", overlay=True)
 
 
 if __name__ == "__main__":

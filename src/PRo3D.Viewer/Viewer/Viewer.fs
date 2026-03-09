@@ -633,16 +633,6 @@ module ViewerApp =
                     let a = x |> Leaf.toAnnotation
                     let a = AnnotationProperties.update m.scene.referenceSystem a msg
 
-                    // freeze/clear camera ref point when cross-section clipping is toggled
-                    let a =
-                        match msg with
-                        | AnnotationProperties.ToggleCrossSectionClipping ->
-                            if a.crossSectionClipping then
-                                { a with crossSectionRefPoint = Some m.navigation.camera.view.Location }
-                            else
-                                { a with crossSectionRefPoint = None }
-                        | _ -> a
-
                     //update true thickness computation on dip angle change
                     let a =
                         if (a.geometry = Geometry.TT) then
@@ -657,9 +647,31 @@ module ViewerApp =
                     a |> Leaf.Annotations)
 
                 let a = m.drawing.annotations |> Groups.updateLeaf selected f
-                Optic.set _annotations a m
-            | None -> m       
-        | BookmarkMessage msg,_ ->  
+                let m = Optic.set _annotations a m
+
+                // on CreateCrossSection, extract annotation points + camera to build CrossSection
+                match msg with
+                | AnnotationProperties.CreateCrossSection ->
+                    let leafOpt = a.flat |> HashMap.tryFind selected
+                    match leafOpt with
+                    | Some leaf ->
+                        let anno = leaf |> Leaf.toAnnotation
+                        let pts = anno.points |> IndexList.toArray
+                        if pts.Length >= 2 then
+                            let cs = {
+                                geometry = LineOnSurface pts
+                                refPoint = m.navigation.camera.view.Location
+                            }
+                            let csm = CrossSectionApp.update m.scene.crossSectionModel (SetCrossSection cs)
+                            { m with scene = { m.scene with crossSectionModel = csm } }
+                        else m
+                    | None -> m
+                | _ -> m
+            | None -> m
+        | CrossSectionMessage msg,_ ->
+            let csm = CrossSectionApp.update m.scene.crossSectionModel msg
+            { m with scene = { m.scene with crossSectionModel = csm } }
+        | BookmarkMessage msg,_ ->
             Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 
             let m', bm = Bookmarks.update m.scene.bookmarks m.scene.referenceSystem.planet msg _navigation m

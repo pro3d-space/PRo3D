@@ -694,17 +694,6 @@ module DrawingApp =
 
                 { model with annotations = grouping }
 
-            | ToggleCurtainEnabled, _, _ ->
-                { model with curtainEnabled = not model.curtainEnabled }
-            | SetCurtainTexturePath path, _, _ ->
-                { model with curtainTexturePath = if path = "" then None else Some path }
-            | SetCurtainExtrusionDepth a, _, _ ->
-                { model with curtainExtrusionDepth = Numeric.update model.curtainExtrusionDepth a }
-            | ToggleCurtainAbsoluteMode, _, _ ->
-                { model with curtainAbsoluteMode = not model.curtainAbsoluteMode }
-            | SetCurtainTargetAltitude a, _, _ ->
-                { model with curtainTargetAltitude = Numeric.update model.curtainTargetAltitude a }
-
             | _ -> model
 
         // optionally also store geojson to disk

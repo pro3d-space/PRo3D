@@ -28,7 +28,7 @@ module AnnotationProperties =
     | PrintPosition   
     | SetManualDippingAngle of Numeric.Action
     | SetManualDippingAzimuth of Numeric.Action
-    | ToggleCrossSectionClipping
+    | CreateCrossSection
         
     let update (referenceSystem : ReferenceSystem) (model : Annotation) (act : Action) =
         match act with
@@ -73,8 +73,8 @@ module AnnotationProperties =
             let model ={ model with manualDipAzimuth = Numeric.update model.manualDipAzimuth a }
             let dnsResults = DipAndStrike.calculateManualDipAndStrikeResults referenceSystem.up.value referenceSystem.northO model
             { model with dnsResults = dnsResults }
-        | ToggleCrossSectionClipping ->
-            { model with crossSectionClipping = not model.crossSectionClipping }
+        | CreateCrossSection ->
+            model // handled at Viewer level
 
 
     let view (paletteFile : string) (model : AdaptiveAnnotation) = 
@@ -93,7 +93,7 @@ module AnnotationProperties =
                 Html.row "Show DnS:"    [GuiEx.iconCheckBox model.showDns ToggleShowDns ]
                 Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
                 Html.row "Dip Azimuth:" [Numeric.view' [InputBox] model.manualDipAzimuth |> UI.map SetManualDippingAzimuth]
-                Html.row "Cross Section:" [GuiEx.iconCheckBox model.crossSectionClipping ToggleCrossSectionClipping]
+                Html.row "Cross Section:" [button [clazz "ui button tiny"; onClick (fun _ -> CreateCrossSection)] [text "Create"]]
             ]
 
         )
