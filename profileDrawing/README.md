@@ -34,6 +34,9 @@ python draw_profile.py --profile testProfile.csv --curtain-height 30 --min-altit
 | `--y-interval` | Optional. Major tick/label interval for y-axis in meters |
 | `--x-grid` | Optional. Minor grid line interval for x-axis in meters |
 | `--y-grid` | Optional. Minor grid line interval for y-axis in meters |
+| `--hide-zero` | Optional. Hide the first x-tick label (0) to avoid clipping at the left edge |
+| `--grid-opacity` | Optional. Grid line opacity from 0.0 to 1.0 (default: 0.4, minor grid is 60% of this) |
+| `--grid-width` | Optional. Major grid line width in points (default: 1.0, minor grid is half) |
 
 ### CSV format
 
@@ -51,3 +54,8 @@ python test_draw_profile.py
 ```
 
 This reads `testProfile.csv`, auto-computes sensible bounds with 5 m margin, and writes both `test_profile_normal.svg` (labels outside) and `test_profile_overlay.svg` (labels overlaid).
+
+
+## Example:
+
+`python draw_profile.py --profile testProfile.csv --curtain-height 100 --min-altitude -2600 --vertical-px 4000 --overlay --x-interval 20 --y-interval 20 --x-grid 25 --y-grid 1 --output profile.png --grid-opacity 1.0 --grid-width 3.0`

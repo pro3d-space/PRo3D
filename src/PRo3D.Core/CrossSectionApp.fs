@@ -16,8 +16,9 @@ type CrossSectionAction =
     | SetCurtainExtrusionDepth of Numeric.Action
     | ToggleCurtainAbsoluteMode
     | SetCurtainTargetAltitude of Numeric.Action
-    | SetCurtainTextureDepth   of Numeric.Action
-    | ChangeCurtainBaseColor   of ColorPicker.Action
+    | SetCurtainTextureDepth          of Numeric.Action
+    | SetCurtainTextureStartAltitude  of Numeric.Action
+    | ChangeCurtainBaseColor          of ColorPicker.Action
 
 module CrossSectionApp =
 
@@ -39,6 +40,8 @@ module CrossSectionApp =
             { model with curtainTargetAltitude = Numeric.update model.curtainTargetAltitude a }
         | SetCurtainTextureDepth a ->
             { model with curtainTextureDepth = Numeric.update model.curtainTextureDepth a }
+        | SetCurtainTextureStartAltitude a ->
+            { model with curtainTextureStartAltitude = Numeric.update model.curtainTextureStartAltitude a }
         | ChangeCurtainBaseColor a ->
             { model with curtainBaseColor = ColorPicker.update model.curtainBaseColor a }
 
@@ -65,7 +68,8 @@ module CrossSectionApp =
                         }
                     )
                 ]
-                Html.row "Texture Depth (m):" [Numeric.view' [InputBox] model.curtainTextureDepth |> UI.map SetCurtainTextureDepth]
+                Html.row "Tex Start Alt (m):" [Numeric.view' [InputBox] model.curtainTextureStartAltitude |> UI.map SetCurtainTextureStartAltitude]
+                Html.row "Tex Depth (m):" [Numeric.view' [InputBox] model.curtainTextureDepth |> UI.map SetCurtainTextureDepth]
                 Html.row "Base Color:" [ColorPicker.view model.curtainBaseColor |> UI.map ChangeCurtainBaseColor]
             ]
         )

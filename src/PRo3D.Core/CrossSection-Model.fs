@@ -33,8 +33,9 @@ type CrossSectionModel = {
     curtainExtrusionDepth : NumericInput
     curtainAbsoluteMode   : bool
     curtainTargetAltitude : NumericInput
-    curtainTextureDepth   : NumericInput
-    curtainBaseColor      : ColorInput
+    curtainTextureDepth          : NumericInput
+    curtainTextureStartAltitude  : NumericInput
+    curtainBaseColor             : ColorInput
 }
 
 module CrossSectionModel =
@@ -54,6 +55,10 @@ module CrossSectionModel =
         }
         curtainTextureDepth = {
             value = 50.0; min = 1.0; max = 10000.0
+            step = 10.0; format = "{0:0}"
+        }
+        curtainTextureStartAltitude = {
+            value = 0.0; min = -10000.0; max = 100000.0
             step = 10.0; format = "{0:0}"
         }
         curtainBaseColor = { c = C4b.Gray }
@@ -111,6 +116,11 @@ type CrossSectionModel with
                 match curtainTextureDepthOpt with
                 | Some (_ : Chiron.Json) -> Json.readWith Ext.fromJson<NumericInput,Ext> "curtainTextureDepth"
                 | None -> json { return initial.curtainTextureDepth }
+            let! curtainTextureStartAltOpt = Json.tryRead "curtainTextureStartAltitude"
+            let! curtainTextureStartAltitude =
+                match curtainTextureStartAltOpt with
+                | Some (_ : Chiron.Json) -> Json.readWith Ext.fromJson<NumericInput,Ext> "curtainTextureStartAltitude"
+                | None -> json { return initial.curtainTextureStartAltitude }
             let! curtainBaseColorOpt = Json.tryRead "curtainBaseColor"
             let! curtainBaseColor =
                 match curtainBaseColorOpt with
@@ -125,6 +135,7 @@ type CrossSectionModel with
                 curtainAbsoluteMode   = curtainAbsoluteMode   |> Option.defaultValue initial.curtainAbsoluteMode
                 curtainTargetAltitude = curtainTargetAltitude
                 curtainTextureDepth   = curtainTextureDepth
+                curtainTextureStartAltitude = curtainTextureStartAltitude
                 curtainBaseColor      = curtainBaseColor
             }
         }
@@ -137,5 +148,6 @@ type CrossSectionModel with
             do! Json.write "curtainAbsoluteMode"   x.curtainAbsoluteMode
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "curtainTargetAltitude" x.curtainTargetAltitude
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "curtainTextureDepth"  x.curtainTextureDepth
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "curtainTextureStartAltitude" x.curtainTextureStartAltitude
             do! Json.writeWith (Ext.toJson<ColorInput,Ext>)   "curtainBaseColor"     x.curtainBaseColor
         }

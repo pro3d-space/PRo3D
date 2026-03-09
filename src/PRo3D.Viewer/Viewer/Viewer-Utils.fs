@@ -845,15 +845,17 @@ module ViewerUtils =
         open FShade
 
         type CurtainVertex = {
-            [<Position>]                pos        : V4f
-            [<TexCoord>]                tc         : V2f
-            [<Semantic("ViewPos")>]     vp         : V4f
-            [<Semantic("TotalDepth")>]  totalDepth : float32
+            [<Position>]                     pos        : V4f
+            [<TexCoord>]                     tc         : V2f
+            [<Semantic("ViewPos")>]          vp         : V4f
+            [<Semantic("TotalDepth")>]       totalDepth : float32
+            [<Semantic("SurfaceElevation")>] surfElev   : float32
         }
 
         type UniformScope with
             member x.UpVS : V3f = uniform?UpVS
             member x.TextureDepth : float32 = uniform?TextureDepth
+            member x.TextureStartAlt : float32 = uniform?TextureStartAlt
             member x.CurtainBaseColor : V4f = uniform?CurtainBaseColor
 
         let curtainVertex (v : CurtainVertex) =
@@ -874,32 +876,39 @@ module ViewerUtils =
                 let p1 = line.P1.vp
                 let u0 = line.P0.tc.X
                 let u1 = line.P1.tc.X
+                let elev0 = line.P0.surfElev
+                let elev1 = line.P1.surfElev
                 // top edge (surface, v=1); bottom edge (extruded down, v=0)
-                yield { line.P0 with pos = uniform.ProjTrafo * p0;             tc = V2f(u0, 1.0f); totalDepth = depth0 }
-                yield { line.P0 with pos = uniform.ProjTrafo * (p0 - offset0); tc = V2f(u0, 0.0f); totalDepth = depth0 }
-                yield { line.P1 with pos = uniform.ProjTrafo * p1;             tc = V2f(u1, 1.0f); totalDepth = depth1 }
-                yield { line.P1 with pos = uniform.ProjTrafo * (p1 - offset1); tc = V2f(u1, 0.0f); totalDepth = depth1 }
+                yield { line.P0 with pos = uniform.ProjTrafo * p0;             tc = V2f(u0, 1.0f); totalDepth = depth0; surfElev = elev0 }
+                yield { line.P0 with pos = uniform.ProjTrafo * (p0 - offset0); tc = V2f(u0, 0.0f); totalDepth = depth0; surfElev = elev0 }
+                yield { line.P1 with pos = uniform.ProjTrafo * p1;             tc = V2f(u1, 1.0f); totalDepth = depth1; surfElev = elev1 }
+                yield { line.P1 with pos = uniform.ProjTrafo * (p1 - offset1); tc = V2f(u1, 0.0f); totalDepth = depth1; surfElev = elev1 }
             }
 
         let private curtainSampler =
             sampler2d {
                 texture uniform?DiffuseColorTexture
-                filter Filter.MinMagLinear
+                filter Filter.MinMagMipLinear
                 addressU WrapMode.Clamp
                 addressV WrapMode.Clamp
             }
 
         let curtainFragment (v : CurtainVertex) =
             fragment {
-                let texDepth  = uniform.TextureDepth
-                let baseColor = uniform.CurtainBaseColor
-                let totalD    = v.totalDepth
+                let texDepth   = uniform.TextureDepth
+                let texStartA  = uniform.TextureStartAlt
+                let baseColor  = uniform.CurtainBaseColor
+                let totalD     = v.totalDepth
                 // v.tc.Y = 1.0 at surface, 0.0 at bottom
                 let distFromSurface = (1.0f - v.tc.Y) * totalD
-                if distFromSurface <= texDepth && texDepth > 0.0f then
-                    // Remap: texture V=1 at surface, V=0 at textureDepth boundary
-                    let remappedV = 1.0f - distFromSurface / texDepth
-                    return curtainSampler.SampleLevel(V2f(v.tc.X, remappedV), 0.0f)
+                // Compute absolute altitude of this fragment
+                let fragAlt = v.surfElev - distFromSurface
+                // Texture band: from texStartA down to (texStartA - texDepth)
+                let texBottom = texStartA - texDepth
+                if fragAlt <= texStartA && fragAlt >= texBottom && texDepth > 0.0f then
+                    // Remap: V=1 at texStartA, V=0 at texBottom
+                    let t = (fragAlt - texBottom) / texDepth
+                    return curtainSampler.Sample(V2f(v.tc.X, t))
                 else
                     return baseColor
             }
@@ -1224,6 +1233,7 @@ module ViewerUtils =
                 let absMode    = csm.curtainAbsoluteMode.GetValue(token)
                 let targetAlt  = csm.curtainTargetAltitude.value.GetValue(token)
                 let texDepth   = csm.curtainTextureDepth.value.GetValue(token)
+                let texStartAlt = csm.curtainTextureStartAltitude.value.GetValue(token)
                 let baseColor  = csm.curtainBaseColor.c.GetValue(token)
                 let csOpt      = csm.crossSection.GetValue(token)
                 let planet     = m.scene.referenceSystem.planet.GetValue(token)
@@ -1269,6 +1279,11 @@ module ViewerUtils =
                                 else
                                     Array.create n (float32 depth)
 
+                            // Per-vertex surface elevation for texture altitude mapping
+                            let surfElevs : float32[] =
+                                ptsWS |> Array.map (fun p ->
+                                    float32 (CooTransformation.getElevation' planet p))
+
                             let texcoords : V2f[] = Array.map2 (fun (uu : float32) (d : float32) -> V2f(uu, d)) u depths
                             let indices : int[] =
                                 Array.init ((n-1)*2) (fun k ->
@@ -1280,6 +1295,7 @@ module ViewerUtils =
                                     IndexedAttributes = SymDict.ofList [
                                         DefaultSemantic.Positions,               (positions :> Array)
                                         DefaultSemantic.DiffuseColorCoordinates, (texcoords :> Array)
+                                        Sym.ofString "SurfaceElevation",         (surfElevs :> Array)
                                     ],
                                     IndexArray = indices
                                 )
@@ -1299,6 +1315,7 @@ module ViewerUtils =
                             |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
                             |> Sg.uniform "UpVS" (AVal.constant upVS)
                             |> Sg.uniform "TextureDepth" (AVal.constant (float32 texDepth))
+                            |> Sg.uniform "TextureStartAlt" (AVal.constant (float32 texStartAlt))
                             |> Sg.uniform "CurtainBaseColor" (AVal.constant (baseColor.ToC4f().ToV4f()))
                             |> Sg.cullMode (AVal.constant CullMode.None)
                             |> Sg.noEvents

@@ -15,7 +15,7 @@ def read_profile(csv_path):
     return distances, elevations
 
 
-def draw_profile(csv_path, curtain_height, min_altitude, vertical_px, output_path="profile_output.svg", overlay=False, x_interval=None, y_interval=None, x_grid=None, y_grid=None, hide_zero=False):
+def draw_profile(csv_path, curtain_height, min_altitude, vertical_px, output_path="profile_output.svg", overlay=False, x_interval=None, y_interval=None, x_grid=None, y_grid=None, hide_zero=False, grid_opacity=None, grid_width=None):
     distances, elevations = read_profile(csv_path)
 
     max_altitude = min_altitude + curtain_height
@@ -51,8 +51,12 @@ def draw_profile(csv_path, curtain_height, min_altitude, vertical_px, output_pat
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(x_grid) if x_grid else ticker.AutoMinorLocator())
     ax.yaxis.set_minor_locator(ticker.MultipleLocator(y_grid) if y_grid else ticker.AutoMinorLocator())
 
-    ax.grid(True, which="major", linestyle="--", alpha=0.4)
-    ax.grid(True, which="minor", linestyle=":", linewidth=0.5, alpha=0.25)
+    major_alpha = grid_opacity if grid_opacity is not None else 0.4
+    minor_alpha = major_alpha * 0.6
+    major_lw = grid_width if grid_width is not None else 1.0
+    minor_lw = major_lw * 0.5
+    ax.grid(True, which="major", linestyle="--", alpha=major_alpha, linewidth=major_lw)
+    ax.grid(True, which="minor", linestyle=":", alpha=minor_alpha, linewidth=minor_lw)
 
     if overlay:
         # scale font size to be readable relative to the vertical image size
@@ -153,7 +157,9 @@ if __name__ == "__main__":
     parser.add_argument("--x-grid", type=float, default=None, help="Minor grid line interval for x-axis (meters)")
     parser.add_argument("--y-grid", type=float, default=None, help="Minor grid line interval for y-axis (meters)")
     parser.add_argument("--hide-zero", action="store_true", help="Hide the first x-tick label (0) to avoid clipping at the left edge")
+    parser.add_argument("--grid-opacity", type=float, default=None, help="Grid line opacity 0.0–1.0 (default: 0.4, minor grid is 60%% of this)")
+    parser.add_argument("--grid-width", type=float, default=None, help="Major grid line width in points (default: 1.0, minor is half)")
     args = parser.parse_args()
 
     draw_profile(args.profile, args.curtain_height, args.min_altitude, args.vertical_px, args.output, args.overlay,
-                 args.x_interval, args.y_interval, args.x_grid, args.y_grid, args.hide_zero)
+                 args.x_interval, args.y_interval, args.x_grid, args.y_grid, args.hide_zero, args.grid_opacity, args.grid_width)
