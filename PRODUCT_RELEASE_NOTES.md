@@ -1,3 +1,6 @@
+## 5.6.0-prerelease1
+- added cross sections
+
 ## 5.5.0
 - triangle Filter for Scene Objects (and Checkbox for de-activation added)
 - Preview Cursor
