@@ -855,7 +855,6 @@ module ViewerUtils =
         type UniformScope with
             member x.UpVS : V3f = uniform?UpVS
             member x.TextureDepth : float32 = uniform?TextureDepth
-            member x.TextureStartAlt : float32 = uniform?TextureStartAlt
             member x.CurtainBaseColor : V4f = uniform?CurtainBaseColor
 
         let curtainVertex (v : CurtainVertex) =
@@ -895,19 +894,18 @@ module ViewerUtils =
 
         let curtainFragment (v : CurtainVertex) =
             fragment {
-                let texDepth   = uniform.TextureDepth
-                let texStartA  = uniform.TextureStartAlt
-                let baseColor  = uniform.CurtainBaseColor
-                let totalD     = v.totalDepth
+                let texDepth  = uniform.TextureDepth
+                let baseColor = uniform.CurtainBaseColor
+                let totalD    = v.totalDepth
                 // v.tc.Y = 1.0 at surface, 0.0 at bottom
                 let distFromSurface = (1.0f - v.tc.Y) * totalD
-                // Compute absolute altitude of this fragment
-                let fragAlt = v.surfElev - distFromSurface
-                // Texture band: from texStartA down to (texStartA - texDepth)
-                let texBottom = texStartA - texDepth
-                if fragAlt <= texStartA && fragAlt >= texBottom && texDepth > 0.0f then
-                    // Remap: V=1 at texStartA, V=0 at texBottom
-                    let t = (fragAlt - texBottom) / texDepth
+                // surfElev is pre-offset on CPU: (elevation - texStartAlt)
+                // so fragRelAlt = 0 means "at texture start altitude"
+                let fragRelAlt = v.surfElev - distFromSurface
+                // Texture band: from 0 down to -texDepth (relative to start alt)
+                if fragRelAlt <= 0.0f && fragRelAlt >= -texDepth && texDepth > 0.0f then
+                    // Remap: V=1 at top (fragRelAlt=0), V=0 at bottom (fragRelAlt=-texDepth)
+                    let t = (fragRelAlt + texDepth) / texDepth
                     return curtainSampler.Sample(V2f(v.tc.X, t))
                 else
                     return baseColor
@@ -1279,10 +1277,11 @@ module ViewerUtils =
                                 else
                                     Array.create n (float32 depth)
 
-                            // Per-vertex surface elevation for texture altitude mapping
+                            // Per-vertex surface elevation relative to texture start altitude
+                            // (offset to keep values small and avoid float32 precision issues)
                             let surfElevs : float32[] =
                                 ptsWS |> Array.map (fun p ->
-                                    float32 (CooTransformation.getElevation' planet p))
+                                    float32 (CooTransformation.getElevation' planet p - texStartAlt))
 
                             let texcoords : V2f[] = Array.map2 (fun (uu : float32) (d : float32) -> V2f(uu, d)) u depths
                             let indices : int[] =
@@ -1315,7 +1314,6 @@ module ViewerUtils =
                             |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
                             |> Sg.uniform "UpVS" (AVal.constant upVS)
                             |> Sg.uniform "TextureDepth" (AVal.constant (float32 texDepth))
-                            |> Sg.uniform "TextureStartAlt" (AVal.constant (float32 texStartAlt))
                             |> Sg.uniform "CurtainBaseColor" (AVal.constant (baseColor.ToC4f().ToV4f()))
                             |> Sg.cullMode (AVal.constant CullMode.None)
                             |> Sg.noEvents

@@ -474,9 +474,8 @@ module Sg =
                                     let arr : V4f[] = Array.zeroCreate positions.Length
                                     let poly = cs.polygon
                                     let basis = cs.basis
-                                    Log.startTimed "computing inside"
+                                    //Log.startTimed "computing inside"
                                     for i = 0 to positions.Length - 1 do
-                                        if i % 100 = 0 then Log.line "%A/%A" i positions.Length
                                         let pLocal = V3d positions.[i]
                                         let pWorld = r.info.Local2Global.TransformPos pLocal
                                         let q2 = PRo3D.Base.Annotation.CrossSection.projectTo2d basis pWorld
@@ -485,7 +484,7 @@ module Sg =
                                             poly.Contains q2
                                         let s = if inside then -1.0f else 1.0f
                                         arr.[i] <- V4f(s, 0.0f, 0.0f, 0.0f)
-                                    Log.stop()
+                                    //Log.stop()
                                     AVal.constant (ArrayBuffer(arr) :> IBuffer)
                                 | None ->
                                     SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>

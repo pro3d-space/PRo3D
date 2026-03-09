@@ -656,7 +656,7 @@ module ViewerApp =
                     match leafOpt with
                     | Some leaf ->
                         let anno = leaf |> Leaf.toAnnotation
-                        let pts = anno.points |> IndexList.toArray
+                        let pts = Annotation.retrievePoints anno |> Array.ofList
                         if pts.Length >= 2 then
                             let cs = {
                                 geometry = LineOnSurface pts
