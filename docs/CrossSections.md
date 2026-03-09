@@ -1,6 +1,6 @@
 # Synopsis
 
-![alt text](crossSectionTeaser.png)
+![alt text](images/crossSectionTeaser.png)
 
 The cross section feature allows you to cut  surfaces and map images onto the cutting plane.
 
