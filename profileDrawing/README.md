@@ -4,8 +4,8 @@ Draws a surface profile cross-section as a vector graphic (SVG) or raster image 
 
 ## Requirements
 
-```
-pip install matplotlib
+```bash
+pip install -r requirements.txt
 ```
 
 ## Usage

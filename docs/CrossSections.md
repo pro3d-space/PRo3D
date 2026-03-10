@@ -6,11 +6,13 @@ The cross section feature allows you to cut  surfaces and map images onto the cu
 
 # Approach
 
-## 1. Create a polyline annotation. Use subsampling if needed.
+## 1. Create a polyline annotation. 
+
+Use sky projection and adequate subsampling if needed. Watch out not to generate insane segment counts. E.g. for long cross-sections increase sampling distance.
 
 ![alt text](images/crossSectionAnno.png)
 
-## 2. 
+## 2. Profile Export
 
 ![alt text](images/exportProfile.png)
 
@@ -25,6 +27,8 @@ this will look like this:
 "332.84560816666226","-2514.8733450224286"
 ```
 
+The profile tool is described in [Profile Drawing](../profileDrawing/README.md).
+
 now use the draw profile tool to create an svg/png of which shows the profile
 ```
 python draw_profile.py --profile testProfile2.csv --curtain-height 100 --min-altitude -2200 --vertical-px 2000 --overlay --x-interval 20 --y-interval 20 --x-grid 25 --y-grid 1 --output profile.svg --grid-opacity 1.0 --grid-width 3.0
@@ -34,9 +38,9 @@ python draw_profile.py --profile testProfile2.csv --curtain-height 100 --min-alt
 - min-alititude should be where the profile ends (lowest point of profile)
 - curtain height is height in meters
 - all this needs to be later matched up in (6)
+- the vertical-px parameter is used as height of the image. the width is computed automatically given the profile length. For long profiles, you might to lower the resolution as later in pro3d the width shall not exceed 16384 pixels.
 
-Look at the profile or the info in pro3d to find good parameters.
-
+Look at the profile or the annotation nfo in pro3d to find good parameters (e.g. vertical span).
 
 Use approximate curtain height and min altitude to specify the 2d viewport of the cross section.
 
@@ -51,7 +55,7 @@ All between the annotation and the point when creating the cross section will be
 ![alt text](images/createCrossSection.png)
 
 This will leave you with the data clipped:
-![alt text](images/image.png)
+![alt text](images/clippedCrossSection.png)
 
 ## 6. Setting curtain details
 
