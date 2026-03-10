@@ -525,7 +525,6 @@ module ViewerUtils =
                                 let name  = surf.name |> AVal.force        
                                 let surfacePicking = surfacePicking |> AVal.force
                                 let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
-                                // picking true if not inverse + ctrl oder inverse + not ctrl 
                                 if surfacePicking && surfacePickingActivated then
                                     true, Seq.ofList [PickSurface (sceneHit, name, true)]
                                 else 
