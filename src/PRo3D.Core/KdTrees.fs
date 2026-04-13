@@ -98,13 +98,15 @@ module KdTrees =
     let tryExpandKdTreePath (basePath : string) (lkt : LazyKdTree) =
         let kdTreeSub = lkt.kdtreePath |> relativePath'
         let triangleSub = lkt.objectSetPath |> relativePath'
+        let coordinatesSub = lkt.coordinatesPath |> relativePath'
 
         let kdPath = Path.Combine(basePath, kdTreeSub)
         let objectSetPath = Path.Combine(basePath, triangleSub)
+        let coordinatesPath = Path.Combine(basePath, coordinatesSub)
 
         match tryFixPatchFileIfNeeded kdPath, tryFixPatchFileIfNeeded objectSetPath with
-        | Some kdPath, Some objsetSetPath -> 
-            Some { lkt with kdtreePath = kdPath; objectSetPath = objsetSetPath } 
+        | Some kdPath, Some objsetSetPath ->
+            Some { lkt with kdtreePath = kdPath; objectSetPath = objsetSetPath; coordinatesPath = coordinatesPath }
         | _ -> None
 
     let expandKdTreePaths basePath kd =
@@ -251,9 +253,12 @@ module KdTrees =
                 Log.line "[KdTrees] missing kd0 paths: %d/%d" missingKd0Paths.Length kd0Paths.Length
 
             match tryFixPatchFileIfNeeded masterKdPath with
-            | Some masterKdPath when not ignoreMasterKdTree && not forceRebuild ->
+            // the idea here is to use the per-patch kdtrees if available (that's the missingKd0Paths check)
+            | Some masterKdPath when not ignoreMasterKdTree && not forceRebuild && missingKd0Paths.Length > 0  ->
                 Log.warn "Found master kdtree - loading incore. THIS NEEDS A LOT OF MEMORY. CONSIDER CREATING PER-PATCH KD TREES. see: https://github.com/pro3d-space/PRo3D/blob/9821c8882b024c7ed85c23ee76110c70e249e480/docs/KdTrees.md#create-kdtrees-for-an-opc-hierarchy"
                 let tree = loadKdtree masterKdPath
+                // triangle set will be 0 for kdtrees with purged object sets. In this case i think rebuilding is a better option
+                //let triangleSet = loadTriangles trafo objectSetPath
 
                 let kd =
                     { kdTree = tree
