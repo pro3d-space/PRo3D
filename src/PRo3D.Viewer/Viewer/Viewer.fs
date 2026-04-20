@@ -558,6 +558,32 @@ module ViewerApp =
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with animations = a'}              
                 | None -> m
+            | Drawing.ExportMultiAttributeProfile path ->
+                if String.IsNullOrEmpty path then
+                    Log.warn "[MultiAttrProfile] no path specified"
+                else
+                    match GroupsModel.tryGetSelectedAnnotation m.drawing.annotations with
+                    | Some a ->
+                        let points = a |> Annotation.retrievePoints
+                        if points.Length < 2 then
+                            Log.warn "[MultiAttrProfile] annotation needs at least 2 points"
+                        else
+                            let surfacesModel = Optic.get _surfacesModel m
+                            let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                            let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+                            let up = m.scene.referenceSystem.up.value.Normalized
+
+                            let samples, attrNames, newCache =
+                                ProfileAttributeExtraction.extractProfile points up surfacesModel m.scene.referenceSystem observedSystem observerSystem Picking.cache
+                            Picking.cache <- newCache
+
+                            if samples.Length > 0 then
+                                ProfileAttributeExtraction.writeCsv path samples attrNames
+                            else
+                                Log.warn "[MultiAttrProfile] no samples extracted"
+                    | None ->
+                        Log.line "[MultiAttrProfile] please select an annotation to export"
+                m
             | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.inverseFlag) ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
@@ -1185,22 +1211,23 @@ module ViewerApp =
                                 | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
                             match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache Config.diagnosticTimings with
-                            | Some (t,surf), c ->                             
-                                cache <- c; ray.Ray.GetPointOnRay t.RayHit.T |> Some
+                            | Some hitInfo, c ->
+                                cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
                             | None, c ->
                                 cache <- c; None
                                    
                         let result = 
                             match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache Config.diagnosticTimings with
-                            | Some (t,surf), c ->                         
+                            | Some hitInfo, c ->
                                 cache <- c
-                                let hit = r.GetPointOnRay(t.RayHit.T)
+                                let surf = hitInfo.surface
+                                let hit = r.GetPointOnRay(hitInfo.hit.RayHit.T)
 
                                 Log.line "[PickSurface] surface hit at %A" hit
 
-                                let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
+                                let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location
                                 let hitF = hitF surf.guid cameraLocation
-                   
+
                                 lastHash <- rayHash
 
                                 let observedSystem = observedSystem surf.guid
@@ -1935,9 +1962,9 @@ module ViewerApp =
                     m.animations
             (Optic.set _gisApp gisApp m)
             |> Optic.set ViewerLenses._animation animations
-        | unknownAction, _ -> 
+        | unknownAction, _ ->
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
-            m       
+            m
                    
    //let mutable lastMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
     let updateInternal 

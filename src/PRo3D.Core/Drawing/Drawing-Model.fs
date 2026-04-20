@@ -64,6 +64,7 @@ type DrawingAction =
 | PickDirectly           of Guid
 | ExportAsCsv            of string
 | ExportAsProfileCsv     of string
+| ExportMultiAttributeProfile of string
 | ExportAsGeoJSON        of string
 | ExportAsGeoJSON_xyz    of string
 | ExportAsGeoJSONQGIS_latlon    of string

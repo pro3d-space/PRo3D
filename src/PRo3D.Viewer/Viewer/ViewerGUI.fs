@@ -462,6 +462,9 @@ module Gui =
         let jsExportProfileAsCSVDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Profile (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
+        let jsExportMultiAttrProfileDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Multi-Attribute Profile (*.csv)', filters:  [{ name: 'Profile (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
         let jsExportAnnotationsAsGeoJSONDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
 
@@ -504,13 +507,20 @@ module Gui =
                             ] [
                                 text "visible as table (*.csv)"
                             ]     
-                            div [ 
+                            div [
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsProfileCsv
                                 clientEvent "onclick" jsExportProfileAsCSVDialog
                             ]  [
                                 text "selected as profile (*.csv)"
-                            ]     
+                            ]
+                            div [
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportMultiAttributeProfile
+                                clientEvent "onclick" jsExportMultiAttrProfileDialog
+                            ] [
+                                text "selected as multi-attribute profile (*.csv)"
+                            ]
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsGeoJSON

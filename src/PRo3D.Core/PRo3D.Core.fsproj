@@ -53,7 +53,9 @@
     <Compile Include="UI.fs" />
     <Compile Include="ReferenceSystem.fs" />
     <Compile Include="TransformationApp.fs" />
+    <Compile Include="TriangleSet.fs" />
     <Compile Include="Surface.fs" />
+    <Compile Include="ProfileAttributeExtraction.fs" />
     <Compile Include="GroupsApp.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Traverse-Model.fs" />

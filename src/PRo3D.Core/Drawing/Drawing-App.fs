@@ -336,6 +336,7 @@ module DrawingApp =
         | ExportAsAnnotations _ -> false
         | ExportAsCsv _         -> false
         | ExportAsProfileCsv _  -> false
+        | ExportMultiAttributeProfile _ -> false
         | ExportAsGeoJSON_xyz _ -> false
         | ExportAsGeoJSONQGIS_latlon _ -> false
         | ExportAsGeoJSONQGIS_xyz _ -> false
@@ -622,8 +623,11 @@ module DrawingApp =
                 //write csv
 
                 model
-            | ExportAsGeoJSON path, _, _ ->        
-                if path.IsNullOrEmpty() |> not then 
+            | ExportMultiAttributeProfile _, _, _ ->
+                // handled at viewer level (needs access to SurfaceModel)
+                model
+            | ExportAsGeoJSON path, _, _ ->
+                if path.IsNullOrEmpty() |> not then
                     exportGeoJson false bigConfig smallConfig model path
                 model
 
