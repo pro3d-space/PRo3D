@@ -250,6 +250,7 @@ module ViewerUtils =
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
+        (m               : AdaptiveModel) 
         (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>) 
         (selectedId      : aval<Option<Guid>>)
@@ -523,9 +524,12 @@ module ViewerUtils =
                            fun sceneHit -> 
                                 let name  = surf.name |> AVal.force        
                                 let surfacePicking = surfacePicking |> AVal.force
-                                //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                                true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)]
-                         )
+                                let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
+                                if surfacePicking && surfacePickingActivated then
+                                    true, Seq.ofList [PickSurface (sceneHit, name, true)]
+                                else 
+                                    true, Seq.ofList []
+                            )
                        ]  
                     // handle surface visibility
                     |> Sg.onOff (surf.isVisible) // on off variant
@@ -932,7 +936,8 @@ module ViewerUtils =
                         let surfaces = m.scene.surfacesModel.surfaces.flat
                         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         viewSingleSurfaceSg 
-                            sf 
+                            sf
+                            m
                             surfaces 
                             m.frustum 
                             selected 
@@ -1047,6 +1052,7 @@ module ViewerUtils =
                     let s =
                         viewSingleSurfaceSg 
                             surface 
+                            m
                             m.scene.surfacesModel.surfaces.flat
                             m.frustum 
                             selected 
