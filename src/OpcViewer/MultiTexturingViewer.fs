@@ -14,9 +14,15 @@ open MBrace.FsPickler
 open Aardvark.GeoSpatial.Opc.Load
 
 open System
+open System.IO
+open System.Collections.Generic
 open Aardvark.Geometry
+open Aardvark.SceneGraph.Opc
+open Aardvark.VRVis.Opc.KdTrees
 open OpcViewer.Base
+open OpcViewer.Base.KdTrees
 open PRo3D.Core.Surface
+open PRo3DCompability
 
 module private MultiTexturingShader =
 
@@ -98,6 +104,25 @@ module private MultiTexturingShader =
 
 module MultiTexturingViewer =
 
+    let private computeBarycentric (tri: Triangle3d) (p: V3d) =
+        let v0 = tri.P1 - tri.P0
+        let v1 = tri.P2 - tri.P0
+        let v2 = p - tri.P0
+        let d00 = Vec.dot v0 v0
+        let d01 = Vec.dot v0 v1
+        let d11 = Vec.dot v1 v1
+        let d20 = Vec.dot v2 v0
+        let d21 = Vec.dot v2 v1
+        let denom = d00 * d11 - d01 * d01
+        if abs denom < 1e-20 then V3d(1.0/3.0, 1.0/3.0, 1.0/3.0)
+        else
+            let v = (d11 * d20 - d01 * d21) / denom
+            let w = (d00 * d21 - d01 * d20) / denom
+            let u = 1.0 - v - w
+            V3d(u, v, w)
+
+    let private triangleIsNaN (tri: Triangle3d) =
+        tri.P0.AnyNaN || tri.P1.AnyNaN || tri.P2.AnyNaN
 
     let run (scene : OpcScene) =
 
@@ -138,6 +163,19 @@ module MultiTexturingViewer =
                 h, sg
             ) |> List.unzip
 
+        // Step 2: Build PatchFileInfo lookup keyed by objectSetPath
+        let patchInfoLookup =
+            let dict = Dictionary<string, PatchFileInfo * OpcPaths>()
+            for h in patchHierarchies do
+                let leaves = QTree.getLeaves h.tree |> Seq.toArray
+                for leaf in leaves do
+                    let info = leaf.info
+                    let dir = h.opcPaths.Patches_DirAbsPath +/ info.Name
+                    let objectSetPath = dir +/ info.Positions
+                    dict.[objectSetPath] <- (info, OpcPaths h.opcPaths.Opc_DirAbsPath)
+            dict
+        Log.line "[Extraction] built patch info lookup with %d entries" patchInfoLookup.Count
+
         // load KdTrees for ray intersection picking
         let kdTreeMap =
             patchHierarchies |> List.fold (fun acc h ->
@@ -150,6 +188,115 @@ module MultiTexturingViewer =
         Log.line "[KdTree] loaded %d kd-tree entries" (kdTreeMap |> HashMap.count)
 
         let kdCache = ref (HashMap.empty<string, ConcreteKdIntersectionTree>)
+
+        // Step 3: Cache for triangle-to-grid index mapping
+        let triGridMappingCache = Dictionary<string, int[][]>()
+
+        let buildTriangleToGridMapping (affine: Trafo3d) (objectSetPath: string) =
+            match triGridMappingCache.TryGetValue(objectSetPath) with
+            | true, mapping -> mapping
+            | _ ->
+                let positions = objectSetPath |> Aara.fromFile<V3f>
+                let invalidIndices = DebugKdTreesX.getInvalidIndices3f positions.Data |> List.toArray
+                let size = positions.Size.XY.ToV2i()
+                let indices = PRo3DCSharp.ComputeIndexArray(size, invalidIndices)
+                let transformedPositions =
+                    positions.Data |> Array.map (fun x -> x.ToV3d() |> affine.Forward.TransformPos)
+                let mapping =
+                    indices
+                    |> Array.chunkBySize 3
+                    |> Array.filter (fun chunk ->
+                        if chunk.Length < 3 then false
+                        else
+                            let tri = Triangle3d(transformedPositions.[chunk.[0]], transformedPositions.[chunk.[1]], transformedPositions.[chunk.[2]])
+                            not (triangleIsNaN tri)
+                    )
+                triGridMappingCache.[objectSetPath] <- mapping
+                Log.line "[Extraction] built triangle mapping for %s (%d triangles)" (Path.GetFileName(Path.GetDirectoryName(objectSetPath))) mapping.Length
+                mapping
+
+        // Step 4: Load texture coordinates and interpolate UV at hit point
+        let getUVAtHit (coordinatesPath: string) (gridMapping: int[][]) (triIdx: int) (triangle: Triangle3d) (hitPoint: V3d) =
+            let texCoords = coordinatesPath |> Aara.fromFile<V2f>
+            // V-flip to match Patch.load convention
+            let texCoordData = texCoords.Data |> Array.map (fun v -> V2f(v.X, 1.0f - v.Y))
+            let gridIndices = gridMapping.[triIdx]
+            let uv0 = texCoordData.[gridIndices.[0]]
+            let uv1 = texCoordData.[gridIndices.[1]]
+            let uv2 = texCoordData.[gridIndices.[2]]
+            let bary = computeBarycentric triangle hitPoint
+            let u = float32 bary.X * uv0.X + float32 bary.Y * uv1.X + float32 bary.Z * uv2.X
+            let v = float32 bary.X * uv0.Y + float32 bary.Y * uv1.Y + float32 bary.Z * uv2.Y
+            V2f(u, v)
+
+        // Step 5: Load textures and sample at UV
+        let extractAttributesAtUV (uv: V2f) (patchInfo: PatchFileInfo) (opcPaths: OpcPaths) =
+            let numTextures = patchInfo.Textures.Length / 2 // first half = textures, second half = weights
+            let results = Dictionary<string, float[]>()
+            for i in 1 .. numTextures - 1 do
+                let texturePath = 
+                    try 
+                        Patch.extractTexturePath opcPaths patchInfo i |> Some
+                    with e -> 
+                        None
+                match texturePath with 
+                | None -> ()
+                | Some texturePath -> 
+                    let texName = Path.GetFileNameWithoutExtension(texturePath)
+                    let isExr = Path.GetExtension(texturePath).ToLower() = ".exr"
+                    let extension =
+                        match Path.GetExtension(texturePath).ToLower() with
+                        | ".dds" -> Some TextureLoading.DDS
+                        | ".tiff" | ".tif" -> Some TextureLoading.TIFF
+                        | ".exr" -> Some TextureLoading.TextureFormat.OpenEXR
+                        | _ -> None
+                    let readPixelValue (img: PixImage) (px: int) (py: int) =
+                        match img with
+                        | :? PixImage<byte> as byteImg ->
+                            let channels = int byteImg.ChannelCount
+                            Some [| for c in 0 .. channels - 1 do float (byteImg.GetChannel(int64 c).[int64 px, int64 py]) / 255.0 |]
+                        | :? PixImage<float32> as floatImg ->
+                            let channels = int floatImg.ChannelCount
+                            Some [| for c in 0 .. channels - 1 do float (floatImg.GetChannel(int64 c).[int64 px, int64 py]) |]
+                        | :? PixImage<uint16> as uint16Img ->
+                            let channels = int uint16Img.ChannelCount
+                            Some [| for c in 0 .. channels - 1 do float (uint16Img.GetChannel(int64 c).[int64 px, int64 py]) / 65535.0 |]
+                        | _ ->
+                            Log.warn "[Extraction] unsupported pixel format for %s: %A" texName (img.GetType())
+                            None
+
+                    if isExr then
+                        // EXR: load channel 0 (OPC texture layers are typically single-channel scalar data)
+                        use stream = Prinziple.openRead texturePath
+                        let mipMap = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex 0) extension
+                        match mipMap.ImageArray |> Seq.tryHead with
+                        | Some img ->
+                            let w = img.Size.X
+                            let h = img.Size.Y
+                            let px = clamp 0 (w - 1) (int (uv.X * float32 w))
+                            let py = clamp 0 (h - 1) (int (uv.Y * float32 h))
+                            match readPixelValue img px py with
+                            | Some values -> results.[texName] <- values
+                            | None -> ()
+                        | None ->
+                            Log.warn "[Extraction] no image in EXR mipmap for texture %d" i
+                    else
+                        // DDS/TIFF: load all channels at once
+                        use stream = Prinziple.openRead texturePath
+                        let mipMap = TextureLoading.loadImageFromStream stream ChannelReference.NoChannelSelection extension
+                        match mipMap.ImageArray |> Seq.tryHead with
+                        | Some img ->
+                            let w = img.Size.X
+                            let h = img.Size.Y
+                            let px = clamp 0 (w - 1) (int (uv.X * float32 w))
+                            let py = clamp 0 (h - 1) (int (uv.Y * float32 h))
+                            match readPixelValue img px py with
+                            | Some values -> results.[texName] <- values
+                            | None -> ()
+                        | None ->
+                            Log.warn "[Extraction] no image in mipmap for texture %d" i
+              
+            results
 
         let speed = AVal.init scene.speed
 
@@ -174,9 +321,9 @@ module MultiTexturingViewer =
             let dir = (farWorld - nearWorld) |> Vec.normalize
             FastRay3d(Ray3d(nearWorld, dir))
 
-        // intersect ray against all loaded KdTrees, return closest hit
+        // intersect ray against all loaded KdTrees, return closest hit + the Level0KdTree that was hit
         let intersectAllKdTrees (ray : FastRay3d) =
-            let mutable bestHit : ObjectRayHit option = None
+            let mutable bestHit : (ObjectRayHit * Level0KdTree) option = None
             let mutable bestT = Double.MaxValue
             for (bb, lvl0Tree) in kdTreeMap |> HashMap.toList do
                 let mutable tmin = 0.0
@@ -192,7 +339,7 @@ module MultiTexturingViewer =
                             if kdi.Intersect(ray, null, hitFilter, 0.0, Double.MaxValue, &hit) then
                                 if hit.RayHit.T < bestT then
                                     bestT <- hit.RayHit.T
-                                    bestHit <- Some hit
+                                    bestHit <- Some (hit, lvl0Tree)
                         with e ->
                             Log.error "[KdTree] intersection error: %A" e
             bestHit
@@ -208,6 +355,31 @@ module MultiTexturingViewer =
                 Log.warn "[KdTree] could not extract normal from hit: %A" e
                 V3d.OOI
 
+        // Step 6: Extract attributes from a KdTree hit
+        let extractAttributesFromHit (ray: FastRay3d) (hit: ObjectRayHit) (lvl0Tree: Level0KdTree) =
+            match lvl0Tree with
+            | Level0KdTree.LazyKdTree kd ->
+                try
+                    let gridMapping = buildTriangleToGridMapping kd.affine kd.objectSetPath
+                    let triIdx = hit.SetObject.Index
+                    let triangleSet = hit.SetObject.Set :?> TriangleSet
+                    let triangle = DebugKdTreesX.getTriangle triangleSet triIdx
+                    let hitPoint = ray.Ray.GetPointOnRay(hit.RayHit.T)
+                    let uv = getUVAtHit kd.coordinatesPath gridMapping triIdx triangle hitPoint
+                    Log.line "[Extraction] Position: %A, UV: %A" hitPoint uv
+
+                    match patchInfoLookup.TryGetValue(kd.objectSetPath) with
+                    | true, (patchInfo, opcPaths) ->
+                        let attributes = extractAttributesAtUV uv patchInfo opcPaths
+                        for kvp in attributes do
+                            Log.line "[Extraction]   %s: %A" kvp.Key kvp.Value
+                    | _ ->
+                        Log.warn "[Extraction] no patch info found for %s" kd.objectSetPath
+                with e ->
+                    Log.warn "[Extraction] error: %A" e
+            | Level0KdTree.InCoreKdTree _ ->
+                Log.warn "[Extraction] InCoreKdTree not supported for attribute extraction"
+
         // sample interior points along a segment by shooting rays into the surface
         let sampleSegment (p0 : V3d) (n0 : V3d) (p1 : V3d) (n1 : V3d) =
             let avgNormal = (n0 + n1) |> Vec.normalize
@@ -221,8 +393,10 @@ module MultiTexturingViewer =
                 let rayDir = -avgNormal
                 let ray = FastRay3d(Ray3d(rayOrigin, rayDir))
                 match intersectAllKdTrees ray with
-                | Some hit ->
-                    yield ray.Ray.GetPointOnRay(hit.RayHit.T)
+                | Some (hit, lvl0Tree) ->
+                    let pt = ray.Ray.GetPointOnRay(hit.RayHit.T)
+                    extractAttributesFromHit ray hit lvl0Tree
+                    yield pt
                 | None ->
                     Log.warn "[Sampling] no KdTree hit for sample at t=%.2f" t
             |]
@@ -465,13 +639,16 @@ module MultiTexturingViewer =
                 | None ->
                     Log.warn "Depth pick: no hit"
 
-                // process KdTree hit for normal computation and segment sampling
+                // process KdTree hit for normal computation, segment sampling, and attribute extraction
                 match kdHit with
-                | Some hit ->
+                | Some (hit, lvl0Tree) ->
                     let kdPos = ray.Ray.GetPointOnRay(hit.RayHit.T)
                     let triIdx = hit.SetObject.Index
                     let normal = getNormalFromHit ray hit
                     Log.line "KdTree pick: %A (triangle: %d, normal: %A)" kdPos triIdx normal
+
+                    // Step 6: extract attributes at the picked point
+                    extractAttributesFromHit ray hit lvl0Tree
 
                     // sample the new segment if there is a previous pick
                     let prevInfos = pickInfos.Value
