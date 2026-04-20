@@ -1,10 +1,12 @@
 ﻿namespace GeoJsonRework
 
-open Aardvark.Base
-open PRo3D.Core
-open PRo3D.Base.Annotation
 open FSharp.Data.Adaptive
 
+open Aardvark.Base
+
+open PRo3D.Core
+open PRo3D.Base.Annotation
+open PRo3D.Base
 
 module Tests =
 
@@ -17,14 +19,8 @@ module Tests =
     open PRo3D.Extensions.FSharp
     open PRo3D.Core.Drawing
 
-    open Chiron
-
-
-    let logDir = Path.Combine(".", "logs")
-
-    do Aardvark.Base.Aardvark.UnpackNativeDependencies(typeof<CooTransformation.RelState>.Assembly)
-
     let init () =
+        do Aardvark.Base.Aardvark.UnpackNativeDependencies(typeof<CooTransformation.RelState>.Assembly)
         let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
         // this tests here should also work with just the default kernel which comes with pro3d.
         PRo3D.Base.CooTransformation.initCooTrafo None appData

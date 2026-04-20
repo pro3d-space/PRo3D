@@ -68,3 +68,4 @@ src\Aardvark.OpcViewer.psess
 /docs/PRo3D_ShortUserManual/*.fls
 
 .ipynb_checkpoints/
+*.fsproj.user

@@ -14,18 +14,21 @@
 		<NoWarn>0686</NoWarn>
 	</PropertyGroup>
   <ItemGroup>
+    <None Include="Scratch\Playground.fsx" />
+    <Compile Include="Scratch\QueriesDSL.fs" />
     <None Include="Annotations\annotation_1.ann" />
 	<None Include="Annotations\annotation_1_latlon.json" />
 	<None Include="Annotations\annotation_1_xyz.json" />
 	<None Include="Annotations\annotation_1_xyz_latlon.json" />
+    <Compile Include="TestUtils.fs" />
     <Compile Include="GeoJsonExportTest.fs" />
     <Compile Include="HeraSpiceTests.fs" />
-    <Compile Include="QueriesDSL.fs" />
-    <None Include="Playground.fsx" />
     <None Include="RemoteApi.rest" />
-    <None Include="paket.references" />
+    <Compile Include="TriangleSetTests.fs" />
+    <Compile Include="ProfileAttributeExtractionTest.fs" />
     <Compile Include="BaseTests.fs" />
     <Compile Include="Program.fs" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
