@@ -16,4 +16,5 @@ type NavigationModel = {
     camera         : CameraControllerState    
     navigationMode : NavigationMode
     exploreCenter  : V3d
+    updatePerFrame : bool
 }

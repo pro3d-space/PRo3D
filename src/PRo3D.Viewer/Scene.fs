@@ -326,6 +326,7 @@ module SceneLoader =
                     camera          = { m.navigation.camera with view = m.scene.cameraView }
                     exploreCenter   = m.scene.exploreCenter;
                     navigationMode  = m.scene.navigationMode 
+                    updatePerFrame  = (m.scene.navigationMode = NavigationMode.MapView)
             }
         { m with navigation = navigation' }
      

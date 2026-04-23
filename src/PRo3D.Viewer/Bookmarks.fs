@@ -207,6 +207,7 @@ module Bookmarks =
                                 camera = { camState with view = bkm.cameraView }
                                 exploreCenter = bkm.exploreCenter
                                 navigationMode = bkm.navigationMode
+                                updatePerFrame = (bkm.navigationMode = NavigationMode.MapView)
                             }
                         let newOuterModel = Optic.set navigationModel nav' outerModel
                         newOuterModel, bookmarks

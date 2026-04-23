@@ -138,8 +138,7 @@ module Navigation =
             let angle = Math.Tanh(frustum.right / frustum.near) * 2.0
 
             let windowSize = smallConfig.windowSize.Get(bigConfigA)
-            let planet     = smallConfig.planet.Get(bigConfigB)
-
+            
             //let view = 
             //    model.camera.view 
             //    |> CameraView.withUp (smallConfig.north.Get(bigConfigB))
@@ -157,19 +156,30 @@ module Navigation =
             let cam = MapViewController.update cam a
                                     
             let cam = 
-                match a with 
-                | KeyUp _ 
-                | Up _ -> 
-                    cam 
-                    |> MapViewController.updateCameraForMapView planet                    
-                | _ -> cam
+                let planet     = smallConfig.planet.Get(bigConfigB)
+
+                if model.updatePerFrame then
+                    match a with 
+                    | KeyUp _ 
+                    | Up _ 
+                    | Move _
+                    | StepTime ->
+                        cam |> MapViewController.updateCameraForMapView planet                    
+                    | _ -> cam
+                else
+                    match a with 
+                    | KeyUp _ 
+                    | Up _ -> 
+                        cam |> MapViewController.updateCameraForMapView planet                    
+                    | _ -> cam
 
             { model with camera = cam }, None
 
         | SetNavigationMode mode ->
             match mode with
-            | NavigationMode.ArcBall -> 
-                pickOrbitCenter pickFunction model
+            | NavigationMode.ArcBall ->
+                let model, message = pickOrbitCenter pickFunction model
+                { model with updatePerFrame = false }, message
             | NavigationMode.FreeFly ->
                 let center = 
                     match model.camera.orbitCenter with
@@ -179,16 +189,16 @@ module Navigation =
                 let view' =
                     CameraView.lookAt model.camera.view.Location center (smallConfig.up.Get(bigConfigB))
                 
-                { model with camera = { model.camera with view = view'}; navigationMode = mode}, None
+                { model with camera = { model.camera with view = view'}; navigationMode = mode; updatePerFrame = false}, None
             | NavigationMode.MapView ->                
                 let planet     = smallConfig.planet.Get(bigConfigB)
                 
                 let cam = model.camera |> switchToMapViewController planet
                                     
-                let model = { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.MapView }
+                let model = { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.MapView; updatePerFrame = true }
 
                 findDistancetoSurface pickFunction model                
-            | _ ->  { model with navigationMode = mode }, None
+            | _ ->  { model with navigationMode = mode; updatePerFrame = false }, None
                
     module UI =        
 
