@@ -2057,9 +2057,12 @@ module ViewerApp =
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
                 attribute "data-samples" (sprintf "%i" dataSamples)
                 attribute "useMapping" "true"
-                //attribute "showFPS" "true"        
+                // Pull keyboard focus onto the render control as soon as the cursor enters,
+                // so modifier keys (ctrlFlag, drawing-key shortcuts) work without a prior click.
+                attribute "onmouseenter" "this.focus()"
+                //attribute "showFPS" "true"
                 //attribute "data-renderalways" "true"
-                Aardvark.UI.Events.onKeyDown' (fun k -> 
+                Aardvark.UI.Events.onKeyDown' (fun k ->
                     let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k (m.inverseFlag |> AVal.force)
                     [KeyDown k; DrawingMessage drawingAction]
                 )
