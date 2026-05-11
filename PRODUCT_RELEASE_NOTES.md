@@ -1,3 +1,9 @@
+## 5.7.0-prerelease1
+- MapView camera controller (overview mode)
+- Profile data extraction / multi-attribute export
+- MapView rotate fix under Ctrl modifier
+
+
 ## 5.5.0
 - triangle Filter for Scene Objects (and Checkbox for de-activation added)
 - Preview Cursor
