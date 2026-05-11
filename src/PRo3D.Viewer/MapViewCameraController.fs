@@ -198,7 +198,10 @@ module MapViewController =
                           
                           //tempcam.WithForward newForward
                           let newForward = model.orbitCenter.Value - newLocation |> Vec.normalize
-                          CameraView(cam.Sky, newLocation, newForward, newUp, newRight), model.orbitCenter
+                          if (newForward.Z > 0.999 && newForward.Z > cam.Forward.Z) || (newForward.Z < -0.999 && newForward.Z < cam.Forward.Z) then 
+                              cam, model.orbitCenter
+                          else  
+                              CameraView(cam.Sky, newLocation, newForward, newUp, newRight), model.orbitCenter
                       else
                           cam, model.orbitCenter
                   | None -> 

@@ -24,7 +24,7 @@ module Navigation =
         | ArcBallAction            of ArcBallController.Message        
         //| FreeFlyAction            of CameraController.Message
         | FreeFlyAction            of FreeFlyController.Message
-        | MapViewControllerAction of MapViewController.Message
+        | MapViewControllerAction  of MapViewController.Message
         | SetNavigationMode        of NavigationMode
 
     type smallConfig<'a,'b> = 
