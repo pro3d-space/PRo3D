@@ -391,8 +391,7 @@ module MapViewController =
     let attributes (state : AdaptiveCameraControllerState) (f : Message -> 'msg) =
         AttributeMap.ofListCond [
             always (onBlur (fun _ -> f Blur))
-            always (onCapturedPointerDownModifiers None (fun t m b p ->
-                let b = if b = MouseButtons.Left && m.ctrl then MouseButtons.Right else b // Workaround for ctrl click on Mac, not sure if still required
+            always (onCapturedPointerDownModifiers None (fun t _ b p ->
                 f <| match t with Mouse -> Down(b, p) | _ -> Nop
             ))
             always (onCapturedPointerUp None (fun t b p -> match t with Mouse -> f (Up(b)) | _ -> f Nop))
