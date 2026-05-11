@@ -1,5 +1,5 @@
-//ecd5c300-56f7-7748-1f6f-0bed866f3ec1
-//70d32aec-d119-7ea2-fc09-332a209fd05e
+//e42b62a9-8b99-62ef-93ad-af8da951c2bc
+//ea3561eb-4774-0fe5-8bd2-a796dc98a94a
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -16,6 +16,7 @@ type AdaptiveFrustumModel(value : FrustumModel) =
     let _focal_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.focal)
     let _oldFrustum_ = FSharp.Data.Adaptive.cval(value.oldFrustum)
     let _frustum_ = FSharp.Data.Adaptive.cval(value.frustum)
+    let _windowSize_ = FSharp.Data.Adaptive.cval(value.windowSize)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : FrustumModel) = AdaptiveFrustumModel(value)
@@ -28,11 +29,13 @@ type AdaptiveFrustumModel(value : FrustumModel) =
             _focal_.Update(value.focal)
             _oldFrustum_.Value <- value.oldFrustum
             _frustum_.Value <- value.frustum
+            _windowSize_.Value <- value.windowSize
     member __.Current = __adaptive
     member __.toggleFocal = _toggleFocal_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.focal = _focal_
     member __.oldFrustum = _oldFrustum_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.Frustum>
     member __.frustum = _frustum_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.Frustum>
+    member __.windowSize = _windowSize_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V2i>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module FrustumModelLenses = 
     type FrustumModel with
@@ -40,6 +43,7 @@ module FrustumModelLenses =
         static member focal_ = ((fun (self : FrustumModel) -> self.focal), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : FrustumModel) -> { self with focal = value }))
         static member oldFrustum_ = ((fun (self : FrustumModel) -> self.oldFrustum), (fun (value : Aardvark.Rendering.Frustum) (self : FrustumModel) -> { self with oldFrustum = value }))
         static member frustum_ = ((fun (self : FrustumModel) -> self.frustum), (fun (value : Aardvark.Rendering.Frustum) (self : FrustumModel) -> { self with frustum = value }))
+        static member windowSize_ = ((fun (self : FrustumModel) -> self.windowSize), (fun (value : Aardvark.Base.V2i) (self : FrustumModel) -> { self with windowSize = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveViewConfigModel(value : ViewConfigModel) =
     let _nearPlane_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.nearPlane)

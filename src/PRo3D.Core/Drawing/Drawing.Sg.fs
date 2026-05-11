@@ -502,12 +502,12 @@ module Sg =
         |> Sg.trafo (pos |> AVal.map Trafo3d.Translation)
         |> Sg.uniform "WorldPos" pos
         |> Sg.uniform "Size" radius
-        |> Sg.effect [
+        |> Sg.effect ([
             toEffect <| Shader.ScreenSpaceScale.screenSpaceScale
             toEffect <| DefaultSurfaces.stableTrafo
             toEffect <| DefaultSurfaces.vertexColor
             //toEffect <| DefaultSurfaces.stableHeadlight
-        ]
+        ] |> Seq.ofList)
 
     //lines
     let toColoredEdges (offset:V3d) (color : C4b) (points : array<V3d>) =

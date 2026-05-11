@@ -18,6 +18,7 @@ type FrustumModel = {
     focal                   : NumericInput
     oldFrustum              : Frustum
     frustum                 : Frustum
+    windowSize              : V2i
     }
 
 module FrustumModel =
@@ -36,6 +37,7 @@ module FrustumModel =
             focal                   = focal
             oldFrustum              = Frustum.perspective 60.0 0.1 10000.0 1.0
             frustum                 = Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
+            windowSize              = V2i.II
         }
 
 type FrustumModel with
@@ -58,6 +60,7 @@ type FrustumModel with
                 focal       = {FrustumModel.focal with value = focal}
                 oldFrustum  = oldFrustum  
                 frustum     = frustum     
+                windowSize  = V2i.II
             }
         }
 
@@ -172,17 +175,17 @@ module ViewConfigModel =
         version = current
         nearPlane             = initNearPlane
         farPlane              = initFarPlane
-        frustumModel         = FrustumModel.init 0.1 10000.0
+        frustumModel          = FrustumModel.init 0.1 10000.0
         navigationSensitivity = initNavSens
-        arrowLength         = initArrowLength
-        arrowThickness      = initArrowThickness
-        dnsPlaneSize        = initPlaneSize
-        lodColoring         = false
-        importTriangleSize  = initImportTriangleSize        
-        drawOrientationCube = false
-        offset              = depthOffset
-        pickingTolerance    = initPickingTolerance
-        filterTexture       = false
+        arrowLength           = initArrowLength
+        arrowThickness        = initArrowThickness
+        dnsPlaneSize          = initPlaneSize
+        lodColoring           = false
+        importTriangleSize    = initImportTriangleSize        
+        drawOrientationCube   = false
+        offset                = depthOffset
+        pickingTolerance      = initPickingTolerance
+        filterTexture         = false
         //useSurfaceHighlighting = true
         showExplorationPointGui = true
         showLeafLabels = false

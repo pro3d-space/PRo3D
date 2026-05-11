@@ -52,6 +52,7 @@ open Chiron
 open PRo3D.Core.Surface
 open Aardvark.UI.Animation.Deprecated
 open PRo3D.SimulatedViews.SnapshotApp
+open MapViewCameraController
 
 type UserFeedback<'a> = {
     id      : string
@@ -155,6 +156,10 @@ module ViewerApp =
         {
             navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
+            north                 = ReferenceSystem.north_ >-> V3dInput.value_ |> Aether.toBase
+            frustum               = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_ |> Aether.toBase
+            windowSize            = ViewConfigModel.frustumModel_ >-> FrustumModel.windowSize_ |> Aether.toBase
+            planet                = (ReferenceSystem.planet_ |> Aether.toBase)
         }    
     
     let mutable cache = HashMap.Empty
@@ -242,6 +247,17 @@ module ViewerApp =
         | DockNodeConfig.Stack (weight,activeId,children) -> Stack(weight, activeId, List.append [de] children)
         | DockNodeConfig.Element element ->  Stack(0.2, None, List.append [de] [element]) 
 
+    let private updateUpNorthForPosition (pos : V3d) (m : Model) = 
+        let (refSystem',_) = 
+            pos
+            |> ReferenceSystemAction.UpdateUpNorth //updates position
+            |> ReferenceSystemApp.update 
+                m.scene.config 
+                LenseConfigs.referenceSystemConfig 
+                m.scene.referenceSystem
+                                                 
+        { m with scene = { m.scene with referenceSystem = refSystem' }} 
+
     let private createMultiSelectBox (startPoint: V2i) (viewPortSize: V2i) (currentPoint: V2i) =
         let clippingBox = Box2i.FromSize viewPortSize
         let newRenderBox = Box2i.FromPoints(clippingBox.Clamped(startPoint), clippingBox.Clamped(currentPoint)) // limited to rendercontrol-size!
@@ -272,15 +288,8 @@ module ViewerApp =
             //Log.stop()
             { m with drawing = drawing } |> stash
         | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                   
-            let (refSystem',_) = 
-                p 
-                |> ReferenceSystemAction.UpdateUpNorth //updates position
-                |> ReferenceSystemApp.update 
-                    m.scene.config 
-                    LenseConfigs.referenceSystemConfig 
-                    m.scene.referenceSystem
-                                                 
-            let m = { m with scene = { m.scene with referenceSystem = refSystem' }} 
+            let m = updateUpNorthForPosition p m
+            
             //update camera upvector
             SceneLoader.updateCameraUp m
         | Interactions.PickExploreCenter, ViewerMode.Standard ->
@@ -437,7 +446,7 @@ module ViewerApp =
                          aspect  = aspect}
             let m = // update FurstumModel to keep it consistent with Frustum in Model
                 m |> Optic.map _frustumModel (fun fm -> 
-                    {fm with frustum = FrustumUtils.withAspect aspect fm.frustum})
+                      {fm with frustum = FrustumUtils.withAspect aspect fm.frustum; windowSize = windowSize })
             m
 
 
@@ -488,7 +497,7 @@ module ViewerApp =
 
             let pickingFunction () = 
                 V3d(0.0, 0.0, 0.0) |> pickRayNdc
-
+                            
             let nav, feedback = Navigation.update c ref navConf true (Some pickingFunction) m.navigation msg m.ctrlFlag               
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
@@ -497,6 +506,7 @@ module ViewerApp =
             |> logScreenOption 10000 feedback 
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
+            |> updateUpNorthForPosition nav.camera.view.Location
         | NavigationMessage msg, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_ -> // belongs to deprecated animation
@@ -1343,8 +1353,7 @@ module ViewerApp =
                     let ref = m.scene.referenceSystem
                     let navigation', _ = 
                         Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) m.ctrlFlag
-                    { m with navigation = navigation' }       
-                    
+                    { m with navigation = navigation' }
                 | _ -> m
           
 
@@ -2028,9 +2037,13 @@ module ViewerApp =
                     yield! FreeFlyController.extractAttributes model.camera Navigation.Action.FreeFlyAction
                 | NavigationMode.ArcBall, true ->                         
                     yield! ArcBallController.extractAttributes model.camera Navigation.Action.ArcBallAction
-                | NavigationMode.FreeFly, false
-                | NavigationMode.ArcBall, false ->
+                | NavigationMode.MapView, true -> 
+                    yield! MapViewController.extractAttributes model.camera Navigation.Action.MapViewControllerAction
+                | NavigationMode.FreeFly, false                
+                | NavigationMode.ArcBall, false 
+                | NavigationMode.MapView, false ->
                     yield! AMap.empty
+                
                 | _ -> 
                     failwith "Invalid NavigationMode"
             } 
@@ -2430,6 +2443,9 @@ module ViewerApp =
             | NavigationMode.ArcBall ->
                 ArcBallController.threads m.navigation.camera
                 |> ThreadPool.map Navigation.ArcBallAction |> ThreadPool.map NavigationMessage
+            | NavigationMode.MapView ->
+                MapViewController.threads m.navigation.camera
+                |> ThreadPool.map Navigation.MapViewControllerAction |> ThreadPool.map NavigationMessage
             | _ -> failwith "invalid nav mode"
          
       //  let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
