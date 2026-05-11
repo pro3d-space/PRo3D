@@ -24,7 +24,7 @@ module Navigation =
         | ArcBallAction            of ArcBallController.Message        
         //| FreeFlyAction            of CameraController.Message
         | FreeFlyAction            of FreeFlyController.Message
-        | MapViewControllerAction of MapViewController.Message
+        | MapViewControllerAction  of MapViewController.Message
         | SetNavigationMode        of NavigationMode
 
     type smallConfig<'a,'b> = 
@@ -225,13 +225,27 @@ module Navigation =
                 | _ -> failwith "Invalid NavigationMode"
             } |> AttributeMap.ofAMap
 
-        let viewNavigationModes  (model : AdaptiveNavigationModel) =
+        let geometryTooltip (nMode : NavigationMode) : string =
+            match nMode with 
+            | NavigationMode.FreeFly -> "Enter FreeFlyMode"
+            | NavigationMode.ArcBall -> "Enter ArcBallMode - Camera is focused on a point and moves arround it"
+            | NavigationMode.MapView -> "Enter MapViewMode - Camera is focused on current planetery object center, up is north and move speed depends on camera distance to surface"
+            | _  -> ""         
+
+        let viewNavigationModes  (planet : aval<Planet>) (model : AdaptiveNavigationModel) =
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large location arrow icon"] [] ]                
                 Html.Layout.boxH [ Incremental.div (AttributeMap.empty) (
                     alist {
                         let navMode = model.navigationMode
-                        Html.SemUi.dropDown navMode SetNavigationMode
+                        let! p = planet
+                        let exclude = 
+                            if p = Planet.None then 
+                                [ NavigationMode.MapView ] |> HashSet.ofList
+                            else
+                                HashSet.Empty
+
+                        Drawing.UI.dropDown exclude navMode SetNavigationMode geometryTooltip
                     })]
             ]
 
