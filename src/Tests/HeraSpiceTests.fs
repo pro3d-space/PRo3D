@@ -64,6 +64,22 @@ let heraSpecificTests () =
 
             Expect.isSome trafo "could transform phobos to eclipj2000"
         }
+
+        test "latlonalt to xyz for dimorphos" {
+            let mutable x,y,z = 0.0,0.0,0.0
+            let result = CooTransformation.LatLonAlt2Xyz("dimorphos", 0.0, 0.0, 0.0, &x, &y, &z)
+            let pos = V3d(x,y,z)
+            Expect.equal 0 result "LatLonAlt2Xyz for dimorphos (geographical model available?)"
+            Expect.isGreaterThan pos.Length 0.0 "dimorphos surface point should be non-zero distance from center"
+        }
+
+        test "latlonalt to xyz for didymos" {
+            let mutable x,y,z = 0.0,0.0,0.0
+            let result = CooTransformation.LatLonAlt2Xyz("didymos", 0.0, 0.0, 0.0, &x, &y, &z)
+            let pos = V3d(x,y,z)
+            Expect.equal 0 result "LatLonAlt2Xyz for didymos (geographical model available?)"
+            Expect.isGreaterThan pos.Length 0.0 "didymos surface point should be non-zero distance from center"
+        }
     ]
 
 
