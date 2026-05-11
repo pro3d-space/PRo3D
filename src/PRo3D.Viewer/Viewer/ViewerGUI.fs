@@ -795,7 +795,7 @@ module Gui =
         let topMenuItems (model : AdaptiveModel) = [ 
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
-            Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
+            Navigation.UI.viewNavigationModes model.scene.referenceSystem.planet model.navigation |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
