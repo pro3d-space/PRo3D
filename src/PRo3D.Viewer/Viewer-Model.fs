@@ -109,6 +109,7 @@ type ViewerAction =
 | ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
 | ImportPRo3Dv1Annotations        of list<string>
+| ImportSbmtAnnotations           of list<string>
 | ImportSurfaceTrafo              of list<string>
 | ImportRoverPlacement            of list<string>
 | ImportTraverse                  of list<string>

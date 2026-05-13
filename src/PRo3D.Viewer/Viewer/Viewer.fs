@@ -1032,14 +1032,45 @@ module ViewerApp =
                     //let csvTable = Csv.Seq.csv ";" true id result
                     //Csv.Seq.write ("./error.csv") csvTable |> ignore
 
-                    m 
+                    m
                     |> Optic.set _groups newGroups
                     |> Optic.set _lookUp lookup
                     |> Optic.set _flat newflat
-                with 
+                with
                 | e -> Log.error "[Viewer] %A" e; m
             | None -> m
-        | ImportSurfaceTrafo sl,_ ->  
+        | ImportSbmtAnnotations sl,_ ->
+            match sl |> List.tryHead with
+            | Some path ->
+                try
+                    // v1: identity trafo (no SHM->FIXED reprojection), default
+                    // reference-frame label "DIMORPHOS_SHM". See plans/sbmtImport.md
+                    // "Reference-system field storage" TODO before adding a frame modal.
+                    let imported, flat, lookup =
+                        AnnotationGroupsImporter.importSbmt
+                            Trafo3d.Identity path m.scene.referenceSystem "DIMORPHOS_SHM"
+
+                    let newGroups =
+                        m.drawing.annotations.rootGroup.subNodes
+                        |> IndexList.append imported
+
+                    let flat =
+                        flat
+                        |> HashMap.map (fun _ v ->
+                            let a = v |> Leaf.toAnnotation
+                            (if a.geometry = Geometry.DnS then { a with showDns = true } else a)
+                            |> Leaf.Annotations)
+
+                    let newflat = m.drawing.annotations.flat |> HashMap.union flat
+
+                    m
+                    |> Optic.set _groups newGroups
+                    |> Optic.set _lookUp lookup
+                    |> Optic.set _flat newflat
+                with
+                | e -> Log.error "[Viewer] %A" e; m
+            | None -> m
+        | ImportSurfaceTrafo sl,_ -> 
             match sl |> List.tryHead with
             | Some path ->
                 let imported = 

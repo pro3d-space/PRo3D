@@ -23,6 +23,7 @@
     <Compile Include="TestUtils.fs" />
     <Compile Include="GeoJsonExportTest.fs" />
     <Compile Include="HeraSpiceTests.fs" />
+    <Compile Include="SbmtImportAlignmentTest.fs" />
     <None Include="RemoteApi.rest" />
     <Compile Include="TriangleSetTests.fs" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />

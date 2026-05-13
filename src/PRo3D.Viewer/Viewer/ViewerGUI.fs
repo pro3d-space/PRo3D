@@ -645,7 +645,18 @@ module Gui =
                                             clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ] [
                                             text "Import v1 Annotations (*.xml)"
                                         ]
-                                        
+
+                                        // SBMT structure files: real fixtures sometimes have no extension
+                                        // (e.g. boulder catalogs) so the filter is wide. Frame is hardcoded
+                                        // to DIMORPHOS_SHM in the handler -- see plans/sbmtImport.md.
+                                        let jsOpenSbmtFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import SBMT annotations', filters: [{ name: 'SBMT structure files', extensions: ['txt', '*']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        div [ clazz "ui item";
+                                            Dialogs.onChooseFiles ImportSbmtAnnotations;
+                                            clientEvent "onclick" jsOpenSbmtFileDialogue ] [
+                                            text "Import SBMT Annotations"
+                                        ]
+
                                         let jsImportTraverseDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Traverse files' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
                                         div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" jsImportTraverseDialog ] [

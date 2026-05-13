@@ -9,6 +9,9 @@ let allTests () : Test =
 
         // requires spice kernels
         HeraSpiceTests.tests()
+
+        // skipped automatically when fixtures under C:\pro3ddata are absent
+        SbmtImportAlignmentTest.tests()
     ]
 
 let profileTests (parameters : TestUtils.TestParameters) : Test =
