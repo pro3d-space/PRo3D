@@ -61,35 +61,6 @@ module Navigation =
             Log.line "new orbit implicitly set to center ray"
             { model with exploreCenter = p; navigationMode = NavigationMode.ArcBall }, Some("New orbit set with center ray")
 
-    //find and distance to the next Surface in the center of the camera - save it in rotationFactor (only used in a LegacyCameraController)
-    let findDistancetoSurface (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) = 
-        let centerPoint = 
-            match pickFunction with
-            | None -> None
-            | Some f -> 
-                Log.startTimed "pick Point on Surface to calculate Distance"
-                let point = f()
-                Log.stop()
-                point
-
-        match centerPoint with
-        | None -> 
-            Log.warn "could not find Point on Surface to get Distance, please center view to surface"
-
-            let oldNavMode = 
-                if model.navigationMode = NavigationMode.MapView then NavigationMode.FreeFly
-                else model.navigationMode                    
-
-            { model with navigationMode = oldNavMode }, Some "could not find Distance to Surface center with center ray.\n Please center view to surface before changing to MapViewCamera"
-        | Some p -> 
-            Log.line "Distance of Surface to Center found"
-
-            let distance = Vec.Distance(V3d.OOO, p)
-
-            let cam = { model.camera with rotationFactor = distance }
-
-            { model with camera = cam; navigationMode = NavigationMode.MapView }, Some("Distance to Surface set with center ray")
-
     let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) (ctrlFlag : bool) =
         match act with            
         | ArcBallAction a -> 
@@ -190,14 +161,21 @@ module Navigation =
                     CameraView.lookAt model.camera.view.Location center (smallConfig.up.Get(bigConfigB))
                 
                 { model with camera = { model.camera with view = view'}; navigationMode = mode; updatePerFrame = false}, None
-            | NavigationMode.MapView ->                
+            | NavigationMode.MapView ->
                 let planet     = smallConfig.planet.Get(bigConfigB)
-                
-                let cam = model.camera |> switchToMapViewController planet
-                                    
-                let model = { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.MapView; updatePerFrame = true }
 
-                findDistancetoSurface pickFunction model                
+                let cam = model.camera |> switchToMapViewController planet
+
+                // Approximate body radius for pan/zoom scaling. Avoids a
+                // synchronous kdtree pick which stalls the UI on large scenes.
+                let radiusEstimate =
+                    let fromExplore = Vec.Length model.exploreCenter
+                    if fromExplore > 0.0 then fromExplore
+                    else Vec.Length cam.view.Location
+
+                let cam = { cam with rotationFactor = radiusEstimate }
+
+                { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.MapView; updatePerFrame = true }, None
             | _ ->  { model with navigationMode = mode; updatePerFrame = false }, None
                
     module UI =        
