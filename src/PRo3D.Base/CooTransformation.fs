@@ -228,6 +228,15 @@ module CooTransformation =
         | Planet.ENU        -> NonPlanetary
         | _                 -> NonPlanetary
 
+    /// Bodies where typical OPC data spans most/all of the body, so camera
+    /// setup should use a body-independent sky (world Z) rather than the
+    /// reference-system's radial up. Avoids gimbal-lock when the camera
+    /// viewing direction runs near-parallel to the radial.
+    let isSmallBody (planet : Planet) =
+        match planet with
+        | Planet.Phobos | Planet.Deimos | Planet.Didymos | Planet.Dimorphos -> true
+        | _ -> false
+
     // F# LATREC: planetocentric polar coordinates of `p`.
     //
     // Matches SPICE's `reclat`: (latitude, longitude, radial-distance). The
