@@ -130,9 +130,23 @@ module Gui =
                 )  
             
             let pnb = pitchAndBearing m cv
-            
-            let pitch    = pnb |> AVal.map(fun (p,_) -> sprintf "%s deg" (p.ToString("0.00")))
-            let bearing  = pnb |> AVal.map(fun (_,b) -> sprintf "%s deg" (b.ToString("0.00")))
+
+            // Bearing/pitch suppressed on small bodies. The current math
+            // (AnnotationHelpers.bearing/pitch + ReferenceSystem.northVector)
+            // assumes world +Z is the body's north pole and computes pitch
+            // against a global plane through origin -- both wrong for small
+            // irregular bodies like Dimorphos (north pole is -Z in SHM, and
+            // the camera sits a body-radius away from origin). Better to show
+            // nothing than nonsense. See TODOS.md "small-body bearing/pitch
+            // overlay" before re-enabling.
+            let pitch =
+                AVal.map2 (fun (p,_) planet ->
+                    if CooTransformation.isSmallBody planet then "n/a"
+                    else sprintf "%s deg" ((p : float).ToString("0.00"))) pnb m.planet
+            let bearing =
+                AVal.map2 (fun (_,b) planet ->
+                    if CooTransformation.isSmallBody planet then "n/a"
+                    else sprintf "%s deg" ((b : float).ToString("0.00"))) pnb m.planet
             
             let position = cv |> AVal.map(fun x -> x.Location.ToString("0.00"))
             
@@ -819,35 +833,53 @@ module Gui =
             | Interactions.PickPivotPoint        -> ""
             | _ -> ""
         
-        let topMenuItems (model : AdaptiveModel) = [ 
-            div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
+        let topMenuItems (model : AdaptiveModel) = [
+            div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
-            Navigation.UI.viewNavigationModes model.scene.referenceSystem.planet model.navigation |> UI.map NavigationMessage 
-              
+            Navigation.UI.viewNavigationModes model.scene.referenceSystem.planet model.navigation |> UI.map NavigationMessage
+
+            // Interaction selector + ctrl-click hint. The mode-specific tool
+            // controls (annotation geometry, rover selector, etc.) live on the
+            // secondary toolbar row below so the planet selector and scene
+            // path stay visible on the main row at every window width.
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
                 Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
-                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
-                Html.Layout.boxH [ 
-                    div [style "font-style:italic; width:100%; text-align:right"] [
+                Html.Layout.boxH [
+                    div [style "font-style:italic"] [
                         Incremental.text (model.interaction |> AVal.map interactionText)
                     ]]
             ]
-              
+
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
-            ] 
+            ]
             Html.Layout.horizontal [
                 scenepath model
-            ]        
-        ]        
-        
+            ]
+        ]
+
+        // The secondary toolbar is always rendered (even when the active
+        // interaction has no tool controls) so the dock below never jumps
+        // when switching tools. `dynamicTopMenu` returns an empty div for
+        // interactions without a secondary toolbar; the row height stays
+        // stable thanks to the wrapping `.ui.menu`'s min-height.
+        let secondaryToolbarRow (m : AdaptiveModel) =
+            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0; border:0"] [
+                div [clazz "item topmenu"] [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
+                ]
+            ]
+
         let getTopMenu (m:AdaptiveModel) =
-            div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
-                yield (menu m)
-                for t in (topMenuItems m) do
-                    yield div [clazz "item topmenu"] [t]
+            div [clazz "pro3d-topbar"] [
+                div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
+                    yield (menu m)
+                    for t in (topMenuItems m) do
+                        yield div [clazz "item topmenu"] [t]
+                ]
+                secondaryToolbarRow m
             ]
         
     module Annotations =
@@ -1368,15 +1400,15 @@ module Gui =
                             |> UI.map GisAppMessage
                             |> UI.map ViewerMessage]
                 )
-            | None -> 
+            | None ->
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (
-                        body [] [                    
+                        body [] [
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [
                                 m.scene.dockConfig
-                                |> docking [                                           
+                                |> docking [
                                     style "width:100%; height:100%; background:#F00"
                                     onLayoutChanged UpdateDockConfig
                                     |> ViewerUtils.mapAttribute ViewerMessage
