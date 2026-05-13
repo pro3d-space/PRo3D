@@ -595,8 +595,30 @@ module Gui =
                 ]
             ]       
         
-        let menu (m : AdaptiveModel) =          
-            let subMenu name menuItems = 
+        // Checkbox-style menu item bound to a single bool flag on
+        // `m.userPreferences`. Click toggles the flag — the update handler
+        // dispatches SetUserPreferences which both updates the model and
+        // writes the JSON file under %APPDATA%/Pro3D.
+        let prefToggle (label : string)
+                       (getter : UserPreferences -> bool)
+                       (setter : bool -> UserPreferences -> UserPreferences)
+                       (m : AdaptiveModel) =
+            let iconAttrs =
+                amap {
+                    let! prefs = m.userPreferences
+                    yield clazz (if getter prefs then "check square outline icon" else "square icon")
+                } |> AttributeMap.ofAMap
+
+            div [ clazz "ui item"
+                  onClick (fun _ ->
+                      let prefs = AVal.force m.userPreferences
+                      SetUserPreferences (setter (not (getter prefs)) prefs)) ] [
+                Incremental.i iconAttrs AList.empty
+                text (" " + label)
+            ]
+
+        let menu (m : AdaptiveModel) =
+            let subMenu name menuItems =
                 div [ clazz "ui dropdown item"] [
                   text name
                   i [clazz "dropdown icon"] [] 
@@ -736,7 +758,28 @@ module Gui =
                                         //]
                                     ]
                                 ]
-                            ] 
+
+                                // Preferences: per-computer settings persisted to
+                                // %APPDATA%/Pro3D/userPreferences.json. NOT part of
+                                // the scene file or any bookmark.
+                                div [ clazz "ui dropdown item"] [
+                                    text "Preferences"
+                                    i [clazz "dropdown icon"] []
+                                    div [ clazz "menu"] [
+                                        div [clazz "header"; style "padding: 6px 10px; color: black; font-weight: bold"] [
+                                            text "MapView controls"
+                                        ]
+                                        prefToggle "Invert W / S (forward-back)"
+                                            (fun p -> p.mapInvertForward)
+                                            (fun b p -> { p with mapInvertForward = b })
+                                            m
+                                        prefToggle "Invert A / D (strafe)"
+                                            (fun p -> p.mapInvertStrafe)
+                                            (fun b p -> { p with mapInvertStrafe = b })
+                                            m
+                                    ]
+                                ]
+                            ]
                         ]
                     )
                 ]

@@ -26,6 +26,7 @@
     <Compile Include="AardvarkUIReworks.fs" />
     <EmbeddedResource Include="resources/groupmappings" />
     <Compile Include="Config.fs" />
+    <Compile Include="UserPreferences.fs" />
     <Compile Include="Core-Types.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="ReferenceSystem-Model.g.fs" />

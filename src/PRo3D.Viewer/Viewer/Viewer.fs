@@ -296,7 +296,7 @@ module ViewerApp =
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
             let navigation', feedback = 
-                Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) m.ctrlFlag
+                Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) m.ctrlFlag
             { m with navigation = navigation' }
             |> logScreenOption 10000 feedback
         | Interactions.PlaceRover, ViewerMode.Standard ->
@@ -498,7 +498,7 @@ module ViewerApp =
             let pickingFunction () = 
                 V3d(0.0, 0.0, 0.0) |> pickRayNdc
                             
-            let nav, feedback = Navigation.update c ref navConf true (Some pickingFunction) m.navigation msg m.ctrlFlag               
+            let nav, feedback = Navigation.update c ref navConf m.userPreferences true (Some pickingFunction) m.navigation msg m.ctrlFlag
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
@@ -1383,7 +1383,7 @@ module ViewerApp =
                     let c   = m.scene.config
                     let ref = m.scene.referenceSystem
                     let navigation', _ = 
-                        Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) m.ctrlFlag
+                        Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) m.ctrlFlag
                     { m with navigation = navigation' }
                 | _ -> m
           
@@ -1924,12 +1924,15 @@ module ViewerApp =
             let m = Optic.set _sequencedBookmarks bookmarks m
             m
         | SBookmarksToPoseDefinition, _ -> //RNO for creating dummy data for testing batch rendering with pose files
-            let poseData = PoseData.fromSequencedBookmarks m.scene.sequencedBookmarks 
+            let poseData = PoseData.fromSequencedBookmarks m.scene.sequencedBookmarks
             poseData
-            |> Json.serialize 
-            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Json.serialize
+            |> Json.formatWith JsonFormattingOptions.Pretty
             |> Serialization.Chiron.writeToFile poseData.path
             m
+        | SetUserPreferences prefs, _ ->
+            UserPreferences.save prefs
+            { m with userPreferences = prefs }
         | WriteBookmarkMetadata (path, bm) , _ ->
             match bm.metadata with
             | Some md ->

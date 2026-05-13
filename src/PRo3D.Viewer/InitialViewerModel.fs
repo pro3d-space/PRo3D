@@ -184,6 +184,7 @@ module Viewer =
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()
+            userPreferences      = UserPreferences.load ()
         } |> applyProvenaceIfEnabled
 
 

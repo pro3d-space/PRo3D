@@ -61,7 +61,7 @@ module Navigation =
             Log.line "new orbit implicitly set to center ray"
             { model with exploreCenter = p; navigationMode = NavigationMode.ArcBall }, Some("New orbit set with center ray")
 
-    let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) (ctrlFlag : bool) =
+    let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (userPrefs : UserPreferences) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) (ctrlFlag : bool) =
         match act with            
         | ArcBallAction a -> 
             let model, feedback =
@@ -103,27 +103,37 @@ module Navigation =
             { 
               model with camera = { cam' with freeFlyConfig = config }
             }, None
-        | MapViewControllerAction a -> 
+        | MapViewControllerAction a ->
             let frustum = smallConfig.frustum.Get(bigConfigA)
-            
+
             let angle = Math.Tanh(frustum.right / frustum.near) * 2.0
 
             let windowSize = smallConfig.windowSize.Get(bigConfigA)
-            
-            //let view = 
-            //    model.camera.view 
+
+            //let view =
+            //    model.camera.view
             //    |> CameraView.withUp (smallConfig.north.Get(bigConfigB))
             //    |> setCameraViewCenter (smallConfig.north.Get(bigConfigB))
-            
-            let cam = { 
-                model.camera with 
+
+            // Apply user MapView WASD invert preferences before dispatch so
+            // the controller stays unaware of user prefs.
+            let a =
+                match a with
+                | MapViewController.Message.KeyDown k ->
+                    MapViewController.Message.KeyDown (UserPreferences.remapMapViewKey userPrefs k)
+                | MapViewController.Message.KeyUp k ->
+                    MapViewController.Message.KeyUp (UserPreferences.remapMapViewKey userPrefs k)
+                | _ -> a
+
+            let cam = {
+                model.camera with
                     view = model.camera.view
                     sensitivity    = smallConfig.navigationSensitivity.Get(bigConfigA)
-                    orbitCenter    = Some model.exploreCenter   
+                    orbitCenter    = Some model.exploreCenter
                     targetPhiTheta = V2d(windowSize.X, windowSize.Y)
                     panFactor      = angle
                 }
-            
+
             let cam = MapViewController.update cam a
                                     
             let cam = 

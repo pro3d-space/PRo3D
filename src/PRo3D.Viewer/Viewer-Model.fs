@@ -188,11 +188,12 @@ type ViewerAction =
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera
-| StopGeoJsonAutoExport        
+| StopGeoJsonAutoExport
 | SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
 | GisAppMessage                  of Gis.GisAppAction
 | SBookmarksToPoseDefinition
+| SetUserPreferences             of UserPreferences
 | Nop
 
 and MailboxState = {
@@ -646,7 +647,13 @@ type Model = {
     surfaceIntersection : Option<SurfaceIntersection>
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
-} 
+
+    /// Per-computer user preferences (e.g. MapView WASD invert flags).
+    /// Loaded from / saved to `%APPDATA%/Pro3D/userPreferences.json`.
+    /// Outside scene/bookmark serialisation.
+    [<TreatAsValue>]
+    userPreferences      : UserPreferences
+}
 
 type ViewerAnimationAction =
     | ViewerMessage     of ViewerAction
