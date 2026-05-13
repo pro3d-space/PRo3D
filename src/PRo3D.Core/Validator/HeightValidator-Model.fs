@@ -114,38 +114,36 @@ module HeightValidatorModel =
             result         = initResult()
         }
         
-    let computeResult (validator : Validator) : ValidatorResult =
+    let computeResult (validator : Validator) : ValidatorResult option =
 
-        //let angle = 90.0 - validator.inclination.value
-
-       // let trafo = Trafo3d.Rotation(validator.northVector, angle.RadiansFromDegrees())
-        
         let up    = validator.upVector
         let dip   = validator.inclination.value
         let pos   = validator.location
 
         let lower = validator.lower
         let upper = validator.upper
-       
-        let cooHeightPos   = PRo3D.Base.CooTransformation.getElevation' Planet.Mars lower
-        let cooHeightUpper = PRo3D.Base.CooTransformation.getElevation' Planet.Mars upper
 
-        let geographic = cooHeightUpper - cooHeightPos
+        match PRo3D.Base.CooTransformation.tryGetElevation Planet.Mars lower,
+              PRo3D.Base.CooTransformation.tryGetElevation Planet.Mars upper with
+        | Some cooHeightPos, Some cooHeightUpper ->
+            let geographic = cooHeightUpper - cooHeightPos
 
-        let horizontal = new Plane3d(up,lower)
-        let horizontalHeight = horizontal.Height(upper)
-        
-        let tiltedHeight = validator.tiltedPlane.Height(upper)
-        
-        let res =
-            {
-                pointDistance                 = Vec.distance pos upper
-                cooTrafoThickness_geographic  = geographic
-                cooTrafoThickness_true        = geographic * cos (dip.RadiansFromDegrees())
-                heightOverHorizontal          = horizontalHeight
-                heightOverPlaneThickness_true = tiltedHeight
-            }        
+            let horizontal = new Plane3d(up,lower)
+            let horizontalHeight = horizontal.Height(upper)
 
-        Log.line "[HeightValidator] %A" res
+            let tiltedHeight = validator.tiltedPlane.Height(upper)
 
-        res
+            let res =
+                {
+                    pointDistance                 = Vec.distance pos upper
+                    cooTrafoThickness_geographic  = geographic
+                    cooTrafoThickness_true        = geographic * cos (dip.RadiansFromDegrees())
+                    heightOverHorizontal          = horizontalHeight
+                    heightOverPlaneThickness_true = tiltedHeight
+                }
+
+            Log.line "[HeightValidator] %A" res
+            Some res
+        | _ ->
+            Log.warn "[HeightValidator] elevation lookup failed on Mars; result not updated"
+            None

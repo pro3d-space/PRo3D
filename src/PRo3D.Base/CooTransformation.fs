@@ -58,6 +58,22 @@ module CooTransformation =
 
     type private Self = Self
 
+    /// Spherical / geographic coordinate carrier.
+    ///
+    /// The `altitude` field's meaning depends on the body's `ConventionKind`
+    /// (see `getConvention` below):
+    ///
+    /// - Planetographic — height above the spheroid surface (metres).
+    /// - Ellipsoidal    — height above the tri-axial ellipsoid surface (metres);
+    ///                    reads 0 on the surface, positive above.
+    /// - Spherical      — RADIAL DISTANCE from the body centre (metres),
+    ///                    matching SPICE's `reclat` convention. NOT a height
+    ///                    above any surface. The reference sphere radius in
+    ///                    the `Spherical` payload is informative only (used
+    ///                    by the GUI label) and is not in the math.
+    ///
+    /// `radian` is populated only by `tryGetLatLonRad` (body-agnostic polar
+    /// coordinates); it is zero in every other path.
     type SphericalCoo = {
           longitude : double
           latitude  : double
@@ -158,112 +174,211 @@ module CooTransformation =
         CooTransformation.DeInit()
         Log.line "[CooTransformation] down."
 
-    let private init = 0.0
+    /// Coordinate convention used per body.
+    ///
+    /// From ESA SPICE-team documentation and direct communication: PGRREC is
+    /// only mathematically valid for spheroidal bodies (rotationally
+    /// symmetric oblate) AND requires POLE/PM in the kernel pool. Some Hera
+    /// bodies do not satisfy these conditions — Dimorphos is a tri-axial
+    /// ellipsoid (radii (89.5, 84.5, 57.5) m) AND has no stable PCK rotation
+    /// model (post-DART tumbling means ESA intentionally never defined
+    /// POLE/PM for body -658031). For those bodies the appropriate
+    /// convention is planetocentric (LATREC). The JR.CooTransformation
+    /// native wrapper exposes PGRREC but not LATREC, so we implement the
+    /// LATREC paths directly in F# below.
+    ///
+    /// - Planetographic: PGRREC via the JR.CooTransformation native wrapper
+    ///   (Xyz2LatLonAlt / LatLonAlt2Xyz). For spheroidal bodies with POLE/PM
+    ///   (Mars, Earth, Moon, Phobos, Deimos, Didymos).
+    /// - Spherical: F# LATREC math against a single reference sphere of the
+    ///   given mean radius. Lat/lon are exact planetocentric polar
+    ///   coordinates of the input; altitude is the radial offset from the
+    ///   reference sphere. Standard SPICE-community convention for small
+    ///   bodies. Simple, body-shape-agnostic.
+    /// - Ellipsoidal: F# math against a tri-axial reference ellipsoid (three
+    ///   radii). Same (lat, lon) as Spherical (always exact), but altitude
+    ///   is computed against the true ellipsoid surface via ray-intersection
+    ///   from the body centre. Reads altitude ≈ 0 on the actual ellipsoid
+    ///   surface, positive above. Use when altitude precision over the true
+    ///   surface matters more than matching SPICE's LATREC convention.
+    /// - NonPlanetary: Planet.None / .JPL / .ENU, where lat/lon do not apply.
+    type ConventionKind =
+        | Planetographic
+        | Spherical of meanRadius:double
+        | Ellipsoidal of radii:V3d
+        | NonPlanetary
 
-    let getLatLonAltPlanet (planet : string) (p:V3d) : SphericalCoo = 
-        let mutable lat = init
-        let mutable lon = init
-        let mutable alt = init
-            
-        let errorCode = CooTransformation.Xyz2LatLonAlt(planet, p.X, p.Y, p.Z, &lat, &lon, &alt)
-            
-        if errorCode <> 0 then
-            Log.line "cootrafo errorcode %A" errorCode
-            
-        {
-            latitude  = lat
-            longitude = lon
-            altitude  = alt
-            radian    = 0.0
-        }
-
-
-    let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
+    /// Returns the coordinate convention for the given body. Radii are in
+    /// metres (matching the native wrapper's xyz convention).
+    let getConvention (planet : Planet) : ConventionKind =
         match planet with
-        | Planet.None | Planet.JPL | Planet.ENU ->
-            { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }
-        | _ ->
-            getLatLonAltPlanet (planet.ToString()) p
+        | Planet.Mars
+        | Planet.Earth
+        | Planet.Moon
+        | Planet.Phobos
+        | Planet.Deimos
+        | Planet.Didymos    -> Planetographic
+        // Dimorphos: tri-axial, no PCK rotation pole. Default to Spherical
+        // (LATREC convention) matching ESA's SPICE-team guidance.
+        // Switch to Ellipsoidal (V3d(89.5, 84.5, 57.5)) here if altitude
+        // referenced to the true tri-axial surface is preferred.
+        | Planet.Dimorphos  -> Spherical 77.166666666666667     // (89.5 + 84.5 + 57.5) / 3
+        | Planet.None
+        | Planet.JPL
+        | Planet.ENU        -> NonPlanetary
+        | _                 -> NonPlanetary
 
+    // F# LATREC: planetocentric polar coordinates of `p`.
+    //
+    // Matches SPICE's `reclat`: (latitude, longitude, radial-distance). The
+    // SphericalCoo.altitude field stores |p| — i.e. the radial distance from
+    // the body centre, NOT a height above any reference surface. The
+    // `_meanRadius` parameter is informative only (kept on the `Spherical`
+    // ConventionKind payload for the GUI label) and does not enter the math.
+    let private latLonAltOnSphere (_meanRadius : double) (p : V3d) : SphericalCoo option =
+        let r = p.Length
+        if r = 0.0 then None
+        else
+            let n = p / r
+            Some {
+                latitude  = (asin n.Z)      * Constant.DegreesPerRadian
+                longitude = (atan2 n.Y n.X) * Constant.DegreesPerRadian
+                altitude  = r
+                radian    = 0.0
+            }
 
-    let getLatLonRad (p:V3d) : SphericalCoo = 
-        let mutable lat = init
-        let mutable lon = init
-        let mutable rad = init
-        let errorCode = CooTransformation.Xyz2LatLonRad( p.X, p.Y, p.Z, &&lat, &&lon, &&rad)
-        
-        if errorCode <> 0 then
-            Log.line "cootrafo errorcode %A" errorCode
+    let private xyzFromLatLonAltOnSphere (_meanRadius : double) (sc : SphericalCoo) : V3d =
+        let latR = sc.latitude  * Constant.RadiansPerDegree
+        let lonR = sc.longitude * Constant.RadiansPerDegree
+        let cosLat = cos latR
+        let r = sc.altitude
+        V3d(r * cosLat * cos lonR, r * cosLat * sin lonR, r * sin latR)
 
-        {
-            latitude  = lat
-            longitude = lon
-            altitude  = 0.0
-            radian    = rad
-        }
+    // Tri-axial ellipsoidal variant: same lat/lon as the spherical path
+    // (planetocentric polar coordinates), but altitude is referenced to the
+    // true ellipsoid surface via ray-intersection from the origin:
+    //   surface point at  t·p̂  with  (t·n̂.X)²/a² + (t·n̂.Y)²/b² + (t·n̂.Z)²/c² = 1
+    //   →  t_surface = 1 / sqrt( (n̂.X/a)² + (n̂.Y/b)² + (n̂.Z/c)² )
+    let private latLonAltOnEllipsoid (radii : V3d) (p : V3d) : SphericalCoo option =
+        let r = p.Length
+        if r = 0.0 then None
+        else
+            let n = p / r
+            let a, b, c = radii.X, radii.Y, radii.Z
+            let kx, ky, kz = n.X / a, n.Y / b, n.Z / c
+            let rSurface = 1.0 / sqrt (kx * kx + ky * ky + kz * kz)
+            Some {
+                latitude  = (asin n.Z)      * Constant.DegreesPerRadian
+                longitude = (atan2 n.Y n.X) * Constant.DegreesPerRadian
+                altitude  = r - rSurface
+                radian    = 0.0
+            }
 
-    let getXYZFromLatLonAltPlanet (sc : SphericalCoo) (planet : string) : V3d = 
-        let mutable pX = init
-        let mutable pY = init
-        let mutable pZ = init
-        let error = 
-            CooTransformation.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ )
-            
-        if error <> 0 then
-            Log.line "cootrafo errorcode %A" error
-            
-        V3d(pX, pY, pZ)
+    let private xyzFromLatLonAltOnEllipsoid (radii : V3d) (sc : SphericalCoo) : V3d =
+        let latR = sc.latitude  * Constant.RadiansPerDegree
+        let lonR = sc.longitude * Constant.RadiansPerDegree
+        let cosLat = cos latR
+        let dir = V3d(cosLat * cos lonR, cosLat * sin lonR, sin latR)
+        let a, b, c = radii.X, radii.Y, radii.Z
+        let kx, ky, kz = dir.X / a, dir.Y / b, dir.Z / c
+        let rSurface = 1.0 / sqrt (kx * kx + ky * ky + kz * kz)
+        dir * (rSurface + sc.altitude)
 
-    let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
+    // Native PGRREC paths. Out-params are nan-seeded so that a misbehaving
+    // wrapper that does not write on failure cannot produce silent zeros.
+    let private tryPgrXyz2LatLonAlt (planetName : string) (p : V3d) : SphericalCoo option =
+        let mutable lat = nan
+        let mutable lon = nan
+        let mutable alt = nan
+        let errorCode = CooTransformation.Xyz2LatLonAlt(planetName, p.X, p.Y, p.Z, &lat, &lon, &alt)
+        if errorCode <> 0 then None
+        else Some { latitude = lat; longitude = lon; altitude = alt; radian = 0.0 }
+
+    let private tryPgrLatLonAlt2Xyz (planetName : string) (sc : SphericalCoo) : V3d option =
+        let mutable pX = nan
+        let mutable pY = nan
+        let mutable pZ = nan
+        let errorCode =
+            CooTransformation.LatLonAlt2Xyz(planetName, sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ)
+        if errorCode <> 0 then None
+        else Some (V3d(pX, pY, pZ))
+
+    /// xyz → lat/lon/alt, picking the right convention for the body.
+    /// Returns None for bodies the wrapper cannot handle (NonPlanetary, or
+    /// Planetographic bodies whose native call fails).
+    let tryGetLatLonAlt (planet : Planet) (p : V3d) : SphericalCoo option =
+        match getConvention planet with
+        | NonPlanetary       -> None
+        | Spherical r        -> latLonAltOnSphere r p
+        | Ellipsoidal radii  -> latLonAltOnEllipsoid radii p
+        | Planetographic     -> tryPgrXyz2LatLonAlt (planet.ToString()) p
+
+    /// Direct PGRREC by SPICE body name; no convention dispatch.
+    /// Use when you have a raw SPICE name and explicitly want the
+    /// planetographic transform. For bodies that have a Planet enum value,
+    /// prefer `tryGetLatLonAlt` so the right convention is applied.
+    let tryGetLatLonAltPlanet (planetName : string) (p : V3d) : SphericalCoo option =
+        tryPgrXyz2LatLonAlt planetName p
+
+    /// Body-agnostic spherical (lat, lon, radial distance) of `p`.
+    let tryGetLatLonRad (p : V3d) : SphericalCoo option =
+        let mutable lat = nan
+        let mutable lon = nan
+        let mutable rad = nan
+        let errorCode = CooTransformation.Xyz2LatLonRad(p.X, p.Y, p.Z, &&lat, &&lon, &&rad)
+        if errorCode <> 0 then None
+        else Some { latitude = lat; longitude = lon; altitude = 0.0; radian = rad }
+
+    /// lat/lon/alt → xyz, picking the right convention for the body.
+    let tryGetXYZFromLatLonAlt (sc : SphericalCoo) (planet : Planet) : V3d option =
+        match getConvention planet with
+        | NonPlanetary       -> None
+        | Spherical r        -> Some (xyzFromLatLonAltOnSphere r sc)
+        | Ellipsoidal radii  -> Some (xyzFromLatLonAltOnEllipsoid radii sc)
+        | Planetographic     -> tryPgrLatLonAlt2Xyz (planet.ToString()) sc
+
+    let tryGetXYZFromLatLonAltPlanet (sc : SphericalCoo) (planetName : string) : V3d option =
+        tryPgrLatLonAlt2Xyz planetName sc
+
+    /// Convenience overload: V3d holding (lat, lon, alt) instead of a SphericalCoo.
+    let tryGetXYZFromLatLonAlt' (coordinate : V3d) (planet : Planet) : V3d option =
+        let sc = { latitude = coordinate.X; longitude = coordinate.Y; altitude = coordinate.Z; radian = 0.0 }
+        tryGetXYZFromLatLonAlt sc planet
+
+    let tryGetHeight (p : V3d) (up : V3d) (planet : Planet) : double option =
         match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
-        | _ ->
-            getXYZFromLatLonAltPlanet sc (planet.ToString())
+        | Planet.None | Planet.JPL | Planet.ENU -> Some (p * up).Length
+        | _ -> tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
 
-    let getXYZFromLatLonAlt' (coordinate :V3d) (planet:Planet) : V3d = 
+    let tryGetAltitude (p : V3d) (up : V3d) (planet : Planet) : double option =
         match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
-        | _ ->
-            let mutable pX = init
-            let mutable pY = init
-            let mutable pZ = init
-            let error = 
-                CooTransformation.LatLonAlt2Xyz(planet.ToString(), coordinate.X, coordinate.Y, coordinate.Z, &pX, &pY, &pZ )
-            
-            if error <> 0 then
-                Log.line "cootrafo errorcode %A" error
-            
-            V3d(pX, pY, pZ)
+        | Planet.None | Planet.JPL | Planet.ENU -> Some (p * up).Z
+        | _ -> tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
 
-    let getHeight (p:V3d) (up:V3d) (planet:Planet) = 
-        match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> (p * up).Length // p.Z //
-        | _ ->
-            let sc = getLatLonAlt planet p
-            sc.altitude
+    let tryGetElevation (planet : Planet) (p : V3d) : double option =
+        tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
 
-    let getAltitude (p:V3d) (up:V3d) (planet:Planet) = 
-        match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> (p * up).Z // p.Z //
-        | _ ->
-            let sc = getLatLonAlt planet p
-            sc.altitude
-
-    let getElevation' (planet : Planet) (p:V3d) =       
-        let sc = getLatLonAlt planet p
-        sc.altitude
-
-    let getUpVector (p:V3d) (planet:Planet) = 
+    /// Body-relative "up" direction at point `p`. Total: when SPICE refuses
+    /// (Dimorphos's planetocentric path always succeeds; PGRREC bodies may
+    /// fail) the function falls back to `p.Normalized` (radial-from-centre).
+    /// This is geometrically sound regardless of frame and avoids the
+    /// previous failure-as-(-p) accident.
+    let getUpVector (p : V3d) (planet : Planet) : V3d =
+        let radial () =
+            if p.LengthSquared > 0.0 then p.Normalized else V3d.ZAxis
         match planet with
         | Planet.None ->  V3d.ZAxis
         | Planet.JPL  -> -V3d.ZAxis
         | Planet.ENU  ->  V3d.ZAxis
         | _ ->
-            let sc = getLatLonAlt planet p
-            let height = sc.altitude + 100.0 // to get stable up vector on planet surface
-            
-            let v2 = getXYZFromLatLonAlt ({sc with altitude = height}) planet
-            (v2 - p).Normalized
+            match tryGetLatLonAlt planet p with
+            | None -> radial ()
+            | Some sc ->
+                // +100 m altitude trick: the radial offset of two surface
+                // points differing only in altitude gives the local up.
+                match tryGetXYZFromLatLonAlt { sc with altitude = sc.altitude + 100.0 } planet with
+                | Some v2 -> (v2 - p).Normalized
+                | None    -> radial ()
 
 
     let planetFromString (spiceBodyName : string) = 

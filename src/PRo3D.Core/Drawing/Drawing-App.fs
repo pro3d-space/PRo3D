@@ -596,28 +596,32 @@ module DrawingApp =
                         
                     //transform to distance elevation pairs
                     let planet = smallConfig.planet.Get(bigConfig)
-                    let transformed =
-                        points 
-                        |> List.map(fun x -> 
-                            let k = CooTransformation.getLatLonAlt planet x
+                    let convertedOpt =
+                        points
+                        |> List.map(fun x ->
+                            match CooTransformation.tryGetLatLonAlt planet x with
+                            | None -> None
+                            | Some k ->
+                                CooTransformation.tryGetXYZFromLatLonAlt { k with altitude = 0.0 } planet
+                                |> Option.map (fun projected ->
+                                    { position = projected; elevation = k.altitude }))
 
-                            let elevation = k.altitude
-                            let projected = CooTransformation.getXYZFromLatLonAlt { k with altitude = 0 } planet
-                            { position =  projected; elevation = elevation }
-                        ) |> List.pairwise                    
-                    
-                    let profile =
-                        accumulateDistance transformed 0.0
-                    
-                    let csvTable = 
-                        profile
-                        |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
-                        |> CSV.Seq.csv "," true id
+                    if convertedOpt |> List.exists Option.isNone then
+                        Log.warn "[DrawingApp] profile export aborted: one or more points could not be converted to lat/lon"
+                    else
+                        let transformed = convertedOpt |> List.choose id |> List.pairwise
+                        let profile =
+                            accumulateDistance transformed 0.0
 
-                    if path.IsEmptyOrNull() |> not then 
-                        csvTable |> CSV.Seq.write path
+                        let csvTable =
+                            profile
+                            |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
+                            |> CSV.Seq.csv "," true id
 
-                    Log.line "[DrawingApp] wrote %A to %s" profile path
+                        if path.IsEmptyOrNull() |> not then
+                            csvTable |> CSV.Seq.write path
+
+                        Log.line "[DrawingApp] wrote %A to %s" profile path
                 | None -> 
                     Log.line "please select annotation to export"
                 //write csv

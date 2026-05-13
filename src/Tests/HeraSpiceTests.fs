@@ -16,6 +16,8 @@ open Aardvark.Base
 open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 
+module Coo = PRo3D.Base.CooTransformation
+
 let logDir = Path.Combine(".", "logs")
 let spiceRoot = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..")
 let spiceFileName = Path.Combine(spiceRoot, "spice", "kernels", "mk", "hera_ops.tm")
@@ -65,12 +67,40 @@ let heraSpecificTests () =
             Expect.isSome trafo "could transform phobos to eclipj2000"
         }
 
-        test "latlonalt to xyz for dimorphos" {
-            let mutable x,y,z = 0.0,0.0,0.0
-            let result = CooTransformation.LatLonAlt2Xyz("dimorphos", 0.0, 0.0, 0.0, &x, &y, &z)
-            let pos = V3d(x,y,z)
-            Expect.equal 0 result "LatLonAlt2Xyz for dimorphos (geographical model available?)"
-            Expect.isGreaterThan pos.Length 0.0 "dimorphos surface point should be non-zero distance from center"
+        test "latlonalt to xyz for dimorphos (Spherical convention)" {
+            // Dimorphos routes through the F# Spherical (LATREC) path because
+            // it is tri-axial and has no PCK rotation model.
+            // In the Spherical convention, SphericalCoo.altitude stores the
+            // radial distance from the body centre (matching SPICE reclat),
+            // so altitude=0 would mean the origin; use a non-zero radius.
+            let sc : Coo.SphericalCoo =
+                { latitude = 0.0; longitude = 0.0; altitude = 89.5; radian = 0.0 }
+            let xyz = Coo.tryGetXYZFromLatLonAlt sc PRo3D.Base.Planet.Dimorphos
+            Expect.isSome xyz "tryGetXYZFromLatLonAlt should return Some for Dimorphos"
+            let pos = xyz.Value
+            Expect.isGreaterThan pos.Length 0.0 "Dimorphos surface point should be non-zero distance from center"
+        }
+
+        test "roundtrip xyz <-> latlonalt for dimorphos (Spherical)" {
+            // Spherical (LATREC) should round-trip to numerical precision.
+            let original = V3d(50.0, 30.0, 40.0)
+            let sc = Coo.tryGetLatLonAlt PRo3D.Base.Planet.Dimorphos original
+            Expect.isSome sc "tryGetLatLonAlt should return Some for Dimorphos"
+            let recovered = Coo.tryGetXYZFromLatLonAlt sc.Value PRo3D.Base.Planet.Dimorphos
+            Expect.isSome recovered "tryGetXYZFromLatLonAlt should return Some for Dimorphos"
+            let drift = (recovered.Value - original).Length
+            Expect.isLessThan drift 1e-9 (sprintf "Spherical round-trip drift = %g should be < 1e-9" drift)
+        }
+
+        test "roundtrip xyz <-> latlonalt for mars (Planetographic)" {
+            // Native PGRREC path; round-trip within native numerical precision.
+            let original = V3d(3500000.0, 100000.0, 200000.0)
+            let sc = Coo.tryGetLatLonAlt PRo3D.Base.Planet.Mars original
+            Expect.isSome sc "tryGetLatLonAlt should return Some for Mars"
+            let recovered = Coo.tryGetXYZFromLatLonAlt sc.Value PRo3D.Base.Planet.Mars
+            Expect.isSome recovered "tryGetXYZFromLatLonAlt should return Some for Mars"
+            let drift = (recovered.Value - original).Length
+            Expect.isLessThan drift 1.0 (sprintf "Mars round-trip drift = %g m should be < 1 m" drift)
         }
 
         test "latlonalt to xyz for didymos" {

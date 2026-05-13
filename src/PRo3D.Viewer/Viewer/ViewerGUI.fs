@@ -136,33 +136,35 @@ module Gui =
             
             let position = cv |> AVal.map(fun x -> x.Location.ToString("0.00"))
             
-            let spericalc = 
-                AVal.map2 (fun (a : CameraView) b -> 
-                    CooTransformation.getLatLonAlt b a.Location
+            let spericalc =
+                AVal.map2 (fun (a : CameraView) b ->
+                    CooTransformation.tryGetLatLonAlt b a.Location
                 ) cv m.planet
-            
-            let altitude = 
-                AVal.map2 (fun (a : CameraView) b -> 
-                    CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
-            
-            let lon = 
-                spericalc 
-                |> AVal.map(fun x -> 
-                    if x.longitude.IsNaN() then
-                        sprintf "not available"
-                    else
-                        sprintf "%s deg" ((360.0 - x.longitude).ToString())
-                )
-            let lat = 
-                spericalc 
-                |> AVal.map(fun x -> 
-                    if x.latitude.IsNaN() then
-                        sprintf "not available"
-                    else
-                        sprintf "%s deg" ((x.latitude).ToString())
-                ) 
-                
-            let alt2 = altitude |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
+
+            let altitude =
+                AVal.map2 (fun (a : CameraView) b ->
+                    CooTransformation.tryGetAltitude a.Location a.Up b) cv m.planet
+
+            let formatCoo (project : CooTransformation.SphericalCoo -> string) =
+                spericalc |> AVal.map (function
+                    | Some sc -> project sc
+                    | None    -> "conversion failed (set planet)")
+
+            let lon = formatCoo (fun x -> sprintf "%s deg" ((360.0 - x.longitude).ToString()))
+            let lat = formatCoo (fun x -> sprintf "%s deg" (x.latitude.ToString()))
+
+            let alt2 =
+                altitude |> AVal.map (function
+                    | Some v -> sprintf "%s m" (v.ToString("0.00"))
+                    | None   -> "conversion failed (set planet)")
+
+            let conventionLabel =
+                m.planet |> AVal.map (fun p ->
+                    match CooTransformation.getConvention p with
+                    | CooTransformation.Planetographic    -> "planetographic"
+                    | CooTransformation.Spherical r       -> sprintf "spherical r=%.1fm" r
+                    | CooTransformation.Ellipsoidal _     -> "ellipsoidal"
+                    | CooTransformation.NonPlanetary      -> "n/a")
                                                    
             let style' = "color: white; font-family: Roboto Mono"
             
@@ -201,9 +203,13 @@ module Gui =
                     tr [] [
                         td [style style'] [text "Altitude: "]
                         td [style style'] [Incremental.text alt2]
-                    ]                    
+                    ]
+                    tr [] [
+                        td [style style'] [text "Convention: "]
+                        td [style style'] [Incremental.text conventionLabel]
+                    ]
                 ]
-            ]                     
+            ]
         ]
     
     let textOverlaysInstrumentView (m : AdaptiveViewPlanModel)  = 
