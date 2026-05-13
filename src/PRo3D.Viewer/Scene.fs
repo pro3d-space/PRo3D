@@ -330,21 +330,10 @@ module SceneLoader =
             }
         { m with navigation = navigation' }
      
-    /// CameraView.lookAt with body-aware sky reference. Small bodies use
-    /// world Z to avoid FreeFly gimbal-lock when the viewing direction
-    /// runs near-parallel to a radial reference-up; planets use the
-    /// reference-system's local up.
-    let bodyAwareLookAt (referenceSystem : ReferenceSystem) (location : V3d) (target : V3d) : CameraView =
-        let sky =
-            if CooTransformation.isSmallBody referenceSystem.planet
-            then V3d.OOI
-            else referenceSystem.up.value
-        CameraView.lookAt location target sky
-
     let updateCameraUp (m: Model) =
         let cam = m.navigation.camera
         let view' =
-            bodyAwareLookAt
+            ReferenceSystem.bodyAwareLookAt
                 m.scene.referenceSystem
                 cam.view.Location
                 (cam.view.Location + cam.view.Forward)

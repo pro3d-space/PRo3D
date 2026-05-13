@@ -152,14 +152,18 @@ module Navigation =
                 let model, message = pickOrbitCenter pickFunction model
                 { model with updatePerFrame = false }, message
             | NavigationMode.FreeFly ->
-                let center = 
+                let center =
                     match model.camera.orbitCenter with
                     | Some x ->  x
                     | None   -> V3d.OOO
-                
+
+                let sky =
+                    ReferenceSystem.bodyAwareSky
+                        (smallConfig.planet.Get(bigConfigB))
+                        (smallConfig.up.Get(bigConfigB))
                 let view' =
-                    CameraView.lookAt model.camera.view.Location center (smallConfig.up.Get(bigConfigB))
-                
+                    CameraView.lookAt model.camera.view.Location center sky
+
                 { model with camera = { model.camera with view = view'}; navigationMode = mode; updatePerFrame = false}, None
             | NavigationMode.MapView ->
                 let planet     = smallConfig.planet.Get(bigConfigB)

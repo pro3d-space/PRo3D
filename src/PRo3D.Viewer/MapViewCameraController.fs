@@ -83,9 +83,14 @@ module MapViewController =
     let updateCameraForMapView (planet : Planet) (model : CameraControllerState) =
         let point = model.view.Location
         let up = CooTransformation.getUpVector point planet |> Vec.Normalized
-        let east = V3d.OOI.Cross(up).Normalized
+        // World Z is the usual "north pole" reference, but degenerates when
+        // the camera lies on the world-Z axis (V3d.OOI × up ≈ 0); fall back
+        // to world X in that case so `east` stays well-defined.
+        let referenceAxis =
+            if V3d.OOI.Cross(up).LengthSquared > 1e-6 then V3d.OOI else V3d.IOO
+        let east = referenceAxis.Cross(up).Normalized
         let north = up.Cross(east).Normalized
-        let view = 
+        let view =
             model.view
             |> CameraView.withUp north
             |> setCameraViewCenter north

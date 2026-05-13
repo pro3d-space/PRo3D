@@ -94,7 +94,7 @@ module ViewerApp =
         Optic.set _view view m
 
     let lookAtBoundingBox (bb: Box3d) (m: Model) =
-        let view = SceneLoader.bodyAwareLookAt m.scene.referenceSystem bb.Max bb.Center
+        let view = ReferenceSystem.bodyAwareLookAt m.scene.referenceSystem bb.Max bb.Center
         m |> Optic.set _view view
     
     let lookAtSurface (m: Model) id =
@@ -465,7 +465,7 @@ module ViewerApp =
             match surf with
             | Some s ->
                 let bb = s.globalBB.Transformed(fullTrafo.Forward)
-                let view = SceneLoader.bodyAwareLookAt m.scene.referenceSystem bb.Max bb.Center
+                let view = ReferenceSystem.bodyAwareLookAt m.scene.referenceSystem bb.Max bb.Center
                 let animationMessage =
                     CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
                 let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
