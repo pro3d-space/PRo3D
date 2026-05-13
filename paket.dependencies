@@ -94,6 +94,12 @@ group Build
     nuget Fake.DotNet.Cli                   ~> 6.1.4
     nuget Fake.DotNet.MSBuild               ~> 6.1.4
     nuget Fake.DotNet.NuGet                 ~> 6.1.4
+    nuget NuGet.Common                      ~> 6.14.3
+    nuget NuGet.Configuration               ~> 6.14.3
+    nuget NuGet.Frameworks                  ~> 6.14.3
+    nuget NuGet.Packaging                   ~> 6.14.3
+    nuget NuGet.Protocol                    ~> 6.14.3
+    nuget NuGet.Versioning                  ~> 6.14.3
     nuget Fake.IO.FileSystem                ~> 6.1.4
     nuget Fake.Api.GitHub                   ~> 6.1.4 
     nuget Fake.Core.ReleaseNotes            ~> 6.1.4

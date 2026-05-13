@@ -66,7 +66,7 @@ let rec allFiles dirs =
 
 
 let getFreePort() =
-    let l = System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
+    let l = new System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
     l.Start()
     let ep = l.LocalEndpoint |> unbox<Net.IPEndPoint>
     l.Stop()

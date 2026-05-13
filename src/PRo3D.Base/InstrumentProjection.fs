@@ -57,9 +57,9 @@ module InstrumentProjection =
         let afc1Pos = CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
         match afc1Pos with    
         | Some targetState -> 
-            let rot = targetState.rot
-            let t = Trafo3d.FromBasis(-rot.C1, rot.C0, rot.C2, targetState.pos)
-            CameraView.ofTrafo t.Inverse |> Some 
+            // let rot = targetState.rot
+            // let t = Trafo3d.FromBasis(-rot.C1, rot.C0, rot.C2, targetState.pos)
+            // CameraView.ofTrafo t.Inverse |> Some 
             CameraView.lookAt targetState.pos V3d.OOO V3d.OOI |> Some
         | _ -> 
             None

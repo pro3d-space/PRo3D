@@ -506,8 +506,13 @@ Target.create "Publish" (fun _ ->
         let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
         printf "url: %s" url
         let tempFile = Path.GetTempFileName()
-        use c = new System.Net.WebClient()
-        c.DownloadFile(url, tempFile)
+        use client = new System.Net.Http.HttpClient()
+        use response = client.GetAsync(url, System.Net.Http.HttpCompletionOption.ResponseHeadersRead).GetAwaiter().GetResult()
+        response.EnsureSuccessStatusCode() |> ignore
+        do
+            use packageStream = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+            use output = File.Create(tempFile)
+            packageStream.CopyTo(output)
         use a = new ZipArchive(File.OpenRead tempFile)
         let t = Path.GetTempPath()
         let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
