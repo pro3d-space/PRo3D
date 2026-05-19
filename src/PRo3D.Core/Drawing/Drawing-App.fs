@@ -318,13 +318,15 @@ module DrawingApp =
         |> Leaf.toAnnotations
         |> HashMap.toList 
         |> List.map snd
-        |> List.filter (fun a -> a.visible)
+        |> List.filter (fun (a : Annotation) -> a.visible)
 
-    let isSelected (model : DrawingModel) = 
+    let isSelected (model : DrawingModel) =
+        let multiSelected =
+            model.annotations.selectedLeaves
+            |> HashSet.map (fun s -> s.id)
         match model.annotations.singleSelectLeaf with
-        | None -> fun _ -> false
-        | Some s -> 
-            fun (a : Annotation) -> a.key = s
+        | None -> fun (a : Annotation) -> multiSelected |> HashSet.contains a.key
+        | Some s -> fun (a : Annotation) -> a.key = s || multiSelected |> HashSet.contains a.key
 
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)
