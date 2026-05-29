@@ -12,6 +12,7 @@ open Aardvark.Rendering
 open Aardvark.UI
 open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
@@ -2270,12 +2271,10 @@ module Gui =
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [
-                                m.scene.dockConfig
-                                |> docking [
-                                    style "width:100%; height:100%; background:#F00"
-                                    onLayoutChanged UpdateDockConfig
-                                    |> ViewerUtils.mapAttribute ViewerMessage
-                                ]
+                                GoldenLayout.view
+                                    [ style "width:100%; height:100%"
+                                      onLayoutChangedRaw (StoreCurrentLayout >> ViewerMessage) ]
+                                    m.scene.goldenLayout
                             ]
                             // Overlay window; absent from the DOM while closed,
                             // so there is no JS modal state to keep in sync.

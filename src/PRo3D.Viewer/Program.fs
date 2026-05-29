@@ -27,6 +27,7 @@ open Chiron
 
 open Aardvark.UI
 open Aardvark.UI.Giraffe
+open Aardvark.UI.Primitives.Golden
 
 open FSharp.Data.Adaptive
 
@@ -378,6 +379,7 @@ let main argv =
                 http.subRoute "/api" remoteApi
                 WebPart.ofType<EmbeddedRessource>
                 WebPart.ofType<Primitives.EmbeddedResources>
+                GoldenLayout.toWebPart http
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 

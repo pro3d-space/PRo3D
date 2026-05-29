@@ -1,5 +1,5 @@
-//d37d31da-ba28-88d4-e100-f8dfc5207ec2
-//a01cc08b-687f-a85a-0fcc-f9a674f24ebe
+//1649ae41-05b4-a09f-54dd-b3fa9e57ca0f
+//8949d660-ef7a-bc19-3c36-bd0d1b9f7f93
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -25,8 +25,7 @@ type AdaptiveScene(value : Scene) =
     let _scaleBars_ = PRo3D.Core.AdaptiveScaleBarsModel(value.scaleBars)
     let _traverses_ = PRo3D.Core.AdaptiveTraverseModel(value.traverses)
     let _viewPlans_ = PRo3D.SimulatedViews.AdaptiveViewPlanModel(value.viewPlans)
-    let _dockConfig_ = FSharp.Data.Adaptive.cval(value.dockConfig)
-    let _closedPages_ = FSharp.Data.Adaptive.cval(value.closedPages)
+    let _goldenLayout_ = Aardvark.UI.Primitives.Golden.AdaptiveGoldenLayout(value.goldenLayout)
     let _firstImport_ = FSharp.Data.Adaptive.cval(value.firstImport)
     let _userFeedback_ = FSharp.Data.Adaptive.cval(value.userFeedback)
     let _feedbackThreads_ = FSharp.Data.Adaptive.cval(value.feedbackThreads)
@@ -58,8 +57,7 @@ type AdaptiveScene(value : Scene) =
             _scaleBars_.Update(value.scaleBars)
             _traverses_.Update(value.traverses)
             _viewPlans_.Update(value.viewPlans)
-            _dockConfig_.Value <- value.dockConfig
-            _closedPages_.Value <- value.closedPages
+            _goldenLayout_.Update(value.goldenLayout)
             _firstImport_.Value <- value.firstImport
             _userFeedback_.Value <- value.userFeedback
             _feedbackThreads_.Value <- value.feedbackThreads
@@ -84,8 +82,7 @@ type AdaptiveScene(value : Scene) =
     member __.scaleBars = _scaleBars_
     member __.traverses = _traverses_
     member __.viewPlans = _viewPlans_
-    member __.dockConfig = _dockConfig_ :> FSharp.Data.Adaptive.aval<Aardvark.UI.Primitives.DockConfig>
-    member __.closedPages = _closedPages_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.UI.Primitives.DockElement>>
+    member __.goldenLayout = _goldenLayout_
     member __.firstImport = _firstImport_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.userFeedback = _userFeedback_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.feedbackThreads = _feedbackThreads_ :> FSharp.Data.Adaptive.aval<FSharp.Data.Adaptive.ThreadPool<ViewerAction>>
@@ -112,8 +109,7 @@ module SceneLenses =
         static member scaleBars_ = ((fun (self : Scene) -> self.scaleBars), (fun (value : PRo3D.Core.ScaleBarsModel) (self : Scene) -> { self with scaleBars = value }))
         static member traverses_ = ((fun (self : Scene) -> self.traverses), (fun (value : PRo3D.Core.TraverseModel) (self : Scene) -> { self with traverses = value }))
         static member viewPlans_ = ((fun (self : Scene) -> self.viewPlans), (fun (value : PRo3D.SimulatedViews.ViewPlanModel) (self : Scene) -> { self with viewPlans = value }))
-        static member dockConfig_ = ((fun (self : Scene) -> self.dockConfig), (fun (value : Aardvark.UI.Primitives.DockConfig) (self : Scene) -> { self with dockConfig = value }))
-        static member closedPages_ = ((fun (self : Scene) -> self.closedPages), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.UI.Primitives.DockElement>) (self : Scene) -> { self with closedPages = value }))
+        static member goldenLayout_ = ((fun (self : Scene) -> self.goldenLayout), (fun (value : Aardvark.UI.Primitives.Golden.GoldenLayout) (self : Scene) -> { self with goldenLayout = value }))
         static member firstImport_ = ((fun (self : Scene) -> self.firstImport), (fun (value : Microsoft.FSharp.Core.bool) (self : Scene) -> { self with firstImport = value }))
         static member userFeedback_ = ((fun (self : Scene) -> self.userFeedback), (fun (value : Microsoft.FSharp.Core.string) (self : Scene) -> { self with userFeedback = value }))
         static member feedbackThreads_ = ((fun (self : Scene) -> self.feedbackThreads), (fun (value : FSharp.Data.Adaptive.ThreadPool<ViewerAction>) (self : Scene) -> { self with feedbackThreads = value }))

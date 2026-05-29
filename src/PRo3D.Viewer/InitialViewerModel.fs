@@ -17,6 +17,7 @@ open PRo3D.Navigation2
 open Aardvark.UI
 open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation.Deprecated
 open Aardvark.Rendering
@@ -69,12 +70,8 @@ module Viewer =
         (viewerVerson        : string)
         : Model = 
 
-        // default to the M2020 docking config (includes the Traverse menu)
+        // default to the M2020 layout (includes the Traverse menu)
         let defaultDashboard = DashboardModes.m2020
-        //let defaultDashboard = DashboardModes.gis
-        // use this one for PROVEX workflows if needed.
-        //let defaultDashboard = DashboardModes.provenance
-        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020   
         
         let viewConfigModel = 
             { ViewConfigModel.initial with showExplorationPointGui = startupArgs.showExplorationPoint }
@@ -98,8 +95,7 @@ module Viewer =
                     referenceSystem       = { ReferenceSystem.initial with isVisible = startupArgs.showReferenceSystem }
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
-                    dockConfig            = defaultDockConfig                
-                    closedPages           = list.Empty 
+                    goldenLayout          = GoldenLayout.create LayoutConfig.Default defaultDashboard.layout
                     firstImport           = true
                     userFeedback          = ""
                     feedbackThreads       = ThreadPool.empty

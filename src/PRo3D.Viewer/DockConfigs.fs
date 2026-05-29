@@ -1,336 +1,326 @@
-﻿namespace PRo3D.Viewer
+namespace PRo3D.Viewer
 
-open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 
 module DockConfigs =
 
-    let full = 
-        config {
-            content (                    
-                horizontal 1.0 [                                                        
-                    stack 0.7 None [
-                        {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                        {id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                    ]                            
-                    vertical 0.3 [
-                        stack 0.5 (Some "surfaces") [                    
-                            {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "minerva"; title = Some " Minerva "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "gis"; title = Some " GIS View"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]                          
-                        stack 0.5 (Some "config") [
-                            {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "viewplanner"; title = Some " ViewPlanner "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "corr_mappings"; title = Some " RockTypes "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "corr_semantics"; title = Some " Semantics "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]
-                    ]
-                ]              
-            )
-            appName "PRo3D"
-            useCachedConfig false
+    let full =
+        layout {
+            row {
+                stack {
+                    weight 7
+                    element { id "render";         title "Main View" }
+                    element { id "instrumentview"; title "Instrument View" }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";      title "Surfaces" }
+                        element { id "annotations";   title "Annotations" }
+                        element { id "minerva";       title "Minerva" }
+                        element { id "scalebars";     title "ScaleBars" }
+                        element { id "gis";           title "GIS View" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "config";         title "Config" }
+                        element { id "bookmarks";      title "Bookmarks" }
+                        element { id "viewplanner";    title "ViewPlanner" }
+                        element { id "corr_mappings";  title "RockTypes" }
+                        element { id "corr_semantics"; title "Semantics" }
+                    }
+                }
+            }
         }
 
-    let viewPlanner = 
-        config {
-            content (                    
-                horizontal 1.0 [                                                        
-                    stack 0.7 None [
-                        {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                        {id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                    ]                            
-                    vertical 0.3 [
-                        stack 0.5 (Some "surfaces") [                    
-                            {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }                            
-                            {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]                          
-                        stack 0.5 (Some "config") [
-                            {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "viewplanner"; title = Some " ViewPlanner "; weight = 0.4; deleteInvisible = None; isCloseable = None }                            
-                        ]
-                    ]
-                ]              
-            )
-            appName "PRo3D"
-            useCachedConfig false
+    let viewPlanner =
+        layout {
+            row {
+                stack {
+                    weight 7
+                    element { id "render";         title "Main View" }
+                    element { id "instrumentview"; title "Instrument View" }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";    title "Surfaces" }
+                        element { id "annotations"; title "Annotations" }
+                        element { id "scalebars";   title "ScaleBars" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "config";      title "Config" }
+                        element { id "bookmarks";   title "Bookmarks" }
+                        element { id "viewplanner"; title "ViewPlanner" }
+                    }
+                }
+            }
         }
 
-    let m2020 = 
-        config {
-            content (                    
-                horizontal 1.0 [                                                        
-                    stack 0.7 None [
-                        { id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                        
-                    ]                            
-                    vertical 0.3 [
-                        stack 0.5 (Some "surfaces") [                    
-                            { id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                            //{ id = "gis"; title = Some " GIS View"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-
-                        ]                          
-                        stack 0.5 (Some "config") [
-                            { id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "sequencedBookmarks"; title = Some " SequBookmarks "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "viewplanner"; title = Some " Viewplans "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "traverse";   title = Some " Traverses"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]
-                    ]
-                ]              
-            )
-            appName "PRo3D"
-            useCachedConfig false
+    let m2020 =
+        layout {
+            row {
+                stack {
+                    weight 7
+                    element { id "render"; title "Main View" }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";       title "Surfaces" }
+                        element { id "annotations";    title "Annotations" }
+                        element { id "scalebars";      title "ScaleBars" }
+                        element { id "instrumentview"; title "Instrument View" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "config";              title "Config" }
+                        element { id "bookmarks";           title "Bookmarks" }
+                        element { id "sequencedBookmarks";  title "Seq. Bookmarks" }
+                        element { id "viewplanner";         title "Viewplans" }
+                        element { id "properties";          title "Properties" }
+                        element { id "traverse";            title "Traverses" }
+                    }
+                }
+            }
         }
 
-    let gis = 
-        config {
-            content (                    
-                horizontal 1.0 [                                                        
-                    stack 0.7 None [
-                        { id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                        
-                    ]                            
-                    vertical 0.3 [
-                        stack 0.5 (Some "surfaces") [                    
-                            { id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                            { id = "gis"; title = Some " GIS View"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-
-                        ]                          
-                        stack 0.5 (Some "config") [
-                            { id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "sequencedBookmarks"; title = Some " SequBookmarks "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "viewplanner"; title = Some " Viewplans "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "traverse";   title = Some " Traverses"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]
-                    ]
-                ]              
-            )
-            appName "PRo3D"
-            useCachedConfig false
+    let gis =
+        layout {
+            row {
+                stack {
+                    weight 7
+                    element { id "render"; title "Main View" }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";       title "Surfaces" }
+                        element { id "annotations";    title "Annotations" }
+                        element { id "scalebars";      title "ScaleBars" }
+                        element { id "instrumentview"; title "Instrument View" }
+                        element { id "gis";            title "GIS View" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "config";             title "Config" }
+                        element { id "bookmarks";          title "Bookmarks" }
+                        element { id "sequencedBookmarks"; title "Seq. Bookmarks" }
+                        element { id "viewplanner";        title "Viewplans" }
+                        element { id "properties";         title "Properties" }
+                        element { id "traverse";           title "Traverses" }
+                    }
+                }
+            }
         }
-
 
     let minerva =
-        config {
-            content (                        
-                horizontal 1.0 [                                                        
-                    vertical 0.7 [
-                        stack 0.7 None [
-                            {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                            {id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                        ]                            
-                        stack 0.3 (Some "linking") [
-                            {id = "linking"; title = Some " Linking View "; weight = 1.0; deleteInvisible = None; isCloseable = None}
-                        ]
-                    ]
-                    vertical 0.3 [
-                        stack 0.5 (Some "minerva") [                    
-                            {id = "minerva"; title = Some " Minerva "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]                          
-                        stack 0.5 (Some "config") [
-                            {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "viewplanner"; title = Some " ViewPlanner "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "corr_mappings"; title = Some " RockTypes "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "corr_semantics"; title = Some " Semantics "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]
-                    ]
-                ]
-            )
-            appName "PRo3D - full"
-            useCachedConfig false
+        layout {
+            row {
+                column {
+                    weight 7
+                    stack {
+                        weight 7
+                        element { id "render";         title "Main View" }
+                        element { id "instrumentview"; title "Instrument View" }
+                    }
+                    stack {
+                        weight 3
+                        element { id "linking"; title "Linking View" }
+                    }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "minerva";     title "Minerva" }
+                        element { id "surfaces";    title "Surfaces" }
+                        element { id "annotations"; title "Annotations" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "config";         title "Config" }
+                        element { id "bookmarks";      title "Bookmarks" }
+                        element { id "viewplanner";    title "ViewPlanner" }
+                        element { id "corr_mappings";  title "RockTypes" }
+                        element { id "corr_semantics"; title "Semantics" }
+                    }
+                }
+            }
         }
 
-    let correlations = 
-        config {
-            content (
-                horizontal 1.0 [                                                                              
-                    vertical 0.7 [
-                        stack 0.7 (Some "render") [                    
-                          {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                                      
-                        ]
-                        stack 0.3 (Some "corr_svg") [
-                          {id = "corr_svg"; title = Some " CorrelationPanel "; weight = 0.4; deleteInvisible = None; isCloseable = None }                  
-                          {id = "corr_semantics"; title = Some " Semantics "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]
-                    ]                                      
-                    vertical 0.3 [
-                        stack 0.5 (Some "surfaces") [                    
-                          {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                          {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }                    
-                          {id = "corr_logs"; title = Some " Logs "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]                          
-                        stack 0.5 (Some "config") [
-                          {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                          {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }                    
-                          {id = "corr_mappings"; title = Some " RockTypes "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]
-                    ]
-                ]              
-            )
-            appName "PRo3D - correlations"
-            useCachedConfig false
+    let correlations =
+        layout {
+            row {
+                column {
+                    weight 7
+                    stack {
+                        weight 7
+                        element { id "render"; title "Main View" }
+                    }
+                    stack {
+                        weight 3
+                        element { id "corr_svg";       title "CorrelationPanel" }
+                        element { id "corr_semantics"; title "Semantics" }
+                    }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";    title "Surfaces" }
+                        element { id "annotations"; title "Annotations" }
+                        element { id "corr_logs";   title "Logs" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "config";        title "Config" }
+                        element { id "bookmarks";     title "Bookmarks" }
+                        element { id "corr_mappings"; title "RockTypes" }
+                    }
+                }
+            }
         }
 
     let extended =
-        config {
-            content (                        
-                horizontal 1.0 [                                                        
-                    stack 0.7 None [
-                        {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                       
-                    ]                            
-                    vertical 0.3 [
-                        stack 0.5 (Some "annotations") [                        
-                            {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "sequencedBookmarks"; title = Some " SequBookmarks "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "sceneobjects"; title = Some " SceneObjects "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                           // {id = "validation"; title = Some " Validation "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]                          
-                        stack 0.5 (Some "properties") [
-                            {id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "scalebars"; title = Some " ScaleBars"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "geologicSurf"; title = Some " GeologicSurfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            //{id = "viewplanner"; title = Some " ViewPlanner "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]
-                    ]
-                ]                        
-            )
-            appName "PRo3D"
-            useCachedConfig false
+        layout {
+            row {
+                stack {
+                    weight 7
+                    element { id "render"; title "Main View" }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";           title "Surfaces" }
+                        element { id "annotations";        title "Annotations" }
+                        element { id "bookmarks";          title "Bookmarks" }
+                        element { id "sequencedBookmarks"; title "Seq. Bookmarks" }
+                        element { id "sceneobjects";       title "Scene Objects" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "properties";   title "Properties" }
+                        element { id "config";        title "Config" }
+                        element { id "scalebars";     title "Scale Bars" }
+                        element { id "geologicSurf";  title "Geologic Surfaces" }
+                    }
+                }
+            }
         }
 
-    let core = 
-        config {
-            content (                        
-                horizontal 1.0 [                                                        
-                    stack 0.7 None [
-                        {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                       
-                    ]                            
-                    vertical 0.3 [
-                        stack 0.5 None [                        
-                          {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                          {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                          {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]                          
-                        stack 0.5 (Some "config") [
-                          {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                          {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }  
-                          {id = "scaletools"; title = Some " Scale Tools"; weight = 0.4; deleteInvisible = None; isCloseable = None }                       
-                        ]
-                    ]
-                ]                        
-            )
-            appName "PRo3D"
-            useCachedConfig false
+    let core =
+        layout {
+            row {
+                stack {
+                    weight 7
+                    element { id "render"; title "Main View" }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";    title "Surfaces" }
+                        element { id "annotations"; title "Annotations" }
+                        element { id "scalebars";   title "ScaleBars" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "config";      title "Config" }
+                        element { id "bookmarks";   title "Bookmarks" }
+                        element { id "scaletools";  title "Scale Tools" }
+                    }
+                }
+            }
         }
+
     let traverse =
-        config {
-            content (                        
-                horizontal 1.0 [                                                        
-                    stack 0.7 None [
-                        { id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None }
-                    ]                            
-                    vertical 0.3 [
-                        stack 0.5 (Some "annotations") [                        
-                            { id = "surfaces";     title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "annotations";  title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "bookmarks";    title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "sceneobjects"; title = Some " Scene Objects "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                           // {id = "validation"; title = Some " Validation "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]                          
-                        stack 0.5 (Some "properties") [
-                            { id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "config";     title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "scalebars";  title = Some " Scale Bars"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "traverse";   title = Some " Traverse"; weight = 0.4; deleteInvisible = None; isCloseable = None }  
-                        ]
-                    ]
-                ]                        
-            )
-            appName "PRo3D"
-            useCachedConfig false
+        layout {
+            row {
+                stack {
+                    weight 7
+                    element { id "render"; title "Main View" }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";     title "Surfaces" }
+                        element { id "annotations";  title "Annotations" }
+                        element { id "bookmarks";    title "Bookmarks" }
+                        element { id "sceneobjects"; title "Scene Objects" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "properties"; title "Properties" }
+                        element { id "config";     title "Config" }
+                        element { id "scalebars";  title "Scale Bars" }
+                        element { id "traverse";   title "Traverse" }
+                    }
+                }
+            }
         }
 
-    let comparison = 
-        config {
-            content (                        
-                horizontal 1.0 [                                                        
-                    stack 0.7 None [
-                        {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                       
-                    ]                            
-                    vertical 0.3 [
-                        stack 0.5 (Some "annotations") [                        
-                            {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "comparison"; title = Some "Comparison"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                           // {id = "validation"; title = Some " Validation "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]                          
-                        stack 0.5 (Some "properties") [
-                            {id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                        ]
-                    ]
-                ]                        
-            )
-            appName "PRo3D Surface Comparison"
-            useCachedConfig false
+    let comparison =
+        layout {
+            row {
+                stack {
+                    weight 7
+                    element { id "render"; title "Main View" }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";    title "Surfaces" }
+                        element { id "annotations"; title "Annotations" }
+                        element { id "bookmarks";   title "Bookmarks" }
+                        element { id "comparison";  title "Comparison" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "properties"; title "Properties" }
+                        element { id "config";     title "Config" }
+                    }
+                }
+            }
         }
 
     let renderOnly =
-        config {
-            content (                        
-                horizontal 1.0 [                                                        
-                    stack 1.0 None [
-                        {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                       
-                    ]                                                
-                ]                        
-            )
-            appName "PRo3D"
-            useCachedConfig false
+        layout {
+            stack {
+                element { id "render"; title "Main View" }
+            }
         }
 
-
-    let provenance = 
-        config {
-            content (                        
-                horizontal 1.0 [                                                        
-                    stack 0.7 None [
-                        {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                       
-                    ]                            
-                    vertical 0.3 [
-                        stack 0.5 None [                        
-                          {id = "surfaces"; title = Some " Surfaces "; weight = 0.25; deleteInvisible = None; isCloseable = None }
-                          {id = "annotations"; title = Some " Annotations "; weight = 0.25; deleteInvisible = None; isCloseable = None }
-                          {id = "scalebars"; title = Some " ScaleBars "; weight = 0.25; deleteInvisible = None; isCloseable = None }
-                          {id = "provenance"; title = Some " Provenance "; weight = 0.25; deleteInvisible = None; isCloseable = None }
-                        ]                          
-                        stack 0.5 (Some "config") [
-                          {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                          {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }  
-                          {id = "scaletools"; title = Some " Scale Tools"; weight = 0.4; deleteInvisible = None; isCloseable = None }                       
-                        ]
-                    ]
-                ]                        
-            )
-            appName "PRo3D"
-            useCachedConfig false
+    let provenance =
+        layout {
+            row {
+                stack {
+                    weight 7
+                    element { id "render"; title "Main View" }
+                }
+                column {
+                    weight 3
+                    stack {
+                        weight 5
+                        element { id "surfaces";    title "Surfaces" }
+                        element { id "annotations"; title "Annotations" }
+                        element { id "scalebars";   title "ScaleBars" }
+                        element { id "provenance";  title "Provenance" }
+                    }
+                    stack {
+                        weight 5
+                        element { id "config";     title "Config" }
+                        element { id "bookmarks";  title "Bookmarks" }
+                        element { id "scaletools"; title "Scale Tools" }
+                    }
+                }
+            }
         }
