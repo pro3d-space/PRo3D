@@ -26,6 +26,8 @@ open Aardium
 
 open Chiron
 
+open Aardvark.UI.Primitives.Golden
+
 open Suave
 open Suave.WebPart
 open Suave.Sockets
@@ -395,6 +397,7 @@ let main argv =
                 prefix "/api" >=> remoteApi
                 Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
                 Aardvark.UI.Primitives.Resources.WebPart
+                GoldenLayout.WebPart.suave
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 

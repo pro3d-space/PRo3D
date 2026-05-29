@@ -12,6 +12,7 @@ open Aardvark.Rendering
 open Aardvark.UI
 open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
@@ -1341,19 +1342,17 @@ module Gui =
                             |> UI.map GisAppMessage
                             |> UI.map ViewerMessage]
                 )
-            | None -> 
+            | None ->
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (
-                        body [] [                    
+                        body [] [
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [
-                                m.scene.dockConfig
-                                |> docking [                                           
-                                    style "width:100%; height:100%; background:#F00"
-                                    onLayoutChanged UpdateDockConfig
-                                    |> ViewerUtils.mapAttribute ViewerMessage
-                                ]
+                                GoldenLayout.view
+                                    [ style "width:100%; height:100%"
+                                      onLayoutChangedRaw (StoreCurrentLayout >> ViewerMessage) ]
+                                    m.scene.goldenLayout
                             ]
                         ]
                     )

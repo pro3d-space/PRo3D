@@ -6,6 +6,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI.Trafos
@@ -27,6 +28,156 @@ open PRo3D.Navigation2
 open PRo3D.Comparison
 
 open Chiron
+
+// ---------------------------------------------------------------------------
+// Chiron serialization for GoldenLayout types
+// These augmentations must precede Scene.ToJson / FromJson.
+// ---------------------------------------------------------------------------
+
+type Element with
+    static member ToJson (x : Element) : Json<unit> =
+        json {
+            do! Json.write "id"        x.Id
+            do! Json.write "title"     x.Title
+            do! Json.write "closable"  x.Closable
+            do! Json.write "header"    (x.Header  |> Option.map int)
+            do! Json.write "buttons"   (x.Buttons |> Option.map int)
+            do! Json.write "minSize"   x.MinSize
+            match x.Size with
+            | Size.Weight n     -> do! Json.write "sizeUnit" "fr"; do! Json.write "size" n
+            | Size.Percentage n -> do! Json.write "sizeUnit" "%";  do! Json.write "size" n
+            do! Json.write "keepAlive" x.KeepAlive
+        }
+    static member FromJson (_ : Element) : Json<Element> =
+        json {
+            let! id        = Json.read          "id"
+            let! title     = Json.read          "title"
+            let! closable  = Json.read          "closable"
+            let! header    = Json.tryRead<int>  "header"
+            let! buttons   = Json.tryRead<int>  "buttons"
+            let! minSize   = Json.tryRead<int>  "minSize"
+            let! sizeUnit  = Json.read<string>  "sizeUnit"
+            let! size      = Json.read<int>     "size"
+            let! keepAlive = Json.read          "keepAlive"
+            return {
+                Id        = id
+                Title     = title
+                Closable  = closable
+                Header    = header  |> Option.map enum<Header>
+                Buttons   = buttons |> Option.map enum<Buttons>
+                MinSize   = minSize
+                Size      = match sizeUnit with "%" -> Size.Percentage size | _ -> Size.Weight size
+                KeepAlive = keepAlive
+            }
+        }
+
+type Stack with
+    static member ToJson (x : Stack) : Json<unit> =
+        json {
+            do! Json.write "header"  (int x.Header)
+            do! Json.write "buttons" (x.Buttons |> Option.map int)
+            match x.Size with
+            | Size.Weight n     -> do! Json.write "sizeUnit" "fr"; do! Json.write "size" n
+            | Size.Percentage n -> do! Json.write "sizeUnit" "%";  do! Json.write "size" n
+            do! Json.write "content" x.Content
+        }
+    static member FromJson (_ : Stack) : Json<Stack> =
+        json {
+            let! header   = Json.read<int>          "header"
+            let! buttons  = Json.tryRead<int>       "buttons"
+            let! sizeUnit = Json.read<string>       "sizeUnit"
+            let! size     = Json.read<int>          "size"
+            let! content  = Json.read<Element list> "content"
+            return {
+                Header  = enum<Header> header
+                Buttons = buttons |> Option.map enum<Buttons>
+                Size    = match sizeUnit with "%" -> Size.Percentage size | _ -> Size.Weight size
+                Content = content
+            }
+        }
+
+type RowOrColumn with
+    static member ToJson (x : RowOrColumn) : Json<unit> =
+        json {
+            do! Json.write "isRow" x.IsRow
+            match x.Size with
+            | Size.Weight n     -> do! Json.write "sizeUnit" "fr"; do! Json.write "size" n
+            | Size.Percentage n -> do! Json.write "sizeUnit" "%";  do! Json.write "size" n
+            do! Json.write "content" x.Content
+        }
+    static member FromJson (_ : RowOrColumn) : Json<RowOrColumn> =
+        json {
+            let! isRow    = Json.read<bool>        "isRow"
+            let! sizeUnit = Json.read<string>      "sizeUnit"
+            let! size     = Json.read<int>         "size"
+            let! content  = Json.read<Layout list> "content"
+            return {
+                IsRow   = isRow
+                Size    = match sizeUnit with "%" -> Size.Percentage size | _ -> Size.Weight size
+                Content = content
+            }
+        }
+
+and Layout with
+    static member ToJson (x : Layout) : Json<unit> =
+        match x with
+        | Layout.Element e     -> Json.write "Element"     e
+        | Layout.Stack s       -> Json.write "Stack"       s
+        | Layout.RowOrColumn r -> Json.write "RowOrColumn" r
+    static member FromJson (_ : Layout) : Json<Layout> =
+        json {
+            let! elem = Json.tryRead<Element>     "Element"
+            match elem with
+            | Some e -> return Layout.Element e
+            | None ->
+                let! stk = Json.tryRead<Stack>    "Stack"
+                match stk with
+                | Some s -> return Layout.Stack s
+                | None ->
+                    let! rc = Json.read<RowOrColumn> "RowOrColumn"
+                    return Layout.RowOrColumn rc
+        }
+
+type PopoutWindow with
+    static member ToJson (x : PopoutWindow) : Json<unit> =
+        json {
+            do! Json.write "root"      x.Root
+            do! Json.write "positionX" (x.Position |> Option.map (fun v -> v.X))
+            do! Json.write "positionY" (x.Position |> Option.map (fun v -> v.Y))
+            do! Json.write "sizeW"     (x.Size     |> Option.map (fun v -> v.X))
+            do! Json.write "sizeH"     (x.Size     |> Option.map (fun v -> v.Y))
+        }
+    static member FromJson (_ : PopoutWindow) : Json<PopoutWindow> =
+        json {
+            let! root  = Json.read<Layout>  "root"
+            let! posX  = Json.tryRead<int>  "positionX"
+            let! posY  = Json.tryRead<int>  "positionY"
+            let! sizeW = Json.tryRead<int>  "sizeW"
+            let! sizeH = Json.tryRead<int>  "sizeH"
+            return {
+                Root     = root
+                Position = match posX, posY  with Some x, Some y -> Some (V2i(x,y)) | _ -> None
+                Size     = match sizeW, sizeH with Some w, Some h -> Some (V2i(w,h)) | _ -> None
+            }
+        }
+
+type WindowLayout with
+    static member ToJson (x : WindowLayout) : Json<unit> =
+        json {
+            do! Json.write "root"          x.Root
+            do! Json.write "popoutWindows" x.PopoutWindows
+        }
+    static member FromJson (_ : WindowLayout) : Json<WindowLayout> =
+        json {
+            let! root    = Json.tryRead<Layout>            "root"
+            let! popouts = Json.tryRead<PopoutWindow list> "popoutWindows"
+            return {
+                Root          = root
+                PopoutWindows = popouts |> Option.defaultValue []
+            }
+        }
+
+// ---------------------------------------------------------------------------
 
 open Adaptify
 
@@ -158,9 +309,9 @@ type ViewerAction =
 | SetTabMenu                      of TabMenu
 | NoAction                        of string
 | OrientationCube                 of ISg
-| UpdateDockConfig                of DockConfig
+| GoldenLayoutMessage             of GoldenLayout.Message
+| StoreCurrentLayout              of string
 | ChangeDashboardMode             of DashboardMode
-| AddPage                         of DockElement    
 | ToggleOrientationCube
 | UpdateUserFeedback              of string
 | StartImportMessaging            of list<string>
@@ -222,8 +373,7 @@ type Scene = {
     traverses         : TraverseModel
 
     viewPlans         : ViewPlanModel
-    dockConfig        : DockConfig
-    closedPages       : list<DockElement>
+    goldenLayout      : GoldenLayout
     firstImport       : bool
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
@@ -252,26 +402,28 @@ module Scene =
             let! scenePath       = Json.read "scenePath"
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
-            let! dockConfig      = Json.read "dockConfig"            
+            let! _               = Json.tryRead<string> "dockConfig"
+            let! goldenLayoutJson = Json.tryRead<WindowLayout> "goldenLayout"
 
-            return 
+            return
                 {
                     version               = current
-                                          
+
                     cameraView            = cameraView
                     navigationMode        = navigationMode |> enum<NavigationMode>
                     exploreCenter         = exploreCenter  |> V3d.Parse
-                                          
+
                     interaction           = interactionMode |> enum<InteractionMode>
                     surfacesModel         = surfaceModel
                     config                = config
                     scenePath             = scenePath
                     referenceSystem       = referenceSystem
                     bookmarks             = bookmarks
-                                          
+
                     viewPlans             = ViewPlanModel.initial
-                    dockConfig            = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages           = List.empty
+                    goldenLayout          =
+                        GoldenLayout.create LayoutConfig.Default
+                            (goldenLayoutJson |> Option.defaultValue DockConfigs.m2020)
                     firstImport           = false
                     userFeedback          = String.Empty
                     feedbackThreads       = ThreadPool.empty
@@ -301,20 +453,21 @@ module Scene =
             let! scenePath              = Json.read "scenePath"
             let! referenceSystem        = Json.read "referenceSystem"
             let! bookmarks              = Json.read "bookmarks"
-            let! dockConfig             = Json.read "dockConfig"  
+            let! _                      = Json.tryRead<string> "dockConfig"
+            let! goldenLayoutJson       = Json.tryRead<WindowLayout> "goldenLayout"
             let! comparisonApp          = Json.tryRead "comparisonApp"
-            let! scaleBars              = Json.read "scaleBars" 
-            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
+            let! scaleBars              = Json.read "scaleBars"
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
 
-            return 
+            return
                 {
                     version                 = current
 
                     cameraView              = cameraView
                     navigationMode          = navigationMode |> enum<NavigationMode>
                     exploreCenter           = exploreCenter  |> V3d.Parse
-            
+
                     interaction             = interactionMode |> enum<InteractionMode>
                     surfacesModel           = surfaceModel
                     config                  = config
@@ -323,8 +476,10 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = ViewPlanModel.initial
-                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages             = List.empty
+                    goldenLayout            =
+                        let layout = goldenLayoutJson |> Option.map GoldenLayout.Json.deserialize
+                                                      |> Option.defaultValue DockConfigs.m2020
+                        GoldenLayout.create LayoutConfig.Default layout
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -341,7 +496,7 @@ module Scene =
                 }
         }
 
-    let read2 = 
+    let read2 =
         json {            
             let! cameraView             = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
             let! navigationMode         = Json.read "navigationMode"
@@ -353,25 +508,24 @@ module Scene =
             let! scenePath              = Json.read "scenePath"
             let! referenceSystem        = Json.read "referenceSystem"
             let! bookmarks              = Json.read "bookmarks"
-            let! dockConfig             = Json.read "dockConfig"  
+            let! _                      = Json.tryRead<string> "dockConfig"
+            let! goldenLayoutJson       = Json.tryRead<WindowLayout> "goldenLayout"
             let! comparisonApp          = Json.tryRead "comparisonApp"
-            let! scaleBars              = Json.read "scaleBars" 
-            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
+            let! scaleBars              = Json.read "scaleBars"
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
             let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
-
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
 
-
-            return 
+            return
                 {
                     version                 = current
 
                     cameraView              = cameraView
                     navigationMode          = navigationMode |> enum<NavigationMode>
                     exploreCenter           = exploreCenter  |> V3d.Parse
-            
+
                     interaction             = interactionMode |> enum<InteractionMode>
                     surfacesModel           = surfaceModel
                     config                  = config
@@ -379,9 +533,11 @@ module Scene =
                     referenceSystem         = referenceSystem
                     bookmarks               = bookmarks
 
-                    viewPlans               = ViewPlanModel.initial //if viewplans.IsSome then viewplans.Value else ViewPlanModel.initial
-                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages             = List.empty
+                    viewPlans               = ViewPlanModel.initial
+                    goldenLayout            =
+                        let layout = goldenLayoutJson |> Option.map GoldenLayout.Json.deserialize
+                                                      |> Option.defaultValue DockConfigs.m2020
+                        GoldenLayout.create LayoutConfig.Default layout
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -412,7 +568,8 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! viewPlans       = Json.read "viewPlans"
-            let! dockConfig      = Json.read "dockConfig"  
+            let! _               = Json.tryRead<string> "dockConfig"
+            let! goldenLayoutJson = Json.tryRead<WindowLayout> "goldenLayout"
             let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
             let! scaleBars       = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
@@ -443,8 +600,10 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = viewPlans
-                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages             = List.empty
+                    goldenLayout            =
+                        let layout = goldenLayoutJson |> Option.map GoldenLayout.Json.deserialize
+                                                      |> Option.defaultValue DockConfigs.m2020
+                        GoldenLayout.create LayoutConfig.Default layout
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -491,7 +650,7 @@ type Scene with
             do! Json.write "bookmarks" x.bookmarks    
             do! Json.write "viewPlans" x.viewPlans    
             do! Json.write "comparisonApp" (x.comparisonApp)
-            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString) 
+            do! Json.write "goldenLayout" x.goldenLayout.DefaultLayout
             do! Json.write "scaleBars" x.scaleBars
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel

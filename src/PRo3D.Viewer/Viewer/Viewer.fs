@@ -45,7 +45,8 @@ open PRo3D.SimulatedViews
 //open PRo3D.Linking
 open PRo3D.ViewerLenses
 
- 
+open Aardvark.UI.Primitives.Golden
+
 open Aether
 open Aether.Operators
 open Chiron 
@@ -205,42 +206,6 @@ module ViewerApp =
         |> AnimationAction.PushAnimation 
         |> AnimationApp.update animationsOld
 
-    //TODO TO refactor ... move docking manipulation somewhere else... check what works and what doesn't
-    let rec getAllDockElements (dnc: DockNodeConfig) : (list<DockElement>) = 
-        match dnc with
-        | DockNodeConfig.Vertical (weight,children) -> 
-            let test = children |> List.map(fun x -> getAllDockElements x )
-            test |> List.concat  
-        | DockNodeConfig.Horizontal (weight,children) -> 
-            let test = children |> List.map(fun x -> getAllDockElements x )
-            test |> List.concat 
-        | DockNodeConfig.Stack (weight,activeId,children) -> children 
-        | DockNodeConfig.Element element -> [element] 
-    
-    let updateClosedPages (m: Model) (dncUpdated: DockNodeConfig) =
-        let de = getAllDockElements m.scene.dockConfig.content
-        let deUpdated = getAllDockElements dncUpdated
-        let diff = ((Set.ofList de) - (Set.ofList deUpdated)) |> Set.toList
-        // diff contains all changed elements (not only the deleted)
-        match diff with
-            | [] -> m.scene.closedPages
-            | _ -> 
-                let test = 
-                    diff 
-                    |> List.choose (fun x -> 
-                        match deUpdated |> List.filter(fun y -> y.id = x.id) with
-                        | [] -> Some x
-                        | _  -> None)                
-                List.append m.scene.closedPages test 
-                   
-    let private addDockElement (dnc: DockNodeConfig) (de: DockElement) = 
-        match dnc with
-        | DockNodeConfig.Vertical (weight,children) -> let add = List.append children [(Stack(weight, None, [de]))]
-                                                       Horizontal(weight,add)
-        | DockNodeConfig.Horizontal (weight,children) -> let add = List.append children [(Stack(weight, None, [de]))]
-                                                         Horizontal(weight,add) 
-        | DockNodeConfig.Stack (weight,activeId,children) -> Stack(weight, activeId, List.append [de] children)
-        | DockNodeConfig.Element element ->  Stack(0.2, None, List.append [de] [element]) 
 
     let private createMultiSelectBox (startPoint: V2i) (viewPortSize: V2i) (currentPoint: V2i) =
         let clippingBox = Box2i.FromSize viewPortSize
@@ -1564,17 +1529,16 @@ module ViewerApp =
             if s.IsEmptyOrNull() |> not then 
                 Log.line "[Viewer.fs] No Action %A" s
             m                   
-        | UpdateDockConfig dcf,_ ->
-            let closedPages = updateClosedPages m dcf.content
-            { m with scene = { m.scene with dockConfig = dcf; closedPages = closedPages } }
-        | AddPage de,_ -> 
-            let closedPages = m.scene.closedPages |> List.filter(fun x -> x.id <> de.id)                
-            let cont = addDockElement m.scene.dockConfig.content de
-            let dockconfig = config {content(cont);appName "PRo3D"; useCachedConfig false }
-            { m with scene = { m.scene with dockConfig = dockconfig; closedPages = closedPages } }
+        | GoldenLayoutMessage msg, _ ->
+            let golden = m.scene.goldenLayout |> GoldenLayout.update msg
+            { m with scene = { m.scene with goldenLayout = golden } }
+        | StoreCurrentLayout jsonStr, _ ->
+            let layout = GoldenLayout.Json.deserialize jsonStr
+            { m with scene = { m.scene with goldenLayout = { m.scene.goldenLayout with DefaultLayout = layout } } }
         | UpdateUserFeedback s,_ ->   { m with scene = { m.scene with userFeedback = s } }
-        | ChangeDashboardMode mode, _ -> 
-            { m with scene = { m.scene with dockConfig = mode.dockConfig }; dashboardMode = mode.name }
+        | ChangeDashboardMode mode, _ ->
+            let golden = m.scene.goldenLayout |> GoldenLayout.update (GoldenLayout.Message.SetWindowLayout mode.layout)
+            { m with scene = { m.scene with goldenLayout = golden }; dashboardMode = mode.name }
         //| StartImportMessaging sl,_,_ -> 
         //    sl |> ImportDiscoveredSurfaces |> ViewerAction |> mailbox.Post
         //    { m with scene = { m.scene with userFeedback = "Import OPCs..." } }
