@@ -856,6 +856,8 @@ module ViewerUtils =
             member x.UpVS : V3f = uniform?UpVS
             member x.TextureDepth : float32 = uniform?TextureDepth
             member x.CurtainBaseColor : V4f = uniform?CurtainBaseColor
+            // 1 = absolute altitude-band texture mapping, 0 = surface-relative
+            member x.CurtainAbsoluteMode : int = uniform?CurtainAbsoluteMode
 
         let curtainVertex (v : CurtainVertex) =
             vertex {
@@ -897,18 +899,28 @@ module ViewerUtils =
                 let texDepth  = uniform.TextureDepth
                 let baseColor = uniform.CurtainBaseColor
                 let totalD    = v.totalDepth
-                // v.tc.Y = 1.0 at surface, 0.0 at bottom
+                // v.tc.Y = 1.0 at surface, 0.0 at bottom; distFromSurface grows downward
                 let distFromSurface = (1.0f - v.tc.Y) * totalD
-                // surfElev is pre-offset on CPU: (elevation - texStartAlt)
-                // so fragRelAlt = 0 means "at texture start altitude"
-                let fragRelAlt = v.surfElev - distFromSurface
-                // Texture band: from 0 down to -texDepth (relative to start alt)
-                if fragRelAlt <= 0.0f && fragRelAlt >= -texDepth && texDepth > 0.0f then
-                    // Remap: V=1 at top (fragRelAlt=0), V=0 at bottom (fragRelAlt=-texDepth)
-                    let t = (fragRelAlt + texDepth) / texDepth
-                    return curtainSampler.Sample(V2f(v.tc.X, t))
+                if uniform.CurtainAbsoluteMode = 1 then
+                    // Absolute mode: texture occupies the absolute altitude band
+                    // [texStartAlt - texDepth, texStartAlt]. surfElev is pre-offset on
+                    // CPU: (elevation - texStartAlt), so fragRelAlt = 0 at texStartAlt.
+                    let fragRelAlt = v.surfElev - distFromSurface
+                    if fragRelAlt <= 0.0f && fragRelAlt >= -texDepth && texDepth > 0.0f then
+                        // V=1 at top (fragRelAlt=0), V=0 at bottom (fragRelAlt=-texDepth)
+                        let t = (fragRelAlt + texDepth) / texDepth
+                        return curtainSampler.Sample(V2f(v.tc.X, t))
+                    else
+                        return baseColor
                 else
-                    return baseColor
+                    // Surface-relative mode: texture starts on the surface and drapes
+                    // down texDepth metres, independent of absolute altitude.
+                    if distFromSurface <= texDepth && texDepth > 0.0f then
+                        // V=1 at surface (distFromSurface=0), V=0 at texDepth down
+                        let t = 1.0f - distFromSurface / texDepth
+                        return curtainSampler.Sample(V2f(v.tc.X, t))
+                    else
+                        return baseColor
             }
 
     let objEffect =
@@ -1314,6 +1326,7 @@ module ViewerUtils =
                             |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
                             |> Sg.uniform "UpVS" (AVal.constant upVS)
                             |> Sg.uniform "TextureDepth" (AVal.constant (float32 texDepth))
+                            |> Sg.uniform "CurtainAbsoluteMode" (AVal.constant (if absMode then 1 else 0))
                             |> Sg.uniform "CurtainBaseColor" (AVal.constant (baseColor.ToC4f().ToV4f()))
                             |> Sg.cullMode (AVal.constant CullMode.None)
                             |> Sg.noEvents

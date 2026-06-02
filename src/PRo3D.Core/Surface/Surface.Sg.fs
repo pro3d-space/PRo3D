@@ -479,11 +479,16 @@ module Sg =
                                         let pLocal = V3d positions.[i]
                                         let pWorld = r.info.Local2Global.TransformPos pLocal
                                         let q2 = PRo3D.Base.Annotation.CrossSection.projectTo2d basis pWorld
-                                        let inside =
-                                            q2.AnyNaN || 
-                                            poly.Contains q2
-                                        let s = if inside then -1.0f else 1.0f
-                                        arr.[i] <- V4f(s, 0.0f, 0.0f, 0.0f)
+                                        // Signed distance to the polygon boundary (negative inside),
+                                        // interpolated across triangles so the clip edge is smooth
+                                        // rather than snapping to mesh-edge midpoints.
+                                        let signed =
+                                            if q2.AnyNaN then -1.0f
+                                            else
+                                                let closest = poly.GetClosestPointOn q2
+                                                let d = float32 (q2 - closest).Length
+                                                if poly.Contains q2 then -d else d
+                                        arr.[i] <- V4f(signed, 0.0f, 0.0f, 0.0f)
                                     //Log.stop()
                                     AVal.constant (ArrayBuffer(arr) :> IBuffer)
                                 | None ->

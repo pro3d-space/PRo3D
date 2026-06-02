@@ -48,6 +48,18 @@ module CrossSectionApp =
     let viewCurtainSettings (model : AdaptiveCrossSectionModel) =
         require GuiEx.semui (
             Html.table [
+                Html.row "Cross Section:" [
+                    Incremental.div AttributeMap.empty (
+                        alist {
+                            let! cs = model.crossSection
+                            match cs with
+                            | Some _ ->
+                                yield button [clazz "ui red button"; onClick (fun _ -> ClearCrossSection)] [text "Remove"]
+                            | None ->
+                                yield text "none (create one from an annotation)"
+                        }
+                    )
+                ]
                 Html.row "Curtain:"           [ GuiEx.iconCheckBox model.curtainEnabled ToggleCurtainEnabled ]
                 Html.row "Absolute Altitude:" [ GuiEx.iconCheckBox model.curtainAbsoluteMode ToggleCurtainAbsoluteMode ]
                 Html.row "Texture Path:"      [
