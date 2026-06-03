@@ -49,6 +49,7 @@ module SurfaceProperties =
         | SetFilterDistance of Numeric.Action
         | ToggleHighlightSelected
         | ToggleHighlightAlways
+        | ToggleWhiteDiscardEnabled
         | PrintIdToConsole
 
     let update (model : Surface) (act : Action) =
@@ -122,6 +123,8 @@ module SurfaceProperties =
             { model with highlightSelected = not model.highlightSelected }
         | ToggleHighlightAlways ->
             { model with highlightAlways = not model.highlightAlways }
+        | ToggleWhiteDiscardEnabled ->
+            { model with whiteDiscardEnabled = not model.whiteDiscardEnabled }
         | PrintIdToConsole ->
             Log.line "\nname: %s"(model.name)
             Log.line "id  : %s"(model.guid.ToString())
@@ -236,6 +239,10 @@ module SurfaceProperties =
                         yield UI.dropDown'' (ColorMaps.colorMaps |> Map.toSeq |> Seq.map fst |> AList.ofSeq) (toColorMapName tf.tf |> AVal.constant) (fun x -> SetColorMappingName x) (fun s -> s)
                     ]
                 | _ -> ()
+
+                let! path = model.importPath
+                if path.EndsWith(".obj", StringComparison.OrdinalIgnoreCase) then
+                    yield Html.row "Discard White:" [GuiEx.iconCheckBox model.whiteDiscardEnabled ToggleWhiteDiscardEnabled]
 
                 yield Html.row ""  [button [clazz "ui button tiny"; onClick (fun _ -> PrintIdToConsole )] [text "print id"]]
             }

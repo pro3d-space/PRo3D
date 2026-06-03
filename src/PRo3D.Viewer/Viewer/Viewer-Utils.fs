@@ -728,8 +728,8 @@ module ViewerUtils =
         }
 
         let fixAlpha (v : Vertex) =
-            fragment {         
-               return V4f(v.c.X, v.c.Y,v.c.Z, 1.0f)           
+            fragment {
+               return V4f(v.c.X, v.c.Y,v.c.Z, 1.0f)
             }
 
         type UniformScope with
@@ -935,8 +935,8 @@ module ViewerUtils =
 
             Shader.textureOrLightingIfPossible |> toEffect
 
-            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
-            Shader.mapColorAdaption  |> toEffect   
+            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColorDiscardWhite |> toEffect
+            Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
         ]
@@ -1192,13 +1192,20 @@ module ViewerUtils =
                             view
 
 
-                    let surfaceSg = 
+                    let whiteDiscardEnabled =
+                        m.scene.surfacesModel.surfaces.flat
+                        |> AMap.tryFind guid
+                        |> AVal.bind (function
+                            | Some (AdaptiveSurfaces s) -> s.whiteDiscardEnabled
+                            | _ -> AVal.constant false)
+
+                    let surfaceSg =
                         match surface.isObj with
-                        | true -> 
-                            s 
-                            |> Sg.effect [
-                                objEffect
-                            ] 
+                        | true ->
+                            s
+                            |> Sg.effect [objEffect]
+                            |> Sg.uniform "WhiteDiscardEnabled"   whiteDiscardEnabled
+                            |> Sg.uniform "WhiteDiscardThreshold" (AVal.constant 0.9f)
                         | false -> 
                             s
                             |> Sg.effect [surfaceEffect] 

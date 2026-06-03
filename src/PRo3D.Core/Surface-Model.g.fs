@@ -196,6 +196,7 @@ type AdaptiveSurface(value : Surface) =
     let _contourModel_ = PRo3D.Core.AdaptiveContourLineModel(value.contourModel)
     let _highlightSelected_ = FSharp.Data.Adaptive.cval(value.highlightSelected)
     let _highlightAlways_ = FSharp.Data.Adaptive.cval(value.highlightAlways)
+    let _whiteDiscardEnabled_ = FSharp.Data.Adaptive.cval(value.whiteDiscardEnabled)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Surface) = AdaptiveSurface(value)
@@ -239,6 +240,7 @@ type AdaptiveSurface(value : Surface) =
             _contourModel_.Update(value.contourModel)
             _highlightSelected_.Value <- value.highlightSelected
             _highlightAlways_.Value <- value.highlightAlways
+            _whiteDiscardEnabled_.Value <- value.whiteDiscardEnabled
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = _guid_ :> FSharp.Data.Adaptive.aval<SurfaceId>
@@ -276,6 +278,7 @@ type AdaptiveSurface(value : Surface) =
     member __.contourModel = _contourModel_
     member __.highlightSelected = _highlightSelected_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.highlightAlways = _highlightAlways_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.whiteDiscardEnabled = _whiteDiscardEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SurfaceLenses = 
     type Surface with
@@ -315,6 +318,7 @@ module SurfaceLenses =
         static member contourModel_ = ((fun (self : Surface) -> self.contourModel), (fun (value : PRo3D.Core.ContourLineModel) (self : Surface) -> { self with contourModel = value }))
         static member highlightSelected_ = ((fun (self : Surface) -> self.highlightSelected), (fun (value : Microsoft.FSharp.Core.bool) (self : Surface) -> { self with highlightSelected = value }))
         static member highlightAlways_ = ((fun (self : Surface) -> self.highlightAlways), (fun (value : Microsoft.FSharp.Core.bool) (self : Surface) -> { self with highlightAlways = value }))
+        static member whiteDiscardEnabled_ = ((fun (self : Surface) -> self.whiteDiscardEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Surface) -> { self with whiteDiscardEnabled = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveSgSurface(value : SgSurface) =
     let _trafo_ = Aardvark.UI.Trafos.AdaptiveTransformation(value.trafo)

@@ -101,10 +101,11 @@ module SurfaceUtils =
             
             contourModel = ContourLineModel.initial
 
-            highlightSelected = true
-            highlightAlways   = false
-        }       
-   
+            highlightSelected   = true
+            highlightAlways     = false
+            whiteDiscardEnabled = false
+        }
+
     module ObjectFiles =        
         open Aardvark.Geometry
         open Aardvark.Data.Wavefront
