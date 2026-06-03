@@ -16,6 +16,7 @@ open Chiron
 
 type TraversePropertiesAction =
     | ToggleShowText
+    | ToggleFastText
     | ToggleshowRimfaxSurfaces
     | ToggleShowLines
     | ToggleShowDots
@@ -499,6 +500,9 @@ type Traverse =
       selectedSol: option<int>
       showLines: bool
       showText: bool
+      // false = numerically stable per-label text (slower, no jitter at distance);
+      // true = batched billboard text (fast, but jitters at planet scale)
+      fastText: bool
       showRimfaxSurfaces: bool
       tTextSize: NumericInput
       tLineWidth: NumericInput
@@ -553,6 +557,7 @@ module Traverse =
         selectedSol = None
         showLines = true
         showText = false
+        fastText = true
         tTextSize = InitTraverseParams.tText
         tLineWidth = InitTraverseParams.tLineW 1.5
         showDots = false
@@ -681,8 +686,9 @@ module Traverse =
 
             let! showRimfaxSurfaces = Json.read "showRimfaxSurfaces"
             let! rimfaxRootDirectory = Json.read "rimfaxRootDirectory"
+            let! fastText = Json.tryRead "fastText"
 
-            let tLineWidth = 
+            let tLineWidth =
                 match tLWidth with
                 | Some w -> InitTraverseParams.tLineW w
                 | None -> InitTraverseParams.tLineW 1.5
@@ -697,6 +703,7 @@ module Traverse =
                     selectedSol = None
                     showLines = showLines
                     showText = showText
+                    fastText = fastText |> Option.defaultValue true
                     tTextSize = tTextSize
                     tLineWidth = tLineWidth
                     showDots = showDots
@@ -734,6 +741,7 @@ type Traverse with
             do! Json.write "selectedSol" x.selectedSol
             do! Json.write "showLines" x.showLines
             do! Json.write "showText" x.showText
+            do! Json.write "fastText" x.fastText
             do! Json.writeWith (Ext.toJson<NumericInput, Ext>) "tTextSize" x.tTextSize
             do! Json.write "showDots" x.showDots
             do! Json.write "isVisibleT" x.isVisibleT

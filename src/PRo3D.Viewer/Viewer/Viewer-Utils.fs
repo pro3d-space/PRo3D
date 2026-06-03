@@ -375,27 +375,30 @@ module ViewerUtils =
                     |> Sg.dynamic
 
                
+                // transform the home position into view space on the CPU (double precision)
+                // and hand a clean V3f to the shader; the per-vertex check then runs in the
+                // numerically stable view space (vp), no planet-scale world coords on the GPU
                 let homePositionViewSpace =
                     adaptive {
                         let! homePosition = surf.homePosition
-                        
+
                         match homePosition with
-                        | Some hp -> 
+                        | Some hp ->
                             let! view' = view
                             let mv = (view' |> CameraView.viewTrafo).Forward
-                            return (mv.TransformPos hp.Location)
+                            return V3f (mv.TransformPos hp.Location)
                         | None ->
                             let! bb = surface.globalBB
-                            return bb.Center                        
-                    }               
+                            return V3f bb.Center
+                    }
                     
                 let filterByDistance =
                     adaptive {
                         let! homePosition = surf.homePosition 
                         
                         match homePosition with
-                        | Some _ -> 
-                            return! surf.filterByDistance 
+                        | Some _ ->
+                            return! surf.filterByDistance
                         | None ->
                             return false
                     }  
@@ -425,7 +428,7 @@ module ViewerUtils =
                     |> Sg.uniform "MaxTriangleSize"   triangleFilter  
                     |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
-                    |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
+                    |> Sg.uniform "FilterDistance" (surf.filterDistance.value |> AVal.map float32)
 
 
                     |> Sg.uniform "CursorViewSpace" cusorViewSpace
@@ -715,10 +718,10 @@ module ViewerUtils =
             [<Color>]           c       : V4f
             [<TexCoord>]        tc      : V2f
 
-            [<Semantic("ViewSpacePos")>] 
+            [<Semantic("ViewSpacePos")>]
             vp : V4f
 
-            [<Semantic("FootPrintProj")>] 
+            [<Semantic("FootPrintProj")>]
             tc0     : V4f
 
             [<Normal>] 
@@ -739,8 +742,8 @@ module ViewerUtils =
 
             // filter for distance to home position
             member x.FilterByDistance : bool = x?FilterByDistance
-            member x.FilterDistance : float = x?FilterDistance
-            member x.HomePositionViewSpace : V3d = x?HomePositionViewSpace
+            member x.FilterDistance : float32 = x?FilterDistance
+            member x.HomePositionViewSpace : V3f = x?HomePositionViewSpace
 
 
         // performs all checks in view space
@@ -768,10 +771,10 @@ module ViewerUtils =
                 let validTriangle = disabled || smallTriangle
 
                 if filterDistanceActive then
-                    let filterRange : float32 = float32 uniform.FilterDistance
-                    let homePositionVSp : V3f = uniform?HomePositionViewSpace
+                    let filterRange : float32 = uniform.FilterDistance
+                    let homePositionVSp : V3f = uniform.HomePositionViewSpace
 
-                    let inRange = 
+                    let inRange =
                         (Vec.distance homePositionVSp p0) < filterRange &&
                         (Vec.distance homePositionVSp p1) < filterRange &&
                         (Vec.distance homePositionVSp p2) < filterRange
@@ -792,7 +795,7 @@ module ViewerUtils =
             vertex {
                 let p = uniform.ModelViewProjTrafo * v.pos
 
-                return 
+                return
                     { v with
                         pos = p
                         c = v.c
