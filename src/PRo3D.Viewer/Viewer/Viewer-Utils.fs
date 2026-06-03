@@ -374,16 +374,21 @@ module ViewerUtils =
                     |> Sg.dynamic
 
                
-                let homePosition =
+                // transform the home position into view space on the CPU (double precision)
+                // and hand a clean V3f to the shader; the per-vertex check then runs in the
+                // numerically stable view space (vp), no planet-scale world coords on the GPU
+                let homePositionViewSpace =
                     adaptive {
                         let! homePosition = surf.homePosition
 
                         match homePosition with
                         | Some hp ->
-                            return hp.Location
+                            let! view' = view
+                            let mv = (view' |> CameraView.viewTrafo).Forward
+                            return V3f (mv.TransformPos hp.Location)
                         | None ->
                             let! bb = surface.globalBB
-                            return bb.Center
+                            return V3f bb.Center
                     }
                     
                 let filterByDistance =
@@ -420,7 +425,7 @@ module ViewerUtils =
                     |> addDepthMappingParameters fp
                     |> Sg.uniform "FilterTriangleEnabled" triangleFilterEnabled
                     |> Sg.uniform "MaxTriangleSize"   triangleFilter  
-                    |> Sg.uniform "HomePosition" homePosition
+                    |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
                     |> Sg.uniform "FilterDistance" (surf.filterDistance.value |> AVal.map float32)
 
@@ -712,9 +717,6 @@ module ViewerUtils =
             [<Semantic("ViewSpacePos")>]
             vp : V4f
 
-            [<WorldPosition>]
-            wp : V4f
-
             [<Semantic("FootPrintProj")>]
             tc0     : V4f
 
@@ -737,7 +739,7 @@ module ViewerUtils =
             // filter for distance to home position
             member x.FilterByDistance : bool = x?FilterByDistance
             member x.FilterDistance : float32 = x?FilterDistance
-            member x.HomePosition : V3f = x?HomePosition
+            member x.HomePositionViewSpace : V3f = x?HomePositionViewSpace
 
 
         // performs all checks in view space
@@ -766,12 +768,12 @@ module ViewerUtils =
 
                 if filterDistanceActive then
                     let filterRange : float32 = uniform.FilterDistance
-                    let homePosition : V3f = uniform.HomePosition
+                    let homePositionVSp : V3f = uniform.HomePositionViewSpace
 
                     let inRange =
-                        (Vec.distance homePosition input.P0.wp.XYZ) < filterRange &&
-                        (Vec.distance homePosition input.P1.wp.XYZ) < filterRange &&
-                        (Vec.distance homePosition input.P2.wp.XYZ) < filterRange
+                        (Vec.distance homePositionVSp p0) < filterRange &&
+                        (Vec.distance homePositionVSp p1) < filterRange &&
+                        (Vec.distance homePositionVSp p2) < filterRange
 
                     if validTriangle && inRange then
                         yield { input.P0 with sourceVertexIndex = 0 } 
@@ -794,7 +796,6 @@ module ViewerUtils =
                         pos = p
                         c = v.c
                         vp = uniform.ModelViewTrafo * v.pos
-                        wp = uniform.ModelTrafo * v.pos
                     }
             }
 
