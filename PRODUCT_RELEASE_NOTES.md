@@ -1,3 +1,13 @@
+## 5.9.0-prerelease1
+- **Cross sections (experimental preview).** Place a cross section from a line annotation and render an extruded "curtain" along it. This is a preview feature; its model and UI may still change.
+  - curtain: surface-relative texture mapping, smoother cross-section clip edge, adjustable base colour, and a button to remove a placed cross section
+- Traverse: added a "Fast Text" toggle for sol-number labels — fast batched billboards (default) or numerically stable per-label rendering that does not jitter at distance
+- Surface distance filter: fixed — it previously clipped the entire surface and ignored the distance value; now works correctly in stable view space
+- Sequenced bookmarks: fixed a crash (NullReferenceException) when playing a sequence containing bookmarks with identical / coincident camera positions
+- Camera & picking: fixed surface picks and placements firing while navigating — e.g. placing a coordinate system and then orbiting no longer re-places it
+- OBJ surfaces: added a white-pixel discard render stage (with GUI checkbox) and a threshold modifier in surface properties
+- removed debug logging that spammed the console during animation
+
 ## 5.6.0-prerelease2
 - added cross sections
 
