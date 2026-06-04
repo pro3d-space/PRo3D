@@ -129,14 +129,14 @@ else true, []
 
 It mirrors how `c07773ab` gated navigation at emission — picking is now gated the
 same way, at the spawn — and it covers every interaction routed through
-`matchPickingInteraction` at once. Because it gates only the click (not the shared
-`surfacePicking`), the hover preview cursor **stays visible during navigation**.
+`matchPickingInteraction` at once.
 
-We dropped our own redundant fix (which had gated the shared `surfacePicking`, also
-hiding the preview during navigation) in favour of #608 during the branch
-integration. See `docs/story-picking-during-navigation.md` for the full story.
+We dropped our own redundant fix in favour of #608 during the branch integration,
+then applied the **same `&& (ctrl <> inverse)` gate to the Move/preview handler** so
+the hover preview cursor is hidden while navigating too. See
+`docs/story-picking-during-navigation.md` for the full story.
 
-**Files.** `Viewer-Utils.fs` (upstream #608).
+**Files.** `Viewer-Utils.fs` (upstream #608 + preview-handler gate).
 
 **Other arms collapsed by `c07773ab`** (assessed, no action taken): `SetCamera`,
 `SetCameraAndFrustum`, `SetCameraAndFrustum2`, `HeightValidation` (were nav-only,

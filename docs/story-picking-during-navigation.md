@@ -143,9 +143,12 @@ yield SceneEventKind.Click, (fun sceneHit ->
 ```
 
 This is the "gate only the click" variant from the section above — observably the
-same as gating the consuming arm, but more efficient (no no-op action spawned), and
-it leaves the **preview cursor visible during navigation**. We adopted it and dropped
-our own (redundant) `surfacePicking` ctrl-gate.
+same as gating the consuming arm, but more efficient (no no-op action spawned). We
+adopted it and dropped our own (redundant) `surfacePicking` ctrl-gate.
+
+On top of #608 we also applied the **same `&& (ctrl <> inverse)` gate to the Move
+handler**, so the hover preview cursor is hidden while navigating too (the chosen
+behavior). Both handlers now spawn only in picking mode.
 
 ## Takeaways
 
@@ -155,10 +158,9 @@ our own (redundant) `surfacePicking` ctrl-gate.
 - The single click spawn point is the right place to gate "are we allowed to pick" —
   it feeds `matchPickingInteraction`, so all place/pick interactions are covered at
   once.
-- The hover preview cursor and the actual pick share `surfacePicking`. #608 keeps
-  them separate by gating only the click, so the preview cursor stays visible while
-  navigating. If the preview should also be hidden during navigation, add the same
-  `&& (ctrl <> inverse)` check to the Move handler.
+- The hover preview cursor and the actual pick are gated independently (each
+  handler checks `ctrl <> inverse` itself). #608 gated only the click; we then
+  gated the Move handler too, so neither fires during navigation.
 
 ## Upstream / follow-up
 
