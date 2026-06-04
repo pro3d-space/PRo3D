@@ -50,6 +50,7 @@ module SurfaceProperties =
         | ToggleHighlightSelected
         | ToggleHighlightAlways
         | ToggleWhiteDiscardEnabled
+        | SetWhiteDiscardThreshold of Numeric.Action
         | PrintIdToConsole
 
     let update (model : Surface) (act : Action) =
@@ -125,6 +126,8 @@ module SurfaceProperties =
             { model with highlightAlways = not model.highlightAlways }
         | ToggleWhiteDiscardEnabled ->
             { model with whiteDiscardEnabled = not model.whiteDiscardEnabled }
+        | SetWhiteDiscardThreshold a ->
+            { model with whiteDiscardThreshold = Numeric.update model.whiteDiscardThreshold a }
         | PrintIdToConsole ->
             Log.line "\nname: %s"(model.name)
             Log.line "id  : %s"(model.guid.ToString())
@@ -242,7 +245,8 @@ module SurfaceProperties =
 
                 let! path = model.importPath
                 if path.EndsWith(".obj", StringComparison.OrdinalIgnoreCase) then
-                    yield Html.row "Discard White:" [GuiEx.iconCheckBox model.whiteDiscardEnabled ToggleWhiteDiscardEnabled]
+                    yield Html.row "Discard White:"     [GuiEx.iconCheckBox model.whiteDiscardEnabled ToggleWhiteDiscardEnabled]
+                    yield Html.row "White Threshold:"   [Numeric.view' [NumericInputType.InputBox] model.whiteDiscardThreshold |> UI.map SetWhiteDiscardThreshold]
 
                 yield Html.row ""  [button [clazz "ui button tiny"; onClick (fun _ -> PrintIdToConsole )] [text "print id"]]
             }

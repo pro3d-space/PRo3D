@@ -101,9 +101,10 @@ module SurfaceUtils =
             
             contourModel = ContourLineModel.initial
 
-            highlightSelected   = true
-            highlightAlways     = false
-            whiteDiscardEnabled = false
+            highlightSelected     = true
+            highlightAlways       = false
+            whiteDiscardEnabled   = false
+            whiteDiscardThreshold = Surface.Initial.whiteDiscardThreshold 0.9
         }
 
     module ObjectFiles =        

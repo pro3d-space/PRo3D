@@ -1195,12 +1195,18 @@ module ViewerUtils =
                             view
 
 
+                    let surfaceLookup =
+                        m.scene.surfacesModel.surfaces.flat |> AMap.tryFind guid
+
                     let whiteDiscardEnabled =
-                        m.scene.surfacesModel.surfaces.flat
-                        |> AMap.tryFind guid
-                        |> AVal.bind (function
+                        surfaceLookup |> AVal.bind (function
                             | Some (AdaptiveSurfaces s) -> s.whiteDiscardEnabled
                             | _ -> AVal.constant false)
+
+                    let whiteDiscardThreshold =
+                        surfaceLookup |> AVal.bind (function
+                            | Some (AdaptiveSurfaces s) -> s.whiteDiscardThreshold.value |> AVal.map float32
+                            | _ -> AVal.constant 0.9f)
 
                     let surfaceSg =
                         match surface.isObj with
@@ -1208,7 +1214,7 @@ module ViewerUtils =
                             s
                             |> Sg.effect [objEffect]
                             |> Sg.uniform "WhiteDiscardEnabled"   whiteDiscardEnabled
-                            |> Sg.uniform "WhiteDiscardThreshold" (AVal.constant 0.9f)
+                            |> Sg.uniform "WhiteDiscardThreshold" whiteDiscardThreshold
                         | false -> 
                             s
                             |> Sg.effect [surfaceEffect] 
