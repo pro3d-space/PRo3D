@@ -1,49 +1,28 @@
-﻿namespace PRo3D.Viewer
+namespace PRo3D.Viewer
 
-open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 
 type DashboardMode =
     {
-        dockConfig : DockConfig
-        name       : string
+        layout : WindowLayout
+        name   : string
     }
 
 module DashboardModes =
     let comparison =
-        {
-            name       = "Comparison"
-            dockConfig = DockConfigs.comparison
-        }
-  
+        { name = "Comparison"; layout = DockConfigs.comparison }
+
     let core =
-        {
-            name       = "Core"
-            dockConfig = DockConfigs.core
-        }
+        { name = "Core"; layout = DockConfigs.core }
 
     let renderOnly =
-        {
-            name       = "3D-View Only"
-            dockConfig = DockConfigs.renderOnly
-        }
+        { name = "3D-View Only"; layout = DockConfigs.renderOnly }
 
     let defaultDashboard =
-        {
-            name = "default"
-            dockConfig = DockConfigs.m2020
-        }
+        { name = "default"; layout = DockConfigs.m2020 }
 
     let provenance =
-        {
-            name       = "Provenance"
-            dockConfig = DockConfigs.provenance
-        }
-
+        { name = "Provenance"; layout = DockConfigs.provenance }
 
     let gis =
-        {
-            name       = "GIS"
-            dockConfig = DockConfigs.gis
-        }
-
-    
+        { name = "GIS"; layout = DockConfigs.gis }
