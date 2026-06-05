@@ -515,11 +515,14 @@ module ViewerUtils =
                     |> Sg.withEvents [
                         if Config.previewIntersections  then
                             yield SceneEventKind.Move, (
-                                fun sceneHit -> 
-                                    if previewPickingEnabled.GetValue() then
-                                        let name  = surf.name |> AVal.force        
-                                        let surfacePicking = surfacePicking |> AVal.force
-                                        true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                                fun sceneHit ->
+                                    let surfacePicking = surfacePicking |> AVal.force
+                                    let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
+                                    // only show the preview cursor while in picking mode (ctrl held,
+                                    // modulo invert) - no preview while navigating the camera
+                                    if previewPickingEnabled.GetValue() && surfacePicking && surfacePickingActivated then
+                                        let name  = surf.name |> AVal.force
+                                        true, Seq.ofList [PreviewPickSurface (sceneHit, name, true)]
                                     else
                                         true, Seq.empty
                             )
