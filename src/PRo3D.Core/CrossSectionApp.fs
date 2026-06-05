@@ -19,6 +19,7 @@ type CrossSectionAction =
     | SetCurtainTextureDepth          of Numeric.Action
     | SetCurtainTextureStartAltitude  of Numeric.Action
     | ChangeCurtainBaseColor          of ColorPicker.Action
+    | ToggleClippingEnabled
 
 module CrossSectionApp =
 
@@ -44,6 +45,8 @@ module CrossSectionApp =
             { model with curtainTextureStartAltitude = Numeric.update model.curtainTextureStartAltitude a }
         | ChangeCurtainBaseColor a ->
             { model with curtainBaseColor = ColorPicker.update model.curtainBaseColor a }
+        | ToggleClippingEnabled ->
+            { model with clippingEnabled = not model.clippingEnabled }
 
     let viewCurtainSettings (model : AdaptiveCrossSectionModel) =
         require GuiEx.semui (
@@ -60,6 +63,7 @@ module CrossSectionApp =
                         }
                     )
                 ]
+                Html.row "Clipping:"          [ GuiEx.iconCheckBox model.clippingEnabled ToggleClippingEnabled ]
                 Html.row "Curtain:"           [ GuiEx.iconCheckBox model.curtainEnabled ToggleCurtainEnabled ]
                 Html.row "Absolute Altitude:" [ GuiEx.iconCheckBox model.curtainAbsoluteMode ToggleCurtainAbsoluteMode ]
                 Html.row "Texture Path:"      [

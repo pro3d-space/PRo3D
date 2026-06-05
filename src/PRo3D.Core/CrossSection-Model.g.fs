@@ -21,6 +21,7 @@ type AdaptiveCrossSectionModel(value : CrossSectionModel) =
     let _curtainTextureDepth_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.curtainTextureDepth)
     let _curtainTextureStartAltitude_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.curtainTextureStartAltitude)
     let _curtainBaseColor_ = Aardvark.UI.AdaptiveColorInput(value.curtainBaseColor)
+    let _clippingEnabled_ = FSharp.Data.Adaptive.cval(value.clippingEnabled)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : CrossSectionModel) = AdaptiveCrossSectionModel(value)
@@ -38,6 +39,7 @@ type AdaptiveCrossSectionModel(value : CrossSectionModel) =
             _curtainTextureDepth_.Update(value.curtainTextureDepth)
             _curtainTextureStartAltitude_.Update(value.curtainTextureStartAltitude)
             _curtainBaseColor_.Update(value.curtainBaseColor)
+            _clippingEnabled_.Value <- value.clippingEnabled
     member __.Current = __adaptive
     member __.crossSection = _crossSection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<CrossSection>>
     member __.curtainEnabled = _curtainEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -48,8 +50,9 @@ type AdaptiveCrossSectionModel(value : CrossSectionModel) =
     member __.curtainTextureDepth = _curtainTextureDepth_
     member __.curtainTextureStartAltitude = _curtainTextureStartAltitude_
     member __.curtainBaseColor = _curtainBaseColor_
+    member __.clippingEnabled = _clippingEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-module CrossSectionModelLenses = 
+module CrossSectionModelLenses =
     type CrossSectionModel with
         static member crossSection_ = ((fun (self : CrossSectionModel) -> self.crossSection), (fun (value : Microsoft.FSharp.Core.Option<CrossSection>) (self : CrossSectionModel) -> { self with crossSection = value }))
         static member curtainEnabled_ = ((fun (self : CrossSectionModel) -> self.curtainEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : CrossSectionModel) -> { self with curtainEnabled = value }))
@@ -60,4 +63,5 @@ module CrossSectionModelLenses =
         static member curtainTextureDepth_ = ((fun (self : CrossSectionModel) -> self.curtainTextureDepth), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : CrossSectionModel) -> { self with curtainTextureDepth = value }))
         static member curtainTextureStartAltitude_ = ((fun (self : CrossSectionModel) -> self.curtainTextureStartAltitude), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : CrossSectionModel) -> { self with curtainTextureStartAltitude = value }))
         static member curtainBaseColor_ = ((fun (self : CrossSectionModel) -> self.curtainBaseColor), (fun (value : Aardvark.UI.ColorInput) (self : CrossSectionModel) -> { self with curtainBaseColor = value }))
+        static member clippingEnabled_ = ((fun (self : CrossSectionModel) -> self.clippingEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : CrossSectionModel) -> { self with clippingEnabled = value }))
 

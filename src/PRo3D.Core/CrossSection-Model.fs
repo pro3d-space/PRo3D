@@ -36,6 +36,7 @@ type CrossSectionModel = {
     curtainTextureDepth          : NumericInput
     curtainTextureStartAltitude  : NumericInput
     curtainBaseColor             : ColorInput
+    clippingEnabled              : bool
 }
 
 module CrossSectionModel =
@@ -62,6 +63,7 @@ module CrossSectionModel =
             step = 10.0; format = "{0:0}"
         }
         curtainBaseColor = { c = C4b.Gray }
+        clippingEnabled  = true
     }
 
 module CrossSectionGeometry =
@@ -126,6 +128,7 @@ type CrossSectionModel with
                 match curtainBaseColorOpt with
                 | Some (_ : Chiron.Json) -> Json.readWith Ext.fromJson<ColorInput,Ext> "curtainBaseColor"
                 | None -> json { return initial.curtainBaseColor }
+            let! clippingEnabled = Json.tryRead "clippingEnabled"
 
             return {
                 crossSection          = crossSection          |> Option.flatten
@@ -137,6 +140,7 @@ type CrossSectionModel with
                 curtainTextureDepth   = curtainTextureDepth
                 curtainTextureStartAltitude = curtainTextureStartAltitude
                 curtainBaseColor      = curtainBaseColor
+                clippingEnabled      = clippingEnabled |> Option.defaultValue true
             }
         }
     static member ToJson (x : CrossSectionModel) =
@@ -150,4 +154,5 @@ type CrossSectionModel with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "curtainTextureDepth"  x.curtainTextureDepth
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "curtainTextureStartAltitude" x.curtainTextureStartAltitude
             do! Json.writeWith (Ext.toJson<ColorInput,Ext>)   "curtainBaseColor"     x.curtainBaseColor
+            do! Json.write "clippingEnabled"       x.clippingEnabled
         }

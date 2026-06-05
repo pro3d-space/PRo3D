@@ -489,8 +489,8 @@ let main argv =
         else
             Aardium.run {
                 url renderingUrl   //"http://localhost:4321/?page=main"
-                width 1280
-                height 800
+                width 1920
+                height 840
                 debug true
                 title titlestr
             }

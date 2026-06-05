@@ -841,9 +841,12 @@ module ViewerUtils =
             insideOutside : V4f
         }
 
+        type UniformScope with
+            member x.CrossSectionClippingEnabled : bool = x?CrossSectionClippingEnabled
+
         let crossSectionClip (v : CrossSectionVertex) =
             fragment {
-                if v.insideOutside.X < 0.0f then
+                if uniform.CrossSectionClippingEnabled && v.insideOutside.X < 0.0f then
                     discard()
                 return v
             }
@@ -1249,6 +1252,7 @@ module ViewerUtils =
                 |> AMap.toASet
                 |> ASet.map snd
                 |> Sg.set
+                |> Sg.uniform "CrossSectionClippingEnabled" m.scene.crossSectionModel.clippingEnabled
                 |> Sg.applyCrossSection crossSectionData
                 |> Sg.noEvents
 
