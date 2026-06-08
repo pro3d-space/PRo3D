@@ -3,6 +3,8 @@
 open Aardvark.Base
 open Aardvark.Rendering
 
+open Chiron
+
 module ColorMaps =
 
     type Marker = Marker
@@ -23,7 +25,6 @@ module ColorMaps =
         | Passthrough
 
     module TF =
-
         let trySetRamp (f : float -> float -> string -> TF) (tf : TF) =
             match tf with
             | TF.Ramp(min,max,name) -> f min max name
@@ -38,6 +39,39 @@ module ColorMaps =
         let trySetName (name : string) (tf : TF) =
             trySetRamp (fun min max _ -> TF.Ramp(min,max,name)) tf
 
+        let read = 
+            json {
+                let! case  = Json.read "case"
+                match case with
+                | "Ramp" -> 
+                    let! min  = Json.read "min"
+                    let! max  = Json.read "max"
+                    let! name = Json.read "name"
+                    return Ramp(min, max, name)
+                | "Passthrough" ->
+                    return Passthrough
+                | _ ->
+                    return Passthrough // is this ok as a default?
+            }
+
+    type TF with 
+        static member FromJson(_ : TF) =
+            json {
+                return! TF.read
+            }
+        static member ToJson (x : TF) =
+            match x with
+            | Ramp(min, max, name) ->
+                json {
+                    do! Json.write "case" "Ramp"
+                    do! Json.write "min" min
+                    do! Json.write "max" max
+                    do! Json.write "name" name
+                }
+            | Passthrough ->
+                json {
+                    do! Json.write "case" "Passthrough"
+                }
 
 type TextureCombiner =
     | Unknown = 0

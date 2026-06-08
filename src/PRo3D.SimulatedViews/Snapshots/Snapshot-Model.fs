@@ -225,19 +225,21 @@ type PanoramaSnapshotCollection = {
 
 /// a snapshot that uses camera and surface updates
 type SurfaceSnapshot = {
-  filename       : string
-  camera         : SnapshotCamera
-  sunPosition    : option<V3d>
-  lightDirection : option<V3d>
-  surfaceUpdates : option<list<SnapshotSurfaceUpdate>>
-  placementParameters   : option<list<ObjectPlacementParameters>>
-  renderMask     : option<bool>
+    filename              : string
+    camera                : SnapshotCamera
+    nearFarPlane          : option<V2d>
+    sunPosition           : option<V3d>
+    lightDirection        : option<V3d>
+    surfaceUpdates        : option<list<SnapshotSurfaceUpdate>>
+    placementParameters   : option<list<ObjectPlacementParameters>>
+    renderMask            : option<bool>
 }
 with 
   static member fromNameAndCamera filename camera =
     {
         filename             = filename
         camera               = camera
+        nearFarPlane         = None
         sunPosition          = None
         lightDirection       = None
         surfaceUpdates       = None
@@ -247,13 +249,14 @@ with
     }
   static member TestData =
     {
-        filename        = "testname"
-        camera          = SnapshotCamera.TestData
-        sunPosition     = None
-        lightDirection  = Some (V3d(0.0,1.0,0.0))
-        surfaceUpdates  = Some [SnapshotSurfaceUpdate.TestData]
+        filename               = "testname"
+        camera                 = SnapshotCamera.TestData
+        nearFarPlane           = Some (V2d(1.0, 1000000.0))
+        sunPosition            = None
+        lightDirection         = Some (V3d(0.0,1.0,0.0))
+        surfaceUpdates         = Some [SnapshotSurfaceUpdate.TestData]
         placementParameters    = Some [ObjectPlacementParameters.TestData]
-        renderMask      = Some false
+        renderMask             = Some false
     }
   member this.view = 
     CameraView.look this.camera.location 
@@ -262,22 +265,24 @@ with
   static member current = 0
   static member private readV0 = 
       json {
-        let! filename       = Json.read "filename"
-        let! view           = Json.read "view"
-        let! sunPosition    = PRo3D.Base.Json.parseOption (Json.tryRead "sunPosition") V3d.Parse
-        let! lightDirection    = PRo3D.Base.Json.parseOption (Json.tryRead "lightDirection") V3d.Parse
-        let! surfaceUpdates = Json.tryRead "surfaceUpdates"
-        let! placementParameters   = Json.tryRead "shattercones"
+        let! filename            = Json.read "filename"
+        let! view                = Json.read "view"
+        let! nearFarPlane        = PRo3D.Base.Json.parseOption (Json.tryRead "nearFarPlane") V2d.Parse
+        let! sunPosition         = PRo3D.Base.Json.parseOption (Json.tryRead "sunPosition") V3d.Parse
+        let! lightDirection      = PRo3D.Base.Json.parseOption (Json.tryRead "lightDirection") V3d.Parse
+        let! surfaceUpdates      = Json.tryRead "surfaceUpdates"
+        let! placementParameters = Json.tryRead "shattercones"
         let! renderMask     = Json.tryRead "renderMask"
 
         return {
-            filename        = filename
-            camera          = view 
-            sunPosition     = sunPosition
-            lightDirection  = lightDirection
-            surfaceUpdates  = surfaceUpdates 
-            placementParameters    = placementParameters
-            renderMask      = renderMask
+            filename            = filename
+            camera              = view 
+            nearFarPlane        = nearFarPlane
+            sunPosition         = sunPosition
+            lightDirection      = lightDirection
+            surfaceUpdates      = surfaceUpdates 
+            placementParameters = placementParameters
+            renderMask          = renderMask
         }
       }
   static member FromJson(_ : SurfaceSnapshot) = 
@@ -286,18 +291,20 @@ with
     }
   static member ToJson (x : SurfaceSnapshot) =
     json {
-      do! Json.write            "filename"           x.filename
-      do! Json.write            "view"               x.camera
-      if x.lightDirection.IsSome then
-        do! PRo3D.Base.Json.writeOption      "lightDirection"     x.lightDirection
-      if x.sunPosition.IsSome then
-        do! PRo3D.Base.Json.writeOption      "sunPosition"        x.sunPosition 
-      if x.surfaceUpdates.IsSome then
-        do! PRo3D.Base.Json.writeOptionList  "surfaceUpdates"     x.surfaceUpdates (fun x n -> Json.write n x)
-      if x.placementParameters.IsSome then
-        do! PRo3D.Base.Json.writeOptionList  "shattercones"       x.placementParameters (fun x n -> Json.write n x)
-      if x.renderMask.IsSome then
-        do! Json.write            "renderMask"         x.renderMask 
+      do! Json.write                          "filename"           x.filename
+      do! Json.write                          "view"               x.camera
+      if x.nearFarPlane.IsSome then
+          do! PRo3D.Base.Json.writeOption     "nearFarPlane"       x.nearFarPlane
+      if x.lightDirection.IsSome then         
+          do! PRo3D.Base.Json.writeOption     "lightDirection"     x.lightDirection
+      if x.sunPosition.IsSome then            
+          do! PRo3D.Base.Json.writeOption     "sunPosition"        x.sunPosition 
+      if x.surfaceUpdates.IsSome then         
+          do! PRo3D.Base.Json.writeOptionList "surfaceUpdates"     x.surfaceUpdates (fun x n -> Json.write n x)
+      if x.placementParameters.IsSome then    
+          do! PRo3D.Base.Json.writeOptionList "shattercones"       x.placementParameters (fun x n -> Json.write n x)
+      if x.renderMask.IsSome then             
+          do! Json.write                      "renderMask"         x.renderMask 
     }  
 
 type CameraConfiguration =
@@ -325,8 +332,8 @@ type CameraConfiguration =
 /// uses bookmarks once when they start, and camera-only
 /// updates between bookmarks
 type BookmarkTransformation = 
-    | Bookmark of SequencedBookmarks.SequencedBookmarkModel
-    | Camera   of SnapshotCamera
+    | Bookmark      of SequencedBookmarks.SequencedBookmarkModel
+    | Camera        of SnapshotCamera
     | Configuration of CameraConfiguration
 with 
     static member ToJson x =
@@ -382,11 +389,11 @@ type BookmarkSnapshot = {
         }
 
 type BookmarkSnapshotAnimation = {
-  fieldOfView   : option<float>
-  nearplane     : float
-  farplane      : float
-  resolution    : V2i
-  snapshots     : list<BookmarkSnapshot>
+    fieldOfView   : option<float>
+    nearplane     : float
+    farplane      : float
+    resolution    : V2i
+    snapshots     : list<BookmarkSnapshot>
 } with
     static member defaultNearplane = 0.1
     static member defaultFarplane  = 100000.0
@@ -611,7 +618,7 @@ with
             //| Some legacy -> 
             //    return SnapshotAnimation.LegacyAnimation legacy
             //| None ->
-            let! animation = Json.tryRead "CameraAnimation"
+            let! animation = Json.read "CameraAnimation"
             match animation with
             | Some cameraAnimation ->
                 return SnapshotAnimation.CameraAnimation cameraAnimation

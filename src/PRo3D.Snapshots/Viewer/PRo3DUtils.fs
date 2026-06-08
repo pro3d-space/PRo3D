@@ -26,15 +26,19 @@ open System.Collections.Concurrent
             (renderingUrl        : string)
             (dataSamples         : int)
             (screenshotDirectory : string)
-            (viewerVersion       : string) =
+            (viewerVersion       : string)
+            (args                : StartupArgs) =
 
-            let startupArgs = 
-                {StartupArgs.initArgs with isBatchRendering = true}
+            let startupArgs = { args with isBatchRendering = true}
+
             let m = 
                 if startEmpty |> not then
-                    PRo3D.Viewer.Viewer.initial messagingMailbox startupArgs renderingUrl 
+                    let model = 
+                        PRo3D.Viewer.Viewer.initial messagingMailbox startupArgs renderingUrl 
                                                 dataSamples screenshotDirectory ViewerLenses._animator
                                                 viewerVersion
+                    
+                    model 
                     |> SceneLoader.loadLastScene runtime signature                
                     |> SceneLoader.loadLogBrush
                     |> ViewerIO.loadRoverData                
@@ -46,7 +50,7 @@ open System.Collections.Concurrent
                     |> SceneLoader.addScaleBarSegments
                     |> SceneLoader.addGeologicSurfaces
                 else
-                    PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
+                    PRo3D.Viewer.Viewer.initial messagingMailbox startupArgs renderingUrl
                                                 dataSamples screenshotDirectory ViewerLenses._animator
                                                 viewerVersion
                     |> ViewerIO.loadRoverData

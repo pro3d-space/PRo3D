@@ -42,66 +42,66 @@ module internal EnvironmentMap =
             let bits = ((bits &&& suint32 0x33333333u) <<< 2) ||| ((bits &&& suint32 0xCCCCCCCCu) >>> 2)
             let bits = ((bits &&& suint32 0x0F0F0F0Fu) <<< 4) ||| ((bits &&& suint32 0xF0F0F0F0u) >>> 4)
             let bits = ((bits &&& suint32 0x00FF00FFu) <<< 8) ||| ((bits &&& suint32 0xFF00FF00u) >>> 8)
-            float bits * 2.3283064365386963e-10
-            // float RadicalInverse_VdC(uint bits)
+            float32 bits * 2.3283064365386963e-10f
+            // float32 RadicalInverse_VdC(uint bits)
             // {
             //     bits = (bits << 16u) | (bits >> 16u);
             //     bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
             //     bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
             //     bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
             //     bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-            //     return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+            //     return float32(bits) * 2.3283064365386963e-10; // / 0x100000000
             // }
 
         let hammersley (i : int) (n : int) =
-            V2d(float i / float n, radicalInverse (uint32 i))
+            V2f(float32 i / float32 n, radicalInverse (uint32 i))
 
-        let linearToSrgb (v : V4d) =
-            let e = 1.0 / 2.2
-            V4d(v.X ** e, v.Y ** e, v.Z ** e, v.W)
+        let linearToSrgb (v : V4f) =
+            let e = 1.0f / 2.2f
+            V4f(v.X ** e, v.Y ** e, v.Z ** e, v.W)
 
-        let srgbToLinear (v : V4d) =
-            let e = 2.2
-            V4d(v.X ** e, v.Y ** e, v.Z ** e, v.W)
+        let srgbToLinear (v : V4f) =
+            let e = 2.2f
+            V4f(v.X ** e, v.Y ** e, v.Z ** e, v.W)
 
-        let sampleEnv (worldDir : V3d) (roughness : float) =
+        let sampleEnv (worldDir : V3f) (roughness : float32) =
             let z = worldDir
             let x =
-                if abs z.Z > 0.999 then Vec.cross z V3d.OIO |> Vec.normalize
-                else Vec.cross z V3d.OOI |> Vec.normalize
+                if abs z.Z > 0.999f then Vec.cross z V3f.OIO |> Vec.normalize
+                else Vec.cross z V3f.OOI |> Vec.normalize
             let y = Vec.cross z x
 
-            let mutable sum = V4d.Zero
+            let mutable sum = V4f.Zero
             let v = worldDir
             let n = worldDir
             let randSize = rand.Size
             let a = roughness * roughness
             let aSq = a*a
             for i in 0 .. 4096 do
-                //let o = V2d.Zero //hammersley i 1024
+                //let o = V2f.Zero //hammersley i 1024
                 let h =
                     let o = rand.[V2i(i % randSize.X, i / randSize.X)].XY
-                    let phi = o.X * Constant.PiTimesTwo
-                    let mutable cosTheta = 0.0
-                    let mutable sinTheta = 0.0
+                    let phi = o.X * ConstantF.PiTimesTwo
+                    let mutable cosTheta = 0.0f
+                    let mutable sinTheta = 0.0f
                     if uniform.IsDiffuse then
-                        let t = o.Y * Constant.Pi - Constant.PiHalf
+                        let t = o.Y * ConstantF.Pi - ConstantF.PiHalf
                         cosTheta <- cos t
                         sinTheta <- sin t
                     else
-                        cosTheta <- sqrt((1.0 - o.Y) / (1.0 + (aSq - 1.0) * o.Y)) |> clamp -1.0 1.0
-                        sinTheta <- sqrt (1.0 - cosTheta * cosTheta)
+                        cosTheta <- sqrt((1.0f - o.Y) / (1.0f + (aSq - 1.0f) * o.Y)) |> clamp -1.0f 1.0f
+                        sinTheta <- sqrt (1.0f - cosTheta * cosTheta)
                     let fx = cos phi * sinTheta
                     let fy = sin phi * sinTheta
                     let fz = cosTheta
                     Vec.normalize (x * fx + y * fy + z * fz)
 
-                let l = Vec.normalize (2.0 * Vec.dot v h * h - v)
-                let nl = Vec.dot n l |> max 0.0
+                let l = Vec.normalize (2.0f * Vec.dot v h * h - v)
+                let nl = Vec.dot n l |> max 0.0f
 
-                if nl > 0.0 then
-                    let c = skybox.SampleLevel(h, 0.0) |> srgbToLinear |> Vec.xyz
-                    sum <- sum + V4d(c * nl, nl)
+                if nl > 0.0f then
+                    let c = skybox.SampleLevel(h, 0.0f) |> srgbToLinear |> Vec.xyz
+                    sum <- sum + V4f(c * nl, nl)
 
 
             sum.XYZ / sum.W
@@ -110,11 +110,11 @@ module internal EnvironmentMap =
         let sampleFace (v : Effects.Vertex) =
             fragment {
                 let p00 = v.pos.XY / v.pos.W
-                let s00 = uniform.ViewTrafoInv.TransformDir (V3d(p00, -1.0)) |> Vec.normalize
+                let s00 = uniform.ViewTrafoInv.TransformDir (V3f(p00, -1.0f)) |> Vec.normalize
 
-                let roughness = float (uniform.SourceLevel + 1) / float (uniform.LevelCount - 1)
+                let roughness = float32 (uniform.SourceLevel + 1) / float32 (uniform.LevelCount - 1)
                 let res = sampleEnv s00 roughness
-                return linearToSrgb (V4d(res, 1.0))
+                return linearToSrgb (V4f(res, 1.0f))
             }
 
 
@@ -128,20 +128,20 @@ module internal EnvironmentMap =
 
         let samplePano (v : Effects.Vertex) =
             fragment {
-                // let dx = V2d(1.0 / (float uniform.ViewportSize.X), 0.0)
-                // let dy = V2d(0.0, 1.0 / (float uniform.ViewportSize.Y))
+                // let dx = V2f(1.0f / (float32 uniform.ViewportSize.X), 0.0f)
+                // let dy = V2f(0.0f, 1.0f / (float32 uniform.ViewportSize.Y))
 
                 let p00 = v.pos.XY / v.pos.W
                 // let p01 = p00 + dy
                 // let p10 = p00 + dx
                 // let p11 = p00 + dx + dy
 
-                let s00 = uniform.ViewTrafoInv.TransformDir (V3d(p00, -1.0)) |> Vec.normalize
+                let s00 = uniform.ViewTrafoInv.TransformDir (V3f(p00, -1.0f)) |> Vec.normalize
 
-                let x = (atan2 s00.Y s00.X) / Constant.PiTimesTwo + 0.5
-                let y = asin s00.Z / Constant.Pi + 0.5
+                let x = (atan2 s00.Y s00.X) / ConstantF.PiTimesTwo + 0.5f
+                let y = asin s00.Z / ConstantF.Pi + 0.5f
 
-                return pano.SampleLevel(V2d(x,y), 0.0)
+                return pano.SampleLevel(V2f(x,y), 0.0f)
             }
 
     let private faces =
@@ -160,7 +160,7 @@ module internal EnvironmentMap =
         img.GetMatrix<C4f>().SetByIndex (fun _ ->
             rand.UniformV4f().ToC4f()
         ) |> ignore
-        PixTexture2d(PixImageMipMap [| img :> PixImage |], TextureParams.empty) :> ITexture
+        PixTexture2d(img, false) :> ITexture
 
     let levelCount = 8
 

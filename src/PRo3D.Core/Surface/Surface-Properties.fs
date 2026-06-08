@@ -35,6 +35,7 @@ module SurfaceProperties =
         | SetScalarMap   of Option<ScalarLayer>
         | SetPrimaryTexture of Option<TextureLayer>
         | SetSecondaryTexture of Option<TextureLayer>
+        | SetSecondaryTextureChannel of Option<int>
         | SetTransferFunctionMode of Option<string>
         | SetTFMin of float
         | SetTFMax of float
@@ -89,6 +90,8 @@ module SurfaceProperties =
             { model with primaryTexture = texture } |> Console.print
         | SetSecondaryTexture texture ->                
             { model with secondaryTexture = texture } |> Console.print
+        | SetSecondaryTextureChannel channel -> 
+            { model with secondaryTextureLayer = channel } |> Console.print
         | SetTransferFunctionMode (Some name) -> 
             match name with
             | _ when name = ramp -> 
@@ -183,7 +186,7 @@ module SurfaceProperties =
                 yield Html.row "Cull Faces:"        [Html.SemUi.dropDown model.cullMode SetCullMode]
                 yield Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> SetHomePosition )] []] //[text "DiscoverOpcs" ]  
 
-                yield Html.row "OPCx Info path:"    [Incremental.text (model.opcxPath |> AVal.map (function None -> "none" | Some p -> p))]
+                yield Html.row "OPCx Info path:"    [div [style "max-width: 200px"] [Incremental.text (model.opcxPath |> AVal.map (function None -> "none" | Some p -> p))]]
                 yield Html.row "Primary Texture:"   [UI.dropDown'' model.textureLayers model.primaryTexture  (fun x -> SetPrimaryTexture x) (fun x -> x.label)]
                 
                 let tfToName (tf : ColorMaps.TF) =

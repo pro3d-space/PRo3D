@@ -1,6 +1,7 @@
 ﻿namespace PRo3D.Base
 
 open System
+open System.Globalization
 open Adaptify
 open Aardvark.Base
 open FSharp.Data.Adaptive
@@ -43,16 +44,16 @@ module Calendar =
         time : string
     }
 
-    let parseDate (dateString : string) =
-        let sucess, date = DateTime.TryParse dateString
-        if sucess then
+    let parseDate (dateString : string) : System.DateTime =
+        match DateTime.TryParse(dateString, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal) with
+        | (true, date) -> 
             date
-        else
+        | _ -> 
             let dateString = String.trimc '"' dateString
-            let sucess, date = DateTime.TryParse dateString
-            if sucess then
+            match DateTime.TryParse(dateString, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal) with
+            | (true, date) -> 
                 date
-            else
+            | _ -> 
                 Log.error "[Calendar] Could not parse date %s" dateString
                 DateTime.Now
         
@@ -60,7 +61,7 @@ module Calendar =
         Log.warn "[Calendar] %s" (string msg)
         match msg with
         | SetDateString str ->
-            let result = DateTime.TryParse str
+            let result = DateTime.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal)
             match result with
             | true, date ->
                 Log.line "setting date %s" str
@@ -99,9 +100,10 @@ module Calendar =
                 "ui inverted input"
 
 
-        //JS-Standard: YYYY-MM-DDTHH:mm:ss.sss
+        //JS-Standard: YYYY-MM-DDTHH:mm:ss.sssZ
         let toJsString (d : DateTime) =
-            let str = sprintf "%04i-%02i-%02iT%02i:%02i:%02i" 
+            let d = d.ToUniversalTime()
+            let str = sprintf "%04i-%02i-%02iT%02i:%02i:%02iZ" 
                               d.Year d.Month d.Day 
                               d.Hour d.Minute d.Second
             {time = str}

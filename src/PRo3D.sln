@@ -42,6 +42,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{235F058E-E
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "ModelViewer", "ModelViewer\ModelViewer.fsproj", "{15BE1629-0606-4030-9563-270A19978E49}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PRo3D.GIS", "PRo3D.GIS\PRo3D.GIS.fsproj", "{C0ACEFB2-5A0B-449C-8E44-59D1330805B7}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Build", "..\Build.fsproj", "{1DADA6E1-E611-9693-0823-FB65531CDB7E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -92,9 +96,20 @@ Global
 		{15BE1629-0606-4030-9563-270A19978E49}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{15BE1629-0606-4030-9563-270A19978E49}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{15BE1629-0606-4030-9563-270A19978E49}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C0ACEFB2-5A0B-449C-8E44-59D1330805B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0ACEFB2-5A0B-449C-8E44-59D1330805B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0ACEFB2-5A0B-449C-8E44-59D1330805B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0ACEFB2-5A0B-449C-8E44-59D1330805B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1DADA6E1-E611-9693-0823-FB65531CDB7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1DADA6E1-E611-9693-0823-FB65531CDB7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1DADA6E1-E611-9693-0823-FB65531CDB7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1DADA6E1-E611-9693-0823-FB65531CDB7E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1DADA6E1-E611-9693-0823-FB65531CDB7E} = {EC91D5A1-9C4B-45A2-843C-CB687BF9581F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B0415F3B-1BB3-451B-80D6-320B5A942BE7}

@@ -66,8 +66,7 @@ let getFreePort() =
     l.Stop()
     ep.Port
 
-let startApplication (startupArgs : CLStartupArgs) = 
-    GL.RuntimeConfig.UseNewRenderTask <- true
+let startApplication (startupArgs : CLStartupArgs) =
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
       
     // ensure appdata is here
@@ -155,8 +154,9 @@ let startApplication (startupArgs : CLStartupArgs) =
 
         let (mainApp, mModel) =
             SimulatedViews.PRo3DUtils.start 
-                runtime signature false messagingMailbox 
-                sendQueue dumpFile cacheFile uri 8 "" viewerVersion
+                runtime signature startupArgs.startEmpty messagingMailbox 
+                sendQueue dumpFile cacheFile uri 8 "" viewerVersion 
+                { StartupArgs.initArgs with showExplorationPoint = startupArgs.showExplorationPoint; showReferenceSystem = startupArgs.showReferenceSystem }
 
         let s = 
             {MailboxState.empty with update = 
@@ -262,7 +262,6 @@ let main argv =
     // ensure appdata is here
     
     // check if there are command line arguments, and if they are valid
-    Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
     Sg.useAsyncLoading <- false 
     let startupArgs = (SimulatedViews.CommandLine.parseArguments argv)
     match startupArgs.hasValidAnimationArgs with

@@ -18,14 +18,11 @@ module IO =
         |> Json.formatWith JsonFormattingOptions.Pretty 
     
     let saveVersioned (model : DrawingModel) (path : string) =
-        if path.IsNullOrEmpty() then
-            model
-        else
-            Log.startTimed "[Drawing] Writing annotation grouping %s" path
-            getSerialized model
-            |> Serialization.writeToFile path
+        Log.startTimed "[Drawing] Writing annotation grouping %s" path
+        getSerialized model
+        |> Serialization.writeToFile path
 
-            Log.stop()
+        Log.stop()
             
-            model
+        model
 

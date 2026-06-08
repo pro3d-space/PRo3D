@@ -19,6 +19,8 @@ type Planet =
 | Moon = 5
 | Phobos = 6
 | Deimos = 7
+| Didymos = 8
+| Dimorphos = 9
 
 module Planet =
     let inferCoordinateSystem (p : V3d) = //TODO rno
@@ -78,9 +80,11 @@ module CooTransformation =
 
     let tryLoadKernel (kernelDirectory : string) (name : string) = 
         let currentDir = try Directory.GetCurrentDirectory() |> Some with e -> Log.warn "could not set directory, which might be needed for loading spice kernels"; None
-        use __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
+        let __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
         Directory.SetCurrentDirectory(kernelDirectory)
-        let r = CooTransformation.AddSpiceKernel(name)
+        let fullPath = Path.GetFullPath(Path.Combine(kernelDirectory,name))
+        if File.Exists fullPath then () else failwith ("spice kernel file does not exist: " + fullPath)
+        let r = CooTransformation.AddSpiceKernel(fullPath)
         if r <> 0 then
             Log.warn "could not load spice kernel: %s in %s." name kernelDirectory
             None
@@ -130,7 +134,7 @@ module CooTransformation =
                 if not (File.Exists(fullPath)) then
                     defaultKernel
                 else
-                    Path.GetDirectoryName(filePath), Path.GetFileName filePath
+                    Path.GetDirectoryName(fullPath), Path.GetFileName fullPath
 
         Log.line $"[SPICE] kernel location: {spiceDirectory}, kernel file name: {spiceFileName}."
         match tryLoadKernel spiceDirectory spiceFileName with
@@ -156,26 +160,31 @@ module CooTransformation =
 
     let private init = 0.0
 
+    let getLatLonAltPlanet (planet : string) (p:V3d) : SphericalCoo = 
+        let mutable lat = init
+        let mutable lon = init
+        let mutable alt = init
+            
+        let errorCode = CooTransformation.Xyz2LatLonAlt(planet, p.X, p.Y, p.Z, &lat, &lon, &alt)
+            
+        if errorCode <> 0 then
+            Log.line "cootrafo errorcode %A" errorCode
+            
+        {
+            latitude  = lat
+            longitude = lon
+            altitude  = alt
+            radian    = 0.0
+        }
+
+
     let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
         match planet with
         | Planet.None | Planet.JPL | Planet.ENU ->
             { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }
         | _ ->
-            let mutable lat = init
-            let mutable lon = init
-            let mutable alt = init
-            
-            let errorCode = CooTransformation.Xyz2LatLonAlt(planet.ToString(), p.X, p.Y, p.Z, &lat, &lon, &alt)
-            
-            if errorCode <> 0 then
-                Log.line "cootrafo errorcode %A" errorCode
-            
-            {
-                latitude  = lat
-                longitude = lon
-                altitude  = alt
-                radian    = 0.0
-            }
+            getLatLonAltPlanet (planet.ToString()) p
+
 
     let getLatLonRad (p:V3d) : SphericalCoo = 
         let mutable lat = init
@@ -193,20 +202,23 @@ module CooTransformation =
             radian    = rad
         }
 
+    let getXYZFromLatLonAltPlanet (sc : SphericalCoo) (planet : string) : V3d = 
+        let mutable pX = init
+        let mutable pY = init
+        let mutable pZ = init
+        let error = 
+            CooTransformation.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ )
+            
+        if error <> 0 then
+            Log.line "cootrafo errorcode %A" error
+            
+        V3d(pX, pY, pZ)
+
     let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
         match planet with
         | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
         | _ ->
-            let mutable pX = init
-            let mutable pY = init
-            let mutable pZ = init
-            let error = 
-                CooTransformation.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ )
-            
-            if error <> 0 then
-                Log.line "cootrafo errorcode %A" error
-            
-            V3d(pX, pY, pZ)
+            getXYZFromLatLonAltPlanet sc (planet.ToString())
 
     let getXYZFromLatLonAlt' (coordinate :V3d) (planet:Planet) : V3d = 
         match planet with
@@ -248,10 +260,22 @@ module CooTransformation =
         | Planet.ENU  ->  V3d.ZAxis
         | _ ->
             let sc = getLatLonAlt planet p
-            let height = sc.altitude + 100.0
+            let height = sc.altitude + 100.0 // to get stable up vector on planet surface
             
             let v2 = getXYZFromLatLonAlt ({sc with altitude = height}) planet
             (v2 - p).Normalized
+
+
+    let planetFromString (spiceBodyName : string) = 
+        match spiceBodyName.ToLower() with
+        | "earth" -> Some Planet.Earth
+        | "mars"  -> Some Planet.Mars
+        | "moon"  -> Some Planet.Moon
+        | "phobos" -> Some Planet.Phobos
+        | "deimos" -> Some Planet.Deimos
+        | "didymos" -> Some Planet.Didymos
+        | "dimorphos" -> Some Planet.Dimorphos
+        | _       -> None
 
     module SphericalCoo =
         let toV3d (spherical : SphericalCoo) =

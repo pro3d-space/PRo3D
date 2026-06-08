@@ -26,6 +26,11 @@ module ObservationInfo =
             {m with time = {m.time with date = time}}
         | ObservationInfoAction.SetReferenceFrame frame ->
             {m with referenceFrame = frame}
+        | ObservationInfoAction.Reset -> 
+            match m.target with
+            | None -> { m with target = None }
+            | Some (EntitySpiceName n) -> // hack: perform dummy change to trigger recomputation of all parameters 
+                {m with target = Some (EntitySpiceName (n + "")) }
 
     let view (m : AdaptiveObservationInfo)
              (entities : amap<EntitySpiceName, AdaptiveEntity>) 
@@ -65,14 +70,15 @@ module ObservationInfo =
 
         require GuiEx.semui (
             Html.table [                                                
-                Html.row "Observer:" [observerDropdown]
-                Html.row "Target:"   [targetDropdown]
+                Html.row "Observed body:" [observerDropdown]
+                Html.row "Camera source Body"   [targetDropdown]
                 Html.row "Time:"     
                     [
                         Calendar.view m.time false false 
                                       Calendar.CalendarType.DateTime
                     ] |> UI.map CalendarMessage
                 Html.row "Reference Frame:" [frameDropdown]
+                Html.row "Reset" [button [onClick (fun _ -> Reset)] [text "Re-use settings above"]]
             ]
         )
 
