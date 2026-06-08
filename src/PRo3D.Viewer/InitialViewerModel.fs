@@ -1,4 +1,5 @@
-﻿namespace PRo3D.Viewer
+﻿#nowarn  "0044"
+namespace PRo3D.Viewer
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
@@ -69,13 +70,17 @@ module Viewer =
         : Model = 
 
         let defaultDashboard =  DashboardModes.defaultDashboard //DashboardModes.defaultDashboard
+        let defaultDashboard = DashboardModes.gis
         // use this one for PROVEX workflows if needed.
         //let defaultDashboard = DashboardModes.provenance
-        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
-        let viewConfigModel = ViewConfigModel.initial 
+        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020   
+        
+        let viewConfigModel = 
+            { ViewConfigModel.initial with showExplorationPointGui = startupArgs.showExplorationPoint }
 
         let applyProvenaceIfEnabled (m : Model) =
             ProvenanceApp.emptyWithModel startupArgs.enableProvenanceTracking m
+        
         {     
             scene = 
                 {
@@ -89,7 +94,7 @@ module Viewer =
                     config          = viewConfigModel
                     scenePath       = None
 
-                    referenceSystem       = ReferenceSystem.initial                    
+                    referenceSystem       = { ReferenceSystem.initial with isVisible = startupArgs.showReferenceSystem }
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
                     dockConfig            = defaultDockConfig                
@@ -122,6 +127,7 @@ module Viewer =
             picking         = false
             pivotType       = PickPivot.SurfacePivot
             ctrlFlag        = false
+            inverseFlag     = false
 
             messagingMailbox = msgBox
             mailboxState     = MailboxState.empty
@@ -165,7 +171,6 @@ module Viewer =
             viewPortSizes   = HashMap.empty
 
             snapshotThreads      = ThreadPool.empty
-            showExplorationPoint = startupArgs.showExplorationPoint
             heighValidation      = HeightValidatorModel.init()
             
             filterTexture = false
@@ -176,6 +181,10 @@ module Viewer =
             animator            = Animation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid
+            surfaceIntersection   = None
+            ellipseModel = None
+            backgroundPicking = ThreadPool.empty
+            pickPreviewRequested = new ConsumableAsyncValue<_>()
         } |> applyProvenaceIfEnabled
 
 

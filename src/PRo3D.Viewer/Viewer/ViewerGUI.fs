@@ -26,6 +26,7 @@ open PRo3D.SimulatedViews
 open Adaptify
 open FSharp.Data.Adaptive
 open PRo3D.Core.Gis
+open PRo3D.ImageMapping
 
 module Gui =            
     
@@ -37,55 +38,45 @@ module Gui =
         
           return (Calculations.pitch up v.Forward, Calculations.bearing up north v.Forward)
         }
+
+    let falseColorAttributes =
+        [        
+                "display"               => "block"; 
+                "width"                 => "55px"; 
+                "height"                => "75%"; 
+                "preserveAspectRatio"   => "xMidYMid meet"; 
+                "viewBox"               => "0 0 5% 100%" 
+                "style"                 => "position:absolute; left: 0%; top: 25%"
+                "pointer-events"        => "None"
+        ] 
+        |> AttributeMap.ofList
     
     let dnsColorLegend (m : AdaptiveModel) =
-
         let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DnsLegend" m.drawing.dnsColorLegend
-                
-        let attributes =
-            [        
-                "display"               => "block"; 
-                "width"                 => "55px"; 
-                "height"                => "75%"; 
-                "preserveAspectRatio"   => "xMidYMid meet"; 
-                "viewBox"               => "0 0 5% 100%" 
-                "style"                 => "position:absolute; left: 0%; top: 25%"
-                "pointer-events"        => "None"
-            ] |> AttributeMap.ofList
         
-        Incremental.Svg.svg attributes falseColorSvg
+        Incremental.Svg.svg falseColorAttributes falseColorSvg
                             
     let scalarsColorLegend (m : AdaptiveModel) =
-          
-        let attributes =
-            [            
-                "display"               => "block"; 
-                "width"                 => "55px"; 
-                "height"                => "75%"; 
-                "preserveAspectRatio"   => "xMidYMid meet"; 
-                "viewBox"               => "0 0 5% 100%" 
-                "style"                 => "position:absolute; right: 0px; top: 25%"
-                "pointer-events"        => "None"
-            ] |> AttributeMap.ofList
-    
-        Incremental.Svg.svg attributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
+        Incremental.Svg.svg falseColorAttributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
 
     let depthColorLegend (m : AdaptiveModel) =
+        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DepthLegend" m.footPrint.depthColorLegend                
+        Incremental.Svg.svg falseColorAttributes falseColorSvg
 
-        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DepthLegend" m.footPrint.depthColorLegend
-                
-        let attributes =
-            [        
-                "display"               => "block"; 
-                "width"                 => "55px"; 
-                "height"                => "75%"; 
-                "preserveAspectRatio"   => "xMidYMid meet"; 
-                "viewBox"               => "0 0 5% 100%" 
-                "style"                 => "position:absolute; left: 0%; top: 25%"
-                "pointer-events"        => "None"
-            ] |> AttributeMap.ofList
-        
-        Incremental.Svg.svg attributes falseColorSvg
+    let projectedColorLegend (m : AdaptiveModel) =     
+        let legend = 
+            alist {
+                let! selectedImage = PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage m.scene.gisApp.projectedImageList
+
+                match selectedImage with 
+                | Some iM -> 
+                    let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "ProjectedLegend" iM.falseColorModel
+                    yield Incremental.Svg.svg AttributeMap.empty falseColorSvg
+                | None -> yield div [] []                
+        } 
+
+        Incremental.Svg.svg falseColorAttributes legend
+
     
     let selectionRectangle (m : AdaptiveModel) =
         
@@ -130,7 +121,12 @@ module Gui =
                     | Planet.JPL   -> "JPL Rover Frame"
                     | Planet.None  -> "None xyz"          
                     | Planet.ENU   -> "ENU"
-                    | _ -> "[TextOverlays] missing enum"
+                    | Planet.Moon  -> "Moon"
+                    | Planet.Deimos -> "Deimos"
+                    | Planet.Phobos -> "Phobos"
+                    | Planet.Dimorphos -> "Dimorphos"
+                    | Planet.Didymos -> "Didymos"
+                    | _ -> "[TextOverlays] missing text representation for selected planet."
                 )  
             
             let pnb = pitchAndBearing m cv
@@ -168,7 +164,7 @@ module Gui =
                 
             let alt2 = altitude |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    
-            let style' = "color: white; font-family:Consolas;"
+            let style' = "color: white; font-family: Roboto Mono"
             
             yield div [
                 clazz "ui"; 
@@ -228,7 +224,7 @@ module Gui =
                 //arrowOverlay
                 yield table [] [
                     tr [] [
-                        td [style "color: white; font-family:Consolas"] [Incremental.text instrument]
+                        td [style "color: white; font-family: Roboto Mono"] [Incremental.text instrument]
                     ]
                 ]
             ]                              
@@ -236,7 +232,7 @@ module Gui =
     
     let textOverlaysUserFeedback (m : AdaptiveScene)  = 
         div [js "oncontextmenu" "event.preventDefault();"] [ 
-            let style' = "color: white; font-family:Consolas; font-size:16;"
+            let style' = "color: white; font-family: Roboto Mono; font-size:16;"
             
             yield div [clazz "ui"; style "text-align: right; width: 250px; position: absolute; top: 15px; right: 15px; float:right" ] [ //float:left
                 //arrowOverlay
@@ -469,6 +465,9 @@ module Gui =
         let jsExportAnnotationsAsGeoJSONDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
 
+        let jsExportAnnotationsAsGeoJSONQGISDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
+
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
@@ -479,7 +478,7 @@ module Gui =
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
                     ] [
-                        text "Import"
+                        text "Import Directory"
                     ]
                     div [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
@@ -525,6 +524,27 @@ module Gui =
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
                             ] [
                                 text "visible as GeoJSON xyz (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_latlon
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
+                            ] [
+                                text "export as latlon GeoJSON for QGIS (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_xyz
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
+                            ] [
+                                text "export as xyz GeoJSON for QGIS (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_both
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
+                            ] [
+                                text "export as latlon GeoJSON for QGIS + xyz metadata (*.json)"
                             ]
                             div [ 
                                 clazz "ui inverted item"
@@ -648,6 +668,13 @@ module Gui =
                                             text "Load SPICE kernel"
                                         ]
 
+
+                                        // SP: remove code if loading of projected images does work
+                                        let jsImportImages = "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to import images from', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (ProjectedImageListApp.loadDirMessage p)) | _ -> ViewerAction.Nop); clientEvent "onclick" jsImportImages ] [
+                                            text "Load Image Projections"
+                                        ]
+
                                         
 
                                         //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
@@ -706,7 +733,7 @@ module Gui =
                   return div [] []
             }
             
-        let style' = "color: white; font-family:Consolas;"
+        let style' = "color: white; font-family: Roboto Mono"
 
         let scenepath (m:AdaptiveModel) = 
             Incremental.div (AttributeMap.Empty) (
@@ -766,8 +793,6 @@ module Gui =
             | _ -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
-
-
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
             Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
@@ -865,6 +890,16 @@ module Gui =
                     | SelectedItem.Group -> annotationGroupButtons m
                     | _ -> annotationLeafButtonns m 
                 )
+
+            let toggleIcon = 
+                AVal.map( fun toggle -> if toggle then "toggle on icon" else "toggle off icon") m.inverseFlag
+
+            let toggleMap = 
+                amap {
+                    let! toggleIcon = toggleIcon
+                    yield clazz toggleIcon
+                    yield onClick (fun _ -> ViewerAction.InvertDrawing)
+                } |> AttributeMap.ofAMap  
             
             div [] [
                 GuiEx.accordion "Annotations" "Write" true [
@@ -877,6 +912,10 @@ module Gui =
                 ] 
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
+                ]
+                div [style "padding: 10px; display: flex; color: white; align-items: center;"] [
+                    Incremental.i toggleMap AList.empty
+                    text "Invert Drawing"
                 ]
             ]    
 
@@ -953,20 +992,36 @@ module Gui =
             |> UI.map SceneObjectsMessage      
           
     module Traverse =
+
         let traverseUI (m : AdaptiveModel) =
             div [] [
+                yield GuiEx.accordion "Rover Traverses" "Write" true [
+                    RoverTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                ]
+                yield
+                    GuiEx.accordion
+                        "RIMFAX Traverses"
+                        "Write"
+                        true
+                        [RimfaxTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses]
+                yield GuiEx.accordion "WayPoint Traverses" "Write" true [
+                    WayPointsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                ]
+                //yield GuiEx.accordion "Strategic Annotations" "Write" true [
+                    // not yet implemented
+                    // StrategicAnnotationsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                //]
+                //yield GuiEx.accordion "Planned Targets" "Write" true [
+                    // not yet implemented
+                    // PlannedTargetsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                //]
                 yield GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.referenceSystem m.scene.traverses))
                 ]
                 yield GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]
-
-                yield GuiEx.accordion "Traverses" "Write" true [
-                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
-                ]
                 yield GuiEx.accordion "Sols" "road" true [
-                    //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
                 ]
             ] 
@@ -974,7 +1029,7 @@ module Gui =
 
     module ScaleBars = 
         
-        let scaleBarsUI (m : AdaptiveModel) =             
+        let scaleBarsUI (m : AdaptiveModel) = 
             div [] [
                 GuiEx.accordion "ScaleBars" "Write" true [
                     ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
@@ -1162,9 +1217,10 @@ module Gui =
                                 yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
-                                yield dnsColorLegend m
+                                yield dnsColorLegend m                                
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
+                                yield projectedColorLegend m
                                 yield selectionRectangle m
                                 //yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
                                 //                                                           |> UI.map ViewerMessage

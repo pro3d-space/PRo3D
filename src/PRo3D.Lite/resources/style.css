@@ -1,4 +1,9 @@
-﻿.disableSelection {
+﻿@font-face {
+    font-family: "Roboto Mono";
+    src: url("RobotoMono-Regular.ttf");
+}
+
+.disableSelection {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     -khtml-user-select: none;

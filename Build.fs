@@ -30,6 +30,7 @@ let notes =
 printfn "%A" notes
 
 let solutionName = "src/PRo3D.sln"
+let framework = "net9.0"
 
 
 //Target.create "Compile" (fun _ ->
@@ -101,7 +102,7 @@ Target.create "AddNativeResources" (fun _ ->
 
         let binDirs =
             (
-                dirs "bin" "(^netcoreapp.*$)|(^net4.*$)|(^net5.0$)|(^net6.0$)|^Debug$|^Release$" SearchOption.AllDirectories
+                dirs "bin" "(^netcoreapp.*$)|(^net[0-9]+\.[0-9]+$)|^Debug$|^Release$" SearchOption.AllDirectories
                 |> Array.toList
             )
 
@@ -136,7 +137,7 @@ Target.create "AddNativeResources" (fun _ ->
                 ()
     )
 
-let outDirs = [ @"bin\Debug\net6.0"; @"bin\Release\net6.0";  @"bin\Release\net5.0";  @"bin\Debug\net5.0"; ]
+let outDirs = [ @"bin\Debug\" + framework; @"bin\Release" + framework ]
 let resources = 
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
@@ -244,18 +245,16 @@ let aardiumVersion = "2.1.1"
     //| None -> failwith "no aardium version found"
     
     
-Target.create "test" (fun _ -> 
-    let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
-    printf "url: %s" url
-    let tempFile = Path.GetTempFileName()
-    use c = new System.Net.WebClient()
-    c.DownloadFile(url, tempFile)
-    use a = new ZipArchive(File.OpenRead tempFile)
-    let t = Path.GetTempPath()
-    let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
-    a.ExtractToDirectory(tempPath)
-    let target = Path.Combine("bin", "publish")
-    Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
+Target.create "Tests" (fun _ -> 
+    DotNet.test (fun o -> 
+        { o with
+            NoRestore = false 
+            MSBuildParams =
+                { o.MSBuildParams with
+                    DisableInternalBinLog = true
+                }
+        }
+    ) "./src/Tests/Tests.fsproj"
 )
 
 let yarnName =
@@ -329,6 +328,14 @@ Target.create "PublishToElectron" (fun _ ->
         //File.WriteAllBytes("Aardium/dist/Aardium-Linux-x64.tar.gz", [||]) |> ignore
         //Directory.CreateDirectory "Aardium/dist/Aardium-win32-x64" |> ignore
 )
+
+
+let extractNativeDependenciesInFolder (os : OSPlatform) (arch : Architecture) (dir : string) =
+    for assembly in Directory.EnumerateFiles(dir, "*.dll") do
+        try
+            UnpackNativeDependencies.extractNativeDependenciesForAssembly Trace.trace os arch assembly false dir
+        with e -> 
+            Trace.tracefn "could not add native dependencies to %s: %A" assembly e
  
 Target.create "CopyToElectron" (fun _ -> 
 
@@ -349,7 +356,7 @@ Target.create "CopyToElectron" (fun _ ->
     if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
          "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
              { o with
-                 Framework = Some "net6.0"
+                 Framework = Some framework
                  Runtime = Some "osx-x64"
                  Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                  //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
@@ -361,10 +368,13 @@ Target.create "CopyToElectron" (fun _ ->
          )
          for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/mac/") do    
             File.Copy(f, Path.Combine("aardium/build/build", Path.GetFileName f))
+
+         extractNativeDependenciesInFolder OSPlatform.OSX Architecture.X64 "aardium/build/build" 
+
     elif System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux) then
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
                 { o with
-                    Framework = Some "net6.0"
+                    Framework = Some framework
                     Runtime = Some "linux-x64"
                     Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                     //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
@@ -378,11 +388,14 @@ Target.create "CopyToElectron" (fun _ ->
             let target = Path.Combine("aardium/build/build", Path.GetFileName f)
             printfn "copy: %s => %s" f target
             File.Copy(f, target)
+
+        extractNativeDependenciesInFolder OSPlatform.Linux Architecture.X64 "aardium/build/build" 
+
     else
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
             { o with
-                Framework = Some "net6.0"
-                Runtime = Some "win10-x64" 
+                Framework = Some framework
+                Runtime = Some "win-x64" 
                 Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
@@ -390,9 +403,13 @@ Target.create "CopyToElectron" (fun _ ->
                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
             }
         )
+        extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 "aardium/build/build" 
+
         File.Copy("data/runtime/vcruntime140.dll", "aardium/build/build/vcruntime140.dll")
         File.Copy("data/runtime/vcruntime140_1.dll", "aardium/build/build/vcruntime140_1.dll")
         File.Copy("data/runtime/msvcp140.dll", "aardium/build/build/msvcp140.dll")
+
+
 
 
     File.Copy("CREDITS.MD", "aardium/build/build/CREDITS.MD", true)
@@ -402,6 +419,9 @@ Target.create "CopyToElectron" (fun _ ->
 
 "InstallYarn" ==> "CopyToElectron" ==> "PublishToElectron" |> ignore
 
+Target.create "TestUnpack" (fun _ -> 
+    extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 "./aardium/build/build"
+)
 
 Target.create "Publish" (fun _ ->
 
@@ -422,8 +442,8 @@ Target.create "Publish" (fun _ ->
     // vuewer
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "net6.0"
-            Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
+            Framework = Some framework
+            Runtime = Some "win-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
             Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
@@ -436,8 +456,8 @@ Target.create "Publish" (fun _ ->
     //// snapshots
     "src/PRo3D.Snapshots/PRo3D.Snapshots.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "net6.0"
-            Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
+            Framework = Some framework
+            Runtime = Some "win-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
             Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
@@ -451,7 +471,7 @@ Target.create "Publish" (fun _ ->
     // mac
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "net6.0"
+            Framework = Some framework
             Runtime = Some "osx-x64"
             Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
@@ -589,7 +609,7 @@ Target.create "CompileInstruments" (fun _ ->
 
 
 Target.create "CopyJRWRapper" (fun _ -> 
-    File.Copy("bin/Debug/netstandard2.0/JR.Wrappers.dll", "lib/JR.Wrappers.dll", true)
+    File.Copy("bin/Debug/netstandard2.1/JR.Wrappers.dll", "lib/JR.Wrappers.dll", true)
 )
 
 
@@ -601,17 +621,21 @@ Target.create "CopyJRWRapper" (fun _ ->
 
 Target.create "GitHubRelease" (fun _ ->
     let newVersion = notes.NugetVersion
+    let tagName = "v" + newVersion
     try
         try
-            Branches.tag "." newVersion
+            try Branches.tag "." tagName with e -> Trace.logf "could not create tag: %A" e
             let token =
                 match Environment.environVarOrDefault "GH_TOKEN" "" with
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
             //let files = System.IO.Directory.EnumerateFiles("bin/publish") 
-            let release = sprintf "bin/PRo3D.Viewer.%s.zip" notes.NugetVersion
-            let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
+            let release = sprintf "bin/PRo3D.Viewer-standalone.%s.zip" notes.NugetVersion
+            let z = 
+                if File.Exists release then
+                    File.Delete(release)
+                System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
             let release =
                 GitHub.createClientWithToken token
@@ -620,11 +644,11 @@ Target.create "GitHubRelease" (fun _ ->
                 //|> GitHub.publishDraft
                 |> Async.RunSynchronously
 
-            try Branches.pushTag "." "origin" newVersion with e -> Trace.logf "could not create tag: %A" e
+            try Branches.pushTag "." "origin" tagName with e -> Trace.logf "could not create tag: %A" e
 
         with e -> 
             Trace.logf "failed to create github release: %A" e
-            Branches.deleteTag "." newVersion
+            Branches.deleteTag "." tagName
     finally
         ()
         

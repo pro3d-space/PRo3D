@@ -57,10 +57,6 @@ module ViewerLenses =
     let _scaleBarsModel = Model.scene_  >->  Scene.scaleBars_
     let _scaleBars      = _scaleBarsModel >-> ScaleBarsModel.scaleBars_
 
-    // traverses
-    let _traversesModel = Model.scene_  >->  Scene.traverses_
-    let _traverses      = _traversesModel >-> TraverseModel.traverses_
-
     // geologic surfaces
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
@@ -144,8 +140,8 @@ module ViewerLenses =
                         state.stateConfig.frustumModel.frustum
             let m = 
                 let refSysState = 
-                    /// UPDATING REF SYSTEM HERE LEADS TO TRAVERSE CALCULATIONS BERING TRIGGERED, EVEN IF THE REF SYSTEM DOES NOT CHANGE!
-                    /// so we check manually if the reference system has changed, and only assign it if there is a change
+                    // UPDATING REF SYSTEM HERE LEADS TO TRAVERSE CALCULATIONS BERING TRIGGERED, EVEN IF THE REF SYSTEM DOES NOT CHANGE!
+                    // so we check manually if the reference system has changed, and only assign it if there is a change
                     {m.scene.referenceSystem with
                         origin        = state.stateReferenceSystem.origin       
                         isVisible     = state.stateReferenceSystem.isVisible    

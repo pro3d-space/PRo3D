@@ -36,6 +36,17 @@ In order to guide PRo3D how to handle the textures, opcx files are needed. Some 
  - Textures are adressed via indices as opposed to by name (see https://github.com/pro3d-space/PRo3D/blob/045bafa5b167a5bc725b6dfa6519ac35e12f38e8/src/PRo3D.Viewer/Viewer/Viewer-Utils.fs#L382). This is historic and cannot be fixed easily. The 'Texture' record should be changed in aardvark.rendering, weights and textures separated into to arrays and so on..
 
 
+## Q/A
+
+Q: what is min/max and how is it mapped to the color?
+A: Yes, min, max defines the range to be used from the secondary color. Thus, the min/max remapped scalar � is used for the full range of the specified color map.
+```
+my = (secondary - min) / (max - min)
+
+color = colorMapping[my]
+```
+Note that the secondary value is always in normalized form [0-1] regardless of the underlying datatype (e.g. uint16).
+
 
  ## Currently available data in JRs data pipeline:
 

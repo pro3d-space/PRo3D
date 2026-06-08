@@ -362,7 +362,7 @@ module BookmarkAnimations =
         
         let animation =
             animations
-            |> Animation.path
+            |> Animation.sequential
 
         let animation = 
             animation

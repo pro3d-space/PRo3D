@@ -56,6 +56,7 @@ type GuiMode =
 
 type StartupArgs = {
     showExplorationPoint  : bool
+    showReferenceSystem   : bool
     startEmpty            : bool
     useAsyncLoading       : bool
     serverMode            : bool
@@ -76,12 +77,15 @@ type StartupArgs = {
 
     defaultSpiceKernelPath : Option<string>
 
+    allowPreviewIntersections : bool
+
     verbose               : bool    
 
 } with 
     static member initArgs =
       {
           showExplorationPoint  = true
+          showReferenceSystem   = true
           startEmpty            = false
           useAsyncLoading       = false
           magnificationFilter   = false
@@ -98,6 +102,7 @@ type StartupArgs = {
           isBatchRendering         = false
           defaultSpiceKernelPath   = None
           loadScene                = None
+          allowPreviewIntersections = true
       }
 
 

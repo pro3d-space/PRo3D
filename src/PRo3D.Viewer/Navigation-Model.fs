@@ -1,3 +1,4 @@
+#nowarn "0044"
 namespace PRo3D.Navigation2
 
 open FSharp.Data.Adaptive
@@ -14,5 +15,5 @@ module NavigationModel =
     let initial = {
         camera = CameraController.initial          
         navigationMode =  NavigationMode.FreeFly        
-        exploreCenter = V3d.Zero // make option        
+        exploreCenter = V3d.Zero // make option    
     }

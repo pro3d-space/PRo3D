@@ -73,6 +73,8 @@ module CommandLine =
 
             let spiceKernelPath = parseArg "--defaultSpiceKernel" argv
 
+            let disablePreviewIntersections = argv |> hasFlag "disablePreviewIntersections"
+
             Log.line "[Arguments] Server mode: %s" (b2str server)
             Log.line "[Arguments] Using linear magnification filtering%s" (b2str magFilter)
             Log.line "[Arguments] Show exploration centre%s" (b2str showExplorationCentre)
@@ -86,6 +88,7 @@ module CommandLine =
             Log.line "[Arguments] render control config %A" (samples, backgroundColor, noMapping)
             let args : StartupArgs = {                        
                 showExplorationPoint     = showExplorationCentre
+                showReferenceSystem      = showReferenceSystem
                 verbose                  = verbose
                 startEmpty               = startEmpty //never used
                 useAsyncLoading          = false
@@ -103,5 +106,6 @@ module CommandLine =
                 isBatchRendering         = false
                 defaultSpiceKernelPath   = spiceKernelPath
                 loadScene                = loadScene
+                allowPreviewIntersections = not disablePreviewIntersections
             }
             args

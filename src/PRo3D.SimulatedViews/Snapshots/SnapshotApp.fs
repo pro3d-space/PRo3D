@@ -104,8 +104,8 @@ module SnapshotApp =
             | Some fov -> fov
             | None -> defaultFoV
         let frustum =
-          Frustum.perspective foV near far 
-                              (float(resolution.X)/float(resolution.Y))
+            Frustum.perspective foV near far 
+                (float(resolution.X)/float(resolution.Y))
         frustum, recalcOption, near, far, foV
 
     let calculateFrustum (snapshotAnimation : BookmarkSnapshotAnimation)  = 
@@ -167,7 +167,7 @@ module SnapshotApp =
             a.snapshots
                 |> List.indexed
                 |> List.filter (fun (i, x) -> i >= id && i < id + count)
-                |> List.map snd            
+                |> List.map (fun (f,s) -> {s with nearFarPlane = Some(s.nearFarPlane |> Option.defaultValue (V2d(near, far))) })
         let snapshots =
             match app.renderMask, a.renderMask with
             | true, _ | _, Some true ->
@@ -306,14 +306,10 @@ module SnapshotApp =
             String.contains (String.toLowerInvariant name) (String.toLowerInvariant surfName)
 
         let transformSurf surfacesModel surf =
-            let surfaceUpdate  = 
+            let updatedSurfaces  = 
                 surfaceUpdates
-                    |> List.filter (fun s -> hasName surf s.surfname)
-                    |> List.tryHead
-
-            let updatedSurf =
-                match surfaceUpdate with
-                | Some upd ->
+                |> List.filter (fun s -> hasName surf s.surfname)
+                |> List.map (fun upd ->   
                     let surf =
                         match upd.visible with
                         | Some v -> {surf with isVisible    = v}
@@ -334,10 +330,13 @@ module SnapshotApp =
                           {surf with transformation = {surf.transformation with translation = translation}}
                         | None -> surf
                     surf
-                | None -> surf
 
-            // apply surface tranformation to each surface mentioned in the snapshot
-            SurfaceModel.updateSingleSurface updatedSurf surfacesModel
+                    // apply surface tranformation to each surface mentioned in the snapshot
+                    )
+            
+            updatedSurfaces |> List.fold (fun sModel updatedSurf -> SurfaceModel.updateSingleSurface updatedSurf sModel) surfacesModel
+
+            //SurfaceModel.updateSingleSurface updatedSurf surfacesModel
         
         
         let model = 

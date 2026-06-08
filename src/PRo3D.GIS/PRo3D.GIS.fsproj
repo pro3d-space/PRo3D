@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup>
+    <InPublish>False</InPublish>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(InPublish)">
+    <!-- this is replaced by build script-->
+    <PublishSingleFile>true</PublishSingleFile>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <!--<PublishTrimmed>true</PublishTrimmed>-->
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ColorMapping.fs" />
+    <EmbeddedResource Include="resources/plasma.png" />
+    <EmbeddedResource Include="resources/piyg.png" />
+    <EmbeddedResource Include="resources/twilight_shifted.png" />
+    <EmbeddedResource Include="resources/vanimo.png" />
+    <EmbeddedResource Include="resources/viridis.png" />
+    <EmbeddedResource Include="resources/magma.png" />
+    <EmbeddedResource Include="resources/hot.png" />
+    <EmbeddedResource Include="resources/coolwarm.png" />
+
+	<Compile Include="InstrumentMetadata.fs" />
+    <Compile Include="GeoTiff.fs" />
+    <Compile Include="Tiff.fs" />
+    <Compile Include="InstrumentImage.fs" />
+    <Compile Include="Visualization.fs" />
+    <Compile Include="MarsTaggedLocations.fs" />
+    <Compile Include="OpcShaders.fs" />
+    <Compile Include="Shaders.fs" />
+    <Compile Include="CelestialBodies.fs" />
+    <Compile Include="ImageProjection.fs" />
+    <Compile Include="Rendering.fs" />
+    <Compile Include="Markers.fs" />
+	  
+    <Compile Include="TestViewer.fs" />
+    <None Include="paket.references" />
+    <Compile Include="ProjectedImageApp.fs" />
+    <Compile Include="ProjectedImageListApp.fs" />
+    <Compile Include="GisApp.fs" />
+    <Compile Include="ProjectedImagesListHelpers.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="resources\" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

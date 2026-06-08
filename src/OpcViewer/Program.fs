@@ -11,7 +11,7 @@ type Kind = Scene | Annotations | Solarsystem
 [<EntryPoint>]
 let main argv =
     
-    let kind = Annotations
+    let kind = Solarsystem
 
     let shaler =
         { 
@@ -193,8 +193,6 @@ let main argv =
         //        speed            = 5.0
         //        lodDecider       =  DefaultMetrics.mars2 
         //    }
-
-        Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
 
         let annotations = @"I:\OPC\Shaler_OPCs_2019\crazy2.pro3d.ann"
         let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\strangetest.pro3d.ann"

@@ -251,9 +251,12 @@ module KdTrees =
                 Log.line "[KdTrees] missing kd0 paths: %d/%d" missingKd0Paths.Length kd0Paths.Length
 
             match tryFixPatchFileIfNeeded masterKdPath with
-            | Some masterKdPath when not ignoreMasterKdTree && not forceRebuild ->
+            // the idea here is to use the per-patch kdtrees if available (that's the missingKd0Paths check)
+            | Some masterKdPath when not ignoreMasterKdTree && not forceRebuild && missingKd0Paths.Length > 0  ->
                 Log.warn "Found master kdtree - loading incore. THIS NEEDS A LOT OF MEMORY. CONSIDER CREATING PER-PATCH KD TREES. see: https://github.com/pro3d-space/PRo3D/blob/9821c8882b024c7ed85c23ee76110c70e249e480/docs/KdTrees.md#create-kdtrees-for-an-opc-hierarchy"
                 let tree = loadKdtree masterKdPath
+                // triangle set will be 0 for kdtrees with purged object sets. In this case i think rebuilding is a better option
+                //let triangleSet = loadTriangles trafo objectSetPath
 
                 let kd =
                     { kdTree = tree
@@ -263,9 +266,6 @@ module KdTrees =
             | _ -> 
                 Log.line "Found master kdtree and patch trees"
                 Log.startTimed "building lazy kdtree cache"
-
-                let num = kd0Paths |> List.ofSeq |> List.length
-
 
                 let kdTrees =
                     kd0Paths
@@ -347,7 +347,7 @@ module KdTrees =
                                   boundingBox = info.GlobalBoundingBox //t.KdIntersectionTree.BoundingBox3d 
                                 }
 
-                            Report.Progress(float i / float num)
+                            Report.Progress(float i / float kd0Paths.Length)
 
                             (lazyTree.boundingBox, (LazyKdTree lazyTree)) |> Some
                         | _ -> 

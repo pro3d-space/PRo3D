@@ -2,7 +2,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>preview</LangVersion> <!-- https://github.com/dotnet/fsharp/issues/17501 -->
     <GenerateLenses>True</GenerateLenses>
     <AdaptifyVerbose>True</AdaptifyVerbose>
 	<RepositoryRoot>F:\pro3d\PRo3D\src\PRo3D.Base</RepositoryRoot>
@@ -18,8 +19,10 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- <Compile Include="InteropHelpers.fs" /> -->
-    <Compile Include="KdTrees.fs" />
+    <Compile Include="PatchOverrides.fs" />
+    <!--<Compile Include="KdTrees.fs" />-->
     <Compile Include="WebClientDeprecation.fs" />
+    <Compile Include="SpiceInterfacing.fs" />
     <Compile Include="DeprecatedModel.fs" />
     <Compile Include="DeprecatedModel.g.fs" />
     <Compile Include="Deprecated.fs" />
@@ -30,7 +33,7 @@
     <EmbeddedResource Include="resources\plasma.png" />
     <EmbeddedResource Include="resources\oranges.png" />
     <EmbeddedResource Include="resources\spectral.png" />
-    
+    <EmbeddedResource Include="..\..\data\fonts\Roboto Mono\RobotoMono-Regular.ttf" Link="resources\RobotoMono-Regular.ttf" />
     
     <Compile Include="MissingHelpers.fs" />
     <None Include="paket.references" />
@@ -48,6 +51,7 @@
     <Compile Include="OutlineEffect.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Navigation-Model.g.fs" />
+    <Compile Include="InstrumentProjection.fs" />
     <Compile Include="GisModels.fs" />
     <Compile Include="GisModels.g.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />
@@ -57,6 +61,7 @@
     <Compile Include="Annotation\Annotation-Model.fs" />
     <Compile Include="Annotation\Annotation-Model.g.fs" />
     <Compile Include="Annotation\AnnotationHelpers.fs" />
+    <Compile Include="Annotation\Exporters\GeoJSONQGIS.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.Export.fs" />
     <Compile Include="Annotation\Exporters\CSV.fs" />

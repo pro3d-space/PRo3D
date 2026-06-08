@@ -1,5 +1,5 @@
-//37f5b468-c181-4812-e1d8-274cc8ab8e6a
-//bdb6543d-d70f-88b9-d38b-2463a0d1f7a6
+//208e6d7e-da2e-6162-2540-818b829e6350
+//aec4bb6b-dd66-a898-cb45-d84ab3a6dd1f
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -163,6 +163,7 @@ type AdaptiveSurface(value : Surface) =
     let _isActive_ = FSharp.Data.Adaptive.cval(value.isActive)
     let _quality_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.quality)
     let _priority_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.priority)
+    let _filterByTriangleSize_ = FSharp.Data.Adaptive.cval(value.filterByTriangleSize)
     let _triangleSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.triangleSize)
     let _scaling_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.scaling)
     let _filterByDistance_ = FSharp.Data.Adaptive.cval(value.filterByDistance)
@@ -184,6 +185,7 @@ type AdaptiveSurface(value : Surface) =
     let _textureLayers_ = FSharp.Data.Adaptive.clist(value.textureLayers)
     let _primaryTexture_ = FSharp.Data.Adaptive.cval(value.primaryTexture)
     let _secondaryTexture_ = FSharp.Data.Adaptive.cval(value.secondaryTexture)
+    let _secondaryTextureLayer_ = FSharp.Data.Adaptive.cval(value.secondaryTextureLayer)
     let _transferFunction_ = FSharp.Data.Adaptive.cval(value.transferFunction)
     let _opcxPath_ = FSharp.Data.Adaptive.cval(value.opcxPath)
     let _preferredLoader_ = FSharp.Data.Adaptive.cval(value.preferredLoader)
@@ -215,6 +217,7 @@ type AdaptiveSurface(value : Surface) =
             _isActive_.Value <- value.isActive
             _quality_.Update(value.quality)
             _priority_.Update(value.priority)
+            _filterByTriangleSize_.Value <- value.filterByTriangleSize
             _triangleSize_.Update(value.triangleSize)
             _scaling_.Update(value.scaling)
             _filterByDistance_.Value <- value.filterByDistance
@@ -225,6 +228,7 @@ type AdaptiveSurface(value : Surface) =
             _textureLayers_.Value <- value.textureLayers
             _primaryTexture_.Value <- value.primaryTexture
             _secondaryTexture_.Value <- value.secondaryTexture
+            _secondaryTextureLayer_.Value <- value.secondaryTextureLayer
             _transferFunction_.Value <- value.transferFunction
             _opcxPath_.Value <- value.opcxPath
             _preferredLoader_.Value <- value.preferredLoader
@@ -249,6 +253,7 @@ type AdaptiveSurface(value : Surface) =
     member __.isActive = _isActive_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.quality = _quality_
     member __.priority = _priority_
+    member __.filterByTriangleSize = _filterByTriangleSize_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.triangleSize = _triangleSize_
     member __.scaling = _scaling_
     member __.filterByDistance = _filterByDistance_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -259,6 +264,7 @@ type AdaptiveSurface(value : Surface) =
     member __.textureLayers = _textureLayers_ :> FSharp.Data.Adaptive.alist<TextureLayer>
     member __.primaryTexture = _primaryTexture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<TextureLayer>>
     member __.secondaryTexture = _secondaryTexture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<TextureLayer>>
+    member __.secondaryTextureLayer = _secondaryTextureLayer_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.int>>
     member __.transferFunction = _transferFunction_ :> FSharp.Data.Adaptive.aval<TransferFunction>
     member __.opcxPath = _opcxPath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
     member __.surfaceType = __value.surfaceType
@@ -286,6 +292,7 @@ module SurfaceLenses =
         static member isActive_ = ((fun (self : Surface) -> self.isActive), (fun (value : Microsoft.FSharp.Core.bool) (self : Surface) -> { self with isActive = value }))
         static member quality_ = ((fun (self : Surface) -> self.quality), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Surface) -> { self with quality = value }))
         static member priority_ = ((fun (self : Surface) -> self.priority), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Surface) -> { self with priority = value }))
+        static member filterByTriangleSize_ = ((fun (self : Surface) -> self.filterByTriangleSize), (fun (value : Microsoft.FSharp.Core.bool) (self : Surface) -> { self with filterByTriangleSize = value }))
         static member triangleSize_ = ((fun (self : Surface) -> self.triangleSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Surface) -> { self with triangleSize = value }))
         static member scaling_ = ((fun (self : Surface) -> self.scaling), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Surface) -> { self with scaling = value }))
         static member filterByDistance_ = ((fun (self : Surface) -> self.filterByDistance), (fun (value : Microsoft.FSharp.Core.bool) (self : Surface) -> { self with filterByDistance = value }))
@@ -296,6 +303,7 @@ module SurfaceLenses =
         static member textureLayers_ = ((fun (self : Surface) -> self.textureLayers), (fun (value : FSharp.Data.Adaptive.IndexList<TextureLayer>) (self : Surface) -> { self with textureLayers = value }))
         static member primaryTexture_ = ((fun (self : Surface) -> self.primaryTexture), (fun (value : Microsoft.FSharp.Core.Option<TextureLayer>) (self : Surface) -> { self with primaryTexture = value }))
         static member secondaryTexture_ = ((fun (self : Surface) -> self.secondaryTexture), (fun (value : Microsoft.FSharp.Core.Option<TextureLayer>) (self : Surface) -> { self with secondaryTexture = value }))
+        static member secondaryTextureLayer_ = ((fun (self : Surface) -> self.secondaryTextureLayer), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.int>) (self : Surface) -> { self with secondaryTextureLayer = value }))
         static member transferFunction_ = ((fun (self : Surface) -> self.transferFunction), (fun (value : TransferFunction) (self : Surface) -> { self with transferFunction = value }))
         static member opcxPath_ = ((fun (self : Surface) -> self.opcxPath), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : Surface) -> { self with opcxPath = value }))
         static member surfaceType_ = ((fun (self : Surface) -> self.surfaceType), (fun (value : SurfaceType) (self : Surface) -> { self with surfaceType = value }))
@@ -314,6 +322,7 @@ type AdaptiveSgSurface(value : SgSurface) =
     let _sceneGraph_ = FSharp.Data.Adaptive.cval(value.sceneGraph)
     let _picking_ = FSharp.Data.Adaptive.cval(value.picking)
     let _opcScene_ = FSharp.Data.Adaptive.cval(value.opcScene)
+    let _sgImportPath_ = FSharp.Data.Adaptive.cval(value.sgImportPath)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : SgSurface) = AdaptiveSgSurface(value)
@@ -327,7 +336,7 @@ type AdaptiveSgSurface(value : SgSurface) =
             _sceneGraph_.Value <- value.sceneGraph
             _picking_.Value <- value.picking
             _opcScene_.Value <- value.opcScene
-            ()
+            _sgImportPath_.Value <- value.sgImportPath
     member __.Current = __adaptive
     member __.surface = __value.surface
     member __.trafo = _trafo_
@@ -337,6 +346,7 @@ type AdaptiveSgSurface(value : SgSurface) =
     member __.opcScene = _opcScene_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>>
     member __.dataSource = __value.dataSource
     member __.isObj = __value.isObj
+    member __.sgImportPath = _sgImportPath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SgSurfaceLenses = 
     type SgSurface with
@@ -348,4 +358,5 @@ module SgSurfaceLenses =
         static member opcScene_ = ((fun (self : SgSurface) -> self.opcScene), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>) (self : SgSurface) -> { self with opcScene = value }))
         static member dataSource_ = ((fun (self : SgSurface) -> self.dataSource), (fun (value : DataSource) (self : SgSurface) -> { self with dataSource = value }))
         static member isObj_ = ((fun (self : SgSurface) -> self.isObj), (fun (value : Microsoft.FSharp.Core.bool) (self : SgSurface) -> { self with isObj = value }))
+        static member sgImportPath_ = ((fun (self : SgSurface) -> self.sgImportPath), (fun (value : Microsoft.FSharp.Core.string) (self : SgSurface) -> { self with sgImportPath = value }))
 

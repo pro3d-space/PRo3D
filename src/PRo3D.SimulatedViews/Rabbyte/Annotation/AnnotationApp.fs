@@ -76,7 +76,7 @@ namespace Rabbyte.Annotation
 //        sg, nextRenderPass
 
 ////    let viewGui (model: AdaptiveAnnotationModel) =
-////        let style' = "color: white; font-family:Consolas;"
+////        let style' = "color: white; font-family: Roboto Mono"
 
 ////        table [clazz "item"] [
 ////            tr [] [ 

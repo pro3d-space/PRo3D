@@ -235,13 +235,14 @@ module SnapshotAnimation =
         Log.line "[Viewer] No frames recorded. Saving current frame."
         let snapshots = 
             [{
-                filename        = "CurrentFrame"
-                camera          = cameraView |> Snapshot.toSnapshotCamera
-                sunPosition     = None
-                lightDirection  = None
-                surfaceUpdates  = None
+                filename            = "CurrentFrame"
+                camera              = cameraView |> Snapshot.toSnapshotCamera
+                nearFarPlane        = None
+                sunPosition         = None
+                lightDirection      = None
+                surfaceUpdates      = None
                 placementParameters = None
-                renderMask      = None         
+                renderMask          = None         
                 }]
         let snapshotAnimation =
             generate 

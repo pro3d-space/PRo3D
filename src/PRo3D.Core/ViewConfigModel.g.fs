@@ -1,5 +1,5 @@
-//984ed924-69a8-06f2-3327-1d98c983898e
-//467f9d72-b605-3963-e059-0bc82710dfe9
+//ecd5c300-56f7-7748-1f6f-0bed866f3ec1
+//70d32aec-d119-7ea2-fc09-332a209fd05e
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -57,6 +57,8 @@ type AdaptiveViewConfigModel(value : ViewConfigModel) =
     let _filterTexture_ = FSharp.Data.Adaptive.cval(value.filterTexture)
     let _showExplorationPointGui_ = FSharp.Data.Adaptive.cval(value.showExplorationPointGui)
     let _showLeafLabels_ = FSharp.Data.Adaptive.cval(value.showLeafLabels)
+    let _showPreviewIntersection_ = FSharp.Data.Adaptive.cval(value.showPreviewIntersection)
+    let _previewIntersectionWorldSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.previewIntersectionWorldSize)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ViewConfigModel) = AdaptiveViewConfigModel(value)
@@ -80,6 +82,8 @@ type AdaptiveViewConfigModel(value : ViewConfigModel) =
             _filterTexture_.Value <- value.filterTexture
             _showExplorationPointGui_.Value <- value.showExplorationPointGui
             _showLeafLabels_.Value <- value.showLeafLabels
+            _showPreviewIntersection_.Value <- value.showPreviewIntersection
+            _previewIntersectionWorldSize_.Update(value.previewIntersectionWorldSize)
     member __.Current = __adaptive
     member __.version = __value.version
     member __.nearPlane = _nearPlane_
@@ -97,6 +101,8 @@ type AdaptiveViewConfigModel(value : ViewConfigModel) =
     member __.filterTexture = _filterTexture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showExplorationPointGui = _showExplorationPointGui_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showLeafLabels = _showLeafLabels_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.showPreviewIntersection = _showPreviewIntersection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.previewIntersectionWorldSize = _previewIntersectionWorldSize_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ViewConfigModelLenses = 
     type ViewConfigModel with
@@ -116,4 +122,6 @@ module ViewConfigModelLenses =
         static member filterTexture_ = ((fun (self : ViewConfigModel) -> self.filterTexture), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with filterTexture = value }))
         static member showExplorationPointGui_ = ((fun (self : ViewConfigModel) -> self.showExplorationPointGui), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with showExplorationPointGui = value }))
         static member showLeafLabels_ = ((fun (self : ViewConfigModel) -> self.showLeafLabels), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with showLeafLabels = value }))
+        static member showPreviewIntersection_ = ((fun (self : ViewConfigModel) -> self.showPreviewIntersection), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with showPreviewIntersection = value }))
+        static member previewIntersectionWorldSize_ = ((fun (self : ViewConfigModel) -> self.previewIntersectionWorldSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ViewConfigModel) -> { self with previewIntersectionWorldSize = value }))
 

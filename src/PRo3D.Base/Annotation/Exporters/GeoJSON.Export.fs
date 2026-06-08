@@ -41,6 +41,7 @@ module GeoJSONExport =
     let pickler = createPickler()
     
     let annotationToGeoJsonGeometry 
+        (isSelected : Annotation -> bool)
         (planet : option<Planet>) 
         (a      : Annotation)
         : GeoJSON.GeoJsonGeometry =
@@ -59,23 +60,41 @@ module GeoJSONExport =
                 )
                 |> List.map CooTransformation.SphericalCoo.toV3d                
             | None ->
-                points                
+                points  
+                
+        let properties = 
+            Some { geometry = GeometryProperties.NoProperties; selected = isSelected a }
 
         match a.geometry with
         | Geometry.Point ->
-            coordinates |> List.map ThreeDim |> List.head |> GeoJsonGeometry.Point                
+            GeoJsonGeometry.Point(coordinates |> List.map ThreeDim |> List.head, properties)              
         | Geometry.Line -> 
-            coordinates |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            GeoJsonGeometry.LineString(coordinates |> List.map ThreeDim, properties)
         | Geometry.Polyline -> 
-            coordinates |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.MultiLineString
+            GeoJsonGeometry.MultiLineString(coordinates |> List.map ThreeDim |> List.singleton, properties)
         | Geometry.Polygon -> 
-            coordinates |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            GeoJsonGeometry.Polygon(coordinates |> List.map ThreeDim |> List.singleton, properties)
         | Geometry.DnS -> 
-            coordinates |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            GeoJsonGeometry.Polygon(coordinates |> List.map ThreeDim |> List.singleton, properties)
         | Geometry.TT ->
-            coordinates |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            GeoJsonGeometry.LineString(coordinates |> List.map ThreeDim, properties)
+        | Geometry.AxisEllipse -> 
+            let coordinates = coordinates |> List.map ThreeDim |> List.singleton 
+            let properties = 
+                match a.ellipticResults with
+                | None -> None
+                | Some e -> 
+                    Some { geometry = GeometryProperties.EllipseProperties(e.geographicalEllipse.Center, e.geographicalEllipse.Axis0, e.geographicalEllipse.Axis1); 
+                      selected = isSelected a
+                    }
+            
+            GeoJsonGeometry.Polygon(coordinates, properties)
+        | Geometry.Axis4PEllipse -> 
+            failwith "4PEllipse export not implemented (maybe look for AxisEllipse)."
+        | Geometry.Ellipse -> 
+            failwith "ellipse export not implemented (maybe look for AxisEllipse)."
         | _ ->
-            Point(V3d.NaN |> ThreeDim)
+            failwith "geometry type not implemented for GeoJSON export."
           
           
     let geoJsonGeometryToJson (geometry : GeoJsonGeometry) =
@@ -84,45 +103,42 @@ module GeoJSONExport =
 
     let toGeoJsonString 
         (planet      : option<Planet>) 
+        (isSelected  : Annotation -> bool)
         (annotations : list<Annotation>) 
         : string = 
 
         let geometryCollection =
-            annotations
-            |> List.map(annotationToGeoJsonGeometry planet)
-            |> GeoJsonGeometry.GeometryCollection
+            let annos = 
+                annotations
+                |> List.map (annotationToGeoJsonGeometry isSelected planet)
+            GeoJsonGeometry.GeometryCollection(annos, None)
 
         geometryCollection
         |> Json.serialize
         |> Json.formatWith JsonFormattingOptions.Pretty
 
-        
-
     let writeGeoJSON 
         (planet      : option<Planet>) 
         (path        : string) 
+        (isSelected : Annotation -> bool)
         (annotations : list<Annotation>) 
         : unit = 
+        toGeoJsonString planet isSelected annotations
+        |> Serialization.writeToFile path
 
-        if path.IsEmpty() then 
-            ()
-        else
-            toGeoJsonString planet annotations
-            |> Serialization.writeToFile path
-
-                 
-
-    let writeGeoJSON_XYZ 
-        (path        : string)
+    let writeGeoJSONQGIS
+        (cooConfig : GeoJsonQGIS.CoordinateConfiguration)
+        (path        : string) 
+        (isSelected : Annotation -> bool)
         (annotations : list<Annotation>) 
         : unit = 
-
-        writeGeoJSON None path annotations
+        GeoJsonQGIS.encoder cooConfig isSelected annotations
+        |> Serialization.writeToFile path
 
 
     // exports geojson objects as line delimited json: https://en.wikipedia.org/wiki/JSON_streaming#Line-delimited_JSON
     // the feature has been discussed here: https://github.com/pro3d-space/PRo3D/issues/185
-    let writeStreamGeoJSON_XYZ (path : string) (annotations : list<Annotation>) : unit = 
+    let writeStreamGeoJSON_XYZ (isSelected : Annotation -> bool) (path : string) (annotations : list<Annotation>) : unit = 
   
         let encode (bytes : byte[]) = Convert.ToBase64String(bytes);
 
@@ -130,7 +146,7 @@ module GeoJSONExport =
             annotations
             |> List.map (fun annotation -> 
 
-                let geometry = annotationToGeoJsonGeometry None annotation
+                let geometry = annotationToGeoJsonGeometry isSelected None annotation
 
                 let feature = 
                     {

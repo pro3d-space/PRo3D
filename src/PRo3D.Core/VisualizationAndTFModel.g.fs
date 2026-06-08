@@ -1,5 +1,5 @@
-//9e80936a-418a-ed9e-a38b-897e7c24a266
-//1ec0ff25-6ebc-474b-9f80-6e0dcdcbdfc5
+//2f5da3f0-6e33-0c2a-91ce-7f9ad38df387
+//1c7f3826-31bc-3fd5-e093-b79b3c3a4b06
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -50,6 +50,7 @@ module ScalarLayerLenses =
         static member colorLegend_ = ((fun (self : ScalarLayer) -> self.colorLegend), (fun (value : PRo3D.Base.FalseColorsModel) (self : ScalarLayer) -> { self with colorLegend = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveContourLineModel(value : ContourLineModel) =
+    let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _enabled_ = FSharp.Data.Adaptive.cval(value.enabled)
     let _targetLayer_ = FSharp.Data.Adaptive.cval(value.targetLayer)
     let _distance_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.distance)
@@ -63,12 +64,14 @@ type AdaptiveContourLineModel(value : ContourLineModel) =
         if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<ContourLineModel>.ShallowEquals(value, __value))) then
             __value <- value
             __adaptive.MarkOutdated()
+            _version_.Value <- value.version
             _enabled_.Value <- value.enabled
             _targetLayer_.Value <- value.targetLayer
             _distance_.Update(value.distance)
             _width_.Update(value.width)
             _border_.Update(value.border)
     member __.Current = __adaptive
+    member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.enabled = _enabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.targetLayer = _targetLayer_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<TextureLayer>>
     member __.distance = _distance_
@@ -77,6 +80,7 @@ type AdaptiveContourLineModel(value : ContourLineModel) =
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ContourLineModelLenses = 
     type ContourLineModel with
+        static member version_ = ((fun (self : ContourLineModel) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : ContourLineModel) -> { self with version = value }))
         static member enabled_ = ((fun (self : ContourLineModel) -> self.enabled), (fun (value : Microsoft.FSharp.Core.bool) (self : ContourLineModel) -> { self with enabled = value }))
         static member targetLayer_ = ((fun (self : ContourLineModel) -> self.targetLayer), (fun (value : Microsoft.FSharp.Core.Option<TextureLayer>) (self : ContourLineModel) -> { self with targetLayer = value }))
         static member distance_ = ((fun (self : ContourLineModel) -> self.distance), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ContourLineModel) -> { self with distance = value }))

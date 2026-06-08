@@ -45,6 +45,7 @@ module CSVExport =
         dipAzimuth         : float
         strikeAzimuth      : float
         rake               : float
+        area               : float
 
         manualDip          : float
         trueThickness      : float
@@ -173,12 +174,13 @@ module CSVExport =
 
             horizontalDelta = horizontalDelta //
             verticalDelta   = verticalDelta //
+            area            = results.area //
             
             //dns
             dipAngle      = dnsResults.dipAngle //
             dipAzimuth    = dnsResults.dipAzimuth //
             strikeAzimuth = dnsResults.strikeAzimuth //
-            rake          = dnsResults.rake
+            rake          = dnsResults.rake            
             
             //error measures
             errorAvg     = dnsResults.errorAvg
@@ -208,8 +210,7 @@ module CSVExport =
             |> List.map (toExportAnnotation lookUp upVector)
             |> CSV.Seq.csv "," true id
 
-        if path.IsEmptyOrNull() |> not then 
-            csvTable |> CSV.Seq.write path
+        csvTable |> CSV.Seq.write path
 
     
 
