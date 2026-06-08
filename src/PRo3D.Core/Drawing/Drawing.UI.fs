@@ -55,7 +55,7 @@ module UI =
             match i with
             | Projection.Linear     -> "Produces straight line segments as point-to-point connections with linear interpolation between them, no actual projection is performed."
             | Projection.Viewpoint  -> "Between two points the space is sampled by shooting additional rays to intersect with the surface."
-            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene’s up-vector."
+            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the sceneï¿½s up-vector."
             | _                     -> ""
 
         let thicknessTooltip = "Thickness of annotation"
@@ -164,11 +164,16 @@ module UI =
                     let! geometry = a.geometry
                     let! semantic = a.semanticId
                     let! semanticType = a.semanticType
+                    let! text = a.text
 
                     return 
                         match semanticType with
-                        | SemanticType.Undefined -> 
-                            geometry  |> sprintf "%A"
+                        | SemanticType.Undefined ->
+                            match text with
+                            | "" ->  
+                                geometry  |> sprintf "%A"
+                            | _ -> 
+                                sprintf "%A (%A)" text geometry
                         | _ -> 
                             let (SemanticId s) = semantic
                             s

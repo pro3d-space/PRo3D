@@ -71,9 +71,18 @@ module CSVExport =
         x                  : double
         y                  : double
         z                  : double
+
+        lat                : double
+        lon                : double
+        alt                : double
     }
 
-    let toExportAnnotation (lookUp : HashMap<Guid, string>) (upVector : V3d) (a: Annotation) : ExportAnnotation =
+    let toExportAnnotation 
+        (lookUp : HashMap<Guid, string>) 
+        (planet : Planet) 
+        (upVector : V3d) 
+        (a: Annotation) 
+        : ExportAnnotation =
       
         let results = 
             match a.results with
@@ -145,8 +154,10 @@ module CSVExport =
         let horizontalDelta = 
             Calculations.horizontalDelta (points |> Array.toList) upVector
 
-        let c = Box3d(points).Center
-
+        let center = Box3d(points).Center
+        let centerGeo = 
+            CooTransformation.getLatLonAlt planet center 
+            |> CooTransformation.SphericalCoo.toV3d 
         
         {   
             //non-measurement
@@ -194,24 +205,29 @@ module CSVExport =
             maxAngularError = dnsResults.maxAngularError            
             
             //position
-            x = c.X;
-            y = c.Y;
-            z = c.Z;
+            x = center.X
+            y = center.Y
+            z = center.Z
+
+            lat = centerGeo.X
+            lon = 360.0 - centerGeo.Y
+            alt = centerGeo.Z
         }
 
     let writeCSV 
-        lookUp 
-        upVector
-        (path : string) 
+        lookUp
+        (planet : Planet)
+        (upVector : V3d)
+        (outputPath : string) 
         (annotations : list<Annotation>) =
 
         let csvTable = 
             annotations 
-            |> List.map (toExportAnnotation lookUp upVector)
+            |> List.map (toExportAnnotation lookUp planet upVector)
             |> CSV.Seq.csv "," true id
 
-        if path.IsEmptyOrNull() |> not then 
-            csvTable |> CSV.Seq.write path
+        if outputPath.IsEmptyOrNull() |> not then 
+            csvTable |> CSV.Seq.write outputPath
 
     
 

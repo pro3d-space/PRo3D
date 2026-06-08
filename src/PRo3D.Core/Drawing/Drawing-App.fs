@@ -344,7 +344,7 @@ module DrawingApp =
             if xyz then
                 GeoJSONExport.writeGeoJSON_XYZ path isSelected annotations
             else 
-                let planet = smallConfig.planet.Get(bigConfig)            
+                let planet = smallConfig.planet.Get(bigConfig)
                 GeoJSONExport.writeGeoJSON (Some planet) path isSelected annotations
         with e -> 
             Log.warn "[Drawing] exportGeoJson failed with %A" e
@@ -566,7 +566,7 @@ module DrawingApp =
                     model
             | ExportAsAnnotations path, _, _ ->
                 Drawing.IO.saveVersioned model path
-            | ExportAsCsv p, _, _ ->
+            | ExportAsCsv path, _, _ ->
                 let up = smallConfig.up.Get(bigConfig)
                 let lookups = GroupsApp.updateGroupsLookup model.annotations
                 let annotations =
@@ -576,7 +576,9 @@ module DrawingApp =
                     |> List.map snd
                     |> List.filter(fun a -> a.visible)
 
-                CSVExport.writeCSV lookups up p annotations
+
+                let planet = smallConfig.planet.Get(bigConfig)
+                CSVExport.writeCSV lookups planet up path annotations
                         
                 model      
             | ExportAsProfileCsv p, _, _ ->
