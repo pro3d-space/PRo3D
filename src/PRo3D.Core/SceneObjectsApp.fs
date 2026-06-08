@@ -362,7 +362,7 @@ module SceneObjectsApp =
             (sceneObjs  : amap<Guid,AdaptiveSceneObject>) 
             (refsys     : AdaptiveReferenceSystem) 
             (observedSystem : aval<Option<SpiceReferenceSystem>>)
-            (observerSystem : aval<Option<ObserverSystem>>)
+            (observerSystem : aval<Option<ObserverSystem>>)            
             (selected   : aval<Option<Guid>>) =
 
             adaptive {
@@ -408,11 +408,12 @@ module SceneObjectsApp =
                         sgSObj
                         |> Sg.noEvents 
                         |> Sg.trafo trafo 
-                        |> Sg.noEvents 
-                        |> Sg.shader {
-                            do! Shader.stableTrafo
-                            do! DefaultSurfaces.diffuseTexture
-                        }
+                        |> Sg.noEvents                         
+                        //|> Sg.shader {
+                        //    do! Shader.stableTrafo
+                        //    do! DefaultSurfaces.diffuseTexture                            
+                        //    do! Rover3DModel.Shader.lighting
+                        //}
                         |> Sg.onOff so.isVisible
                         |> Sg.andAlso (
                             (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) bbTest) 
@@ -435,6 +436,10 @@ module SceneObjectsApp =
                     return Sg.empty
             } |> Sg.dynamic
 
+
+            
+            
+
         let view (sceneObjectsModel : AdaptiveSceneObjectsModel) (refsys : AdaptiveReferenceSystem) =
             let sgSObjs = sceneObjectsModel.sgSceneObjects
             let sceneObjs = sceneObjectsModel.sceneObjects
@@ -447,7 +452,7 @@ module SceneObjectsApp =
                         sceneObjs
                         refsys
                         (AVal.constant None)
-                        (AVal.constant None)
+                        (AVal.constant None)                        
                         selected
                     )
                     |> AMap.toASet 

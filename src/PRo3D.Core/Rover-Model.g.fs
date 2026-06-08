@@ -1,5 +1,5 @@
-//a7c91e99-a907-27ee-5935-1f434196f79e
-//ee3c290c-32ef-0f5e-0f24-92d202eda6d1
+//ba4955c7-b965-d909-0d11-09c0eee91484
+//4b7866f6-9d69-c0a1-2636-d2e43ee7cac3
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -15,7 +15,8 @@ type AdaptiveRover3DModel(value : Rover3DModel) =
     let _path_ = FSharp.Data.Adaptive.cval(value.path)
     let _refSystem_ = AdaptiveReferenceSystem(value.refSystem)
     let _trafo_ = FSharp.Data.Adaptive.cval(value.trafo)
-    let _forwardVector_ = FSharp.Data.Adaptive.cval(value.forwardVector)
+    let _setPoint_ = FSharp.Data.Adaptive.cval(value.setPoint)
+    let _lightDir_ = FSharp.Data.Adaptive.cval(value.lightDir)
     let _upVector_ = FSharp.Data.Adaptive.cval(value.upVector)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
@@ -28,13 +29,15 @@ type AdaptiveRover3DModel(value : Rover3DModel) =
             _path_.Value <- value.path
             _refSystem_.Update(value.refSystem)
             _trafo_.Value <- value.trafo
-            _forwardVector_.Value <- value.forwardVector
+            _setPoint_.Value <- value.setPoint
+            _lightDir_.Value <- value.lightDir
             _upVector_.Value <- value.upVector
     member __.Current = __adaptive
     member __.path = _path_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.refSystem = _refSystem_
     member __.trafo = _trafo_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Base.Trafo3d>>
-    member __.forwardVector = _forwardVector_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V3d>
+    member __.setPoint = _setPoint_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Base.V3d>>
+    member __.lightDir = _lightDir_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V3d>
     member __.upVector = _upVector_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V3d>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module Rover3DModelLenses = 
@@ -42,6 +45,7 @@ module Rover3DModelLenses =
         static member path_ = ((fun (self : Rover3DModel) -> self.path), (fun (value : Microsoft.FSharp.Core.string) (self : Rover3DModel) -> { self with path = value }))
         static member refSystem_ = ((fun (self : Rover3DModel) -> self.refSystem), (fun (value : ReferenceSystem) (self : Rover3DModel) -> { self with refSystem = value }))
         static member trafo_ = ((fun (self : Rover3DModel) -> self.trafo), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Base.Trafo3d>) (self : Rover3DModel) -> { self with trafo = value }))
-        static member forwardVector_ = ((fun (self : Rover3DModel) -> self.forwardVector), (fun (value : Aardvark.Base.V3d) (self : Rover3DModel) -> { self with forwardVector = value }))
+        static member setPoint_ = ((fun (self : Rover3DModel) -> self.setPoint), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Base.V3d>) (self : Rover3DModel) -> { self with setPoint = value }))
+        static member lightDir_ = ((fun (self : Rover3DModel) -> self.lightDir), (fun (value : Aardvark.Base.V3d) (self : Rover3DModel) -> { self with lightDir = value }))
         static member upVector_ = ((fun (self : Rover3DModel) -> self.upVector), (fun (value : Aardvark.Base.V3d) (self : Rover3DModel) -> { self with upVector = value }))
 

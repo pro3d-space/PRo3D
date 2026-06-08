@@ -15,12 +15,14 @@ open PRo3D.Core
 open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
+open Aardvark.UI.Trafos
+open PRo3D.Core.Rover3DModel
 open PRo3D.Core.Surface
 open OpcViewer.Base
 open Viewer
+        
 
 module TraversePropertiesApp =
-
     let update (model : Traverse) (action : TraversePropertiesAction) : Traverse = 
         match action with
         // Name
@@ -48,11 +50,9 @@ module TraversePropertiesApp =
         | SetPriority p ->
             { model with priority = Numeric.update model.priority p }
         | TogglePriorityRenderingEnabled ->             
-            { model with priorityEnabled = not model.priorityEnabled }
-
-
-    module UI =
-    
+            { model with priorityEnabled = not model.priorityEnabled }         
+                    
+    module UI =    
         let viewRoverTraverseProperties (m : AdaptiveTraverse) =
             require GuiEx.semui (
                 Html.table [
@@ -86,9 +86,9 @@ module TraversePropertiesApp =
                     Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
-                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
-                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ] 
-                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
+                    Html.row "Height offset:" [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Priority:"      [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ] 
+                    Html.row "Use Priority"   [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]                    
                 ]
             )
 
@@ -150,8 +150,51 @@ module TraverseApp =
             let colors = ColorBrewer.twelveClassPaired |> List.map ColorBrewer.toMaxValue
             traverses |> ColorBrewer.assignColors colors
         else    
-            traverses |> List.map(fun x -> (x, C4b.White))
+            traverses |> List.map(fun x -> (x, C4b.Chocolate))
             
+    let calculateRoverTrafoOnTraverse (newPosAction : Numeric.Action) (refSys : ReferenceSystem) (model : TraverseModel) =
+        let north  = refSys.northO.Normalized        
+        let up     = refSys.up.value.Normalized
+        let east   = north.Cross(up).Normalized
+              
+        //let refSysRotation = 
+        //    Trafo3d.FromOrthoNormalBasis(north, east, up)        
+        
+        model.traverseWithRover
+        |> Option.map(fun tGuid ->
+            let model = { model with currRoverPosition = (Numeric.update model.currRoverPosition newPosAction)}
+            let combinedTraverses = HashMap.union model.rimfaxTraverses model.waypointsTraverses
+            let traverse = combinedTraverses.[tGuid]
+
+            let currPos = model.currRoverPosition.value
+
+            let solPosF = (float32 currPos) * (float32 (traverse.sols.Length - 1))
+            let solPos1 = (int solPosF)       
+                            
+            if solPos1 = (traverse.sols.Length - 1) then 
+                let currSol = traverse.sols.[solPos1] 
+                
+                let completeTrafo = TrafoHelper.initialPlacementTrafo' (currSol.location[0].ToV3f()) (refSys.northO.ToV3f()) (refSys.up.value.ToV3f())
+
+                Trafo3d completeTrafo
+            else
+                let sol1 = traverse.sols.[solPos1]
+                let sol2 = traverse.sols.[solPos1 + 1]
+
+                let factor2  = solPosF - (float32 solPos1)
+                let factor1 = 1.0f - factor2
+                
+                let forward = ((sol2.location[0] - sol1.location[0]).Normalized).ToV3f()
+                let position = (( sol1.location[0].ToV3f() * factor1) + (sol2.location[0].ToV3f() * factor2))
+                                                        
+                //let rotation = TraversePropertiesApp.computeSolRotation sol1 refsys
+                let completeTrafo = TrafoHelper.initialPlacementTrafo' position forward (refSys.up.value.ToV3f())
+
+                //let completeTrafo = placementTrafoFromSolTrafo position refsys rotation
+
+                Trafo3d completeTrafo)
+        |> Option.defaultValue (Trafo3d.Translation(V3d.NegativeInfinity))        
+
     let update 
         (model : TraverseModel) 
         (action : TraverseAction) : TraverseModel = 
@@ -285,7 +328,7 @@ module TraverseApp =
             | Some id -> 
                 let selectedT = HashMap.unionMany [model.roverTraverses; model.rimfaxTraverses; model.waypointsTraverses] |> HashMap.tryFind id
                 match selectedT with
-                | Some selT ->
+                | Some selT ->                    
                     let traverse = (TraversePropertiesApp.update selT msg)
                     let roverTraverses' = model.roverTraverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
                     let rimfaxTraverses' = model.rimfaxTraverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
@@ -296,6 +339,8 @@ module TraverseApp =
                         waypointsTraverses = waypointsTraverses' }
                 | None -> model
             | None -> model
+        | SetRoverPositionOnTraverse (refSys, pos) ->
+            model
         | SelectSol solNumber ->
             match model.selectedTraverse with
             | Some id -> 
@@ -322,7 +367,7 @@ module TraverseApp =
                         rimfaxTraverses = rimfaxTraverses';
                         waypointsTraverses = waypointsTraverses' }
                 | None -> model
-            | None -> model
+            | None -> model            
         | RemoveAllTraverses ->
             { model with 
                 roverTraverses = HashMap.empty;
@@ -390,6 +435,16 @@ module TraverseApp =
             | _ -> 
                 Log.line "[Viewer] can only import exactly one file, given: %d" (List.length rootDirectoy)
                 model   
+        | SetRoverToTraverse guid -> 
+            let traverse = 
+                HashMap.tryFind guid (HashMap.union model.roverTraverses model.waypointsTraverses)
+                
+            traverse 
+            |> Option.map(fun t ->                 
+                {model with traverseWithRover = Some guid } )
+            |> Option.defaultValue model            
+        | RemoveRoverFromTraverse ->            
+            { model with traverseWithRover = None }
         | SetRimfaxImageMode (rimfaxImageMode, traverseID, solID) ->
             let sols = 
                 model.rimfaxTraverses[traverseID].sols
@@ -424,16 +479,24 @@ module TraverseApp =
         |_-> model
 
     module UI =
-
-        let viewActions (model:AdaptiveTraverseModel) =
+        let viewActions (refSystem : AdaptiveReferenceSystem) (model:AdaptiveTraverseModel) =
             adaptive {
+                let! refSys = refSystem.Current
+
                 return Html.table [                            
                     div [clazz "ui buttons inverted"] [
                         onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                             button [clazz "ui icon button"; onMouseClick (fun _ -> RemoveAllTraverses)] [
                                 i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Remove All"
                         )
-                    ] 
+                    ]
+                    div [clazz "ui buttons inverted"] [
+                        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
+                            button [clazz "ui icon button"; onMouseClick (fun _ -> RemoveRoverFromTraverse)] [
+                                i [clazz "car icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Hide Rover"
+                        )
+                    ]                     
+                    Html.row "RoverPosition:" [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] model.currRoverPosition |> UI.map (fun x -> SetRoverPositionOnTraverse (refSys, x))]
                 ] 
             }
 
@@ -480,7 +543,7 @@ module TraverseApp =
                             return ui
                         | None -> return empty
                 | None -> return empty
-            }                
+            }                            
        
     module Sg =
 
@@ -546,7 +609,15 @@ module TraverseApp =
             |> AMap.toASet 
             |> ASet.map snd 
             |> Sg.set
-            
+
+        module Semantic =
+            let RoughnessCoordinate = Symbol.Create "RoughnessCoordinate"
+            let MetallicnessCoordinate = Symbol.Create "MetallicnessCoordinate"
+            let EmissiveCoordinate = Symbol.Create "EmissiveCoordinate"
+            let NormalCoordinate = DefaultSemantic.NormalMapCoordinates
+            let Tangent = Symbol.Create "Tangent"
+
+
         let drawSolTextsFast (view : aval<CameraView>) (horizontalFovInDegrees : aval<float>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
             let contents = 
                 let viewTrafo = view |> AVal.map CameraView.viewTrafo
@@ -866,6 +937,11 @@ module TraverseApp =
             |> Sg.onOff traverse.isVisibleT
             |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
 
+        //let viewRover (traverseModel : AdaptiveTraverseModel) = 
+        //    let rover   = traverseModel.rover
+        //    let visible = rover.roverTraverse |> AVal.map(fun rT -> rT.IsSome)             
+
+        //    Pro3d.Core.RoverModel.Sg.viewRover rover.path visible rover.trafo
 
         let view
             (view           : aval<CameraView>)

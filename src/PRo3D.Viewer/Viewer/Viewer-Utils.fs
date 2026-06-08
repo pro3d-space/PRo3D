@@ -264,6 +264,7 @@ module ViewerUtils =
         (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
         (filterTexture   : aval<bool>)
+        (shadowMap       : aval<#ITexture>)
         (allowFootprint  : bool)  
         (allowDepthview  : bool) 
         (cursorWorldSpace : aval<Option<V3d * float>>)
@@ -312,6 +313,14 @@ module ViewerUtils =
                             return (fullTrafo * preTransform)
                             //return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                     }
+
+                let lightDirRover = m.scene.rover.lightDir //AVal.constant(V3d.OOI)
+                let roverTrafo    = Rover3DModel.TrafoHelper.usableTrafo m.scene.rover.trafo
+                    //adaptive {
+                    //    let! rT = Rover3DModel.TrafoHelper.usableTrafo m.scene.rover.trafo
+                    //    let! t = trafo
+                    //    return rT
+                    //}
 
                 let pickable = 
                     (globalBB, trafo)
@@ -426,8 +435,9 @@ module ViewerUtils =
                     |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
                     |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
-
-
+                    //|> Sg.texture "ShadowTexture" shadowMap
+                    //|> Sg.uniform "LightDirectionRover" lightDirRover
+                    //|> Sg.uniform "LightViewProjRover" (Rover3DModel.Shadows.lightViewProj roverTrafo m.scene.rover.upVector lightDirRover)
                     |> Sg.uniform "CursorViewSpace" cusorViewSpace
                     |> Sg.uniform "CursorWorldSizeSquared" (
                         cursorWorldSpace |> AVal.map (function 
@@ -439,7 +449,6 @@ module ViewerUtils =
                         )
                     ) 
                     |> Sg.uniform "CursorShaderEnabled" (AVal.constant true)
-
                     |> addImageCorrectionParameters  surf
                     |> addRadiometryParameters surf
                     |> Sg.uniform "DepthVisible" depthVisible //(AVal.constant(true)) //
@@ -463,9 +472,7 @@ module ViewerUtils =
                             )
                     )
                     |> Sg.pickable' pickable
-
                     |> Sg.noEvents 
-
                     |> Sg.texture "SecondaryTextureTransferFunction" (
                         surf.transferFunction |> AVal.map (fun tf -> 
                             match tf.tf with
@@ -506,9 +513,6 @@ module ViewerUtils =
                     |> Sg.uniform "TFBlendFactor" (
                         surf.transferFunction |> AVal.map (fun tf -> tf.blendFactor)
                     )
-
-
-
                     |> Sg.withEvents [
                         if Config.previewIntersections  then
                             yield SceneEventKind.Move, (
@@ -891,6 +895,7 @@ module ViewerUtils =
                 ImageProjection.Shaders.localImageProjections |> toEffect
 
             PRo3D.SPICE.Shaders.solarLighting |> toEffect
+            //Rover3DModel.Shader.lighting |> toEffect
         ]
         //Effect.compose [
             
@@ -919,6 +924,8 @@ module ViewerUtils =
 
     //TODO TO refactor screenshot specific
     let getSurfacesScenegraphs (runtime : IRuntime) (m : AdaptiveModel) =
+        let rover3DModel, shadowMap = Rover3DApp.viewRover runtime m.scene.rover
+
         let sgGrouped = m.scene.surfacesModel.sgGrouped
         
       //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
@@ -950,6 +957,7 @@ module ViewerUtils =
                             m.footPrint 
                             vpVisible
                             usehighlighting m.filterTexture
+                            shadowMap
                             true
                             false
                             (AVal.constant None)
@@ -978,13 +986,14 @@ module ViewerUtils =
                          // assign priorities globally, or for each anno and make sets
             
             }                              
-        sgs
+        AList.append sgs ([ rover3DModel ] |> AList.ofList)
 
     let createGroupedSgs 
         (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
         (view           : aval<CameraView>)
         (allowFootprint : bool) 
         (allowDepthview : bool) 
+        (runtime        : IRuntime)
         (m              : AdaptiveModel)  =
 
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
@@ -1040,14 +1049,14 @@ module ViewerUtils =
             |> Sg.noEvents
 
 
+        let rover3DModel, shadowMap = Rover3DApp.viewRover runtime m.scene.rover
+
         sgGrouped 
         |> AList.map (fun group -> 
                 
             let surfaces = 
                 group
-                |> AMap.map(fun guid surface ->   
-
-
+                |> AMap.map(fun guid surface ->
                     let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                     let s =
                         viewSingleSurfaceSg 
@@ -1065,6 +1074,7 @@ module ViewerUtils =
                             m.footPrint 
                             vpVisible
                             usehighlighting filterTexture
+                            shadowMap
                             allowFootprint
                             allowDepthview
                             cursorWorldPos
@@ -1112,8 +1122,25 @@ module ViewerUtils =
                 |> AMap.toASet 
                 |> ASet.map snd           
                 |> Sg.set
+
+            let roverTrafo = 
+                m.scene.rover.trafo
+                |> Rover3DModel.TrafoHelper.usableTrafo
+            
+            //let lightProjBox = 
+            //    roverTrafo
+            //    |> AVal.map Rover3DModel.Shadows.lightBox.Transformed
+            //    |> SgPrimitives.Sg.box (AVal.constant(C4b.Blue))
+            //    |> Sg.texture "ShadowTexture" shadowMap                
+            //    |> Sg.uniform "LightDirectionRover" m.scene.rover.upVector
+            //    |> Sg.uniform "LightViewProjRover" (Rover3DModel.Shadows.lightViewProj roverTrafo m.scene.rover.upVector m.scene.rover.upVector)
+            //    |> Sg.shader {
+            //        do! Shader.stableTrafo//DefaultSurfaces.trafo
+            //        do! DefaultSurfaces.vertexColor                    
+            //        //do! Rover3DModel.Shader.lighting 
+            //    }
                     
-            Sg.ofList [surfaces; depthComposed]
+            Sg.ofList [surfaces; depthComposed; rover3DModel]
         )  
 
     let renderCommands 
@@ -1126,9 +1153,7 @@ module ViewerUtils =
         (runtime        : IRuntime) 
         (m              : AdaptiveModel)  =
 
-        let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview m
-
-
+        let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview runtime m
 
         alist {                    
             for sg in grouped do  

@@ -707,7 +707,7 @@ module Gui =
                 match interaction with
                 | Interactions.DrawAnnotation -> 
                     return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.drawing |> UI.map DrawingMessage
-                | Interactions.PlaceRover ->
+                | Interactions.PlaceRoverViewPlan ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
                     let measurementTooltip = "Measurement to adapt the size of the axis gizmo"
@@ -768,7 +768,8 @@ module Gui =
             | Interactions.DrawAnnotation        -> sprintf "%s+click to pick point on surface" ctrl
             | Interactions.PickAnnotation        -> sprintf "%s+click on annotation to select" ctrl
             | Interactions.PickSurface           -> sprintf "%s+click on surface to select" ctrl
-            | Interactions.PlaceRover            -> sprintf "%s+click to (1) place rover and (2) pick lookat" ctrl
+            | Interactions.PlaceRoverModel       -> sprintf "%s+click to (1) place rover and (2) pick lookat" ctrl
+            | Interactions.PlaceRoverViewPlan    -> sprintf "%s+click to (1) place rover and (2) pick lookat" ctrl
             | Interactions.TrafoControls         -> "not implemented"
             | Interactions.PlaceSurface          -> "not implemented"
             | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
@@ -783,13 +784,14 @@ module Gui =
             | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
             | Interactions.PlaceCoordinateSystem -> "Pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
             | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
-            | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
+            | Interactions.PlaceRoverViewPlan    -> "Select a rover model in the rover menu."
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
             | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
             | Interactions.SelectArea            -> ""
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
+            | Interactions.PlaceRoverModel       -> "Place Rover Model on picked position"
             | _ -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
@@ -960,6 +962,9 @@ module Gui =
                             Incremental.text (m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz  |> AVal.map (function None -> "not set" | Some path -> path))
                         ]
                     ]
+                ]
+                GuiEx.accordion "Rover Model" "Settings" false [
+                    Rover3DApp.view |> UI.map Rover3DMessage
                 ]
             ] 
           

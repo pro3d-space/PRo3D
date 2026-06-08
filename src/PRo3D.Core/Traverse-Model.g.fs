@@ -1,5 +1,5 @@
-//89d392ae-36bd-a5b1-961d-8aa759096e16
-//a72739d7-0c27-cc36-4689-a3f0d8b9df9c
+//527c26a7-7ece-6a97-fabf-59d61b901259
+//2311e377-3588-2902-dc06-579ad9d8129e
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -422,6 +422,8 @@ type AdaptiveTraverseModel(value : TraverseModel) =
         FSharp.Data.Traceable.ChangeableModelMap(value.waypointsTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
     let _selectedTraverse_ = FSharp.Data.Adaptive.cval(value.selectedTraverse)
     let _selectedRimfaxSurface_ = FSharp.Data.Adaptive.cval(value.selectedRimfaxSurface)
+    let _traverseWithRover_ = FSharp.Data.Adaptive.cval(value.traverseWithRover)
+    let _currRoverPosition_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.currRoverPosition)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : TraverseModel) = AdaptiveTraverseModel(value)
@@ -438,6 +440,8 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             _waypointsTraverses_.Update(value.waypointsTraverses)
             _selectedTraverse_.Value <- value.selectedTraverse
             _selectedRimfaxSurface_.Value <- value.selectedRimfaxSurface
+            _traverseWithRover_.Value <- value.traverseWithRover
+            _currRoverPosition_.Update(value.currRoverPosition)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.roverTraverses = _roverTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
@@ -447,6 +451,8 @@ type AdaptiveTraverseModel(value : TraverseModel) =
     member __.waypointsTraverses = _waypointsTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.selectedTraverse = _selectedTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
     member __.selectedRimfaxSurface = _selectedRimfaxSurface_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
+    member __.traverseWithRover = _traverseWithRover_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
+    member __.currRoverPosition = _currRoverPosition_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseModelLenses = 
     type TraverseModel with
@@ -458,4 +464,6 @@ module TraverseModelLenses =
         static member waypointsTraverses_ = ((fun (self : TraverseModel) -> self.waypointsTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with waypointsTraverses = value }))
         static member selectedTraverse_ = ((fun (self : TraverseModel) -> self.selectedTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedTraverse = value }))
         static member selectedRimfaxSurface_ = ((fun (self : TraverseModel) -> self.selectedRimfaxSurface), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedRimfaxSurface = value }))
+        static member traverseWithRover_ = ((fun (self : TraverseModel) -> self.traverseWithRover), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with traverseWithRover = value }))
+        static member currRoverPosition_ = ((fun (self : TraverseModel) -> self.currRoverPosition), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : TraverseModel) -> { self with currRoverPosition = value }))
 

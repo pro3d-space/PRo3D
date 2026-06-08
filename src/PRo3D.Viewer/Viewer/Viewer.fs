@@ -290,7 +290,7 @@ module ViewerApp =
                 Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) m.ctrlFlag
             { m with navigation = navigation' }
             |> logScreenOption 10000 feedback
-        | Interactions.PlaceRover, ViewerMode.Standard ->
+        | Interactions.PlaceRoverViewPlan, ViewerMode.Standard ->
             let ref = m.scene.referenceSystem 
 
             let addPointMsg = ViewPlanApp.Action.AddPoint(p, ref, cache, (Optic.get _surfacesModel m))
@@ -315,6 +315,12 @@ module ViewerApp =
             match m.scene.viewPlans.working with
             | [] -> m'
             | _  -> { m' with tabMenu = TabMenu.Viewplanner }
+        | Interactions.PlaceRoverModel, ViewerMode.Standard ->
+            let addPointMsg = Rover3DAction.SetRoverPoints p
+
+            let rover3DModel = Rover3DApp.update { m.scene.rover with refSystem = m.scene.referenceSystem} addPointMsg
+            
+            { m with scene = { m.scene with rover = rover3DModel }}
         | Interactions.PlaceSurface, ViewerMode.Standard -> 
             let action = (SurfaceAppAction.PlaceSurface(p)) 
             let surfaceModel =
@@ -817,7 +823,7 @@ module ViewerApp =
                     { model with animations = animations }
                 | ViewPlanApp.Action.SetRoverVisibility (visible, guid) -> 
                     let rover = 
-                        { model.scene.rover with trafo = (if visible then (Some viewPlanModel.viewPlans.[guid].roverTrafo) else None) }
+                        { model.scene.rover with trafo = (if visible then (Some (viewPlanModel.viewPlans.[guid].roverTrafo)) else None) }
 
                     { model with scene = { model.scene with rover = rover }}
                 | _ ->
@@ -1970,6 +1976,9 @@ module ViewerApp =
                     m.animations
             (Optic.set _gisApp gisApp m)
             |> Optic.set ViewerLenses._animation animations
+        | Rover3DMessage msg, _ -> 
+            let roverModel = Rover3DApp.update m.scene.rover msg
+            { m with scene = { m.scene with rover = roverModel }}      
         | unknownAction, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       
@@ -2281,13 +2290,10 @@ module ViewerApp =
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
-
-        
+                        
         let sceneObjects =
-            SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
-
-        let rover3DModel = 
-            Rover3DApp.viewRover m.scene.rover
+            SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem             
+            |> Sg.map SceneObjectsMessage                          
 
         let geologicSurfacesSg = 
             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
@@ -2301,7 +2307,6 @@ module ViewerApp =
             depthTested; 
             heightValidationDiscs; 
             sceneObjects; 
-            rover3DModel;
             geologicSurfacesSg
             gisEntities
             ellipseDrawing

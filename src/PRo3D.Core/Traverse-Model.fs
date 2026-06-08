@@ -14,17 +14,18 @@ open PRo3D.Core.Surface
 open Adaptify
 open Chiron
 
+
 type TraversePropertiesAction =
     | ToggleShowText
     | ToggleshowRimfaxSurfaces
     | ToggleShowLines
-    | ToggleShowDots
-    | SetTraverseName of string
-    | SetSolTextsize of Numeric.Action
-    | SetLineWidth of Numeric.Action
-    | SetTraverseColor of ColorPicker.Action
-    | SetHeightOffset of Numeric.Action
-    | SetPriority of Numeric.Action
+    | ToggleShowDots   
+    | SetTraverseName             of string
+    | SetSolTextsize              of Numeric.Action
+    | SetLineWidth                of Numeric.Action
+    | SetTraverseColor            of ColorPicker.Action
+    | SetHeightOffset             of Numeric.Action
+    | SetPriority                 of Numeric.Action
     | TogglePriorityRenderingEnabled
 
 type TraverseAction =
@@ -38,7 +39,9 @@ type TraverseAction =
     | IsVisibleT of Guid
     | SelectTraverse of Guid
     | TraversePropertiesMessage of TraversePropertiesAction
-    | RemoveAllTraverses
+    | SetRoverPositionOnTraverse of ReferenceSystem * Numeric.Action
+    | SetRoverToTraverse         of Guid
+    | RemoveRoverFromTraverse    | RemoveAllTraverses
     | LoadRimfaxSurface of rootDirectory : list<string> * traverseID : Guid 
     | SetRimfaxImageMode of mode : string * traverseID : Guid * solNumber : int
     | PickRimfaxSurface of surfaceId : Guid * traverseId : Guid * solNumber : int
@@ -751,29 +754,33 @@ type Traverse with
 [<ModelType>]
 type TraverseModel =
     { version: int
-      roverTraverses: HashMap<Guid, Traverse>
-      strategicAnnotationTraverses: HashMap<Guid, Traverse>
-      rimfaxTraverses: HashMap<Guid, Traverse>
-      plannedTargetsTraverses: HashMap<Guid, Traverse>
-      waypointsTraverses: HashMap<Guid, Traverse>
-      selectedTraverse: Option<Guid>
-      selectedRimfaxSurface: Option<Guid>
+      roverTraverses               : HashMap<Guid, Traverse>
+      strategicAnnotationTraverses : HashMap<Guid, Traverse>
+      rimfaxTraverses              : HashMap<Guid, Traverse>
+      plannedTargetsTraverses      : HashMap<Guid, Traverse>
+      waypointsTraverses           : HashMap<Guid, Traverse>
+      selectedTraverse             : Option<Guid>
+      selectedRimfaxSurface        : Option<Guid>
+      traverseWithRover            : Option<Guid>        
+      currRoverPosition            : NumericInput
       }
 
 module TraverseModel =
 
     let current = 1
 
-    let initial =
-        { version = current
-          roverTraverses = HashMap.empty
-          strategicAnnotationTraverses = HashMap.empty
-          rimfaxTraverses = HashMap.empty
-          plannedTargetsTraverses = HashMap.empty
-          waypointsTraverses = HashMap.empty
-          selectedTraverse = None
-          selectedRimfaxSurface = None 
-        }
+    let initial = { 
+        version                      = current
+        roverTraverses               = HashMap.empty
+        strategicAnnotationTraverses = HashMap.empty
+        rimfaxTraverses              = HashMap.empty
+        plannedTargetsTraverses      = HashMap.empty
+        waypointsTraverses           = HashMap.empty
+        selectedTraverse             = None
+        selectedRimfaxSurface        = None 
+        traverseWithRover            = None
+        currRoverPosition            = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001 }
+    }
 
     let read0 =
         json {
@@ -824,7 +831,9 @@ module TraverseModel =
                   plannedTargetsTraverses = plannedTargetsTraverses
                   waypointsTraverses = waypointsTraverses
                   selectedTraverse = selectedTraverse
-                  selectedRimfaxSurface = selectedRimfaxSurface}
+                  selectedRimfaxSurface = selectedRimfaxSurface
+                  currRoverPosition = { Numeric.init with value = 0.0; min = 0.0; max = 1.0; step = 0.0001 }
+                  traverseWithRover = None}
         }
 
 

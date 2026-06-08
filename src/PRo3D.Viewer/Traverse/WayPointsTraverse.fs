@@ -202,6 +202,9 @@ module WayPointsTraverseApp =
                                         yield Incremental.i toggleMap AList.empty 
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
+                                        yield i [clazz "car icon green"; onClick (fun _ -> SetRoverToTraverse traverseID)] []
+                                        |> UI.wrapToolTip DataPosition.Bottom "Set Rover to traverse"
+
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"                                            
                                     } 

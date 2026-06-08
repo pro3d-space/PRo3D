@@ -1,5 +1,5 @@
-//5653a2cb-81d0-cfa3-c070-9c4df0583995
-//89f29823-b678-b15f-c300-1a17aba2b3e7
+//87909a71-9e17-1e25-c8c1-30be207e13c2
+//f7348417-b147-10b0-1491-8d2ac74aa321
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -498,6 +498,7 @@ type AdaptiveViewPlanModel(value : ViewPlanModel) =
         FSharp.Data.Traceable.ChangeableModelMap(value.viewPlans, (fun (v : ViewPlan) -> AdaptiveViewPlan(v)), __arg2, (fun (m : AdaptiveViewPlan) -> m))
     let _selectedViewPlan_ = FSharp.Data.Adaptive.cval(value.selectedViewPlan)
     let _working_ = FSharp.Data.Adaptive.cval(value.working)
+    let _showRoverOnSelection_ = FSharp.Data.Adaptive.cval(value.showRoverOnSelection)
     let _roverModel_ = AdaptiveRoverModel(value.roverModel)
     let _instrumentCam_ = FSharp.Data.Adaptive.cval(value.instrumentCam)
     let _instrumentFrustum_ = FSharp.Data.Adaptive.cval(value.instrumentFrustum)
@@ -513,6 +514,7 @@ type AdaptiveViewPlanModel(value : ViewPlanModel) =
             _viewPlans_.Update(value.viewPlans)
             _selectedViewPlan_.Value <- value.selectedViewPlan
             _working_.Value <- value.working
+            _showRoverOnSelection_.Value <- value.showRoverOnSelection
             _roverModel_.Update(value.roverModel)
             _instrumentCam_.Value <- value.instrumentCam
             _instrumentFrustum_.Value <- value.instrumentFrustum
@@ -521,6 +523,7 @@ type AdaptiveViewPlanModel(value : ViewPlanModel) =
     member __.viewPlans = _viewPlans_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveViewPlan>
     member __.selectedViewPlan = _selectedViewPlan_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
     member __.working = _working_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>>
+    member __.showRoverOnSelection = _showRoverOnSelection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.roverModel = _roverModel_
     member __.instrumentCam = _instrumentCam_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
     member __.instrumentFrustum = _instrumentFrustum_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.Frustum>
@@ -531,6 +534,7 @@ module ViewPlanModelLenses =
         static member viewPlans_ = ((fun (self : ViewPlanModel) -> self.viewPlans), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, ViewPlan>) (self : ViewPlanModel) -> { self with viewPlans = value }))
         static member selectedViewPlan_ = ((fun (self : ViewPlanModel) -> self.selectedViewPlan), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : ViewPlanModel) -> { self with selectedViewPlan = value }))
         static member working_ = ((fun (self : ViewPlanModel) -> self.working), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>) (self : ViewPlanModel) -> { self with working = value }))
+        static member showRoverOnSelection_ = ((fun (self : ViewPlanModel) -> self.showRoverOnSelection), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewPlanModel) -> { self with showRoverOnSelection = value }))
         static member roverModel_ = ((fun (self : ViewPlanModel) -> self.roverModel), (fun (value : RoverModel) (self : ViewPlanModel) -> { self with roverModel = value }))
         static member instrumentCam_ = ((fun (self : ViewPlanModel) -> self.instrumentCam), (fun (value : Aardvark.Rendering.CameraView) (self : ViewPlanModel) -> { self with instrumentCam = value }))
         static member instrumentFrustum_ = ((fun (self : ViewPlanModel) -> self.instrumentFrustum), (fun (value : Aardvark.Rendering.Frustum) (self : ViewPlanModel) -> { self with instrumentFrustum = value }))
