@@ -1,0 +1,4 @@
+regarding the cross section implementations, we recently worked on crossSectionCurtain.md, crossSectionRendering.md and CrossSection.md.
+i have refactoring requests.
+- currently the cross section property lives in the annotations. in contrast i want a crosssection model in the scene top level. the gui for creating a cross section for an annotation resides but instead of the checkbox whether an annotation is a cross section there should be a button which creates the cross section. in the update function the cross section is then stored in the cross section model. To be flexible use a discrimanted union `type CrossSectionGeomtry = | LineOnSurface of array<V3d>`. 
+- curtain settings should be moved into the new cross section app controlling crosssection model in the scene.
