@@ -68,3 +68,5 @@ src\Aardvark.OpcViewer.psess
 /docs/PRo3D_ShortUserManual/*.fls
 
 .ipynb_checkpoints/
+/__pycache__
+/profileDrawing/__pycache__

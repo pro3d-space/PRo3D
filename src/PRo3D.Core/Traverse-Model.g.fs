@@ -1,5 +1,5 @@
-//89d392ae-36bd-a5b1-961d-8aa759096e16
-//a72739d7-0c27-cc36-4689-a3f0d8b9df9c
+//755124d0-4e2c-7672-d1f5-4fb2f673aa19
+//5c650142-1a65-2db3-8cd0-0b1f67e10ce4
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -319,6 +319,7 @@ type AdaptiveTraverse(value : Traverse) =
     let _selectedSol_ = FSharp.Data.Adaptive.cval(value.selectedSol)
     let _showLines_ = FSharp.Data.Adaptive.cval(value.showLines)
     let _showText_ = FSharp.Data.Adaptive.cval(value.showText)
+    let _fastText_ = FSharp.Data.Adaptive.cval(value.fastText)
     let _showRimfaxSurfaces_ = FSharp.Data.Adaptive.cval(value.showRimfaxSurfaces)
     let _tTextSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.tTextSize)
     let _tLineWidth_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.tLineWidth)
@@ -342,6 +343,7 @@ type AdaptiveTraverse(value : Traverse) =
             _selectedSol_.Value <- value.selectedSol
             _showLines_.Value <- value.showLines
             _showText_.Value <- value.showText
+            _fastText_.Value <- value.fastText
             _showRimfaxSurfaces_.Value <- value.showRimfaxSurfaces
             _tTextSize_.Update(value.tTextSize)
             _tLineWidth_.Update(value.tLineWidth)
@@ -361,6 +363,7 @@ type AdaptiveTraverse(value : Traverse) =
     member __.selectedSol = _selectedSol_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>>
     member __.showLines = _showLines_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showText = _showText_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.fastText = _fastText_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showRimfaxSurfaces = _showRimfaxSurfaces_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.tTextSize = _tTextSize_
     member __.tLineWidth = _tLineWidth_
@@ -382,6 +385,7 @@ module TraverseLenses =
         static member selectedSol_ = ((fun (self : Traverse) -> self.selectedSol), (fun (value : Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.int>) (self : Traverse) -> { self with selectedSol = value }))
         static member showLines_ = ((fun (self : Traverse) -> self.showLines), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showLines = value }))
         static member showText_ = ((fun (self : Traverse) -> self.showText), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showText = value }))
+        static member fastText_ = ((fun (self : Traverse) -> self.fastText), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with fastText = value }))
         static member showRimfaxSurfaces_ = ((fun (self : Traverse) -> self.showRimfaxSurfaces), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showRimfaxSurfaces = value }))
         static member tTextSize_ = ((fun (self : Traverse) -> self.tTextSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with tTextSize = value }))
         static member tLineWidth_ = ((fun (self : Traverse) -> self.tLineWidth), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with tLineWidth = value }))

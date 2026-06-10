@@ -634,22 +634,44 @@ module ViewerApp =
                     let a = AnnotationProperties.update m.scene.referenceSystem a msg
 
                     //update true thickness computation on dip angle change
-                    let a = 
-                        if (a.geometry = Geometry.TT) then                                                         
+                    let a =
+                        if (a.geometry = Geometry.TT) then
                            let up = m.scene.referenceSystem.up.value
                            let north = m.scene.referenceSystem.north.value
                            let planet = m.scene.referenceSystem.planet
-                           
+
                            let results = Calculations.calcResultsLine a up north planet |> Some
                            { a with results = results }
                         else
-                            a                    
+                            a
                     a |> Leaf.Annotations)
 
                 let a = m.drawing.annotations |> Groups.updateLeaf selected f
-                Optic.set _annotations a m
-            | None -> m       
-        | BookmarkMessage msg,_ ->  
+                let m = Optic.set _annotations a m
+
+                // on CreateCrossSection, extract annotation points + camera to build CrossSection
+                match msg with
+                | AnnotationProperties.CreateCrossSection ->
+                    let leafOpt = a.flat |> HashMap.tryFind selected
+                    match leafOpt with
+                    | Some leaf ->
+                        let anno = leaf |> Leaf.toAnnotation
+                        let pts = Annotation.retrievePoints anno |> Array.ofList
+                        if pts.Length >= 2 then
+                            let cs = {
+                                geometry = LineOnSurface pts
+                                refPoint = m.navigation.camera.view.Location
+                            }
+                            let csm = CrossSectionApp.update m.scene.crossSectionModel (SetCrossSection cs)
+                            { m with scene = { m.scene with crossSectionModel = csm } }
+                        else m
+                    | None -> m
+                | _ -> m
+            | None -> m
+        | CrossSectionMessage msg,_ ->
+            let csm = CrossSectionApp.update m.scene.crossSectionModel msg
+            { m with scene = { m.scene with crossSectionModel = csm } }
+        | BookmarkMessage msg,_ ->
             Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 
             let m', bm = Bookmarks.update m.scene.bookmarks m.scene.referenceSystem.planet msg _navigation m
@@ -2235,6 +2257,8 @@ module ViewerApp =
             |> Sg.dynamic
             
             
+        let curtainSg = ViewerUtils.createCurtainSg view m
+
         let depthTested =
             [
                 scaleBars;
@@ -2242,6 +2266,7 @@ module ViewerApp =
                 traverses
                 distancePoints
                 surfaceIntersection
+                curtainSg
             ] |> Sg.ofList
 
         let heightValidationDiscs =

@@ -687,12 +687,13 @@ module DrawingApp =
                 Log.line "[Drawing] Reading annotations"
                 let (annos : list<Annotation>) = path |> Serialization.readFromFile |> Json.parse |> Json.deserialize // CHECK-merge IO.
                 let annos = annos |> List.map(fun x -> (x.key,x |> Leaf.Annotations)) |> HashMap.ofList
-            
+
                 Log.line "[Drawing] Reading grouping"
                 let grouping = Serialization.loadAs<GroupsModel> pathgGrouping
                 let grouping = { grouping with flat = annos }
 
                 { model with annotations = grouping }
+
             | _ -> model
 
         // optionally also store geojson to disk

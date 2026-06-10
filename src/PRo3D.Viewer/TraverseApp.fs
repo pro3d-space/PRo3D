@@ -29,6 +29,8 @@ module TraversePropertiesApp =
         // Text
         | ToggleShowText ->
             { model with showText = not model.showText }
+        | ToggleFastText ->
+            { model with fastText = not model.fastText }
         | ToggleshowRimfaxSurfaces ->
             { model with showRimfaxSurfaces = not model.showRimfaxSurfaces }
         | SetSolTextsize s ->
@@ -69,6 +71,7 @@ module TraversePropertiesApp =
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Fast Text:"  [GuiEx.iconCheckBox m.fastText  ToggleFastText]
                     Html.row "Show Surfaces:"  [GuiEx.iconCheckBox m.showRimfaxSurfaces ToggleshowRimfaxSurfaces]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
@@ -82,6 +85,7 @@ module TraversePropertiesApp =
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Fast Text:"  [GuiEx.iconCheckBox m.fastText  ToggleFastText]
                     Html.row "Show Lines:" [GuiEx.iconCheckBox m.showLines ToggleShowLines]
                     Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
@@ -98,6 +102,7 @@ module TraversePropertiesApp =
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Fast Text:"  [GuiEx.iconCheckBox m.fastText  ToggleFastText]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
@@ -110,6 +115,7 @@ module TraversePropertiesApp =
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Fast Text:"  [GuiEx.iconCheckBox m.fastText  ToggleFastText]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
                 ]
@@ -605,13 +611,17 @@ module TraverseApp =
 
 
         let viewTextForTraverse (refSystem : AdaptiveReferenceSystem)
-                                (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>) 
+                                (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>)
                                 (near : aval<float>) (traverse : AdaptiveTraverse)  =
-                drawSolTextsFast
-                    view
-                    horiztonalFieldOfViewInDegrees
-                    near
-                    traverse
+                traverse.fastText
+                |> AVal.map (fun fast ->
+                    if fast then
+                        // batched billboards: fast, but jitters at planet scale
+                        drawSolTextsFast view horiztonalFieldOfViewInDegrees near traverse
+                    else
+                        // per-label stable-trafo text: slower, numerically stable
+                        drawSolText view near traverse)
+                |> Sg.dynamic
                 |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
 
         [<Obsolete("draw with sg.view")>]

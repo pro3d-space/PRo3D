@@ -111,6 +111,7 @@ module Viewer =
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                     screenshotModel       = ScreenshotModel.initial
                     gisApp                = Gis.GisApp.initial startupArgs.defaultSpiceKernelPath
+                    crossSectionModel     = CrossSectionModel.initial
                 }
 
             viewerVersion   = viewerVerson
