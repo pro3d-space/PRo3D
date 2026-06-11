@@ -1,7 +1,5 @@
 namespace PRo3D
 
-open Aardvark.Service
-
 open System
 open System.Collections.Concurrent
 open System.IO
@@ -2021,7 +2019,7 @@ module ViewerApp =
         else
             newModel
 
-    let mkBrushISg color size trafo : ISg<Message> =
+    let mkBrushISg color size trafo : ISg<_> =
       Sg.sphere 5 color size 
         |> Sg.shader {
             do! Shader.stableTrafo
@@ -2079,7 +2077,7 @@ module ViewerApp =
                 )] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
                 //onResize  (fun s -> OnResize(s,id))
             AttributeMap.ofList [
-                onEvent "onRendered" [] (fun _ -> AnewmationMessage Animation.AnimatorMessage.RealTimeTick)                    
+                onAfterRender (fun _ -> AnewmationMessage Animation.AnimatorMessage.RealTimeTick)
             ] 
         ]            
 
@@ -2348,13 +2346,15 @@ module ViewerApp =
 
         // instrument view control
         let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed depthTested m.scene.viewPlans.instrumentCam false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
-                        |> AList.map ViewerUtils.mapRenderCommand
+                        |> Aardvark.UI.RenderCommand.Ordered
+                        |> Sg.execute
+                        |> Sg.map ViewerMessage
         
         //onBoot "attachResize('__ID__')" (
         //    DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         //)
         onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds, None) //AttributeMap.Empty
+            DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds) //AttributeMap.Empty
         )
 
     let createOverlaySg (m: AdaptiveModel) = 
@@ -2427,18 +2427,18 @@ module ViewerApp =
                 false 
                 runtime 
                 m
-            |> AList.map ViewerUtils.mapRenderCommand
+            |> Aardvark.UI.RenderCommand.Ordered
+            |> Sg.execute
+            |> Sg.map ViewerMessage
         onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
+            DomNode.RenderControl((renderControlAttributes id m), cam, cmds)
         )
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
 
-        let viewerDependencies = [
-            { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
+        let viewerDependencies = Html.semui @ [
             { kind = Stylesheet;  name = "semui-overrides"; url = "./resources/semui-overrides.css" }
             { kind = Stylesheet;  name = "fonts";           url = "./resources/fonts.css" }
-            { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
             { kind = Script;      name = "errorReporting";  url = "./resources/errorReporting.js"  }
             { kind = Script;      name = "resize";  url = "./resources/ResizeSensor.js"  }
             { kind = Script;      name = "resizeElem";  url = "./resources/ElementQueries.js"  }
@@ -2563,5 +2563,5 @@ module ViewerApp =
             update    = updateWithProvenanceTracking runtime enableProvenance signature sendQueue messagingMailbox
             initial   = m
         }
-        app.startAndGetState()
+        app.start()
 

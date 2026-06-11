@@ -1156,9 +1156,9 @@ module Gui =
     //TODO refactor: two codes for resize attachments
     module Pages =
         let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
-        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
+        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) (request : IHttpRequest) =
             
-            match Map.tryFind "page" request.queryParams with
+            match request.QueryParam "page" with
             | Some "instrumentview" ->
                 let id = System.Guid.NewGuid().ToString()
 

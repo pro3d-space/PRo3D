@@ -11,7 +11,6 @@ open System.Collections.Generic
 
 open Aardvark.Base
 open Aardvark.Application.Slim
-open Aardvark.UI
 open OpcViewer.Base
 open Aardvark.Rendering
 
@@ -35,6 +34,9 @@ open Suave.Operators
 open Suave.Filters
 open Suave.Successful
 open Suave.Json
+open Aardvark.UI
+open Aardvark.UI.Suave
+open Aardvark.UI.Suave.Filters
 
 open FSharp.Data.Adaptive
 
@@ -66,7 +68,7 @@ let rec allFiles dirs =
 
 
 let getFreePort() =
-    let l = System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
+    use l = new System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
     l.Start()
     let ep = l.LocalEndpoint |> unbox<Net.IPEndPoint>
     l.Stop()
@@ -310,7 +312,7 @@ let main argv =
                 Log.line "[Viewer] loading last scene"
                 ViewerApp.ViewerStartupLoad.LoadLastScene
 
-        let (adaptiveModel, mainApp) = 
+        use mainApp =
             ViewerApp.start 
                 runtime 
                 signature 
@@ -325,11 +327,12 @@ let main argv =
                 appData
                 viewerVersion
 
+        let adaptiveModel = mainApp.MutableModel
         
         { MailboxState.empty with 
             update = (fun a -> 
                 let a = Seq.map ViewerMessage a
-                mainApp.update Guid.Empty a
+                mainApp.Update(Guid.Empty, a)
             ) 
         }
         |> InitMailboxState
@@ -371,7 +374,7 @@ let main argv =
             match startupArgs.enableRemoteApi with
             | true -> 
                 Log.line "attaching remote API"
-                let applyMessage msg = mainApp.updateSync Guid.Empty [msg]
+                let applyMessage msg = mainApp.UpdateSync(Guid.Empty, [msg])
 
                 //let storage = ProvenanceModel.localDirectory "./provenanceData"
                 let storage = ProvenanceModel.nopStorage()
@@ -383,18 +386,18 @@ let main argv =
 
         let suaveServer = 
             let startServer = 
-                if startupArgs.enableRemoteApi then 
-                    WebPart.startServer
-                else   
-                    WebPart.startServerLocalhost
+                if startupArgs.enableRemoteApi then
+                    fun port -> Server.start $"http://{Net.IPAddress.Any}:{port}" mainApp.CancellationToken
+                else
+                    fun port -> Server.startLocalhost port mainApp.CancellationToken
 
             startServer port [
                 if startupArgs.disableCors then allow_cors
                 MutableApp.toWebPart' runtime false mainApp
                 path "/websocket" >=> handShake ws
                 prefix "/api" >=> remoteApi
-                Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
-                Aardvark.UI.Primitives.Resources.WebPart
+                WebPart.ofType<EmbeddedRessource>
+                WebPart.ofType<Primitives.EmbeddedResources>
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 
@@ -428,7 +431,7 @@ let main argv =
 
         disposables.Add(suaveServer)
 
-        
+
         //WebPart.startServer 4322 [
         //    MutableApp.toWebPart' runtime false instrumentApp        
         //    Suave.Files.browseHome
@@ -440,7 +443,7 @@ let main argv =
             let send msg =
                 match msg with
                   | RemoteAction.SetCameraView cv ->
-                      mainApp.update Guid.Empty (ViewerMessage (ViewerAction.SetCamera cv) |> Seq.singleton)
+                      mainApp.Update(Guid.Empty, ViewerMessage (ViewerAction.SetCamera cv) |> Seq.singleton)
                   | RemoteAction.SetView v ->                                
                       Log.line "Setting View %A" v
                       let frustum = Frustum.perspective v.fovH v.near v.far (float v.resolution.X / float v.resolution.Y)
@@ -452,29 +455,29 @@ let main argv =
                               bottom = frustum.bottom - v.principalPoint.Y
                           }
                       let cameraAction = ViewerMessage (ViewerAction.SetCameraAndFrustum2 (v.view,frustum))
-                      mainApp.update Guid.Empty (cameraAction |> Seq.singleton)
+                      mainApp.Update(Guid.Empty, cameraAction |> Seq.singleton)
 
             let remoteApp = 
                 App.start (PRo3D.RemoteControlApp.app renderingUrl send)
 
             let takeScreenshot (shot:Shot) =   
                 let act = CaptureShot shot |> Seq.singleton
-                remoteApp.update Guid.Empty act
+                remoteApp.Update(Guid.Empty, act)
                 { result = shot.folder }
 
             let takePlatformShot (shot:PlatformShot) =   
                 let act = CapturePlatform shot |> Seq.singleton
-                remoteApp.update Guid.Empty act
+                remoteApp.Update(Guid.Empty, act)
                 { result = shot.folder }
 
             let remotePort = 12346 
-            let d = WebPart.startServerLocalhost 12346 [ 
-                MutableApp.toWebPart runtime (remoteApp)
+            Server.startLocalhost 12346 remoteApp.CancellationToken [
+                MutableApp.toWebPart runtime remoteApp
                 POST >=> path "/shots" >=> mapJson takeScreenshot
                 POST >=> path "/platformshots" >=> mapJson takePlatformShot
                 Suave.Files.browseHome
-            ] 
-            disposables.Add(d)
+            ] |> ignore
+            disposables.Add(remoteApp)
             Log.line "Remote app started at port: %d" remotePort
         else   
             Log.warn "no remote app started"
@@ -491,7 +494,10 @@ let main argv =
                 url renderingUrl   //"http://localhost:4321/?page=main"
                 width 1280
                 height 800
+#if DEBUG
                 debug true
+                log (fun msg -> Report.Line(2, $"[Aardium] {msg}"))
+#endif
                 title titlestr
             }
 

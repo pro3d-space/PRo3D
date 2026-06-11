@@ -16,6 +16,7 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Data.Opc
 open PRo3D.Base.AnnotationQuery
+open Aardvark.UI.Suave.Filters
 
 
 module RemoteApi =

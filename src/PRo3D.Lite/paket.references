@@ -1,5 +1,4 @@
-﻿Suave
-FSharp.Core
+﻿FSharp.Core
 
 Aardvark.Base
 FSharp.Data.Adaptive
@@ -12,6 +11,7 @@ Aardvark.Application.Slim.GL
 Aardvark.SceneGraph
 Aardvark.SceneGraph.Assimp
 Aardvark.Rendering.Text
+Aardvark.UI.Giraffe
 
 Adaptify.Core
 
@@ -24,9 +24,3 @@ Uncodium.Eigensystems
 Newtonsoft.Json
 
 Aardium
-
-Aardvark.Service
-Giraffe
-Saturn
-
-

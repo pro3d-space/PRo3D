@@ -13,7 +13,7 @@ open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Application.Slim
 open Aardvark.SceneGraph.Opc
-open Aardvark.UI
+open Aardvark.UI.Suave
 open Aardvark.VRVis
 open Aardvark.VRVis.Opc
 open Aardvark.GeoSpatial.Opc
@@ -60,7 +60,7 @@ let rec allFiles dirs =
    
 
 let getFreePort() =
-    let l = System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
+    use l = new System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
     l.Start()
     let ep = l.LocalEndpoint |> unbox<Net.IPEndPoint>
     l.Stop()
@@ -152,17 +152,19 @@ let startApplication (startupArgs : CLStartupArgs) =
         let port = getFreePort()
         let uri = sprintf "http://localhost:%d" port
 
-        let (mainApp, mModel) =
+        let mainApp =
             SimulatedViews.PRo3DUtils.start 
                 runtime signature startupArgs.startEmpty messagingMailbox 
                 sendQueue dumpFile cacheFile uri 8 "" viewerVersion 
                 { StartupArgs.initArgs with showExplorationPoint = startupArgs.showExplorationPoint; showReferenceSystem = startupArgs.showReferenceSystem }
 
+        disposables.Add mainApp
+
         let s = 
             {MailboxState.empty with update = 
                                         (fun a -> 
                                             let a = Seq.map ViewerMessage a
-                                            mainApp.update Guid.Empty a)
+                                            mainApp.Update(Guid.Empty, a))
             }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post
   
@@ -192,12 +194,12 @@ let startApplication (startupArgs : CLStartupArgs) =
 
 
         let suaveServer = 
-            WebPart.startServerLocalhost port [
+            Server.startLocalhost port mainApp.CancellationToken [
                 allow_cors
                 MutableApp.toWebPart' runtime false mainApp
                 path "/websocket" >=> handShake ws
-                Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
-                Aardvark.UI.Primitives.Resources.WebPart
+                WebPart.ofType<EmbeddedRessource>
+                WebPart.ofType<Aardvark.UI.Primitives.EmbeddedResources>
                 // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                 // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 
@@ -237,7 +239,7 @@ let startApplication (startupArgs : CLStartupArgs) =
 
 
         Sg.useAsyncLoading <- false // need this for rendering without gui!
-        SnapshotGenerator.animate runtime mModel mainApp startupArgs |> ignore
+        SnapshotGenerator.animate runtime mainApp.MutableModel mainApp startupArgs |> ignore
         try            
             match startupArgs.exitOnFinish with
             | true ->

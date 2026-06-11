@@ -8,14 +8,11 @@ open Aardvark.Rendering
 open Aardvark.Application
 open Aardvark.Application.Slim
 open Aardvark.UI
+open Aardvark.UI.Giraffe
 
 open Aardium
 open PRo3D.Lite
 open PRo3D.Base
-
-open Aardvark.UI
-open Aardvark.Service
-open Suave
 
 type Self = Self
 
@@ -39,34 +36,29 @@ let main argv =
             app.Runtime :> IRuntime, app :> IDisposable
     use __ = disposable
     
-    let mutable mapp : MutableApp<_,_> = Unchecked.defaultof<_>
-    let emit msg = mapp.update Guid.Empty (Seq.singleton msg)
+    let mutable mapp : MutableApp<_,_,_> = Unchecked.defaultof<_>
+    let emit msg = mapp.Update(Guid.Empty, [msg])
     let app = App.app runtime emit
 
-    let instance = 
+    use instance =
         app |> App.start
 
     mapp <- instance
 
-
-    let webApp = 
-        choose [
-            Reflection.assemblyWebPart typeof<Self>.Assembly
-            Reflection.assemblyWebPart typeof<Aardvark.UI.Primitives.EmbeddedResources>.Assembly
-            MutableApp.toWebPart runtime instance
-        ]
-    use cts = new CancellationTokenSource()
-    let server = Server.StartWebPart 4321 webApp 
-
+    Server.startLocalhost 4321 instance.CancellationToken [
+        MutableApp.toWebPart runtime instance
+        WebPart.ofType<Primitives.EmbeddedResources>
+        WebPart.ofType<Self>
+    ] |> ignore
 
     Aardium.run {
         url "http://localhost:4321/"
         width 1024
         height 768
+#if DEBUG
         debug true
+        log (fun msg -> Report.Line(2, $"[Aardium] {msg}"))
+#endif
     }
-    cts.Cancel()
-    instance.shutdown()
-    
 
     0 
