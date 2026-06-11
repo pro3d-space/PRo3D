@@ -7,10 +7,31 @@ on:
       - .github/workflows/deploy.yml 
 jobs:
 
+  # Gate the whole deployment on the kernel-independent test suite. The HERA
+  # tests are skipped here (--skip-hera, via runTests.sh) since the HERA kernels
+  # are not public; the SPICE stack is still exercised via the default kernels.
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore tools
+        run: dotnet tool restore
+      - name: Restore paket
+        run: dotnet paket restore
+      - name: Run kernel-independent tests
+        run: bash ./runTests.sh
+
   win32_x64:
       name: windows
       runs-on: windows-latest
-      steps:  
+      needs: test
+      steps:
         - name: Checkout
           uses: actions/checkout@v4
         - name: Install Dotnet
