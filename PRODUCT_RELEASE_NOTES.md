@@ -1,3 +1,8 @@
+## 6.0.0-prerelease1
+- Apple Silicon: native macOS arm64 builds — PRo3D now runs natively on M-series Macs (no Rosetta), alongside Intel macOS, Windows and Linux
+- SPICE: updated to PRo3D.SPICE 1.0.9 with native CooTransformation/cspice libraries for macOS arm64
+- Build/release: unified the GitHub draft release so the standalone zip and the installers share one draft, with consistent v-prefixed tags and commit provenance
+
 ## 5.9.0-prerelease1
 - **Cross sections (experimental preview).** Place a cross section from a line annotation and render an extruded "curtain" along it. This is a preview feature; its model and UI may still change.
   - curtain: surface-relative texture mapping, smoother cross-section clip edge, adjustable base colour, and a button to remove a placed cross section
