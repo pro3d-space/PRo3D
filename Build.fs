@@ -57,6 +57,18 @@ let copyMacNativeLibs (arch : Architecture) (targetDir : string) =
     | None ->
         Trace.tracefn "no mac native libs for arch %s — continuing" archName
 
+// keeps aardium/package.json's top-level "version" in sync with the release
+// notes, so electron-builder's release tag (v{version}) matches the FAKE
+// GitHubRelease tag and both publishers land in the same draft.
+let patchAardiumVersion (version : string) =
+    let path = "aardium/package.json"
+    let text = File.ReadAllText path
+    // only the first "version": "..." is the top-level field (before "build");
+    // nested ones (buildVersion ${version}, deps) must stay untouched.
+    let rx = Regex("\"version\"\\s*:\\s*\"[^\"]*\"")
+    let patched = rx.Replace(text, sprintf "\"version\": \"%s\"" version, 1)
+    File.WriteAllText(path, patched)
+
 
 //Target.create "Compile" (fun _ ->
 //    run dotnet "build" "src"
@@ -369,14 +381,18 @@ Target.create "CopyToElectron" (fun _ ->
 
     // 0.0 copy version over into source code...
     let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
-    let patched = 
-        programFs 
-        |> Array.map (fun line -> 
-            if line.StartsWith "let viewerVersion" then 
-                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
+    let patched =
+        programFs
+        |> Array.map (fun line ->
+            if line.StartsWith "let viewerVersion" then
+                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion
             else line
         )
     File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
+
+    // 0.1 keep aardium/package.json version in sync so electron-builder's
+    // release tag (v{version}) matches the FAKE GitHubRelease draft tag.
+    patchAardiumVersion notes.NugetVersion
 
     if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
          let arch, rid = osxArch
@@ -682,16 +698,29 @@ Target.create "GitHubRelease" (fun _ ->
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
-            //let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+            //let files = System.IO.Directory.EnumerateFiles("bin/publish")
             let release = sprintf "bin/PRo3D.Viewer-standalone.%s.zip" notes.NugetVersion
-            let z = 
+            let z =
                 if File.Exists release then
                     File.Delete(release)
                 System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
+            // record where the draft came from: append the commit + tag so the
+            // release always states its source (the tag itself anchors the
+            // published release to this commit once pushed below).
+            let commit =
+                match Environment.environVarOrNone "GITHUB_SHA" with
+                | Some s when not (String.IsNullOrWhiteSpace s) -> s
+                | _ -> try Information.getCurrentSHA1 "." with _ -> "unknown"
+            let body = Seq.append notes.Notes [ ""; sprintf "_release %s — built from commit %s_" tagName commit ]
+
+            // use the v-prefixed tag as the release tag_name so it matches both
+            // the pushed git tag and electron-builder's default (v{version});
+            // this is what makes the standalone zip and the electron artifacts
+            // share one draft instead of two.
             let release =
                 GitHub.createClientWithToken token
-                |> GitHub.draftNewRelease "pro3d-space" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
+                |> GitHub.draftNewRelease "pro3d-space" "PRo3D" tagName (notes.SemVer.PreRelease <> None) body
                 |> GitHub.uploadFiles (Seq.singleton release)
                 //|> GitHub.publishDraft
                 |> Async.RunSynchronously
