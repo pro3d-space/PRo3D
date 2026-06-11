@@ -70,3 +70,7 @@ src\Aardvark.OpcViewer.psess
 .ipynb_checkpoints/
 /__pycache__
 /profileDrawing/__pycache__
+
+# test run artifacts
+/Aardvark.log
+/logs/
