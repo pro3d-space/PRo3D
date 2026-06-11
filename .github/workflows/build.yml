@@ -16,13 +16,15 @@ jobs:
     strategy:
         fail-fast: false
         matrix:
-            os: [ubuntu-latest, windows-latest, macos-latest]
+            os: [ubuntu-latest, windows-latest, macos-15-intel, macos-15]
             include:
               - os: ubuntu-latest
                 run-build: sh ./build.sh
               - os: windows-latest
                 run-build: .\build.cmd
-              - os: macos-latest
+              - os: macos-15-intel
+                run-build: bash ./build.sh
+              - os: macos-15
                 run-build: bash ./build.sh
     steps:
     - uses: actions/checkout@v4

@@ -53,9 +53,9 @@ jobs:
 
   mac_x64:
     name: OSX (x64)
-    runs-on: macos-13
+    runs-on: macos-15-intel
     needs: win32_x64
-    steps:  
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install Python
@@ -69,7 +69,7 @@ jobs:
           global-json-file: global.json
       - name: Add Cert to Keychain
         uses: apple-actions/import-codesign-certs@v1
-        with: 
+        with:
           p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
           p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
       - name: Enable Corepack
@@ -84,7 +84,7 @@ jobs:
       - name: Setup Node.js with specific npm
         uses: actions/setup-node@v4
         with:
-          node-version: '20' 
+          node-version: '20'
       - name: Verify node
         working-directory: aardium
         run: npm --version
@@ -95,11 +95,59 @@ jobs:
           MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
           MAC_DEV_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }} 
+          MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
-  
+  mac_arm64:
+    name: OSX (arm64)
+    runs-on: macos-15
+    needs: win32_x64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          architecture: 'arm64'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Add Cert to Keychain
+        uses: apple-actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
+          p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Set Yarn version
+        working-directory: aardium
+        run: corepack prepare yarn@4.10.3 --activate
+      - name: Activate latest Yarn
+        run: yarn set version 4.10.3
+      - name: Verify
+        run: yarn --version
+      - name: Setup Node.js with specific npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify node
+        working-directory: aardium
+        run: npm --version
+      - name: Build
+        run: bash ./build.sh PublishToElectron
+        env:
+          MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
+          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          MAC_DEV_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
   linux_x64:
     name: linux 
     runs-on: ubuntu-latest
