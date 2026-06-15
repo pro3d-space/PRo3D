@@ -29,7 +29,10 @@ jobs:
 
   win32_x64:
       name: windows
-      runs-on: windows-latest
+      # windows-latest rolled to Visual Studio 18, which node-gyp 11.4.2 (pinned
+      # by node-shared-mem) can't detect ("unknown version undefined"). Pin to
+      # windows-2022 (VS 2022 / v17) so the native module's node-gyp rebuild works.
+      runs-on: windows-2022
       needs: test
       steps:
         - name: Checkout
