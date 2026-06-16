@@ -600,6 +600,7 @@ module Gui =
                                 annotationMenu |> UI.map DrawingMessage;   
                                 subMenu "Change Mode"
                                         [
+                                          menuItem "M2020" (ChangeDashboardMode DashboardModes.m2020)
                                           menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
                                           menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
                                           menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)

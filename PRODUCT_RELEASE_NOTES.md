@@ -1,3 +1,6 @@
+## 6.0.0-prerelease2
+- Dashboards: default to the M2020 docking layout (includes the Traverse panel) and added "M2020" to the Change Mode menu so it can be selected
+
 ## 6.0.0-prerelease1
 - Apple Silicon: native macOS arm64 builds — PRo3D now runs natively on M-series Macs (no Rosetta), alongside Intel macOS, Windows and Linux
 - SPICE: updated to PRo3D.SPICE 1.0.9 with native CooTransformation/cspice libraries for macOS arm64
