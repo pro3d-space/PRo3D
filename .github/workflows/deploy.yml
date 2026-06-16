@@ -112,8 +112,32 @@ jobs:
       - name: Verify node
         working-directory: aardium
         run: npm --version
+      # Spotlight (mds/mdworker) auto-indexes the temp DMG that electron-builder
+      # mounts and keeps the volume busy, so 'hdiutil detach' intermittently
+      # fails with EBUSY (exit 16). Disabling indexing avoids the busy volume.
+      - name: Disable Spotlight indexing (avoid hdiutil detach EBUSY)
+        run: sudo mdutil -a -i off || true
       - name: Build
-        run: bash ./build.sh PublishToElectron
+        run: |
+          detach_stale() {
+            # force-detach any DMG volume left mounted by a failed attempt
+            hdiutil info | awk '/^\/dev\/disk/ {print $1}' | while read -r d; do
+              hdiutil detach -force "$d" >/dev/null 2>&1 || true
+            done
+          }
+          attempt=1; max=3
+          while true; do
+            if bash ./build.sh PublishToElectron; then
+              break
+            fi
+            if [ "$attempt" -ge "$max" ]; then
+              echo "PublishToElectron failed after $attempt attempts"; exit 1
+            fi
+            echo "PublishToElectron failed (attempt $attempt) — likely hdiutil detach EBUSY; cleaning up and retrying"
+            detach_stale
+            sleep 20
+            attempt=$((attempt + 1))
+          done
         env:
           MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
           MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
@@ -160,8 +184,32 @@ jobs:
       - name: Verify node
         working-directory: aardium
         run: npm --version
+      # Spotlight (mds/mdworker) auto-indexes the temp DMG that electron-builder
+      # mounts and keeps the volume busy, so 'hdiutil detach' intermittently
+      # fails with EBUSY (exit 16). Disabling indexing avoids the busy volume.
+      - name: Disable Spotlight indexing (avoid hdiutil detach EBUSY)
+        run: sudo mdutil -a -i off || true
       - name: Build
-        run: bash ./build.sh PublishToElectron
+        run: |
+          detach_stale() {
+            # force-detach any DMG volume left mounted by a failed attempt
+            hdiutil info | awk '/^\/dev\/disk/ {print $1}' | while read -r d; do
+              hdiutil detach -force "$d" >/dev/null 2>&1 || true
+            done
+          }
+          attempt=1; max=3
+          while true; do
+            if bash ./build.sh PublishToElectron; then
+              break
+            fi
+            if [ "$attempt" -ge "$max" ]; then
+              echo "PublishToElectron failed after $attempt attempts"; exit 1
+            fi
+            echo "PublishToElectron failed (attempt $attempt) — likely hdiutil detach EBUSY; cleaning up and retrying"
+            detach_stale
+            sleep 20
+            attempt=$((attempt + 1))
+          done
         env:
           MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
           MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
