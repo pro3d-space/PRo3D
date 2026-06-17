@@ -1,3 +1,6 @@
+## 6.0.0-prerelease3
+- Snapshots: fixed "could not find PRo3D.Snapshots.exe" — the snapshot/panorama renderer is now resolved beside the running executable and launched with that working directory (previously a relative path failed because SPICE init leaves the process working directory in the kernel config folder)
+
 ## 6.0.0-prerelease2
 - Dashboards: default to the M2020 docking layout (includes the Traverse panel) and added "M2020" to the Change Mode menu so it can be selected
 
