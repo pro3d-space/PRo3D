@@ -1,5 +1,5 @@
-//51a55be8-10c1-3aa7-69b8-c42015a5b17e
-//42366d6f-52d2-43a5-d199-5eaa084b5e1a
+//87a1cef8-79f2-3f16-7976-60aca6884698
+//050dad67-7b63-a06a-a78d-ee8e9d56e0e2
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -52,7 +52,7 @@ type AdaptiveCrossSectionModel(value : CrossSectionModel) =
     member __.curtainBaseColor = _curtainBaseColor_
     member __.clippingEnabled = _clippingEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-module CrossSectionModelLenses =
+module CrossSectionModelLenses = 
     type CrossSectionModel with
         static member crossSection_ = ((fun (self : CrossSectionModel) -> self.crossSection), (fun (value : Microsoft.FSharp.Core.Option<CrossSection>) (self : CrossSectionModel) -> { self with crossSection = value }))
         static member curtainEnabled_ = ((fun (self : CrossSectionModel) -> self.curtainEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : CrossSectionModel) -> { self with curtainEnabled = value }))
