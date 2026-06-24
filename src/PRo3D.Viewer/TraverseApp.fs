@@ -756,57 +756,39 @@ module TraverseApp =
                 (surface : SgSurface)
                 (traverseId : Guid)
                 (solNumber : int)=
-                let isSelected = 
-                    adaptive {
-                        let! (selected : Option<Guid>) =  traverseModel.selectedRimfaxSurface
-                        match selected with
-                        | Some id -> return (id = surface.surface)
-                        | None -> return false
-                    }
+                let isSelected =
+                    traverse.selectedSol
+                    |> AVal.map (function Some n -> n = solNumber | None -> false)
 
-                let colorTransformationExpr =
-                    <@ fun (c : V4f) ->
-                        let tolerance = 0.05f
-                        let isWhite =
-                            abs (c.X - 1.0f) < tolerance &&
-                            abs (c.Y - 1.0f) < tolerance &&
-                            abs (c.Z - 1.0f) < tolerance
-
-                        if isWhite then
-                            V4f(1.0f, 1.0f, 0.0f, c.W)
-                        else
-                            c
-                    @>
-
-                let sg = 
-                    surface.sceneGraph 
+                let surfaceSg =
+                    surface.sceneGraph
                     |> Sg.pickable' (pickable (adaptive { return surface.globalBB }) (adaptive { return surface.trafo.previewTrafo }))
                     |> Sg.noEvents
                     |> Sg.withEvents [
                         SceneEventKind.Click, (
-                            fun (sceneHit : SceneHit) -> 
+                            fun (sceneHit : SceneHit) ->
                                 true, Seq.ofList [PickRimfaxSurface (surface.surface, traverseId, solNumber)])
-                        ] 
-                    |> Sg.uniform "selected" isSelected
-                    |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
+                        ]
                     // imported RIMFAX surfaces always discard their white bands automatically
                     |> Sg.uniform "WhiteDiscardEnabled"   (AVal.constant true)
                     |> Sg.uniform "WhiteDiscardThreshold" (AVal.constant 0.9f)
+                    |> Sg.shader {
+                        do! DefaultSurfaces.stableTrafo
+                        do! DefaultSurfaces.diffuseTexture
+                        do! PRo3D.Base.OPCFilter.discardWhiteBands
+                    }
 
-                let sg = 
-                    isSelected
-                    |> AVal.map (fun s ->
-                        sg
-                        |> Sg.shader {
-                            do! DefaultSurfaces.stableTrafo
-                            do! DefaultSurfaces.diffuseTexture
-                            do! PRo3D.Base.OPCFilter.discardWhiteBands
-                            if s then do! DefaultSurfaces.transformColor colorTransformationExpr
-                        }
-                    )
-                    |> Sg.dynamic
+                // bounding box drawn around the surface while it is selected
+                let boundingBox =
+                    Sg.wireBox (AVal.constant C4b.VRVisGreen) (AVal.constant surface.globalBB)
+                    |> Sg.noEvents
+                    |> Sg.shader {
+                        do! DefaultSurfaces.stableTrafo
+                        do! DefaultSurfaces.vertexColor
+                    }
+                    |> Sg.onOff isSelected
 
-                sg
+                Sg.ofList [surfaceSg; boundingBox]
 
             let getRimfaxImageModeFromPath (filePath : string) : option<string> =
                 let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
