@@ -1230,7 +1230,7 @@ module ViewerUtils =
                                     s.priority.value |> AVal.map (int >> Some) 
                                 | _ -> AVal.constant None
                             )
-                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority
+                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority false
                         |> Sg.map ViewerAction.TraverseMessage
                 )
                 |> Sg.dynamic

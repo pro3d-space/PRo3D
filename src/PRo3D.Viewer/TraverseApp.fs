@@ -60,8 +60,10 @@ module TraversePropertiesApp =
                 Html.table [
                     Html.row "Name:"       [text m.tName]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
-                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
-                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]
+                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]
+                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ]
+                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
                 ]
             )
 
@@ -74,8 +76,10 @@ module TraversePropertiesApp =
                     Html.row "Fast Text:"  [GuiEx.iconCheckBox m.fastText  ToggleFastText]
                     Html.row "Show Surfaces:"  [GuiEx.iconCheckBox m.showRimfaxSurfaces ToggleshowRimfaxSurfaces]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
-                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
-                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]
+                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]
+                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ]
+                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
                 ]
             )
 
@@ -885,29 +889,34 @@ module TraverseApp =
             (view           : aval<CameraView>)
             (nearPlane      : aval<float>)
             (hfovInDegrees  : aval<float>)
-            (refsys         : AdaptiveReferenceSystem) 
+            (refsys         : AdaptiveReferenceSystem)
             (traverseModel  : AdaptiveTraverseModel)
             (filterPriority : aval<Option<int>>) // if Some, only render traverses with this priority
             (surfacePriorityExists : int -> aval<bool>)
-            = 
+            (priorityOverlayPass : bool) // None pass: true = on-top layer for priority-enabled traverses, false = depth-tested layer for the rest
+            =
             let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.rimfaxTraverses) traverseModel.waypointsTraverses
 
-            traverses 
-            |> AMap.filterA (fun k v -> 
-                (filterPriority, v.priority.value, v.priorityEnabled) 
-                |||> AVal.bind3 (fun filterPriority p enabled -> 
+            traverses
+            |> AMap.filterA (fun k v ->
+                (filterPriority, v.priority.value, v.priorityEnabled)
+                |||> AVal.bind3 (fun filterPriority p enabled ->
                     match filterPriority, enabled with
                     | Some priority, true-> // we have it priorities enabled and we are in a surface pass. check if this is the right prio
                         AVal.constant (int p = priority)
                     | Some _, false -> // we are in a surface pass here, but priorty rendering is not enabled => skip
                          AVal.constant false
-                    | None, true -> 
-                        // we are in overlay pass here.
-                        // but it has priority enabled -> it was already rendered with the surfaces?
-                        let surfaceExists = surfacePriorityExists (int p)
-                        surfaceExists |> AVal.map not // if it does not exist, render it now.
-                    | None, false ->  // we are in overlay pass here and prios are not enabled => we need to render it now.
-                        AVal.constant true
+                    | None, true ->
+                        // priority enabled traverse in the overlay (None) pass.
+                        // if a surface with this priority exists it was already drawn in the surface pass.
+                        // otherwise it has no surface layer to live in => draw it on top in the priority overlay pass.
+                        if priorityOverlayPass then
+                            let surfaceExists = surfacePriorityExists (int p)
+                            surfaceExists |> AVal.map not // if it does not exist, render it on top now.
+                        else
+                            AVal.constant false // handled by the priority overlay pass, not the depth-tested pass
+                    | None, false ->  // priority rendering disabled => render in the regular depth-tested overlay pass
+                        AVal.constant (not priorityOverlayPass)
                 )
             )
             |> AMap.map(fun id traverse ->
