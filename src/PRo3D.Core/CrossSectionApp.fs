@@ -57,7 +57,8 @@ module CrossSectionApp =
                             let! cs = model.crossSection
                             match cs with
                             | Some _ ->
-                                yield button [clazz "ui red button"; onClick (fun _ -> ClearCrossSection)] [text "Remove"]
+                                yield button [clazz "ui icon button"; onClick (fun _ -> ClearCrossSection)] [
+                                        i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Remove"
                             | None ->
                                 yield text "none (create one from an annotation)"
                         }
