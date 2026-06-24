@@ -724,9 +724,6 @@ type Surface = {
 
     highlightSelected : bool
     highlightAlways   : bool
-
-    whiteDiscardEnabled   : bool
-    whiteDiscardThreshold : NumericInput
 }
 
 module Surface =
@@ -747,14 +744,6 @@ module Surface =
             max = 100000.0
             step = 0.01
             format = "{0:0.000}"
-        }
-
-        let whiteDiscardThreshold (v:float) = {
-            value = v
-            min = 0.0
-            max = 1.0
-            step = 0.01
-            format = "{0:0.00}"
         }
 
     let read0 =
@@ -845,8 +834,6 @@ module Surface =
 
                     highlightSelected     = true
                     highlightAlways       = false
-                    whiteDiscardEnabled   = false
-                    whiteDiscardThreshold = Initial.whiteDiscardThreshold 0.9
                 }
         }
 
@@ -910,8 +897,6 @@ module Surface =
 
             let! highlightSel         = Json.tryRead "highlightSelected"
             let! highlightAl          = Json.tryRead "highlightAlways"
-            let! whiteDiscardEnabled  = Json.tryRead "whiteDiscardEnabled"
-            let! whiteDiscardThresh   = Json.tryRead "whiteDiscardThreshold"
 
             return
                 {
@@ -955,8 +940,6 @@ module Surface =
 
                     highlightSelected     = match highlightSel        with |Some v -> v |None -> true
                     highlightAlways       = match highlightAl         with |Some v -> v |None -> false
-                    whiteDiscardEnabled   = match whiteDiscardEnabled with |Some v -> v |None -> false
-                    whiteDiscardThreshold = match whiteDiscardThresh  with |Some v -> Initial.whiteDiscardThreshold v |None -> Initial.whiteDiscardThreshold 0.9
                 }
         }
 
@@ -1028,8 +1011,6 @@ type Surface with
 
             do! Json.write "highlightSelected"     x.highlightSelected
             do! Json.write "highlightAlways"       x.highlightAlways
-            do! Json.write "whiteDiscardEnabled"   x.whiteDiscardEnabled
-            do! Json.write "whiteDiscardThreshold" x.whiteDiscardThreshold.value
         }
 
 type Picking =

@@ -785,6 +785,9 @@ module TraverseApp =
                         ] 
                     |> Sg.uniform "selected" isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
+                    // imported RIMFAX surfaces always discard their white bands automatically
+                    |> Sg.uniform "WhiteDiscardEnabled"   (AVal.constant true)
+                    |> Sg.uniform "WhiteDiscardThreshold" (AVal.constant 0.9f)
 
                 let sg = 
                     isSelected
@@ -792,7 +795,8 @@ module TraverseApp =
                         sg
                         |> Sg.shader {
                             do! DefaultSurfaces.stableTrafo
-                            do! DefaultSurfaces.diffuseTexture 
+                            do! DefaultSurfaces.diffuseTexture
+                            do! PRo3D.Base.OPCFilter.discardWhiteBands
                             if s then do! DefaultSurfaces.transformColor colorTransformationExpr
                         }
                     )
