@@ -229,6 +229,10 @@ module UI =
                 staticClickIcon "bookmark outline icon" "Deselect All" (GroupsMessage(GroupsAppAction.SetSelection(path,false)))
 
                 staticClickIcon "calculator icon"       "Recalculate selected Polygon Measurements" (RecalculateMeasurements)
+
+                ColorPicker.view group.defaultColor
+                |> UI.map (fun a -> GroupsMessage(GroupsAppAction.SetGroupDefaultColor(path, a)))
+                |> UI.wrapToolTip DataPosition.Bottom "Default color for new annotations in this group"
             ]
            
         let itemAttributes =
