@@ -1005,3 +1005,97 @@ Currently we only read opcx files as opposed to opcx.json files which also provi
 
 \paragraph{Data Example}
 An example of currently available data can be found in the Appendix \ref{multitexturingAppendix}.
+
+\subsection{Cross Sections}
+\label{sec:crossSections}
+
+The cross section feature allows you to cut surfaces and map images onto the cutting plane.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/crossSectionTeaser.png}
+	\caption{A cross section with a mapped curtain image.}
+\end{figure}
+
+\paragraph{1. Create a polyline annotation.}
+Use sky projection and adequate subsampling if needed. Watch out not to generate insane segment counts. For example, for long cross-sections increase the sampling distance.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/crossSectionAnno.png}
+	\caption{The polyline annotation that defines the cross section.}
+\end{figure}
+
+\paragraph{2. Profile Export}
+Export the profile of the annotation.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{pics/exportProfile.png}
+	\caption{Exporting the profile of the annotation.}
+\end{figure}
+
+The exported profile will look like this:
+
+\begin{lstlisting}
+"distance","elevation"
+"0","-2540.3019554105754"
+"96.56728104292469","-2532.4515562465303"
+"146.95083969889563","-2529.7198536160195"
+"178.2109028662038","-2525.732550567427"
+"238.47366569537462","-2515.188256619444"
+"332.84560816666226","-2514.8733450224286"
+\end{lstlisting}
+
+Now use the draw profile tool to create an SVG/PNG which shows the profile:
+
+\begin{lstlisting}
+python draw_profile.py --profile testProfile2.csv --curtain-height 100 --min-altitude -2200 --vertical-px 2000 --overlay --x-interval 20 --y-interval 20 --x-grid 25 --y-grid 1 --output profile.svg --grid-opacity 1.0 --grid-width 3.0
+\end{lstlisting}
+
+\begin{itemize}
+	\item Choose curtain height to match the full vertical span you need.
+	\item \texttt{min-altitude} should be where the profile ends (lowest point of the profile).
+	\item Curtain height is the height in meters.
+	\item All of these need to be matched up later when setting the curtain details (step~6).
+	\item The \texttt{vertical-px} parameter is used as the height of the image. The width is computed automatically given the profile length. For long profiles you might want to lower the resolution, as later in PRo3D the width must not exceed 16384 pixels.
+\end{itemize}
+
+Look at the profile or the annotation info in PRo3D to find good parameters (e.g.~the vertical span). Use the approximate curtain height and minimum altitude to specify the 2D viewport of the cross section.
+
+\paragraph{3. Interpretation and tweaking}
+Do your interpretation and tweaking of the cross section. Next, convert it to a PNG and remember the file name.
+
+\paragraph{4. Creating the cross section}
+Go to the annotation properties and move the camera far away from the cross section. Everything between the annotation and the point of view when creating the cross section will be clipped away.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{pics/createCrossSection.png}
+	\caption{Creating the cross section from the annotation properties.}
+\end{figure}
+
+This will leave you with the data clipped:
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/clippedCrossSection.png}
+	\caption{The clipped data along the cross section.}
+\end{figure}
+
+\paragraph{5. Setting curtain details}
+Next, choose the curtain settings and set up the curtain.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{pics/curtainProperties.png}
+	\caption{The curtain properties.}
+\end{figure}
+
+\paragraph{6. Inspection of cross section and curtain}
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/crossSectionAndCurtain.png}
+	\caption{Inspection of the final cross section and curtain.}
+\end{figure}
