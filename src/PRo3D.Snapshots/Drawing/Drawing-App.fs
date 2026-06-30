@@ -205,8 +205,32 @@ module DrawingApp =
         
     let pickler = MBrace.FsPickler.Json.JsonSerializer(indent=true)
 
-    let stash (model : DrawingModel) =
-        { model with past = Some model; future = None }
+    let pushUndo (delta : AnnotationsDelta) (model : DrawingModel) =
+        { model with undoStack = delta :: model.undoStack; redoStack = [] }
+
+    let applyUndoDelta (groups : GroupsModel) (delta : AnnotationsDelta) : GroupsModel =
+        match delta with
+        | LeafAdded (leaf, groupPath) ->
+            GroupsApp.removeLeaf groups leaf.id groupPath true
+        | LeafRemoved (leaf, groupPath) ->
+            let flat' = groups.flat |> HashMap.add leaf.id leaf
+            let func  = fun (x : Node) -> { x with leaves = x.leaves |> IndexList.prepend leaf.id }
+            let root' = GroupsApp.updateNodeAt groupPath func groups.rootGroup
+            { groups with flat = flat'; rootGroup = root' }
+        | SnapshotDelta (before, _) ->
+            before
+
+    let applyRedoDelta (groups : GroupsModel) (delta : AnnotationsDelta) : GroupsModel =
+        match delta with
+        | LeafAdded (leaf, groupPath) ->
+            let flat' = groups.flat |> HashMap.add leaf.id leaf
+            let func  = fun (x : Node) -> { x with leaves = x.leaves |> IndexList.prepend leaf.id }
+            let root' = GroupsApp.updateNodeAt groupPath func groups.rootGroup
+            { groups with flat = flat'; rootGroup = root' }
+        | LeafRemoved (leaf, groupPath) ->
+            GroupsApp.removeLeaf groups leaf.id groupPath true
+        | SnapshotDelta (_, after) ->
+            after
 
     type SmallConfig<'a> =
         {
@@ -268,13 +292,23 @@ module DrawingApp =
             let up    = smallConfig.up.Get(bigConfig)
             let north = smallConfig.north.Get(bigConfig)
             let planet = smallConfig.planet.Get(bigConfig)
+            let groupPath  = model.annotations.activeGroup.path
+            let flatBefore = model.annotations.flat
 
-            let model, newSegment = addPoint up north planet hitFunction point view model name webSocket
-            
-            match newSegment with
-            | None         -> model
-            | Some segment -> addNewSegment hitFunction model segment
-            |> stash
+            let model', newSegment = addPoint up north planet hitFunction point view model name webSocket
+            let model' =
+                match newSegment with
+                | None         -> model'
+                | Some segment -> addNewSegment hitFunction model' segment
+
+            let newLeaf =
+                model'.annotations.flat
+                |> HashMap.toList
+                |> List.tryFind (fun (id, _) -> not (HashMap.containsKey id flatBefore))
+                |> Option.map snd
+            match newLeaf with
+            | Some leaf -> model' |> pushUndo (LeafAdded(leaf, groupPath))
+            | None      -> model'
         | RemoveLastPoint, _, _ -> 
           //let annotation = { w with points = w.points |> IndexList.append p }
           // { annotation with segments = IndexList.append newSegment annotation.segments }
@@ -294,7 +328,17 @@ module DrawingApp =
             let north  = smallConfig.north.Get(bigConfig)
             let planet = smallConfig.planet.Get(bigConfig)
 
-            (finishAndAppendAndSend up north planet view model webSocket) |> stash
+            let groupPath  = model.annotations.activeGroup.path
+            let flatBefore = model.annotations.flat
+            let result = finishAndAppendAndSend up north planet view model webSocket
+            let newLeaf =
+                result.annotations.flat
+                |> HashMap.toList
+                |> List.tryFind (fun (id, _) -> not (HashMap.containsKey id flatBefore))
+                |> Option.map snd
+            match newLeaf with
+            | Some leaf -> result |> pushUndo (LeafAdded(leaf, groupPath))
+            | None      -> result
         | Exit, _, _ -> 
             { model with hoverPosition = None }
         | SetSemantic mode, _, _ ->
@@ -326,19 +370,33 @@ module DrawingApp =
         | ClearWorking,_ , _->
             { model with working = None }
         | Clear,_ , _->
-            { model with annotations = GroupsModel.initial }
-        | Action.Nop, _, _ -> model                   
-        | Undo, _, _ -> 
-            match model.past with
-            | Some p -> { p with future = Some model }
-            | None -> model
+            let before = model.annotations
+            let after  = GroupsModel.initial
+            { model with annotations = after } |> pushUndo (SnapshotDelta(before, after))
+        | Action.Nop, _, _ -> model
+        | Undo, _, _ ->
+            match model.undoStack with
+            | [] -> model
+            | delta :: rest ->
+                let annotations = applyUndoDelta model.annotations delta
+                { model with annotations = annotations; undoStack = rest; redoStack = delta :: model.redoStack }
         | Redo, _, _ ->
-            match model.future with
-            | Some f -> f
-            | None -> model           
+            match model.redoStack with
+            | [] -> model
+            | delta :: rest ->
+                let annotations = applyRedoDelta model.annotations delta
+                { model with annotations = annotations; undoStack = delta :: model.undoStack; redoStack = rest }
         | GroupsMessage msg,_, _ ->
-            let m = { model with annotations = GroupsApp.update model.annotations msg}
-            m
+            let annotations = GroupsApp.update model.annotations msg
+            let model' = { model with annotations = annotations }
+            match msg with
+            | GroupsAppAction.RemoveLeaf (id, path) ->
+                match model.annotations.flat.TryFind id with
+                | Some leaf -> model' |> pushUndo (LeafRemoved(leaf, path))
+                | None      -> model'
+            | GroupsAppAction.RemoveGroup _ | GroupsAppAction.ClearGroup _ ->
+                model' |> pushUndo (SnapshotDelta(model.annotations, annotations))
+            | _ -> model'
         | DnsColorLegendMessage msg,_, _ -> 
             { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
         | FlyToAnnotation msg, _, _ ->               

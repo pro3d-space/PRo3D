@@ -1354,13 +1354,27 @@ module ViewerApp =
 
             let m =
                 match (m.ctrlFlag, k, m.scene.scenePath) with
-                | true, Aardvark.Application.Keys.S, Some path -> 
+                | true, Aardvark.Application.Keys.S, Some path ->
                     { (ViewerIO.saveEverything path m) with ctrlFlag = false } |> shortFeedback "scene saved"
-                | true, Aardvark.Application.Keys.S, None ->         
-                    { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene" 
+                | true, Aardvark.Application.Keys.S, None ->
+                    { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene"
                     // (saveSceneAndAnnotations p m)
                 |_-> m
-                                   
+
+            let m =
+                let view =
+                    match m.viewerMode with
+                    | ViewerMode.Standard    -> m.navigation.camera.view
+                    | ViewerMode.Instrument  -> m.scene.viewPlans.instrumentCam
+                match (m.ctrlFlag, k) with
+                | true, Aardvark.Application.Keys.Z ->
+                    let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Undo
+                    { m with drawing = drawing; ctrlFlag = false }
+                | true, Aardvark.Application.Keys.Y ->
+                    let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Redo
+                    { m with drawing = drawing; ctrlFlag = false }
+                | _ -> m
+
             let sensitivity = m.scene.config.navigationSensitivity.value
           
             let configAction = 
