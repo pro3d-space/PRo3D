@@ -60,8 +60,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     let _annotations_ = PRo3D.Core.AdaptiveGroupsModel(value.annotations)
     let _exportPath_ = FSharp.Data.Adaptive.cval(value.exportPath)
     let _pendingIntersections_ = FSharp.Data.Adaptive.cval(value.pendingIntersections)
-    let _past_ = FSharp.Data.Adaptive.cval(value.past)
-    let _future_ = FSharp.Data.Adaptive.cval(value.future)
+    let _undoStack_ = FSharp.Data.Adaptive.cval(value.undoStack)
+    let _redoStack_ = FSharp.Data.Adaptive.cval(value.redoStack)
     let _dnsColorLegend_ = PRo3D.Base.AdaptiveFalseColorsModel(value.dnsColorLegend)
     let _haltonPoints_ = FSharp.Data.Adaptive.cval(value.haltonPoints)
     let _automaticGeoJsonExport_ = AdaptiveAutomaticGeoJsonExport(value.automaticGeoJsonExport)
@@ -88,8 +88,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
             _annotations_.Update(value.annotations)
             _exportPath_.Value <- value.exportPath
             _pendingIntersections_.Value <- value.pendingIntersections
-            _past_.Value <- value.past
-            _future_.Value <- value.future
+            _undoStack_.Value <- value.undoStack
+            _redoStack_.Value <- value.redoStack
             _dnsColorLegend_.Update(value.dnsColorLegend)
             _haltonPoints_.Value <- value.haltonPoints
             _automaticGeoJsonExport_.Update(value.automaticGeoJsonExport)
@@ -109,8 +109,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     member __.annotations = _annotations_
     member __.exportPath = _exportPath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
     member __.pendingIntersections = _pendingIntersections_ :> FSharp.Data.Adaptive.aval<FSharp.Data.Adaptive.ThreadPool<DrawingAction>>
-    member __.past = _past_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<DrawingModel>>
-    member __.future = _future_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<DrawingModel>>
+    member __.undoStack = _undoStack_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<AnnotationsDelta>>
+    member __.redoStack = _redoStack_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<AnnotationsDelta>>
     member __.dnsColorLegend = _dnsColorLegend_
     member __.haltonPoints = _haltonPoints_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>>
     member __.automaticGeoJsonExport = _automaticGeoJsonExport_
@@ -132,8 +132,8 @@ module DrawingModelLenses =
         static member annotations_ = ((fun (self : DrawingModel) -> self.annotations), (fun (value : PRo3D.Core.GroupsModel) (self : DrawingModel) -> { self with annotations = value }))
         static member exportPath_ = ((fun (self : DrawingModel) -> self.exportPath), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : DrawingModel) -> { self with exportPath = value }))
         static member pendingIntersections_ = ((fun (self : DrawingModel) -> self.pendingIntersections), (fun (value : FSharp.Data.Adaptive.ThreadPool<DrawingAction>) (self : DrawingModel) -> { self with pendingIntersections = value }))
-        static member past_ = ((fun (self : DrawingModel) -> self.past), (fun (value : Microsoft.FSharp.Core.Option<DrawingModel>) (self : DrawingModel) -> { self with past = value }))
-        static member future_ = ((fun (self : DrawingModel) -> self.future), (fun (value : Microsoft.FSharp.Core.Option<DrawingModel>) (self : DrawingModel) -> { self with future = value }))
+        static member undoStack_ = ((fun (self : DrawingModel) -> self.undoStack), (fun (value : Microsoft.FSharp.Collections.list<AnnotationsDelta>) (self : DrawingModel) -> { self with undoStack = value }))
+        static member redoStack_ = ((fun (self : DrawingModel) -> self.redoStack), (fun (value : Microsoft.FSharp.Collections.list<AnnotationsDelta>) (self : DrawingModel) -> { self with redoStack = value }))
         static member dnsColorLegend_ = ((fun (self : DrawingModel) -> self.dnsColorLegend), (fun (value : PRo3D.Base.FalseColorsModel) (self : DrawingModel) -> { self with dnsColorLegend = value }))
         static member haltonPoints_ = ((fun (self : DrawingModel) -> self.haltonPoints), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>) (self : DrawingModel) -> { self with haltonPoints = value }))
         static member automaticGeoJsonExport_ = ((fun (self : DrawingModel) -> self.automaticGeoJsonExport), (fun (value : AutomaticGeoJsonExport) (self : DrawingModel) -> { self with automaticGeoJsonExport = value }))
