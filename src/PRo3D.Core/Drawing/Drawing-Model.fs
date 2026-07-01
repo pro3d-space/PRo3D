@@ -23,7 +23,6 @@ type SamplingUnit =
 
 type DrawingAction =
 | SetSemantic         of Semantic
-| ChangeColor         of ColorPicker.Action
 | ChangeThickness     of Numeric.Action
 | ChangeSamplingAmount of Numeric.Action
 | SetSamplingUnit     of SamplingUnit
@@ -96,7 +95,6 @@ type DrawingModel = {
     projection : Projection
     geometry   : Geometry
     semantic   : Semantic
-    color      : ColorInput
     thickness  : NumericInput
 
     samplingAmount   : NumericInput
@@ -149,7 +147,6 @@ module DrawingModel =
         draw          = false  
         pick          = false
         multi         = false
-        color         = { c = C4b.DarkBlue } 
         thickness     = Annotation.Initial.thickness
 
         working     = None

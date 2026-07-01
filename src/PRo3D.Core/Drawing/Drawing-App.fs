@@ -482,8 +482,6 @@ module DrawingApp =
                 { model with geometry = mode; projection = projection; }
             | SetProjection mode, _, _ ->
                 { model with projection = mode }                  
-            | ChangeColor c, _, _ -> 
-                { model with color = ColorPicker.update model.color c }
             | ChangeThickness th, _, _ ->
                 { model with thickness = Numeric.update model.thickness th }
             | ChangeSamplingAmount k, _, _ ->
