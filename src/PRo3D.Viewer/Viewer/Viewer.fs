@@ -2159,19 +2159,42 @@ module ViewerApp =
         //    Sg.ofList [text; traverse]
 
         let distancePointsText =
-            ViewPlanApp.Sg.viewText 
+            ViewPlanApp.Sg.viewText
                 m.scene.referenceSystem
-                m.scene.viewPlans 
-            |> Sg.map ViewPlanMessage    
+                m.scene.viewPlans
+            |> Sg.map ViewPlanMessage
 
+        // priority-enabled traverses (rover/rimfax/waypoints) whose priority has no matching
+        // surface layer are drawn here, on top of all surfaces. This is the depth-cleared overlay
+        // layer, so a traverse with priority higher than the surfaces renders above them.
+        let priorityTraverses =
+            let isThereASurfaceWithPriority (p : int) =
+                m.scene.surfacesModel.surfaces.flat
+                |> AMap.toASetValues
+                |> ASet.existsA (fun e ->
+                    match e with
+                    | AdaptiveSurfaces s -> s.priority.value |> AVal.map (fun pS -> int pS = p)
+                    | _ -> AVal.constant false
+                )
+
+            TraverseApp.Sg.view
+                view
+                m.scene.config.nearPlane.value
+                (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+                m.scene.referenceSystem
+                m.scene.traverses
+                (AVal.constant None)
+                isThereASurfaceWithPriority
+                true // priority overlay pass: priority-enabled traverses on top
+            |> Sg.map TraverseMessage
 
         [
-            exploreCenter; 
-            refSystem; 
+            exploreCenter;
+            refSystem;
             homePosition;
             annotationTexts |> Sg.noEvents
             scaleBarTexts
-            //traverse
+            priorityTraverses
             distancePointsText
         ] |> Sg.ofList
                                  
@@ -2225,15 +2248,16 @@ module ViewerApp =
                 )
 
 
-            let traverse = 
-                TraverseApp.Sg.view     
-                    view 
-                    m.scene.config.nearPlane.value 
+            let traverse =
+                TraverseApp.Sg.view
+                    view
+                    m.scene.config.nearPlane.value
                     (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
                     m.scene.referenceSystem
-                    m.scene.traverses   
+                    m.scene.traverses
                     (AVal.constant None)
                     isThereASurfaceWithPriority
+                    false // depth-tested overlay pass: priority-disabled traverses
                 |> Sg.map TraverseMessage
 
             traverse

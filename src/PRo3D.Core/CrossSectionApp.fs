@@ -49,6 +49,8 @@ module CrossSectionApp =
             { model with clippingEnabled = not model.clippingEnabled }
 
     let viewCurtainSettings (model : AdaptiveCrossSectionModel) =
+        let jsImportTextureDialog =
+            "top.aardvark.dialog.showOpenDialog({title:'Select Cross Section Texture', filters: [{ name: 'Images (*.png, *.jpg, *.jpeg, *.tif, *.tiff)', extensions: ['png','jpg','jpeg','tif','tiff']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         require GuiEx.semui (
             Html.table [
                 Html.row "Cross Section:" [
@@ -57,7 +59,8 @@ module CrossSectionApp =
                             let! cs = model.crossSection
                             match cs with
                             | Some _ ->
-                                yield button [clazz "ui red button"; onClick (fun _ -> ClearCrossSection)] [text "Remove"]
+                                yield button [clazz "ui icon button"; onClick (fun _ -> ClearCrossSection)] [
+                                        i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Remove"
                             | None ->
                                 yield text "none (create one from an annotation)"
                         }
@@ -67,12 +70,16 @@ module CrossSectionApp =
                 Html.row "Curtain:"           [ GuiEx.iconCheckBox model.curtainEnabled ToggleCurtainEnabled ]
                 Html.row "Absolute Altitude:" [ GuiEx.iconCheckBox model.curtainAbsoluteMode ToggleCurtainAbsoluteMode ]
                 Html.row "Texture Path:"      [
-                    Incremental.input (AttributeMap.ofAMap (amap {
-                        let! path = model.curtainTexturePath
-                        yield attribute "type" "text"
-                        yield attribute "value" (path |> Option.defaultValue "")
-                        yield onChange SetCurtainTexturePath
-                    })) ]
+                    button [
+                        clazz "ui icon button"
+                        Dialogs.onChooseFiles (fun paths ->
+                            match paths with
+                            | p :: _ -> SetCurtainTexturePath p
+                            | [] -> SetCurtainTexturePath "")
+                        clientEvent "onclick" jsImportTextureDialog
+                    ] [ i [clazz "folder open icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Choose image"
+                    br []
+                    Incremental.text (model.curtainTexturePath |> AVal.map (Option.defaultValue "none")) ]
                 Html.row "Depth / Alt (m):" [
                     Incremental.div AttributeMap.empty (
                         alist {
