@@ -187,11 +187,15 @@ module DrawingApp =
                     | _ -> failwith "case does not exist"            
                 result 
             | None ->  //no working state, start new working annotation
-                { 
+                // use the active group's default color for newly created annotations
+                let groupColor =
+                    GroupsApp.getNode model.annotations.activeGroup.path model.annotations.rootGroup
+                    |> fun node -> node.defaultColor
+                {
                     //annotation states should be immutable after creation
-                    //(Annotation.make model.projection model.geometry model.semantic surfaceName)  
+                    //(Annotation.make model.projection model.geometry model.semantic surfaceName)
                     //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
-                    (Annotation.make model.projection None model.geometry referenceSystem model.color model.thickness surfaceName)
+                    (Annotation.make model.projection None model.geometry referenceSystem groupColor model.thickness surfaceName)
                         with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
                 }, None
       
@@ -478,8 +482,6 @@ module DrawingApp =
                 { model with geometry = mode; projection = projection; }
             | SetProjection mode, _, _ ->
                 { model with projection = mode }                  
-            | ChangeColor c, _, _ -> 
-                { model with color = ColorPicker.update model.color c }
             | ChangeThickness th, _, _ ->
                 { model with thickness = Numeric.update model.thickness th }
             | ChangeSamplingAmount k, _, _ ->
