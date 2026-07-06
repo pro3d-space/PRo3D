@@ -207,6 +207,8 @@
 		\ref{tc:54} & RIMFAX -- Load Traverse & \checkbox~Pass / \checkbox~Fail & \\
 		\ref{tc:55} & RIMFAX -- Load Surfaces & \checkbox~Pass / \checkbox~Fail & \\
 		\ref{tc:56} & Keyboard Shortcuts & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:58} & Undo/Redo for Drawing & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:59} & Group Default Color & \checkbox~Pass / \checkbox~Fail & \\
 		\bottomrule
 	\end{longtable}
 	
@@ -2007,6 +2009,8 @@
 			\item Press \key{F2} -- switch to Draw Annotation interaction mode.
 			\item Press \key{F3} -- switch to Pick Annotation interaction mode.
 			\item Press \key{F4} -- switch to Place Coordinate System interaction mode.
+			\item Press \key{Ctrl}+\key{Z} -- undo the last drawing action. Observe the annotation list.
+			\item Press \key{Ctrl}+\key{Y} -- redo the previously undone action. Observe the annotation list.
 		\end{enumerate} \\
 		\midrule
 		\textbf{Expected Result} &
@@ -2019,6 +2023,8 @@
 			\item \key{Ctrl}+\key{c}: Camera parameters are printed in the console output.
 			\item \key{Space}: A waypoint is recorded (feedback in console or UI).
 			\item \key{F1}--\key{F4}: The selected interaction mode changes in the actions drop-down.
+			\item \key{Ctrl}+\key{Z}: The last added annotation disappears from the list and the 3D view.
+			\item \key{Ctrl}+\key{Y}: The undone annotation reappears in the list and the 3D view.
 		\end{itemize} \\
 		\midrule
 		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
@@ -2027,6 +2033,87 @@
 		\bottomrule
 	\end{tabularx}
 	
+	%----------------------------------------------------------------------------------------
+	% SECTION 19: UNDO / REDO AND GROUP DEFAULT COLOR
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Undo/Redo and Group Default Color}
+
+	%--- tc:58 ---
+	\testcase{58}{Undo/Redo for Drawing}
+
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. At least one annotation has been drawn (e.g., a polyline from \ref{tc:13}). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Draw a new polyline annotation on the surface (\button{DrawAnnotation} mode, \button{Polyline}, finish with \key{Enter}).
+			      Note its name in the \tab{Annotations} list.
+			\item Press \key{Ctrl}+\key{Z} (Undo).
+			\item Observe the \tab{Annotations} list and the 3D view.
+			\item Press \key{Ctrl}+\key{Z} again to undo a second annotation (if one exists).
+			\item Press \key{Ctrl}+\key{Y} (Redo).
+			\item Observe the \tab{Annotations} list and the 3D view.
+			\item Draw another annotation, then in the \tab{Annotations} list click \button{remove} to delete it.
+			\item Press \key{Ctrl}+\key{Z} to undo the deletion.
+			\item Observe the \tab{Annotations} list.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item After \key{Ctrl}+\key{Z}: The last drawn annotation is removed from both the \tab{Annotations} list and the 3D view. The undo is immediate with no dialog.
+			\item Multiple \key{Ctrl}+\key{Z} presses step back through the annotation history one action at a time.
+			\item After \key{Ctrl}+\key{Y}: The undone annotation reappears in the list and the 3D view, restoring it exactly as it was.
+			\item Undoing a deletion (\button{remove}): The deleted annotation is restored in the list and the 3D view.
+			\item When there is nothing left to undo/redo, additional presses of \key{Ctrl}+\key{Z}/\key{Y} have no effect (no error or crash).
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+
+	\vspace{1em}
+
+	%--- tc:59 ---
+	\testcase{59}{Group Default Color}
+
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. At least one annotation group exists in the \tab{Annotations} panel (the ``root'' group is always present). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{Annotations} panel.
+			\item In the group hierarchy, locate the active group (e.g., ``root'' or a subgroup created in \ref{tc:37}).
+			\item Find the color picker labeled \textbf{Default color for new annotations in this group} shown in the group's action area.
+			\item Change the default color to a clearly distinct color (e.g., bright red).
+			\item Make sure this group is set as active (right-click $\rightarrow$ \button{Set Active}).
+			\item Switch to \button{DrawAnnotation} mode (\key{F2}) and draw a new polyline annotation on the surface.
+			\item Observe the color of the newly drawn annotation in the 3D view and its color in the Properties panel.
+			\item Change the group's default color to a different color (e.g., blue).
+			\item Draw another annotation.
+			\item Observe that each new annotation uses the group's current default color at the time of drawing.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A color picker is visible in the group's context area in the \tab{Annotations} panel.
+			\item The first new annotation is drawn in the red color that was set as the group default.
+			\item The annotation's \menu{Color} field in the Properties panel shows the same red color.
+			\item The second new annotation is drawn in blue.
+			\item Existing annotations are \textbf{not} recolored when the group default color changes; only newly created annotations inherit the current default color.
+			\item The default color is persisted when the scene is saved and reloaded (\ref{tc:04}/\ref{tc:05}).
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+
 	%----------------------------------------------------------------------------------------
 	% APPENDIX: DEFECT LOG
 	%----------------------------------------------------------------------------------------
