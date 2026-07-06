@@ -82,35 +82,62 @@ type Leaf with
                 
 [<ModelType;ReferenceEquality>]
 type Node = {
-    version     : int
-    key         : Guid
-    name        : string
-    leaves      : IndexList<Guid>
-    subNodes    : IndexList<Node>
-    visible     : bool
-    expanded    : bool
+    version      : int
+    key          : Guid
+    name         : string
+    leaves       : IndexList<Guid>
+    subNodes     : IndexList<Node>
+    visible      : bool
+    expanded     : bool
+    defaultColor : Aardvark.UI.ColorInput
 }
 
 type Node with
-    static member current = 0
+    // default color used for annotations that are created within this group
+    static member initialDefaultColor : Aardvark.UI.ColorInput = { c = C4b.White }
+    static member current = 1
     static member private read0 =
         json {
-            let! key      = Json.read "key"     
-            let! name     = Json.read "name"    
-            let! leaves   = Json.read "leaves"  
+            let! key      = Json.read "key"
+            let! name     = Json.read "name"
+            let! leaves   = Json.read "leaves"
             let! subNodes = Json.read "subNodes"
-            let! visible  = Json.read "visible" 
+            let! visible  = Json.read "visible"
             let! expanded = Json.read "expanded"
 
-            return 
+            return
                 {
-                    version  = Node.current
-                    key      = key     
-                    name     = name    
-                    leaves   = leaves   |> IndexList.ofList
-                    subNodes = subNodes |> IndexList.ofList
-                    visible  = visible 
-                    expanded = expanded
+                    version      = Node.current
+                    key          = key
+                    name         = name
+                    leaves       = leaves   |> IndexList.ofList
+                    subNodes     = subNodes |> IndexList.ofList
+                    visible      = visible
+                    expanded     = expanded
+                    defaultColor = Node.initialDefaultColor
+                }
+        }
+
+    static member private read1 =
+        json {
+            let! key          = Json.read "key"
+            let! name         = Json.read "name"
+            let! leaves       = Json.read "leaves"
+            let! subNodes     = Json.read "subNodes"
+            let! visible      = Json.read "visible"
+            let! expanded     = Json.read "expanded"
+            let! defaultColor = Json.readWith Ext.fromJson<Aardvark.UI.ColorInput, Ext> "defaultColor"
+
+            return
+                {
+                    version      = Node.current
+                    key          = key
+                    name         = name
+                    leaves       = leaves   |> IndexList.ofList
+                    subNodes     = subNodes |> IndexList.ofList
+                    visible      = visible
+                    expanded     = expanded
+                    defaultColor = defaultColor
                 }
         }
 
@@ -119,17 +146,19 @@ type Node with
             let! v = Json.read "version"
             match v with
             | 0 -> return! Node.read0
+            | 1 -> return! Node.read1
             | _ -> return! v |> sprintf "don't know version %d of Node" |> Json.error
         }
     static member ToJson (x : Node) =
         json {
             do! Json.write "version"  x.version
-            do! Json.write "key"      x.key     
-            do! Json.write "name"     x.name    
+            do! Json.write "key"      x.key
+            do! Json.write "name"     x.name
             do! Json.write "leaves"   (x.leaves   |> IndexList.toList)
             do! Json.write "subNodes" (x.subNodes |> IndexList.toList)
-            do! Json.write "visible"  x.visible 
+            do! Json.write "visible"  x.visible
             do! Json.write "expanded" x.expanded
+            do! Json.writeWith (Ext.toJson<Aardvark.UI.ColorInput, Ext>) "defaultColor" x.defaultColor
         }
 
 type TreeSelection = {
@@ -141,13 +170,14 @@ type TreeSelection = {
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Group =
     let initRoot = {
-        version  = Node.current
-        name     = "root"
-        key      =  Guid.NewGuid()
-        leaves   = IndexList.Empty
-        subNodes = IndexList.Empty 
-        visible  = true
-        expanded = true
+        version      = Node.current
+        name         = "root"
+        key          =  Guid.NewGuid()
+        leaves       = IndexList.Empty
+        subNodes     = IndexList.Empty
+        visible      = true
+        expanded     = true
+        defaultColor = Node.initialDefaultColor
     }
 
     let initChildSelection =  { 

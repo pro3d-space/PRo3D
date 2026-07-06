@@ -103,8 +103,6 @@ module SurfaceUtils =
 
             highlightSelected     = true
             highlightAlways       = false
-            whiteDiscardEnabled   = false
-            whiteDiscardThreshold = Surface.Initial.whiteDiscardThreshold 0.9
         }
 
     module ObjectFiles =        

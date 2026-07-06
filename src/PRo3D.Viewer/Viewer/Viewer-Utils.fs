@@ -944,7 +944,7 @@ module ViewerUtils =
 
             Shader.textureOrLightingIfPossible |> toEffect
 
-            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColorDiscardWhite |> toEffect
+            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
             Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
@@ -1201,27 +1201,12 @@ module ViewerUtils =
                             view
 
 
-                    let surfaceLookup =
-                        m.scene.surfacesModel.surfaces.flat |> AMap.tryFind guid
-
-                    let whiteDiscardEnabled =
-                        surfaceLookup |> AVal.bind (function
-                            | Some (AdaptiveSurfaces s) -> s.whiteDiscardEnabled
-                            | _ -> AVal.constant false)
-
-                    let whiteDiscardThreshold =
-                        surfaceLookup |> AVal.bind (function
-                            | Some (AdaptiveSurfaces s) -> s.whiteDiscardThreshold.value |> AVal.map float32
-                            | _ -> AVal.constant 0.9f)
-
                     let surfaceSg =
                         match surface.isObj with
                         | true ->
                             s
                             |> Sg.effect [objEffect]
-                            |> Sg.uniform "WhiteDiscardEnabled"   whiteDiscardEnabled
-                            |> Sg.uniform "WhiteDiscardThreshold" whiteDiscardThreshold
-                        | false -> 
+                        | false ->
                             s
                             |> Sg.effect [surfaceEffect] 
                             |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
@@ -1245,7 +1230,7 @@ module ViewerUtils =
                                     s.priority.value |> AVal.map (int >> Some) 
                                 | _ -> AVal.constant None
                             )
-                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority
+                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority false
                         |> Sg.map ViewerAction.TraverseMessage
                 )
                 |> Sg.dynamic

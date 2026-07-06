@@ -80,17 +80,20 @@ module OPCFilter =
             member x.WhiteDiscardEnabled   : bool    = x?WhiteDiscardEnabled
             member x.WhiteDiscardThreshold : float32 = x?WhiteDiscardThreshold
 
-        let improvedDiffuseTextureAndColorDiscardWhite (v : Effects.Vertex) =
+
+        // Discards the large white areas above and beneath the RIMFAX data
+        let discardWhiteBands (v : Effects.Vertex) =
             fragment {
                 if uniform.HasDiffuseColorTexture then
                     let texColor = diffuseSampler.Sample(v.tc,-1.0f)
                     if uniform.WhiteDiscardEnabled then
                         let t = uniform.WhiteDiscardThreshold
-                        if texColor.X >= t && texColor.Y >= t && texColor.Z >= t then
+                        if texColor.Y >= t then
                             discard()
                     return texColor
                 else
                     return v.c
+
             }
 
         let improvedDiffuseTexture (v : Effects.Vertex) =
