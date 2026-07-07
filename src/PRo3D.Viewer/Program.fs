@@ -25,18 +25,8 @@ open Aardium
 
 open Chiron
 
-open Suave
-open Suave.WebPart
-open Suave.Sockets
-open Suave.Sockets.Control
-open Suave.WebSocket
-open Suave.Operators
-open Suave.Filters
-open Suave.Successful
-open Suave.Json
 open Aardvark.UI
-open Aardvark.UI.Suave
-open Aardvark.UI.Suave.Filters
+open Aardvark.UI.Giraffe
 
 open FSharp.Data.Adaptive
 
@@ -65,14 +55,6 @@ let rec allFiles dirs =
     if Seq.isEmpty dirs then Seq.empty else
         seq { yield! dirs |> Seq.collect Directory.EnumerateFiles
               yield! dirs |> Seq.collect Directory.EnumerateDirectories |> allFiles }
-
-
-let getFreePort() =
-    use l = new System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
-    l.Start()
-    let ep = l.LocalEndpoint |> unbox<Net.IPEndPoint>
-    l.Stop()
-    ep.Port
    
 [<EntryPoint;STAThread>]
 let main argv = 
@@ -227,19 +209,17 @@ let main argv =
                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
             ], samples = ViewerApp.dataSamples)
 
-        use sendQueue = new BlockingCollection<string>()    
-        
-        let ws (webSocket : WebSocket) (context: HttpContext) =
-            socket {
+        use sendQueue = new BlockingCollection<string>()
+
+        let ws (cancellationToken : CancellationToken) (webSocket : IWebSocket) (_: 'HttpContext) : Tasks.Task =
+            task {
                 let mutable loop = true
             
-                while loop do
+                while loop && not cancellationToken.IsCancellationRequested do
                     let str = sendQueue.Take()
                     Log.warn "taking item from bc"
-                    let s = ByteSegment(System.Text.Encoding.UTF8.GetBytes str)
-                
-                    do! webSocket.send Text s true
-            }        
+                    do! webSocket.SendText(str, cancellationToken)
+            }
 
         Sg.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
         //let startEmpty = (argv |> Array.contains "-empty")
@@ -290,13 +270,13 @@ let main argv =
         
         let port = 
             match startupArgs.port with
-            | None -> getFreePort ()
+            | None -> Server.getFreeTcpPort Net.IPAddress.Loopback
             | Some port -> 
                 match Int32.TryParse port with
                 | (true, v) -> v
                 | _ -> 
                     Log.warn "could not parse int from port %s" port
-                    getFreePort ()
+                    Server.getFreeTcpPort Net.IPAddress.Loopback
 
         let renderingUrl = sprintf "http://localhost:%d" port
 
@@ -354,18 +334,14 @@ let main argv =
         if catchDomainErrors then
             AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
 
-        let setCORSHeaders =
-            Suave.Writers.setHeader  "Access-Control-Allow-Origin" "*"
-            >=> Suave.Writers.setHeader "Access-Control-Allow-Headers" "content-type"
+        let http = HttpBackend.Instance
+        let (>=>) x y = http.compose x y
     
         let allow_cors : WebPart =
-            choose [
-                OPTIONS >=>
-                    fun context ->
-                        context |> (
-                            setCORSHeaders
-                            >=> OK "CORS approved" )
-            ]
+            http.method HttpMethod.Options
+            >=> http.header "Access-Control-Allow-Origin" "*"
+            >=> http.header "Access-Control-Allow-Headers" "content-type"
+            >=> http.ok "CORS approved"
 
         if startupArgs.enableProvenanceTracking && not startupArgs.enableRemoteApi then
             failwith "provenance tracking requires remote api to be enabled "
@@ -380,32 +356,30 @@ let main argv =
                 let storage = ProvenanceModel.nopStorage()
 
                 let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel, adaptiveModel, storage)
-                RemoteApi.Suave.webPart storage api
+                RemoteApi.Http.webPart mainApp.CancellationToken storage api
             | _ ->
-                choose []
+                http.choose []
 
         let suaveServer = 
             let startServer = 
                 if startupArgs.enableRemoteApi then
-                    fun port -> Server.start $"http://{Net.IPAddress.Any}:{port}" mainApp.CancellationToken
+                    fun port -> Server.start $"http://{Net.IPAddress.Any}:{port}" mainApp.CancellationToken false
                 else
                     fun port -> Server.startLocalhost port mainApp.CancellationToken
 
             startServer port [
                 if startupArgs.disableCors then allow_cors
                 MutableApp.toWebPart' runtime false mainApp
-                path "/websocket" >=> handShake ws
-                prefix "/api" >=> remoteApi
+                http.route "/websocket" >=> http.handShake (ws mainApp.CancellationToken)
+                http.subRoute "/api" remoteApi
                 WebPart.ofType<EmbeddedRessource>
                 WebPart.ofType<Primitives.EmbeddedResources>
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 
-                path "/crash.txt" >=> Suave.Writers.setMimeType "text/plain" >=> request (fun r -> 
-                    Files.sendFile logFilePath false
-                )
+                http.route "/crash.txt" >=> http.mimeType "text/plain" >=> http.sendFile logFilePath
 
-                path "/minilog.txt" >=> Suave.Writers.setMimeType "text/plain" >=> request (fun r -> 
+                http.route "/minilog.txt" >=> http.mimeType "text/plain" >=> http.request (fun r ->
                     use s = File.Open(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
                     use r = new StreamReader(s)
                     let log = 
@@ -421,7 +395,7 @@ let main argv =
                     let trail = log.[max 0 (log.Length - 20) .. max 0 (log.Length - 1)]
                     let newline = """%0D%0A"""
                     let miniLog = sprintf "%s%s..truncated..%s%s" (String.concat "%0D%0A" head) newline (String.concat "%0D%0A" trail) newline
-                    OK miniLog
+                    http.ok miniLog
                     //Files.sendFile "Aardvark.log" false
                 )
                 // should all be handled via embedded resources
@@ -473,9 +447,8 @@ let main argv =
             let remotePort = 12346 
             Server.startLocalhost 12346 remoteApp.CancellationToken [
                 MutableApp.toWebPart runtime remoteApp
-                POST >=> path "/shots" >=> mapJson takeScreenshot
-                POST >=> path "/platformshots" >=> mapJson takePlatformShot
-                Suave.Files.browseHome
+                http.method HttpMethod.Post >=> http.route "/shots" >=> http.mapJson takeScreenshot
+                http.method HttpMethod.Post >=> http.route "/platformshots" >=> http.mapJson takePlatformShot
             ] |> ignore
             disposables.Add(remoteApp)
             Log.line "Remote app started at port: %d" remotePort

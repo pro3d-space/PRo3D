@@ -16,8 +16,8 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Data.Opc
 open PRo3D.Base.AnnotationQuery
-open Aardvark.UI.Suave.Filters
-
+open Aardvark.UI
+open Aardvark.UI.Giraffe
 
 module RemoteApi =
 
@@ -400,25 +400,15 @@ module RemoteApi =
             folders : array<string>
         }
 
-    module SuaveHelpers =
-       let getUTF8 (str: byte []) = System.Text.Encoding.UTF8.GetString(str)
-
-    module SuaveV2 =
-        open Suave
-        open Suave.Filters
-        open Suave.Operators
-
-        open Suave.Sockets.Control
-        open Suave.WebSocket
-        open Suave.Sockets
-
+    module HttpV2 =
         open System
         open System.IO
 
         open System.Text.Json
         open System.Collections.Concurrent
 
-        open SuaveHelpers
+        let http = HttpBackend.Instance
+        let (>=>) x y = http.compose x y
 
         type SaveCheckpointRequest =
             {
@@ -435,13 +425,12 @@ module RemoteApi =
                     .Replace("__DRAWING__", fullModel.drawingAsJson)
             str
 
-        let captureSnapshot (api : Api) (r : HttpRequest) = 
-            let str = r.rawForm |> getUTF8
-            let command : SaveCheckpointRequest = str |> JsonSerializer.Deserialize
-            let fullModel = api.GetCheckpointState(api.FullModel.Current.GetValue(), command.virtualFileName)
-
-            Successful.OK (serializeCheckpoint fullModel)
-             
+        let captureSnapshot (api : Api) (r : IHttpRequest) =
+            http.bindBody (fun (data : byte[]) ->
+                let command : SaveCheckpointRequest = data |> JsonSerializer.Deserialize
+                let fullModel = api.GetCheckpointState(api.FullModel.Current.GetValue(), command.virtualFileName)
+                http.ok (serializeCheckpoint fullModel)
+            )
 
         type SerializedGraph = { cyGraph : string }
 
@@ -474,144 +463,142 @@ module RemoteApi =
         //        )
 
 
-        let activateSnapshot (api : Api) (r : HttpRequest) =
-            let str = r.rawForm |> getUTF8
+        let activateSnapshot (api : Api) (r : IHttpRequest) =
+            http.bindBody (fun (data : byte[]) ->
+                let d = JsonDocument.Parse(data)
+                let scene = d.RootElement.GetProperty("scene")
+                let sceneAsJson = scene.GetProperty("sceneAsJson").ToString()
+                let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
+                let version = scene.GetProperty("version").GetInt32()
+                let graph = 
+                    match d.RootElement.TryGetProperty "graph" with
+                    | (true,v) ->
+                        v.ToString() 
+                        |> Thoth.Json.Net.Decode.fromString ProvenanceModel.Thoth.CyDescription.decoder 
+                        |> Some
+                    | _ -> 
+                        None
 
-            let d = JsonDocument.Parse(str)
-            let scene = d.RootElement.GetProperty("scene")
-            let sceneAsJson = scene.GetProperty("sceneAsJson").ToString()
-            let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
-            let version = scene.GetProperty("version").GetInt32()
-            let graph = 
-                match d.RootElement.TryGetProperty "graph" with
-                | (true,v) ->
-                    v.ToString() 
-                    |> Thoth.Json.Net.Decode.fromString ProvenanceModel.Thoth.CyDescription.decoder 
-                    |> Some
-                | _ -> 
-                    None
+                let selectedNodeId = 
+                    match d.RootElement.TryGetProperty("selectedNodeId") with
+                    | (true, v) -> v.GetString() |> Some
+                    | _ -> None
 
-            let selectedNodeId = 
-                match d.RootElement.TryGetProperty("selectedNodeId") with
-                | (true, v) -> v.GetString() |> Some
-                | _ -> None
+                match graph with
+                | Some (Result.Ok graph) -> 
+                    api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, Some graph, selectedNodeId)
+                    http.ok ""
+                | None -> 
+                    api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, None, selectedNodeId)
+                    http.ok ""
+                | Some (Result.Error e) -> 
+                    http.internalError e
+            )
 
-            match graph with
-            | Some (Result.Ok graph) -> 
-                api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, Some graph, selectedNodeId)
-                Successful.OK ""
-            | None -> 
-                api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, None, selectedNodeId)
-                Successful.OK ""
-            | Some (Result.Error e) -> 
-                ServerErrors.INTERNAL_ERROR e
+        let importAnnotations (api : Api) (r : IHttpRequest) =
+            http.bindBody (fun (data : byte[]) ->
+                let d = JsonDocument.Parse(data)
+                let scene = d.RootElement.GetProperty("scene")
+                let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
+                let source = 
+                    match d.RootElement.TryGetProperty("source") with
+                    | (true, v) -> v.GetString()
+                    | _ -> ""
 
-        let importAnnotations (api : Api) (r : HttpRequest) =
-            let str = r.rawForm |> getUTF8
+                api.ImportDrawingModel(drawingAsJson, source)
+                http.ok ""
+            )
 
-            let d = JsonDocument.Parse(str)
-            let scene = d.RootElement.GetProperty("scene")
-            let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
-            let source = 
-                match d.RootElement.TryGetProperty("source") with
-                | (true, v) -> v.GetString()
-                | _ -> ""
+        let getFullStateFor (api : Api) (importAnnotations : bool) (r : IHttpRequest) =
+            http.bindBody (fun (data : byte[]) ->
+                let d = JsonDocument.Parse(data)
+                let scene = d.RootElement.GetProperty("scene")
+                let sceneAsJson = scene.GetProperty("sceneAsJson").ToString()
+                let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
+                let source = 
+                    match d.RootElement.TryGetProperty("source") with
+                    | (true, v) -> v.GetString()
+                    | _ -> ""
 
-            api.ImportDrawingModel(drawingAsJson, source)
-            Successful.OK ""
+                let graph = 
+                    match d.RootElement.TryGetProperty "graph" with
+                    | (true,v) ->
+                        v.ToString() 
+                        |> Thoth.Json.Net.Decode.fromString ProvenanceModel.Thoth.CyDescription.decoder 
+                        |> Some
+                    | _ -> 
+                        None
 
-        let getFullStateFor (api : Api) (importAnnotations : bool) (r : HttpRequest) =
-            let str = r.rawForm |> getUTF8
-
-            let d = JsonDocument.Parse(str)
-            let scene = d.RootElement.GetProperty("scene")
-            let sceneAsJson = scene.GetProperty("sceneAsJson").ToString()
-            let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
-            let source = 
-                match d.RootElement.TryGetProperty("source") with
-                | (true, v) -> v.GetString()
-                | _ -> ""
-
-            let graph = 
-                match d.RootElement.TryGetProperty "graph" with
-                | (true,v) ->
-                    v.ToString() 
-                    |> Thoth.Json.Net.Decode.fromString ProvenanceModel.Thoth.CyDescription.decoder 
-                    |> Some
-                | _ -> 
-                    None
-
-            let selectedNodeId = 
-                match d.RootElement.TryGetProperty("selectedNodeId") with
-                | (true, v) -> v.GetString() |> Some
-                | _ -> None
+                let selectedNodeId = 
+                    match d.RootElement.TryGetProperty("selectedNodeId") with
+                    | (true, v) -> v.GetString() |> Some
+                    | _ -> None
 
     
-            match graph with
-            | Some (Result.Ok graph) -> 
-                let model, fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, Some graph, selectedNodeId)
-                if importAnnotations then api.ImportDrawingModel(model.drawing.annotations, source)
-                Successful.OK (serializeCheckpoint fullModel)
-            | None -> 
-                let  model, fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, None, selectedNodeId)
-                if importAnnotations then api.ImportDrawingModel(model.drawing.annotations, source)
-                Successful.OK (serializeCheckpoint fullModel)
-            | Some (Result.Error e) -> 
-                ServerErrors.INTERNAL_ERROR e
+                match graph with
+                | Some (Result.Ok graph) -> 
+                    let model, fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, Some graph, selectedNodeId)
+                    if importAnnotations then api.ImportDrawingModel(model.drawing.annotations, source)
+                    http.ok (serializeCheckpoint fullModel)
+                | None -> 
+                    let  model, fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, None, selectedNodeId)
+                    if importAnnotations then api.ImportDrawingModel(model.drawing.annotations, source)
+                    http.ok (serializeCheckpoint fullModel)
+                | Some (Result.Error e) -> 
+                    http.internalError e
+            )
 
-        let getProvenanceGraph (api : Api) (r : HttpRequest) =
+        let getProvenanceGraph (api : Api) (r : IHttpRequest) =
             let graphJson = api.GetProvenanceGraphJson()
-            Successful.OK graphJson 
+            http.ok graphJson 
              
-    module Suave = 
-
-        open Suave
-        open Suave.Filters
-        open Suave.Operators
-
-        open Suave.Sockets.Control
-        open Suave.WebSocket
-        open Suave.Sockets
-
+    module Http =
         open System
         open System.IO
+        open System.Threading
 
         open System.Text.Json
         open System.Collections.Concurrent
 
-        open SuaveHelpers
         open ProvenanceGraph
         open Newtonsoft.Json.Linq
 
-        let loadScene (api : Api) (r : HttpRequest)= 
-            let str = r.rawForm |> getUTF8
-            let command : LoadScene = str |> JsonSerializer.Deserialize
-            if File.Exists command.sceneFile then
-                api.LoadScene command.sceneFile 
-                Successful.OK "done"
-            else
-                RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
+        let http = HttpBackend.Instance
+        let (>=>) x y = http.compose x y
+
+        let loadScene (api : Api) (r : IHttpRequest) =
+            http.bindBody (fun (data : byte[]) ->
+                let command : LoadScene = data |> JsonSerializer.Deserialize
+                if File.Exists command.sceneFile then
+                    api.LoadScene command.sceneFile 
+                    http.ok "done"
+                else
+                    http.badRequest "Oops, something went wrong here!"
+            )
             
-        let discoverSurfaces (api : Api) (r : HttpRequest) = 
-            let str = r.rawForm |> getUTF8
-            let command : ChangeImportDirectories = str |> JsonSerializer.Deserialize
-            api.LocateSurfaces(command.folders)
-            Successful.OK "done"
+        let discoverSurfaces (api : Api) (r : IHttpRequest) =
+            http.bindBody (fun (data : byte[]) ->
+                let command : ChangeImportDirectories = data |> JsonSerializer.Deserialize
+                api.LocateSurfaces(command.folders)
+                http.ok "done"
+            )
             
-        let saveScene (api : Api) (r : HttpRequest)= 
-            let str = r.rawForm |> getUTF8
-            let command : SaveScene = str |> JsonSerializer.Deserialize
-            api.SaveScene command.sceneFile 
-            Successful.OK "done"
+        let saveScene (api : Api) (r : IHttpRequest) =
+            http.bindBody (fun (data : byte[]) ->
+                let command : SaveScene = data |> JsonSerializer.Deserialize
+                api.SaveScene command.sceneFile 
+                http.ok "done"
+            )
             
-        let importOpc (api : Api) (r : HttpRequest) = 
-            let str = r.rawForm |> getUTF8
-            let command : ImportOpc = str |> JsonSerializer.Deserialize
-            api.ImportOpc command.folders 
-            Successful.OK "done"
+        let importOpc (api : Api) (r : IHttpRequest) =
+            http.bindBody (fun (data : byte[]) ->
+                let command : ImportOpc = data |> JsonSerializer.Deserialize
+                api.ImportOpc command.folders 
+                http.ok "done"
+            )
             
-        let provenanceGraphWebSocket (hackDoNotSendInitialState : bool) (storage : PPersistence) (api : Api) =
-            WebSocket.handShake (fun webSocket ctx -> 
+        let provenanceGraphWebSocket (cancellationToken: CancellationToken) (hackDoNotSendInitialState : bool) (storage : PPersistence) (api : Api) =
+           http.handShake (fun webSocket ctx -> 
                 let nodes = 
                     api.ProvenanceModel.nodes 
                     |> AMap.toASetValues 
@@ -636,8 +623,10 @@ module RemoteApi =
 
                 let nodeSub = elements.AddCallback(fun _ _ -> addDeltas()) 
 
+                let buffer = SocketBuffer(128)
+
                 System.Threading.Thread.Sleep(2000)
-                socket {
+                task {
                     if hackDoNotSendInitialState then
                         // clear all previous state (a bit unclean, inbetween changes could have ben swallowed)
                         // this way only changes after subscribing will be visible in the websocket.
@@ -647,26 +636,17 @@ module RemoteApi =
 
                     let mutable loop = true
 
-                    while loop do
-                        let! ct = SocketOp.ofAsync Async.CancellationToken
-                        let jsonMessage = changes.Take(ct)
-
-                        let byteResponse =
-                            jsonMessage
-                            |> System.Text.Encoding.ASCII.GetBytes
-                            |> ByteSegment
-
-                        do! webSocket.send Text byteResponse true
-
-                        let! msg = webSocket.read()
+                    while loop && not <| cancellationToken.IsCancellationRequested do
+                        let jsonMessage = changes.Take(cancellationToken)
+                        do! webSocket.SendText(jsonMessage, cancellationToken)
+                        let! msg = webSocket.Receive(buffer, cancellationToken)
 
                         match msg with
-                        | (Text, data, true) ->
+                        | WebSocketOpCode.Text ->
                             ()
 
-                        | (Close, _, _) ->
-                            let emptyResponse = [||] |> ByteSegment
-                            do! webSocket.send Close emptyResponse true
+                        | WebSocketOpCode.Close ->
+                            do! webSocket.Close cancellationToken
                             loop <- false
                             nodeSub.Dispose()
 
@@ -674,9 +654,8 @@ module RemoteApi =
                 }
             )
         
-        let annotationsGeoJsonWebSocket (planet : Option<Base.Planet>) (api : Api) =
-            
-            WebSocket.handShake (fun webSocket ctx -> 
+        let annotationsGeoJsonWebSocket (cancellationToken: CancellationToken) (planet : Option<Base.Planet>) (api : Api) =
+            http.handShake (fun webSocket ctx -> 
                 let geoJsonGeometries = 
                     api.FullModel.drawing.annotations.flat 
                     |> AMap.chooseA (fun k l ->
@@ -696,31 +675,23 @@ module RemoteApi =
                         |> GeoJsonExport.Operations.operationsToJson
                     changes.Add deltas
 
-                let geometriesSub = geoJsonGeometries.AddCallback(fun _ _ -> addDeltas()) 
+                let geometriesSub = geoJsonGeometries.AddCallback(fun _ _ -> addDeltas())
+                let buffer = SocketBuffer(128)
 
-                socket {
+                task {
                     let mutable loop = true
 
-                    while loop do
-                        let! ct = SocketOp.ofAsync Async.CancellationToken
-                        let jsonMessage = changes.Take(ct)
-
-                        let byteResponse =
-                            jsonMessage
-                            |> System.Text.Encoding.ASCII.GetBytes
-                            |> ByteSegment
-
-                        do! webSocket.send Text byteResponse true
-
-                        let! msg = webSocket.read()
+                    while loop && not cancellationToken.IsCancellationRequested do
+                        let jsonMessage = changes.Take(cancellationToken)
+                        do! webSocket.SendText(jsonMessage, cancellationToken)
+                        let! msg = webSocket.Receive(buffer, cancellationToken)
 
                         match msg with
-                        | (Text, data, true) ->
+                        | WebSocketOpCode.Text ->
                             ()
 
-                        | (Close, _, _) ->
-                            let emptyResponse = [||] |> ByteSegment
-                            do! webSocket.send Close emptyResponse true
+                        | WebSocketOpCode.Close ->
+                            do! webSocket.Close cancellationToken
                             loop <- false
                             geometriesSub.Dispose()
 
@@ -747,25 +718,26 @@ module RemoteApi =
             let queryAnnotation
                 (api : Api) 
                 (f : OutputReferenceFrame -> OutputGeometryType -> QueryResults -> WebPart) 
-                (httpRequest : HttpRequest) =
+                (httpRequest : IHttpRequest) =
 
-                let input =  
-                    httpRequest.rawForm |> getUTF8 |> PRo3D.Base.QueryApi.parseRequest
+                http.bindBody (fun body ->
+                    let input = body |> PRo3D.Base.QueryApi.parseRequest
 
-                match input with
-                | Result.Ok input -> 
-                    match ((parseCoordinateSpace input.outputReferenceFrame), parseGeometryType(input.outputGeometryType)) with
-                    | (Some outputReferenceFrame, Some outputGeometryType) ->
-                        //here we can go from primitive types to real types
-                        match api.QueryAnnotation(                            
-                            input.queryAttributes, 
-                            Range1d.FromCenterAndSize(0, input.distanceToPlane), 
-                            outputReferenceFrame) with
-                        | None -> RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
-                        | Some queryResults -> 
-                            f  outputReferenceFrame outputGeometryType queryResults                
-                    | _ -> RequestErrors.BAD_REQUEST "could not parse outputReferenceFrame and/or outputGeometryType"
-                | _ -> RequestErrors.BAD_REQUEST "could not parse command"
+                    match input with
+                    | Result.Ok input -> 
+                        match ((parseCoordinateSpace input.outputReferenceFrame), parseGeometryType(input.outputGeometryType)) with
+                        | (Some outputReferenceFrame, Some outputGeometryType) ->
+                            //here we can go from primitive types to real types
+                            match api.QueryAnnotation(                            
+                                input.queryAttributes, 
+                                Range1d.FromCenterAndSize(0, input.distanceToPlane), 
+                                outputReferenceFrame) with
+                            | None -> http.badRequest "Oops, something went wrong here!"
+                            | Some queryResults -> 
+                                f  outputReferenceFrame outputGeometryType queryResults
+                        | _ -> http.badRequest "could not parse outputReferenceFrame and/or outputGeometryType"
+                    | _ -> http.badRequest "could not parse command"
+                )
 
             let queryAnnotationAsObj (api : Api) = 
 
@@ -780,7 +752,7 @@ module RemoteApi =
                         else
                             PRo3D.Base.AnnotationQuery.queryResultsToObj frame geometryType results
                             
-                    Successful.OK s
+                    http.ok s
 
                 queryAnnotation api toResult
 
@@ -788,50 +760,50 @@ module RemoteApi =
 
                 let toJson (_ : OutputReferenceFrame) (_ : OutputGeometryType) (results : QueryResults) = 
                     let s = PRo3D.Base.QueryApi.hitsToJson results //todo: also add frame
-                    Successful.OK s
+                    http.ok s
 
                 queryAnnotation api toJson
         
         module Surfaces =
-            let transform (surfaceId : option<string>) (api : Api) (req : HttpRequest) = 
+            let transform (surfaceId : option<string>) (api : Api) (req : IHttpRequest) = 
                 match surfaceId with 
                 | Some id ->
                     match api.getSurfaceById(id) with
-                    | Some _ -> 
-                        let payload = System.Text.Encoding.UTF8.GetString req.rawForm
-                        match payload with
-                        | "" -> 
-                            RequestErrors.BAD_REQUEST "No payload"
-                        | validPayload -> 
-                            let parsedJson = JObject.Parse(validPayload)
-                            let forward = parsedJson.["forward"].ToString()
+                    | Some _ ->
+                        http.bindBody (function
+                            | "" -> 
+                                http.badRequest "No payload"
+                            | validPayload -> 
+                                let parsedJson = JObject.Parse(validPayload)
+                                let forward = parsedJson.["forward"].ToString()
 
-                            let forward = forward |> M44d.Parse
+                                let forward = forward |> M44d.Parse
 
-                            api.setSurfaceTransform(id |> Guid, forward)
+                                api.setSurfaceTransform(id |> Guid, forward)
 
-                            Successful.OK (sprintf "Received payload %s" (forward.ToString()))    
+                                http.ok (sprintf "Received payload %s" (forward.ToString()))
+                        )
                     | None ->                                             
-                        RequestErrors.NOT_FOUND "Surface not found"
+                        http.notFound "Surface not found"
                 | None -> 
                     match api.getSelectedSurfaceId() with
                     | Some id ->
                         match api.getSurfaceById(id.ToString()) with
-                        | Some _ -> 
-                            let payload = System.Text.Encoding.UTF8.GetString req.rawForm
-                            match payload with
-                            | "" -> 
-                                RequestErrors.BAD_REQUEST "No payload"
-                            | validPayload -> 
-                                let parsedJson = JObject.Parse(validPayload)
-                                let forward = parsedJson.["forward"].ToString()
-                                let forward = forward |> M44d.Parse
-                                api.setSurfaceTransform(id, forward)
-                                Successful.OK (sprintf "Received payload %s" (forward.ToString()))    
+                        | Some _ ->
+                            http.bindBody (function
+                                | "" -> 
+                                    http.badRequest "No payload"
+                                | validPayload -> 
+                                    let parsedJson = JObject.Parse(validPayload)
+                                    let forward = parsedJson.["forward"].ToString()
+                                    let forward = forward |> M44d.Parse
+                                    api.setSurfaceTransform(id, forward)
+                                    http.ok (sprintf "Received payload %s" (forward.ToString()))
+                            )
                         | None ->                                             
-                            RequestErrors.NOT_FOUND "Selected surface does not exist - really bad"
+                            http.notFound "Selected surface does not exist - really bad"
                     | None ->
-                        RequestErrors.NOT_FOUND $"no surface selected"
+                        http.notFound $"no surface selected"
 
         module Annotations = 
             let getPoints (annotationId : option<string>) (api : Api) =
@@ -841,9 +813,9 @@ module RemoteApi =
                     | Some s -> 
                         s 
                         |> Encode.toString 4 
-                        |> Successful.OK
+                        |> http.ok
                     | None -> 
-                        RequestErrors.NOT_FOUND $"Annotation of {id} not found"
+                        http.notFound $"Annotation of {id} not found"
                 | None ->
                     match api.getSelectedAnnotationId() with
                     | Some id ->
@@ -851,40 +823,40 @@ module RemoteApi =
                         | Some s -> 
                             s 
                             |> Encode.toString 4 
-                            |> Successful.OK
+                            |> http.ok
                         | None -> 
-                            RequestErrors.NOT_FOUND $"Selected annotation does not exist - really bad"
+                            http.notFound $"Selected annotation does not exist - really bad"
                     | None ->
-                        RequestErrors.NOT_FOUND $"no annotation selected"
+                        http.notFound $"no annotation selected"
 
-        let webPart (storage : PPersistence) (api : Api) = 
-            choose [
-                path "/loadScene" >=> request (loadScene api)
-                path "/importOpc" >=> request (importOpc api)
-                path "/saveScene" >=> request (saveScene api)
-                path "/discoverSurfaces" >=> request (discoverSurfaces api)
-                prefix "/v2" >=> (
-                    choose [
-                        path "/captureSnapshot"    >=> request (SuaveV2.captureSnapshot api)
-                        path "/activateSnapshot"   >=> request (SuaveV2.activateSnapshot api)
-                        path "/getProvenanceGraph" >=> request (SuaveV2.getProvenanceGraph api)
-                        path "/importAnnotations"  >=> request (SuaveV2.importAnnotations api)
-                        path "/getFullStateFor"  >=> request (SuaveV2.getFullStateFor api false)
-                        path "/importAnnotationsFromGraph"  >=> request (SuaveV2.getFullStateFor api true)
-                        path "/provenanceGraph" >=> (fun ctx -> 
+        let webPart (cancellationToken: CancellationToken) (storage : PPersistence) (api : Api) = 
+            http.choose [
+                http.route "/loadScene" >=> http.request (loadScene api)
+                http.route "/importOpc" >=> http.request (importOpc api)
+                http.route "/saveScene" >=> http.request (saveScene api)
+                http.route "/discoverSurfaces" >=> http.request (discoverSurfaces api)
+                http.subRoute "/v2" (
+                    http.choose [
+                        http.route "/captureSnapshot"    >=> http.request (HttpV2.captureSnapshot api)
+                        http.route "/activateSnapshot"   >=> http.request (HttpV2.activateSnapshot api)
+                        http.route "/getProvenanceGraph" >=> http.request (HttpV2.getProvenanceGraph api)
+                        http.route "/importAnnotations"  >=> http.request (HttpV2.importAnnotations api)
+                        http.route "/getFullStateFor"    >=> http.request (HttpV2.getFullStateFor api false)
+                        http.route "/importAnnotationsFromGraph"  >=> http.request (HttpV2.getFullStateFor api true)
+                        http.route "/provenanceGraph" >=> (fun ctx -> 
                             Log.line "connect to ws with initial state..."
-                            provenanceGraphWebSocket false storage api ctx
+                            provenanceGraphWebSocket cancellationToken false storage api ctx
                         )
-                        path "/provenanceGraphChanges" >=> (fun ctx -> 
+                        http.route "/provenanceGraphChanges" >=> (fun ctx -> 
                             Log.line "connect to ws without initial state..."
-                            provenanceGraphWebSocket true storage api ctx
+                            provenanceGraphWebSocket cancellationToken true storage api ctx
                         ) 
                     ]
                 )
-                prefix "/integration" >=> (
-                    choose [
-                        prefix "/ws/geojson_xyz"  >=> annotationsGeoJsonWebSocket None api
-                        prefix "/geojson_latlon" >=> request (fun r -> 
+                http.subRoute "/integration" (
+                    http.choose [
+                        http.route "/ws/geojson_xyz" >=> annotationsGeoJsonWebSocket cancellationToken None api
+                        http.route "/geojson_latlon" >=> http.request (fun r ->
                             let model = api.FullModel.drawing.annotations.Current |> AVal.force
                             let annotations = 
                                 model.flat 
@@ -894,38 +866,38 @@ module RemoteApi =
 
                             let json = GeoJsonExport.GeoJson.toJson Base.Planet.Mars annotations
                             //let json = Base.Annotation.GeoJSONExport.toGeoJsonString (Base.Planet.Mars |> Some) annotations
-                            Successful.OK json
+                            http.ok json
                         )
                     ]
                 )
-                prefix "/queries" >=> (
-                    choose [
-                        path "/findAnnotation"  >=> Suave.Writers.setMimeType "application/json; charset=utf-8" >=> (
-                            request (fun r -> 
-                                match r.queryParam "id" with
-                                | Choice1Of2 v -> 
+                http.subRoute "/queries" (
+                    http.choose [
+                        http.route "/findAnnotation"  >=> http.mimeType "application/json; charset=utf-8" >=> (
+                            http.request (fun r -> 
+                                match r.QueryParam "id" with
+                                | Some v -> 
                                     let a = api.FindAnnotation(Some v)
                                     let json = Thoth.Json.Net.Encode.Auto.toString a
-                                    Successful.OK json
-                                | Choice2Of2 _ -> 
+                                    http.ok json
+                                | _ -> 
                                     let a = api.FindAnnotation(None)
                                     let json = Thoth.Json.Net.Encode.Auto.toString a
-                                    Successful.OK json
+                                    http.ok json
                             )
                         )
-                        path "/queryAnnotationAsJson" >=> 
-                            Suave.Writers.setMimeType "application/json; charset=utf-8" 
-                                >=> request (QueryAnnotation.queryAnnotationAsJson api)
-                        path "/queryAnnotationAsObj" >=> request (QueryAnnotation.queryAnnotationAsObj api)
+                        http.route "/queryAnnotationAsJson" >=> 
+                            http.mimeType "application/json; charset=utf-8" 
+                                >=> http.request (QueryAnnotation.queryAnnotationAsJson api)
+                        http.route "/queryAnnotationAsObj" >=> http.request (QueryAnnotation.queryAnnotationAsObj api)
                     ]
                 )                
-                prefix "/annotations" >=> 
-                    choose [
+                http.subRoute "/annotations" ( 
+                    http.choose [
                         // GET
                         //     >=> path "/selected/points" 
                         //     >=> Annotations.getPoints None api
-                        GET
-                            >=> pathScan "/%s/points" (fun id ->
+                        http.method HttpMethod.Get
+                            >=> http.routef "/%s/points" (fun id ->
                                 match id with 
                                 | "selected" -> 
                                     Log.line "retrieving selected"
@@ -935,22 +907,23 @@ module RemoteApi =
                                     Annotations.getPoints (Some id) api
                         )
                     ]
-                prefix "/surfaces" >=> 
-                    choose [                        
+                )
+                http.subRoute "/surfaces" (
+                    http.choose [                        
                         // PUT
                         //     >=> path "/selected/transformation" 
                         //     >=> request (fun (req: HttpRequest) -> Surfaces.transform None api req)
-                        PUT
-                            >=> pathScan "/%s/transformation" (fun id ->
+                        http.method HttpMethod.Put
+                            >=> http.routef "/%s/transformation" (fun id ->
                                 match id with 
                                 | "selected" -> 
-                                    request (fun (req: HttpRequest) -> Surfaces.transform None api req)
+                                    http.request (Surfaces.transform None api)
                                 | _ ->
-                                    request (fun (req: HttpRequest) -> Surfaces.transform (Some id) api req)
+                                    http.request (Surfaces.transform (Some id) api)
                             )
-                        RequestErrors.NOT_FOUND "Endpoint not found"
+                        http.notFound "Endpoint not found"
                     ]
-                
+                )
             ]
 
 
