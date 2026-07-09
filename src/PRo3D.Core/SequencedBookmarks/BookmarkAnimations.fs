@@ -30,6 +30,25 @@ module BookmarkAnimations =
         let frustum_ = SceneStateViewConfig.frustumModel_ >-> FrustumModel.frustum_
         let focal_   = SceneStateViewConfig.frustumModel_ >-> FrustumModel.focal_ >-> NumericInput.value_
 
+        let private viewsCoincide (a : CameraView) (b : CameraView) =
+            Vec.distance a.Location b.Location < 1e-8 &&
+            Vec.distance a.Forward  b.Forward  < 1e-10 &&
+            Vec.distance a.Sky      b.Sky      < 1e-10
+
+        /// Wrapper around Animation.Camera.interpolate that is robust for coincident
+        /// camera views. The stock primitive derives its duration from the camera path,
+        /// so two identical views collapse to a zero-duration animation; Animation.seconds
+        /// then cannot rescale it ("Cannot scale composite animation with zero duration")
+        /// and it samples to Unchecked.defaultof<CameraView> (null), which nulls out
+        /// navigation.camera.view. For coincident endpoints we return a unit-duration
+        /// constant hold instead.
+        /// TODO: fix upstream in aardvark.media and remove this wrapper.
+        let cameraInterpolateSafe (src : CameraView) (dst : CameraView) : IAnimation<'Model, CameraView> =
+            if viewsCoincide src dst then
+                Animation.create (fun (_ : float) -> dst) |> Animation.seconds 1.0
+            else
+                Animation.Camera.interpolate src dst
+
         // interpolate ViewConfigModel for animation
         let interpVcm (src : SceneStateViewConfig) (dst : SceneStateViewConfig)
                 : IAnimation<'Model, SceneStateViewConfig> =
@@ -84,7 +103,7 @@ module BookmarkAnimations =
             let pause = 
                 if src.delay.value > 0.0 then
                     let p = // creating interpolation here, because static version (Animation.create (fun _ -> src.cameraView)) fails in very specific circumstances (issue #456)
-                        Animation.Camera.interpolate  (src.bookmark.cameraView) (src.bookmark.cameraView)
+                        cameraInterpolateSafe (src.bookmark.cameraView) (src.bookmark.cameraView)
                         |> Animation.map (fun view -> 
                             {src with bookmark = {src.bookmark with cameraView = view}})
                     [p
@@ -93,12 +112,12 @@ module BookmarkAnimations =
                     []
             
             let toNext = 
-                let animCam = 
-                    Animation.Camera.interpolate  (src.bookmark.cameraView) (dst.bookmark.cameraView)
+                let animCam =
+                    cameraInterpolateSafe (src.bookmark.cameraView) (dst.bookmark.cameraView)
                     
-                let animCam = 
+                let animCam =
                     animCam
-                    |> Animation.map (fun view -> 
+                    |> Animation.map (fun view ->
                         {dst with bookmark = {dst.bookmark with cameraView = view}})
 
                 match src.sceneState, dst.sceneState with

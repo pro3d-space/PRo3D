@@ -32,6 +32,43 @@ printfn "%A" notes
 let solutionName = "src/PRo3D.sln"
 let framework = "net9.0"
 
+// detect the running architecture and turn it into the matching macOS RID
+let osxArch =
+    match RuntimeInformation.ProcessArchitecture with
+    | Architecture.Arm64 -> Architecture.Arm64, "osx-arm64"
+    | _                  -> Architecture.X64,   "osx-x64"
+
+// copies the macOS JR.Wrappers native libs for the given arch into targetDir.
+// x64 uses mac/x64/ and falls back to the legacy flat mac/ layout. arm64 uses
+// only mac/arm64/ (never the flat x64 libs) — if it is missing we log and
+// continue so an arm64 build does not crash before libCooTransformation.dylib
+// is ported; the arm64 dylib gets dropped into lib/Native/JR.Wrappers/mac/arm64/.
+let copyMacNativeLibs (arch : Architecture) (targetDir : string) =
+    let archName = if arch = Architecture.Arm64 then "arm64" else "x64"
+    let candidates =
+        match arch with
+        | Architecture.Arm64 -> [ "lib/Native/JR.Wrappers/mac/arm64" ]
+        | _                  -> [ "lib/Native/JR.Wrappers/mac/x64"; "lib/Native/JR.Wrappers/mac" ]
+    match candidates |> List.tryFind Directory.Exists with
+    | Some src ->
+        for f in Directory.GetFiles(src) do
+            try File.Copy(f, Path.Combine(targetDir, Path.GetFileName f), true)
+            with e -> Trace.tracefn "skipping native lib %s: %A" f e
+    | None ->
+        Trace.tracefn "no mac native libs for arch %s — continuing" archName
+
+// keeps aardium/package.json's top-level "version" in sync with the release
+// notes, so electron-builder's release tag (v{version}) matches the FAKE
+// GitHubRelease tag and both publishers land in the same draft.
+let patchAardiumVersion (version : string) =
+    let path = "aardium/package.json"
+    let text = File.ReadAllText path
+    // only the first "version": "..." is the top-level field (before "build");
+    // nested ones (buildVersion ${version}, deps) must stay untouched.
+    let rx = Regex("\"version\"\\s*:\\s*\"[^\"]*\"")
+    let patched = rx.Replace(text, sprintf "\"version\": \"%s\"" version, 1)
+    File.WriteAllText(path, patched)
+
 
 //Target.create "Compile" (fun _ ->
 //    run dotnet "build" "src"
@@ -344,32 +381,36 @@ Target.create "CopyToElectron" (fun _ ->
 
     // 0.0 copy version over into source code...
     let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
-    let patched = 
-        programFs 
-        |> Array.map (fun line -> 
-            if line.StartsWith "let viewerVersion" then 
-                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
+    let patched =
+        programFs
+        |> Array.map (fun line ->
+            if line.StartsWith "let viewerVersion" then
+                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion
             else line
         )
     File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
 
+    // 0.1 keep aardium/package.json version in sync so electron-builder's
+    // release tag (v{version}) matches the FAKE GitHubRelease draft tag.
+    patchAardiumVersion notes.NugetVersion
+
     if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
+         let arch, rid = osxArch
          "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
              { o with
                  Framework = Some framework
-                 Runtime = Some "osx-x64"
+                 Runtime = Some rid
                  Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                  //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
                  Configuration = DotNet.BuildConfiguration.Release
                  VersionSuffix = Some notes.NugetVersion
                  OutputPath = Some "aardium/build/build"
-                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
              }
          )
-         for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/mac/") do    
-            File.Copy(f, Path.Combine("aardium/build/build", Path.GetFileName f))
+         copyMacNativeLibs arch "aardium/build/build"
 
-         extractNativeDependenciesInFolder OSPlatform.OSX Architecture.X64 "aardium/build/build" 
+         extractNativeDependenciesInFolder OSPlatform.OSX arch "aardium/build/build"
 
     elif System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux) then
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
@@ -468,7 +509,7 @@ Target.create "Publish" (fun _ ->
         }
     )
 
-    // mac
+    // mac (x64)
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some framework
@@ -478,9 +519,27 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/mac-x64"
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
         }
     )
+    copyMacNativeLibs Architecture.X64 "bin/publish/mac-x64"
+    extractNativeDependenciesInFolder OSPlatform.OSX Architecture.X64 "bin/publish/mac-x64"
+
+    // mac (arm64)
+    "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
+        { o with
+            Framework = Some framework
+            Runtime = Some "osx-arm64"
+            Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
+            Configuration = DotNet.BuildConfiguration.Release
+            VersionSuffix = Some notes.NugetVersion
+            OutputPath = Some "bin/publish/mac-arm64"
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+        }
+    )
+    copyMacNativeLibs Architecture.Arm64 "bin/publish/mac-arm64"
+    extractNativeDependenciesInFolder OSPlatform.OSX Architecture.Arm64 "bin/publish/mac-arm64"
 
 
     // 1.1, copy most likely missing c++ libs, currently no reports of missing runtime libs
@@ -493,6 +552,7 @@ Target.create "Publish" (fun _ ->
     // 2, copy licences
     File.Copy("CREDITS.MD", "bin/publish/win-x64/CREDITS.MD", true)
     File.Copy("CREDITS.MD", "bin/publish/mac-x64/CREDITS.MD", true)
+    File.Copy("CREDITS.MD", "bin/publish/mac-arm64/CREDITS.MD", true)
 
     File.Copy("data/runtime/vcruntime140.dll", "bin/publish/win-x64/vcruntime140.dll")
     File.Copy("data/runtime/vcruntime140_1.dll", "bin/publish/win-x64/vcruntime140_1.dll")
@@ -503,18 +563,26 @@ Target.create "Publish" (fun _ ->
     
     if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX)   then ()
     else
-        let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
-        printf "url: %s" url
-        let tempFile = Path.GetTempFileName()
-        use c = new System.Net.WebClient()
-        c.DownloadFile(url, tempFile)
-        use a = new ZipArchive(File.OpenRead tempFile)
-        let t = Path.GetTempPath()
-        let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
-        a.ExtractToDirectory(tempPath)
-        let target = Path.Combine("bin", "publish")
-        Shell.copyDir (Path.Combine(target, "mac-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
-        Shell.copyDir (Path.Combine(target, "win-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
+        // downloads the Aardium package matching each publish target and copies its
+        // 'tools' (the platform-specific Electron host) next to the published viewer.
+        // skips gracefully if the package is not published for that platform/arch.
+        let copyAardiumTools (package : string) (publishDir : string) =
+            let url = sprintf "https://www.nuget.org/api/v2/package/%s/%s" package aardiumVersion
+            printfn "url: %s" url
+            try
+                let tempFile = Path.GetTempFileName()
+                use c = new System.Net.WebClient()
+                c.DownloadFile(url, tempFile)
+                use a = new ZipArchive(File.OpenRead tempFile)
+                let tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+                a.ExtractToDirectory(tempPath)
+                Shell.copyDir (Path.Combine("bin", "publish", publishDir, "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
+            with e ->
+                Trace.tracefn "could not fetch %s for %s: %A — continuing" package publishDir e
+
+        copyAardiumTools "Aardium-Win32-x64"   "win-x64"
+        copyAardiumTools "Aardium-Darwin-x64"  "mac-x64"
+        copyAardiumTools "Aardium-Darwin-arm64" "mac-arm64"
 
         //File.Move("bin/publish/win-x64/PRo3D.Viewer.exe", sprintf "bin/publish/win-x64/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
@@ -630,16 +698,29 @@ Target.create "GitHubRelease" (fun _ ->
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
-            //let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+            //let files = System.IO.Directory.EnumerateFiles("bin/publish")
             let release = sprintf "bin/PRo3D.Viewer-standalone.%s.zip" notes.NugetVersion
-            let z = 
+            let z =
                 if File.Exists release then
                     File.Delete(release)
                 System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
+            // record where the draft came from: append the commit + tag so the
+            // release always states its source (the tag itself anchors the
+            // published release to this commit once pushed below).
+            let commit =
+                match Environment.environVarOrNone "GITHUB_SHA" with
+                | Some s when not (String.IsNullOrWhiteSpace s) -> s
+                | _ -> try Information.getCurrentSHA1 "." with _ -> "unknown"
+            let body = Seq.append notes.Notes [ ""; sprintf "_release %s — built from commit %s_" tagName commit ]
+
+            // use the v-prefixed tag as the release tag_name so it matches both
+            // the pushed git tag and electron-builder's default (v{version});
+            // this is what makes the standalone zip and the electron artifacts
+            // share one draft instead of two.
             let release =
                 GitHub.createClientWithToken token
-                |> GitHub.draftNewRelease "pro3d-space" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
+                |> GitHub.draftNewRelease "pro3d-space" "PRo3D" tagName (notes.SemVer.PreRelease <> None) body
                 |> GitHub.uploadFiles (Seq.singleton release)
                 //|> GitHub.publishDraft
                 |> Async.RunSynchronously

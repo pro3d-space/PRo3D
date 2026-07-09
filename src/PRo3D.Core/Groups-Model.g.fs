@@ -1,5 +1,5 @@
-//a4a4988b-7944-c569-ee35-50cbbd5f4f21
-//cc6402bb-34b7-6c1e-dc39-276db6ebfbbe
+//efcbd58c-a5f4-d00e-b722-4b6031e3c3bd
+//8405646f-613d-3059-45b3-7e6f50d371a1
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -112,6 +112,7 @@ type AdaptiveNode(value : Node) =
         FSharp.Data.Traceable.ChangeableModelList(value.subNodes, (fun (v : Node) -> AdaptiveNode(v)), __arg2, (fun (m : AdaptiveNode) -> m))
     let _visible_ = FSharp.Data.Adaptive.cval(value.visible)
     let _expanded_ = FSharp.Data.Adaptive.cval(value.expanded)
+    let _defaultColor_ = Aardvark.UI.AdaptiveColorInput(value.defaultColor)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Node) = AdaptiveNode(value)
@@ -127,6 +128,7 @@ type AdaptiveNode(value : Node) =
             _subNodes_.Update(value.subNodes)
             _visible_.Value <- value.visible
             _expanded_.Value <- value.expanded
+            _defaultColor_.Update(value.defaultColor)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.key = _key_ :> FSharp.Data.Adaptive.aval<System.Guid>
@@ -135,6 +137,7 @@ type AdaptiveNode(value : Node) =
     member __.subNodes = _subNodes_ :> FSharp.Data.Adaptive.alist<AdaptiveNode>
     member __.visible = _visible_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.expanded = _expanded_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.defaultColor = _defaultColor_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module NodeLenses = 
     type Node with
@@ -145,6 +148,7 @@ module NodeLenses =
         static member subNodes_ = ((fun (self : Node) -> self.subNodes), (fun (value : FSharp.Data.Adaptive.IndexList<Node>) (self : Node) -> { self with subNodes = value }))
         static member visible_ = ((fun (self : Node) -> self.visible), (fun (value : Microsoft.FSharp.Core.bool) (self : Node) -> { self with visible = value }))
         static member expanded_ = ((fun (self : Node) -> self.expanded), (fun (value : Microsoft.FSharp.Core.bool) (self : Node) -> { self with expanded = value }))
+        static member defaultColor_ = ((fun (self : Node) -> self.defaultColor), (fun (value : Aardvark.UI.ColorInput) (self : Node) -> { self with defaultColor = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveGroupsModel(value : GroupsModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)

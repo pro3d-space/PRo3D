@@ -69,8 +69,9 @@ module Viewer =
         (viewerVerson        : string)
         : Model = 
 
-        let defaultDashboard =  DashboardModes.defaultDashboard //DashboardModes.defaultDashboard
-        let defaultDashboard = DashboardModes.gis
+        // default to the M2020 docking config (includes the Traverse menu)
+        let defaultDashboard = DashboardModes.m2020
+        //let defaultDashboard = DashboardModes.gis
         // use this one for PROVEX workflows if needed.
         //let defaultDashboard = DashboardModes.provenance
         let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020   
@@ -111,6 +112,7 @@ module Viewer =
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                     screenshotModel       = ScreenshotModel.initial
                     gisApp                = Gis.GisApp.initial startupArgs.defaultSpiceKernelPath
+                    crossSectionModel     = CrossSectionModel.initial
                 }
 
             viewerVersion   = viewerVerson

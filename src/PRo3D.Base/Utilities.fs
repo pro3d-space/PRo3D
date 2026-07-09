@@ -76,6 +76,26 @@ module OPCFilter =
                     return v.c
             }
 
+        type UniformScope with
+            member x.WhiteDiscardEnabled   : bool    = x?WhiteDiscardEnabled
+            member x.WhiteDiscardThreshold : float32 = x?WhiteDiscardThreshold
+
+
+        // Discards the large white areas above and beneath the RIMFAX data
+        let discardWhiteBands (v : Effects.Vertex) =
+            fragment {
+                if uniform.HasDiffuseColorTexture then
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0f)
+                    if uniform.WhiteDiscardEnabled then
+                        let t = uniform.WhiteDiscardThreshold
+                        if texColor.Y >= t then
+                            discard()
+                    return texColor
+                else
+                    return v.c
+
+            }
+
         let improvedDiffuseTexture (v : Effects.Vertex) =
             fragment {
                 let texColor = diffuseSampler.Sample(v.tc,-1.0f)
@@ -1495,7 +1515,6 @@ module FrustumUtils =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
         let hfov = 2.0 * atan(11.84 /(focal*2.0))
-        Log.line $"computed hvov: {hfov}."
         Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
 
     let calculateFrustum' (focal : float) (near : float) 
@@ -1503,5 +1522,4 @@ module FrustumUtils =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
         let hfov = 2.0 * atan(11.84 /(focal*2.0))
-        Log.line $"computed hvov: {hfov}."
         Frustum.perspective (hfov.DegreesFromRadians()) near far aspect

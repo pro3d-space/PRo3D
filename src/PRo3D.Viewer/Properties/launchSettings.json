@@ -1,10 +1,5 @@
 {
   "profiles": {
-    "PRo3D.Viewer": {
-      "commandName": "Project",
-      "commandLineArgs": "-loadRecent",
-      "nativeDebugging": true
-    },
     "PRo3D.Viewer.Provex": {
       "commandName": "Project",
       "commandLineArgs": "--disableCors --port 4321 --remoteApi --enableProvenance",
@@ -23,6 +18,10 @@
     "PRo3D.GIS": {
       "commandName": "Project",
       "commandLineArgs": "--disableCors --port 4321 --remoteApi --defaultSpiceKernel \"../../../../spice/kernels/mk/hera_ops.tm\"",
+      "nativeDebugging": true
+    },
+    "Profile 1": {
+      "commandName": "Project",
       "nativeDebugging": true
     }
   }

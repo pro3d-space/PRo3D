@@ -68,3 +68,17 @@ src\Aardvark.OpcViewer.psess
 /docs/PRo3D_ShortUserManual/*.fls
 
 .ipynb_checkpoints/
+/__pycache__
+/profileDrawing/__pycache__
+
+# test run artifacts
+/Aardvark.log
+/logs/
+
+# Yarn (Berry) local state / cache
+**/.yarn/*
+!**/.yarn/patches
+!**/.yarn/releases
+!**/.yarn/plugins
+!**/.yarn/sdks
+!**/.yarn/versions

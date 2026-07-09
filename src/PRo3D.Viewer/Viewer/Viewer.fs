@@ -546,9 +546,15 @@ module ViewerApp =
             { m with frustum = frustum}
             |> Optic.set _frustumModel frustumModel 
         | AnnotationGroupsMessageViewer msg,_ ->
-            let ag = m.drawing.annotations 
-                
-            { m with drawing = { m.drawing with annotations = GroupsApp.update ag msg}}
+            let view =
+                match m.viewerMode with
+                | ViewerMode.Standard   -> m.navigation.camera.view
+                | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+
+            let drawing =
+                DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (DrawingAction.GroupsMessage msg)
+
+            { m with drawing = drawing } |> stash
         | InvertDrawing, _ ->
             let updatedInverseFlag = not m.inverseFlag
             { m with inverseFlag = updatedInverseFlag; drawing = {m.drawing with draw = updatedInverseFlag} }
@@ -644,22 +650,44 @@ module ViewerApp =
                     let a = AnnotationProperties.update m.scene.referenceSystem a msg
 
                     //update true thickness computation on dip angle change
-                    let a = 
-                        if (a.geometry = Geometry.TT) then                                                         
+                    let a =
+                        if (a.geometry = Geometry.TT) then
                            let up = m.scene.referenceSystem.up.value
                            let north = m.scene.referenceSystem.north.value
                            let planet = m.scene.referenceSystem.planet
-                           
+
                            let results = Calculations.calcResultsLine a up north planet |> Some
                            { a with results = results }
                         else
-                            a                    
+                            a
                     a |> Leaf.Annotations)
 
                 let a = m.drawing.annotations |> Groups.updateLeaf selected f
-                Optic.set _annotations a m
-            | None -> m       
-        | BookmarkMessage msg,_ ->  
+                let m = Optic.set _annotations a m
+
+                // on CreateCrossSection, extract annotation points + camera to build CrossSection
+                match msg with
+                | AnnotationProperties.CreateCrossSection ->
+                    let leafOpt = a.flat |> HashMap.tryFind selected
+                    match leafOpt with
+                    | Some leaf ->
+                        let anno = leaf |> Leaf.toAnnotation
+                        let pts = Annotation.retrievePoints anno |> Array.ofList
+                        if pts.Length >= 2 then
+                            let cs = {
+                                geometry = LineOnSurface pts
+                                refPoint = m.navigation.camera.view.Location
+                            }
+                            let csm = CrossSectionApp.update m.scene.crossSectionModel (SetCrossSection cs)
+                            { m with scene = { m.scene with crossSectionModel = csm } }
+                        else m
+                    | None -> m
+                | _ -> m
+            | None -> m
+        | CrossSectionMessage msg,_ ->
+            let csm = CrossSectionApp.update m.scene.crossSectionModel msg
+            { m with scene = { m.scene with crossSectionModel = csm } }
+        | BookmarkMessage msg,_ ->
             Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 
             let m', bm = Bookmarks.update m.scene.bookmarks m.scene.referenceSystem.planet msg _navigation m
@@ -1341,13 +1369,27 @@ module ViewerApp =
 
             let m =
                 match (m.ctrlFlag, k, m.scene.scenePath) with
-                | true, Aardvark.Application.Keys.S, Some path -> 
+                | true, Aardvark.Application.Keys.S, Some path ->
                     { (ViewerIO.saveEverything path m) with ctrlFlag = false } |> shortFeedback "scene saved"
-                | true, Aardvark.Application.Keys.S, None ->         
-                    { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene" 
+                | true, Aardvark.Application.Keys.S, None ->
+                    { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene"
                     // (saveSceneAndAnnotations p m)
                 |_-> m
-                                   
+
+            let m =
+                let view =
+                    match m.viewerMode with
+                    | ViewerMode.Standard    -> m.navigation.camera.view
+                    | ViewerMode.Instrument  -> m.scene.viewPlans.instrumentCam
+                match (m.ctrlFlag, k) with
+                | true, Aardvark.Application.Keys.Z ->
+                    let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Undo
+                    { m with drawing = drawing }
+                | true, Aardvark.Application.Keys.Y ->
+                    let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Redo
+                    { m with drawing = drawing }
+                | _ -> m
+
             let sensitivity = m.scene.config.navigationSensitivity.value
           
             let configAction = 
@@ -2150,19 +2192,42 @@ module ViewerApp =
         //    Sg.ofList [text; traverse]
 
         let distancePointsText =
-            ViewPlanApp.Sg.viewText 
+            ViewPlanApp.Sg.viewText
                 m.scene.referenceSystem
-                m.scene.viewPlans 
-            |> Sg.map ViewPlanMessage    
+                m.scene.viewPlans
+            |> Sg.map ViewPlanMessage
 
+        // priority-enabled traverses (rover/rimfax/waypoints) whose priority has no matching
+        // surface layer are drawn here, on top of all surfaces. This is the depth-cleared overlay
+        // layer, so a traverse with priority higher than the surfaces renders above them.
+        let priorityTraverses =
+            let isThereASurfaceWithPriority (p : int) =
+                m.scene.surfacesModel.surfaces.flat
+                |> AMap.toASetValues
+                |> ASet.existsA (fun e ->
+                    match e with
+                    | AdaptiveSurfaces s -> s.priority.value |> AVal.map (fun pS -> int pS = p)
+                    | _ -> AVal.constant false
+                )
+
+            TraverseApp.Sg.view
+                view
+                m.scene.config.nearPlane.value
+                (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
+                m.scene.referenceSystem
+                m.scene.traverses
+                (AVal.constant None)
+                isThereASurfaceWithPriority
+                true // priority overlay pass: priority-enabled traverses on top
+            |> Sg.map TraverseMessage
 
         [
-            exploreCenter; 
-            refSystem; 
+            exploreCenter;
+            refSystem;
             homePosition;
             annotationTexts |> Sg.noEvents
             scaleBarTexts
-            //traverse
+            priorityTraverses
             distancePointsText
         ] |> Sg.ofList
                                  
@@ -2216,15 +2281,16 @@ module ViewerApp =
                 )
 
 
-            let traverse = 
-                TraverseApp.Sg.view     
-                    view 
-                    m.scene.config.nearPlane.value 
+            let traverse =
+                TraverseApp.Sg.view
+                    view
+                    m.scene.config.nearPlane.value
                     (frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees)
                     m.scene.referenceSystem
-                    m.scene.traverses   
+                    m.scene.traverses
                     (AVal.constant None)
                     isThereASurfaceWithPriority
+                    false // depth-tested overlay pass: priority-disabled traverses
                 |> Sg.map TraverseMessage
 
             traverse
@@ -2248,6 +2314,8 @@ module ViewerApp =
             |> Sg.dynamic
             
             
+        let curtainSg = ViewerUtils.createCurtainSg view m
+
         let depthTested =
             [
                 scaleBars;
@@ -2255,6 +2323,7 @@ module ViewerApp =
                 traverses
                 distancePoints
                 surfaceIntersection
+                curtainSg
             ] |> Sg.ofList
 
         let heightValidationDiscs =

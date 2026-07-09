@@ -46,4 +46,10 @@ module DashboardModes =
             dockConfig = DockConfigs.gis
         }
 
+    let m2020 =
+        {
+            name       = "M2020"
+            dockConfig = DockConfigs.m2020
+        }
+
     

@@ -21,9 +21,16 @@ type SamplingUnit =
 | cm = 2
 | mm = 3
 
+// Delta for the annotations collection — stores only what changed per undoable operation.
+// LeafAdded/LeafRemoved carry just the leaf and the group path, which is sufficient to reverse the operation.
+// SnapshotDelta stores a full GroupsModel before/after for rare bulk operations (RemoveGroup, Clear).
+type AnnotationsDelta =
+    | LeafAdded     of leaf: Leaf * groupPath: list<Index>
+    | LeafRemoved   of leaf: Leaf * groupPath: list<Index>
+    | SnapshotDelta of before: GroupsModel * after: GroupsModel
+
 type DrawingAction =
 | SetSemantic         of Semantic
-| ChangeColor         of ColorPicker.Action
 | ChangeThickness     of Numeric.Action
 | ChangeSamplingAmount of Numeric.Action
 | SetSamplingUnit     of SamplingUnit
@@ -96,7 +103,6 @@ type DrawingModel = {
     projection : Projection
     geometry   : Geometry
     semantic   : Semantic
-    color      : ColorInput
     thickness  : NumericInput
 
     samplingAmount   : NumericInput
@@ -109,10 +115,10 @@ type DrawingModel = {
     pendingIntersections : ThreadPool<DrawingAction>    
 
     [<TreatAsValue>]
-    past : Option<DrawingModel> 
+    undoStack : list<AnnotationsDelta>
 
     [<TreatAsValue>]
-    future : Option<DrawingModel>
+    redoStack : list<AnnotationsDelta>
 
     dnsColorLegend : FalseColorsModel
 
@@ -149,7 +155,6 @@ module DrawingModel =
         draw          = false  
         pick          = false
         multi         = false
-        color         = { c = C4b.DarkBlue } 
         thickness     = Annotation.Initial.thickness
 
         working     = None
@@ -167,8 +172,8 @@ module DrawingModel =
         
         pendingIntersections = ThreadPool.empty
 
-        past    = None
-        future  = None
+        undoStack = []
+        redoStack = []
         
         dnsColorLegend = FalseColorsModel.initDnSLegend
 

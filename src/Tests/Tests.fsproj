@@ -19,6 +19,7 @@
 	<None Include="Annotations\annotation_1_xyz.json" />
 	<None Include="Annotations\annotation_1_xyz_latlon.json" />
     <Compile Include="GeoJsonExportTest.fs" />
+    <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="QueriesDSL.fs" />
     <None Include="Playground.fsx" />
