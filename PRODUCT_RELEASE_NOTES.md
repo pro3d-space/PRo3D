@@ -1,3 +1,10 @@
+## 6.0.0-prerelease4
+- Drawing: added undo/redo support for drawing/annotation edits, including a fix for scenes created before this feature
+- Groups: annotations now default to their group's color; removed the redundant top-menu annotation color picker
+- Cross sections: added a file dialog for choosing a cross-section image
+- RIMFAX: reworked surface selection visualization and added priority rendering so RIMFAX and rover traverse render correctly relative to each other; white-band discard for RIMFAX imagery moved to the traverse section
+- Fixed the DnS (Drift and Stare) plane, which had stopped rendering
+
 ## 6.0.0-prerelease3
 - Snapshots: fixed "could not find PRo3D.Snapshots.exe" — the snapshot/panorama renderer is now resolved beside the running executable and launched with that working directory (previously a relative path failed because SPICE init leaves the process working directory in the kernel config folder)
 
