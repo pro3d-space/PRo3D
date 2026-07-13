@@ -26,6 +26,7 @@
     <None Include="RemoteApi.rest" />
     <None Include="paket.references" />
     <Compile Include="BaseTests.fs" />
+    <Compile Include="FeatureTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

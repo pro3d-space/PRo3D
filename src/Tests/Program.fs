@@ -16,6 +16,7 @@ let allTests () : Test =
         // special case: HERA tests self-skip when their kernels are absent or
         // when --skip-hera is passed (see HeraSpiceTests).
         HeraSpiceTests.tests()
+        FeatureTests.tests()
     ]
 
 
