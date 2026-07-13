@@ -1,5 +1,8 @@
 /// Automatic tests covering the model/logic layer of features described in
-/// docs/Test_Protocol/PRo3D_TestProtocol.tex (TC-xx references below).
+/// docs/Test_Protocol/PRo3D_TestProtocol.tex.
+///
+/// TC references use the hierarchical numbering printed by \testcase{} in the LaTeX
+/// document: TC-<section>.<subsection-within-section>.
 ///
 /// Scope: pure model computation — no renderer, no window, no IO.
 module FeatureTests
@@ -50,7 +53,8 @@ let private inRootLeaves (id : Guid) (groups : GroupsModel) =
     groups.rootGroup.leaves |> IndexList.toList |> List.contains id
 
 // ---------------------------------------------------------------------------
-// 1. DrawingModel initial state  (TC-01)
+// 1. DrawingModel initial state
+//    Preconditions verified for TC-3.1–TC-3.5 and TC-19.1
 // ---------------------------------------------------------------------------
 
 let drawingModelInitTests =
@@ -80,7 +84,9 @@ let drawingModelInitTests =
     ]
 
 // ---------------------------------------------------------------------------
-// 2. Sampling-distance unit conversion  (TC-11..15)
+// 2. Sampling-distance unit conversion
+//    TC-3.1 – TC-3.5 (Draw Point/Line/Polyline/Polygon/DnS Annotation)
+//    The sampling distance governs annotation point spacing on OPC surfaces.
 // ---------------------------------------------------------------------------
 
 let samplingDistTests =
@@ -121,7 +127,8 @@ let samplingDistTests =
     ]
 
 // ---------------------------------------------------------------------------
-// 3. Undo/Redo logic for drawing  (TC-58)
+// 3. Undo/Redo logic for drawing
+//    TC-19.1 (Undo/Redo for Drawing)
 // ---------------------------------------------------------------------------
 
 let undoRedoTests =
@@ -268,7 +275,8 @@ let undoRedoTests =
     ]
 
 // ---------------------------------------------------------------------------
-// 4. Group default color  (TC-59)
+// 4. Group default color
+//    TC-19.2 (Group Default Color)
 // ---------------------------------------------------------------------------
 
 let groupColorTests =
@@ -326,7 +334,8 @@ let groupColorTests =
     ]
 
 // ---------------------------------------------------------------------------
-// 5. GroupsApp CRUD operations  (TC-37, TC-38)
+// 5. GroupsApp CRUD operations
+//    TC-10.1 (Grouping -- Create Group), TC-10.2 (Grouping -- Move Leafs)
 // ---------------------------------------------------------------------------
 
 let groupsTests =
@@ -412,7 +421,9 @@ let groupsTests =
     ]
 
 // ---------------------------------------------------------------------------
-// 6. Annotation creation  (TC-11..15)
+// 6. Annotation creation
+//    TC-3.1 (Draw Point), TC-3.2 (Draw Line), TC-3.3 (Draw Polyline),
+//    TC-3.4 (Draw Polygon), TC-3.5 (Draw DnS), TC-3.6 (Projection Modes)
 // ---------------------------------------------------------------------------
 
 let annotationTests =
@@ -493,7 +504,8 @@ let annotationTests =
     ]
 
 // ---------------------------------------------------------------------------
-// 7. Annotation property mutations  (TC-26..28)
+// 7. Annotation property mutations
+//    TC-5.1 (Annotation Properties Panel), TC-5.3 (Annotation Text Note)
 // ---------------------------------------------------------------------------
 
 let annotationPropertiesTests =
@@ -572,7 +584,8 @@ let annotationPropertiesTests =
     ]
 
 // ---------------------------------------------------------------------------
-// 8. Geometric measurement calculations  (TC-27)
+// 8. Geometric measurement calculations
+//    TC-5.2 (Annotation Measurements)
 // ---------------------------------------------------------------------------
 
 let measurementTests =
@@ -672,7 +685,9 @@ let measurementTests =
     ]
 
 // ---------------------------------------------------------------------------
-// 9. Leaf type helpers  (TC-19, TC-20)
+// 9. Leaf type helpers
+//    TC-3.7 (Pick Annotation via UI List), TC-3.8 (Pick Annotation via 3D View),
+//    TC-3.9 (Pick Surface via UI List),    TC-3.10 (Pick Surface via 3D View)
 // ---------------------------------------------------------------------------
 
 let leafTests =

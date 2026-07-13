@@ -1,0 +1,769 @@
+ 0: using cache dir: C:\Users\sophiechen\AppData\Local\Aardvark\Cache
+ 0: initializing aardvark ........................................................................
+ 0:   System Information:
+ 0:     System:      Microsoft Windows 10.0.19045
+ 0:     Processor:   8 core AMD64
+ 0:     Process:     AMD64
+ 0:     Framework:   .NET 9.0.17
+ 0:   Skipped loading native dependencies for System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e
+ 0:   Skipped loading native dependencies for System.Security.Cryptography, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Runtime, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for netstandard, Version=2.1.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
+ 0:   Skipped loading native dependencies for System.Console, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Runtime.Loader, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Collections, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Text.RegularExpressions, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Runtime.InteropServices, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Memory, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
+ 0:   Skipped loading native dependencies for System.Reflection.Emit.Lightweight, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Threading, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Reflection.Emit.ILGeneration, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Reflection.Primitives, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Threading.Thread, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Skipped loading native dependencies for System.Text.Encoding.Extensions, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   Loading plugins ............................................................................
+ 0:     Skipped loading native dependencies for System.Runtime.Serialization.Xml, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.Private.DataContractSerialization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.Xml.ReaderWriter, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.Private.Xml, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
+ 0:     Skipped loading native dependencies for System.Xml.XmlSerializer, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.Collections.Concurrent, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.Private.Uri, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.Runtime.Serialization.Primitives, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.Linq, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Trying to resolve assembly: System.Private.DataContractSerialization.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=b03f5f7f11d50a3a - not found
+ 0:     Trying to resolve assembly: System.Private.DataContractSerialization.resources, Version=9.0.0.0, Culture=de, PublicKeyToken=b03f5f7f11d50a3a - not found
+ 0:     [ReadCacheFile] Loaded plugins cache file: C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Plugins\Tests_1.0.0.0_plugins.xml
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardium.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Application.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Application.Slim.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Application.Slim.GL.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Application.Slim.Vulkan.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Assembler.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.Essentials.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.Fonts.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.FSharp.dll
+ 0:     [IsPlugin] Plugin found: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.FSharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.Incremental.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.IO.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.Telemetry.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.Tensors.CSharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.Tensors.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Base.TypeProviders.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Data.GLTF.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Data.Opc.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Data.Wavefront.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.FontProvider.Runtime.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Geometry.Clustering.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Geometry.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Geometry.Intersection.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Geometry.PointTree.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Geometry.PolyMesh.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.GeoSpatial.Opc.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.GPGPU.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.PixImage.DevIL.dll
+ 0:     [IsPlugin] Plugin found: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.PixImage.DevIL.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.PixImage.FreeImage.dll
+ 0:     [IsPlugin] Plugin found: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.PixImage.FreeImage.dll
+ 0:     Loading native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:       Skipped loading native dependencies for System.IO.Compression, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+ 0:       Skipped loading native dependencies for System.IO.Compression.ZipFile, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+ 0:       Skipped loading native dependencies for System.Xml.XDocument, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:       Skipped loading native dependencies for System.Private.Xml.Linq, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
+ 0:       Unpacking native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     Loading native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 0.005 s
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.PixImage.Pfim.dll
+ 0:     [IsPlugin] Plugin found: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.PixImage.Pfim.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Rendering.Common.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Rendering.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Rendering.GL.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Rendering.Text.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Rendering.Vulkan.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Rendering.Vulkan.Wrapper.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.SceneGraph.Assimp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.SceneGraph.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.Service.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.UI.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Aardvark.UI.Primitives.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Adaptify.Core.dll
+ 0:     [IsPlugin] Ignoring assembly Aether due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\AssimpNet.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\BitMiracle.LibTiff.NET.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\BlackFox.VsWhere.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\boost_chrono-vc120-mt-1_64.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\boost_date_time-vc120-mt-1_64.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\boost_filesystem-vc120-mt-1_64.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\boost_system-vc120-mt-1_64.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\boost_thread-vc120-mt-1_64.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Build.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Build.exe
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Chiron.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\CommandLine.dll
+ 0:     [IsPlugin] Ignoring assembly CommonMark due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\CSharpUtils.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Cyjs.NET.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\DevILSharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\DynamicObj.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Expecto.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Expecto.FsCheck.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\expecto.visualstudio.dotnetcore.testadapter.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fable.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Api.GitHub.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.CommandLineParsing.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.Context.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.Environment.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.FakeVar.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.Process.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.ReleaseNotes.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.SemVer.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.String.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.Target.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.Tasks.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.Trace.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Core.Xml.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.DotNet.Cli.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.DotNet.MSBuild.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.DotNet.NuGet.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.DotNet.Paket.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.IO.FileSystem.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Net.Http.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Fake.Tools.Git.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Farmer.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FParsec.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FParsecCS.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FreeImage.Standard.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FsCheck.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FsCheck.NUnit.dll
+ 0:     [IsPlugin] Ignoring assembly FShade.Core due to filter
+ 0:     [IsPlugin] Ignoring assembly FShade.GLSL due to filter
+ 0:     [IsPlugin] Ignoring assembly FShade.Imperative due to filter
+ 0:     [IsPlugin] Ignoring assembly FShade.SpirV due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FSharp.Control.Reactive.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FSharp.Control.Websockets.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FSharp.Core.dll
+ 0:     [IsPlugin] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FSharp.Data.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FSharp.Json.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FSharp.SystemTextJson.dll
+ 0:     [IsPlugin] Ignoring assembly FsPickler due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FsPickler.Json.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FsUnit.NUnit.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FSys.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\FuzzySharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Giraffe.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Giraffe.ViewEngine.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\GLSLangSharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\glTFLoader.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\GraphObject3d.dll
+ 0:     [IsPlugin] Ignoring assembly ICSharpCode.SharpZipLib due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\InstrumentPlatforms.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\InternationalisationRegistry.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\JR.Wrappers.dll
+ 0:     [IsPlugin] Ignoring assembly LibTessDotNet due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\MathNet.Numerics.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\MathNet.Numerics.FSharp.dll
+ 0:     [IsPlugin] Ignoring assembly Microsoft.AspNetCore.Authentication.JwtBearer due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.Bcl.AsyncInterfaces due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.Bcl.TimeProvider due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.Build.Framework due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.Build.Utilities.Core due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.Diagnostics.NETCore.Client due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.Diagnostics.Runtime due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.DotNet.PlatformAbstractions due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.Extensions.DependencyInjection.Abstractions due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.Extensions.DependencyModel due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.Extensions.Logging.Abstractions due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.IdentityModel.Abstractions due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.IdentityModel.JsonWebTokens due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.IdentityModel.Logging due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.IdentityModel.Protocols due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.IdentityModel.Protocols.OpenIdConnect due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.IdentityModel.Tokens due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.IO.RecyclableMemoryStream due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.NET.StringTools due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.TestPlatform.CommunicationUtilities due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.TestPlatform.CoreUtilities due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.TestPlatform.CrossPlatEngine due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.TestPlatform.PlatformAbstractions due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.TestPlatform.Utilities due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.VisualStudio.CodeCoverage.Shim due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.VisualStudio.TestPlatform.Common due to filter
+ 0:     [IsPlugin] Ignoring assembly Microsoft.VisualStudio.TestPlatform.ObjectModel due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\ModelViewer.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\ModelViewer.exe
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Mono.Cecil.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Mono.Cecil.Mdb.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Mono.Cecil.Pdb.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Mono.Cecil.Rocks.dll
+ 0:     [IsPlugin] Ignoring assembly Newtonsoft.Json due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\NuGet.Common.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\NuGet.Configuration.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\NuGet.Frameworks.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\NuGet.Packaging.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\NuGet.Protocol.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\NuGet.Versioning.dll
+ 0:     [IsPlugin] Ignoring assembly nunit.engine.api due to filter
+ 0:     [IsPlugin] Ignoring assembly nunit.engine.core due to filter
+ 0:     [IsPlugin] Ignoring assembly nunit.engine due to filter
+ 0:     [IsPlugin] Ignoring assembly nunit.framework due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\NUnit3.TestAdapter.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Octokit.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\opc-tool.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\opc-tool.exe
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\OPCViewer.Base.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\OpcViewer.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\OpcViewer.exe
+ 0:     [IsPlugin] Ignoring assembly OpenTK due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Pfim.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.Base.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.GIS.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.Lite.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.Lite.exe
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.SimulatedViews.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.Snapshots.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.Snapshots.exe
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.SPICE.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.Viewer.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\PRo3D.Viewer.exe
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Progress.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\pugixml.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Saturn.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Silk.NET.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Silk.NET.GLFW.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\SingleFileExtractor.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Strings.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\StructuredLogger.dll
+ 0:     [IsPlugin] Ignoring assembly Suave due to filter
+ 0:     [IsPlugin] Ignoring assembly System.Configuration.ConfigurationManager due to filter
+ 0:     [IsPlugin] Ignoring assembly System.Diagnostics.EventLog due to filter
+ 0:     [IsPlugin] Ignoring assembly System.IdentityModel.Tokens.Jwt due to filter
+ 0:     [IsPlugin] Ignoring assembly System.Reactive due to filter
+ 0:     [IsPlugin] Ignoring assembly System.Security.Cryptography.Pkcs due to filter
+ 0:     [IsPlugin] Ignoring assembly System.Security.Cryptography.ProtectedData due to filter
+ 0:     [IsPlugin] Ignoring assembly System.Security.Permissions due to filter
+ 0:     [IsPlugin] Ignoring assembly System.Windows.Extensions due to filter
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\testcentric.engine.metadata.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\testhost.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\testhost.exe
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Tests.dll
+ 0:     Skipped loading native dependencies for System.Reflection.Metadata, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.Collections.Immutable, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.IO.MemoryMappedFiles, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Thoth.Json.Net.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\TinyEXR.NET.dll
+ 0:     [IsPlugin] Ignoring assembly Uncodium.Eigensystems due to filter
+ 0:     [IsPlugin] Ignoring assembly Unofficial.Typography due to filter
+ 0:   Loading plugins .................................................................... 0.128 s
+ 0:   [Introspection] Entry assembly: Tests, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null (path: C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\Tests.dll)
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Numerics due to filter
+ 0:   [Introspection] Ignoring assembly nunit.framework due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections.Concurrent due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections due to filter
+ 0:   [Introspection] Ignoring assembly System.Linq due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Serialization.Primitives due to filter
+ 0:   [Introspection] Ignoring assembly System.Text.Json due to filter
+ 0:   [Introspection] Ignoring assembly System.Xml.ReaderWriter due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections.Immutable due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Text.RegularExpressions due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Metadata due to filter
+ 0:   [Introspection] Ignoring assembly System.Xml.XDocument due to filter
+ 0:   [Introspection] Ignoring assembly System.IO.Compression due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.InteropServices due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Serialization.Xml due to filter
+ 0:   [Introspection] Ignoring assembly System.Diagnostics.Process due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Loader due to filter
+ 0:   [Introspection] Ignoring assembly System.ObjectModel due to filter
+ 0:   [Introspection] Ignoring assembly System.Linq.Expressions due to filter
+ 0:   [Introspection] Ignoring assembly System.ComponentModel.TypeConverter due to filter
+ 0:   [Introspection] Ignoring assembly System.Threading due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Console due to filter
+ 0:   [Introspection] Ignoring assembly System.ComponentModel.Primitives due to filter
+ 0:   [Introspection] Ignoring assembly System.Drawing.Primitives due to filter
+ 0:   [Introspection] Ignoring assembly System.Memory due to filter
+ 0:   [Introspection] Ignoring assembly System.Security.Cryptography due to filter
+ 0:   [Introspection] Ignoring assembly System.Net.WebClient due to filter
+ 0:   [Introspection] Ignoring assembly System.IO.Compression.ZipFile due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Intrinsics due to filter
+ 0:   [Introspection] Ignoring assembly System.Threading.Thread due to filter
+ 0:   [Introspection] Ignoring assembly System.Diagnostics.StackTrace due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections due to filter
+ 0:   [Introspection] Ignoring assembly System.IO.Compression due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit.ILGeneration due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Primitives due to filter
+ 0:   [Introspection] Ignoring assembly System.Linq.Expressions due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   [Introspection] Ignoring assembly System.Text.RegularExpressions due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Threading due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections.Concurrent due to filter
+ 0:   [Introspection] Ignoring assembly System.Threading.Thread due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit.Lightweight due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.InteropServices due to filter
+ 0:   [Introspection] Ignoring assembly System.IO.MemoryMappedFiles due to filter
+ 0:   [Introspection] Ignoring assembly System.Diagnostics.Process due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection due to filter
+ 0:   [Introspection] Ignoring assembly System.Console due to filter
+ 0:   [Introspection] Ignoring assembly System.Linq due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Imperative due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit.Lightweight due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit.ILGeneration due to filter
+ 0:   [Introspection] Ignoring assembly FShade.GLSL due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly System.Memory due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit.Lightweight due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit.ILGeneration due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Imperative due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   Loading native dependencies for Aardvark.Service, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:     Unpacking native dependencies for Aardvark.Service, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Loading native dependencies for Aardvark.Service, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly Suave due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Imperative due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:     Unpacking native dependencies for Aardvark.Rendering.Vulkan, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null 0.014 s
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly FShade.GLSL due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Imperative due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   Loading native dependencies for GLSLangSharp, Version=0.5.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:     Unpacking native dependencies for GLSLangSharp, Version=0.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Loading native dependencies for GLSLangSharp, Version=0.5.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:     Unpacking native dependencies for Aardvark.Rendering.GL, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly FShade.GLSL due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly LibTessDotNet due to filter
+ 0:   [Introspection] Ignoring assembly OpenTK due to filter
+ 0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:     Unpacking native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly System.Memory due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.CompilerServices.Unsafe due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Imperative due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly System.Memory due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   [Introspection] Ignoring assembly OpenTK due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   [Introspection] Ignoring assembly Newtonsoft.Json due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Globalization due to filter
+ 0:   [Introspection] Ignoring assembly System.IO due to filter
+ 0:   [Introspection] Ignoring assembly Suave due to filter
+ 0:   [Introspection] Ignoring assembly Newtonsoft.Json due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly Newtonsoft.Json due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly Suave due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   [Introspection] Ignoring assembly Aether due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly Aether due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Extensions due to filter
+ 0:   [Introspection] Ignoring assembly System.Globalization due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Globalization due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   [Introspection] Ignoring assembly Newtonsoft.Json due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Buffers due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly ICSharpCode.SharpZipLib due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly Unofficial.Typography due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections due to filter
+ 0:   [Introspection] Ignoring assembly System.Diagnostics.Debug due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections.Concurrent due to filter
+ 0:   [Introspection] Ignoring assembly System.Text.RegularExpressions due to filter
+ 0:   [Introspection] Ignoring assembly System.Linq due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Extensions due to filter
+ 0:   [Introspection] Ignoring assembly LibTessDotNet due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly CommonMark due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Imperative due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections due to filter
+ 0:   [Introspection] Ignoring assembly System.Threading due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit.ILGeneration due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit due to filter
+ 0:   [Introspection] Ignoring assembly System.IO.Compression due to filter
+ 0:   [Introspection] Ignoring assembly System.Text.RegularExpressions due to filter
+ 0:   [Introspection] Ignoring assembly System.Xml.XDocument due to filter
+ 0:   [Introspection] Ignoring assembly System.Console due to filter
+ 0:   [Introspection] Ignoring assembly System.Linq due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Emit.Lightweight due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection.Primitives due to filter
+ 0:   [Introspection] Ignoring assembly System.Memory due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Imperative due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   [Introspection] Ignoring assembly Uncodium.Eigensystems due to filter
+ 0:   [Introspection] Ignoring assembly System.Text.RegularExpressions due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.InteropServices due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly Aether due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Extensions due to filter
+ 0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:     Unpacking native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly Newtonsoft.Json due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Net.Http due to filter
+ 0:   [Introspection] Ignoring assembly Suave due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Imperative due to filter
+ 0:   [Introspection] Ignoring assembly System.Diagnostics.Process due to filter
+ 0:   [Introspection] Ignoring assembly System.IO.Compression due to filter
+ 0:   Loading native dependencies for JR.Wrappers, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:     Unpacking native dependencies for JR.Wrappers, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Loading native dependencies for JR.Wrappers, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly Microsoft.Diagnostics.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections.Immutable due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections due to filter
+ 0:   [Introspection] Ignoring assembly System.Xml.XDocument due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly System.Xml.ReaderWriter due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Core due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly OpenTK due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:     Unpacking native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly Aether due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly Uncodium.Eigensystems due to filter
+ 0:   [Introspection] Ignoring assembly Newtonsoft.Json due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   Loading native dependencies for AssimpNet, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 
+ 0:     Unpacking native dependencies for AssimpNet, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Loading native dependencies for AssimpNet, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections due to filter
+ 0:   [Introspection] Ignoring assembly System.Numerics.Vectors due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.InteropServices due to filter
+ 0:   [Introspection] Ignoring assembly System.Linq due to filter
+ 0:   [Introspection] Ignoring assembly System.Threading due to filter
+ 0:   [Introspection] Ignoring assembly System.Console due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly System.Numerics.Vectors due to filter
+ 0:   [Introspection] Ignoring assembly System.Diagnostics.Process due to filter
+ 0:   [Introspection] Ignoring assembly Suave due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Extensions due to filter
+ 0:   [Introspection] Ignoring assembly System.Globalization due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections.Concurrent due to filter
+ 0:   [Introspection] Ignoring assembly FsPickler due to filter
+ 0:   [Introspection] Ignoring assembly FShade.Imperative due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Text.RegularExpressions due to filter
+ 0:   [Introspection] Ignoring assembly System.Text.Json due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.Extensions due to filter
+ 0:   [Introspection] Ignoring assembly System.Globalization due to filter
+ 0:   [Introspection] Ignoring assembly System.Threading due to filter
+ 0:   [Introspection] Ignoring assembly System.Reflection due to filter
+ 0:   [Introspection] Ignoring assembly System.Console due to filter
+ 0:   [Introspection] Ignoring assembly System.IO due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime due to filter
+ 0:   [Introspection] Ignoring assembly nunit.framework due to filter
+ 0:   [Introspection] Ignoring assembly netstandard due to filter
+ 0:   [Introspection] Ignoring assembly System.Collections due to filter
+ 0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
+ 0:   [Introspection] Ignoring assembly System.Runtime.InteropServices due to filter
+ 0:     [cache miss] Tests, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     Skipped loading native dependencies for nunit.framework, Version=3.13.3.0, Culture=neutral, PublicKeyToken=2638cd05610744eb
+ 0:     Skipped loading native dependencies for FSharp.Data.Adaptive, Version=1.2.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     Skipped loading native dependencies for System.Text.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
+ 0:     [cache hit ] FSharp.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     [cache hit ] Aardvark.UI.Primitives, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Adaptify.Core, Version=1.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.UI, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.SceneGraph, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.FSharp, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Initializing CustomPicklerProvider .........................................................
+ 0:     Skipped loading native dependencies for FsPickler, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] Tests, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] FSharp.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     [cache hit ] Aardvark.UI.Primitives, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Adaptify.Core, Version=1.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.UI, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.SceneGraph, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.FSharp, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] SingleFileExtractor.Core, Version=2.2.1.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Telemetry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.TypeProviders, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Tensors.CSharp, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.Common, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Tensors, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Incremental, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Essentials, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Application, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Service, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.GPGPU, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.Vulkan, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.Vulkan.Wrapper, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] GLSLangSharp, Version=0.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.GL, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.Base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Chiron, Version=6.3.1.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] FParsecCS, Version=1.1.1.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] FParsec, Version=1.1.1.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] OPCViewer.Base, Version=1.10.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Data.Opc, Version=0.11.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Fonts, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] FuzzySharp, Version=1.0.4.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.Text, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.FontProvider.Runtime, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry.Intersection, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Thoth.Json.Net, Version=12.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Fable.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] JR.Wrappers, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry.Clustering, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry.PointTree, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.GeoSpatial.Opc, Version=5.13.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] TinyEXR.NET, Version=0.3.11.0, Culture=neutral, PublicKeyToken=9b5ae88730b3cee9
+ 0:     [cache hit ] Aardvark.PixImage.Pfim, Version=0.9.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Pfim, Version=0.11.3.0, Culture=neutral, PublicKeyToken=c0ebc20d008ae134
+ 0:     [cache hit ] Aardvark.PixImage.DevIL, Version=5.2.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] CSharpUtils, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.SceneGraph.Assimp, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] AssimpNet, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Data.Wavefront, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Expecto, Version=9.0.4.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Mono.Cecil, Version=0.11.6.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e
+ 0:     [cache hit ] FsUnit.NUnit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     installing pickler: Aardvark.Base.Picklers.AdaptivePicklers
+ 0:   Initializing CustomPicklerProvider ................................................. 0.034 s
+ 0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Initializing Constants ............................................................. 0.001 s
+ 0:     [cache hit ] SingleFileExtractor.Core, Version=2.2.1.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Telemetry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.TypeProviders, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Tensors.CSharp, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.Common, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Tensors, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Incremental, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Essentials, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Application, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Service, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.GPGPU, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.Vulkan, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.Vulkan.Wrapper, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] GLSLangSharp, Version=0.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.GL, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.Base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Chiron, Version=6.3.1.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] FParsecCS, Version=1.1.1.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] FParsec, Version=1.1.1.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] OPCViewer.Base, Version=1.10.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Data.Opc, Version=0.11.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.Fonts, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] FuzzySharp, Version=1.0.4.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Rendering.Text, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.FontProvider.Runtime, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry.Intersection, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Thoth.Json.Net, Version=12.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Fable.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] JR.Wrappers, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry.Clustering, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Geometry.PointTree, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.GeoSpatial.Opc, Version=5.13.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] TinyEXR.NET, Version=0.3.11.0, Culture=neutral, PublicKeyToken=9b5ae88730b3cee9
+ 0:     [cache hit ] Aardvark.PixImage.Pfim, Version=0.9.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Initializing PixImagePfim .......................................................... 0.008 s
+ 0:     [cache hit ] Pfim, Version=0.11.3.0, Culture=neutral, PublicKeyToken=c0ebc20d008ae134
+ 0:     [cache hit ] Aardvark.PixImage.DevIL, Version=5.2.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Initializing PixImageDevil .................................................................
+ 0:     probing paths for DevIL
+ 0:       C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
+ 0:     [Introspection] loaded native library DevIL from C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64\DevIL.dll
+ 0:   Initializing PixImageDevil ......................................................... 0.009 s
+ 0:     [cache hit ] DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] CSharpUtils, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.SceneGraph.Assimp, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] AssimpNet, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.Data.Wavefront, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Expecto, Version=9.0.4.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Mono.Cecil, Version=0.11.6.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e
+ 0:     [cache hit ] FsUnit.NUnit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
+ 0:   Initializing PixImageFreeImage .............................................................
+ 0:     trying to resolve native library FreeImage
+ 0:     probing paths for FreeImage
+ 0:       C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\e361b901-185b-c7c8-c488-3ac73522c757\windows\AMD64
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\1fc3e3be-91b0-279e-55b2-aa51f20bbf32\windows\AMD64
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\f2799a72-5b5d-8b0e-f608-368bc4138e85\windows\AMD64
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\9fc26895-f9fc-8ed9-6ce2-27a4ad02998b\windows\AMD64
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\b9c05598-f944-5eea-a67d-5478dccf5840\windows\AMD64
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\JR.Wrappers\3051315c-2b04-98de-693f-df6bfb653823\windows\AMD64
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
+ 0:       C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\AssimpNet\9971621a-f108-47c6-c808-f4cf8a5c25e4\windows\AMD64
+ 0:     [Introspection] loaded native library FreeImage from C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64\FreeImage.dll
+ 0:   Initializing PixImageFreeImage ..................................................... 0.011 s
+ 0: initializing aardvark ........................................................ [0.10x] 0.367 s
+ 0: [CooTransformation] installing CooTransformationDefault.trl
+ 0: [CooTransformation] installing ExoMarsRover_VariousCameras.xml
+ 0: [CooTransformation] installing GraphObject3dDefault.trl
+ 0: [CooTransformation] installing HiRISE.txt
+ 0: [CooTransformation] installing InstrumentPlatformsDefault.trl
+ 0: [CooTransformation] installing InternationalisationRegistryDefault.trl
+ 0: [CooTransformation] installing pck00010.tpc
+ 0: [CooTransformation] installing ProgressDefault.trl
+ 0: [CooTransformation] installing M20_waypoints.json
+ 0: [CooTransformation] initializing at C:\Users\sophiechen\AppData\Roaming\Pro3D\JR\CooTransformationConfig, logging to C:\Users\sophiechen\AppData\Roaming\Pro3D\JR\logs
+ 0: probing paths for CooTransformation
+ 0:   C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0
+ 0:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\b9c05598-f944-5eea-a67d-5478dccf5840\windows\AMD64
+ 0: [Introspection] loaded native library CooTransformation from C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\b9c05598-f944-5eea-a67d-5478dccf5840\windows\AMD64\CooTransformation.dll
+ 0: [CooTransformation] Successfully initialized CooTrafo
+ 0: [SPICE] kernel location: C:\Users\sophiechen\AppData\Roaming\Pro3D\JR\CooTransformationConfig, kernel file name: pck00010.tpc.
+ 0: [SPICE] loaded kernel: C:\Users\sophiechen\AppData\Roaming\Pro3D\JR\CooTransformationConfig\pck00010.tpc
+ 0: probing paths for InstrumentPlatforms
+ 0:   C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0
+ 0:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\JR.Wrappers\3051315c-2b04-98de-693f-df6bfb653823\windows\AMD64
+ 0: [Introspection] loaded native library InstrumentPlatforms.dll from C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0\InstrumentPlatforms.dll
+ 0: [InstrumentPlatforms] Instrument dll sucessfully initialized
+ 0: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0: Skipped loading native dependencies for System.Threading.ThreadPool, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: Skipped loading native dependencies for System.IO, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 2: Skipped loading native dependencies for System.Runtime.Extensions, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: WARNING: [GroupsApp] removing id 40df9755-52a2-4b18-92a5-119432f4e01b from group "root"
+ 3: WARNING: [GroupsApp] removing id 1329e422-a709-4b6d-bc46-8f24e4c3bc70 from group "root"
+ 4: WARNING: [GroupsApp] removing id 9f30042b-ebd7-4a67-ba6b-b8f6296dc76a from group "root"
+ 5: WARNING: [GroupsApp] removing id 471198aa-3ca2-41c0-b50f-5247f5d16d5d from group "root"
+ 6: WARNING: [GroupsApp] removing id d0507a54-8139-497a-8be3-200c237ef284 from group "root"
+ 4: WARNING: [GroupsApp] removing id 0809589a-8ef9-43e4-a33c-b5042d446bc9 from group "root"
+ 3: WARNING: [GroupsApp] removing id 22942f54-971a-4643-b60b-92d3b90af41d from group "root"
+ 2: WARNING: [GroupsApp] removing id 473f259e-85c4-4c92-951d-1459034ad87d from group "root"
+ 5: WARNING: found "root"
+ 6: WARNING: found "root"
+ 3: WARNING: reference frame + body  not yet done, assuming IAU_MARS
+ 4: Skipped loading native dependencies for Aether, Version=8.3.1.0, Culture=neutral, PublicKeyToken=null
+ 4: [DrawingIO] loaded 7 annotations
+ 4: [ViewerIO] found 0 floating leaves
+ 4: Skipped loading native dependencies for Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed
+ 4: Skipped loading native dependencies for System.Linq.Expressions, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 4: Skipped loading native dependencies for System.ComponentModel.TypeConverter, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 4: Skipped loading native dependencies for System.ObjectModel, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 4: Skipped loading native dependencies for System.Runtime.Numerics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 4: Skipped loading native dependencies for System.Runtime.Serialization.Formatters, Version=8.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 4: [DrawingIO] loaded 7 annotations
+ 4: [ViewerIO] found 0 floating leaves
+ 4: [DrawingIO] loaded 7 annotations
+ 4: [ViewerIO] found 0 floating leaves
+ 4: trying to resolve native library cspice
+ 4: probing paths for cspice
+ 4:   C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\PRo3D\bin\Debug\net9.0
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\e361b901-185b-c7c8-c488-3ac73522c757\windows\AMD64
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\1fc3e3be-91b0-279e-55b2-aa51f20bbf32\windows\AMD64
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\f2799a72-5b5d-8b0e-f608-368bc4138e85\windows\AMD64
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\9fc26895-f9fc-8ed9-6ce2-27a4ad02998b\windows\AMD64
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\b9c05598-f944-5eea-a67d-5478dccf5840\windows\AMD64
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\JR.Wrappers\3051315c-2b04-98de-693f-df6bfb653823\windows\AMD64
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
+ 4:   C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\AssimpNet\9971621a-f108-47c6-c808-f4cf8a5c25e4\windows\AMD64
+ 4: [Introspection] loaded native library cspice from C:\Users\sophiechen\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\b9c05598-f944-5eea-a67d-5478dccf5840\windows\AMD64\cspice.dll
