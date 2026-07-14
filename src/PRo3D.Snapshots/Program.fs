@@ -68,7 +68,7 @@ let startApplication (startupArgs : CLStartupArgs) =
 
     let crashDumpFile = "Aardvark.log"
 
-    Aardium.init()      
+    Aardium.Init()
   
     Aardvark.Init()
 

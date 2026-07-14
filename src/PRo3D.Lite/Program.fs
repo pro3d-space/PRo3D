@@ -19,7 +19,7 @@ type Self = Self
 [<EntryPoint; STAThread>]
 let main argv = 
     Aardvark.Init()
-    Aardium.init()
+    Aardium.Init()
     
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     CooTransformation.initCooTrafo None appData

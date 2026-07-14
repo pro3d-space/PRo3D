@@ -145,10 +145,10 @@ let main argv =
         match aardiumPath with
         | Some p when true -> 
             Log.line "init aardium at: %s" p
-            Aardium.initAt p
+            Aardium.Init p
         | _ -> 
             Log.warn "system aardium"; 
-            Aardium.init()
+            Aardium.Init()
 
     Config.previewIntersections <- startupArgs.allowPreviewIntersections
 
@@ -360,7 +360,7 @@ let main argv =
             | _ ->
                 http.choose []
 
-        let suaveServer = 
+        let server = 
             let startServer = 
                 if startupArgs.enableRemoteApi then
                     fun port -> Server.start $"http://{Net.IPAddress.Any}:{port}" mainApp.CancellationToken false
@@ -401,10 +401,7 @@ let main argv =
                 // should all be handled via embedded resources
                 //Suave.Files.browse (IO.Directory.GetCurrentDirectory())
                 //Suave.Files.browseHome        
-            ] 
-
-        disposables.Add(suaveServer)
-
+            ]
 
         //WebPart.startServer 4322 [
         //    MutableApp.toWebPart' runtime false instrumentApp        
@@ -454,13 +451,12 @@ let main argv =
             Log.line "Remote app started at port: %d" remotePort
         else   
             Log.warn "no remote app started"
-    
-        System.Threading.Thread.Sleep(1000)
-        // do not change this line. full url with url needs to be printed for mac deployment!
-        Log.line "full url: %s" renderingUrl
 
-        if startupArgs.serverMode then  
-            Log.line "running server mode. Press Key to close >"
+        if startupArgs.serverMode then
+            Log.line "running server mode"
+            printfn "ELECTRON_GPU:%s" app.Context.Driver.renderer
+            printfn "ELECTRON_URL:%s" renderingUrl // Do not change these lines, the Electron process listens for these strings
+            printfn "ELECTRON_LOG_FILE:%s" logFilePath
             Console.Read() |> ignore
         else
             Aardium.run {

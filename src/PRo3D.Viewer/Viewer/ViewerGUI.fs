@@ -679,8 +679,11 @@ module Gui =
                                         
 
                                         //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
-                                        div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
-                                            text "Send log to maintainers"
+                                        div [clazz "ui item"; clientEvent "onclick" "aardvark.showReportDialog?.()"] [ // server-mode (i.e. deploy version) only
+                                            text "Report Issue"
+                                        ]
+                                        div [clazz "ui item"; clientEvent "onclick" "aardvark.showLogViewer?.()"] [ // server-mode (i.e. deploy version) only
+                                            text "View Log"
                                         ]
                                         a [style "visibility:hidden"; clazz "invisibleCrashButton"] []
 
