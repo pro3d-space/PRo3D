@@ -1,0 +1,15 @@
+{
+  "name": "pro3d-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static site for PRo3D. Renders docs/*.md into HTML pages so the Markdown stays the single source of truth.",
+  "type": "module",
+  "scripts": {
+    "build": "node build/build.mjs",
+    "check": "node build/build.mjs --check",
+    "serve": "python -m http.server 8000 --directory .."
+  },
+  "dependencies": {
+    "markdown-it": "^14.1.0"
+  }
+}

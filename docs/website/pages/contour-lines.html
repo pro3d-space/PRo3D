@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contour Lines — PRo3D</title>
+<meta name="description" content="Contour lines for texture layers…">
+<!-- GENERATED FILE. Edit the Markdown in docs/, then run `npm run build`. -->
+<link rel="icon" href="../assets/logos/favicon.png" type="image/png">
+<link rel="stylesheet" href="../assets/styles.css">
+<noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
+</head>
+<body class="doc-page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">PRo3D</span>
+    </a>
+
+    <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="../../index.html#features">Features</a>
+      <a href="../../index.html#development">Development</a>
+      <a href="../../index.html#data">Data</a>
+      <a href="../../index.html#getting-started">Get started</a>
+      <a href="../../index.html#cite">Cite</a>
+      <a class="nav-cta" href="https://github.com/pro3d-space/PRo3D/releases" target="_blank" rel="noopener">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="doc-main">
+  <div class="wrap doc-layout ">
+
+    <article class="doc-article">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../../index.html">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="../../index.html#features">Features</a>
+      </nav>
+
+      <h1 class="doc-title">Contour Lines</h1>
+
+      <div class="doc-body">
+<p><img src="../../images/contourTeaser.png" alt="" loading="lazy"></p>
+<p>Synopsis: Contour lines for texture layers
+Status: Work-In-Progress
+Interacts with: <a href="feature-multitexture.html">Feature-Multitexturing</a></p>
+<h2 id="ui">UI</h2>
+<p>The feature only works in combination with multilayer opcs. By using surface properties, choose a particular layer as a secondary texture:</p>
+<p><img src="../../images/multitexture-ui.png" alt="" loading="lazy"></p>
+<p>Next, in the contour section, enable it and set distance of the lines, as well as line width and line border (both in the domain of the value chosen for texturing, here <code>Ele</code>).</p>
+<p><img src="../../images/contour1.png" alt="" loading="lazy"></p>
+<p>The whole setup then looks like:</p>
+<p><img src="../../images/contour0.png" alt="" loading="lazy"></p>
+<h2 id="implementation">Implementation</h2>
+<p>UI and logics implemented as a separate app, see: <a href="https://github.com/pro3d-space/PRo3D/blob/6416a1176dea28043548c9797436934f779a3e54/src/PRo3D.Core/VisualizationAndTFApp.fs" target="_blank" rel="noopener">https://github.com/pro3d-space/PRo3D/blob/6416a1176dea28043548c9797436934f779a3e54/src/PRo3D.Core/VisualizationAndTFApp.fs</a></p>
+<p>The line color is blended with the surface color in a separate shader: <a href="https://github.com/pro3d-space/PRo3D/blob/6416a1176dea28043548c9797436934f779a3e54/src/PRo3D.Base/Utilities.fs#L744" target="_blank" rel="noopener">https://github.com/pro3d-space/PRo3D/blob/6416a1176dea28043548c9797436934f779a3e54/src/PRo3D.Base/Utilities.fs#L744</a>
+The shader uses hermite interpolation for smooth lines: <a href="https://github.com/pro3d-space/PRo3D/blob/6416a1176dea28043548c9797436934f779a3e54/src/PRo3D.Base/Utilities.fs#L722" target="_blank" rel="noopener">https://github.com/pro3d-space/PRo3D/blob/6416a1176dea28043548c9797436934f779a3e54/src/PRo3D.Base/Utilities.fs#L722</a></p>
+<p>Caveats:</p>
+<ul>
+<li>Currently the color cannot be chaned.</li>
+<li>It only works for secondary texture layers (shaders need to re-organized to be more flexible here).</li>
+</ul>
+
+      </div>
+
+      <nav class="pager" aria-label="More documents">
+        <a class="pager-prev" href="cross-sections.html"><span>Previous</span>Cross Sections</a>
+        <a class="pager-next" href="feature-multitexture.html"><span>Next</span>Multitexturing</a>
+      </nav>
+    </article>
+
+    <aside class="doc-aside">
+      <div class="doc-aside-inner">
+        <p class="toc-title">On this page</p>
+        <ol class="toc">
+            <li class="toc-l2"><a href="#ui">UI</a></li>
+            <li class="toc-l2"><a href="#implementation">Implementation</a></li>
+        </ol>
+        <a class="doc-source" href="https://github.com/pro3d-space/PRo3D/blob/main/docs/Contour-Lines.md" target="_blank" rel="noopener">
+          Edit docs/Contour-Lines.md
+        </a>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="site-footer doc-footer">
+  <div class="wrap">
+    <p class="colophon">
+      This page is generated from <a href="https://github.com/pro3d-space/PRo3D/blob/main/docs/Contour-Lines.md" target="_blank" rel="noopener">docs/Contour-Lines.md</a>.
+      © <span id="year">2026</span> VRVis &amp; JOANNEUM RESEARCH.
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/script.js"></script>
+</body>
+</html>

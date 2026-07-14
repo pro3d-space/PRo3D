@@ -1,0 +1,72 @@
+name: Website
+
+# The site under docs/ is generated from docs/*.md. GitHub Pages serves the
+# docs/ folder of the default branch as static files, so the generated HTML has
+# to be committed. This workflow keeps it in sync:
+#
+#   * on a pull request  -> fail if someone edited Markdown without rebuilding
+#   * on push to main    -> rebuild and commit the result
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/website.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/website.yml"
+  workflow_dispatch:
+
+jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/website/package-lock.json
+
+      - run: npm ci
+        working-directory: docs/website
+
+      - name: Verify the generated site is up to date
+        run: npm run check
+        working-directory: docs/website
+
+  build:
+    if: github.event_name != 'pull_request' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/website/package-lock.json
+
+      - run: npm ci
+        working-directory: docs/website
+
+      - run: npm run build
+        working-directory: docs/website
+
+      - name: Commit the regenerated site
+        run: |
+          if [ -z "$(git status --porcelain docs)" ]; then
+            echo "Nothing to do — site already up to date."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          git commit -m "Rebuild website from docs/*.md [skip ci]"
+          git push

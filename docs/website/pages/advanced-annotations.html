@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advanced Annotations — PRo3D</title>
+<meta name="description" content="Previously PRo3D provided no feedback where the intersection will happen. This one adds a 3D cursor which is continously computes intersections given cursor…">
+<!-- GENERATED FILE. Edit the Markdown in docs/, then run `npm run build`. -->
+<link rel="icon" href="../assets/logos/favicon.png" type="image/png">
+<link rel="stylesheet" href="../assets/styles.css">
+<noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
+</head>
+<body class="doc-page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">PRo3D</span>
+    </a>
+
+    <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="../../index.html#features">Features</a>
+      <a href="../../index.html#development">Development</a>
+      <a href="../../index.html#data">Data</a>
+      <a href="../../index.html#getting-started">Get started</a>
+      <a href="../../index.html#cite">Cite</a>
+      <a class="nav-cta" href="https://github.com/pro3d-space/PRo3D/releases" target="_blank" rel="noopener">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="doc-main">
+  <div class="wrap doc-layout ">
+
+    <article class="doc-article">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../../index.html">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="../../index.html#features">Features</a>
+      </nav>
+
+      <h1 class="doc-title">Advanced Annotations</h1>
+
+      <div class="doc-body">
+<h2 id="advanced-annotation-preview-picking">Advanced Annotation &amp; Preview picking</h2>
+<p>Previously PRo3D provided no feedback where the intersection will happen. This one adds a 3D cursor which is continously computes intersections given cursor movements.
+It runs in a background thread.</p>
+<p>The feature can be explicityly disabled via <code>--disablePreviewIntersections</code></p>
+<p>Here is the additional annotation type: <a href="https://github.com/pro3d-space/PRo3D/pull/542/commits/54ff51f2545b7727b8bd2121a94a3a90a5d35c83#diff-e3ae8667e8128f79e46ea606a6958260ad62ddc73b7e187fccace130e9f14a01R33" target="_blank" rel="noopener">https://github.com/pro3d-space/PRo3D/pull/542/commits/54ff51f2545b7727b8bd2121a94a3a90a5d35c83#diff-e3ae8667e8128f79e46ea606a6958260ad62ddc73b7e187fccace130e9f14a01R33</a></p>
+<p>Preview intersections can be controlled via: <a href="https://github.com/pro3d-space/PRo3D/pull/542/commits/54ff51f2545b7727b8bd2121a94a3a90a5d35c83#diff-5b8179e37acaceeb2a6bf8b9ce4ceedf9785501303594064bbee53391179b622R88" target="_blank" rel="noopener">https://github.com/pro3d-space/PRo3D/pull/542/commits/54ff51f2545b7727b8bd2121a94a3a90a5d35c83#diff-5b8179e37acaceeb2a6bf8b9ce4ceedf9785501303594064bbee53391179b622R88</a></p>
+<p>Async preview pickign is controlled via <code>PreviewPickSurface</code> message, see <a href="https://github.com/pro3d-space/PRo3D/pull/542/commits/c7435faa1963e592cdd5829157b4c804744d40d9#diff-0e871cb4421e88e1ad3efc5e947173c95acb60eedb089a13a0477143e2199f11R516" target="_blank" rel="noopener">https://github.com/pro3d-space/PRo3D/pull/542/commits/c7435faa1963e592cdd5829157b4c804744d40d9#diff-0e871cb4421e88e1ad3efc5e947173c95acb60eedb089a13a0477143e2199f11R516</a>.</p>
+<h2 id="caveats">Caveats</h2>
+<p>Additional memory footprint due to stressed kdtre cache. The kdtree cache however should be reworked to use a LRU queue or similarly.</p>
+
+      </div>
+
+      <nav class="pager" aria-label="More documents">
+        <a class="pager-prev" href="transformations.html"><span>Previous</span>Transformations</a>
+        <a class="pager-next" href="feature-queries.html"><span>Next</span>Queries</a>
+      </nav>
+    </article>
+
+    <aside class="doc-aside">
+      <div class="doc-aside-inner">
+        <p class="toc-title">On this page</p>
+        <ol class="toc">
+            <li class="toc-l2"><a href="#advanced-annotation-preview-picking">Advanced Annotation &amp; Preview picking</a></li>
+            <li class="toc-l2"><a href="#caveats">Caveats</a></li>
+        </ol>
+        <a class="doc-source" href="https://github.com/pro3d-space/PRo3D/blob/main/docs/AdvancedAnnotations.md" target="_blank" rel="noopener">
+          Edit docs/AdvancedAnnotations.md
+        </a>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="site-footer doc-footer">
+  <div class="wrap">
+    <p class="colophon">
+      This page is generated from <a href="https://github.com/pro3d-space/PRo3D/blob/main/docs/AdvancedAnnotations.md" target="_blank" rel="noopener">docs/AdvancedAnnotations.md</a>.
+      © <span id="year">2026</span> VRVis &amp; JOANNEUM RESEARCH.
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/script.js"></script>
+</body>
+</html>

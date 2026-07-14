@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GIS View — PRo3D</title>
+<meta name="description" content="This feature allows to interpret celestial bodies and surfaces from within pro3d and serves as a basis for GIS functionality in PRo3D.">
+<!-- GENERATED FILE. Edit the Markdown in docs/, then run `npm run build`. -->
+<link rel="icon" href="../assets/logos/favicon.png" type="image/png">
+<link rel="stylesheet" href="../assets/styles.css">
+<noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
+</head>
+<body class="doc-page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">PRo3D</span>
+    </a>
+
+    <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="../../index.html#features">Features</a>
+      <a href="../../index.html#development">Development</a>
+      <a href="../../index.html#data">Data</a>
+      <a href="../../index.html#getting-started">Get started</a>
+      <a href="../../index.html#cite">Cite</a>
+      <a class="nav-cta" href="https://github.com/pro3d-space/PRo3D/releases" target="_blank" rel="noopener">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="doc-main">
+  <div class="wrap doc-layout ">
+
+    <article class="doc-article">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../../index.html">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="../../index.html#features">Features</a>
+      </nav>
+
+      <h1 class="doc-title">GIS View</h1>
+
+      <div class="doc-body">
+<h2 id="pro3d-gis">PRo3D.GIS</h2>
+<p>Summary: This feature allows to interpret celestial bodies and surfaces from within pro3d and serves as a basis for GIS functionality in PRo3D.
+General concept: A new UI tab allows to assign coordiante frames and celestial body information to surfaces and GIS entities. By setting observeration time and by choosing an observer body, views or fly-by scenarious can be modelled.</p>
+<h2 id="spice">SPICE</h2>
+<h3 id="pre-requisistes">Pre-requisistes</h3>
+<p>As mentioned in <a href="spice.html">SPICE docs</a> pro3d allows to load custom spice kernels. In this documentation we use the <a href="https://s2e2.cosmos.esa.int/bitbucket/projects/spice_kernels/repos/hera/browse" target="_blank" rel="noopener">HERA spice kernels</a>, which are also used in the <a href="https://github.com/pro3d-space/PRo3D.SPICE" target="_blank" rel="noopener">solar-system demo</a></p>
+<p>To follow the demo download or clone the <a href="https://s2e2.cosmos.esa.int/bitbucket/projects/spice_kernels/repos/hera/browse" target="_blank" rel="noopener">repository</a>.</p>
+<h3 id="loading-the-kernel">Loading the kernel</h3>
+<p>There are two options to load SPICE kernels.</p>
+<h4 id="the-command-line">The command line</h4>
+<ul>
+<li>by using the command-line argument <code>--defaultSpiceKernel path</code>, e.g. the path to the tm file: <code>&quot;../hera/kernels/mk/hera_crema_2_0_LPC_ECP_PDP.tm&quot;</code>, the SPICE kernel to be loaded at application startup can be specified.</li>
+</ul>
+<h4 id="the-ui">The UI</h4>
+<ol>
+<li>Initially PRo3D with GIS view enabled looks like this:</li>
+</ol>
+<p><img src="../../images/gis-view.png" alt="" loading="lazy"></p>
+<ol start="2">
+<li>Load the kernel via:</li>
+</ol>
+<p><img src="../../images/loadKernel.png" alt="" loading="lazy"></p>
+<ol start="3">
+<li>Then the Gis View should print the path to the kernel (scroll down, and look at the settings pane within the GIS view):</li>
+</ol>
+<p><img src="../../images/loadedKernel.png" alt="" loading="lazy"></p>
+<p>A green check mark appears below the path if loading the kernel was successful. If there is a red exclamation mark beneath the path loading was not successful. PRo3D’s text output will give more detailed information why, it might be that the path to the kernel is not correct.</p>
+<h2 id="pro3d-gis-view-tab">PRO3D GIS View Tab</h2>
+<h3 id="current-observation-settings">Current Observation Settings</h3>
+<p>At the top of the GIS tab there is a section entitled “Current Observation Settings”. This is used to define an observer, a target, a point in time, and a reference frame.</p>
+<p><img src="../../images/currentObservationSettings.png" alt="" loading="lazy"></p>
+<ul>
+<li>Observer: The entity from which we want to observe a specific target. The camera will be placed at the location of the observer.</li>
+<li>Target: The entity we want to look at. The camera will look in the direction of the target.</li>
+<li>Time: The point of time at which we want to observe. The loaded spice kernel needs to have data for observer and target at the selected point in time!</li>
+<li>Reference Frame: The reference frame into which all other frames will be converted. Which frame is selected here should not change the visual result.</li>
+</ul>
+<h3 id="surfaces">Surfaces</h3>
+<p>To use a surface with PRo3D’s GIS functionality, it has to be associated with a reference frame, and can be associated with an entity. This reference frame in which the surface is defined is needed to transform the surface to the global reference system used by PRo3D.
+Assigning a reference frame and entity to a loaded surfaces is done in the “Surfaces” tab.</p>
+<p><img src="../../images/surfaces.png" alt="" loading="lazy"></p>
+<p>Select the correct reference frame (and optionally entity) from the dropdown menu. If the entity or reference frame needed is not in the dropdown menu, it can be created in the “Entities”/“Reference Frames” tab.</p>
+<h3 id="entities">Entities</h3>
+<p>Entities can be celestial bodies or spacecraft. To work with PRO3D’s GIS functionality the Spice Name of the entity needs to be defined in the loaded spice kernel.</p>
+<p>The entity tab lists all entities. There are some default entities already present in PRo3D.</p>
+<p><img src="../../images/entities.png" alt="" loading="lazy"></p>
+<p>An entity can be edited by clicking on the right hand icon in the “Actions” column. The icon used to edit the HERA entity is circled in red in the screenshot below.</p>
+<p><img src="../../images/editEntities.png" alt="" loading="lazy"></p>
+<p>The red cross to the left of the edit icon deletes the corresponding entity.</p>
+<p>Each entity can be assigned a reference frame in the column “Reference Frame”. For each entity, a sphere can be drawn in the scene. Whether a sphere is drawn is determined by the checkbox in the “Draw” column.</p>
+<p>A new entity can be created by clicking on the green plus icon at the bottom right hand side of the Entities tab. The spice name can only be set when creating an entity, it cannot be changed once the entity is created. To change a spice name you need to deleted the old entity and create a new one with the new spice name and the settings of the old entity. Spice names are unique, so you cannot create two entities with the same spice name.</p>
+<p>Clicking on the edit icon of an entity (see above), opens a section for the entity:</p>
+<p><img src="../../images/editEntity.png" alt="" loading="lazy"></p>
+<p>The reference frame and whether to draw an entity can be selected in this view as well as the following settings:</p>
+<ul>
+<li><strong>Geometry Path</strong> (not yet implemented) path to a geometry that is displayed at the location of this entity instead of a simple sphere</li>
+<li><strong>Texture Path</strong> The path  to an image (for example a jpeg file) that is rendered onto the entity.</li>
+<li><strong>Radius</strong> The radius of the sphere that is drawn in the location of the entity in meters.</li>
+</ul>
+<p>The green save icon at the bottom right hand corner closes the edit view.</p>
+<p>Below an example of the entity Moon with a radius of 1736000 meters and a texture path.</p>
+<p><img src="../../images/exampleMoonTexture.png" alt="" loading="lazy"></p>
+<h2 id="reference-frames">Reference Frames</h2>
+<p>Reference frames can be deleted (red cross icon) and created (green plus icon in the bottom right corner) in this view. They can also be assigned an entity which is associated with them.</p>
+<p><img src="../../images/referenceFrames.png" alt="" loading="lazy"></p>
+<p>A new reference frame can be created by clicking on the green plus icon at the bottom right hand side of the Reference Frames tab. The spice name can only be set when creating a reference frame, it cannot be changed once the reference frame is created. To change a spice name you need to deleted the old reference frame and create a new one with the new spice name and the settings of the old reference frame. Spice names are unique, so you cannot create two reference frame with the same spice name.</p>
+<h2 id="observing-mars">Observing mars</h2>
+<p>Let us now observe mars from, say phobos.</p>
+<ol>
+<li>
+<p>Set the observation settings (including a time which is in available in the kernel)
+<img src="../../images/observe.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>Next, make sure the proxy visualization for mars is enabled:
+<img src="../../images/MarsProperties.png" alt="" loading="lazy">
+and</p>
+</li>
+</ol>
+<p><img src="../../images/visibleMars.png" alt="" loading="lazy"></p>
+<p>Also make sure to have the far plane set far away for viewing mars from phobos. Ajust the near <em>and</em> far planes accordingly:
+<img src="../../images/farplane.png" alt="" loading="lazy"></p>
+<p>Now mars should be visible from the observation point of view.</p>
+<p>By using the visualization properties in the entity list the element can be textured as well.</p>
+<p><img src="../../images/textured.png" alt="" loading="lazy"></p>
+<p>Next let us load the mola dataset.
+In the Surfaces pane witin the Gis View, now specifiy reference frame and celestial body for the surface (if it does not appear change the observation settings, e.g. by setting the time):
+<img src="../../images/surfaceRefFrame.png" alt="" loading="lazy"></p>
+<p>Since we have a full surface for mars now, we can switch of the proxy geometry:
+<img src="../../images/molaObservation.png" alt="" loading="lazy"></p>
+<h2 id="extended-features">Extended features</h2>
+<p>It is possible to add new celestial bodies, new reference frames.</p>
+<h2 id="extended-concept">Extended concept</h2>
+<p>For story telling, PRo3D also supports to create GIS bookmarks. Similarly to stories on surfaces this can be used to create movies and interactive presentations for science.</p>
+<h2 id="caveats">Caveats</h2>
+<p>Currently the GIS settings are not stored to scene files.</p>
+
+      </div>
+
+      <nav class="pager" aria-label="More documents">
+        <a class="pager-prev" href="feature-multitexture.html"><span>Previous</span>Multitexturing</a>
+        <a class="pager-next" href="transformations.html"><span>Next</span>Transformations</a>
+      </nav>
+    </article>
+
+    <aside class="doc-aside">
+      <div class="doc-aside-inner">
+        <p class="toc-title">On this page</p>
+        <ol class="toc">
+            <li class="toc-l2"><a href="#pro3d-gis">PRo3D.GIS</a></li>
+            <li class="toc-l2"><a href="#spice">SPICE</a></li>
+            <li class="toc-l3"><a href="#pre-requisistes">Pre-requisistes</a></li>
+            <li class="toc-l3"><a href="#loading-the-kernel">Loading the kernel</a></li>
+            <li class="toc-l2"><a href="#pro3d-gis-view-tab">PRO3D GIS View Tab</a></li>
+            <li class="toc-l3"><a href="#current-observation-settings">Current Observation Settings</a></li>
+            <li class="toc-l3"><a href="#surfaces">Surfaces</a></li>
+            <li class="toc-l3"><a href="#entities">Entities</a></li>
+            <li class="toc-l2"><a href="#reference-frames">Reference Frames</a></li>
+            <li class="toc-l2"><a href="#observing-mars">Observing mars</a></li>
+            <li class="toc-l2"><a href="#extended-features">Extended features</a></li>
+            <li class="toc-l2"><a href="#extended-concept">Extended concept</a></li>
+            <li class="toc-l2"><a href="#caveats">Caveats</a></li>
+        </ol>
+        <a class="doc-source" href="https://github.com/pro3d-space/PRo3D/blob/main/docs/GisView.md" target="_blank" rel="noopener">
+          Edit docs/GisView.md
+        </a>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="site-footer doc-footer">
+  <div class="wrap">
+    <p class="colophon">
+      This page is generated from <a href="https://github.com/pro3d-space/PRo3D/blob/main/docs/GisView.md" target="_blank" rel="noopener">docs/GisView.md</a>.
+      © <span id="year">2026</span> VRVis &amp; JOANNEUM RESEARCH.
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/script.js"></script>
+</body>
+</html>

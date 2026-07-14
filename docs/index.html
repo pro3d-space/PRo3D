@@ -5,12 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PRo3D — Planetary Robotics 3D Viewer</title>
 <meta name="description" content="PRo3D is an interactive 3D visualization tool that lets planetary scientists explore and measure high-resolution 3D surface reconstructions from orbiter and rover cameras.">
-<link rel="icon" href="logos/favicon.png" type="image/png">
+<!--
+  SOURCE TEMPLATE for docs/index.html — the generated file is written by
+  `npm run build` (docs/website). Edit this file, never docs/index.html.
+  The FEATURES_SECTION / DEVELOPMENT_SECTION placeholders below are filled
+  from docs/*.md according to docs/website/build/manifest.mjs.
+-->
+<link rel="icon" href="website/assets/logos/favicon.png" type="image/png">
 <meta property="og:title" content="PRo3D — Planetary Robotics 3D Viewer">
 <meta property="og:description" content="Interactive exploration and geological interpretation of high-resolution planetary surface reconstructions.">
-<meta property="og:image" content="logos/pro3d.jpg">
+<meta property="og:image" content="website/assets/logos/pro3d.jpg">
 <meta property="og:type" content="website">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="website/assets/styles.css">
 <noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
 </head>
 <body>
@@ -30,9 +36,9 @@
 
     <nav class="site-nav" id="site-nav" aria-label="Main">
       <a href="#features">Features</a>
+      <a href="#development">Development</a>
       <a href="#data">Data</a>
       <a href="#getting-started">Get started</a>
-      <a href="#tutorials">Tutorials</a>
       <a href="#cite">Cite</a>
       <a class="nav-cta" href="https://github.com/pro3d-space/PRo3D/releases" target="_blank" rel="noopener">Download</a>
     </nav>
@@ -62,7 +68,7 @@
       </div>
 
       <figure class="hero-figure reveal">
-        <img src="logos/pro3d.jpg" width="640" height="300"
+        <img src="website/assets/logos/pro3d.jpg" width="640" height="300"
              alt="The PRo3D logo over a 3D reconstruction of a Martian outcrop annotated with coloured measurement markers.">
       </figure>
     </div>
@@ -82,95 +88,156 @@
     </div>
   </section>
 
-  <!-- ── Features ─────────────────────────────────────────── -->
+  <!-- ── Features ────────────────────────────────────────
+       Generated from docs/*.md — see build/manifest.mjs. -->
   <section class="section section-alt" id="features">
     <div class="wrap">
       <header class="section-head">
         <p class="eyebrow">Features</p>
-        <h2 class="section-title">Built for real geological work</h2>
+        <h2 class="section-title">What PRo3D can do</h2>
+        <p class="section-sub">Each card links to the full documentation for that feature — the same Markdown that ships with the source tree.</p>
       </header>
 
-      <!-- Feature 1 — image left -->
-      <article class="feature">
-        <figure class="feature-media reveal">
-          <img src="logos/geologicalannotations.png" width="861" height="698" loading="lazy"
-               alt="A 3D outcrop model overlaid with point, line and polyline annotations in several colours, plus a dip-and-strike orientation marker.">
-        </figure>
-        <div class="feature-copy">
-          <span class="feature-index">01</span>
-          <h3>Geological Annotations</h3>
-          <p>
-            PRo3D lets users pick points on the 3D surface at the full resolution
-            of the data present. Our tools contain point, line, and polyline
-            annotations, while line segments are projected onto the surface.
-            Various measurements are computed at the highest possible accuracy,
-            such as the distance along a 3D surface (waylength) or dip-and-strike
-            orientations of sediment structures.
-          </p>
-          <ul class="chips">
-            <li>Point &amp; polyline picking</li>
-            <li>Waylength</li>
-            <li>Dip &amp; strike</li>
-          </ul>
-        </div>
-      </article>
+      <div class="tiles">
+        <a class="tile reveal" href="website/pages/cross-sections.html">
+          <div class="tile-thumb"><img src="images/crossSectionTeaser.png" alt="" loading="lazy"></div>
+          <div class="tile-body">
+            <h3>Cross Sections</h3>
+            <p>The cross section feature allows you to cut surfaces and map images onto the cutting plane.</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/contour-lines.html">
+          <div class="tile-thumb"><img src="images/contourTeaser.png" alt="" loading="lazy"></div>
+          <div class="tile-body">
+            <h3>Contour Lines</h3>
+            <p>Contour lines for texture layers…</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/feature-multitexture.html">
+          <div class="tile-thumb"><img src="https://github.com/pro3d-space/PRo3D/assets/513281/dc35a265-5432-4631-80d4-a8530e25bb0f" alt="" loading="lazy"></div>
+          <div class="tile-body">
+            <h3>Multitexturing</h3>
+            <p>This feature allows to visualize multiple (opc) texture layers and control visualization properties.</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/gis-view.html">
+          <div class="tile-thumb"><img src="images/gis-view.png" alt="" loading="lazy"></div>
+          <div class="tile-body">
+            <h3>GIS View</h3>
+            <p>This feature allows to interpret celestial bodies and surfaces from within pro3d and serves as a basis for GIS functionality in PRo3D.</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/transformations.html">
+          <div class="tile-thumb"><img src="images/RefSys.png" alt="" loading="lazy"></div>
+          <div class="tile-body">
+            <h3>Transformations</h3>
+            <p>To transform a surface, it must first be selected. Then the user has to select in the surface&#39;s Transformations menu</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/advanced-annotations.html">
+          <div class="tile-thumb tile-thumb-empty" aria-hidden="true"><span>AA</span></div>
+          <div class="tile-body">
+            <h3>Advanced Annotations</h3>
+            <p>Previously PRo3D provided no feedback where the intersection will happen. This one adds a 3D cursor which is continously computes intersections given cursor…</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/feature-queries.html">
+          <div class="tile-thumb"><img src="https://github.com/pro3d-space/PRo3D/assets/513281/bdaec9f0-2132-40ee-8ddf-0d01043a5a3f" alt="" loading="lazy"></div>
+          <div class="tile-body">
+            <h3>Queries</h3>
+            <p>The goal of this feature is to provide scientists with a tool for quering 3D data from PRo3D in a very flexible way.</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/rimfax-traverse.html">
+          <div class="tile-thumb"><img src="images/loadtraverse.png" alt="" loading="lazy"></div>
+          <div class="tile-body">
+            <h3>RIMFAX Traverses</h3>
+            <p>RIMFAX stands for Radar Imager for Mars&#39; Subsurface Experiment. It is a ground-penetrating radar instrument that was carried to Mars on NASA&#39;s Perseverance rover.…</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/traverse-priorities.html">
+          <div class="tile-thumb tile-thumb-empty" aria-hidden="true"><span>TP</span></div>
+          <div class="tile-body">
+            <h3>Traverse Priorities</h3>
+            <p>This feature allows to specify depth composition of traverse visualizations with surfaces.</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/spice.html">
+          <div class="tile-thumb tile-thumb-empty" aria-hidden="true"><span>SI</span></div>
+          <div class="tile-body">
+            <h3>SPICE Integration</h3>
+            <p>This refers to the current state as of march 2024 after reworking SPICE integration.</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/opc-tool.html">
+          <div class="tile-thumb tile-thumb-empty" aria-hidden="true"><span>OT</span></div>
+          <div class="tile-body">
+            <h3>OPC Tool</h3>
+            <p>The purpose of this tool is to generate KdTrees for OPC hierarchies.</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+  </section>
 
-      <!-- Feature 2 — image right (the copy says "the dataset on the right") -->
-      <article class="feature feature-reverse">
-        <figure class="feature-media reveal">
-          <img src="logos/largedata.png" width="1024" height="1024" loading="lazy"
-               alt="A colour-coded elevation map of a large Martian region, with a zoomed inset revealing the dense triangle mesh beneath the surface.">
-        </figure>
-        <div class="feature-copy">
-          <span class="feature-index">02</span>
-          <h3>Large Data</h3>
-          <p>
-            Surface reconstructions from high-resolution satellite images can
-            easily yield gigabytes of data in terms of geometry, imagery, and
-            additional layers. With PRo3D users can explore huge datasets
-            interactively and even perform measurements of topographic features.
-          </p>
-          <p>
-            The displayed dataset consists of 2&nbsp;GB of raw 3D position
-            vectors, a 1&nbsp;GB elevation map, and 10&nbsp;GB of image data —
-            rendered at interactive framerates with commodity hardware, utilizing
-            adjustable level-of-detail and out-of-core techniques.
-          </p>
-          <ul class="stats">
-            <li><b>2 GB</b><span>position vectors</span></li>
-            <li><b>1 GB</b><span>elevation map</span></li>
-            <li><b>10 GB</b><span>image data</span></li>
-          </ul>
-        </div>
-      </article>
+  <!-- ── Development ─────────────────────────────────────
+       Generated from docs/*.md — see build/manifest.mjs. -->
+  <section class="section section-alt" id="development">
+    <div class="wrap">
+      <header class="section-head">
+        <p class="eyebrow">Development</p>
+        <h2 class="section-title">Under the hood</h2>
+        <p class="section-sub">Engineering notes for people working on PRo3D itself — architecture, tooling and the occasional post-mortem.</p>
+      </header>
 
-      <!-- Feature 3 — image left -->
-      <article class="feature">
-        <figure class="feature-media reveal">
-          <img src="logos/3dlayers.png" width="1032" height="929" loading="lazy"
-               alt="Victoria Crater rendered from four overlapping reconstructions — HiRISE, HiRISE SRR, MER-B PanCam and WideBaseLine — each outlined in a different colour.">
-        </figure>
-        <div class="feature-copy">
-          <span class="feature-index">03</span>
-          <h3>3D Layers</h3>
-          <p>
-            Although PRo3D is not a GIS system, we need to provide our users with
-            typical GIS features to solve their geospatial problems, such as
-            evaluating topographic or geological features.
-          </p>
-          <p>
-            Our 3D layering technique allows a seamless integration of different
-            reconstructions present at a single location. Unlike image or DTM
-            layering, we allow users to blend full 3D data by assigning rendering
-            priorities — which is crucial to explore reconstructions from multiple
-            rover camera instruments.
-          </p>
-          <ul class="chips">
-            <li>Rendering priorities</li>
-            <li>Multi-instrument blending</li>
-          </ul>
-        </div>
-      </article>
+      <div class="tiles tiles-compact">
+        <a class="tile reveal" href="website/pages/build-deploy-system.html">
+          <div class="tile-body">
+            <h3>Build &amp; Deploy</h3>
+            <p>Our current deployment mechanism is driven by electron-builder see here.</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/kd-trees.html">
+          <div class="tile-body">
+            <h3>KD-Trees &amp; Picking</h3>
+            <p>PRo3D has two mechanisms for picking</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/model-types.html">
+          <div class="tile-body">
+            <h3>Model Types &amp; adaptify</h3>
+            <p>when chaning model types (marked as [&lt;ModelType&gt;]) manually run adaptify on the project you are working on, add them to the fsproj file and add them to source…</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/provenance-tracking.html">
+          <div class="tile-body">
+            <h3>Provenance Tracking</h3>
+            <p>PRo3D has several features for manual, semi-automatic and automatic provenace tracking which have been developed in the PROVEX project.</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tile reveal" href="website/pages/story-picking-during-navigation.html">
+          <div class="tile-body">
+            <h3>Bug Story: Picking During Navigation</h3>
+            <p>A walkthrough of how the &quot;coordinate system gets re-placed while I move the…</p>
+          </div>
+          <span class="tile-arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
     </div>
   </section>
 
@@ -370,7 +437,7 @@
     <div class="wrap narrow center">
       <p class="eyebrow">Technology behind PRo3D</p>
       <a class="logo-chip logo-chip-lg" href="https://aardvark.graphics/" target="_blank" rel="noopener">
-        <img src="logos/aard.png" width="1361" height="189" loading="lazy" alt="Aardvark">
+        <img src="website/assets/logos/aard.png" width="1361" height="189" loading="lazy" alt="Aardvark">
       </a>
       <p class="prose-lg">
         PRo3D has been developed with the <b>Aardvark.Media</b> framework as part of
@@ -400,10 +467,10 @@
 
     <div class="partners">
       <a class="logo-chip" href="https://www.vrvis.at/" target="_blank" rel="noopener" aria-label="VRVis — Zentrum für Virtual Reality und Visualisierung">
-        <img src="logos/vrvis.png" width="940" height="141" loading="lazy" alt="VRVis">
+        <img src="website/assets/logos/vrvis.png" width="940" height="141" loading="lazy" alt="VRVis">
       </a>
       <a class="logo-chip" href="https://www.joanneum.at/" target="_blank" rel="noopener" aria-label="JOANNEUM RESEARCH">
-        <img src="logos/JR.png" width="215" height="79" loading="lazy" alt="JOANNEUM RESEARCH">
+        <img src="website/assets/logos/JR.png" width="215" height="79" loading="lazy" alt="JOANNEUM RESEARCH">
       </a>
     </div>
 
@@ -411,6 +478,6 @@
   </div>
 </footer>
 
-<script src="script.js"></script>
+<script src="website/assets/script.js"></script>
 </body>
 </html>

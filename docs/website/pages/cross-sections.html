@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cross Sections — PRo3D</title>
+<meta name="description" content="The cross section feature allows you to cut surfaces and map images onto the cutting plane.">
+<!-- GENERATED FILE. Edit the Markdown in docs/, then run `npm run build`. -->
+<link rel="icon" href="../assets/logos/favicon.png" type="image/png">
+<link rel="stylesheet" href="../assets/styles.css">
+<noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
+</head>
+<body class="doc-page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">PRo3D</span>
+    </a>
+
+    <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="../../index.html#features">Features</a>
+      <a href="../../index.html#development">Development</a>
+      <a href="../../index.html#data">Data</a>
+      <a href="../../index.html#getting-started">Get started</a>
+      <a href="../../index.html#cite">Cite</a>
+      <a class="nav-cta" href="https://github.com/pro3d-space/PRo3D/releases" target="_blank" rel="noopener">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="doc-main">
+  <div class="wrap doc-layout ">
+
+    <article class="doc-article">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../../index.html">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="../../index.html#features">Features</a>
+      </nav>
+
+      <h1 class="doc-title">Cross Sections</h1>
+
+      <div class="doc-body">
+<h2 id="synopsis">Synopsis</h2>
+<p><img src="../../images/crossSectionTeaser.png" alt="" loading="lazy"></p>
+<p>The cross section feature allows you to cut  surfaces and map images onto the cutting plane.</p>
+<h2 id="approach">Approach</h2>
+<h3 id="1-create-a-polyline-annotation">1. Create a polyline annotation.</h3>
+<p>Use sky projection and adequate subsampling if needed. Watch out not to generate insane segment counts. E.g. for long cross-sections increase sampling distance.</p>
+<p><img src="../../images/crossSectionAnno.png" alt="" loading="lazy"></p>
+<h3 id="2-profile-export">2. Profile Export</h3>
+<p><img src="../../images/exportProfile.png" alt="" loading="lazy"></p>
+<p>this will look like this:</p>
+<pre><code>&quot;distance&quot;,&quot;elevation&quot;
+&quot;0&quot;,&quot;-2540.3019554105754&quot;
+&quot;96.56728104292469&quot;,&quot;-2532.4515562465303&quot;
+&quot;146.95083969889563&quot;,&quot;-2529.7198536160195&quot;
+&quot;178.2109028662038&quot;,&quot;-2525.732550567427&quot;
+&quot;238.47366569537462&quot;,&quot;-2515.188256619444&quot;
+&quot;332.84560816666226&quot;,&quot;-2514.8733450224286&quot;
+</code></pre>
+<p>The profile tool is described in <a href="https://github.com/pro3d-space/PRo3D/blob/main/profileDrawing/README.md" target="_blank" rel="noopener">Profile Drawing</a>.</p>
+<p>now use the draw profile tool to create an svg/png of which shows the profile</p>
+<pre><code>python draw_profile.py --profile testProfile2.csv --curtain-height 100 --min-altitude -2200 --vertical-px 2000 --overlay --x-interval 20 --y-interval 20 --x-grid 25 --y-grid 1 --output profile.svg --grid-opacity 1.0 --grid-width 3.0
+</code></pre>
+<ul>
+<li>choose curtain height to match the full vertical span you need</li>
+<li>min-alititude should be where the profile ends (lowest point of profile)</li>
+<li>curtain height is height in meters</li>
+<li>all this needs to be later matched up in (6)</li>
+<li>the vertical-px parameter is used as height of the image. the width is computed automatically given the profile length. For long profiles, you might to lower the resolution as later in pro3d the width shall not exceed 16384 pixels.</li>
+</ul>
+<p>Look at the profile or the annotation nfo in pro3d to find good parameters (e.g. vertical span).</p>
+<p>Use approximate curtain height and min altitude to specify the 2d viewport of the cross section.</p>
+<h3 id="3-do-your-interpretation-tweaking-of-the-cross-section">3. do your interpretation &amp; tweaking of the cross section</h3>
+<p>Next convert it to a png and remember the file name.</p>
+<h3 id="5-creating-the-cross-section">5. Creating the cross section</h3>
+<p>Next go to annotation properties and move the caemera far away from the cross section.
+All between the annotation and the point when creating the cross section will be clipped away.
+<img src="../../images/createCrossSection.png" alt="" loading="lazy"></p>
+<p>This will leave you with the data clipped:
+<img src="../../images/clippedCrossSection.png" alt="" loading="lazy"></p>
+<h3 id="6-setting-curtain-details">6. Setting curtain details</h3>
+<p>Next choose curtain settings and set up the curtain:</p>
+<p><img src="../../images/curtainProperties.png" alt="" loading="lazy"></p>
+<h3 id="7-inspection-of-cross-section-curtain">7. Inspection of cross section &amp; curtain</h3>
+<p><img src="../../images/crossSectionAndCurtain.png" alt="" loading="lazy"></p>
+
+      </div>
+
+      <nav class="pager" aria-label="More documents">
+        
+        <a class="pager-next" href="contour-lines.html"><span>Next</span>Contour Lines</a>
+      </nav>
+    </article>
+
+    <aside class="doc-aside">
+      <div class="doc-aside-inner">
+        <p class="toc-title">On this page</p>
+        <ol class="toc">
+            <li class="toc-l2"><a href="#synopsis">Synopsis</a></li>
+            <li class="toc-l2"><a href="#approach">Approach</a></li>
+            <li class="toc-l3"><a href="#1-create-a-polyline-annotation">1. Create a polyline annotation.</a></li>
+            <li class="toc-l3"><a href="#2-profile-export">2. Profile Export</a></li>
+            <li class="toc-l3"><a href="#3-do-your-interpretation-tweaking-of-the-cross-section">3. do your interpretation &amp; tweaking of the cross section</a></li>
+            <li class="toc-l3"><a href="#5-creating-the-cross-section">5. Creating the cross section</a></li>
+            <li class="toc-l3"><a href="#6-setting-curtain-details">6. Setting curtain details</a></li>
+            <li class="toc-l3"><a href="#7-inspection-of-cross-section-curtain">7. Inspection of cross section &amp; curtain</a></li>
+        </ol>
+        <a class="doc-source" href="https://github.com/pro3d-space/PRo3D/blob/main/docs/CrossSections.md" target="_blank" rel="noopener">
+          Edit docs/CrossSections.md
+        </a>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="site-footer doc-footer">
+  <div class="wrap">
+    <p class="colophon">
+      This page is generated from <a href="https://github.com/pro3d-space/PRo3D/blob/main/docs/CrossSections.md" target="_blank" rel="noopener">docs/CrossSections.md</a>.
+      © <span id="year">2026</span> VRVis &amp; JOANNEUM RESEARCH.
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/script.js"></script>
+</body>
+</html>

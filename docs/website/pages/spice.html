@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPICE Integration — PRo3D</title>
+<meta name="description" content="This refers to the current state as of march 2024 after reworking SPICE integration.">
+<!-- GENERATED FILE. Edit the Markdown in docs/, then run `npm run build`. -->
+<link rel="icon" href="../assets/logos/favicon.png" type="image/png">
+<link rel="stylesheet" href="../assets/styles.css">
+<noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
+</head>
+<body class="doc-page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">PRo3D</span>
+    </a>
+
+    <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="../../index.html#features">Features</a>
+      <a href="../../index.html#development">Development</a>
+      <a href="../../index.html#data">Data</a>
+      <a href="../../index.html#getting-started">Get started</a>
+      <a href="../../index.html#cite">Cite</a>
+      <a class="nav-cta" href="https://github.com/pro3d-space/PRo3D/releases" target="_blank" rel="noopener">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="doc-main">
+  <div class="wrap doc-layout ">
+
+    <article class="doc-article">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../../index.html">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="../../index.html#features">Features</a>
+      </nav>
+
+      <h1 class="doc-title">SPICE Integration</h1>
+
+      <div class="doc-body">
+<p>This refers to the current state as of march 2024 after reworking SPICE integration.</p>
+<pre><code class="language-mermaid">flowchart LR
+    spice[&quot;SPICE Toolkit&quot;] --&gt; cppwrapper
+    cppwrapper[&quot;DaKup/PRo3D-Extensions&quot;] --&gt; pro3dspice
+    pro3dspice[&quot;pro3d-space/PRo3D.SPICE&quot;] --&gt; pro3dviewer
+    pro3dviewer[&quot;PRo3D.Viewer&quot;]
+    click spice &quot;https://naif.jpl.nasa.gov/naif/toolkit.html&quot; &quot;The SPICE Toolkit&quot;
+    click wrapper &quot;https://github.com/pro3d-space/PRo3D.SPICE&quot; &quot;look at the repository on github&quot;
+    click cppwrapper &quot;https://github.com/DaKup/PRo3D-Extensions&quot; &quot;look at the repository on github&quot;
+</code></pre>
+<p>The components are:</p>
+<ol>
+<li>The SPICE toolkit at <a href="https://naif.jpl.nasa.gov/naif/toolkit.html" target="_blank" rel="noopener">https://naif.jpl.nasa.gov/naif/toolkit.html</a></li>
+<li>The CPP lib which wrapps some SPICE functionality and <a href="https://www.joanneum.at/" target="_blank" rel="noopener">JR</a>’s functionality. This one is deployed for all platforms using <a href="https://github.com/DaKup/PRo3D-Extensions/actions" target="_blank" rel="noopener">github actions</a>.</li>
+<li>The <a href="https://github.com/pro3d-space/PRo3D.SPICE" target="_blank" rel="noopener">PRo3D.SPICE</a> repository provides a dotnet wrapper for the c++ lib and deploys itself via <a href="https://github.com/pro3d-space/PRo3D.SPICE/actions" target="_blank" rel="noopener">github actions</a> to a <a href="https://www.nuget.org/packages/PRo3D.SPICE" target="_blank" rel="noopener">nuget</a> package which works on all supported platforms.</li>
+<li>In this repository the nuget library is consumed <a href="https://github.com/pro3d-space/PRo3D/blob/392fd2723bd66aca34c076c5d344fcb99f5d1b34/paket.dependencies#L71" target="_blank" rel="noopener">paket.dependencies</a> using the paket (standard pro3d package management).</li>
+</ol>
+<p>Caveats:</p>
+<ul>
+<li>A legacy library for working with instruments is still handled directly via pro3d (JR.Wrappers provides the wrapper). This can be subsumed by SPICE the functionality is ready.</li>
+</ul>
+<h2 id="details">Details</h2>
+<p>Here we brievly explain how SPICE interacts with PRo3D:</p>
+<ul>
+<li>SPICE, CooRegistration and InstrumentPlatforms in PRo3D is provided by the c++ lib which can be found here: <a href="https://github.com/pro3d-space/PRo3D-Extensions" target="_blank" rel="noopener">https://github.com/pro3d-space/PRo3D-Extensions</a>.</li>
+<li>Coordinate system transformations in PRo3D itself are mainly found here: <a href="https://github.com/pro3d-space/PRo3D/blob/99900d5aa88242e2d340d1c4636994f09e406c79/src/PRo3D.Base/CooTransformation.fs#L120" target="_blank" rel="noopener">https://github.com/pro3d-space/PRo3D/blob/99900d5aa88242e2d340d1c4636994f09e406c79/src/PRo3D.Base/CooTransformation.fs#L120</a> Those are just calls into the library mentioned above using dllimport for wrapping the necessary functions.</li>
+<li>Initialization also takes place here: <a href="https://github.com/pro3d-space/PRo3D/blob/99900d5aa88242e2d340d1c4636994f09e406c79/src/PRo3D.Base/CooTransformation.fs#L64" target="_blank" rel="noopener">https://github.com/pro3d-space/PRo3D/blob/99900d5aa88242e2d340d1c4636994f09e406c79/src/PRo3D.Base/CooTransformation.fs#L64</a> and exposes how concrete spice kernels are loaded for pro3d. <a href="https://github.com/pro3d-space/PRo3D/blob/99900d5aa88242e2d340d1c4636994f09e406c79/src/PRo3D.Base/CooTransformation.fs#L70" target="_blank" rel="noopener">here</a> for example, Spice kernels are unpacked to the common AppData directory. This way, spice configuration can be changed without recompiling PRo3D.</li>
+<li>In order to ship PRo3D with adapted SPICE kernels, the files <a href="https://github.com/pro3d-space/PRo3D/tree/main/src/PRo3D.Base/resources" target="_blank" rel="noopener">here</a> need to be updated accordingly (and the zip repacked).</li>
+</ul>
+
+      </div>
+
+      <nav class="pager" aria-label="More documents">
+        <a class="pager-prev" href="traverse-priorities.html"><span>Previous</span>Traverse Priorities</a>
+        <a class="pager-next" href="opc-tool.html"><span>Next</span>OPC Tool</a>
+      </nav>
+    </article>
+
+    <aside class="doc-aside">
+      <div class="doc-aside-inner">
+        <p class="toc-title">On this page</p>
+        <ol class="toc">
+            <li class="toc-l2"><a href="#details">Details</a></li>
+        </ol>
+        <a class="doc-source" href="https://github.com/pro3d-space/PRo3D/blob/main/docs/spice.md" target="_blank" rel="noopener">
+          Edit docs/spice.md
+        </a>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="site-footer doc-footer">
+  <div class="wrap">
+    <p class="colophon">
+      This page is generated from <a href="https://github.com/pro3d-space/PRo3D/blob/main/docs/spice.md" target="_blank" rel="noopener">docs/spice.md</a>.
+      © <span id="year">2026</span> VRVis &amp; JOANNEUM RESEARCH.
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/script.js"></script>
+</body>
+</html>

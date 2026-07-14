@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model Types &amp; adaptify — PRo3D</title>
+<meta name="description" content="when chaning model types (marked as [&lt;ModelType&gt;]) manually run adaptify on the project you are working on, add them to the fsproj file and add them to source…">
+<!-- GENERATED FILE. Edit the Markdown in docs/, then run `npm run build`. -->
+<link rel="icon" href="../assets/logos/favicon.png" type="image/png">
+<link rel="stylesheet" href="../assets/styles.css">
+<noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
+</head>
+<body class="doc-page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">PRo3D</span>
+    </a>
+
+    <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="../../index.html#features">Features</a>
+      <a href="../../index.html#development">Development</a>
+      <a href="../../index.html#data">Data</a>
+      <a href="../../index.html#getting-started">Get started</a>
+      <a href="../../index.html#cite">Cite</a>
+      <a class="nav-cta" href="https://github.com/pro3d-space/PRo3D/releases" target="_blank" rel="noopener">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="doc-main">
+  <div class="wrap doc-layout ">
+
+    <article class="doc-article">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../../index.html">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="../../index.html#development">Development</a>
+      </nav>
+
+      <h1 class="doc-title">Model Types &amp; adaptify</h1>
+
+      <div class="doc-body">
+<h2 id="pro3d-s-approach-to-adaptify">PRo3D’s approach to adaptify</h2>
+<p>TL;DR: when chaning model types (marked as <code>[&lt;ModelType&gt;]</code>) manually run adaptify on the project you are working on, add them to the <code>fsproj</code> file and add them to source control.
+This can be done by, e.g. running <code>dotnet adaptify --lenses --local --force ./src/PRo3D.Viewer/PRo3D.Viewer.fsproj</code>.
+The local flag tells <code>adaptify</code> to really generate the .g file besides the model files.´</p>
+<p>There is a script for generating all model types which can be found <a href="https://github.com/pro3d-space/PRo3D/blob/main/adapt.cmd" target="_blank" rel="noopener">here</a>.</p>
+<h3 id="why-we-use-local-adaptify-for-pro3d">Why we use local adaptify for PRo3D</h3>
+<p>Since PRo3D codebase is so large, running adaptify as MSBuild task implicitly is just too expensive for interactive editing etc. Thus we decided to move on to <code>adaptify</code>’s local mode. This means, we always generate up-to-date model files and add them to the repository.
+The has some advantages:</p>
+<ul>
+<li>fast code completion</li>
+<li>WYSIWYG development experience</li>
+<li>files need to be parsed and typechecked only once during build which leads to ~20% faster compile times</li>
+<li>better integraiton with development tools such as vscode or rider</li>
+</ul>
+<p>It has some disadvantages:</p>
+<ul>
+<li>large change-sets since .g files are tracked</li>
+<li>extra effort when chaning model types</li>
+<li>entry barrier</li>
+</ul>
+
+      </div>
+
+      <nav class="pager" aria-label="More documents">
+        <a class="pager-prev" href="kd-trees.html"><span>Previous</span>KD-Trees &amp; Picking</a>
+        <a class="pager-next" href="provenance-tracking.html"><span>Next</span>Provenance Tracking</a>
+      </nav>
+    </article>
+
+    <aside class="doc-aside">
+      <div class="doc-aside-inner">
+        <p class="toc-title">On this page</p>
+        <ol class="toc">
+            <li class="toc-l2"><a href="#pro3d-s-approach-to-adaptify">PRo3D&#39;s approach to adaptify</a></li>
+            <li class="toc-l3"><a href="#why-we-use-local-adaptify-for-pro3d">Why we use local adaptify for PRo3D</a></li>
+        </ol>
+        <a class="doc-source" href="https://github.com/pro3d-space/PRo3D/blob/main/docs/ModelTypes.md" target="_blank" rel="noopener">
+          Edit docs/ModelTypes.md
+        </a>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="site-footer doc-footer">
+  <div class="wrap">
+    <p class="colophon">
+      This page is generated from <a href="https://github.com/pro3d-space/PRo3D/blob/main/docs/ModelTypes.md" target="_blank" rel="noopener">docs/ModelTypes.md</a>.
+      © <span id="year">2026</span> VRVis &amp; JOANNEUM RESEARCH.
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/script.js"></script>
+</body>
+</html>
