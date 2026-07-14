@@ -52,7 +52,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "5.4.0"
+let viewerVersion       = "6.0.0"
 
 let catchDomainErrors   = false
 
