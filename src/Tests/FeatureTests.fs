@@ -423,7 +423,9 @@ let groupsTests =
 // ---------------------------------------------------------------------------
 // 6. Annotation creation
 //    TC-3.1 (Draw Point), TC-3.2 (Draw Line), TC-3.3 (Draw Polyline),
-//    TC-3.4 (Draw Polygon), TC-3.5 (Draw DnS), TC-3.6 (Projection Modes)
+//    TC-3.4 (Draw Polygon), TC-3.5 (Draw DnS),
+//    TC-3.6 (Draw AxisEllipse), TC-3.7 (Draw Axis4PEllipse),
+//    TC-3.8 (Projection Modes)
 // ---------------------------------------------------------------------------
 
 let annotationTests =
@@ -686,8 +688,8 @@ let measurementTests =
 
 // ---------------------------------------------------------------------------
 // 9. Leaf type helpers
-//    TC-3.7 (Pick Annotation via UI List), TC-3.8 (Pick Annotation via 3D View),
-//    TC-3.9 (Pick Surface via UI List),    TC-3.10 (Pick Surface via 3D View)
+//    TC-3.9 (Pick Annotation via UI List), TC-3.10 (Pick Annotation via 3D View),
+//    TC-3.11 (Pick Surface via UI List),   TC-3.12 (Pick Surface via 3D View)
 // ---------------------------------------------------------------------------
 
 let leafTests =

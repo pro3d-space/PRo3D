@@ -17,9 +17,9 @@ open FSharp.Data.Adaptive
 
 module UI =
 
-    let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+    let dropDownDisableable<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) (disabled : aval<bool>) =
         let names  = Enum.GetNames(typeof<'a>)
-        let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
+        let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]>
         let nv     = Array.zip names values
 
         let attributes (name : string) (value : 'a) =
@@ -27,17 +27,29 @@ module UI =
                 always (attribute "value" name)
                 onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
             ]
-       
-        select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
-            for (name, value) in nv do
-                if exclude |> HashSet.contains value |> not then
-                    let att = attributes name value
-                    let tooltip = getTooltip value
-                    if tooltip != "" then
-                        yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
-                    else 
-                        yield Incremental.option att (AList.ofList [text name])
-        ]
+
+        let selectAttributes =
+            AttributeMap.ofListCond [
+                always (onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change))
+                always (style "color:black")
+                onlyWhen disabled (attribute "disabled" "disabled")
+            ]
+
+        Incremental.select selectAttributes (
+            alist {
+                for (name, value) in nv do
+                    if exclude |> HashSet.contains value |> not then
+                        let att = attributes name value
+                        let tooltip = getTooltip value
+                        if tooltip != "" then
+                            yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
+                        else
+                            yield Incremental.option att (AList.ofList [text name])
+            }
+        )
+
+    let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+        dropDownDisableable exclude selected change getTooltip (AVal.constant false)
 
     let viewAnnotationToolsHorizontal (paletteFile : string) (model:AdaptiveDrawingModel) =
         let geometryTooltip (i : Geometry) : string =
@@ -65,7 +77,9 @@ module UI =
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
             Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
-            Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
+            let projectionLocked =
+                model.geometry |> AVal.map (fun g -> g = Geometry.AxisEllipse || g = Geometry.Axis4PEllipse)
+            Html.Layout.boxH [ dropDownDisableable HashSet.empty model.projection SetProjection projectionTooltip projectionLocked ]
             // annotation color now comes from the active group's default color, so the tool-level color picker was removed
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
