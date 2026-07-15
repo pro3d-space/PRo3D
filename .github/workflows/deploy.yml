@@ -11,7 +11,7 @@ jobs:
   # tests are skipped here (--skip-hera, via runTests.sh) since the HERA kernels
   # are not public; the SPICE stack is still exercised via the default kernels.
   test:
-    name: tests
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,6 +25,16 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
       - name: Restore tools
         run: dotnet tool restore
 
@@ -34,48 +44,81 @@ jobs:
       - name: Run kernel-independent tests
         run: bash ./runTests.sh
 
+  draft:
+    name: Release Draft
+    runs-on: windows-2022
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Create GitHub Release
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\build.cmd GitHubRelease
+
   win32_x64:
-      name: windows
-      # windows-latest rolled to Visual Studio 18, which node-gyp 11.4.2 (pinned
-      # by node-shared-mem) can't detect ("unknown version undefined"). Pin to
-      # windows-2022 (VS 2022 / v17) so the native module's node-gyp rebuild works.
-      runs-on: windows-2022
-      needs: test
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v6
+    name: Windows
+    # windows-latest rolled to Visual Studio 18, which node-gyp 11.4.2 (pinned
+    # by node-shared-mem) can't detect ("unknown version undefined"). Pin to
+    # windows-2022 (VS 2022 / v17) so the native module's node-gyp rebuild works.
+    runs-on: windows-2022
+    needs: draft
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
-        - name: Fetch Aardium
-          run: git submodule update --init aardium
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
 
-        - name: Install Dotnet
-          uses: actions/setup-dotnet@v5
-          with:
-            global-json-file: global.json
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
 
-        - name: Setup Node.js
-          uses: actions/setup-node@v7
-          with:
-            node-version: '24.15.0'
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
 
-        - name: Verify node
-          working-directory: aardium/Aardium
-          run: npm --version
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
 
-        - name: Create ZIP Release
-          env:
-              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          run: .\build.cmd GitHubRelease
+      - name: Verify node
+        working-directory: aardium/Aardium
+        run: npm --version
 
-        - name: Build
-          env:
-              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          run: .\build.cmd PublishToElectron
+      - name: Build
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\build.cmd PublishToElectron
 
   mac_x64:
     name: OSX (x64)
     runs-on: macos-15-intel
-    needs: win32_x64
+    needs: draft
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -104,6 +147,16 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
 
       - name: Add Cert to Keychain
         uses: apple-actions/import-codesign-certs@v1
@@ -158,7 +211,7 @@ jobs:
   mac_arm64:
     name: OSX (arm64)
     runs-on: macos-15
-    needs: win32_x64
+    needs: draft
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -187,6 +240,16 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
 
       - name: Add Cert to Keychain
         uses: apple-actions/import-codesign-certs@v1
@@ -236,10 +299,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   linux_x64:
-    name: linux 
+    name: Linux
     runs-on: ubuntu-22.04
-    needs: win32_x64
-    steps:  
+    needs: draft
+    steps:
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -250,6 +313,16 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
 
       - name: Setup Node.js
         uses: actions/setup-node@v7

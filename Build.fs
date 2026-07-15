@@ -313,7 +313,8 @@ let npm (args : string list) =
         |> Proc.run
 
     if ret.ExitCode <> 0 then
-        failwith "npm failed"
+        let args = args |> String.concat " "
+        failwith $"npm {args} failed"
 
 Target.create "PublishToElectron" (fun _ ->
     npm ["install"]
@@ -665,11 +666,11 @@ Target.create "GitHubRelease" (fun _ ->
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
             //let files = System.IO.Directory.EnumerateFiles("bin/publish")
-            let release = sprintf "bin/PRo3D.Viewer-%s-win-x64-standalone.zip" notes.NugetVersion
-            let z =
-                if File.Exists release then
-                    File.Delete(release)
-                System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
+            //let release = sprintf "bin/PRo3D.Viewer-%s-win-x64-standalone.zip" notes.NugetVersion
+            //let z =
+            //    if File.Exists release then
+            //        File.Delete(release)
+            //    System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
             // record where the draft came from: append the commit + tag so the
             // release always states its source (the tag itself anchors the
@@ -687,7 +688,7 @@ Target.create "GitHubRelease" (fun _ ->
             let release =
                 GitHub.createClientWithToken token
                 |> GitHub.draftNewRelease "pro3d-space" "PRo3D" tagName (notes.SemVer.PreRelease <> None) body
-                |> GitHub.uploadFiles (Seq.singleton release)
+                //|> GitHub.uploadFiles (Seq.singleton release)
                 //|> GitHub.publishDraft
                 |> Async.RunSynchronously
 
@@ -804,7 +805,7 @@ Target.create "Push" (fun _ ->
     ()
 )
 
-"Publish" ==> "GithubRelease" |> ignore
+//"Publish" ==> "GithubRelease" |> ignore
 
 Target.create "Run" (fun _ -> 
     Target.run 1 "AddNativeResources" []
