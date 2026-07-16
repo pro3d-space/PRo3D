@@ -62,15 +62,32 @@ module UI =
         let samplingAmountTooltip = "Sampling amount used for annotations rendered with viewpoint or sky projection"
         let samplingUnitTooltip = "Sampling unit used for annotations rendered with viewpoint or sky projection"
 
+        // Sampling amount + unit only take effect for viewpoint/sky projection (see their tooltips),
+        // so they are hidden for linear projection where they have no effect.
+        let samplingTools =
+            Html.Layout.boxH [
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! projection = model.projection
+                        match projection with
+                        | Projection.Viewpoint | Projection.Sky ->
+                            yield Html.Layout.horizontal [
+                                Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
+                                Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
+                                Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
+                            ]
+                        | _ -> ()
+                    }
+                )
+            ]
+
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
             Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
             Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
             // annotation color now comes from the active group's default color, so the tool-level color picker was removed
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
-            Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
-            Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
+            samplingTools
         //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
         ]
                     

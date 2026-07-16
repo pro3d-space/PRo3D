@@ -810,18 +810,24 @@ module Gui =
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
-                Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
+                Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.wrapToolTip DataPosition.Bottom "Reference system" |> UI.map ReferenceSystemMessage
             ] 
             Html.Layout.horizontal [
                 scenepath model
-            ]        
-        ]        
+            ]
+        ]
         
         let getTopMenu (m:AdaptiveModel) =
+            let items = topMenuItems m
+            let lastIndex = (List.length items) - 1
             div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
                 yield (menu m)
-                for t in (topMenuItems m) do
-                    yield div [clazz "item topmenu"] [t]
+                for i, t in List.indexed items do
+                    // the last item (scene/project name) is pushed to the far right of the menu bar
+                    let itemAttribs =
+                        if i = lastIndex then [clazz "item topmenu"; style "margin-left:auto"]
+                        else [clazz "item topmenu"]
+                    yield div itemAttribs [t]
             ]
         
     module Annotations =
