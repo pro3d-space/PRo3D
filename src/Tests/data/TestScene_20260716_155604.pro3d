@@ -11,7 +11,7 @@
         "color": "[255, 255, 255, 255]"
       },
       "expanded": true,
-      "key": "a68dbafc-5c65-4e5d-85ca-e7942b1e0aa2",
+      "key": "22b7bd35-aaaf-4f0e-be30-debf69267c87",
       "leaves": [
         
       ],
@@ -206,6 +206,22 @@
       {
         "color": "[0.501961, 0.501961, 0.501961, 1]",
         "defaultFrame": {
+          "FrameSpiceName": "HERA_SPACECRAFT"
+        },
+        "draw": false,
+        "label": "Hera Spacecraft",
+        "radius": 2,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "HERA"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[0.501961, 0.501961, 0.501961, 1]",
+        "defaultFrame": {
           "FrameSpiceName": "IAU_DEIMOS"
         },
         "draw": false,
@@ -214,54 +230,6 @@
         "showTrajectory": false,
         "spiceName": {
           "EntitySpiceName": "deimos"
-        },
-        "textureName": null,
-        "trajectoryLength": 1,
-        "version": 0
-      },
-      {
-        "color": "[0.501961, 0.501961, 0.501961, 1]",
-        "defaultFrame": {
-          "FrameSpiceName": "J2000"
-        },
-        "draw": false,
-        "label": "Dimorphos",
-        "radius": 75.5,
-        "showTrajectory": false,
-        "spiceName": {
-          "EntitySpiceName": "Dimorphos"
-        },
-        "textureName": null,
-        "trajectoryLength": 1,
-        "version": 0
-      },
-      {
-        "color": "[0.752941, 0.752941, 0.752941, 1]",
-        "defaultFrame": {
-          "FrameSpiceName": "IAU_MOON"
-        },
-        "draw": false,
-        "label": "Moon",
-        "radius": 1736000,
-        "showTrajectory": false,
-        "spiceName": {
-          "EntitySpiceName": "Moon"
-        },
-        "textureName": null,
-        "trajectoryLength": 1,
-        "version": 0
-      },
-      {
-        "color": "[0.501961, 0.501961, 0.501961, 1]",
-        "defaultFrame": {
-          "FrameSpiceName": "J2000"
-        },
-        "draw": false,
-        "label": "Didymos",
-        "radius": 382.5,
-        "showTrajectory": false,
-        "spiceName": {
-          "EntitySpiceName": "Didymos"
         },
         "textureName": null,
         "trajectoryLength": 1,
@@ -278,22 +246,6 @@
         "showTrajectory": false,
         "spiceName": {
           "EntitySpiceName": "Mars"
-        },
-        "textureName": null,
-        "trajectoryLength": 1,
-        "version": 0
-      },
-      {
-        "color": "[0.501961, 0.501961, 0.501961, 1]",
-        "defaultFrame": {
-          "FrameSpiceName": "HERA_SPACECRAFT"
-        },
-        "draw": false,
-        "label": "Hera Spacecraft",
-        "radius": 2,
-        "showTrajectory": false,
-        "spiceName": {
-          "EntitySpiceName": "HERA"
         },
         "textureName": null,
         "trajectoryLength": 1,
@@ -330,6 +282,54 @@
         "textureName": null,
         "trajectoryLength": 1,
         "version": 0
+      },
+      {
+        "color": "[0.501961, 0.501961, 0.501961, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "J2000"
+        },
+        "draw": false,
+        "label": "Didymos",
+        "radius": 382.5,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "Didymos"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[0.501961, 0.501961, 0.501961, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "J2000"
+        },
+        "draw": false,
+        "label": "Dimorphos",
+        "radius": 75.5,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "Dimorphos"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[0.752941, 0.752941, 0.752941, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "IAU_MOON"
+        },
+        "draw": false,
+        "label": "Moon",
+        "radius": 1736000,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "Moon"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
       }
     ],
     "gisSurfaces": [
@@ -337,18 +337,10 @@
     ],
     "referenceFrames": [
       {
-        "description": "Earth body-fixed frame",
-        "label": "IAU_EARTH",
+        "description": "Phobos body-fixed frame",
+        "label": "IAU_PHOBOS",
         "spiceName": {
-          "FrameSpiceName": "IAU_EARTH"
-        },
-        "version": 0
-      },
-      {
-        "description": "Moon body-fixed frame",
-        "label": "IAU_MOON",
-        "spiceName": {
-          "FrameSpiceName": "IAU_MOON"
+          "FrameSpiceName": "IAU_PHOBOS"
         },
         "version": 0
       },
@@ -361,14 +353,6 @@
         "version": 0
       },
       {
-        "description": "Phobos body-fixed frame",
-        "label": "IAU_PHOBOS",
-        "spiceName": {
-          "FrameSpiceName": "IAU_PHOBOS"
-        },
-        "version": 0
-      },
-      {
         "description": "Mars body-fixed frame",
         "label": "IAU_MARS",
         "spiceName": {
@@ -377,10 +361,18 @@
         "version": 0
       },
       {
-        "description": "Defined with Earth's Mean Equator and Mean Equinox (MEME) at 12:00 Terrestrial Time on 1 January 2000",
-        "label": "J2000",
+        "description": "Deimos body-fixed frame",
+        "label": "IAU_DEIMOS",
         "spiceName": {
-          "FrameSpiceName": "J2000"
+          "FrameSpiceName": "IAU_DEIMOS"
+        },
+        "version": 0
+      },
+      {
+        "description": "Moon body-fixed frame",
+        "label": "IAU_MOON",
+        "spiceName": {
+          "FrameSpiceName": "IAU_MOON"
         },
         "version": 0
       },
@@ -393,10 +385,18 @@
         "version": 0
       },
       {
-        "description": "Deimos body-fixed frame",
-        "label": "IAU_DEIMOS",
+        "description": "Defined with Earth's Mean Equator and Mean Equinox (MEME) at 12:00 Terrestrial Time on 1 January 2000",
+        "label": "J2000",
         "spiceName": {
-          "FrameSpiceName": "IAU_DEIMOS"
+          "FrameSpiceName": "J2000"
+        },
+        "version": 0
+      },
+      {
+        "description": "Earth body-fixed frame",
+        "label": "IAU_EARTH",
+        "spiceName": {
+          "FrameSpiceName": "IAU_EARTH"
         },
         "version": 0
       }
@@ -506,7 +506,7 @@
     "selectedSceneObject": null,
     "version": 0
   },
-  "scenePath": "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\data\\TestScene_20260715_142526.pro3d",
+  "scenePath": "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\Features\\..\\data\\TestScene_20260716_155604.pro3d",
   "screenshotModel": {
     "backgroundColor": {
       "color": "[255, 255, 255, 255]"
@@ -603,13 +603,13 @@
             "filterByDistance": false,
             "filterByTriangleSize": false,
             "filterDistance": 10,
-            "guid": "e76c8549-75d3-4311-9f48-e6232a707622",
+            "guid": "ec102537-9ca2-45ec-965f-24d94886141e",
             "highlightAlways": false,
             "highlightSelected": true,
             "homePosition": [
               
             ],
-            "importPath": "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\data\\1087_004779_MSLMST_0011",
+            "importPath": "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\Features\\..\\data\\1087_004779_MSLMST_0011",
             "isActive": true,
             "isVisible": true,
             "name": "1087_004779_MSLMST_0011",
@@ -617,9 +617,9 @@
               "1087_004779_MSLMST_0011_000_000"
             ],
             "opcPaths": [
-              "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\data\\1087_004779_MSLMST_0011\\1087_004779_MSLMST_0011_000_000"
+              "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\Features\\..\\data\\1087_004779_MSLMST_0011\\1087_004779_MSLMST_0011_000_000"
             ],
-            "opcxPath": "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\data\\1087_004779_MSLMST_0011\\1087_004779_MSLMST_0011.opcx",
+            "opcxPath": "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\Features\\..\\data\\1087_004779_MSLMST_0011\\1087_004779_MSLMST_0011.opcx",
             "preTransform": "[[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]]",
             "preferredMeshLoader": 0,
             "priority": {
@@ -831,9 +831,9 @@
           "color": "[255, 255, 255, 255]"
         },
         "expanded": true,
-        "key": "a68dbafc-5c65-4e5d-85ca-e7942b1e0aa2",
+        "key": "22b7bd35-aaaf-4f0e-be30-debf69267c87",
         "leaves": [
-          "e76c8549-75d3-4311-9f48-e6232a707622"
+          "ec102537-9ca2-45ec-965f-24d94886141e"
         ],
         "name": "root",
         "subNodes": [

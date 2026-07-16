@@ -25,10 +25,13 @@ let featureTests () : Test =
         PRo3D.Tests.Section05_AnnotationProperties.tests
         PRo3D.Tests.Section06_Scalebars.tests
         PRo3D.Tests.Section07_Bookmarks.tests
+        PRo3D.Tests.Section08_SequencedBookmarks.tests
         PRo3D.Tests.Section09_ViewerConfiguration.tests
         PRo3D.Tests.Section10_Grouping.tests
+        PRo3D.Tests.Section12_GisView.tests
         PRo3D.Tests.Section13_ContourMultitexturing.tests
         PRo3D.Tests.Section14_SurfaceComparison.tests
+        PRo3D.Tests.Section16_CommandLine.tests
         PRo3D.Tests.Section18_KeyboardShortcuts.tests
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
     ]

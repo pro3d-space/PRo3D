@@ -34,10 +34,13 @@
     <Compile Include="Features\Section05_AnnotationProperties.fs" />
     <Compile Include="Features\Section06_Scalebars.fs" />
     <Compile Include="Features\Section07_Bookmarks.fs" />
+    <Compile Include="Features\Section08_SequencedBookmarks.fs" />
     <Compile Include="Features\Section09_ViewerConfiguration.fs" />
     <Compile Include="Features\Section10_Grouping.fs" />
+    <Compile Include="Features\Section12_GisView.fs" />
     <Compile Include="Features\Section13_ContourMultitexturing.fs" />
     <Compile Include="Features\Section14_SurfaceComparison.fs" />
+    <Compile Include="Features\Section16_CommandLine.fs" />
     <Compile Include="Features\Section18_KeyboardShortcuts.fs" />
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
     <Compile Include="Program.fs" />
