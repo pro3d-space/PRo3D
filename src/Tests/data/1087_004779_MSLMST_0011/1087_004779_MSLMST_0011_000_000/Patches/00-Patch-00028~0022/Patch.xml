@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Aardvark>
+	<Patch>
+		<TagList/>
+		<PatchColRowOffset>0, 0</PatchColRowOffset>
+		<QuadVertexSortOrder>RowMajor</QuadVertexSortOrder>
+		<GeometryType>QuadList</GeometryType>
+		<Local2Global>[[1.000000000, 0.000000000, 0.000000000, -2486734.580765958], [0.000000000, 1.000000000, 0.000000000, 2289118.067865717], [0.000000000, 0.000000000, 1.000000000, -276189.098671293], [0.000000000, 0.000000000, 0.000000000, 1.000000000]]</Local2Global>
+		<GlobalBoundingBox>[[-2486734.636902120, 2289117.997419653, -276189.204657450], [-2486734.522254660, 2289118.140055902, -276188.992685137]]</GlobalBoundingBox>
+		<LocalBoundingBox>[[-0.056136162, -0.070446064, -0.105986157], [0.058511298, 0.072190185, 0.105986157]]</LocalBoundingBox>
+		<Positions>Positions.aara</Positions>
+		<Coordinates>
+			<DiffuseColor1Coordinates>Texture_Coordinates.aara</DiffuseColor1Coordinates>
+		</Coordinates>
+		<Textures>
+			<DiffuseColor1Texture>Texture\00-Tile-00028~0022.tif</DiffuseColor1Texture>
+			<DiffuseColor1Weights>Texture_Weights.aara</DiffuseColor1Weights>
+		</Textures>
+	</Patch>
+</Aardvark>

@@ -6,6 +6,32 @@ open NUnit
 // temp directory for every assembly, so the SPICE P/Invokes resolve.
 do Aardvark.Base.Aardvark.Init()
 
+// Same serializer setup PRo3D.exe does on startup: the recent-scenes list and the
+// OPC kd-trees are read back through these picklers. Without it Serialization
+// .save/loadAs hit a null serializer.
+do PRo3D.Base.Serialization.init()
+do PRo3D.Base.Serialization.registry.RegisterFactory (fun _ -> OpcViewer.Base.KdTrees.level0KdTreePickler)
+do PRo3D.Base.Serialization.registry.RegisterFactory (fun _ -> PRo3D.Core.Surface.Init.incorePickler)
+
+
+// Feature tests, one list per protocol section (docs/Test_Protocol). New section
+// files are registered here as they are added.
+let featureTests () : Test =
+    testList "PRo3D feature tests" [
+        PRo3D.Tests.Section01_StartingPRo3D.tests
+        PRo3D.Tests.Section02_ViewerActionsNavigation.tests
+        PRo3D.Tests.Section03_DrawingAnnotations.tests
+        PRo3D.Tests.Section04_SurfaceProperties.tests
+        PRo3D.Tests.Section05_AnnotationProperties.tests
+        PRo3D.Tests.Section06_Scalebars.tests
+        PRo3D.Tests.Section07_Bookmarks.tests
+        PRo3D.Tests.Section09_ViewerConfiguration.tests
+        PRo3D.Tests.Section10_Grouping.tests
+        PRo3D.Tests.Section13_ContourMultitexturing.tests
+        PRo3D.Tests.Section14_SurfaceComparison.tests
+        PRo3D.Tests.Section18_KeyboardShortcuts.tests
+        PRo3D.Tests.Section19_UndoRedoGroupColor.tests
+    ]
 
 let allTests () : Test =
     testList "all tests" [
@@ -16,7 +42,7 @@ let allTests () : Test =
         // special case: HERA tests self-skip when their kernels are absent or
         // when --skip-hera is passed (see HeraSpiceTests).
         HeraSpiceTests.tests()
-        FeatureTests.tests()
+        featureTests ()
     ]
 
 

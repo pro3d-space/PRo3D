@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<Aardvark version="4">
+  <SurfaceAttributes version="0" num="0">
+    <AttributeLayers num="1" count="1">
+      <AttributeLayer version="0" num="2">
+        <Type>Texture</Type>
+        <Label>Texture</Label>
+      </AttributeLayer>
+    </AttributeLayers>
+  </SurfaceAttributes>
+</Aardvark>
