@@ -84,30 +84,4 @@
   /* Footer year -------------------------------------------------------- */
   var year = document.getElementById("year");
   if (year) year.textContent = String(new Date().getFullYear());
-
-  /* Highlight the table-of-contents entry for the heading in view ------ */
-  var tocLinks = new Map();
-  document.querySelectorAll('.toc a[href^="#"]').forEach(function (link) {
-    tocLinks.set(link.getAttribute("href").slice(1), link);
-  });
-
-  if (tocLinks.size && "IntersectionObserver" in window) {
-    var tocSpy = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          if (!entry.isIntersecting) return;
-          var link = tocLinks.get(entry.target.id);
-          if (!link) return;
-          tocLinks.forEach(function (l) { l.classList.remove("is-active"); });
-          link.classList.add("is-active");
-        });
-      },
-      { rootMargin: "-80px 0px -70% 0px" }
-    );
-
-    tocLinks.forEach(function (_, id) {
-      var el = document.getElementById(id);
-      if (el) tocSpy.observe(el);
-    });
-  }
 })();

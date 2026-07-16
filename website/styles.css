@@ -243,90 +243,69 @@ p:last-child { margin-bottom: 0; }
 }
 .hero-figure img { width: 100%; }
 
-/* ── Tiles (docs/*.md, generated) ──────────────────────── */
+/* ── Features ──────────────────────────────────────────── */
 
-.tiles {
+.feature {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
-  gap: 22px;
+  grid-template-columns: 1fr 1fr;
+  gap: 72px;
+  align-items: center;
+  padding: 56px 0;
 }
+.feature + .feature { border-top: 1px solid var(--border-soft); }
+.feature-reverse .feature-media { order: 2; }
 
-.tile {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  overflow: hidden;
-  color: var(--text);
-  transition: transform 0.22s var(--ease), border-color 0.22s, background 0.22s;
-}
-.tile:hover {
-  color: var(--text);
-  transform: translateY(-3px);
-  border-color: var(--accent-line);
-  background: var(--surface-2);
-}
-
-.tile-thumb {
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  border-bottom: 1px solid var(--border-soft);
-  background: var(--bg-alt);
-}
-.tile-thumb img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  object-position: center;
-  transition: transform 0.4s var(--ease);
-}
-.tile:hover .tile-thumb img { transform: scale(1.035); }
-
-.tile-thumb-empty {
-  display: grid; place-items: center;
-  background:
-    radial-gradient(ellipse at 30% 25%, rgba(226,114,79,0.16), transparent 65%),
-    linear-gradient(150deg, var(--surface-2), var(--bg-alt));
-}
-.tile-thumb-empty span {
-  font-family: var(--mono);
-  font-size: 1.9rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-  opacity: 0.75;
-}
-
-.tile-body { padding: 22px 24px 46px; flex: 1; }
-.tile-body h3 {
-  font-size: 1.08rem;
-  font-weight: 620;
-  margin-bottom: 8px;
-}
-.tile-body p {
-  font-size: 0.9rem;
-  line-height: 1.55;
-  color: var(--text-muted);
+.feature-media {
   margin: 0;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(226,114,79,0.08), transparent 68%),
+    linear-gradient(180deg, var(--surface), var(--bg-alt));
+  border: 1px solid var(--border-soft);
+}
+.feature-media img {
+  max-height: 400px;
+  width: auto;
+  filter: drop-shadow(0 24px 48px rgba(0,0,0,0.6));
 }
 
-.tile-arrow {
-  position: absolute;
-  right: 22px; bottom: 16px;
-  color: var(--text-dim);
-  font-size: 1.05rem;
-  transition: transform 0.22s var(--ease), color 0.22s;
+.feature-index {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
 }
-.tile:hover .tile-arrow { color: var(--accent); transform: translateX(4px); }
+.feature-copy h3 {
+  font-size: clamp(1.5rem, 2.6vw, 1.95rem);
+  font-weight: 640;
+  margin-bottom: 18px;
+}
+.feature-copy p { color: var(--text-muted); }
 
-/* Compact variant: no thumbnails, denser grid. */
-.tiles-compact { grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 16px; }
-.tiles-compact .tile { border-left: 2px solid var(--border); }
-.tiles-compact .tile:hover { border-left-color: var(--accent); }
-.tiles-compact .tile-body { padding: 20px 22px 42px; }
-.tiles-compact .tile-body h3 { font-size: 1rem; }
-.tiles-compact .tile-body p { font-size: 0.865rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 24px 0 0; }
+.chips li {
+  font-size: 0.83rem; font-weight: 500;
+  padding: 6px 13px; border-radius: 100px;
+  background: var(--accent-dim);
+  color: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+}
+
+.stats {
+  display: flex; gap: 32px; flex-wrap: wrap;
+  list-style: none; padding: 0; margin: 28px 0 0;
+}
+.stats li { display: flex; flex-direction: column; }
+.stats b {
+  font-size: 1.5rem; font-weight: 680; letter-spacing: -0.02em;
+  color: var(--text); line-height: 1.2;
+}
+.stats span { font-size: 0.82rem; color: var(--text-dim); }
 
 /* ── Steps ─────────────────────────────────────────────── */
 
@@ -535,6 +514,10 @@ p:last-child { margin-bottom: 0; }
   .hero-figure { order: -1; }
   .lede { max-width: none; }
 
+  .feature { grid-template-columns: 1fr; gap: 36px; padding: 48px 0; }
+  .feature-reverse .feature-media { order: 0; }
+  .feature-media img { max-height: 320px; }
+
   .steps { grid-template-columns: 1fr; }
 }
 
@@ -569,220 +552,4 @@ p:last-child { margin-bottom: 0; }
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-/* ============================================================
-   Generated documentation pages (docs/website/pages/*.html)
-   ============================================================ */
-
-.doc-main { padding: 44px 0 96px; }
-
-.doc-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 236px;
-  gap: 64px;
-  align-items: start;
-}
-
-.doc-article { min-width: 0; }
-
-.breadcrumb {
-  display: flex; align-items: center; gap: 10px;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  margin-bottom: 28px;
-}
-.breadcrumb a { color: var(--text-muted); }
-.breadcrumb a:hover { color: var(--accent); }
-
-.doc-title {
-  font-size: clamp(1.9rem, 3.4vw, 2.5rem);
-  font-weight: 660;
-  color: var(--text);
-  margin: 0 0 0.9em;
-}
-
-/* ── Prose ─────────────────────────────────────────────── */
-
-.doc-body { font-size: 1.02rem; color: var(--text-muted); }
-
-.doc-body h1 {
-  font-size: clamp(1.9rem, 3.4vw, 2.5rem);
-  font-weight: 660;
-  color: var(--text);
-  margin: 0 0 0.6em;
-}
-.doc-body h2 {
-  font-size: 1.5rem; font-weight: 620; color: var(--text);
-  margin: 2.2em 0 0.7em;
-  padding-bottom: 0.35em;
-  border-bottom: 1px solid var(--border-soft);
-}
-.doc-body h3 { font-size: 1.16rem; font-weight: 620; color: var(--text); margin: 1.9em 0 0.6em; }
-.doc-body h4 { font-size: 1rem; font-weight: 620; color: var(--text); margin: 1.6em 0 0.5em; }
-.doc-body h1:first-child, .doc-body h2:first-child, .doc-body h3:first-child { margin-top: 0; }
-
-.doc-body p { margin: 0 0 1.15em; }
-.doc-body strong, .doc-body b { color: var(--text); font-weight: 620; }
-
-.doc-body ul, .doc-body ol { margin: 0 0 1.15em; padding-left: 1.4em; }
-.doc-body li { margin-bottom: 0.45em; }
-.doc-body li::marker { color: var(--text-dim); }
-
-.doc-body img {
-  max-width: 100%;
-  height: auto;
-  margin: 1.6em 0;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.doc-body code {
-  font-family: var(--mono);
-  font-size: 0.86em;
-  background: var(--surface-2);
-  border: 1px solid var(--border-soft);
-  border-radius: 5px;
-  padding: 0.12em 0.4em;
-  color: var(--accent-soft);
-}
-.doc-body pre {
-  background: var(--bg);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  padding: 18px 20px;
-  overflow-x: auto;
-  margin: 0 0 1.5em;
-}
-.doc-body pre code {
-  background: none; border: 0; padding: 0;
-  color: var(--text-muted);
-  font-size: 0.855rem;
-  line-height: 1.6;
-}
-
-.doc-body blockquote {
-  margin: 0 0 1.5em;
-  padding: 4px 20px;
-  border-left: 3px solid var(--accent);
-  background: var(--surface);
-  border-radius: 0 var(--radius) var(--radius) 0;
-  color: var(--text-muted);
-}
-
-.doc-body hr { border: 0; border-top: 1px solid var(--border-soft); margin: 2.4em 0; }
-
-/* Tables must scroll rather than push the page sideways. */
-.doc-body table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0 0 1.5em;
-  font-size: 0.92rem;
-  display: block;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-.doc-body th, .doc-body td {
-  padding: 10px 14px;
-  border: 1px solid var(--border-soft);
-  text-align: left;
-}
-.doc-body th { background: var(--surface); color: var(--text); font-weight: 600; }
-
-/* ── Table of contents ─────────────────────────────────── */
-
-.doc-aside { position: sticky; top: 96px; }
-.doc-aside-inner { border-left: 1px solid var(--border-soft); padding-left: 22px; }
-
-/* A document with no headings gets no sidebar, and no empty column either.
-   Cap the measure so the prose does not run the full 1160px. */
-.doc-layout.is-empty { grid-template-columns: minmax(0, 1fr); gap: 0; }
-.doc-layout.is-empty .doc-aside { display: none; }
-.doc-layout.is-empty .doc-article { max-width: 820px; }
-
-.toc-title {
-  font-size: 0.72rem;
-  font-weight: 650;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  margin: 0 0 14px;
-}
-.toc { list-style: none; margin: 0 0 26px; padding: 0; }
-.toc li { margin: 0; }
-.toc a {
-  display: block;
-  padding: 5px 0;
-  font-size: 0.87rem;
-  line-height: 1.4;
-  color: var(--text-muted);
-  border-left: 2px solid transparent;
-  margin-left: -24px;
-  padding-left: 22px;
-}
-.toc a:hover { color: var(--text); }
-.toc a.is-active { color: var(--accent); border-left-color: var(--accent); }
-.toc-l3 a { padding-left: 34px; font-size: 0.83rem; color: var(--text-dim); }
-
-.doc-source {
-  display: inline-block;
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  word-break: break-all;
-}
-.doc-source:hover { color: var(--accent); }
-
-/* ── Prev / next ───────────────────────────────────────── */
-
-.pager {
-  display: flex; gap: 16px; flex-wrap: wrap;
-  margin-top: 64px;
-  padding-top: 28px;
-  border-top: 1px solid var(--border-soft);
-}
-.pager a {
-  flex: 1 1 220px;
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 16px 20px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-  font-weight: 560;
-  transition: border-color 0.2s, transform 0.2s var(--ease);
-}
-.pager a:hover { border-color: var(--accent-line); transform: translateY(-2px); color: var(--text); }
-.pager a span { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); }
-.pager-next { text-align: right; }
-
-.doc-footer { padding: 40px 0; margin-top: 0; }
-.doc-footer .colophon { margin: 0; }
-
-/* ── Doc pages: responsive ─────────────────────────────────
-   Must come after the doc rules above: same specificity, later wins. */
-
-@media (max-width: 940px) {
-  .doc-main { padding: 32px 0 72px; }
-
-  .doc-layout,
-  .doc-layout.is-empty { grid-template-columns: minmax(0, 1fr); gap: 32px; }
-  .doc-layout.is-empty .doc-article { max-width: none; }
-
-  /* The contents list becomes a collapsed box above the article. */
-  .doc-aside { position: static; order: -1; }
-  .doc-aside-inner {
-    border-left: 0;
-    padding: 16px 18px;
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius);
-    background: var(--surface);
-  }
-  .toc { margin-bottom: 0; max-height: 240px; overflow-y: auto; }
-  .toc a { margin-left: 0; padding-left: 12px; }
-  .toc-l3 a { padding-left: 24px; }
-  .doc-source { display: none; }
-
-  .pager a { flex-basis: 100%; }
-  .pager-next { text-align: left; }
 }
