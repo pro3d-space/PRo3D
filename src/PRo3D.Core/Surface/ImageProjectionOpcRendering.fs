@@ -19,9 +19,11 @@ module ImageProjectionOpcExtensions =
                     | Some p ->
                         (p.localImageProjectionTrafos, context.modelTrafo)
                         ||> AVal.map2 (fun arr modelTrafo ->  
-                            arr |> Array.map (fun (vp : Trafo3d) -> 
-                                // first to body space, then through projection
-                                vp.Forward  * patch.info.Local2Global.Forward  |> M44f
+                            arr |> Array.map (fun (vp : Trafo3d) ->
+                                // first to body space, then through projection.
+                                // modelTrafo included for the same reason as in
+                                // ProjectedImageModelViewProj below.
+                                vp.Forward * modelTrafo.Forward * patch.info.Local2Global.Forward |> M44f
                             )
                         )
                 ) :> IAdaptiveValue
@@ -47,14 +49,33 @@ module ImageProjectionOpcExtensions =
                 context.projectedImages |> AVal.bind (function 
                     | None -> AVal.constant M44d.Identity
                     | Some p -> 
-                        (p.imageProjection, context.modelTrafo) ||> AVal.map2 (fun vp m -> 
+                        (p.imageProjection, context.modelTrafo) ||> AVal.map2 (fun vp m ->
                             match vp with
-                            | Some vp -> 
-                                vp.Forward * patch.info.Local2Global.Forward
+                            | Some vp ->
+                                // m.Forward is required: patch positions are patch-local,
+                                // so they need Local2Global to reach body space and THEN
+                                // the surface's model trafo to reach the frame the
+                                // projector lives in. Omitting it only looks correct while
+                                // every surface sits at identity -- a body placed via
+                                // Sg.trafo (e.g. Dimorphos positioned relative to Didymos
+                                // by SPICE) renders in the right place but gets its image
+                                // projected in the wrong frame.
+                                vp.Forward * m.Forward * patch.info.Local2Global.Forward
                             | None -> 
                                 M44d.Identity
                         ) 
                 ) :> IAdaptiveValue
+            )
+            // Patch-local -> the OPC's own body-fixed frame, in which the body is centred
+            // on the origin. That makes "outward" well defined per triangle: sign of
+            // dot(faceNormal, centroid). Needed because triangle winding is a property of
+            // the dataset, not of the scene -- the Didymos and Dimorphos OPCs are wound
+            // oppositely -- so face-normal orientation cannot be a global constant.
+            // Deliberately NOT ApproximateBodyNormalLocalSpace: that is one direction per
+            // patch, and at coarse LOD a single patch covers an entire body, so it
+            // degenerates to a constant that splits the body in half.
+            "Local2Global", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                patch.info.Local2Global.Forward |> AVal.constant :> IAdaptiveValue
             )
             "ApproximateBodyNormalLocalSpace", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 patch.info.Local2Global.Backward.TransformDir(patch.info.GlobalBoundingBox.Center.Normalized).Normalized |> AVal.constant :> IAdaptiveValue

@@ -21,6 +21,13 @@ module ImageProjection =
             member x.ProjectedImagesLocalTrafos : M44f[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
             member x.ProjectedImagesCount : int = uniform?ProjectedImagesLocalTrafosCount
             member x.ProjectedImageOpacity : float32 = uniform?ProjectedImageOpacity2
+            /// Patch-local -> the surface's own body-fixed frame, where the body is centred
+            /// on the origin. Supplied per patch by
+            /// ImageProjectionOpcRendering.projectionUniformMap, which every PatchNode in
+            /// this repo uses (the main viewer via Surface.Sg's `allUniforms`). Non-OPC
+            /// geometry must supply it explicitly -- identity is correct whenever local
+            /// coordinates are already body-centred, as for a sphere at the origin.
+            member x.Local2Global : M44f = uniform?Local2Global
 
         type Vertex = {
             [<Position>]    pos     : V4f
@@ -117,7 +124,8 @@ module ImageProjection =
                     let normal = uniform.ProjectedImagesLocalTrafos[i].TransformDir(v.localNormalNumericallyUnstable).Normalized
                     let p = ndc.XYZ / ndc.W
                     let tc = V3f(0.5, 0.5, 0.5) + V3f(0.5, 0.5, 0.5) * p.XYZ
-                    let clipped = Vec.anyGreater tc.XY V2f.II || Vec.anySmaller tc.XY V2f.OO
+                    // tc.Z too, else geometry behind the near plane counts as covered
+                    let clipped = Vec.anyGreater tc V3f.III || Vec.anySmaller tc V3f.OOO
                     let onRightSide =  normal.Z < 0.0f
                     if not onRightSide || clipped then
                         clippedCount <- clippedCount + 1
@@ -132,6 +140,13 @@ module ImageProjection =
 
         type NormalVertex = {
             [<Position>] pos : V4f
+            // Object/body-local position, stashed by stableImageProjectionTrafo
+            // BEFORE stableTrafo turns [<Position>] into clip space. The face
+            // normal must be built from this, not from pos: geometry shaders run
+            // after the whole vertex stage, so pos here is already render-camera
+            // clip space, and a normal built from it would make the projection's
+            // front-facing test (normal.Z < 0) depend on the viewing direction.
+            [<Semantic("BodyLocalPos")>] localPos : V4f
             [<Semantic("LocalNormal")>] localNormal : V3f
             [<Normal>] n : V3f
             [<SourceVertexIndex>] i : int
@@ -140,14 +155,39 @@ module ImageProjection =
 
         let generateNormal (t : Triangle<NormalVertex>) =
             triangle {
-                let p0 = t.P0.pos.XYZ
-                let p1 = t.P1.pos.XYZ
-                let p2 = t.P2.pos.XYZ
+                let p0 = t.P0.localPos.XYZ
+                let p1 = t.P1.localPos.XYZ
+                let p2 = t.P2.localPos.XYZ
 
                 let edge1 = p1 - p0
                 let edge2 = p2 - p0
 
-                let normal = Vec.cross edge2 edge1 |> Vec.normalize
+                // cross edge1 edge2, not edge2 edge1: the reversed order pointed the face
+                // normal into the body for OPC winding, so the `normal.Z < 0` front-facing
+                // test in stableImageProjection rejected every fragment and nothing was
+                // ever projected onto an OPC. The sphere path masked it by following this
+                // with flipNormals; that compensation is now removed alongside this fix.
+                let raw = Vec.cross edge1 edge2 |> Vec.normalize
+
+                // ...but the cross product's sign still follows the SOURCE DATA's triangle
+                // winding, which is a property of the dataset, not of the scene. The
+                // Didymos and Dimorphos OPCs are wound oppositely, so no single global sign
+                // is right for both: with the raw normal, `normal.Z < 0` rejected the wrong
+                // faces on Dimorphos and left a third of it silently unprojected. That
+                // reads as misregistration in a brightness overlay, but the body was
+                // correctly placed all along.
+                //
+                // Orient per triangle instead: outward means pointing away from the body
+                // centre, which is the origin of the frame Local2Global maps into. Both
+                // vectors must go into that frame before comparison -- Local2Global may
+                // rotate, so the test is not valid in patch-local space.
+                //
+                // Valid for star-shaped bodies. In a deep concavity this can pick the wrong
+                // sign; the fallback would be a per-dataset flag, since winding is constant
+                // within one OPC.
+                let centroidBody = uniform.Local2Global.TransformPos ((p0 + p1 + p2) / 3.0f)
+                let normalBody = uniform.Local2Global.TransformDir raw
+                let normal = if Vec.dot normalBody centroidBody < 0.0f then -raw else raw
 
                 yield { t.P0 with localNormal = normal; i = 0 }
                 yield { t.P1 with localNormal = normal; i = 1 }
