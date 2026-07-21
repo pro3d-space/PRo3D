@@ -94,20 +94,124 @@ module CooTransformation =
             { name = Path.GetFileName path; directory = Path.GetDirectoryName path }
         let toPath (s : SPICEKernel) = s.FullPath
 
-    let tryLoadKernel (kernelDirectory : string) (name : string) = 
-        let currentDir = try Directory.GetCurrentDirectory() |> Some with e -> Log.warn "could not set directory, which might be needed for loading spice kernels"; None
-        let __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
-        Directory.SetCurrentDirectory(kernelDirectory)
+    /// A meta-kernel's PATH_VALUES are relative to the meta-kernel's own location, but
+    /// CSPICE resolves them against the *process* working directory. This used to be
+    /// handled by chdir'ing before the furnsh -- which cannot be made correct, because
+    /// kernels load concurrently and a process-global directory cannot be saved and
+    /// restored around a call that races with other loads.
+    ///
+    /// Instead rewrite PATH_VALUES to the absolute directory those relative values always
+    /// meant, and furnsh that copy. No working-directory dependency remains.
+    ///
+    /// Returns the original path unchanged if there is nothing to rewrite (binary kernels,
+    /// meta-kernels that already use absolute paths).
+    let private materializeMetaKernel (fullPath : string) : string =
+        let isText =
+            match Path.GetExtension(fullPath).ToLowerInvariant() with
+            | ".tm" | ".tpc" | ".tf" | ".ti" | ".tls" | ".tsc" -> true
+            | _ -> false
+        if not isText then fullPath
+        else
+            try
+                let content = File.ReadAllText fullPath
+                let baseDir = Path.GetDirectoryName(Path.GetFullPath fullPath)
+                let pattern = @"(PATH_VALUES\s*=\s*\()([^)]*)(\))"
+                let m = Text.RegularExpressions.Regex.Match(content, pattern)
+                if not m.Success then fullPath
+                else
+                    // A kernel-pool string tops out at 80 characters. The original relative
+                    // values are tiny, but an absolute one need not be -- and the temp
+                    // directory we write to is typically longer than the kernel tree, not
+                    // shorter. SPICE's continuation is a trailing '+' inside the quotes:
+                    //   'first-part+'
+                    //   'second-part'
+                    // concatenates to first-partsecond-part.
+                    let quoteWithContinuation (value : string) =
+                        let chunk = 70
+                        if value.Length <= chunk then sprintf "'%s'" value
+                        else
+                            let parts =
+                                [ for i in 0 .. chunk .. value.Length - 1 ->
+                                    value.Substring(i, min chunk (value.Length - i)) ]
+                            parts
+                            |> List.mapi (fun i p ->
+                                if i = parts.Length - 1 then sprintf "'%s'" p
+                                else sprintf "'%s+'" p)
+                            |> String.concat "\n                       "
+
+                    let rewriteEntry (entry : Text.RegularExpressions.Match) =
+                        let raw = entry.Groups.[1].Value
+                        // Already absolute -> leave alone.
+                        if Path.IsPathRooted raw then entry.Value
+                        else
+                            let abs = Path.GetFullPath(Path.Combine(baseDir, raw))
+                            // Forward slashes: CSPICE accepts them on Windows and it avoids
+                            // any question of backslash escaping inside the text kernel.
+                            quoteWithContinuation (abs.Replace('\\', '/'))
+                    let newValues =
+                        Text.RegularExpressions.Regex.Replace(
+                            m.Groups.[2].Value, @"'([^']*)'",
+                            Text.RegularExpressions.MatchEvaluator rewriteEntry)
+                    if newValues = m.Groups.[2].Value then fullPath
+                    else
+                        let rewritten = content.Remove(m.Index, m.Length)
+                                               .Insert(m.Index, m.Groups.[1].Value + newValues + m.Groups.[3].Value)
+                        // Not next to the original: kernel trees are routinely read-only or
+                        // on a share. Nothing else in the meta-kernel is location-dependent
+                        // once PATH_VALUES is absolute -- KERNELS_TO_LOAD entries all go
+                        // through the $KERNELS symbol -- so a copy anywhere works.
+                        let dir = Path.Combine(Path.GetTempPath(), "pro3d-mk")
+                        Directory.CreateDirectory dir |> ignore
+                        let tmp = Path.Combine(dir, Path.GetFileName fullPath)
+                        File.WriteAllText(tmp, rewritten)
+                        tmp
+            with e ->
+                Log.warn "[CooTransformation] could not rewrite PATH_VALUES in %s (%A); loading as-is" fullPath e
+                fullPath
+
+    let tryLoadKernel (kernelDirectory : string) (name : string) =
         let fullPath = Path.GetFullPath(Path.Combine(kernelDirectory,name))
         if File.Exists fullPath then () else failwith ("spice kernel file does not exist: " + fullPath)
-        let r = CooTransformation.AddSpiceKernel(fullPath)
+        let r = CooTransformation.AddSpiceKernel(materializeMetaKernel fullPath)
         if r <> 0 then
             Log.warn "could not load spice kernel: %s in %s." name kernelDirectory
             None
-        else 
-            Some { name = name; directory = kernelDirectory } 
+        else
+            Some { name = name; directory = kernelDirectory }
 
-    let initCooTrafo (customSpiceKernelPath : Option<string>) (appData : string) = 
+    /// Searches `root` for a SPICE meta-kernel file named `mkName` -- the base
+    /// name (no extension) declared by an mbi sidecar's SPICE_MK field, e.g.
+    /// "hera_plan_v180_20250616_001". Checks `root`, `root/mk` and
+    /// `root/mk/former_versions` directly first (the layout used by this repo's
+    /// own `spice/kernels/mk`, see HeraSpiceTests.fs), then falls back to a
+    /// recursive search under `root` for any `*.tm` file with a matching base
+    /// name, since kernel folder layouts vary.
+    let tryFindSpiceKernelFile (root : string) (mkName : string) : string option =
+        let candidateFileNames = [ mkName + ".tm"; mkName ]
+        let tryFindIn (dir : string) =
+            if Directory.Exists dir then
+                candidateFileNames
+                |> List.tryPick (fun name ->
+                    let p = Path.Combine(dir, name)
+                    if File.Exists p then Some p else None)
+            else
+                None
+        [ root; Path.Combine(root, "mk"); Path.Combine(root, "mk", "former_versions") ]
+        |> List.tryPick tryFindIn
+        |> Option.orElseWith (fun () ->
+            try
+                Directory.EnumerateFiles(root, "*.tm", SearchOption.AllDirectories)
+                |> Seq.tryFind (fun p -> Path.GetFileNameWithoutExtension p = mkName)
+            with e ->
+                Log.warn "[CooTransformation] failed searching %s for spice kernel %s: %A" root mkName e
+                None)
+
+    /// Log directory used by the most recent `initCooTrafo` call, remembered so
+    /// `switchKernel` can reinitialize with the same logging configuration
+    /// without every caller having to thread `appData` through again.
+    let mutable private lastLogDir : Option<string> = None
+
+    let initCooTrafo (customSpiceKernelPath : Option<string>) (appData : string) =
 
         let jrDir = Path.combine [appData; "JR";]
         let cooTransformationDir = Path.combine [jrDir; "CooTransformationConfig"]
@@ -131,6 +235,8 @@ module CooTransformation =
 
         if not (Directory.Exists logDir) then
             Directory.CreateDirectory logDir |> ignore
+
+        lastLogDir <- Some logDir
 
         Log.line "[CooTransformation] initializing at %s, logging to %s" configDir logDir
         let errorCode = CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2)
@@ -169,7 +275,26 @@ module CooTransformation =
             if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) ||  System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux)  then
                 Log.warn "Instrument platform failed to initialize - not yet supported? https://github.com/pro3d-space/PRo3D/issues/196 --> %A" e
 
-    let deInitCooTrafo () = 
+    /// Resets SPICE's kernel pool (DeInit + Init) then loads the given kernel.
+    /// There's no native per-kernel unload, and layering meta-kernels can
+    /// silently corrupt state (see plans/spiceKernelUnloadAndDidymosProjection.md),
+    /// so a full reset is the only reliable way to switch kernels. Discards
+    /// everything previously loaded, including initCooTrafo's startup kernel.
+    let switchKernel (kernelDirectory : string) (name : string) =
+        match lastLogDir with
+        | None ->
+            Log.warn "[CooTransformation] switchKernel called before initCooTrafo -- cannot determine log directory"
+            None
+        | Some logDir ->
+            CooTransformation.DeInit()
+            let errorCode = CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2)
+            if errorCode <> 0 then
+                Log.warn "[CooTransformation] failed to reinit SPICE after DeInit (code %d)" errorCode
+                None
+            else
+                tryLoadKernel kernelDirectory name
+
+    let deInitCooTrafo () =
         Log.line "[CooTransformation] shutting down..."
         CooTransformation.DeInit()
         Log.line "[CooTransformation] down."

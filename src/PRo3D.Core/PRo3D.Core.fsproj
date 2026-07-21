@@ -80,6 +80,7 @@
     <Compile Include="Drawing\EllipseConstruction.fs" />
     <Compile Include="Drawing\EllipseAnnotation.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
+    <Compile Include="InstrumentMetadata.fs" />
     <Compile Include="ProjectedImageList-Model.fs" />
 	<Compile Include="ProjectedImageList-Model.g.fs" />
     <Compile Include="GisApp-Model.fs" />
