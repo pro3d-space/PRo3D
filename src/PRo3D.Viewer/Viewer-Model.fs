@@ -90,6 +90,7 @@ type ViewerAction =
 | AnimationMessage                of AnimationAction // SequencedBookmarkId that corresponds to this AnimationAction
 | ReferenceSystemMessage          of ReferenceSystemAction
 | AnnotationMessage               of AnnotationProperties.Action
+| AnnotationBulkMessage           of AnnotationProperties.Action
 | BookmarkMessage                 of BookmarkAction
 | BookmarkUIMessage               of GroupsAppAction
 | SequencedBookmarkMessage        of SequencedBookmarksAction

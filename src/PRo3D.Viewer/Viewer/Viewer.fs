@@ -674,6 +674,44 @@ module ViewerApp =
                     | None -> m
                 | _ -> m
             | None -> m
+        | AnnotationBulkMessage msg,_ ->
+            // bulk edit: apply the same pure property update to every annotation in the
+            // green multi-selection (selectedLeaves). Falls back to the single selection
+            // if nothing is multi-selected, so a lone selection still behaves sensibly.
+            let selectedIds =
+                let multi =
+                    m.drawing.annotations.selectedLeaves
+                    |> HashSet.toList
+                    |> List.map (fun ts -> ts.id)
+                match multi with
+                | [] ->
+                    match m.drawing.annotations.singleSelectLeaf with
+                    | Some id -> [ id ]
+                    | None    -> []
+                | _ -> multi
+
+            match selectedIds with
+            | [] -> m
+            | ids ->
+                let f = (fun x ->
+                    let a = x |> Leaf.toAnnotation
+                    let a = AnnotationProperties.update m.scene.referenceSystem a msg
+
+                    //update true thickness computation on dip angle change
+                    let a =
+                        if (a.geometry = Geometry.TT) then
+                           let up = m.scene.referenceSystem.up.value
+                           let north = m.scene.referenceSystem.north.value
+                           let planet = m.scene.referenceSystem.planet
+
+                           let results = Calculations.calcResultsLine a up north planet |> Some
+                           { a with results = results }
+                        else
+                            a
+                    a |> Leaf.Annotations)
+
+                let a = m.drawing.annotations |> GroupsApp.updateLeaves (ids |> IndexList.ofList) f
+                Optic.set _annotations a m
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
