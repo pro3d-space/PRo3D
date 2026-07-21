@@ -44,8 +44,40 @@ div.title {
     margin-bottom: 0px;
     padding-top: 0px;
     padding-bottom: 0px;
-    padding-left: 4px;
-    padding-right: 4px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* Clearer dividers between control groups in the top menu.
+   Semantic's default .item:before line is a faint dark rgba(34,36,38,.1),
+   invisible on the dark bar - brighten it to a visible light rule. */
+.ui.menu .item.topmenu:before {
+    background: rgba(255, 255, 255, 0.30);
+    width: 1px;
+    top: 18%;
+    height: 64%;
+}
+
+/* Leading category icons (navigation, interaction, reference system, annotation
+   tools, sampling) are labels for the adjacent dropdown - not clickable buttons.
+   Mute them so they read as adornments; interactive icons keep full brightness. */
+.ui.menu .topmenu-icon.icon {
+    color: #b9c0cc;
+    opacity: 0.8;
+    cursor: default;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
+/* Make the top-menu dropdowns read clearly as controls that the icon labels. */
+.ui.menu .item.topmenu select {
+    background-color: #f2f3f5;
+    color: #000;
+    border: 1px solid rgba(0, 0, 0, 0.35);
+    border-radius: 4px;
+    padding: 1px 4px;
+    height: 22px;
+    vertical-align: middle;
 }
 
 .ui.menu {

@@ -72,7 +72,7 @@ module UI =
                         match projection with
                         | Projection.Viewpoint | Projection.Sky ->
                             yield Html.Layout.horizontal [
-                                Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
+                                Html.Layout.boxH [ i [clazz "large crosshairs icon topmenu-icon"] [] ]
                                 Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
                                 Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
                             ]
@@ -82,7 +82,7 @@ module UI =
             ]
 
         Html.Layout.horizontal [
-            Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
+            Html.Layout.boxH [ i [clazz "large Write icon topmenu-icon"] [] ]
             Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
             Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
             // annotation color now comes from the active group's default color, so the tool-level color picker was removed

@@ -799,7 +799,7 @@ module Gui =
             Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
+                Html.Layout.boxH [ i [clazz "large wizard icon topmenu-icon"] [] ]
                 Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
                 Html.Layout.boxH [ 
@@ -809,7 +809,7 @@ module Gui =
             ]
               
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
+                Html.Layout.boxH [ i [clazz "large Globe icon topmenu-icon"] [] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.wrapToolTip DataPosition.Bottom "Reference system" |> UI.map ReferenceSystemMessage
             ] 
             Html.Layout.horizontal [
