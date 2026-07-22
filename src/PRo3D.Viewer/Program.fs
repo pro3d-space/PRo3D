@@ -308,7 +308,8 @@ let main argv =
                 viewerVersion
 
         let adaptiveModel = mainApp.MutableModel
-        
+        mainApp.DocumentTitle <- titlestr
+
         { MailboxState.empty with 
             update = (fun a -> 
                 let a = Seq.map ViewerMessage a
@@ -454,8 +455,50 @@ let main argv =
 
         if startupArgs.serverMode then
             Log.line "running server mode"
-            printfn "ELECTRON_GPU:%s" app.Context.Driver.renderer
+
+            let lockObj = obj()
+
+            // Communicate media errors to the electron process to display a report dialog
+            let sendErrorToElectron (message: string) =
+                if notNull message then
+                    lock lockObj (fun _ ->
+                        printfn "ELECTRON_ERROR_START"
+                        for line in String.getLines message do printfn "ELECTRON_ERROR:%s" line
+                        printfn "ELECTRON_ERROR_END"
+                    )
+
+            mainApp.ApplicationError.Add (fun error ->
+                let message =
+                    match error.Source with
+                    | ApplicationErrorSource.Update msg ->
+                        $"Update for message '{msg}' failed: {error.Exception}"
+
+                    | ApplicationErrorSource.EventHandler (_, name, sender, args) ->
+                        $"Event handler '{name}' for {sender} faulted (args: {args}): {error.Exception}"
+
+                    | ApplicationErrorSource.ChannelUpdate (_, elementId, channelName) ->
+                        $"Failed to get '{channelName}' messages for {elementId}: {error.Exception}"
+
+                sendErrorToElectron message
+            )
+
+            mainApp.InternalError.Add (fun error ->
+                let message =
+                    match error.Source with
+                    | InternalErrorSource.Rendering _ ->
+                        $"Failed to execute render task: {error.Exception}"
+
+                    | InternalErrorSource.MessageParsing (_, data) ->
+                        $"Failed to parse message '{data}': {error.Exception}"
+
+                    | InternalErrorSource.Connection _ ->
+                        null
+
+                sendErrorToElectron message
+            )
+
             printfn "ELECTRON_URL:%s" renderingUrl // Do not change these lines, the Electron process listens for these strings
+            printfn "ELECTRON_GPU:%s" app.Context.Driver.renderer
             printfn "ELECTRON_LOG_FILE:%s" logFilePath
             Console.Read() |> ignore
         else

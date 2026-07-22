@@ -29,9 +29,9 @@ nuget Aardvark.Geometry.PointTree           ~> 5.5.0
 nuget Aardvark.Geometry.PolyMesh            ~> 5.5.0
 nuget Aardvark.Geometry.Clustering          ~> 5.5.0
 
-nuget Aardvark.UI                           ~> 5.7.2
-nuget Aardvark.UI.Primitives                ~> 5.7.2
-nuget Aardvark.UI.Giraffe                   ~> 5.7.2
+nuget Aardvark.UI                           ~> 5.7.3
+nuget Aardvark.UI.Primitives                ~> 5.7.3
+nuget Aardvark.UI.Giraffe                   ~> 5.7.3
 
 nuget Adaptify.MSBuild                      ~> 1.3.7
 nuget Adaptify.Core                         ~> 1.3.7
