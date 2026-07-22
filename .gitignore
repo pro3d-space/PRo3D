@@ -70,3 +70,4 @@ src\Aardvark.OpcViewer.psess
 .ipynb_checkpoints/
 *.fsproj.user
 Aardvark.log
+testbed-output/
