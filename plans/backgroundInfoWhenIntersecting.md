@@ -1,1 +1,1 @@
-all kdtree intersectoins should give feedback they are blocking the viewr (if not possible asynchronously). Thus, a info panel should appera. i think there is already one. we should test this with arcball intersection which is very annoying.s
+all kdtree intersectoins should give feedback they are blocking the viewr (if not possible asynchronously). Thus, a info panel should appera. i think there is already one. we should test this with arcball intersection which is very annoying.s  f
