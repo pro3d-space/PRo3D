@@ -24,6 +24,16 @@
     <Compile Include="GeoJsonExportTest.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />
+    <None Include="data\AF2_0CO72A_250311T025652_1B.mbi.json" />
+    <None Include="data\ASP_000000_270323T060000_2B.mbi.json" />
+    <None Include="data\ASP_000000_270323T060000_2B_Vis_0.tif" />
+    <None Include="data\ASP_000000_270323T060000_2B_Vis_0.tif.json" />
+    <None Include="data\HSH_0CR7B2_250312T062000_1B.mbi.json" />
+    <None Include="data\HSH_0CR7B2_250312T062000_1B_Stacked.tif" />
+    <None Include="data\HSH_0CR7B2_250312T062000_1B_Stacked.tif.json" />
+    <Compile Include="ProjectedImageMetadataTest.fs" />
+    <Compile Include="InstrumentProjectionComparisonTest.fs" />
+    <Compile Include="DidymosProjectionSpiceTest.fs" />
     <None Include="RemoteApi.rest" />
     <Compile Include="TriangleSetTests.fs" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
@@ -34,6 +44,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+    <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Thoth.Json.Net" Version="12.0.0" />

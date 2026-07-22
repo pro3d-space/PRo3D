@@ -12,6 +12,12 @@ let allTests () : Test =
 
         // skipped automatically when fixtures under C:\pro3ddata are absent
         SbmtImportAlignmentTest.tests()
+
+        ProjectedImageMetadataTest.tests()
+
+        // relies on HeraSpiceTests.tests() above having already loaded hera_ops.tm
+        InstrumentProjectionComparisonTest.tests()
+        DidymosProjectionSpiceTest.tests()
     ]
 
 let profileTests (parameters : TestUtils.TestParameters) : Test =
