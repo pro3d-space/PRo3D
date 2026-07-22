@@ -66,17 +66,6 @@ module ImageProjectionOpcExtensions =
                         ) 
                 ) :> IAdaptiveValue
             )
-            // Patch-local -> the OPC's own body-fixed frame, in which the body is centred
-            // on the origin. That makes "outward" well defined per triangle: sign of
-            // dot(faceNormal, centroid). Needed because triangle winding is a property of
-            // the dataset, not of the scene -- the Didymos and Dimorphos OPCs are wound
-            // oppositely -- so face-normal orientation cannot be a global constant.
-            // Deliberately NOT ApproximateBodyNormalLocalSpace: that is one direction per
-            // patch, and at coarse LOD a single patch covers an entire body, so it
-            // degenerates to a constant that splits the body in half.
-            "Local2Global", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
-                patch.info.Local2Global.Forward |> AVal.constant :> IAdaptiveValue
-            )
             "ApproximateBodyNormalLocalSpace", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 patch.info.Local2Global.Backward.TransformDir(patch.info.GlobalBoundingBox.Center.Normalized).Normalized |> AVal.constant :> IAdaptiveValue
             )

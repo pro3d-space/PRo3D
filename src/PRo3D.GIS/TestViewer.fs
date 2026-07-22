@@ -326,12 +326,9 @@ module TestViewer =
         let planets =
             Rendering.bodiesVisualization referenceFrame supportBody (bodies |> AMap.toASetValues |> ASet.map (fun b -> b.name)) getRenderingParameters observer time wrapModel
             |> Sg.uniform' "SunLightEnabled" true
-            // generateNormal orients its face normals outward using Local2Global, which is
-            // supplied per patch on the OPC path but does not exist for these sphere
-            // bodies. Identity is correct here: their local coordinates are already
-            // body-centred, so the outward test reduces to dot(normal, centroid) as
-            // intended.
-            |> Sg.uniform' "Local2Global" M44d.Identity
+            // These spheres are outward-wound, so no flip: generateNormal reads NormalFlip
+            // and defaults to 0, but bind it explicitly so the intent is on the record.
+            |> Sg.uniform' "NormalFlip" 0.0
             |> Sg.shader {
                 do! Shaders.planetLocalLightingViewSpace
                 do! ImageProjection.Shaders.stableImageProjectionTrafo
