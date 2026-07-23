@@ -109,6 +109,46 @@ Done and verified — full solution builds clean (`dotnet build src/PRo3D.sln`):
 - Pointing looks broadly right: the rendered body is centred and of comparable size to the
   reference.
 
+## FINAL STATUS (2026-07-22) — the alignment ledger
+
+The pipeline is verified correct end to end; what remains is a data-level offset.
+
+Verified correct, each by direct measurement:
+- Camera attitude: sc_quat boresight = TRG_POS direction to 1e-4 rad; body centre
+  projects to the principal point to 0.03 px (image-free check, in the testbed).
+- Camera position: SPICE Milani = sidecar TRG_POS to 0.0 m (same-kernel caveat).
+- Frames: sidecar vectors are J2000 equatorial (Sun-vector latitude -24 deg proves
+  equatorial; quaternion consistent). TRG_POS is spacecraft->target; the negation in
+  Visualization.fs is the frame-origin conversion.
+- Time: our DIDYMOS_FIXED->J2000 rotation matches spiceypy's proper UTC->ET
+  computation to 6 decimals (str2et accepts the 'Z' suffix; the +69.186 s
+  leap-second correction is applied). NOT a UTC/TDB error.
+- Shape: OBJ + both OPCs are the same model (area-weighted CoF agree to 0.3 m);
+  poles fully populated (no missing caps -- Didymos is genuinely oblate); the 57 m
+  origin-to-CoF offset is real body geometry, present in the real image too.
+- Not relativistic: stellar aberration ~0.4 px, light-time ~2 um. Orders too small.
+- Barycenter: kernel's DIDYMOS_BARYCENTER is ~100 km wrong (ESA/ESAC confirmed,
+  Piluca, May-2026 kernels). We use DIDYMOS everywhere and dodge it entirely.
+
+The remaining problem:
+- A rigid ~11 m / ~5 px offset of the WHOLE binary relative to the reference image.
+  Common to both bodies (Didymos dx-4 dy-3, Dimorphos dx-5 dy-4 silhouette;
+  topography agrees), so it is a system location offset -- not shape, not rotation,
+  not per-body. Correction that nulls it: image (-5, +2.5) px = world
+  (-2.91, -8.89, 4.67) m in DIDYMOS_FIXED (testbed --model-offset-px).
+- Undetermined: body-frame-fixed (shape-model/frame registration; the same vector
+  would null every epoch) vs J2000-fixed (ephemeris-level; varies). ONE SECOND
+  EPOCH AT A DIFFERENT GEOMETRY DISCRIMINATES. That is the single missing
+  measurement.
+
+Known upstream issues to report:
+- PRo3D-Extensions DeInit leaves stale DAF handles: after repeated metakernel
+  swaps, binary-kernel (SPK/CK) reads fail with SPICE(DAFNOSUCHHANDLE) while
+  text-kernel frames keep working. Needs kclear in native DeInit. Tests work
+  around it by ordering plan-kernel tests before the swap-heavy ones.
+- getRotationTrafo used to return Some Identity on failure (now honest None);
+  the dimorphos test was green against that garbage for some time.
+
 ## HANDOVER — read this before continuing
 
 ### 1. Solar shading: `planetLocalLightingViewSpace` gives a SPHERE normal, not terrain
