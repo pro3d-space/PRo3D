@@ -135,6 +135,61 @@ module OpcSg =
             Log.warn "[opc]   could not estimate winding (%s); NormalFlip 0" e.Message
             0.0
 
+    /// Area-weighted centroid of the coarse root patch, in the body-fixed (global) frame:
+    /// an estimate of the shape model's centre of figure that -- unlike a plain vertex
+    /// mean -- is not biased by uneven tessellation. Also logs the Z (pole-axis) coverage,
+    /// so "is a polar cap missing" can be answered rather than assumed. NaN vertices
+    /// (genuine holes) are skipped.
+    let modelCenterOfFigure (basePath : string) : Option<V3d> =
+        try
+            let serializer = FsPickler.CreateBinarySerializer()
+            let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
+            let rootPatch =
+                match h.tree with
+                | QTree.Node (p, _) -> p
+                | QTree.Leaf p -> p
+            let ig, _ = Patch.load (OpcPaths.OpcPaths basePath) ViewerModality.XYZ rootPatch.info
+            let l2g = rootPatch.info.Local2Global.Forward
+            match ig.IndexedAttributes.[DefaultSemantic.Positions], ig.IndexArray with
+            | (:? array<V3f> as pos), (:? array<int> as idx) ->
+                let g = pos |> Array.map (fun p -> if p.IsNaN then V3d.Zero, false else l2g.TransformPos (V3d p), true)
+                // area-weighted (surface) centroid
+                let mutable wsum = V3d.Zero
+                let mutable atot = 0.0
+                // vertex-mean centroid, for contrast
+                let mutable vsum = V3d.Zero
+                let mutable vn = 0
+                let mutable zmin = infinity
+                let mutable zmax = -infinity
+                for (p, ok) in g do
+                    if ok then
+                        vsum <- vsum + p; vn <- vn + 1
+                        zmin <- min zmin p.Z; zmax <- max zmax p.Z
+                let mutable i = 0
+                while i + 2 < idx.Length do
+                    let (a, oa), (b, ob), (c, oc) = g.[idx.[i]], g.[idx.[i+1]], g.[idx.[i+2]]
+                    if oa && ob && oc then
+                        let area = 0.5 * (Vec.cross (b - a) (c - a)).Length
+                        wsum <- wsum + area * ((a + b + c) / 3.0)
+                        atot <- atot + area
+                    i <- i + 3
+                // how populated are the two polar bands (top/bottom 10% of Z)?
+                let band = 0.1 * (zmax - zmin)
+                let mutable north = 0
+                let mutable south = 0
+                for (p, ok) in g do
+                    if ok then
+                        if p.Z > zmax - band then north <- north + 1
+                        if p.Z < zmin + band then south <- south + 1
+                Log.line "[model]   Z coverage %.1f .. %.1f m; poles: north band %d verts, south band %d verts"
+                    zmin zmax north south
+                let vmean = if vn > 0 then vsum / float vn else V3d.Zero
+                Log.line "[model]   vertex-mean centroid %.1f m (%.1f %.1f %.1f) -- biased by tessellation"
+                    vmean.Length vmean.X vmean.Y vmean.Z
+                if atot > 0.0 then Some (wsum / atot) else None
+            | _ -> None
+        with _ -> None
+
     let build (cfg : Config)
               (projectedImages : aval<Option<Sg.ProjectedImages>>)
               (imageSettings : VisualizationProperties)

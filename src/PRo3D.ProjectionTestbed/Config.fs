@@ -73,6 +73,14 @@ type Scenario =
         /// Interactive mode only: show the sun-lit model instead of the projected image.
         /// Screenshot mode always renders both, so this does not affect it.
         shaded           : bool
+        /// Rigid image-plane correction applied to the rendered body, in pixels
+        /// (+x right, +y up). Converted to a world translation and applied to the geometry
+        /// so a measured registration offset can be nulled out. Zero = no correction.
+        modelOffsetPx    : V2d
+        /// Seconds added to the observation epoch before every SPICE call. For testing
+        /// whether a timing error explains a registration offset. Zero = use the sidecar
+        /// epoch as-is.
+        timeOffsetSec    : float
     }
 
 module Scenario =
@@ -99,6 +107,8 @@ module Scenario =
             flipSweep        = false
             flipNormals      = false
             shaded           = false
+            modelOffsetPx    = V2d.Zero
+            timeOffsetSec    = 0.0
             extraBodies      =
                 [ "DIMORPHOS", "DIMORPHOS_FIXED",
                   @"C:\pro3ddata\HERA\Workshop2\OPC\Dimorphos_DRACO1\Dimorphos_DRACO1" ]
@@ -155,6 +165,8 @@ PRo3D projection testbed -- projects an instrument image onto an OPC and screens
             | "--flip-sweep" :: rest          -> go { s with flipSweep = true } rest
             | "--flip-normals" :: rest        -> go { s with flipNormals = true } rest
             | "--shaded" :: rest              -> go { s with shaded = true } rest
+            | "--model-offset-px" :: dx :: dy :: rest -> go { s with modelOffsetPx = V2d(float dx, float dy) } rest
+            | "--time-offset-sec" :: v :: rest -> go { s with timeOffsetSec = float v } rest
             | "--no-extra-bodies" :: rest     -> go { s with extraBodies = [] } rest
             | "--spice-scale" :: v :: rest    -> go { s with spicePositionScale = float v } rest
             | "--method" :: v :: rest ->

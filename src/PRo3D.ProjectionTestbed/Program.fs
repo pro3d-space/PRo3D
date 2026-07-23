@@ -125,6 +125,19 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
     // Hera's position is fetched too, to quantify why AFC's pointing cannot stand in for
     // ASPECT's: they are different spacecraft, and the separation is the parallax error
     // that substitution would introduce.
+    // Validate our SPICE time handling against spiceypy: log the DIDYMOS_FIXED->J2000
+    // rotation our native path produces for this epoch. Compared offline to spiceypy's
+    // pxform at the correctly-converted UTC vs a 69 s (UTC-as-TDB) error, this shows
+    // directly whether our leap-second/UTC->ET conversion is right.
+    match PRo3D.SPICE.CooTransformation.getRotationTrafo s.referenceFrame "J2000" img.mbi.obs_date with
+    | Some t ->
+        let f = t.Forward
+        Log.line "[spicecmp] %s->J2000 forward:" s.referenceFrame
+        Log.line "[spicecmp]   row0 %.6f %.6f %.6f" f.M00 f.M01 f.M02
+        Log.line "[spicecmp]   row1 %.6f %.6f %.6f" f.M10 f.M11 f.M12
+        Log.line "[spicecmp]   row2 %.6f %.6f %.6f" f.M20 f.M21 f.M22
+    | None -> Log.warn "[spicecmp] rotation unavailable"
+
     let sidecarCamPos = -img.mbi.targetPos * 1000.0
     match PRo3D.SPICE.CooTransformation.getRelState "MILANI" "SUN" s.body img.mbi.obs_date "J2000" with
     | Some st ->
@@ -149,6 +162,21 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
             (sep / sidecarCamPos.Length / 0.116937 * 640.0)
     | None ->
         Log.line "[check] no SPK for HERA at this epoch"
+
+    // Does the shape model's centre of figure explain the residual silhouette offset?
+    // The OPC is placed with its origin at the SPICE body point, so a non-zero centroid
+    // is the model being off-centre (incomplete coverage, or COF vs the COM SPICE tracks).
+    // Project it into the image and compare against the measured per-body pixel shift.
+    match patchHierarchiesOf s.opcPath |> Seq.tryHead |> Option.bind OpcSg.modelCenterOfFigure with
+    | Some cof ->
+        let ndc = cam.full.Forward.TransformPosProj cof
+        let px = ndc.X * 0.5 * float size.X
+        let py = ndc.Y * 0.5 * float size.Y
+        Log.line "[model] %s area-weighted centre of figure is %.1f m off origin (%.1f %.1f %.1f)"
+            s.body cof.Length cof.X cof.Y cof.Z
+        Log.line "[model]   projects to %+.1f %+.1f px from principal point" px py
+    | None ->
+        Log.warn "[model] could not estimate %s centre of figure" s.body
 
     let ndcCentre = cam.full.Forward.TransformPosProj V3d.Zero
     let offPxX = ndcCentre.X * 0.5 * float size.X
@@ -216,6 +244,29 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
                 sunLightEnabled = AVal.constant (match sunDir with Ok _ -> true | Result.Error _ -> false)
             })
 
+    // Convert a requested image-plane correction (pixels, +x right, +y up) into a world
+    // translation, by probing the actual projection rather than assuming a FOV or a sign:
+    // project the origin and two 1 m camera-basis probes, then solve the 2x2 for the world
+    // vector that produces the requested pixel shift. This is robust to the render's Y
+    // convention because it uses the same cam.full the render uses.
+    let modelOffsetWorld =
+        if s.modelOffsetPx = V2d.Zero then V3d.Zero
+        else
+            let camRight = cam.view.Backward.TransformDir V3d.IOO |> Vec.normalize
+            let camUp    = cam.view.Backward.TransformDir V3d.OIO |> Vec.normalize
+            let projPx (w : V3d) =
+                let n = cam.full.Forward.TransformPosProj w
+                V2d(n.X * 0.5 * float size.X, n.Y * 0.5 * float size.Y)
+            let p0 = projPx V3d.Zero
+            let dR = projPx camRight - p0
+            let dU = projPx camUp - p0
+            let m = M22d(dR.X, dU.X, dR.Y, dU.Y)
+            let ab = m.Inverse * s.modelOffsetPx
+            let w = ab.X * camRight + ab.Y * camUp
+            Log.line "[offset] %.2f %.2f px -> world %.2f %.2f %.2f m (|%.2f| m, %.2f m/px)"
+                s.modelOffsetPx.X s.modelOffsetPx.Y w.X w.Y w.Z w.Length (w.Length / s.modelOffsetPx.Length)
+            w
+
     // None = project the instrument image; Some mode = sun-lit, with mode choosing the
     // face-normal sign.
     let buildSg (shading : Option<ShadeMode>) (signature : IFramebufferSignature) =
@@ -251,6 +302,10 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
         (OpcSg.build cfg projectedImages imageSettings (patchHierarchiesOf s.opcPath) |> Sg.ofList)
         :: extras
         |> Sg.ofList
+        // Rigid registration correction. Applied to the geometry, so it moves the shaded
+        // silhouette and topography together (the projected-texture pass would slide the
+        // texture instead, but that comparison is circular anyway).
+        |> Sg.trafo (AVal.constant (Trafo3d.Translation modelOffsetWorld))
         |> (match shading with
             | Some ((AngleIncidence | AngleEmission | AnglePhase) as mode) -> applyAngleShaders mode
             | Some mode -> applyShadingShaders mode
@@ -352,7 +407,16 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
                 Log.line "  centroid offset  %+.1f, %+.1f px  (|%.1f|)" d.X d.Y d.Length
                 Log.line "  covered pixels   render %d / reference %d  (%.3f x)"
                     nr nf (float nr / float nf)
-                Log.line "  -> offset means pointing/ephemeris; area ratio means scale or shape"
+                // Decompose against the principal point (image centre). If the SILHOUETTE
+                // centroid follows the projected vertex centre-of-figure, a rigid origin
+                // shift explains the residual; if it does not, the offset is the model's
+                // incomplete/asymmetric outline, not a placement error.
+                let pp = V2d(float size.X / 2.0 - 0.5, float size.Y / 2.0 - 0.5)
+                Log.line "  render   silhouette centroid %+.1f %+.1f px from principal point"
+                    (cr.X - pp.X) (cr.Y - pp.Y)
+                Log.line "  ref      silhouette centroid %+.1f %+.1f px from principal point"
+                    (cf.X - pp.X) (cf.Y - pp.Y)
+                Log.line "  -> compare render's to the [model] vertex-CoF projection above"
             | _ ->
                 Log.warn "  centroid: one of the images has no pixels above threshold %.2f" threshold
 
@@ -499,7 +563,14 @@ let main argv =
     | Ok s ->
         match Setup.resolveImage s with
         | Result.Error e -> Log.error "%s" e; 1
-        | Ok img ->
+        | Ok img0 ->
+            // Apply the test time offset (if any) to every downstream SPICE call by
+            // shifting the epoch at the source.
+            let img =
+                if s.timeOffsetSec = 0.0 then img0
+                else
+                    Log.warn "[time] shifting epoch by %+.1f s for this run" s.timeOffsetSec
+                    { img0 with mbi = { img0.mbi with obs_date = img0.mbi.obs_date.AddSeconds s.timeOffsetSec } }
             Log.line "[image] %s" img.path
             Log.line "[image] instrument %s -> %s, obs %s"
                 img.mbi.instrument img.spiceName (img.mbi.obs_date.ToString "o")
