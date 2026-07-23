@@ -39,7 +39,8 @@ let private ensurePlanKernel () : unit =
     HeraSpiceTests.ensureKernelAt [ planKernelPath ]
 
 let tests () =
-    testSequenced <| testList "didymosProjectionSpice" [
+    // sequencing comes from the suite-wide testSequenced in Program.fs
+    testList "didymosProjectionSpice" [
 
         // GisModels.fs's transformBody calls this with body = observer = the
         // surface's own spice name whenever there's no separate spacecraft
@@ -73,6 +74,13 @@ let tests () =
             let result = PRo3D.SPICE.CooTransformation.getRotationTrafo "DIDYMOS_FIXED" "J2000" reportedTime
             printfn "[didymosProjectionSpice] getRotationTrafo DIDYMOS_FIXED->J2000 = %A" result
             Expect.isSome result "DIDYMOS_FIXED is the mission's actual body-fixed frame name for Didymos and should resolve"
+        }
+
+        test "getRotationTrafo DIMORPHOS_FIXED -> J2000 (secondary's body-fixed frame)" {
+            ensurePlanKernel ()
+            let result = PRo3D.SPICE.CooTransformation.getRotationTrafo "DIMORPHOS_FIXED" "J2000" reportedTime
+            printfn "[didymosProjectionSpice] getRotationTrafo DIMORPHOS_FIXED->J2000 = %A" result
+            Expect.isSome result "DIMORPHOS_FIXED should resolve with the plan kernel loaded"
         }
 
         test "getRotationTrafo J2000 -> J2000 (trivial identity, sanity check)" {
@@ -131,7 +139,9 @@ let tests () =
             ensurePlanKernel ()
             let result = PRo3D.SPICE.CooTransformation.getRotationTrafo "ECLIPJ2000" "MILANI_ASPECT_NIR1" reportedTime
             printfn "[didymosProjectionSpice] getRotationTrafo ECLIPJ2000->MILANI_ASPECT_NIR1 = %A" result
-            Expect.isNone result "documents the same Milani cruise-only kernel coverage gap -- update this if kernels are extended"
+            // This used to document a coverage gap (None). With the plan kernel loading
+            // completely, the frame chain resolves at this epoch.
+            Expect.isSome result "ECLIPJ2000 -> MILANI_ASPECT_NIR1 should resolve with the plan kernel loaded"
         }
 
         test "getRotationTrafo ECLIPJ2000 -> J2000 (reference-frame conversion, does not need Milani)" {

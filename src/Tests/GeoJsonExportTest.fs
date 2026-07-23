@@ -51,7 +51,7 @@ module Tests =
 
         let isSelected = fun _ -> false
 
-        testSequenced <| testList "init" [
+        testList "init" [
 
             do init()
 

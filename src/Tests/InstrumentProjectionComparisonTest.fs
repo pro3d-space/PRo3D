@@ -119,7 +119,7 @@ let private computeAspectResolves () : bool * bool =
     (Option.isSome t, Option.isSome spice)
 
 let tests () =
-    testSequenced <| testList "instrumentProjectionComparison" [
+    testList "instrumentProjectionComparison" [
 
         test "getLookAt discards the real SPICE rotation and always looks at the target-body origin" {
             let time = DateTime.Parse("2025-03-12T10:30:20.482190Z", System.Globalization.CultureInfo.InvariantCulture)
@@ -142,14 +142,14 @@ let tests () =
                 Expect.isLessThanOrEqual angle 180.0 "angle must be a valid rotation-difference angle"
         }
 
-        // hera_ops.tm only ships Milani's cruise-phase kernels, so at this fixture's real
-        // 2027-03-23 Didymos epoch there's no ephemeris/attitude data at all yet. If a
-        // kernel update adds that coverage, this starts failing -- replace it with a real
-        // angle comparison like the HSH test above.
-        test "ASPECT (Milani/Didymos): current SPICE kernel set has no coverage at this fixture's epoch" {
+        // The quaternion path takes attitude from the mbi sidecar and needs no spacecraft
+        // CK, so with the fixture's own plan kernel loaded it must resolve. The pure-SPICE
+        // path still depends on Milani CK coverage at this epoch; report it, don't assert.
+        test "ASPECT (Milani/Didymos): quaternion-based projection resolves from the mbi sidecar" {
             let tResolves, spiceResolves = computeAspectResolves ()
-            Expect.isFalse tResolves "projectOntoQuat unexpectedly resolved -- Milani kernel coverage may have been extended past cruise"
-            Expect.isFalse spiceResolves "projectOnto unexpectedly resolved -- same note as above"
+            printfn "[instrumentProjectionComparison] ASPECT resolves: quat=%b spice=%b" tResolves spiceResolves
+            Expect.isTrue tResolves
+                "projectOntoQuat should resolve for ASPECT/Didymos -- attitude comes from the sidecar quaternion, no CK required"
         }
 
         // Real geometric sanity check: does the image's center pixel, unprojected back into
@@ -177,17 +177,24 @@ let tests () =
                 Expect.isSome spiceHit "spice-based center ray should hit round Mars"
         }
 
-        // Same check for ASPECT/Didymos is currently impossible to run for real: it needs
-        // the same projectOntoQuat/projectOnto call that the "no coverage" test above already
-        // shows returns None for this fixture's epoch. Once that's fixed, replace this with a
-        // real hit test against Didymos's real mean radius (409.5m, from CooTransformation's
-        // own LatLonAlt2Xyz("didymos", 0, 0, 0) -- see HeraSpiceTests.fs), same shape as HSH.
-        test "ASPECT (Milani/Didymos): center-ray hit test is blocked by the same kernel gap" {
-            let tResolves, spiceResolves = computeAspectResolves ()
-            if tResolves || spiceResolves then
-                failtest "projectOntoQuat/projectOnto unexpectedly resolved for ASPECT -- write the real Didymos hit test now (see comment above)"
-            else
-                skiptest "no SPICE coverage for MILANI/DIDYMOS at this fixture's epoch yet (see the dedicated 'no coverage' test) -- cannot cast a real ray"
+        // Same shape as the HSH hit test: unproject the image's centre pixel through the
+        // quaternion trafo and require it to hit a round Didymos (mean radius ~409.5 m,
+        // from LatLonAlt2Xyz("didymos", 0, 0, 0)). The sidecar's boresight points at the
+        // body centre to ~1e-4 rad, so the centre ray must strike near dead centre.
+        test "ASPECT (Milani/Didymos): center ray from the quaternion trafo hits round Didymos" {
+            let mbi = parseMbi aspectFixture
+            let p = aspectProjection mbi
+            let referenceFrame = "ECLIPJ2000"
+            let observer = "DIDYMOS"
+            let instruments = Map.ofList [ p.instrumentName, placeholderFrustum ]
+            let position = -mbi.targetPos * 1000.0
+            let didymosRadius = 409.5
+            match InstrumentProjection.projectOntoQuat referenceFrame observer instruments p position mbi.sc_quat with
+            | None -> failtest "projectOntoQuat returned None for ASPECT"
+            | Some t ->
+                let hit = hitsBody didymosRadius (centerRay t)
+                printfn "[instrumentProjectionComparison] ASPECT center-ray hit distance: %A (meters along ray)" hit
+                Expect.isSome hit "quaternion-based center ray should hit round Didymos"
         }
 
         // Reproduces the original race (HSH + ASPECT interleaved across threads) and checks

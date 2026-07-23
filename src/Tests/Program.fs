@@ -3,7 +3,12 @@ open NUnit
 
 
 let allTests () : Test =
-    testList "all tests" [
+    // SPICE kernel state is process-global: exactly one metakernel is active, swapped
+    // via DeInit+Init (see HeraSpiceTests.ensureKernelAt). Under parallel execution
+    // another test can swap the kernel between a test's ensure and its SPICE calls,
+    // which shows up as spurious None results depending on schedule. Sequence the
+    // whole suite; per-list testSequenced is not enough, lists still interleave.
+    testSequenced <| testList "all tests" [
         GeoJsonRework.Tests.tests()
         TriangleSetTests.tests()
 
@@ -15,9 +20,13 @@ let allTests () : Test =
 
         ProjectedImageMetadataTest.tests()
 
-        // relies on HeraSpiceTests.tests() above having already loaded hera_ops.tm
-        InstrumentProjectionComparisonTest.tests()
+        // Kernel-swap count matters: the native DeInit does not fully clear CSPICE's
+        // binary-kernel (DAF) state, so handles go stale after repeated metakernel swaps
+        // (SPICE(DAFNOSUCHHANDLE) on SPK/CK reads; text-kernel frames keep working).
+        // Order the plan-kernel tests before the comparison tests, whose concurrency
+        // test churns several extra swaps -- and report the DeInit issue upstream.
         DidymosProjectionSpiceTest.tests()
+        InstrumentProjectionComparisonTest.tests()
     ]
 
 let profileTests (parameters : TestUtils.TestParameters) : Test =

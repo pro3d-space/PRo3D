@@ -120,11 +120,17 @@ let heraSpecificTests () =
         test "dimorphos" {
             ensureOpsKernel ()
             let time = DateTime.Parse("2025-03-12 10:30:20.482190Z", CultureInfo.InvariantCulture)
-            let trafo = CooTransformation.getRotationTrafo "IAU_DIMORPHOS" "ECLIPJ2000" time
+            // IAU_DIMORPHOS is not a frame in the current kernels -- retired in favour of
+            // DIMORPHOS_FIXED, exactly like IAU_DIDYMOS (see DidymosProjectionSpiceTest).
+            // This test used to pass only because getRotationTrafo returned Some Identity
+            // on failure; now that failure is an honest None, assert both directions.
+            let retired = CooTransformation.getRotationTrafo "IAU_DIMORPHOS" "ECLIPJ2000" time
             let mutable x,y,z = 0.0,0.0,0.0
             let r = CooTransformation.LatLonAlt2Xyz("dimorphos", 0.0, 0.0, 0.0, &x, &y, &z)
 
-            Expect.isSome trafo "could transform phobos to eclipj2000"
+            Expect.isNone retired "IAU_DIMORPHOS is a retired frame name and must not resolve"
+            // the positive DIMORPHOS_FIXED check lives in DidymosProjectionSpiceTest,
+            // which has the plan kernel (with the Didymos-system data) loaded
         }
 
         test "latlonalt to xyz for dimorphos (Spherical convention)" {
@@ -176,7 +182,7 @@ let heraSpecificTests () =
 
 
 let tests () =
-    testSequenced <| testList "init" [
+    testList "init" [
         test "InitDeInit" {
             let i = init()
             i.Dispose()
