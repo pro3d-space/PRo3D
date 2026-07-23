@@ -29,6 +29,8 @@ module TraversePropertiesApp =
         // Text
         | ToggleShowText ->
             { model with showText = not model.showText }
+        | ToggleFastText ->
+            { model with fastText = not model.fastText }
         | ToggleshowRimfaxSurfaces ->
             { model with showRimfaxSurfaces = not model.showRimfaxSurfaces }
         | SetSolTextsize s ->
@@ -58,8 +60,10 @@ module TraversePropertiesApp =
                 Html.table [
                     Html.row "Name:"       [text m.tName]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
-                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
-                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]
+                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]
+                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ]
+                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
                 ]
             )
 
@@ -69,10 +73,13 @@ module TraversePropertiesApp =
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Fast Text:"  [GuiEx.iconCheckBox m.fastText  ToggleFastText]
                     Html.row "Show Surfaces:"  [GuiEx.iconCheckBox m.showRimfaxSurfaces ToggleshowRimfaxSurfaces]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
-                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
-                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]
+                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]
+                    Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] m.priority |> UI.map SetPriority ]
+                    Html.row "Use Priority"  [GuiEx.iconCheckBox m.priorityEnabled  TogglePriorityRenderingEnabled]
                 ]
             )
 
@@ -82,6 +89,7 @@ module TraversePropertiesApp =
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Fast Text:"  [GuiEx.iconCheckBox m.fastText  ToggleFastText]
                     Html.row "Show Lines:" [GuiEx.iconCheckBox m.showLines ToggleShowLines]
                     Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
@@ -98,6 +106,7 @@ module TraversePropertiesApp =
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Fast Text:"  [GuiEx.iconCheckBox m.fastText  ToggleFastText]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
@@ -110,6 +119,7 @@ module TraversePropertiesApp =
                     Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Fast Text:"  [GuiEx.iconCheckBox m.fastText  ToggleFastText]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                     Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
                 ]
@@ -605,13 +615,17 @@ module TraverseApp =
 
 
         let viewTextForTraverse (refSystem : AdaptiveReferenceSystem)
-                                (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>) 
+                                (view : aval<CameraView>) (horiztonalFieldOfViewInDegrees : aval<float>)
                                 (near : aval<float>) (traverse : AdaptiveTraverse)  =
-                drawSolTextsFast
-                    view
-                    horiztonalFieldOfViewInDegrees
-                    near
-                    traverse
+                traverse.fastText
+                |> AVal.map (fun fast ->
+                    if fast then
+                        // batched billboards: fast, but jitters at planet scale
+                        drawSolTextsFast view horiztonalFieldOfViewInDegrees near traverse
+                    else
+                        // per-label stable-trafo text: slower, numerically stable
+                        drawSolText view near traverse)
+                |> Sg.dynamic
                 |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
 
         [<Obsolete("draw with sg.view")>]
@@ -742,53 +756,39 @@ module TraverseApp =
                 (surface : SgSurface)
                 (traverseId : Guid)
                 (solNumber : int)=
-                let isSelected = 
-                    adaptive {
-                        let! (selected : Option<Guid>) =  traverseModel.selectedRimfaxSurface
-                        match selected with
-                        | Some id -> return (id = surface.surface)
-                        | None -> return false
-                    }
+                let isSelected =
+                    traverse.selectedSol
+                    |> AVal.map (function Some n -> n = solNumber | None -> false)
 
-                let colorTransformationExpr =
-                    <@ fun (c : V4f) ->
-                        let tolerance = 0.05f
-                        let isWhite =
-                            abs (c.X - 1.0f) < tolerance &&
-                            abs (c.Y - 1.0f) < tolerance &&
-                            abs (c.Z - 1.0f) < tolerance
-
-                        if isWhite then
-                            V4f(1.0f, 1.0f, 0.0f, c.W)
-                        else
-                            c
-                    @>
-
-                let sg = 
-                    surface.sceneGraph 
+                let surfaceSg =
+                    surface.sceneGraph
                     |> Sg.pickable' (pickable (adaptive { return surface.globalBB }) (adaptive { return surface.trafo.previewTrafo }))
                     |> Sg.noEvents
                     |> Sg.withEvents [
                         SceneEventKind.Click, (
-                            fun (sceneHit : SceneHit) -> 
+                            fun (sceneHit : SceneHit) ->
                                 true, Seq.ofList [PickRimfaxSurface (surface.surface, traverseId, solNumber)])
-                        ] 
-                    |> Sg.uniform "selected" isSelected
-                    |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
+                        ]
+                    // imported RIMFAX surfaces always discard their white bands automatically
+                    |> Sg.uniform "WhiteDiscardEnabled"   (AVal.constant true)
+                    |> Sg.uniform "WhiteDiscardThreshold" (AVal.constant 0.9f)
+                    |> Sg.shader {
+                        do! DefaultSurfaces.stableTrafo
+                        do! DefaultSurfaces.diffuseTexture
+                        do! PRo3D.Base.OPCFilter.discardWhiteBands
+                    }
 
-                let sg = 
-                    isSelected
-                    |> AVal.map (fun s ->
-                        sg
-                        |> Sg.shader {
-                            do! DefaultSurfaces.stableTrafo
-                            do! DefaultSurfaces.diffuseTexture 
-                            if s then do! DefaultSurfaces.transformColor colorTransformationExpr
-                        }
-                    )
-                    |> Sg.dynamic
+                // bounding box drawn around the surface while it is selected
+                let boundingBox =
+                    Sg.wireBox (AVal.constant C4b.VRVisGreen) (AVal.constant surface.globalBB)
+                    |> Sg.noEvents
+                    |> Sg.shader {
+                        do! DefaultSurfaces.stableTrafo
+                        do! DefaultSurfaces.vertexColor
+                    }
+                    |> Sg.onOff isSelected
 
-                sg
+                Sg.ofList [surfaceSg; boundingBox]
 
             let getRimfaxImageModeFromPath (filePath : string) : option<string> =
                 let folders = Path.GetDirectoryName(filePath).Split(Path.DirectorySeparatorChar)
@@ -871,29 +871,34 @@ module TraverseApp =
             (view           : aval<CameraView>)
             (nearPlane      : aval<float>)
             (hfovInDegrees  : aval<float>)
-            (refsys         : AdaptiveReferenceSystem) 
+            (refsys         : AdaptiveReferenceSystem)
             (traverseModel  : AdaptiveTraverseModel)
             (filterPriority : aval<Option<int>>) // if Some, only render traverses with this priority
             (surfacePriorityExists : int -> aval<bool>)
-            = 
+            (priorityOverlayPass : bool) // None pass: true = on-top layer for priority-enabled traverses, false = depth-tested layer for the rest
+            =
             let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.rimfaxTraverses) traverseModel.waypointsTraverses
 
-            traverses 
-            |> AMap.filterA (fun k v -> 
-                (filterPriority, v.priority.value, v.priorityEnabled) 
-                |||> AVal.bind3 (fun filterPriority p enabled -> 
+            traverses
+            |> AMap.filterA (fun k v ->
+                (filterPriority, v.priority.value, v.priorityEnabled)
+                |||> AVal.bind3 (fun filterPriority p enabled ->
                     match filterPriority, enabled with
                     | Some priority, true-> // we have it priorities enabled and we are in a surface pass. check if this is the right prio
                         AVal.constant (int p = priority)
                     | Some _, false -> // we are in a surface pass here, but priorty rendering is not enabled => skip
                          AVal.constant false
-                    | None, true -> 
-                        // we are in overlay pass here.
-                        // but it has priority enabled -> it was already rendered with the surfaces?
-                        let surfaceExists = surfacePriorityExists (int p)
-                        surfaceExists |> AVal.map not // if it does not exist, render it now.
-                    | None, false ->  // we are in overlay pass here and prios are not enabled => we need to render it now.
-                        AVal.constant true
+                    | None, true ->
+                        // priority enabled traverse in the overlay (None) pass.
+                        // if a surface with this priority exists it was already drawn in the surface pass.
+                        // otherwise it has no surface layer to live in => draw it on top in the priority overlay pass.
+                        if priorityOverlayPass then
+                            let surfaceExists = surfacePriorityExists (int p)
+                            surfaceExists |> AVal.map not // if it does not exist, render it on top now.
+                        else
+                            AVal.constant false // handled by the priority overlay pass, not the depth-tested pass
+                    | None, false ->  // priority rendering disabled => render in the regular depth-tested overlay pass
+                        AVal.constant (not priorityOverlayPass)
                 )
             )
             |> AMap.map(fun id traverse ->

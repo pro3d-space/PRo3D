@@ -55,7 +55,7 @@ module UI =
             match i with
             | Projection.Linear     -> "Produces straight line segments as point-to-point connections with linear interpolation between them, no actual projection is performed."
             | Projection.Viewpoint  -> "Between two points the space is sampled by shooting additional rays to intersect with the surface."
-            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene’s up-vector."
+            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the sceneï¿½s up-vector."
             | _                     -> ""
 
         let thicknessTooltip = "Thickness of annotation"
@@ -66,8 +66,8 @@ module UI =
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
             Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
             Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
-            Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" false model.color |> UI.map ChangeColor; div [] [] ]
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip     
+            // annotation color now comes from the active group's default color, so the tool-level color picker was removed
+            Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
             Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
@@ -229,6 +229,10 @@ module UI =
                 staticClickIcon "bookmark outline icon" "Deselect All" (GroupsMessage(GroupsAppAction.SetSelection(path,false)))
 
                 staticClickIcon "calculator icon"       "Recalculate selected Polygon Measurements" (RecalculateMeasurements)
+
+                ColorPicker.view group.defaultColor
+                |> UI.map (fun a -> GroupsMessage(GroupsAppAction.SetGroupDefaultColor(path, a)))
+                |> UI.wrapToolTip DataPosition.Bottom "Default color for new annotations in this group"
             ]
            
         let itemAttributes =
@@ -290,13 +294,14 @@ module UI =
         | AdaptiveAnnotations a -> a
         | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveAnnotations'" |> failwith
 
-    let viewAnnotationGroups (model:AdaptiveDrawingModel) = 
-        let a = 
-          model.annotations.flat 
-            |> AMap.map(fun _ v -> v |> toAdaptiveAnnotation)              
-         
+    let viewAnnotationGroups (model:AdaptiveDrawingModel) =
+        let a =
+          model.annotations.flat
+            |> AMap.map(fun _ v -> v |> toAdaptiveAnnotation)
+
         require GuiEx.semui (
             let tree = viewTree [] model.annotations.rootGroup model.annotations a
             //Incremental.div (AttributeMap.ofList [clazz "ui list"]) ([])
             div [clazz "ui list"] [tree]
         )
+

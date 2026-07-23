@@ -70,13 +70,14 @@ module AnnotationGroupsImporter =
         
         let g = 
             {
-                version  = Node.current
-                key      = Guid.NewGuid()
-                name     = if name = "Measurements" then fileName + "_" + name else name
-                leaves   = annotations |> List.map(fun x -> x.id) |> IndexList.ofList
-                subNodes = nodes
-                visible  = visible
-                expanded = true
+                version      = Node.current
+                key          = Guid.NewGuid()
+                name         = if name = "Measurements" then fileName + "_" + name else name
+                leaves       = annotations |> List.map(fun x -> x.id) |> IndexList.ofList
+                subNodes     = nodes
+                visible      = visible
+                expanded     = true
+                defaultColor = Node.initialDefaultColor
             }
         
         (g, flat', lookUp')
@@ -152,6 +153,7 @@ module AnnotationGroupsImporter =
             subNodes = IndexList.empty
             visible  = true
             expanded = false
+            defaultColor = Node.initialDefaultColor
         }
 
     // Imports a single SBMT structure file as one annotation group.
@@ -220,6 +222,7 @@ module AnnotationGroupsImporter =
                         visible  = true
                         // Collapsed by default; same reason as the buckets.
                         expanded = false
+                        defaultColor = Node.initialDefaultColor
                     }
                 node, lookup
 

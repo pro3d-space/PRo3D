@@ -71,3 +71,17 @@ src\Aardvark.OpcViewer.psess
 *.fsproj.user
 Aardvark.log
 testbed-output/
+/__pycache__
+/profileDrawing/__pycache__
+
+# test run artifacts
+/Aardvark.log
+/logs/
+
+# Yarn (Berry) local state / cache
+**/.yarn/*
+!**/.yarn/patches
+!**/.yarn/releases
+!**/.yarn/plugins
+!**/.yarn/sdks
+!**/.yarn/versions

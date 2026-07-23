@@ -97,6 +97,9 @@
     <Compile Include="SceneObjectsApp.fs" />
     <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="GeologicSurfaceApp.fs" />
+    <Compile Include="CrossSection-Model.fs" />
+    <Compile Include="CrossSection-Model.g.fs" />
+    <Compile Include="CrossSectionApp.fs" />
     <Compile Include="Validator/HeightValidator-Model.fs" />
     <Compile Include="Validator/HeightValidator-Model.g.fs" />
     <Compile Include="Validator/HeightValidatorApp.fs" />

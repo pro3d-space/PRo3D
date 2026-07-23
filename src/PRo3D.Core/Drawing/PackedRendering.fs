@@ -748,8 +748,8 @@ module PackedRendering =
 
             let instancedUniforms =
                 Map.ofList [
-                    "ModelViewTrafo",    (typeof<M44d>,   AVal.map fst discModelViews)
-                    "ModelViewTrafoInv", (typeof<M44d>,   AVal.map snd discModelViews)
+                    "ModelViewTrafo",    (typeof<M44f>,   AVal.map fst discModelViews)
+                    "ModelViewTrafoInv", (typeof<M44f>,   AVal.map snd discModelViews)
                     "Color",             (typeof<C4b>,    colors        )
                 ]
 

@@ -509,8 +509,11 @@ type Annotation = {
                    
     semanticId     : SemanticId
     semanticType   : SemanticType
+
+    crossSectionClipping : bool
+    crossSectionRefPoint : Option<V3d>
 }
-with 
+with
     static member current = 5
     static member initialManualDipAngle = {
         value   = Double.NaN
@@ -586,6 +589,8 @@ with
                 bookmarkId       = None
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -648,6 +653,8 @@ with
                 bookmarkId       = None
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -710,6 +717,8 @@ with
                 bookmarkId       = None
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -775,6 +784,8 @@ with
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -841,6 +852,8 @@ with
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
                 ellipticResults  = None
+                crossSectionClipping = false
+                crossSectionRefPoint = None
             }
         }
 
@@ -881,12 +894,17 @@ with
             let! manualDipAngle = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAngle"
             let! manualDipAzimuth = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAzimuth"
 
-            let! ellipseProperties = Json.tryRead "ellipseResults" 
-            
+            let! ellipseProperties = Json.tryRead "ellipseResults"
+
+            let! crossSectionClipping = Json.tryRead "crossSectionClipping"
+            let! crossSectionRefPoint = Json.tryRead "crossSectionRefPoint"
+            let crossSectionRefPoint : Option<V3d> =
+                crossSectionRefPoint |> Option.map V3d.Parse
+
             return {
                 version          = Annotation.current
                 key              = key           |> Guid.Parse
-                modelTrafo       = modelTrafo    |> Trafo3d.Parse        
+                modelTrafo       = modelTrafo    |> Trafo3d.Parse
                 geometry         = geometry      |> enum<Geometry>
                 projection       = projection    |> enum<Projection>
                 semantic         = semantic      |> enum<Semantic>
@@ -910,10 +928,12 @@ with
                 bookmarkId       = bookmarkId
                 referenceSystem  = None
                 ellipticResults  = ellipseProperties
+                crossSectionClipping = crossSectionClipping |> Option.defaultValue false
+                crossSectionRefPoint = crossSectionRefPoint
             }
         }
 
-    static member FromJson(_:Annotation) = 
+    static member FromJson(_:Annotation) =
         json {
             let! v = Json.read "version"
             match v with
@@ -963,8 +983,13 @@ with
             
             match x.ellipticResults with
             | None -> ()
-            | Some e -> 
+            | Some e ->
                 do! Json.write "ellipseResults" x.ellipticResults
+
+            do! Json.write "crossSectionClipping" x.crossSectionClipping
+            match x.crossSectionRefPoint with
+            | Some rp -> do! Json.write "crossSectionRefPoint" (rp.ToString())
+            | None -> ()
         }
 
 module Annotation =
@@ -1046,6 +1071,8 @@ module Annotation =
             bookmarkId       = bookmarkId
             referenceSystem  = referenceSystem
             ellipticResults  = None
+            crossSectionClipping = false
+            crossSectionRefPoint = None
         }
 
     let initial =

@@ -1,3 +1,33 @@
+## 6.0.0-prerelease4
+- Drawing: added undo/redo support for drawing/annotation edits, including a fix for scenes created before this feature
+- Groups: annotations now default to their group's color; removed the redundant top-menu annotation color picker
+- Cross sections: added a file dialog for choosing a cross-section image
+- RIMFAX: reworked surface selection visualization and added priority rendering so RIMFAX and rover traverse render correctly relative to each other; white-band discard for RIMFAX imagery moved to the traverse section
+- Fixed the DnS (Drift and Stare) plane, which had stopped rendering
+
+## 6.0.0-prerelease3
+- Snapshots: fixed "could not find PRo3D.Snapshots.exe" — the snapshot/panorama renderer is now resolved beside the running executable and launched with that working directory (previously a relative path failed because SPICE init leaves the process working directory in the kernel config folder)
+
+## 6.0.0-prerelease2
+- Dashboards: default to the M2020 docking layout (includes the Traverse panel) and added "M2020" to the Change Mode menu so it can be selected
+
+## 6.0.0-prerelease1
+- Apple Silicon: native macOS arm64 builds — PRo3D now runs natively on M-series Macs (no Rosetta), alongside Intel macOS, Windows and Linux
+- SPICE: updated to PRo3D.SPICE 1.0.9 with native CooTransformation/cspice libraries for macOS arm64
+- Build/release: unified the GitHub draft release so the standalone zip and the installers share one draft, with consistent v-prefixed tags and commit provenance
+
+## 5.9.0-prerelease1
+- **Cross sections (experimental preview).** Place a cross section from a line annotation and render an extruded "curtain" along it. This is a preview feature; its model and UI may still change.
+  - curtain: surface-relative texture mapping, smoother cross-section clip edge, adjustable base colour, and a button to remove a placed cross section
+- Traverse: added a "Fast Text" toggle for sol-number labels — fast batched billboards (default) or numerically stable per-label rendering that does not jitter at distance
+- Surface distance filter: fixed — it previously clipped the entire surface and ignored the distance value; now works correctly in stable view space
+- Sequenced bookmarks: fixed a crash (NullReferenceException) when playing a sequence containing bookmarks with identical / coincident camera positions
+- Camera & picking: fixed surface picks and placements firing while navigating — e.g. placing a coordinate system and then orbiting no longer re-places it
+- OBJ surfaces: added a white-pixel discard render stage (with GUI checkbox) and a threshold modifier in surface properties
+- removed debug logging that spammed the console during animation
+
+## 5.6.0-prerelease2
+- added cross sections
 ## 5.7.0-prerelease1
 - MapView camera controller (overview mode)
 - Profile data extraction / multi-attribute export

@@ -9,10 +9,12 @@ let allTests () : Test =
     // which shows up as spurious None results depending on schedule. Sequence the
     // whole suite; per-list testSequenced is not enough, lists still interleave.
     testSequenced <| testList "all tests" [
+        // kernel-independent tests (use only the default SPICE kernels)
         GeoJsonRework.Tests.tests()
+        SpiceTests.tests()
         TriangleSetTests.tests()
 
-        // requires spice kernels
+        // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
 
         // skipped automatically when fixtures under C:\pro3ddata are absent
@@ -25,8 +27,9 @@ let allTests () : Test =
         // (SPICE(DAFNOSUCHHANDLE) on SPK/CK reads; text-kernel frames keep working).
         // Order the plan-kernel tests before the comparison tests, whose concurrency
         // test churns several extra swaps -- and report the DeInit issue upstream.
-        DidymosProjectionSpiceTest.tests()
-        InstrumentProjectionComparisonTest.tests()
+        if HeraSpiceTests.hasHera then
+            DidymosProjectionSpiceTest.tests()
+            InstrumentProjectionComparisonTest.tests()
     ]
 
 let profileTests (parameters : TestUtils.TestParameters) : Test =
@@ -62,7 +65,9 @@ let parseArgs (args : string array) =
 
 [<EntryPoint>]
 let main args =
-    let config = parseArgs args
+    // --skip-hera is consumed by HeraSpiceTests via the process command line;
+    // strip it so Expecto doesn't reject it as an unknown argument.
+    let config = parseArgs (args |> Array.filter (fun a -> a <> "--skip-hera"))
 
     let parameters : TestUtils.TestParameters = { testDataSource = config.testDataSource }
 

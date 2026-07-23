@@ -23,6 +23,14 @@ let spiceRoot = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..")
 let spiceFileName = Path.Combine(spiceRoot, "spice", "kernels", "mk", "hera_ops.tm")
 let private mkDir = Path.Combine(spiceRoot, "spice", "kernels", "mk")
 
+// HERA tests need the (non-public) HERA mission kernels. They self-skip when
+// those are absent (e.g. in CI), or when --skip-hera is passed (runTests uses
+// this for a deterministic kernel-free run). Kernel-independent SPICE coverage
+// lives in SpiceTests.fs and always runs. (Adopted from releases/6.0.0.)
+let private skipHeraRequested =
+    Environment.GetCommandLineArgs() |> Array.contains "--skip-hera"
+let hasHera = File.Exists spiceFileName && not skipHeraRequested
+
 do Aardvark.Base.Aardvark.UnpackNativeDependencies(typeof<CooTransformation.RelState>.Assembly)
 
 let init () =
@@ -182,6 +190,13 @@ let heraSpecificTests () =
 
 
 let tests () =
+    if not hasHera then
+        testList "init" [
+            test "heraKernelsAvailable" {
+                skiptest (sprintf "HERA spice kernels not found at %s (or --skip-hera) -- skipping HERA-specific tests" spiceFileName)
+            }
+        ]
+    else
     testList "init" [
         test "InitDeInit" {
             let i = init()

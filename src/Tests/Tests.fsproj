@@ -22,6 +22,7 @@
 	<None Include="Annotations\annotation_1_xyz_latlon.json" />
     <Compile Include="TestUtils.fs" />
     <Compile Include="GeoJsonExportTest.fs" />
+    <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />
     <None Include="data\AF2_0CO72A_250311T025652_1B.mbi.json" />

@@ -32,6 +32,7 @@ type GroupsAppAction =
     | ToggleGroup           of list<Index>
     | SetVisibility         of path : list<Index> * isVisible : bool
     | SetSelection          of path : list<Index> * isSelected : bool
+    | SetGroupDefaultColor  of path : list<Index> * action : ColorPicker.Action
     | MoveLeaves      
     | AddAndSelectGroup     of list<Index> * Node
     | ClearSnapshotsGroup
@@ -280,15 +281,16 @@ module GroupsApp =
             }
             
     let createEmptyGroup () = 
-        {    
-            version   = Node.current
-            name      = "newGroup" 
-            key       = Guid.NewGuid()
-            leaves    = IndexList.Empty
-            subNodes  = IndexList.Empty
-            visible   = true
-            expanded  = true
-        }    
+        {
+            version      = Node.current
+            name         = "newGroup"
+            key          = Guid.NewGuid()
+            leaves       = IndexList.Empty
+            subNodes     = IndexList.Empty
+            visible      = true
+            expanded     = true
+            defaultColor = Node.initialDefaultColor
+        }
 
     let clearGroupAtRoot (model : GroupsModel) (groupName : string) =
         let node = 
@@ -536,7 +538,10 @@ module GroupsApp =
             if isSelected then
                 { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
             else
-                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }              
+                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }
+        | SetGroupDefaultColor (p, a) ->
+            let func = fun (x:Node) -> { x with defaultColor = ColorPicker.update x.defaultColor a }
+            { model with rootGroup = updateNodeAt p func model.rootGroup }
         | MoveLeaves  -> 
             moveChildren model
         | ClearSelection ->

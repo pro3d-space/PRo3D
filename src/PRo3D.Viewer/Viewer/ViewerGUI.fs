@@ -652,6 +652,7 @@ module Gui =
                                 annotationMenu |> UI.map DrawingMessage;   
                                 subMenu "Change Mode"
                                         [
+                                          menuItem "M2020" (ChangeDashboardMode DashboardModes.m2020)
                                           menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
                                           menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
                                           menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
@@ -1008,6 +1009,9 @@ module Gui =
                     GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
                     Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
+                ]
+                GuiEx.accordion "Curtain Settings" "Expand" false [
+                    CrossSectionApp.viewCurtainSettings m.scene.crossSectionModel |> UI.map CrossSectionMessage
                 ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))

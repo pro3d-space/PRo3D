@@ -1,0 +1,10 @@
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Debug]: Initialized log file: "C:\Users\haral\Desktop\pro3d\pro3d-6\src\Tests\logs\probe_unload.log"
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Info]: Initializing SPICE toolkit version 'CSPICE_N0067'.
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Trace]: Init() finished.
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Trace]: AddSpiceKernel() called with spice kernel path = "C:\Users\haral\Desktop\pro3d\spice\kernels\mk\hera_ops.tm".
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Info]: Loaded CSpice Kernel "C:\Users\haral\Desktop\pro3d\spice\kernels\mk\hera_ops.tm".
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Trace]: AddSpiceKernel() finished.
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Trace]: GetPositionTransformationMatrix() called with from = "IAU_MARS", to = "HERA_HSH".
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Trace]: Str2Et() called with timestamp = "2025-03-12T06:20:00.375Z".
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Trace]: Str2Et() finished with et = 795032469.560533
+[2026-07-07T15:08:20.+0200W. Europe Daylight Time] [Trace]: GetPositionTransformationMatrix() finished with rot = (-0.914160, -0.371744, 0.161609, -0.266092, 0.249581, -0.931077, 0.305788, -0.894156, -0.327075).

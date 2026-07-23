@@ -301,7 +301,6 @@ __metadata:
     electron: "npm:18.3.15"
     electron-builder: "npm:^23.0.3"
     electron-localshortcut: "npm:^3.2.1"
-    folder-zip-sync: "npm:^1.0.5"
     jquery: "npm:^3.5.1"
     node-getopt: "npm:^0.3.2"
     node-shared-mem: "npm:1.0.12"
@@ -520,7 +519,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bindings@npm:^1.5.0, bindings@npm:~1.5.0":
+"bindings@npm:~1.5.0":
   version: 1.5.0
   resolution: "bindings@npm:1.5.0"
   dependencies:
@@ -889,16 +888,6 @@ __metadata:
     shebang-command: "npm:^2.0.0"
     which: "npm:^2.0.1"
   checksum: 10c0/053ea8b2135caff68a9e81470e845613e374e7309a47731e81639de3eaeb90c3d01af0e0b44d2ab9d50b43467223b88567dfeb3262db942dc063b9976718ffc1
-  languageName: node
-  linkType: hard
-
-"deasync@npm:^0.1.9":
-  version: 0.1.30
-  resolution: "deasync@npm:0.1.30"
-  dependencies:
-    bindings: "npm:^1.5.0"
-    node-addon-api: "npm:^1.7.1"
-  checksum: 10c0/5bf6fab59695c706960793328da19d07afcc200cdcf64de85e7d15eb8ed237768a51e0331af995a07b8673ac004e9d5c690daa747dc3100895201b2fff5911c4
   languageName: node
   linkType: hard
 
@@ -1354,18 +1343,6 @@ __metadata:
   dependencies:
     minimatch: "npm:^5.0.1"
   checksum: 10c0/426b1de3944a3d153b053f1c0ebfd02dccd0308a4f9e832ad220707a6d1f1b3c9784d6cadf6b2f68f09a57565f63ebc7bcdc913ccf8012d834f472c46e596f41
-  languageName: node
-  linkType: hard
-
-"folder-zip-sync@npm:^1.0.5":
-  version: 1.0.5
-  resolution: "folder-zip-sync@npm:1.0.5"
-  dependencies:
-    deasync: "npm:^0.1.9"
-    yazl: "npm:^2.4.2"
-  bin:
-    folder-zip-sync: cli.js
-  checksum: 10c0/5f4962a2b7cb4169fa9149aa1372202746fb9f65e944a2bbb00f8afda56f565222805c1574d6679697e371e15e7b2341c4b7cc4928ef51580a394b95cfd694f3
   languageName: node
   linkType: hard
 
@@ -2254,7 +2231,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-addon-api@npm:^1.6.3, node-addon-api@npm:^1.7.1":
+"node-addon-api@npm:^1.6.3":
   version: 1.7.2
   resolution: "node-addon-api@npm:1.7.2"
   dependencies:
@@ -3135,14 +3112,5 @@ __metadata:
     buffer-crc32: "npm:~0.2.3"
     fd-slicer: "npm:~1.1.0"
   checksum: 10c0/f265002af7541b9ec3589a27f5fb8f11cf348b53cc15e2751272e3c062cd73f3e715bc72d43257de71bbaecae446c3f1b14af7559e8ab0261625375541816422
-  languageName: node
-  linkType: hard
-
-"yazl@npm:^2.4.2":
-  version: 2.5.1
-  resolution: "yazl@npm:2.5.1"
-  dependencies:
-    buffer-crc32: "npm:~0.2.3"
-  checksum: 10c0/61a14fcf47246f1a667509809e1034d9548ef7a57cec94bc0395fa0ba74beaa6a412783b99ae59ee33e26e611929b909734f0aa5d1b32f811b206917f85fe87a
   languageName: node
   linkType: hard

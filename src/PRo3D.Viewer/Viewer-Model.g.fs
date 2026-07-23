@@ -1,5 +1,5 @@
-//7dff028f-3065-3ed4-6df2-d92442765bdc
-//be9a2514-9997-5277-4c50-8d780f256f58
+﻿//5a0851b5-7ede-7845-5bcc-5bce88c611c3
+//0c537f1c-d451-16f4-b0c1-6b5730b3ebd9
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -36,6 +36,7 @@ type AdaptiveScene(value : Scene) =
     let _sequencedBookmarks_ = PRo3D.Core.SequencedBookmarks.AdaptiveSequencedBookmarks(value.sequencedBookmarks)
     let _screenshotModel_ = PRo3D.SimulatedViews.AdaptiveScreenshotModel(value.screenshotModel)
     let _gisApp_ = PRo3D.Core.Gis.AdaptiveGisApp(value.gisApp)
+    let _crossSectionModel_ = PRo3D.Core.AdaptiveCrossSectionModel(value.crossSectionModel)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Scene) = AdaptiveScene(value)
@@ -68,6 +69,7 @@ type AdaptiveScene(value : Scene) =
             _sequencedBookmarks_.Update(value.sequencedBookmarks)
             _screenshotModel_.Update(value.screenshotModel)
             _gisApp_.Update(value.gisApp)
+            _crossSectionModel_.Update(value.crossSectionModel)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.cameraView = _cameraView_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
@@ -93,6 +95,7 @@ type AdaptiveScene(value : Scene) =
     member __.sequencedBookmarks = _sequencedBookmarks_
     member __.screenshotModel = _screenshotModel_
     member __.gisApp = _gisApp_
+    member __.crossSectionModel = _crossSectionModel_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SceneLenses = 
     type Scene with
@@ -120,6 +123,7 @@ module SceneLenses =
         static member sequencedBookmarks_ = ((fun (self : Scene) -> self.sequencedBookmarks), (fun (value : PRo3D.Core.SequencedBookmarks.SequencedBookmarks) (self : Scene) -> { self with sequencedBookmarks = value }))
         static member screenshotModel_ = ((fun (self : Scene) -> self.screenshotModel), (fun (value : PRo3D.SimulatedViews.ScreenshotModel) (self : Scene) -> { self with screenshotModel = value }))
         static member gisApp_ = ((fun (self : Scene) -> self.gisApp), (fun (value : PRo3D.Core.Gis.GisApp) (self : Scene) -> { self with gisApp = value }))
+        static member crossSectionModel_ = ((fun (self : Scene) -> self.crossSectionModel), (fun (value : PRo3D.Core.CrossSectionModel) (self : Scene) -> { self with crossSectionModel = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveRecent(value : Recent) =
     let _recentScenes_ = FSharp.Data.Adaptive.cval(value.recentScenes)

@@ -16,14 +16,20 @@ jobs:
     strategy:
         fail-fast: false
         matrix:
-            os: [ubuntu-latest, windows-latest, macos-latest]
+            os: [ubuntu-latest, windows-latest, macos-15-intel, macos-15]
             include:
               - os: ubuntu-latest
                 run-build: sh ./build.sh
+                run-tests: bash ./runTests.sh
               - os: windows-latest
                 run-build: .\build.cmd
-              - os: macos-latest
+                run-tests: .\runTests.cmd
+              - os: macos-15-intel
                 run-build: bash ./build.sh
+                run-tests: bash ./runTests.sh
+              - os: macos-15
+                run-build: bash ./build.sh
+                run-tests: bash ./runTests.sh
     steps:
     - uses: actions/checkout@v4
     - name: Install Dotnet
@@ -32,3 +38,6 @@ jobs:
         global-json-file: global.json
     - name: Build
       run: ${{ matrix.run-build }}
+    # kernel-independent tests (HERA tests skip themselves via --skip-hera)
+    - name: Test
+      run: ${{ matrix.run-tests }}

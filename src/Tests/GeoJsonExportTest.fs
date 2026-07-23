@@ -12,6 +12,7 @@ module Tests =
 
     open System
     open System.IO
+    open System.Text.Json
 
     open Expecto
 
@@ -47,6 +48,42 @@ module Tests =
             Some(V3d(lat, lon, alt))
 
 
+    // Coordinates are computed by the CooTransformation native lib and differ in
+    // the last digits across platforms (libm), so an exact string compare of the
+    // serialized JSON is not portable. Compare the JSON structurally instead,
+    // with a numeric tolerance on values.
+    let private numbersClose (a: float) (b: float) =
+        abs (a - b) <= 1e-6 + 1e-7 * max (abs a) (abs b)
+
+    let rec private diffJson (path: string) (a: JsonElement) (b: JsonElement) : string option =
+        match a.ValueKind, b.ValueKind with
+        | JsonValueKind.Object, JsonValueKind.Object ->
+            let keys (e: JsonElement) = e.EnumerateObject() |> Seq.map (fun p -> p.Name) |> Set.ofSeq
+            let ka, kb = keys a, keys b
+            if ka <> kb then Some (sprintf "%s: object keys differ (%A vs %A)" path ka kb)
+            else ka |> Seq.tryPick (fun k -> diffJson (path + "/" + k) (a.GetProperty k) (b.GetProperty k))
+        | JsonValueKind.Array, JsonValueKind.Array ->
+            let aa = a.EnumerateArray() |> Seq.toArray
+            let ba = b.EnumerateArray() |> Seq.toArray
+            if aa.Length <> ba.Length then Some (sprintf "%s: array length %d vs %d" path aa.Length ba.Length)
+            else Seq.init aa.Length id |> Seq.tryPick (fun i -> diffJson (sprintf "%s[%d]" path i) aa.[i] ba.[i])
+        | JsonValueKind.Number, JsonValueKind.Number ->
+            let na, nb = a.GetDouble(), b.GetDouble()
+            if numbersClose na nb then None else Some (sprintf "%s: number %.12g vs %.12g" path na nb)
+        | JsonValueKind.String, JsonValueKind.String ->
+            if a.GetString() = b.GetString() then None
+            else Some (sprintf "%s: string %A vs %A" path (a.GetString()) (b.GetString()))
+        | ka, kb when ka = kb -> None   // True / False / Null
+        | ka, kb -> Some (sprintf "%s: kind %A vs %A" path ka kb)
+
+    /// assert two JSON strings are equal up to a numeric tolerance on values
+    let private expectJsonClose (actual: string) (expected: string) (msg: string) =
+        use da = JsonDocument.Parse actual
+        use de = JsonDocument.Parse expected
+        match diffJson "$" da.RootElement de.RootElement with
+        | None -> ()
+        | Some diff -> failtestf "%s: %s" msg diff
+
     let tests () =
 
         let isSelected = fun _ -> false
@@ -74,7 +111,7 @@ module Tests =
                 let groundTruth = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "Annotations", "annotation_1_xyz_latlon.json"))
                 let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
                 let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.Both "Mars") isSelected flattedAnnotations
-                Expect.equal parsedAnnotation groundTruth "could not serialize annotations"
+                expectJsonClose parsedAnnotation groundTruth "could not serialize annotations"
             }
 
             test "SerializeIncome Cartesian" {
@@ -82,7 +119,7 @@ module Tests =
                 let groundTruth = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "Annotations", "annotation_1_xyz.json"))
                 let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
                 let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.CartesianOnly) isSelected flattedAnnotations
-                Expect.equal parsedAnnotation groundTruth "could not serialize annotations"
+                expectJsonClose parsedAnnotation groundTruth "could not serialize annotations"
             }
 
             test "SerializeIncome Geographic" {
@@ -90,6 +127,6 @@ module Tests =
                 let groundTruth = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "Annotations", "annotation_1_latlon.json"))
                 let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
                 let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.GeographicOnly "Mars") isSelected flattedAnnotations
-                Expect.equal parsedAnnotation groundTruth "could not serialize annotations"
+                expectJsonClose parsedAnnotation groundTruth "could not serialize annotations"
             }
         ]
