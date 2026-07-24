@@ -160,16 +160,22 @@ module ImageProjection =
 
                 // cross edge1 edge2 (not edge2 edge1): the reversed order pointed the
                 // normal into the body for OPC winding, failing the normal.Z < 0 test.
-                let raw = Vec.cross edge1 edge2 |> Vec.normalize
-
-                // The sign still follows the dataset's winding, which two OPCs can disagree
-                // on. It is estimated once per dataset on the CPU (OpcSg.estimateNormalFlip)
-                // and passed as NormalFlip. Unset = 0 = no flip = historical behaviour.
-                let normal = if uniform.NormalFlip > 0.5f then -raw else raw
+                let normal = Vec.cross edge1 edge2 |> Vec.normalize
 
                 yield { t.P0 with localNormal = normal; i = 0 }
                 yield { t.P1 with localNormal = normal; i = 1 }
                 yield { t.P2 with localNormal = normal; i = 2 }
+            }
+
+        // Optional per-dataset winding correction, composed AFTER generateNormal only
+        // where NormalFlip is bound (the projection testbed). NormalFlip's sign still
+        // follows the source data's triangle winding, which two OPCs can disagree on; it
+        // is estimated once per dataset on the CPU (OpcSg.estimateNormalFlip). Kept out of
+        // generateNormal itself because that shader is in the main viewer's always-on OPC
+        // effect stack, where an unbound uniform makes FShade throw.
+        let applyNormalFlip (v : NormalVertex) =
+            vertex {
+                return { v with localNormal = if uniform.NormalFlip > 0.5f then -v.localNormal else v.localNormal }
             }
 
         let useVertexNormals (v : NormalVertex) =

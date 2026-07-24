@@ -326,9 +326,6 @@ module TestViewer =
         let planets =
             Rendering.bodiesVisualization referenceFrame supportBody (bodies |> AMap.toASetValues |> ASet.map (fun b -> b.name)) getRenderingParameters observer time wrapModel
             |> Sg.uniform' "SunLightEnabled" true
-            // These spheres are outward-wound, so no flip: generateNormal reads NormalFlip
-            // and defaults to 0, but bind it explicitly so the intent is on the record.
-            |> Sg.uniform' "NormalFlip" 0.0
             |> Sg.shader {
                 do! Shaders.planetLocalLightingViewSpace
                 do! ImageProjection.Shaders.stableImageProjectionTrafo
@@ -415,14 +412,18 @@ module TestViewer =
                 do! Shaders.planetLocalLightingViewSpace
                 do! ImageProjection.Shaders.stableImageProjectionTrafo
                 do! ImageProjection.Shaders.generateNormal
+                // OPC hierarchies come from OpcSg.build, which binds NormalFlip per
+                // dataset for the winding correction.
+                do! ImageProjection.Shaders.applyNormalFlip
                 do! Shaders.stableTrafo
-                do! DefaultSurfaces.constantColor C4f.White 
-                do! DefaultSurfaces.diffuseTexture 
+                do! DefaultSurfaces.constantColor C4f.White
+                do! DefaultSurfaces.diffuseTexture
                 do! Shaders.solarLighting
                 do! ImageProjection.Shaders.localImageProjections
                 do! ImageProjection.Shaders.stableImageProjection
                 //do! Shader.LoDColor 
             }
+            |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
             |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
             |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant defaultSecondaryTextureId)
             |> Sg.uniform "LodVisEnabled" (cval false)

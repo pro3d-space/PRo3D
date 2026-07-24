@@ -39,6 +39,7 @@ let private applyProjectionShaders (flipNormals : bool) (sg : ISg) =
     |> Sg.shader {
         do! ImageProjection.Shaders.stableImageProjectionTrafo
         do! ImageProjection.Shaders.generateNormal
+        do! ImageProjection.Shaders.applyNormalFlip
         if flipNormals then
             do! ImageProjection.Shaders.flipNormals
         do! PRo3D.SPICE.Shaders.stableTrafo
@@ -66,6 +67,7 @@ let private applyShadingShaders (mode : ShadeMode) (sg : ISg) =
     |> Sg.shader {
         do! ImageProjection.Shaders.stableImageProjectionTrafo
         do! ImageProjection.Shaders.generateNormal
+        do! ImageProjection.Shaders.applyNormalFlip
         do! PRo3D.SPICE.Shaders.stableTrafo
         match mode with
         | AsComputed  -> do! Shading.sunDiffuse
@@ -85,6 +87,7 @@ let private applyAngleShaders (mode : ShadeMode) (sg : ISg) =
     |> Sg.shader {
         do! ImageProjection.Shaders.stableImageProjectionTrafo
         do! ImageProjection.Shaders.generateNormal
+        do! ImageProjection.Shaders.applyNormalFlip
         do! PRo3D.SPICE.Shaders.stableTrafo
         match mode with
         | AngleEmission -> do! Shading.angleEmission
@@ -316,6 +319,9 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
         // The OPC shaders inherit FootprintVP / secondary-texture attributes whether or
         // not this tool uses them; without these the Ag lookup throws at CompileRender.
         |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
+        // Cross-section clipping (added in releases/6.0.0) is another OPC-surface Ag
+        // attribute; without it CompileRender throws "could not get inh CrossSectionData".
+        |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
         |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId
             (AVal.constant (Some { texture = TextureReference.LegacyId 0
                                    channel = ChannelReference.NoChannelSelection }))
