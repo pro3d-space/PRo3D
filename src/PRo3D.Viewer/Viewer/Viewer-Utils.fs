@@ -29,13 +29,6 @@ open PRo3D.InstrumentVisualization
 module ViewerUtils =    
     type Self = Self
 
-    let mapRenderCommand rc =
-        match rc with
-            | SceneGraph sg -> 
-                RenderCommand.SceneGraph (sg |> Sg.map ViewerMessage)
-            | RenderCommand.Clear (a,b,c) -> 
-                RenderCommand<ViewerAnimationAction>.Clear (a,b,c)
-
     let mapAttribute (f : 'msg -> 'newmsg) (a : Attribute<'msg>) =
         let (str, a) = a
         let avalue = AttributeValue.map f a
@@ -1365,14 +1358,15 @@ module ViewerUtils =
 
 
         alist {                    
-            for sg in grouped do  
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-                yield RenderCommand.SceneGraph sg
+            for sg in grouped do
+                yield RenderCommand<_>.ClearDepth 1.0
+                yield RenderCommand<_>.ClearDepth 1.0
+                yield RenderCommand<_>.Render sg
 
-            yield RenderCommand.SceneGraph (depthTested)
-            yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+            yield RenderCommand<_>.Render depthTested
+            yield RenderCommand<_>.ClearDepth 1.0
 
-            yield RenderCommand.SceneGraph overlayed
+            yield RenderCommand<_>.Render overlayed
 
         }
 

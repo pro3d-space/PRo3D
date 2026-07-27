@@ -742,8 +742,11 @@ module Gui =
                                         
 
                                         //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
-                                        div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
-                                            text "Send log to maintainers"
+                                        div [clazz "ui item"; clientEvent "onclick" "aardvark.showReportDialog?.()"] [ // server-mode (i.e. deploy version) only
+                                            text "Report Issue"
+                                        ]
+                                        div [clazz "ui item"; clientEvent "onclick" "aardvark.showLogViewer?.()"] [ // server-mode (i.e. deploy version) only
+                                            text "View Log"
                                         ]
                                         a [style "visibility:hidden"; clazz "invisibleCrashButton"] []
 
@@ -1258,9 +1261,9 @@ module Gui =
     //TODO refactor: two codes for resize attachments
     module Pages =
         let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
-        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
+        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) (request : IHttpRequest) =
             
-            match Map.tryFind "page" request.queryParams with
+            match request.QueryParam "page" with
             | Some "instrumentview" ->
                 let id = System.Guid.NewGuid().ToString()
 

@@ -31,13 +31,27 @@ jobs:
                 run-build: bash ./build.sh
                 run-tests: bash ./runTests.sh
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Dotnet
-      uses: actions/setup-dotnet@v4
-      with:
-        global-json-file: global.json
-    - name: Build
-      run: ${{ matrix.run-build }}
-    # kernel-independent tests (HERA tests skip themselves via --skip-hera)
-    - name: Test
-      run: ${{ matrix.run-tests }}
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Build
+        run: ${{ matrix.run-build }}
+
+      # kernel-independent tests (HERA tests skip themselves via --skip-hera)
+      - name: Test
+        run: ${{ matrix.run-tests }}

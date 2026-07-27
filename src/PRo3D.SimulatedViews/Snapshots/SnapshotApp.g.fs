@@ -1,5 +1,5 @@
-//dd8b3ed4-09e8-1781-4321-d72abbab2007
-//2cd279cd-1d6f-a673-b71e-edd330c1a64e
+//b8dbe1f5-fc20-cd8d-0a37-4ba2e6030c90
+//cce1eb64-f7b8-bec2-c93a-3b87fe72bf67
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -44,7 +44,7 @@ type AdaptiveSnapshotApp<'model, '_primmodel, '_amodel, 'aModel, '_primaModel, '
             _renderDepth_.Value <- value.renderDepth
             _verbose_.Value <- value.verbose
     member __.Current = __adaptive
-    member __.mutableApp = _mutableApp_ :> FSharp.Data.Adaptive.aval<Aardvark.UI.MutableApp<'model, 'msg>>
+    member __.mutableApp = _mutableApp_ :> FSharp.Data.Adaptive.aval<Aardvark.UI.MutableApp<'model, 'aModel, 'msg>>
     member __.adaptiveModel = _aModelview _adaptiveModel_
     member __.sg = _sg_ :> FSharp.Data.Adaptive.aval<Aardvark.SceneGraph.ISg>
     member __.snapshotAnimation = _snapshotAnimation_ :> FSharp.Data.Adaptive.aval<SnapshotAnimation>
@@ -59,7 +59,7 @@ type AdaptiveSnapshotApp<'model, '_primmodel, '_amodel, 'aModel, '_primaModel, '
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SnapshotAppLenses = 
     type SnapshotApp<'model, 'aModel, 'msg> with
-        static member mutableApp_ = ((fun (self : SnapshotApp<'model, 'aModel, 'msg>) -> self.mutableApp), (fun (value : Aardvark.UI.MutableApp<'model, 'msg>) (self : SnapshotApp<'model, 'aModel, 'msg>) -> { self with mutableApp = value }))
+        static member mutableApp_ = ((fun (self : SnapshotApp<'model, 'aModel, 'msg>) -> self.mutableApp), (fun (value : Aardvark.UI.MutableApp<'model, 'aModel, 'msg>) (self : SnapshotApp<'model, 'aModel, 'msg>) -> { self with mutableApp = value }))
         static member adaptiveModel_ = ((fun (self : SnapshotApp<'model, 'aModel, 'msg>) -> self.adaptiveModel), (fun (value : 'aModel) (self : SnapshotApp<'model, 'aModel, 'msg>) -> { self with adaptiveModel = value }))
         static member sg_ = ((fun (self : SnapshotApp<'model, 'aModel, 'msg>) -> self.sg), (fun (value : Aardvark.SceneGraph.ISg) (self : SnapshotApp<'model, 'aModel, 'msg>) -> { self with sg = value }))
         static member snapshotAnimation_ = ((fun (self : SnapshotApp<'model, 'aModel, 'msg>) -> self.snapshotAnimation), (fun (value : SnapshotAnimation) (self : SnapshotApp<'model, 'aModel, 'msg>) -> { self with snapshotAnimation = value }))

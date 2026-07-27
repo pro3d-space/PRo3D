@@ -3,9 +3,6 @@
 open System
 open System.IO
 
-open Aardvark.Service
-
-
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Rendering
@@ -66,7 +63,7 @@ module App =
                       (mousePos : aval<Option<V2i>>)
                       (emit : Message -> unit) = 
             let scene = 
-                Scene.custom (fun (values : ClientValues) -> 
+                Scene.custom (fun (values : RenderClientValues) ->
            
                     let cam = 
                         (values.size, cam) 
@@ -301,7 +298,7 @@ module App =
 
             let scene = renderToScene model.background camera createSgs model.mousePos emit 
 
-            DomNode.RenderControl(attributes, camera, scene, None)
+            DomNode.RenderControl(attributes, camera, scene)
             
 
         renderControl
@@ -364,7 +361,7 @@ module App =
         require dependencies (
             body [style "margin : 0; height: 100%; overflow: hidden"] [
                 page (fun request -> 
-                    match Map.tryFind "view" request.queryParams with
+                    match request.QueryParam "view" with
                     | Some "lite" -> 
                         div [style "width: 100%; height: 100%"] [renderControl]
                     | _ -> 

@@ -30,7 +30,7 @@ type NearFarRecalculation =
 type SnapshotApp<'model,'aModel, 'msg> =
   {
     /// the app that is used to create the scenegraph that should be rendered; snapshot updates will be applied to this app
-    mutableApp           : MutableApp<'model, 'msg>
+    mutableApp           : MutableApp<'model, 'aModel, 'msg>
     /// the adaptive model associated with the mutable app
     adaptiveModel        : 'aModel
     // the sg (including camera) to be rendered 
@@ -156,7 +156,7 @@ module SnapshotApp =
                     DefaultSemantic.DepthStencil, depth.GetOutputView()
                 ]
             ) |> OutputDescription.ofFramebuffer
-        app.mutableApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)
+        app.mutableApp.UpdateSync(Guid.NewGuid(), app.getAnimationActions app.snapshotAnimation)
 
         let snapshots =
             let id, count =
@@ -209,7 +209,7 @@ module SnapshotApp =
             let fullPathName = Path.combine [app.outputFolder;snapshot.filename]
             let actions = (app.getSnapshotActions (Snapshot.Surface snapshot) recalcOption fullPathName)
             if app.verbose then Log.line "[Snapshots] Updating parameters for next frame."
-            app.mutableApp.updateSync (Guid.NewGuid ()) actions 
+            app.mutableApp.UpdateSync(Guid.NewGuid(), actions)
 
             // write json file with camera params output
             let wjs = 
@@ -248,7 +248,7 @@ module SnapshotApp =
                             |> Seq.map string
                             |> Seq.reduce (fun a b -> sprintf "%s %s" a b)
                           )
-        app.mutableApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)
+        app.mutableApp.UpdateSync(Guid.NewGuid(), app.getAnimationActions app.snapshotAnimation)
 
         let (size, depth) = 
             match app.renderDepth with 
@@ -277,7 +277,7 @@ module SnapshotApp =
                                 |> Seq.map string
                                 |> Seq.reduce (fun a b -> sprintf "%s %s" a b))
                           
-            app.mutableApp.updateSync (Guid.NewGuid ()) actions 
+            app.mutableApp.UpdateSync(Guid.NewGuid(), actions)
 
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters Trafo3d.Identity
 
@@ -303,7 +303,7 @@ module SnapshotApp =
                 match n.Length with
                 | len when len > 0 -> n
                 | _ -> surf.importPath
-            String.contains (String.toLowerInvariant name) (String.toLowerInvariant surfName)
+            String.contains (name.ToLowerInvariant()) (surfName.ToLowerInvariant())
 
         let transformSurf surfacesModel surf =
             let updatedSurfaces  = 
