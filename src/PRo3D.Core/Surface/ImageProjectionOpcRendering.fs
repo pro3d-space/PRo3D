@@ -52,14 +52,8 @@ module ImageProjectionOpcExtensions =
                         (p.imageProjection, context.modelTrafo) ||> AVal.map2 (fun vp m ->
                             match vp with
                             | Some vp ->
-                                // m.Forward is required: patch positions are patch-local,
-                                // so they need Local2Global to reach body space and THEN
-                                // the surface's model trafo to reach the frame the
-                                // projector lives in. Omitting it only looks correct while
-                                // every surface sits at identity -- a body placed via
-                                // Sg.trafo (e.g. Dimorphos positioned relative to Didymos
-                                // by SPICE) renders in the right place but gets its image
-                                // projected in the wrong frame.
+                                // m.Forward (the surface model trafo) is required; it only
+                                // worked without while every body sat at identity.
                                 vp.Forward * m.Forward * patch.info.Local2Global.Forward
                             | None -> 
                                 M44d.Identity

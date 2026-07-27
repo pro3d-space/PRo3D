@@ -85,3 +85,4 @@ testbed-output/
 !**/.yarn/plugins
 !**/.yarn/sdks
 !**/.yarn/versions
+src/Tests/logs/

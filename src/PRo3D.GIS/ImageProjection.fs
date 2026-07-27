@@ -136,12 +136,9 @@ module ImageProjection =
 
         type NormalVertex = {
             [<Position>] pos : V4f
-            // Object/body-local position, stashed by stableImageProjectionTrafo
-            // BEFORE stableTrafo turns [<Position>] into clip space. The face
-            // normal must be built from this, not from pos: geometry shaders run
-            // after the whole vertex stage, so pos here is already render-camera
-            // clip space, and a normal built from it would make the projection's
-            // front-facing test (normal.Z < 0) depend on the viewing direction.
+            // Body-local position, stashed before stableTrafo overwrites [<Position>]
+            // with clip space. The face normal is built from this so the front-facing
+            // test does not depend on the render camera.
             [<Semantic("BodyLocalPos")>] localPos : V4f
             [<Semantic("LocalNormal")>] localNormal : V3f
             [<Normal>] n : V3f
@@ -158,8 +155,7 @@ module ImageProjection =
                 let edge1 = p1 - p0
                 let edge2 = p2 - p0
 
-                // cross edge1 edge2 (not edge2 edge1): the reversed order pointed the
-                // normal into the body for OPC winding, failing the normal.Z < 0 test.
+                // operand order matters: edge2 edge1 points the normal into the body
                 let normal = Vec.cross edge1 edge2 |> Vec.normalize
 
                 yield { t.P0 with localNormal = normal; i = 0 }

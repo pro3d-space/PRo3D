@@ -114,7 +114,7 @@ module HeightValidatorModel =
             result         = initResult()
         }
         
-    let computeResult (validator : Validator) : ValidatorResult option =
+    let computeResult (validator : Validator) : Option<ValidatorResult> =
 
         let up    = validator.upVector
         let dip   = validator.inclination.value

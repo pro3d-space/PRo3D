@@ -269,7 +269,7 @@ module KdTrees =
                 Log.line "Found master kdtree and patch trees"
                 Log.startTimed "building lazy kdtree cache"
 
-                let num = kd0Paths |> List.ofSeq |> List.length
+                let num = kd0Paths.Length
 
 
                 let kdTrees =

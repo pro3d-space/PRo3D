@@ -70,16 +70,16 @@ module AnnotationGroupsImporter =
         
         let g = 
             {
-                version      = Node.current
-                key          = Guid.NewGuid()
-                name         = if name = "Measurements" then fileName + "_" + name else name
-                leaves       = annotations |> List.map(fun x -> x.id) |> IndexList.ofList
-                subNodes     = nodes
-                visible      = visible
-                expanded     = true
+                version  = Node.current
+                key      = Guid.NewGuid()
+                name     = if name = "Measurements" then fileName + "_" + name else name
+                leaves   = annotations |> List.map(fun x -> x.id) |> IndexList.ofList
+                subNodes = nodes
+                visible  = visible
+                expanded = true
                 defaultColor = Node.initialDefaultColor
             }
-        
+
         (g, flat', lookUp')
 
     type XmlReader with
@@ -99,9 +99,9 @@ module AnnotationGroupsImporter =
     let import (path:string) (refSys:ReferenceSystem) =
 
         let trafoFile = System.IO.Path.ChangeExtension(path, ".trafo")
-        let t =
+        let t = 
             match (Serialization.fileExists trafoFile) with
-            | Some path->
+            | Some path-> 
                 use sr = new System.IO.StreamReader (path)
                 sr.ReadLine () |> Trafo3d.Parse
             | None -> Trafo3d.Identity
@@ -109,28 +109,29 @@ module AnnotationGroupsImporter =
         let fileName = path |> System.IO.Path.GetFileName
 
         let reader = XmlReader.Create path
-        let root = reader.StreamElements("MeasurementGroups")
+        let root = reader.StreamElements("MeasurementGroups") 
         let xGroups = (root.Elements(xname "MeasurementGroup")).ToListOfT<XElement>()
         printfn "%A" xGroups.Count
-        let groupsNFlat =
-            xGroups
+        let groupsNFlat = 
+            xGroups 
             |> Seq.toList
             |> List.map(getGroups t fileName refSys.up.value refSys.north.value)
 
-        let flat =
-            groupsNFlat
+        let flat = 
+            groupsNFlat 
             |> List.map (fun (_,x,_) -> x)
             |> List.fold (fun acc x -> HashMap.union acc x) HashMap.empty
 
-        let groups =
+        let groups = 
             groupsNFlat |> List.map (fun (x,_,_) -> x) |> IndexList.ofList
-
-        let lookup =
-            groupsNFlat
+        
+        let lookup = 
+            groupsNFlat 
             |> List.map (fun (_,_,x) -> x)
-            |> List.fold (fun acc x -> HashMap.union acc x) HashMap.empty
+            |> List.fold (fun acc x -> HashMap.union acc x) HashMap.empty        
 
-        groups, flat, lookup
+        groups, flat, lookup    
+
 
     // SBMT catalogs can contain thousands of annotations. The UI tree
     // (Drawing.UI.fs:280-282) materialises EVERY leaf DomNode at the moment
