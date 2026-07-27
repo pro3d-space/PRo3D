@@ -504,30 +504,34 @@ would let the MBI path work without any ephemeris for the viewer body.
 
 ### Remaining
 
-1. **Promote the outward-normal fix into shared code.** `ImageProjection.Shaders.generateNormal`
-   emits the raw `cross edge1 edge2`, whose sign follows the dataset's triangle winding.
-   `stableImageProjection`'s front-facing test (`normal.Z < 0`) therefore rejects the wrong
-   faces on any OPC wound opposite to the one it was tuned against, leaving part of the body
-   **silently unprojected**. Currently fixed only in the testbed chain, by substituting
-   `Shading.generateOutwardNormal`. This affects the main viewer for any scene mixing OPCs
-   of differing winding.
-
-   Measured on Dimorphos (raw normal -> outward normal):
-   ```
-                      before     after
-     silhouette IoU   0.9479    0.9563
-     covered pixels  106603    107375     (reference 112285)
-     centroid offset    6.0 px    4.2 px
-   ```
+1. **The rigid ~11 m offset** (see FINAL STATUS): needs a second epoch to attribute
+   body-frame vs J2000. Highest-value open item.
 2. Run the other ~13 NIR1 bands and a second instrument. One geometry that happens to work
    is not a validated pipeline.
 3. A **high-phase** epoch — the only way to tell topographic agreement from gross shape.
-4. `InstrumentProjectionComparisonTest.fs:151-152,188` still asserts ASPECT/Didymos returns
-   `None`. Those now assert the bug and will fail — invert them.
-5. Feature parity, then delete `Solarsystem.fs`.
-6. For real angle backplanes (not the visualisation): float32 output, and an illumination
-   mask from ray casting. `cos(i) > 0` is currently assumed lit, so every self-shadowed
-   region in the angle images is wrong.
+4. Feature parity, then delete `Solarsystem.fs`.
+5. **Float32 angle backplanes (data product, not the current colour-mapped PNGs).**
+   The angle passes (`Shading.angleIncidence/Emission/Phase`) currently emit only 8-bit
+   colour-mapped PNGs -- fine for discussion, useless for calibration (256 levels).
+   TODO:
+   - Emit raw radians (or degrees) as **float32 TIFF**. Use the LibTiff already in the
+     repo (`BitMiracle.LibTiff.Classic`, `src/PRo3D.GIS/Tiff.fs`): mirror
+     `readPlaneFloat32` in reverse -- `Tiff.Open(path,"w")`, SAMPLEFORMAT=IEEEFP,
+     BITSPERSAMPLE=32, PHOTOMETRIC=MINISBLACK, WriteScanline per row. ~30 lines, no new
+     dependency, and symmetric with how the mbi images are read (the calibration team
+     already ingests float multi-band TIFF). NOTE: there is NO tinyexr writer in this
+     repo -- the only EXR code is a read-only texture loader; EXR would mean adding a
+     writer, so TIFF is the honest/easy path unless the team asks for EXR.
+   - Reserve **NaN** for no-data (off-body, and shadowed once the mask exists); document it.
+   - Add a `saveFloat32Tiff` next to `Offscreen.save`; render the angle passes to R32f
+     (or download `PixImage<float32>`) instead of only the colour PNG.
+6. **Illumination / shadow mask.** `cos(i) > 0` is currently assumed lit, so every
+   self-shadowed pixel in the angle images is WRONG. Needs ray casting against the shape
+   model, not a dot product. This is where the NaN sentinel above goes.
+7. Useful additional angles/backplanes if the team wants them: local vs
+   ellipsoid-referenced incidence/emission (we only do local), azimuth between the
+   incidence/emission planes, and per-image scalars (heliocentric distance, sub-solar /
+   sub-spacecraft lat-lon, slant range, ground sample distance).
 
 ## Project layout
 
