@@ -1,3 +1,11 @@
+## 6.0.0-prerelease5
+- macOS: fixed PRo3D failing to start on Apple Silicon (and Intel) Macs — a stale x86_64 `libCooTransformation` bundled with the instrument-platform wrappers shadowed the correct-architecture SPICE native; removed it so SPICE/CooTransformation initializes on all platforms
+- Profiles: multi-attribute profile data extraction and export
+- MapView overview camera controller; small-body camera fixes (sky vector, pole guard)
+- SBMT annotation import (points + ellipses, chunked UI groups)
+- Instrument image projection testbed and fixes: SPICE kernel loading no longer depends on the process working directory; per-hierarchy OPC face-normal winding; `getRotationTrafo` returns honest `None` on failure; mbi-quaternion attitude without a spacecraft CK
+- Per-computer user preferences (MapView WASD invert)
+
 ## 6.0.0-prerelease4-media57
 - Updated to Aardvark.Media 5.7
 - Switched from Suave to Giraffe
