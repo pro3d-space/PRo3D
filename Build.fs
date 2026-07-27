@@ -811,6 +811,10 @@ Target.create "Run" (fun _ ->
     Target.run 1 "AddNativeResources" []
 )
 
+Target.create "Version" (fun _ ->
+    printfn "VERSION=%s" notes.NugetVersion
+)
+
 "CompileInstruments" ==> "AddNativeResources" |> ignore
 "AddNativeResources" ==> "CopyJRWrapper" ==> "Publish" |> ignore
 "AddNativeResources" ==> "PublishToElectron" |> ignore

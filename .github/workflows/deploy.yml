@@ -7,12 +7,38 @@ on:
       - .github/workflows/deploy.yml 
 jobs:
 
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      should-skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check if release exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(./build.sh Version | grep -oP 'VERSION=\K.*')
+          TAG_NAME="v$VERSION"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME exists. Setting skip to true."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release $TAG_NAME new. Setting skip to false."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
   # Gate the whole deployment on the kernel-independent test suite. The HERA
   # tests are skipped here (--skip-hera, via runTests.sh) since the HERA kernels
   # are not public; the SPICE stack is still exercised via the default kernels.
   test:
     name: Tests
     runs-on: ubuntu-latest
+    needs: check-release
+    if: needs.check-release.outputs.should-skip != 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
