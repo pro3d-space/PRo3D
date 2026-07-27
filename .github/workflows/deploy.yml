@@ -4,9 +4,13 @@ on:
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - aardium/package.json
-      - .github/workflows/deploy.yml 
-jobs:
+      - .github/workflows/deploy.yml
 
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
   check-release:
     runs-on: ubuntu-latest
     outputs:
