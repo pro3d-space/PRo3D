@@ -1253,13 +1253,19 @@ module ViewerApp =
                             | _ -> onlyActive
 
                         let hitF (surfaceId : SurfaceId) (camLocation : V3d) (p : V3d) = 
-                            let sky (planet : Planet) = 
+                            let sky (planet : Planet) =
                                 let up = CooTransformation.getUpVector p planet
-                                let reprojectionDistance = 
+                                let reprojectionDistance =
                                     match planet with
                                     | Planet.Mars -> 1000000.0
                                     | _ -> 100.0
-                                FastRay3d(p - (up * reprojectionDistance), up)  
+                                // Sky projection casts DOWN from above the sample point onto
+                                // the surface -- origin p + up*d, direction -up. This used to
+                                // be p - up*d, +up (from below, upward), which only appeared to
+                                // work while getUpVector returned garbage for small bodies; once
+                                // that was fixed the ray unambiguously searched upward (issue
+                                // #628). Matches the preview-pick sky rays above (p + up*5000, -up).
+                                FastRay3d(p + (up * reprojectionDistance), -up)
 
                             let ray =
                                 match m.drawing.projection with
