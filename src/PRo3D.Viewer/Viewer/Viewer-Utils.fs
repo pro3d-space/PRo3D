@@ -1291,7 +1291,9 @@ module ViewerUtils =
                             let depths : float32[] =
                                 if absMode then
                                     ptsWS |> Array.map (fun p ->
-                                        let alt = CooTransformation.getElevation' planet p
+                                        // failure -> depth 0 for that vertex (tryGet API
+                                        // replaced the old failure-as-zero getElevation')
+                                        let alt = CooTransformation.tryGetElevation planet p |> Option.defaultValue targetAlt
                                         float32 (max 0.0 (alt - targetAlt)))
                                 else
                                     Array.create n (float32 depth)
@@ -1300,7 +1302,8 @@ module ViewerUtils =
                             // (offset to keep values small and avoid float32 precision issues)
                             let surfElevs : float32[] =
                                 ptsWS |> Array.map (fun p ->
-                                    float32 (CooTransformation.getElevation' planet p - texStartAlt))
+                                    let alt = CooTransformation.tryGetElevation planet p |> Option.defaultValue texStartAlt
+                                    float32 (alt - texStartAlt))
 
                             let texcoords : V2f[] = Array.map2 (fun (uu : float32) (d : float32) -> V2f(uu, d)) u depths
                             let indices : int[] =

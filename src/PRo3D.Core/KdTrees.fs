@@ -1,4 +1,4 @@
-﻿// The KdTree types live in the legacy namespace Aardvark.VRVis.Opc for compatibility reasons (hurdleless legacy code and deserialization)
+// The KdTree types live in the legacy namespace Aardvark.VRVis.Opc for compatibility reasons (hurdleless legacy code and deserialization)
 namespace Aardvark.VRVis.Opc
 
 open Aardvark.Geometry
@@ -98,13 +98,15 @@ module KdTrees =
     let tryExpandKdTreePath (basePath : string) (lkt : LazyKdTree) =
         let kdTreeSub = lkt.kdtreePath |> relativePath'
         let triangleSub = lkt.objectSetPath |> relativePath'
+        let coordinatesSub = lkt.coordinatesPath |> relativePath'
 
         let kdPath = Path.Combine(basePath, kdTreeSub)
         let objectSetPath = Path.Combine(basePath, triangleSub)
+        let coordinatesPath = Path.Combine(basePath, coordinatesSub)
 
         match tryFixPatchFileIfNeeded kdPath, tryFixPatchFileIfNeeded objectSetPath with
-        | Some kdPath, Some objsetSetPath -> 
-            Some { lkt with kdtreePath = kdPath; objectSetPath = objsetSetPath } 
+        | Some kdPath, Some objsetSetPath ->
+            Some { lkt with kdtreePath = kdPath; objectSetPath = objsetSetPath; coordinatesPath = coordinatesPath }
         | _ -> None
 
     let expandKdTreePaths basePath kd =
@@ -267,6 +269,9 @@ module KdTrees =
                 Log.line "Found master kdtree and patch trees"
                 Log.startTimed "building lazy kdtree cache"
 
+                let num = kd0Paths.Length
+
+
                 let kdTrees =
                     kd0Paths
                     |> Array.indexed
@@ -347,7 +352,7 @@ module KdTrees =
                                   boundingBox = info.GlobalBoundingBox //t.KdIntersectionTree.BoundingBox3d 
                                 }
 
-                            Report.Progress(float i / float kd0Paths.Length)
+                            Report.Progress(float i / float num)
 
                             (lazyTree.boundingBox, (LazyKdTree lazyTree)) |> Some
                         | _ -> 

@@ -58,6 +58,22 @@ module CooTransformation =
 
     type private Self = Self
 
+    /// Spherical / geographic coordinate carrier.
+    ///
+    /// The `altitude` field's meaning depends on the body's `ConventionKind`
+    /// (see `getConvention` below):
+    ///
+    /// - Planetographic — height above the spheroid surface (metres).
+    /// - Ellipsoidal    — height above the tri-axial ellipsoid surface (metres);
+    ///                    reads 0 on the surface, positive above.
+    /// - Spherical      — RADIAL DISTANCE from the body centre (metres),
+    ///                    matching SPICE's `reclat` convention. NOT a height
+    ///                    above any surface. The reference sphere radius in
+    ///                    the `Spherical` payload is informative only (used
+    ///                    by the GUI label) and is not in the math.
+    ///
+    /// `radian` is populated only by `tryGetLatLonRad` (body-agnostic polar
+    /// coordinates); it is zero in every other path.
     type SphericalCoo = {
           longitude : double
           latitude  : double
@@ -78,20 +94,124 @@ module CooTransformation =
             { name = Path.GetFileName path; directory = Path.GetDirectoryName path }
         let toPath (s : SPICEKernel) = s.FullPath
 
-    let tryLoadKernel (kernelDirectory : string) (name : string) = 
-        let currentDir = try Directory.GetCurrentDirectory() |> Some with e -> Log.warn "could not set directory, which might be needed for loading spice kernels"; None
-        let __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
-        Directory.SetCurrentDirectory(kernelDirectory)
+    /// A meta-kernel's PATH_VALUES are relative to the meta-kernel's own location, but
+    /// CSPICE resolves them against the *process* working directory. This used to be
+    /// handled by chdir'ing before the furnsh -- which cannot be made correct, because
+    /// kernels load concurrently and a process-global directory cannot be saved and
+    /// restored around a call that races with other loads.
+    ///
+    /// Instead rewrite PATH_VALUES to the absolute directory those relative values always
+    /// meant, and furnsh that copy. No working-directory dependency remains.
+    ///
+    /// Returns the original path unchanged if there is nothing to rewrite (binary kernels,
+    /// meta-kernels that already use absolute paths).
+    let private materializeMetaKernel (fullPath : string) : string =
+        let isText =
+            match Path.GetExtension(fullPath).ToLowerInvariant() with
+            | ".tm" | ".tpc" | ".tf" | ".ti" | ".tls" | ".tsc" -> true
+            | _ -> false
+        if not isText then fullPath
+        else
+            try
+                let content = File.ReadAllText fullPath
+                let baseDir = Path.GetDirectoryName(Path.GetFullPath fullPath)
+                let pattern = @"(PATH_VALUES\s*=\s*\()([^)]*)(\))"
+                let m = Text.RegularExpressions.Regex.Match(content, pattern)
+                if not m.Success then fullPath
+                else
+                    // A kernel-pool string tops out at 80 characters. The original relative
+                    // values are tiny, but an absolute one need not be -- and the temp
+                    // directory we write to is typically longer than the kernel tree, not
+                    // shorter. SPICE's continuation is a trailing '+' inside the quotes:
+                    //   'first-part+'
+                    //   'second-part'
+                    // concatenates to first-partsecond-part.
+                    let quoteWithContinuation (value : string) =
+                        let chunk = 70
+                        if value.Length <= chunk then sprintf "'%s'" value
+                        else
+                            let parts =
+                                [ for i in 0 .. chunk .. value.Length - 1 ->
+                                    value.Substring(i, min chunk (value.Length - i)) ]
+                            parts
+                            |> List.mapi (fun i p ->
+                                if i = parts.Length - 1 then sprintf "'%s'" p
+                                else sprintf "'%s+'" p)
+                            |> String.concat "\n                       "
+
+                    let rewriteEntry (entry : Text.RegularExpressions.Match) =
+                        let raw = entry.Groups.[1].Value
+                        // Already absolute -> leave alone.
+                        if Path.IsPathRooted raw then entry.Value
+                        else
+                            let abs = Path.GetFullPath(Path.Combine(baseDir, raw))
+                            // Forward slashes: CSPICE accepts them on Windows and it avoids
+                            // any question of backslash escaping inside the text kernel.
+                            quoteWithContinuation (abs.Replace('\\', '/'))
+                    let newValues =
+                        Text.RegularExpressions.Regex.Replace(
+                            m.Groups.[2].Value, @"'([^']*)'",
+                            Text.RegularExpressions.MatchEvaluator rewriteEntry)
+                    if newValues = m.Groups.[2].Value then fullPath
+                    else
+                        let rewritten = content.Remove(m.Index, m.Length)
+                                               .Insert(m.Index, m.Groups.[1].Value + newValues + m.Groups.[3].Value)
+                        // Not next to the original: kernel trees are routinely read-only or
+                        // on a share. Nothing else in the meta-kernel is location-dependent
+                        // once PATH_VALUES is absolute -- KERNELS_TO_LOAD entries all go
+                        // through the $KERNELS symbol -- so a copy anywhere works.
+                        let dir = Path.Combine(Path.GetTempPath(), "pro3d-mk")
+                        Directory.CreateDirectory dir |> ignore
+                        let tmp = Path.Combine(dir, Path.GetFileName fullPath)
+                        File.WriteAllText(tmp, rewritten)
+                        tmp
+            with e ->
+                Log.warn "[CooTransformation] could not rewrite PATH_VALUES in %s (%A); loading as-is" fullPath e
+                fullPath
+
+    let tryLoadKernel (kernelDirectory : string) (name : string) =
         let fullPath = Path.GetFullPath(Path.Combine(kernelDirectory,name))
         if File.Exists fullPath then () else failwith ("spice kernel file does not exist: " + fullPath)
-        let r = CooTransformation.AddSpiceKernel(fullPath)
+        let r = CooTransformation.AddSpiceKernel(materializeMetaKernel fullPath)
         if r <> 0 then
             Log.warn "could not load spice kernel: %s in %s." name kernelDirectory
             None
-        else 
-            Some { name = name; directory = kernelDirectory } 
+        else
+            Some { name = name; directory = kernelDirectory }
 
-    let initCooTrafo (customSpiceKernelPath : Option<string>) (appData : string) = 
+    /// Searches `root` for a SPICE meta-kernel file named `mkName` -- the base
+    /// name (no extension) declared by an mbi sidecar's SPICE_MK field, e.g.
+    /// "hera_plan_v180_20250616_001". Checks `root`, `root/mk` and
+    /// `root/mk/former_versions` directly first (the layout used by this repo's
+    /// own `spice/kernels/mk`, see HeraSpiceTests.fs), then falls back to a
+    /// recursive search under `root` for any `*.tm` file with a matching base
+    /// name, since kernel folder layouts vary.
+    let tryFindSpiceKernelFile (root : string) (mkName : string) : string option =
+        let candidateFileNames = [ mkName + ".tm"; mkName ]
+        let tryFindIn (dir : string) =
+            if Directory.Exists dir then
+                candidateFileNames
+                |> List.tryPick (fun name ->
+                    let p = Path.Combine(dir, name)
+                    if File.Exists p then Some p else None)
+            else
+                None
+        [ root; Path.Combine(root, "mk"); Path.Combine(root, "mk", "former_versions") ]
+        |> List.tryPick tryFindIn
+        |> Option.orElseWith (fun () ->
+            try
+                Directory.EnumerateFiles(root, "*.tm", SearchOption.AllDirectories)
+                |> Seq.tryFind (fun p -> Path.GetFileNameWithoutExtension p = mkName)
+            with e ->
+                Log.warn "[CooTransformation] failed searching %s for spice kernel %s: %A" root mkName e
+                None)
+
+    /// Log directory used by the most recent `initCooTrafo` call, remembered so
+    /// `switchKernel` can reinitialize with the same logging configuration
+    /// without every caller having to thread `appData` through again.
+    let mutable private lastLogDir : Option<string> = None
+
+    let initCooTrafo (customSpiceKernelPath : Option<string>) (appData : string) =
 
         let jrDir = Path.combine [appData; "JR";]
         let cooTransformationDir = Path.combine [jrDir; "CooTransformationConfig"]
@@ -115,6 +235,8 @@ module CooTransformation =
 
         if not (Directory.Exists logDir) then
             Directory.CreateDirectory logDir |> ignore
+
+        lastLogDir <- Some logDir
 
         Log.line "[CooTransformation] initializing at %s, logging to %s" configDir logDir
         let errorCode = CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2)
@@ -153,117 +275,244 @@ module CooTransformation =
             if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) ||  System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux)  then
                 Log.warn "Instrument platform failed to initialize - not yet supported? https://github.com/pro3d-space/PRo3D/issues/196 --> %A" e
 
-    let deInitCooTrafo () = 
+    /// Resets SPICE's kernel pool (DeInit + Init) then loads the given kernel.
+    /// There's no native per-kernel unload, and layering meta-kernels can
+    /// silently corrupt state (see plans/spiceKernelUnloadAndDidymosProjection.md),
+    /// so a full reset is the only reliable way to switch kernels. Discards
+    /// everything previously loaded, including initCooTrafo's startup kernel.
+    let switchKernel (kernelDirectory : string) (name : string) =
+        match lastLogDir with
+        | None ->
+            Log.warn "[CooTransformation] switchKernel called before initCooTrafo -- cannot determine log directory"
+            None
+        | Some logDir ->
+            CooTransformation.DeInit()
+            let errorCode = CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2)
+            if errorCode <> 0 then
+                Log.warn "[CooTransformation] failed to reinit SPICE after DeInit (code %d)" errorCode
+                None
+            else
+                tryLoadKernel kernelDirectory name
+
+    let deInitCooTrafo () =
         Log.line "[CooTransformation] shutting down..."
         CooTransformation.DeInit()
         Log.line "[CooTransformation] down."
 
-    let private init = 0.0
+    /// Coordinate convention used per body.
+    ///
+    /// From ESA SPICE-team documentation and direct communication: PGRREC is
+    /// only mathematically valid for spheroidal bodies (rotationally
+    /// symmetric oblate) AND requires POLE/PM in the kernel pool. Some Hera
+    /// bodies do not satisfy these conditions — Dimorphos is a tri-axial
+    /// ellipsoid (radii (89.5, 84.5, 57.5) m) AND has no stable PCK rotation
+    /// model (post-DART tumbling means ESA intentionally never defined
+    /// POLE/PM for body -658031). For those bodies the appropriate
+    /// convention is planetocentric (LATREC). The JR.CooTransformation
+    /// native wrapper exposes PGRREC but not LATREC, so we implement the
+    /// LATREC paths directly in F# below.
+    ///
+    /// - Planetographic: PGRREC via the JR.CooTransformation native wrapper
+    ///   (Xyz2LatLonAlt / LatLonAlt2Xyz). For spheroidal bodies with POLE/PM
+    ///   (Mars, Earth, Moon, Phobos, Deimos, Didymos).
+    /// - Spherical: F# LATREC math against a single reference sphere of the
+    ///   given mean radius. Lat/lon are exact planetocentric polar
+    ///   coordinates of the input; altitude is the radial offset from the
+    ///   reference sphere. Standard SPICE-community convention for small
+    ///   bodies. Simple, body-shape-agnostic.
+    /// - Ellipsoidal: F# math against a tri-axial reference ellipsoid (three
+    ///   radii). Same (lat, lon) as Spherical (always exact), but altitude
+    ///   is computed against the true ellipsoid surface via ray-intersection
+    ///   from the body centre. Reads altitude ≈ 0 on the actual ellipsoid
+    ///   surface, positive above. Use when altitude precision over the true
+    ///   surface matters more than matching SPICE's LATREC convention.
+    /// - NonPlanetary: Planet.None / .JPL / .ENU, where lat/lon do not apply.
+    type ConventionKind =
+        | Planetographic
+        | Spherical of meanRadius:double
+        | Ellipsoidal of radii:V3d
+        | NonPlanetary
 
-    let getLatLonAltPlanet (planet : string) (p:V3d) : SphericalCoo = 
-        let mutable lat = init
-        let mutable lon = init
-        let mutable alt = init
-            
-        let errorCode = CooTransformation.Xyz2LatLonAlt(planet, p.X, p.Y, p.Z, &lat, &lon, &alt)
-            
-        if errorCode <> 0 then
-            Log.line "cootrafo errorcode %A" errorCode
-            
-        {
-            latitude  = lat
-            longitude = lon
-            altitude  = alt
-            radian    = 0.0
-        }
-
-
-    let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
+    /// Returns the coordinate convention for the given body. Radii are in
+    /// metres (matching the native wrapper's xyz convention).
+    let getConvention (planet : Planet) : ConventionKind =
         match planet with
-        | Planet.None | Planet.JPL | Planet.ENU ->
-            { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }
-        | _ ->
-            getLatLonAltPlanet (planet.ToString()) p
+        | Planet.Mars
+        | Planet.Earth
+        | Planet.Moon
+        | Planet.Phobos
+        | Planet.Deimos
+        | Planet.Didymos    -> Planetographic
+        // Dimorphos: tri-axial, no PCK rotation pole. Default to Spherical
+        // (LATREC convention) matching ESA's SPICE-team guidance.
+        // Switch to Ellipsoidal (V3d(89.5, 84.5, 57.5)) here if altitude
+        // referenced to the true tri-axial surface is preferred.
+        | Planet.Dimorphos  -> Spherical 77.166666666666667     // (89.5 + 84.5 + 57.5) / 3
+        | Planet.None
+        | Planet.JPL
+        | Planet.ENU        -> NonPlanetary
+        | _                 -> NonPlanetary
 
-
-    let getLatLonRad (p:V3d) : SphericalCoo = 
-        let mutable lat = init
-        let mutable lon = init
-        let mutable rad = init
-        let errorCode = CooTransformation.Xyz2LatLonRad( p.X, p.Y, p.Z, &&lat, &&lon, &&rad)
-        
-        if errorCode <> 0 then
-            Log.line "cootrafo errorcode %A" errorCode
-
-        {
-            latitude  = lat
-            longitude = lon
-            altitude  = 0.0
-            radian    = rad
-        }
-
-    let getXYZFromLatLonAltPlanet (sc : SphericalCoo) (planet : string) : V3d = 
-        let mutable pX = init
-        let mutable pY = init
-        let mutable pZ = init
-        let error = 
-            CooTransformation.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ )
-            
-        if error <> 0 then
-            Log.line "cootrafo errorcode %A" error
-            
-        V3d(pX, pY, pZ)
-
-    let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
+    /// Bodies where typical OPC data spans most/all of the body, so camera
+    /// setup should use a body-independent sky (world Z) rather than the
+    /// reference-system's radial up. Avoids gimbal-lock when the camera
+    /// viewing direction runs near-parallel to the radial.
+    let isSmallBody (planet : Planet) =
         match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
-        | _ ->
-            getXYZFromLatLonAltPlanet sc (planet.ToString())
+        | Planet.Phobos | Planet.Deimos | Planet.Didymos | Planet.Dimorphos -> true
+        | _ -> false
 
-    let getXYZFromLatLonAlt' (coordinate :V3d) (planet:Planet) : V3d = 
+    // F# LATREC: planetocentric polar coordinates of `p`.
+    //
+    // Matches SPICE's `reclat`: (latitude, longitude, radial-distance). The
+    // SphericalCoo.altitude field stores |p| — i.e. the radial distance from
+    // the body centre, NOT a height above any reference surface. The
+    // `_meanRadius` parameter is informative only (kept on the `Spherical`
+    // ConventionKind payload for the GUI label) and does not enter the math.
+    let private latLonAltOnSphere (_meanRadius : double) (p : V3d) : SphericalCoo option =
+        let r = p.Length
+        if r = 0.0 then None
+        else
+            let n = p / r
+            Some {
+                latitude  = (asin n.Z)      * Constant.DegreesPerRadian
+                longitude = (atan2 n.Y n.X) * Constant.DegreesPerRadian
+                altitude  = r
+                radian    = 0.0
+            }
+
+    let private xyzFromLatLonAltOnSphere (_meanRadius : double) (sc : SphericalCoo) : V3d =
+        let latR = sc.latitude  * Constant.RadiansPerDegree
+        let lonR = sc.longitude * Constant.RadiansPerDegree
+        let cosLat = cos latR
+        let r = sc.altitude
+        V3d(r * cosLat * cos lonR, r * cosLat * sin lonR, r * sin latR)
+
+    // Tri-axial ellipsoidal variant: same lat/lon as the spherical path
+    // (planetocentric polar coordinates), but altitude is referenced to the
+    // true ellipsoid surface via ray-intersection from the origin:
+    //   surface point at  t·p̂  with  (t·n̂.X)²/a² + (t·n̂.Y)²/b² + (t·n̂.Z)²/c² = 1
+    //   →  t_surface = 1 / sqrt( (n̂.X/a)² + (n̂.Y/b)² + (n̂.Z/c)² )
+    let private latLonAltOnEllipsoid (radii : V3d) (p : V3d) : SphericalCoo option =
+        let r = p.Length
+        if r = 0.0 then None
+        else
+            let n = p / r
+            let a, b, c = radii.X, radii.Y, radii.Z
+            let kx, ky, kz = n.X / a, n.Y / b, n.Z / c
+            let rSurface = 1.0 / sqrt (kx * kx + ky * ky + kz * kz)
+            Some {
+                latitude  = (asin n.Z)      * Constant.DegreesPerRadian
+                longitude = (atan2 n.Y n.X) * Constant.DegreesPerRadian
+                altitude  = r - rSurface
+                radian    = 0.0
+            }
+
+    let private xyzFromLatLonAltOnEllipsoid (radii : V3d) (sc : SphericalCoo) : V3d =
+        let latR = sc.latitude  * Constant.RadiansPerDegree
+        let lonR = sc.longitude * Constant.RadiansPerDegree
+        let cosLat = cos latR
+        let dir = V3d(cosLat * cos lonR, cosLat * sin lonR, sin latR)
+        let a, b, c = radii.X, radii.Y, radii.Z
+        let kx, ky, kz = dir.X / a, dir.Y / b, dir.Z / c
+        let rSurface = 1.0 / sqrt (kx * kx + ky * ky + kz * kz)
+        dir * (rSurface + sc.altitude)
+
+    // Native PGRREC paths. Out-params are nan-seeded so that a misbehaving
+    // wrapper that does not write on failure cannot produce silent zeros.
+    let private tryPgrXyz2LatLonAlt (planetName : string) (p : V3d) : SphericalCoo option =
+        let mutable lat = nan
+        let mutable lon = nan
+        let mutable alt = nan
+        let errorCode = CooTransformation.Xyz2LatLonAlt(planetName, p.X, p.Y, p.Z, &lat, &lon, &alt)
+        if errorCode <> 0 then None
+        else Some { latitude = lat; longitude = lon; altitude = alt; radian = 0.0 }
+
+    let private tryPgrLatLonAlt2Xyz (planetName : string) (sc : SphericalCoo) : V3d option =
+        let mutable pX = nan
+        let mutable pY = nan
+        let mutable pZ = nan
+        let errorCode =
+            CooTransformation.LatLonAlt2Xyz(planetName, sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ)
+        if errorCode <> 0 then None
+        else Some (V3d(pX, pY, pZ))
+
+    /// xyz → lat/lon/alt, picking the right convention for the body.
+    /// Returns None for bodies the wrapper cannot handle (NonPlanetary, or
+    /// Planetographic bodies whose native call fails).
+    let tryGetLatLonAlt (planet : Planet) (p : V3d) : SphericalCoo option =
+        match getConvention planet with
+        | NonPlanetary       -> None
+        | Spherical r        -> latLonAltOnSphere r p
+        | Ellipsoidal radii  -> latLonAltOnEllipsoid radii p
+        | Planetographic     -> tryPgrXyz2LatLonAlt (planet.ToString()) p
+
+    /// Direct PGRREC by SPICE body name; no convention dispatch.
+    /// Use when you have a raw SPICE name and explicitly want the
+    /// planetographic transform. For bodies that have a Planet enum value,
+    /// prefer `tryGetLatLonAlt` so the right convention is applied.
+    let tryGetLatLonAltPlanet (planetName : string) (p : V3d) : SphericalCoo option =
+        tryPgrXyz2LatLonAlt planetName p
+
+    /// Body-agnostic spherical (lat, lon, radial distance) of `p`.
+    let tryGetLatLonRad (p : V3d) : SphericalCoo option =
+        let mutable lat = nan
+        let mutable lon = nan
+        let mutable rad = nan
+        let errorCode = CooTransformation.Xyz2LatLonRad(p.X, p.Y, p.Z, &&lat, &&lon, &&rad)
+        if errorCode <> 0 then None
+        else Some { latitude = lat; longitude = lon; altitude = 0.0; radian = rad }
+
+    /// lat/lon/alt → xyz, picking the right convention for the body.
+    let tryGetXYZFromLatLonAlt (sc : SphericalCoo) (planet : Planet) : V3d option =
+        match getConvention planet with
+        | NonPlanetary       -> None
+        | Spherical r        -> Some (xyzFromLatLonAltOnSphere r sc)
+        | Ellipsoidal radii  -> Some (xyzFromLatLonAltOnEllipsoid radii sc)
+        | Planetographic     -> tryPgrLatLonAlt2Xyz (planet.ToString()) sc
+
+    let tryGetXYZFromLatLonAltPlanet (sc : SphericalCoo) (planetName : string) : V3d option =
+        tryPgrLatLonAlt2Xyz planetName sc
+
+    /// Convenience overload: V3d holding (lat, lon, alt) instead of a SphericalCoo.
+    let tryGetXYZFromLatLonAlt' (coordinate : V3d) (planet : Planet) : V3d option =
+        let sc = { latitude = coordinate.X; longitude = coordinate.Y; altitude = coordinate.Z; radian = 0.0 }
+        tryGetXYZFromLatLonAlt sc planet
+
+    let tryGetHeight (p : V3d) (up : V3d) (planet : Planet) : double option =
         match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
-        | _ ->
-            let mutable pX = init
-            let mutable pY = init
-            let mutable pZ = init
-            let error = 
-                CooTransformation.LatLonAlt2Xyz(planet.ToString(), coordinate.X, coordinate.Y, coordinate.Z, &pX, &pY, &pZ )
-            
-            if error <> 0 then
-                Log.line "cootrafo errorcode %A" error
-            
-            V3d(pX, pY, pZ)
+        | Planet.None | Planet.JPL | Planet.ENU -> Some (p * up).Length
+        | _ -> tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
 
-    let getHeight (p:V3d) (up:V3d) (planet:Planet) = 
+    let tryGetAltitude (p : V3d) (up : V3d) (planet : Planet) : double option =
         match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> (p * up).Length // p.Z //
-        | _ ->
-            let sc = getLatLonAlt planet p
-            sc.altitude
+        | Planet.None | Planet.JPL | Planet.ENU -> Some (p * up).Z
+        | _ -> tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
 
-    let getAltitude (p:V3d) (up:V3d) (planet:Planet) = 
-        match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> (p * up).Z // p.Z //
-        | _ ->
-            let sc = getLatLonAlt planet p
-            sc.altitude
+    let tryGetElevation (planet : Planet) (p : V3d) : double option =
+        tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
 
-    let getElevation' (planet : Planet) (p:V3d) =       
-        let sc = getLatLonAlt planet p
-        sc.altitude
-
-    let getUpVector (p:V3d) (planet:Planet) = 
+    /// Body-relative "up" direction at point `p`. Total: when SPICE refuses
+    /// (Dimorphos's planetocentric path always succeeds; PGRREC bodies may
+    /// fail) the function falls back to `p.Normalized` (radial-from-centre).
+    /// This is geometrically sound regardless of frame and avoids the
+    /// previous failure-as-(-p) accident.
+    let getUpVector (p : V3d) (planet : Planet) : V3d =
+        let radial () =
+            if p.LengthSquared > 0.0 then p.Normalized else V3d.ZAxis
         match planet with
         | Planet.None ->  V3d.ZAxis
         | Planet.JPL  -> -V3d.ZAxis
         | Planet.ENU  ->  V3d.ZAxis
         | _ ->
-            let sc = getLatLonAlt planet p
-            let height = sc.altitude + 100.0 // to get stable up vector on planet surface
-            
-            let v2 = getXYZFromLatLonAlt ({sc with altitude = height}) planet
-            (v2 - p).Normalized
+            match tryGetLatLonAlt planet p with
+            | None -> radial ()
+            | Some sc ->
+                // +100 m altitude trick: the radial offset of two surface
+                // points differing only in altitude gives the local up.
+                match tryGetXYZFromLatLonAlt { sc with altitude = sc.altitude + 100.0 } planet with
+                | Some v2 -> (v2 - p).Normalized
+                | None    -> radial ()
 
 
     let planetFromString (spiceBodyName : string) = 

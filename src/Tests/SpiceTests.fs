@@ -55,7 +55,8 @@ let tests () =
 
         test "CorrectVersion" {
             use _ = init()
-            Expect.equal (CooTransformation.GetAPIVersion()) 5u "returned wrong CooTransformation API version"
+            // 7 since PRo3D.SPICE 1.0.10 (this branch upgraded from 1.0.9 / API 5)
+            Expect.equal (CooTransformation.GetAPIVersion()) 7u "returned wrong CooTransformation API version"
         }
 
         test "DefaultKernelsLatLonRoundtrip" {

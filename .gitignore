@@ -69,6 +69,9 @@ src\Aardvark.OpcViewer.psess
 /docs/PRo3D_ShortUserManual/*.fls
 
 .ipynb_checkpoints/
+*.fsproj.user
+Aardvark.log
+testbed-output/
 /__pycache__
 /profileDrawing/__pycache__
 
@@ -83,3 +86,4 @@ src\Aardvark.OpcViewer.psess
 !**/.yarn/plugins
 !**/.yarn/sdks
 !**/.yarn/versions
+src/Tests/logs/

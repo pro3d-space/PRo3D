@@ -66,9 +66,20 @@ module RemoteApi =
             open Thoth.Json.Net
 
             let encodeAnnotations (planet : Base.Planet) (annotations : list<Annotation>) =
+                let encodePoint (p : V3d) =
+                    match PRo3D.Base.CooTransformation.tryGetLatLonAlt planet p with
+                    | None ->
+                        failwithf "[RemoteApi] could not convert point %A to lat/lon on planet %A" p planet
+                    | Some sc ->
+                        Encode.array [|
+                            Encode.float -sc.longitude
+                            Encode.float sc.latitude
+                            Encode.float sc.altitude
+                        |]
+
                 Encode.object [
                     "type", Encode.string "FeatureCollection"
-                    "features", 
+                    "features",
                         Encode.array [|
                             for a in annotations do
                                 let points = a.points |> IndexList.toArray
@@ -77,21 +88,11 @@ module RemoteApi =
                                     "type", Encode.string "Feature"
                                     "geometry", Encode.object [
                                         "type", Encode.string geometryType
-                                        "coordinates", 
-                                            Encode.array [|
-                                                for p in a.points |> IndexList.toArray do
-                                                    let latLonAlt = PRo3D.Base.CooTransformation.getLatLonAlt planet p
-                                                    yield 
-                                                        Encode.array [|
-                                                            Encode.float -latLonAlt.longitude
-                                                            Encode.float latLonAlt.latitude
-                                                            Encode.float latLonAlt.altitude
-                                                        |]
-                                            |]
+                                        "coordinates", Encode.array (points |> Array.map encodePoint)
                                     ]
                                 ]
                         |]
-                    ]
+                ]
 
             let toJson (planet : Base.Planet) (annotations : list<Annotation>) =
                 encodeAnnotations planet annotations |> Encode.toString 4

@@ -148,9 +148,9 @@ module ViewPlanApp =
         let mutable cache = cache
         let ray = FastRay3d(p, dir)  
                  
-        match SurfaceIntersection.doKdTreeIntersection 
+        match SurfaceIntersection.doKdTreeIntersection
             surfaceModel refSystem (constF None) None ray (fun id l surf -> l.active) cache true with
-        | Some (t,_), _ -> ray.Ray.GetPointOnRay(t.RayHit.T) |> Some
+        | Some hitInfo, _ -> ray.Ray.GetPointOnRay(hitInfo.hit.RayHit.T) |> Some
         | None, _ -> None
 
     let getInstrumentResolution (vp:AdaptiveViewPlanModel) =

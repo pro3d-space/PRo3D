@@ -29,8 +29,9 @@
 } */
 
 .dockingMainDings {
-  height: calc(100% - 40px);  /*menu size*/
-} 
+  /* main top-menu (40px) + always-present secondary toolbar row (40px) */
+  height: calc(100% - 80px);
+}
 
 div.title {
     margin-top: 0px;

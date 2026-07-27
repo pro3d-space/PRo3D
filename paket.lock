@@ -397,7 +397,7 @@ NUGET
       FSharp.Core (>= 8.0.300)
       Uncodium.Eigensystems (>= 1.1.2 < 1.2)
     Pfim (0.11.3)
-    PRo3D.SPICE (1.0.9)
+    PRo3D.SPICE (1.0.10)
       Aardvark.Base (>= 5.3.7 < 5.4)
       FSharp.Core (>= 8.0.100)
     SharpZipLib (1.4.2)

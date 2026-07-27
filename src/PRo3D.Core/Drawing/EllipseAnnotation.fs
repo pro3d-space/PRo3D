@@ -14,18 +14,20 @@ module EllipticAnnotations =
                 CooTransformation.SphericalCoo.longitude = v.X
                 CooTransformation.SphericalCoo.latitude = v.Y
             }
-    let createProjectedEllipse (projectToSurface : V3d -> Option<V3d>) (planet : Planet) (geographical : CooTransformation.SphericalCoo) (points : V2d[]) =         
-        points 
-        |> Array.choose (fun latLon -> 
-            let position = 
-                // use altitude from first point (arbitrary decision, projection function will put points to surface again)
-               CooTransformation.getXYZFromLatLonAlt (Conv.cartesianToGeographical geographical latLon) planet
-            match projectToSurface position with
-            | None -> 
-                Log.warn "could not reproject ellipse point."
+    let createProjectedEllipse (projectToSurface : V3d -> Option<V3d>) (planet : Planet) (geographical : CooTransformation.SphericalCoo) (points : V2d[]) =
+        points
+        |> Array.choose (fun latLon ->
+            let geo = Conv.cartesianToGeographical geographical latLon
+            match CooTransformation.tryGetXYZFromLatLonAlt geo planet with
+            | None ->
+                Log.warn "[EllipseAnnotation] could not convert lat/lon to xyz for ellipse point."
                 None
-            | Some p -> 
-                Some p
+            | Some position ->
+                match projectToSurface position with
+                | None ->
+                    Log.warn "could not reproject ellipse point."
+                    None
+                | Some p -> Some p
         )
 
     type ConstructedEllipse = 
@@ -36,19 +38,25 @@ module EllipticAnnotations =
         }
 
     module ConstructedEllipse =
-        let createGeographicalEllipse (planet : Planet)  (referenceSystem: Option<PRo3D.Base.Gis.SpiceReferenceSystem>) (c : ConstructedEllipse)  =
-            let coord (p : V3d) =
-                let c =
+        let createGeographicalEllipse (planet : Planet) (referenceSystem: Option<PRo3D.Base.Gis.SpiceReferenceSystem>) (c : ConstructedEllipse) : Ellipse2d option =
+            let coord (p : V3d) : V2d option =
+                let sphericalOpt =
                     match referenceSystem with
-                    | Some r -> CooTransformation.getLatLonAltPlanet r.body.Value p 
-                    | None ->  CooTransformation.getLatLonAlt planet p 
-                Conv.geographicalToCartesian c
+                    | Some r -> CooTransformation.tryGetLatLonAltPlanet r.body.Value p
+                    | None   -> CooTransformation.tryGetLatLonAlt planet p
+                sphericalOpt |> Option.map Conv.geographicalToCartesian
 
-            let transform (planePoint : V2d) = 
+            let transform (planePoint : V2d) =
                 c.constructionPlane.GetPlaneToWorld().TransformPos(V3d(planePoint, 0.0)) |> coord
 
-            let center = transform c.ellipseOnPlane.Center
-            Ellipse2d(center, transform (c.ellipseOnPlane.Center + c.ellipseOnPlane.Axis0) - center, transform (c.ellipseOnPlane.Center + c.ellipseOnPlane.Axis1) - center)
+            match transform c.ellipseOnPlane.Center,
+                  transform (c.ellipseOnPlane.Center + c.ellipseOnPlane.Axis0),
+                  transform (c.ellipseOnPlane.Center + c.ellipseOnPlane.Axis1) with
+            | Some center, Some ax0, Some ax1 ->
+                Some (Ellipse2d(center, ax0 - center, ax1 - center))
+            | _ ->
+                Log.warn "[EllipseAnnotation] could not construct geographical ellipse."
+                None
    
 
     let constructAndSampleFromPlane (fittedPlane : Plane3d) (points : array<V3d>) (projectToSurface : V3d -> Option<V3d>) = 
@@ -73,17 +81,22 @@ module EllipticAnnotations =
         | _ -> 
             None
 
-    let constructAndSampleGeographical (planet : Planet) (referenceSystem: Option<PRo3D.Base.Gis.SpiceReferenceSystem>) (points : array<V3d>) (projectToSurface : V3d -> Option<V3d>) = 
-        let geographicalPoints = 
-            points 
-            |> Array.map (fun p -> 
-                let spherical = 
+    let constructAndSampleGeographical (planet : Planet) (referenceSystem: Option<PRo3D.Base.Gis.SpiceReferenceSystem>) (points : array<V3d>) (projectToSurface : V3d -> Option<V3d>) =
+        let geographicalPointsOpt =
+            points
+            |> Array.map (fun p ->
+                let sphericalOpt =
                     match referenceSystem with
-                    | Some r -> CooTransformation.getLatLonAltPlanet r.body.Value p 
-                    | None ->  CooTransformation.getLatLonAlt planet p 
-                spherical, Conv.geographicalToCartesian spherical
-            )
+                    | Some r -> CooTransformation.tryGetLatLonAltPlanet r.body.Value p
+                    | None   -> CooTransformation.tryGetLatLonAlt planet p
+                sphericalOpt |> Option.map (fun sc -> sc, Conv.geographicalToCartesian sc))
 
+        if geographicalPointsOpt |> Array.exists Option.isNone then
+            Log.warn "[EllipseAnnotation] could not compute geographical coordinates for ellipse sample."
+            None
+        else
+
+        let geographicalPoints = geographicalPointsOpt |> Array.choose id
         match geographicalPoints with
         | [| (geographical, p0); (_,p1); (_,p2); (_,p3) |] ->
             let ellipse1 = EllipseConstruction.constructEllipseOrtho2d p0 p1 p2
