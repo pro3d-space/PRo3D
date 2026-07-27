@@ -632,9 +632,10 @@ module ViewerApp =
                     model
             model
             
-        | AnnotationMessage msg,_ ->                
+        | AnnotationMessage msg,_ ->
             match m.drawing.annotations.singleSelectLeaf with
-            | Some selected ->                             
+            | Some selected ->
+                let before = m.drawing.annotations
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
                     let a = AnnotationProperties.update m.scene.referenceSystem a msg
@@ -654,6 +655,14 @@ module ViewerApp =
 
                 let a = m.drawing.annotations |> Groups.updateLeaf selected f
                 let m = Optic.set _annotations a m
+
+                // record an undo snapshot for the property edit. CreateCrossSection does not
+                // mutate the annotation itself (it is handled below at the Viewer level), so it
+                // is excluded from the annotation undo history.
+                let m =
+                    match msg with
+                    | AnnotationProperties.CreateCrossSection -> m
+                    | _ -> { m with drawing = m.drawing |> DrawingApp.pushUndo (SnapshotDelta(before, a)) }
 
                 // on CreateCrossSection, extract annotation points + camera to build CrossSection
                 match msg with
@@ -693,6 +702,7 @@ module ViewerApp =
             match selectedIds with
             | [] -> m
             | ids ->
+                let before = m.drawing.annotations
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
                     let a = AnnotationProperties.update m.scene.referenceSystem a msg
@@ -711,7 +721,8 @@ module ViewerApp =
                     a |> Leaf.Annotations)
 
                 let a = m.drawing.annotations |> GroupsApp.updateLeaves (ids |> IndexList.ofList) f
-                Optic.set _annotations a m
+                let m = Optic.set _annotations a m
+                { m with drawing = m.drawing |> DrawingApp.pushUndo (SnapshotDelta(before, a)) }
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
