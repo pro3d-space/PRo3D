@@ -96,6 +96,24 @@ module GuiEx =
     let iconCheckBox (dings : aval<bool>) action =
       iconToggle dings "check square outline icon" "square icon" action
 
+    // Like iconCheckBox, but the click emits an *absolute* target value (the negation of the
+    // currently displayed state) rather than a fixed toggle action. Use this for bulk editing,
+    // where the same message is applied to many items: a toggle would flip each item
+    // independently (mixed states just invert), whereas `setAction (not isOn)` drives every
+    // item to the one uniform value the user just selected.
+    let iconCheckBoxSet (dings : aval<bool>) (setAction : bool -> 'msg) =
+      let toggleIcon = dings |> AVal.map(fun isOn -> if isOn then "check square outline icon" else "square icon")
+
+      let attributes =
+        amap {
+            let! icon = toggleIcon
+            let! isOn = dings
+            yield clazz icon
+            yield onClick (fun _ -> setAction (not isOn))
+        } |> AttributeMap.ofAMap
+
+      Incremental.i attributes AList.empty
+
     module DataChannel =
         type BespokeChannelReader<'a> (m        : aval<'a>,
                                        pickle   : 'a -> string) =
