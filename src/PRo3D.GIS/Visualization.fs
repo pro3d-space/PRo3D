@@ -13,7 +13,6 @@ open Aardvark.Application.Slim
 open Aardvark.SceneGraph
 open Aardvark.Rendering.Text
 open Aardvark.Geometry
-open Aardvark.FontProvider
 open Aardvark.GeoSpatial.Opc
 
 open PRo3D.Extensions

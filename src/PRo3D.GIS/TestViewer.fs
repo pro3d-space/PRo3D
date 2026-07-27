@@ -23,9 +23,6 @@ open Aardvark.GeoSpatial.Opc
 open Aardvark.GeoSpatial.Opc.Load
 open Aardvark.SceneGraph.Semantics
 
-
-open Aardvark.FontProvider
-
 open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 open PRo3D.SPICE
@@ -50,8 +47,6 @@ module Time =
     let toUtcFormat (d : DateTime) = 
         d.ToUniversalTime()
          .ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'");
-
-type Font = GoogleFontProvider<"Roboto Mono">
           
 type CameraMode =
     | FreeFly
@@ -465,7 +460,7 @@ module TestViewer =
 
 
         let viewProj = (view, frustum) ||> AVal.map2 (fun view frustum -> (view |> CameraView.viewTrafo) * (frustum |> Frustum.projTrafo))
-        let font = Font.Font
+        let font = PRo3D.Base.Sg.Font.RobotoMono
         let aspectScaling = aspect |> AVal.map (fun aspect -> Trafo3d.Scale(V3d(1.0, aspect, 1.0)))
         let inNdcBox =
             let box = Box3d.FromPoints(V3d(-1,-1,-1),V3d(1,1,1))

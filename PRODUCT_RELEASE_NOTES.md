@@ -1,3 +1,8 @@
+## 6.0.0-prerelease4-media57
+- Updated to Aardvark.Media 5.7
+- Switched from Suave to Giraffe
+- Implemented report dialogs
+
 ## 6.0.0-prerelease4
 - Drawing: added undo/redo support for drawing/annotation edits, including a fix for scenes created before this feature
 - Groups: annotations now default to their group's color; removed the redundant top-menu annotation color picker

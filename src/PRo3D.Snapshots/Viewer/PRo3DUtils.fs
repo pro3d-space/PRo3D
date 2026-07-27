@@ -55,7 +55,7 @@ open System.Collections.Concurrent
                                                 viewerVersion
                     |> ViewerIO.loadRoverData
 
-            SimulatedViews.AppExtension.start' {
+            App.start {
                 unpersist = Unpersist.instance
                 threads   = ViewerApp.threadPool
                 view      = ViewerApp.view runtime //localhost
