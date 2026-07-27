@@ -862,8 +862,8 @@ module Gui =
                         match! AMap.tryFind id annotations.flat with
                         | Some (AdaptiveAnnotations ann) ->
                             let header =
-                                div [clazz "ui small header"; style "color:white; padding: 5px 0px"]
-                                    [ text (sprintf "%d annotations selected — edits apply to all" count) ]
+                                h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
+                                   [ text (sprintf "%d annotations selected — edits apply to all" count) ]
                             let clear =
                                 div [style "padding: 5px 0px"] [
                                     button [
@@ -874,7 +874,50 @@ module Gui =
                             let fields =
                                 AnnotationProperties.viewBulk Config.colorPaletteStore ann
                                 |> UI.map ViewerAction.AnnotationBulkMessage
-                            return div [] [ header; fields; clear ]
+
+                            // Dip-direction rose over the selection, restricted to the geometry
+                            // types the user enabled. dipAzimuth is a stored field (read via the
+                            // adaptive dnsResults option), so this recomputes live and cheaply
+                            // whenever the selection, the toggles, or the annotations change.
+                            let roseHeader =
+                                h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
+                                   [ text "Dip direction rose" ]
+                            let toggles =
+                                require GuiEx.semui (
+                                    Html.table [
+                                        Html.row "Polyline:" [ GuiEx.iconCheckBoxSet model.roseUsePolyline ViewerAction.SetRoseUsePolyline ]
+                                        Html.row "DnS:"      [ GuiEx.iconCheckBoxSet model.roseUseDnS      ViewerAction.SetRoseUseDnS ]
+                                    ])
+                            let angles : aval<list<float>> =
+                                let ids = selectedList |> List.map (fun ts -> ts.id)
+                                alist {
+                                    let! usePoly = model.roseUsePolyline
+                                    let! useDns  = model.roseUseDnS
+                                    for annoId in ids do
+                                        match! AMap.tryFind annoId annotations.flat with
+                                        | Some (AdaptiveAnnotations a) ->
+                                            let! geo = a.geometry
+                                            let included =
+                                                (geo = PRo3D.Base.Annotation.Geometry.Polyline && usePoly) ||
+                                                (geo = PRo3D.Base.Annotation.Geometry.DnS      && useDns)
+                                            if included then
+                                                let! az = AVal.bindAdaptiveOption a.dnsResults nan (fun d -> d.dipAzimuth)
+                                                if not (System.Double.IsNaN az) then yield az
+                                        | _ -> ()
+                                }
+                                |> AList.toAVal |> AVal.map IndexList.toList
+                            let rose =
+                                Incremental.div AttributeMap.empty (
+                                    alist {
+                                        let! angs = angles
+                                        if List.isEmpty angs then
+                                            yield div [style "font-style:italic; padding:5px"]
+                                                      [ text "No dip directions in selection (enable a type, or select Polyline / DnS annotations)." ]
+                                        else
+                                            yield RoseDiagram.view angs
+                                    })
+
+                            return div [] [ header; fields; roseHeader; toggles; rose; clear ]
                         | _ ->
                             return div [style "font-style:italic; padding:5px"] [ text "no annotation selected" ]
             }

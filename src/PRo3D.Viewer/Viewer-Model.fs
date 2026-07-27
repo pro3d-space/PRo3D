@@ -91,6 +91,8 @@ type ViewerAction =
 | ReferenceSystemMessage          of ReferenceSystemAction
 | AnnotationMessage               of AnnotationProperties.Action
 | AnnotationBulkMessage           of AnnotationProperties.Action
+| SetRoseUsePolyline              of bool
+| SetRoseUseDnS                   of bool
 | BookmarkMessage                 of BookmarkAction
 | BookmarkUIMessage               of GroupsAppAction
 | SequencedBookmarkMessage        of SequencedBookmarksAction
@@ -653,7 +655,11 @@ type Model = {
     surfaceIntersection : Option<SurfaceIntersection>
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
-} 
+
+    // Bulk edit: which annotation geometry types feed the dip-direction rose diagram
+    roseUsePolyline      : bool
+    roseUseDnS           : bool
+}
 
 type ViewerAnimationAction =
     | ViewerMessage     of ViewerAction

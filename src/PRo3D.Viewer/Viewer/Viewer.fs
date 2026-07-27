@@ -723,6 +723,8 @@ module ViewerApp =
                 let a = m.drawing.annotations |> GroupsApp.updateLeaves (ids |> IndexList.ofList) f
                 let m = Optic.set _annotations a m
                 { m with drawing = m.drawing |> DrawingApp.pushUndo (SnapshotDelta(before, a)) }
+        | SetRoseUsePolyline v,_ -> { m with roseUsePolyline = v }
+        | SetRoseUseDnS v,_      -> { m with roseUseDnS = v }
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
