@@ -32,9 +32,6 @@ type RenderRange =
 
 
 module Rendering =
-    let renderCommandsToSceneGraph (renderCommands : alist<Aardvark.SceneGraph.RenderCommand>) =
-        Sg.execute (Aardvark.SceneGraph.RenderCommand.Ordered renderCommands)
-
     Aardvark.Init()
 
     let render (r : RenderParameters) (projMat : Trafo3d) : Option<PixImage> * Option<PixImage<byte>> * Option<PixImage<float32>> = 

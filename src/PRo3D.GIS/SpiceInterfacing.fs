@@ -40,7 +40,6 @@ module CooTransformation =
                 let forward = M44d(rot)
                 Trafo3d(forward, forward.Inverse) |> Some
             else
-                printfn "could not get rot trafo for frame: %s" fromFrame
                 Trafo3d.Identity |> Some
         )
 

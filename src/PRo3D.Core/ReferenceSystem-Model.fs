@@ -3,6 +3,7 @@ namespace PRo3D.Core
 open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.Base
+open Aardvark.Rendering
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open PRo3D
@@ -163,7 +164,7 @@ module ReferenceSystem =
         noffset       = initNoffset
         northO        = V3d.IOO
         up            = setV3d V3d.OOI
-        isVisible     = true              
+        isVisible     = true
         size          = initNum2
         scaleChart = ["100km"; "10km"; "1km";"100m";"10m";"2m";"1m";"10cm";"1cm";"1mm";"0.1mm"] |> IndexList.ofList
         selectedScale = "2m"
@@ -171,6 +172,17 @@ module ReferenceSystem =
         textsize      = text 0.05
         textcolor     = { c = C4b.White }
     }
+
+    /// Body-aware sky reference. Small bodies use world Z to avoid
+    /// FreeFly gimbal-lock when the viewing direction runs near-parallel
+    /// to a radial reference-up; planets use the reference-system's local up.
+    let bodyAwareSky (planet : Planet) (referenceUp : V3d) : V3d =
+        if CooTransformation.isSmallBody planet then V3d.OOI else referenceUp
+
+    /// CameraView.lookAt with body-aware sky reference. See `bodyAwareSky`.
+    let bodyAwareLookAt (referenceSystem : ReferenceSystem) (location : V3d) (target : V3d) : CameraView =
+        let sky = bodyAwareSky referenceSystem.planet referenceSystem.up.value
+        CameraView.lookAt location target sky
 
     //open ViewConfigModelLenses
 

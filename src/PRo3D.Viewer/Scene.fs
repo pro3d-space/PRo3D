@@ -332,11 +332,11 @@ module SceneLoader =
      
     let updateCameraUp (m: Model) =
         let cam = m.navigation.camera
-        let view' = 
-            CameraView.lookAt 
-                cam.view.Location 
-                (cam.view.Location + cam.view.Forward) 
-                m.scene.referenceSystem.up.value
+        let view' =
+            ReferenceSystem.bodyAwareLookAt
+                m.scene.referenceSystem
+                cam.view.Location
+                (cam.view.Location + cam.view.Forward)
 
         let cam' = { cam with view = view' }
         Optic.set _camera cam' m

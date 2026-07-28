@@ -1,3 +1,23 @@
+## 6.0.0-prerelease5
+- macOS: fixed PRo3D failing to start on Apple Silicon (and Intel) Macs — a stale x86_64 `libCooTransformation` bundled with the instrument-platform wrappers shadowed the correct-architecture SPICE native; removed it so SPICE/CooTransformation initializes on all platforms
+- Profiles: multi-attribute profile data extraction and export
+- MapView overview camera controller; small-body camera fixes (sky vector, pole guard)
+- SBMT annotation import (points + ellipses, chunked UI groups)
+- Instrument image projection testbed and fixes: SPICE kernel loading no longer depends on the process working directory; per-hierarchy OPC face-normal winding; `getRotationTrafo` returns honest `None` on failure; mbi-quaternion attitude without a spacecraft CK
+- Per-computer user preferences (MapView WASD invert)
+
+## 6.0.0-prerelease4-media57
+- Updated to Aardvark.Media 5.7
+- Switched from Suave to Giraffe
+- Implemented report dialogs
+
+## 6.0.0-prerelease4
+- Drawing: added undo/redo support for drawing/annotation edits, including a fix for scenes created before this feature
+- Groups: annotations now default to their group's color; removed the redundant top-menu annotation color picker
+- Cross sections: added a file dialog for choosing a cross-section image
+- RIMFAX: reworked surface selection visualization and added priority rendering so RIMFAX and rover traverse render correctly relative to each other; white-band discard for RIMFAX imagery moved to the traverse section
+- Fixed the DnS (Drift and Stare) plane, which had stopped rendering
+
 ## 6.0.0-prerelease3
 - Snapshots: fixed "could not find PRo3D.Snapshots.exe" — the snapshot/panorama renderer is now resolved beside the running executable and launched with that working directory (previously a relative path failed because SPICE init leaves the process working directory in the kernel config folder)
 
@@ -21,6 +41,11 @@
 
 ## 5.6.0-prerelease2
 - added cross sections
+## 5.7.0-prerelease1
+- MapView camera controller (overview mode)
+- Profile data extraction / multi-attribute export
+- MapView rotate fix under Ctrl modifier
+
 
 ## 5.5.0
 - triangle Filter for Scene Objects (and Checkbox for de-activation added)

@@ -50,17 +50,22 @@ module GeoJSONExport =
         let points = 
             a |> Annotation.retrievePoints
         
-        let coordinates = 
-            match planet with 
+        let coordinates =
+            match planet with
             | Some p ->
-                points 
-                |> List.map (fun x ->
-                    let coord = CooTransformation.getLatLonAlt p x
-                    { coord with longitude = 360.0 - coord.longitude }
-                )
-                |> List.map CooTransformation.SphericalCoo.toV3d                
+                let converted =
+                    points
+                    |> List.map (fun x ->
+                        CooTransformation.tryGetLatLonAlt p x
+                        |> Option.map (fun coord -> { coord with longitude = 360.0 - coord.longitude })
+                        |> Option.map CooTransformation.SphericalCoo.toV3d)
+                if converted |> List.forall Option.isSome then
+                    converted |> List.choose id
+                else
+                    Log.warn "[GeoJSON] lat/lon conversion failed for one or more points on %A; exporting xyz" p
+                    points
             | None ->
-                points  
+                points
                 
         let properties = 
             Some { geometry = GeometryProperties.NoProperties; selected = isSelected a }

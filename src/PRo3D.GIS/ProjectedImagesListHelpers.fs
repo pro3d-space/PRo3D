@@ -107,11 +107,12 @@ module ProjectedImagesListAppHelper =
                     let borsight = boresightAdjustment.GetValue(t)
                     let img = currentProjectedImage.GetValue(t)
                     let surfaceReferenceFrame = surfaceReferenceFrame.GetValue(t)
+                    let projectionMethod = g.projectedImageList.projectionMethod.GetValue(t)
 
-                    match img with 
-                    | Some (_, metadata) -> 
-                        Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some borsight)
-                    | _ -> 
+                    match img with
+                    | Some (_, metadata) ->
+                        Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some borsight) projectionMethod
+                    | _ ->
                         None
             )
 
@@ -129,12 +130,13 @@ module ProjectedImagesListAppHelper =
                         let borsight = boresightAdjustment.GetValue(t)
                         let surfaceReferenceFrame = surfaceReferenceFrame.GetValue(t)
                         let images = g.projectedImageList.images.Content.GetValue(t)
+                        let projectionMethod = g.projectedImageList.projectionMethod.GetValue(t)
 
-                        images 
+                        images
                         |> IndexList.toArray
-                        |> Array.choose (fun img -> 
-                            let metaData = img.texture.GetValue(t) |>  InstrumentMetadata.tryParseMetadataForImagePath 
-                            Visualization.projectDirect observer surfaceReferenceFrame metaData projectionSurfaceBodyName (Some borsight)
+                        |> Array.choose (fun img ->
+                            let metaData = img.texture.GetValue(t) |>  InstrumentMetadata.tryParseMetadataForImagePath
+                            Visualization.projectDirect observer surfaceReferenceFrame metaData projectionSurfaceBodyName (Some borsight) projectionMethod
                         )
                     | _ -> [||]
             )

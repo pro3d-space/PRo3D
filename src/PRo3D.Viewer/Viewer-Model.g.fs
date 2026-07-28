@@ -1,5 +1,5 @@
-//5a0851b5-7ede-7845-5bcc-5bce88c611c3
-//0c537f1c-d451-16f4-b0c1-6b5730b3ebd9
+//dd27a094-51c0-17df-dda7-c9e7a89b759e
+//983b457a-90a8-0465-a2c9-a338c73e6684
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -231,6 +231,7 @@ type AdaptiveModel(value : Model) =
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Viewer.EllipseModel, PRo3D.Viewer.AdaptiveEllipseModel, PRo3D.Viewer.AdaptiveEllipseModel>(value.ellipseModel, (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o), (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o))
     let _pickPreviewRequested_ = FSharp.Data.Adaptive.cval(value.pickPreviewRequested)
+    let _userPreferences_ = FSharp.Data.Adaptive.cval(value.userPreferences)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Model) = AdaptiveModel(value)
@@ -281,6 +282,7 @@ type AdaptiveModel(value : Model) =
             _surfaceIntersection_.Value <- value.surfaceIntersection
             _ellipseModel_.Update(value.ellipseModel)
             _pickPreviewRequested_.Value <- value.pickPreviewRequested
+            _userPreferences_.Value <- value.userPreferences
     member __.Current = __adaptive
     member __.viewerVersion = _viewerVersion_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.startupArgs = _startupArgs_ :> FSharp.Data.Adaptive.aval<PRo3D.StartupArgs>
@@ -325,6 +327,7 @@ type AdaptiveModel(value : Model) =
     member __.surfaceIntersection = _surfaceIntersection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<SurfaceIntersection>>
     member __.ellipseModel = _ellipseModel_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<EllipseModel, AdaptiveEllipseModel, AdaptiveEllipseModel>>
     member __.pickPreviewRequested = _pickPreviewRequested_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>>
+    member __.userPreferences = _userPreferences_ :> FSharp.Data.Adaptive.aval<PRo3D.UserPreferences>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ModelLenses = 
     type Model with
@@ -371,4 +374,5 @@ module ModelLenses =
         static member surfaceIntersection_ = ((fun (self : Model) -> self.surfaceIntersection), (fun (value : Microsoft.FSharp.Core.Option<SurfaceIntersection>) (self : Model) -> { self with surfaceIntersection = value }))
         static member ellipseModel_ = ((fun (self : Model) -> self.ellipseModel), (fun (value : Microsoft.FSharp.Core.Option<EllipseModel>) (self : Model) -> { self with ellipseModel = value }))
         static member pickPreviewRequested_ = ((fun (self : Model) -> self.pickPreviewRequested), (fun (value : Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>) (self : Model) -> { self with pickPreviewRequested = value }))
+        static member userPreferences_ = ((fun (self : Model) -> self.userPreferences), (fun (value : PRo3D.UserPreferences) (self : Model) -> { self with userPreferences = value }))
 

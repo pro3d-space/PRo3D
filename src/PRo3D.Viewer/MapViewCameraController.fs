@@ -83,9 +83,14 @@ module MapViewController =
     let updateCameraForMapView (planet : Planet) (model : CameraControllerState) =
         let point = model.view.Location
         let up = CooTransformation.getUpVector point planet |> Vec.Normalized
-        let east = V3d.OOI.Cross(up).Normalized
+        // World Z is the usual "north pole" reference, but degenerates when
+        // the camera lies on the world-Z axis (V3d.OOI × up ≈ 0); fall back
+        // to world X in that case so `east` stays well-defined.
+        let referenceAxis =
+            if V3d.OOI.Cross(up).LengthSquared > 1e-6 then V3d.OOI else V3d.IOO
+        let east = referenceAxis.Cross(up).Normalized
         let north = up.Cross(east).Normalized
-        let view = 
+        let view =
             model.view
             |> CameraView.withUp north
             |> setCameraViewCenter north
@@ -363,44 +368,10 @@ module MapViewController =
 
                 { model with view = cam; dragStart = pos; orbitCenter = center }
 
-    [<Obsolete>]
-    let onMouseDown (cb : MouseButtons -> V2i -> 'msg) = 
-        onEvent 
-            "onmousedown" 
-            ["event.clientX"; "event.clientY"; "event.which"; "event.getModifierState('Control')" ]
-            (fun args ->
-                match args with
-                    | x :: y :: b :: isControl :: _ ->
-                        let x = int (float x)
-                        let y = int (float y)
-                        let b = Aardvark.UI.Helpers.button b
-                        let modKey = if b = MouseButtons.Left && isControl = "true" then MouseButtons.Right else b
-                        cb modKey (V2i(x,y))
-                    | _ ->
-                        failwith "Mousedown Event Failed in MapViewCameraController"
-            )
-
-    (*let onMouseUp (cb : MouseButtons -> V2i -> 'msg) = 
-        onEvent 
-            "onmouseup" 
-            ["event.clientX"; "event.clientY"; "event.which"; "event.getModifierState('Control')" ]
-            (fun args ->
-                match args with
-                    | x :: y :: b :: isControl :: _ ->
-                        let x = int (float x)
-                        let y = int (float y)
-                        let b = Aardvark.UI.Helpers.button b
-                        let modKey = if b = MouseButtons.Left && isControl = "true" then MouseButtons.Right else b
-                        cb modKey (V2i(x,y))
-                    | _ ->
-                        failwith "asdasd"
-            )*)
-
     let attributes (state : AdaptiveCameraControllerState) (f : Message -> 'msg) =
         AttributeMap.ofListCond [
             always (onBlur (fun _ -> f Blur))
-            always (onCapturedPointerDownModifiers None (fun t m b p ->
-                let b = if b = MouseButtons.Left && m.ctrl then MouseButtons.Right else b // Workaround for ctrl click on Mac, not sure if still required
+            always (onCapturedPointerDownModifiers None (fun t _ b p ->
                 f <| match t with Mouse -> Down(b, p) | _ -> Nop
             ))
             always (onCapturedPointerUp None (fun t b p -> match t with Mouse -> f (Up(b)) | _ -> f Nop))
@@ -413,13 +384,10 @@ module MapViewController =
     let extractAttributes (state : AdaptiveCameraControllerState) (f : Message -> 'msg)  =
         attributes state f |> AttributeMap.toAMap
 
-    let controlledControlWithClientValues (state : AdaptiveCameraControllerState) (f : Message -> 'msg) (frustum : aval<Frustum>) (att : AttributeMap<'msg>) (sg : Aardvark.Service.ClientValues -> ISg<'msg>) =
-        let attributes = AttributeMap.union att (attributes state f)
-        let cam = AVal.map2 Camera.create state.view frustum 
-        Incremental.renderControlWithClientValues cam attributes sg
-
     let controlledControl (state : AdaptiveCameraControllerState) (f : Message -> 'msg) (frustum : aval<Frustum>) (att : AttributeMap<'msg>) (sg : ISg<'msg>) =
-        controlledControlWithClientValues state f frustum att (constF sg)
+        let cam = AVal.map2 Camera.create state.view frustum
+        let controllerAtts = attributes state f
+        DomNode.RenderControl(AttributeMap.union att controllerAtts, cam, sg)
 
     let view (state : AdaptiveCameraControllerState) =
         let frustum = Frustum.perspective 60.0 0.1 100.0 1.0
