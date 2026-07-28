@@ -22,10 +22,10 @@ module AnnotationProperties =
     | ChangeColor     of ColorPicker.Action
     | SetText         of string
     | SetTextSize     of Numeric.Action
-    | ToggleVisible
-    | ToggleShowDns
-    | ToggleShowText
-    | PrintPosition   
+    | SetVisible      of bool
+    | SetShowDns      of bool
+    | SetShowText     of bool
+    | PrintPosition
     | SetManualDippingAngle of Numeric.Action
     | SetManualDippingAzimuth of Numeric.Action
     | CreateCrossSection
@@ -44,12 +44,12 @@ module AnnotationProperties =
             { model with text = t }
         | SetTextSize s ->
             { model with textsize = Numeric.update model.textsize s }
-        | ToggleVisible ->
-            { model with visible = (not model.visible) }
-        | ToggleShowDns ->
-            { model with showDns = (not model.showDns) } 
-        | ToggleShowText ->
-            { model with showText = (not model.showText) }
+        | SetVisible b ->
+            { model with visible = b }
+        | SetShowDns b ->
+            { model with showDns = b }
+        | SetShowText b ->
+            { model with showText = b }
         | ChangeColor a ->
             { model with color = ColorPicker.update model.color a }
         | PrintPosition ->            
@@ -92,14 +92,35 @@ module AnnotationProperties =
                 Html.row "Color:"       [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" true model.color |> UI.map ChangeColor ]
                 Html.row "Text:"        [Html.SemUi.textBox model.text SetText ]
                 Html.row "TextSize:"    [Numeric.view' [InputBox] model.textsize |> UI.map SetTextSize ]
-                Html.row "Show Text:"   [GuiEx.iconCheckBox model.showText ToggleShowText ]
-                Html.row "Visible:"     [GuiEx.iconCheckBox model.visible ToggleVisible ]
-                Html.row "Show DnS:"    [GuiEx.iconCheckBox model.showDns ToggleShowDns ]
+                Html.row "Show Text:"   [GuiEx.iconCheckBoxSet model.showText SetShowText ]
+                Html.row "Visible:"     [GuiEx.iconCheckBoxSet model.visible SetVisible ]
+                Html.row "Show DnS:"    [GuiEx.iconCheckBoxSet model.showDns SetShowDns ]
                 Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
                 Html.row "Dip Azimuth:" [Numeric.view' [InputBox] model.manualDipAzimuth |> UI.map SetManualDippingAzimuth]
                 Html.row "Cross Section:" [button [clazz "ui button tiny"; onClick (fun _ -> CreateCrossSection)] [text "Create"]]
             ]
 
+        )
+
+    /// Curated subset of the property rows used for bulk editing. Every edit emitted here
+    /// is applied (write-only) to all annotations in the multi-selection by the caller.
+    /// Excludes structural / per-annotation fields (geometry, projection, manual dip, cross
+    /// section). The color-picker uses a distinct id so it does not collide with the single
+    /// Properties panel when both are rendered at once.
+    let viewBulk (paletteFile : string) (model : AdaptiveAnnotation) =
+        require GuiEx.semui (
+            Html.table [
+                Html.row "Semantic:"    [Html.SemUi.dropDown model.semantic SetSemantic]
+                Html.row "Thickness:"   [Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ]
+                Html.row "Color:"       [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3dBulk" true model.color |> UI.map ChangeColor ]
+                Html.row "Text:"        [Html.SemUi.textBox model.text SetText ]
+                Html.row "TextSize:"    [Numeric.view' [InputBox] model.textsize |> UI.map SetTextSize ]
+                // bulk toggles set an absolute value (aligning every selected annotation) rather
+                // than flipping each one independently — see GuiEx.iconCheckBoxSet.
+                Html.row "Show Text:"   [GuiEx.iconCheckBoxSet model.showText SetShowText ]
+                Html.row "Visible:"     [GuiEx.iconCheckBoxSet model.visible SetVisible ]
+                Html.row "Show DnS:"    [GuiEx.iconCheckBoxSet model.showDns SetShowDns ]
+            ]
         )
 
     // TODO v5: remove this duplicate

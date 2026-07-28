@@ -938,7 +938,52 @@ module Gui =
                   | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
-                
+
+        // Bulk edit surface: targets the green multi-selection (selectedLeaves), which stays
+        // distinct from the single-selection that drives the Properties panel. Fields bind to a
+        // representative annotation but every edit is routed (write-only) to all selected.
+        let viewBulkAnnotationProperties (model : AdaptiveModel) =
+            let annotations = model.drawing.annotations
+            adaptive {
+                let! selected = annotations.selectedLeaves.Content
+                let selectedList = selected |> HashSet.toList
+                let count = selectedList |> List.length
+                let! single = annotations.singleSelectLeaf
+
+                // representative the fields show: the single-selected one when it is part of the
+                // multi-selection, otherwise the first selected leaf (e.g. after a group Select All)
+                let repId =
+                    match single with
+                    | Some id when selectedList |> List.exists (fun ts -> ts.id = id) -> Some id
+                    | _ -> selectedList |> List.tryHead |> Option.map (fun ts -> ts.id)
+
+                if count < 2 then
+                    return div [style "font-style:italic; padding:5px"]
+                               [ text "Select two or more annotations (multi-select via the cube icons or a group's Select All) to bulk edit." ]
+                else
+                    match repId with
+                    | None -> return div [] []
+                    | Some id ->
+                        match! AMap.tryFind id annotations.flat with
+                        | Some (AdaptiveAnnotations ann) ->
+                            let header =
+                                div [clazz "ui small header"; style "color:white; padding: 5px 0px"]
+                                    [ text (sprintf "%d annotations selected — edits apply to all" count) ]
+                            let clear =
+                                div [style "padding: 5px 0px"] [
+                                    button [
+                                        clazz "ui tiny button"
+                                        onClick (fun _ -> ViewerAction.DrawingMessage(DrawingAction.GroupsMessage(GroupsAppAction.ClearSelection)))
+                                    ] [ text "Clear selection" ]
+                                ]
+                            let fields =
+                                AnnotationProperties.viewBulk Config.colorPaletteStore ann
+                                |> UI.map ViewerAction.AnnotationBulkMessage
+                            return div [] [ header; fields; clear ]
+                        | _ ->
+                            return div [style "font-style:italic; padding:5px"] [ text "no annotation selected" ]
+            }
+
         let viewAnnotationResults (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
@@ -1387,7 +1432,11 @@ module Gui =
                         GuiEx.accordion "Properties" "Content" true [
                                            Incremental.div AttributeMap.empty (AList.ofAValSingle prop)
                         ]
-                                       
+
+                        GuiEx.accordion "Bulk Edit" "edit" false [
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle (Annotations.viewBulkAnnotationProperties m))
+                        ]
+
                         GuiEx.accordion "Measurements" "Content" true [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
                         ]

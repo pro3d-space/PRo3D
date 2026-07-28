@@ -666,9 +666,10 @@ module ViewerApp =
                     model
             model
             
-        | AnnotationMessage msg,_ ->                
+        | AnnotationMessage msg,_ ->
             match m.drawing.annotations.singleSelectLeaf with
-            | Some selected ->                             
+            | Some selected ->
+                let before = m.drawing.annotations
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
                     let a = AnnotationProperties.update m.scene.referenceSystem a msg
@@ -689,6 +690,14 @@ module ViewerApp =
                 let a = m.drawing.annotations |> Groups.updateLeaf selected f
                 let m = Optic.set _annotations a m
 
+                // record an undo snapshot for the property edit. CreateCrossSection does not
+                // mutate the annotation itself (it is handled below at the Viewer level), so it
+                // is excluded from the annotation undo history.
+                let m =
+                    match msg with
+                    | AnnotationProperties.CreateCrossSection -> m
+                    | _ -> { m with drawing = m.drawing |> DrawingApp.pushUndo (SnapshotDelta(before, a)) }
+
                 // on CreateCrossSection, extract annotation points + camera to build CrossSection
                 match msg with
                 | AnnotationProperties.CreateCrossSection ->
@@ -708,6 +717,46 @@ module ViewerApp =
                     | None -> m
                 | _ -> m
             | None -> m
+        | AnnotationBulkMessage msg,_ ->
+            // bulk edit: apply the same pure property update to every annotation in the
+            // green multi-selection (selectedLeaves). Falls back to the single selection
+            // if nothing is multi-selected, so a lone selection still behaves sensibly.
+            let selectedIds =
+                let multi =
+                    m.drawing.annotations.selectedLeaves
+                    |> HashSet.toList
+                    |> List.map (fun ts -> ts.id)
+                match multi with
+                | [] ->
+                    match m.drawing.annotations.singleSelectLeaf with
+                    | Some id -> [ id ]
+                    | None    -> []
+                | _ -> multi
+
+            match selectedIds with
+            | [] -> m
+            | ids ->
+                let before = m.drawing.annotations
+                let f = (fun x ->
+                    let a = x |> Leaf.toAnnotation
+                    let a = AnnotationProperties.update m.scene.referenceSystem a msg
+
+                    //update true thickness computation on dip angle change
+                    let a =
+                        if (a.geometry = Geometry.TT) then
+                           let up = m.scene.referenceSystem.up.value
+                           let north = m.scene.referenceSystem.north.value
+                           let planet = m.scene.referenceSystem.planet
+
+                           let results = Calculations.calcResultsLine a up north planet |> Some
+                           { a with results = results }
+                        else
+                            a
+                    a |> Leaf.Annotations)
+
+                let a = m.drawing.annotations |> GroupsApp.updateLeaves (ids |> IndexList.ofList) f
+                let m = Optic.set _annotations a m
+                { m with drawing = m.drawing |> DrawingApp.pushUndo (SnapshotDelta(before, a)) }
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
