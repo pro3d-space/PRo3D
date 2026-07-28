@@ -95,25 +95,25 @@ module DrawingApp =
                 match w.geometry, sampleSurface with
                 | Geometry.AxisEllipse, Some sampleSurface
                 | Geometry.Axis4PEllipse, Some sampleSurface -> 
-                    //let geo = false
-                    //if geo then
-                    match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
-                    | Some (ellipses, sampledPoints) -> 
-                        let points = IndexList.ofArray sampledPoints
-                        { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
-                    | _ -> 
-                        w
-                    //else
-                    //    match dns with
-                    //    | None -> w
-                    //    | Some dns -> 
-                    //        match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
-                    //        | Some r -> 
-                    //            let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
-                    //            let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
-                    //            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = Some(ellipses.[1]) }}
-                    //        | _ -> 
-                    //            w
+                    let geo = false
+                    if geo then
+                        match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
+                        | Some (ellipses, sampledPoints) -> 
+                            let points = IndexList.ofArray sampledPoints
+                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
+                        | _ -> 
+                            w
+                    else
+                        match dns with
+                        | None -> w
+                        | Some dns -> 
+                            match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
+                            | Some r -> 
+                                let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
+                                let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
+                                { w with points = points; ellipticResults = None }
+                            | _ -> 
+                                w
                         
                 | _ -> 
                     w
@@ -366,6 +366,7 @@ module DrawingApp =
         | ExportAsAnnotations _ -> false
         | ExportAsCsv _         -> false
         | ExportAsProfileCsv _  -> false
+        | ExportMultiAttributeProfile _ -> false
         | ExportAsGeoJSON_xyz _ -> false
         | ExportAsGeoJSONQGIS_latlon _ -> false
         | ExportAsGeoJSONQGIS_xyz _ -> false
@@ -659,35 +660,42 @@ module DrawingApp =
                         
                     //transform to distance elevation pairs
                     let planet = smallConfig.planet.Get(bigConfig)
-                    let transformed =
-                        points 
-                        |> List.map(fun x -> 
-                            let k = CooTransformation.getLatLonAlt planet x
+                    let convertedOpt =
+                        points
+                        |> List.map(fun x ->
+                            match CooTransformation.tryGetLatLonAlt planet x with
+                            | None -> None
+                            | Some k ->
+                                CooTransformation.tryGetXYZFromLatLonAlt { k with altitude = 0.0 } planet
+                                |> Option.map (fun projected ->
+                                    { position = projected; elevation = k.altitude }))
 
-                            let elevation = k.altitude
-                            let projected = CooTransformation.getXYZFromLatLonAlt { k with altitude = 0 } planet
-                            { position =  projected; elevation = elevation }
-                        ) |> List.pairwise                    
-                    
-                    let profile =
-                        accumulateDistance transformed 0.0
-                    
-                    let csvTable = 
-                        profile
-                        |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
-                        |> CSV.Seq.csv "," true id
+                    if convertedOpt |> List.exists Option.isNone then
+                        Log.warn "[DrawingApp] profile export aborted: one or more points could not be converted to lat/lon"
+                    else
+                        let transformed = convertedOpt |> List.choose id |> List.pairwise
+                        let profile =
+                            accumulateDistance transformed 0.0
 
-                    if path.IsEmptyOrNull() |> not then 
-                        csvTable |> CSV.Seq.write path
+                        let csvTable =
+                            profile
+                            |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
+                            |> CSV.Seq.csv "," true id
 
-                    Log.line "[DrawingApp] wrote %A to %s" profile path
+                        if path.IsEmptyOrNull() |> not then
+                            csvTable |> CSV.Seq.write path
+
+                        Log.line "[DrawingApp] wrote %A to %s" profile path
                 | None -> 
                     Log.line "please select annotation to export"
                 //write csv
 
                 model
-            | ExportAsGeoJSON path, _, _ ->        
-                if path.IsNullOrEmpty() |> not then 
+            | ExportMultiAttributeProfile _, _, _ ->
+                // handled at viewer level (needs access to SurfaceModel)
+                model
+            | ExportAsGeoJSON path, _, _ ->
+                if path.IsNullOrEmpty() |> not then
                     exportGeoJson false bigConfig smallConfig model path
                 model
 

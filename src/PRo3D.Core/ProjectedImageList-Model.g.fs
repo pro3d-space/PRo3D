@@ -1,5 +1,5 @@
-//8d84f1ad-0dfb-8457-9b79-91c92081fce1
-//25d2316a-d2ce-ab75-8de2-ae04813becc1
+//e0517918-ebaa-c1ef-a994-5e7823aa27d3
+//42444184-e44d-531f-8fdf-d560e3c5ec33
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -108,6 +108,7 @@ type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
     let _cameraState_ = Aardvark.UI.Primitives.AdaptiveOrbitState(value.cameraState)
     let _instrumentVisibility_ = FSharp.Data.Adaptive.cval(value.instrumentVisibility)
     let _lightingMode_ = FSharp.Data.Adaptive.cval(value.lightingMode)
+    let _projectionMethod_ = FSharp.Data.Adaptive.cval(value.projectionMethod)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ProjectedImageListModel) = AdaptiveProjectedImageListModel(value)
@@ -124,6 +125,7 @@ type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
             _cameraState_.Update(value.cameraState)
             _instrumentVisibility_.Value <- value.instrumentVisibility
             _lightingMode_.Value <- value.lightingMode
+            _projectionMethod_.Value <- value.projectionMethod
     member __.Current = __adaptive
     member __.images = _images_ :> FSharp.Data.Adaptive.alist<AdaptiveProjectedImageModel>
     member __.selectedImage = _selectedImage_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>>
@@ -133,6 +135,7 @@ type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
     member __.cameraState = _cameraState_
     member __.instrumentVisibility = _instrumentVisibility_ :> FSharp.Data.Adaptive.aval<InstrumentVisibilityMode>
     member __.lightingMode = _lightingMode_ :> FSharp.Data.Adaptive.aval<LightingMode>
+    member __.projectionMethod = _projectionMethod_ :> FSharp.Data.Adaptive.aval<ProjectionMethod>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ProjectedImageListModelLenses = 
     type ProjectedImageListModel with
@@ -144,4 +147,5 @@ module ProjectedImageListModelLenses =
         static member cameraState_ = ((fun (self : ProjectedImageListModel) -> self.cameraState), (fun (value : Aardvark.UI.Primitives.OrbitState) (self : ProjectedImageListModel) -> { self with cameraState = value }))
         static member instrumentVisibility_ = ((fun (self : ProjectedImageListModel) -> self.instrumentVisibility), (fun (value : InstrumentVisibilityMode) (self : ProjectedImageListModel) -> { self with instrumentVisibility = value }))
         static member lightingMode_ = ((fun (self : ProjectedImageListModel) -> self.lightingMode), (fun (value : LightingMode) (self : ProjectedImageListModel) -> { self with lightingMode = value }))
+        static member projectionMethod_ = ((fun (self : ProjectedImageListModel) -> self.projectionMethod), (fun (value : ProjectionMethod) (self : ProjectedImageListModel) -> { self with projectionMethod = value }))
 

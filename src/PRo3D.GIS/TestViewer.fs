@@ -23,9 +23,6 @@ open Aardvark.GeoSpatial.Opc
 open Aardvark.GeoSpatial.Opc.Load
 open Aardvark.SceneGraph.Semantics
 
-
-open Aardvark.FontProvider
-
 open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 open PRo3D.SPICE
@@ -50,8 +47,6 @@ module Time =
     let toUtcFormat (d : DateTime) = 
         d.ToUniversalTime()
          .ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'");
-
-type Font = GoogleFontProvider<"Roboto Mono">
           
 type CameraMode =
     | FreeFly
@@ -64,18 +59,8 @@ module TestViewer =
         use app = new OpenGlApplication()
         use win = app.CreateGameWindow(8)
 
-        use _ = 
-            let logPath = Path.Combine(".", "logs", "CooTrafo.Log")
-            Log.line "log path for coo trafo: %s" logPath
-            let r = CooTransformation.Init(true, logPath, 0, 0)
-            if r <> 0 then failwith "could not initialize CooTransformation lib."
-            { new IDisposable with member x.Dispose() = CooTransformation.DeInit() }
-
-
-        let spiceFileName = @"C:\Users\haral\Desktop\pro3d\spice\kernels\mk\hera_ops.tm"
-        System.Environment.CurrentDirectory <- Path.GetDirectoryName(spiceFileName)
-        let r = CooTransformation.AddSpiceKernel(spiceFileName)
-        if r <> 0 then failwith "could not add spice kernel"
+        let spiceFileName = Path.Combine(SpiceBoot.defaultKernelRoot, "mk", "hera_ops.tm")
+        use _ = SpiceBoot.init (Some spiceFileName)
 
 
         let observer = cval "HERA_AFC-1" 
@@ -151,13 +136,9 @@ module TestViewer =
             }
 
         let farPlaneMars = 30101626.50 * 1000.0
-        let instruments =
-            let frustum = Frustum.perspective 5.5306897076421 1000.0 farPlaneMars 1.0
-            Map.ofList [
-                "HERA_AFC-1", frustum
-                "HERA_AFC-2", frustum
-                "HERA_HSH", Frustum.perspective 15.23999 1000.0 farPlaneMars (2048.0 / 1088.0)
-            ]
+        // Mars-scale depth range is fine here: this viewer is a fixed Mars scene, so
+        // there is no per-observation distance to derive it from.
+        let instruments = InstrumentProjection.instruments 1000.0 farPlaneMars
 
 
         let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 100.0 farPlaneMars (float s.X / float s.Y))
@@ -272,7 +253,6 @@ module TestViewer =
 
         let hierarchies = 
             let runner = win.Runtime.CreateLoadRunner 1
-            let serializer = FsPickler.CreateBinarySerializer()
 
             let createSg (sunLightEnabled : aval<bool>) (body : string) (bodyFrame : string) (hierarchies : seq<string>) =
 
@@ -287,43 +267,21 @@ module TestViewer =
                     )
 
 
-                hierarchies
-                |> Seq.toList 
-                |> List.map (fun basePath -> 
-                    let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
-                    let t = PatchLod.toRoseTree h.tree
+                let localImageProjectionTrafos = observations |> Array.map snd |> Array.choose id |> AVal.constant
+                let sunLight = sunLightDirection |> AVal.map Option.Some
 
-                    //let imageProjection = firstProjection |> AVal.map Option.Some
-                    let localImageProjectionTrafos = observations |> Array.map snd |> Array.choose id  |> AVal.constant
-                    let sunLight = sunLightDirection |> AVal.map Option.Some
+                let projectedImages : aval<Option<Sg.ProjectedImages>> =
+                    AVal.constant (
+                        Some {
+                            imageProjection = currentProjection
+                            localImageProjectionTrafos = localImageProjectionTrafos
+                            sunDirection = sunLight
+                            sunLightEnabled = sunLightEnabled
+                        })
 
-                    //let additionalUniforms = 
-                    //    PRo3D.Core.ImageProjectionOpcExtensions.projectionUniformMap imageProjection localImageProjectionTrafos sunLight (AVal.constant true)
-                    let additionalUniforms = PRo3D.Core.ImageProjectionOpcExtensions.projectionUniformMap 
-
-                    let n =
-                        Aardvark.GeoSpatial.Opc.PatchLod.PatchNode(
-                                  win.FramebufferSignature, runner, basePath, scene.lodDecider, true, true, ViewerModality.XYZ, 
-                                  PatchLod.CoordinatesMapping.Local, true, PRo3D.Core.OpcRenderingExtensions.captureContext, additionalUniforms,
-                                  t,
-                                  None, None, PixImagePfim.Loader
-                        )
-
-                    n
-                    |> Sg.applyBody (AVal.constant (Some "MARS"))
-                    |> Sg.applyProjectedImages' (
-                        fun s -> 
-                            s |> AVal.map (fun _ -> 
-                                Some {
-                                    imageProjection = currentProjection
-                                    localImageProjectionTrafos = localImageProjectionTrafos
-                                    sunDirection  = sunLight
-                                    sunLightEnabled = sunLightEnabled
-                                }
-                            )
-                     )
-                     |> InstrumentImageVisualization.applyProperties { imageSettings with instrumentImage = projectedTexture; projectionOpacity = opacity }
-                ) 
+                let cfg = OpcSg.defaultConfig win.FramebufferSignature runner scene.lodDecider "MARS"
+                let settings = { imageSettings with instrumentImage = projectedTexture; projectionOpacity = opacity }
+                OpcSg.build cfg projectedImages settings hierarchies
  
             let mola = 
                 createSg (AVal.constant true) "MARS" "IAU_MARS" scene.patchHierarchies 
@@ -360,7 +318,7 @@ module TestViewer =
             //|> Rendering.StableTrafoSceneGraphExtension.Sg.wrapStableShadowViewProjTrafo (shadowMapCamera |> AVal.map Camera.viewProjTrafo) 
 
 
-        let planets = 
+        let planets =
             Rendering.bodiesVisualization referenceFrame supportBody (bodies |> AMap.toASetValues |> ASet.map (fun b -> b.name)) getRenderingParameters observer time wrapModel
             |> Sg.uniform' "SunLightEnabled" true
             |> Sg.shader {
@@ -368,10 +326,12 @@ module TestViewer =
                 do! ImageProjection.Shaders.stableImageProjectionTrafo
                 do! Shaders.transformShadowVertices
 
-                // regenerate normals using gs. the face normals from the mesh do not work (did not investigate it further).
+                // Regenerate normals in the gs. Mesh normals are unusable here because
+                // planetLocalLightingViewSpace (composed above) has already overwritten
+                // [<Normal>] with a view-space direction.
+                // flipNormals used to follow this to compensate for generateNormal's
+                // reversed cross-product operands; that is fixed at the source now.
                 do! ImageProjection.Shaders.generateNormal
-                //do! ImageProjection.Shaders.useVertexNormals
-                do! ImageProjection.Shaders.flipNormals
 
                 do! Shaders.genAndFlipTextureCoord // for some reason v needs to be 1- flipped. 
                 do! DefaultSurfaces.sgColor
@@ -447,14 +407,18 @@ module TestViewer =
                 do! Shaders.planetLocalLightingViewSpace
                 do! ImageProjection.Shaders.stableImageProjectionTrafo
                 do! ImageProjection.Shaders.generateNormal
+                // OPC hierarchies come from OpcSg.build, which binds NormalFlip per
+                // dataset for the winding correction.
+                do! ImageProjection.Shaders.applyNormalFlip
                 do! Shaders.stableTrafo
-                do! DefaultSurfaces.constantColor C4f.White 
-                do! DefaultSurfaces.diffuseTexture 
+                do! DefaultSurfaces.constantColor C4f.White
+                do! DefaultSurfaces.diffuseTexture
                 do! Shaders.solarLighting
                 do! ImageProjection.Shaders.localImageProjections
                 do! ImageProjection.Shaders.stableImageProjection
                 //do! Shader.LoDColor 
             }
+            |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
             |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
             |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant defaultSecondaryTextureId)
             |> Sg.uniform "LodVisEnabled" (cval false)
@@ -465,7 +429,7 @@ module TestViewer =
 
 
         let viewProj = (view, frustum) ||> AVal.map2 (fun view frustum -> (view |> CameraView.viewTrafo) * (frustum |> Frustum.projTrafo))
-        let font = Font.Font
+        let font = PRo3D.Base.Sg.Font.RobotoMono
         let aspectScaling = aspect |> AVal.map (fun aspect -> Trafo3d.Scale(V3d(1.0, aspect, 1.0)))
         let inNdcBox =
             let box = Box3d.FromPoints(V3d(-1,-1,-1),V3d(1,1,1))

@@ -32,7 +32,6 @@
     <EmbeddedResource Include="resources/hot.png" />
     <EmbeddedResource Include="resources/coolwarm.png" />
 
-	<Compile Include="InstrumentMetadata.fs" />
     <Compile Include="GeoTiff.fs" />
     <Compile Include="Tiff.fs" />
     <Compile Include="InstrumentImage.fs" />
@@ -44,7 +43,8 @@
     <Compile Include="ImageProjection.fs" />
     <Compile Include="Rendering.fs" />
     <Compile Include="Markers.fs" />
-	  
+    <Compile Include="OpcProjectionSg.fs" />
+
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
     <Compile Include="ProjectedImageApp.fs" />

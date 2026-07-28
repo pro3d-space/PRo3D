@@ -27,7 +27,6 @@
     <Compile Include="Lighting\Shading-Model.g.fs" />      
     <Compile Include="Lighting\Shaders.fs" />      
     <Compile Include="Lighting\ShadingApp.fs" />      
-    <Compile Include="Snapshots\AppUtils.fs" />      
     <Compile Include="Snapshots\JsonUtils.fs" />      
     <Compile Include="Snapshots\SurfaceExtensions.fs" />      
     <Compile Include="Snapshots\RenderingUtils.fs" />      

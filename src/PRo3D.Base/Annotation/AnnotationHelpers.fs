@@ -68,11 +68,15 @@ module Calculations =
 
             (v.LengthSquared - (vertical |> Fun.Square)) |> Fun.Sqrt
 
-    let getHeightDelta2 (p:V3d) (upVec:V3d) (planet:Planet) = 
-        CooTransformation.getHeight p upVec planet
-    
-    let calcResultsPoint (model:Annotation) (upVec:V3d) (planet:Planet) : AnnotationResults =            
-        { AnnotationResults.initial with avgAltitude = CooTransformation.getAltitude model.points.[0] upVec planet }       
+    let getHeightDelta2 (p:V3d) (upVec:V3d) (planet:Planet) =
+        CooTransformation.tryGetHeight p upVec planet
+        |> Option.defaultValue nan
+
+    let calcResultsPoint (model:Annotation) (upVec:V3d) (planet:Planet) : AnnotationResults =
+        let avg =
+            CooTransformation.tryGetAltitude model.points.[0] upVec planet
+            |> Option.defaultValue nan
+        { AnnotationResults.initial with avgAltitude = avg }
     
     let getDistance (points:list<V3d>) = 
         points
