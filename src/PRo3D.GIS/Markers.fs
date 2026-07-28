@@ -5,15 +5,12 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Rendering.Text
-open Aardvark.FontProvider
 open Aardvark.SceneGraph
 
+open PRo3D.Base
 open PRo3D.SPICE
 
 module Markers =
-
-    type Font = GoogleFontProvider<"Roboto Mono">
-    let font = Font.Font
 
     let markers (cam : aval<Camera>) (referenceFrame : aval<string>) (observer : aval<string>) (time : aval<DateTime>) =
         let viewProj = cam |> AVal.map Camera.viewProjTrafo
@@ -58,7 +55,7 @@ module Markers =
                                     )
                                 p, AVal.constant name
                             ]
-                        Sg.texts font C4b.DarkOrange (ASet.ofArray contents)
+                        Sg.texts Sg.Font.RobotoMono C4b.DarkOrange (ASet.ofArray contents)
 
                     let global2Local = Trafo3d.Translation(p0)
                     let line = 

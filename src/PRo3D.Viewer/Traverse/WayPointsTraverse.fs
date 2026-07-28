@@ -90,24 +90,28 @@ module WayPointsTraverseApp =
                                 //x ... lon
                                 //y ... lat
 
-                                let! elev_goid = parseDoubleProperty x "elev_geoid"                        
-                                let latLonAlt = 
+                                let! elev_goid = parseDoubleProperty x "elev_geoid"
+                                let latLonAlt =
                                     V3d (
-                                        y.Y, 
-                                        360.0 - y.X, 
-                                        elev_goid                            
+                                        y.Y,
+                                        360.0 - y.X,
+                                        elev_goid
                                     )
 
-                                return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
+                                match CooTransformation.tryGetXYZFromLatLonAlt' latLonAlt Planet.Mars with
+                                | Some v -> return v
+                                | None   -> return! error (GeometryTypeNotSupported (sprintf "could not convert latLonAlt %A on Mars" latLonAlt))
                             | Coordinate.ThreeDim y ->
                                 let latLonAlt =  //y.YXZ
                                     V3d (
-                                        y.Y, 
-                                        360.0 - y.X, 
-                                        y.Z                                 
+                                        y.Y,
+                                        360.0 - y.X,
+                                        y.Z
                                     )
 
-                                return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
+                                match CooTransformation.tryGetXYZFromLatLonAlt' latLonAlt Planet.Mars with
+                                | Some v -> return v
+                                | None   -> return! error (GeometryTypeNotSupported (sprintf "could not convert latLonAlt %A on Mars" latLonAlt))
                         | e -> 
                             return! error (GeometryTypeNotSupported (string e))
                     }

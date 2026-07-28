@@ -21,6 +21,9 @@ module ImageProjection =
             member x.ProjectedImagesLocalTrafos : M44f[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
             member x.ProjectedImagesCount : int = uniform?ProjectedImagesLocalTrafosCount
             member x.ProjectedImageOpacity : float32 = uniform?ProjectedImageOpacity2
+            /// 1 flips generateNormal's face normal, 0 (the default when unset) leaves it.
+            /// Set per OPC hierarchy from the CPU-estimated winding; see OpcSg.build.
+            member x.NormalFlip : float32 = uniform?NormalFlip
 
         type Vertex = {
             [<Position>]    pos     : V4f
@@ -117,7 +120,8 @@ module ImageProjection =
                     let normal = uniform.ProjectedImagesLocalTrafos[i].TransformDir(v.localNormalNumericallyUnstable).Normalized
                     let p = ndc.XYZ / ndc.W
                     let tc = V3f(0.5, 0.5, 0.5) + V3f(0.5, 0.5, 0.5) * p.XYZ
-                    let clipped = Vec.anyGreater tc.XY V2f.II || Vec.anySmaller tc.XY V2f.OO
+                    // tc.Z too, else geometry behind the near plane counts as covered
+                    let clipped = Vec.anyGreater tc V3f.III || Vec.anySmaller tc V3f.OOO
                     let onRightSide =  normal.Z < 0.0f
                     if not onRightSide || clipped then
                         clippedCount <- clippedCount + 1
@@ -132,6 +136,10 @@ module ImageProjection =
 
         type NormalVertex = {
             [<Position>] pos : V4f
+            // Body-local position, stashed before stableTrafo overwrites [<Position>]
+            // with clip space. The face normal is built from this so the front-facing
+            // test does not depend on the render camera.
+            [<Semantic("BodyLocalPos")>] localPos : V4f
             [<Semantic("LocalNormal")>] localNormal : V3f
             [<Normal>] n : V3f
             [<SourceVertexIndex>] i : int
@@ -140,18 +148,30 @@ module ImageProjection =
 
         let generateNormal (t : Triangle<NormalVertex>) =
             triangle {
-                let p0 = t.P0.pos.XYZ
-                let p1 = t.P1.pos.XYZ
-                let p2 = t.P2.pos.XYZ
+                let p0 = t.P0.localPos.XYZ
+                let p1 = t.P1.localPos.XYZ
+                let p2 = t.P2.localPos.XYZ
 
                 let edge1 = p1 - p0
                 let edge2 = p2 - p0
 
-                let normal = Vec.cross edge2 edge1 |> Vec.normalize
+                // operand order matters: edge2 edge1 points the normal into the body
+                let normal = Vec.cross edge1 edge2 |> Vec.normalize
 
                 yield { t.P0 with localNormal = normal; i = 0 }
                 yield { t.P1 with localNormal = normal; i = 1 }
                 yield { t.P2 with localNormal = normal; i = 2 }
+            }
+
+        // Optional per-dataset winding correction, composed AFTER generateNormal only
+        // where NormalFlip is bound (the projection testbed). NormalFlip's sign still
+        // follows the source data's triangle winding, which two OPCs can disagree on; it
+        // is estimated once per dataset on the CPU (OpcSg.estimateNormalFlip). Kept out of
+        // generateNormal itself because that shader is in the main viewer's always-on OPC
+        // effect stack, where an unbound uniform makes FShade throw.
+        let applyNormalFlip (v : NormalVertex) =
+            vertex {
+                return { v with localNormal = if uniform.NormalFlip > 0.5f then -v.localNormal else v.localNormal }
             }
 
         let useVertexNormals (v : NormalVertex) =

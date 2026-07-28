@@ -1,5 +1,5 @@
-//2a5c1294-597f-bf5c-1fba-c0190c248415
-//011fab16-2e0f-378e-5edf-99b0128f7a93
+//63d3e3ae-bae2-b089-977d-e1779d91103e
+//18c388cc-4715-1d9b-8536-1a58d1968159
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -125,7 +125,7 @@ module DrawingModelLenses =
         static member projection_ = ((fun (self : DrawingModel) -> self.projection), (fun (value : PRo3D.Base.Annotation.Projection) (self : DrawingModel) -> { self with projection = value }))
         static member geometry_ = ((fun (self : DrawingModel) -> self.geometry), (fun (value : PRo3D.Base.Annotation.Geometry) (self : DrawingModel) -> { self with geometry = value }))
         static member semantic_ = ((fun (self : DrawingModel) -> self.semantic), (fun (value : PRo3D.Base.Annotation.Semantic) (self : DrawingModel) -> { self with semantic = value }))
-        static member thickness_ =((fun (self : DrawingModel) -> self.thickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with thickness = value }))
+        static member thickness_ = ((fun (self : DrawingModel) -> self.thickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with thickness = value }))
         static member samplingAmount_ = ((fun (self : DrawingModel) -> self.samplingAmount), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with samplingAmount = value }))
         static member samplingUnit_ = ((fun (self : DrawingModel) -> self.samplingUnit), (fun (value : SamplingUnit) (self : DrawingModel) -> { self with samplingUnit = value }))
         static member samplingDistance_ = ((fun (self : DrawingModel) -> self.samplingDistance), (fun (value : Microsoft.FSharp.Core.float) (self : DrawingModel) -> { self with samplingDistance = value }))

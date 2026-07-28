@@ -112,6 +112,7 @@ type ViewerAction =
 | ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
 | ImportPRo3Dv1Annotations        of list<string>
+| ImportSbmtAnnotations           of list<string>
 | ImportSurfaceTrafo              of list<string>
 | ImportRoverPlacement            of list<string>
 | ImportTraverse                  of list<string>
@@ -190,12 +191,13 @@ type ViewerAction =
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera
-| StopGeoJsonAutoExport        
+| StopGeoJsonAutoExport
 | SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
 | GisAppMessage                  of Gis.GisAppAction
 | CrossSectionMessage            of CrossSectionAction
 | SBookmarksToPoseDefinition
+| SetUserPreferences             of UserPreferences
 | Nop
 
 and MailboxState = {
@@ -659,6 +661,11 @@ type Model = {
     // Bulk edit: which annotation geometry types feed the dip-direction rose diagram
     roseUsePolyline      : bool
     roseUseDnS           : bool
+    /// Per-computer user preferences (e.g. MapView WASD invert flags).
+    /// Loaded from / saved to `%APPDATA%/Pro3D/userPreferences.json`.
+    /// Outside scene/bookmark serialisation.
+    [<TreatAsValue>]
+    userPreferences      : UserPreferences
 }
 
 type ViewerAnimationAction =

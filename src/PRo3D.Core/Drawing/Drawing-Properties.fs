@@ -59,7 +59,11 @@ module AnnotationProperties =
                 | Some firstPoint -> 
                     Log.line "--- Printing Point Coordinates ---"
                     Log.line "XYZ: %A" firstPoint
-                    Log.line "LatLonAlt: %A" (CooTransformation.getLatLonAlt referenceSystem.planet firstPoint |> CooTransformation.SphericalCoo.toV3d)
+                    let latLonAltStr =
+                        CooTransformation.tryGetLatLonAlt referenceSystem.planet firstPoint
+                        |> Option.map (CooTransformation.SphericalCoo.toV3d >> sprintf "%A")
+                        |> Option.defaultValue "(conversion failed; set planet)"
+                    Log.line "LatLonAlt: %s" latLonAltStr
                     Log.line "--- Done ---"
                 | None -> failwith "[DrawingProperties] point geometry without point is invalid"
             | _ -> ()

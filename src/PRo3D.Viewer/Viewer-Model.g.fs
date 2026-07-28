@@ -1,5 +1,5 @@
-//b56218d2-0af5-5a5e-616b-56cb967e3e5d
-//eed836bd-a4a8-b138-65c4-bd372aca65d9
+//fac5d139-e90e-0140-94eb-f393d3ff55bb
+//67d65ed4-771b-fd68-f2bd-159ca55bc68e
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -233,6 +233,7 @@ type AdaptiveModel(value : Model) =
     let _pickPreviewRequested_ = FSharp.Data.Adaptive.cval(value.pickPreviewRequested)
     let _roseUsePolyline_ = FSharp.Data.Adaptive.cval(value.roseUsePolyline)
     let _roseUseDnS_ = FSharp.Data.Adaptive.cval(value.roseUseDnS)
+    let _userPreferences_ = FSharp.Data.Adaptive.cval(value.userPreferences)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Model) = AdaptiveModel(value)
@@ -285,6 +286,7 @@ type AdaptiveModel(value : Model) =
             _pickPreviewRequested_.Value <- value.pickPreviewRequested
             _roseUsePolyline_.Value <- value.roseUsePolyline
             _roseUseDnS_.Value <- value.roseUseDnS
+            _userPreferences_.Value <- value.userPreferences
     member __.Current = __adaptive
     member __.viewerVersion = _viewerVersion_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.startupArgs = _startupArgs_ :> FSharp.Data.Adaptive.aval<PRo3D.StartupArgs>
@@ -331,6 +333,7 @@ type AdaptiveModel(value : Model) =
     member __.pickPreviewRequested = _pickPreviewRequested_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>>
     member __.roseUsePolyline = _roseUsePolyline_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.roseUseDnS = _roseUseDnS_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.userPreferences = _userPreferences_ :> FSharp.Data.Adaptive.aval<PRo3D.UserPreferences>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ModelLenses = 
     type Model with
@@ -379,4 +382,5 @@ module ModelLenses =
         static member pickPreviewRequested_ = ((fun (self : Model) -> self.pickPreviewRequested), (fun (value : Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>) (self : Model) -> { self with pickPreviewRequested = value }))
         static member roseUsePolyline_ = ((fun (self : Model) -> self.roseUsePolyline), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseUsePolyline = value }))
         static member roseUseDnS_ = ((fun (self : Model) -> self.roseUseDnS), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseUseDnS = value }))
+        static member userPreferences_ = ((fun (self : Model) -> self.userPreferences), (fun (value : PRo3D.UserPreferences) (self : Model) -> { self with userPreferences = value }))
 

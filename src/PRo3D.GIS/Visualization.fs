@@ -13,7 +13,6 @@ open Aardvark.Application.Slim
 open Aardvark.SceneGraph
 open Aardvark.Rendering.Text
 open Aardvark.Geometry
-open Aardvark.FontProvider
 open Aardvark.GeoSpatial.Opc
 
 open PRo3D.Extensions
@@ -62,31 +61,28 @@ module Visualization =
                 DefaultTextures.checkerboard
         ) currentProjectedImage channel
 
-    let projectDirect (observer : string) (referenceFrame : string) (metadata : ParsedMetadata) 
-                (targetBody : string) (boresight : Option<Trafo3d> ): Option<Trafo3d> =
+    /// `nearFar` overrides the depth range; when None it is derived from the observation
+    /// distance in the mbi sidecar (InstrumentProjection.nearFarForDistance). The old
+    /// hardcoded Mars-scale range clipped bodies the size of Didymos entirely.
+    let projectDirectWithNearFar (nearFar : Option<float * float>)
+                (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
+                (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
 
-        let farPlaneMars = 30101626.50 * 1000.0
-        let instruments =
-            let frustum = Frustum.perspective 5.5306897076421 1000.0 farPlaneMars 1.0
-            let hsh = Frustum.perspective 15.23999 1000.0 farPlaneMars (217.0 / 409.0)
-            let hsh2 = Frustum.perspective 15.23999  1000.0 farPlaneMars (409.0 / 217.0)
-            let hsh3 = Frustum.perspective 9.9 1000.0 farPlaneMars (217.0 / 409.0)
-            Map.ofList [
-                "HERA_AFC-1", frustum
-                "HERA_AFC-2", frustum
-                "HERA_HSH", hsh2
-            ]
         match metadata with
-        | Some mbi, _ -> 
+        | Some mbi, _ ->
+            // targetPos is in km
+            let distance = mbi.targetPos.Length * 1000.0
+            let near, far = nearFar |> Option.defaultValue (InstrumentProjection.nearFarForDistance distance)
+            let instruments = InstrumentProjection.instruments near far
             match InstrumentProjection.instrument2SpiceName mbi.instrument with
-            | None -> 
+            | None ->
                 Log.warn "could not get instrument spice name"
                 None
-            | Some spiceName -> 
+            | Some spiceName ->
                 let p = {
                         instrumentReferenceFrame = spiceName
                         target = InstrumentImages.FocusBody targetBody
-                        cameraSource = InstrumentImages.CameraSource.InBody "HERA"
+                        cameraSource = InstrumentImages.CameraSource.InBody (InstrumentProjection.instrument2CameraSource mbi.instrument)
                         instrumentName = spiceName
                         supportBody = "SUN"
                         time = mbi.obs_date
@@ -94,34 +90,30 @@ module Visualization =
                     }
                 let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
                 let spice = InstrumentProjection.projectOnto referenceFrame observer instruments p
-                spice
-        | _  -> 
+                match method with
+                | ProjectionMethod.MbiBased -> t
+                | _ -> spice
+        | _  ->
             None
 
-    let project (observer : string) (referenceFrame : string) (currentProjectedImage : Option<string * ParsedMetadata>) 
+    let projectDirect (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
+                (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
+        projectDirectWithNearFar None observer referenceFrame metadata targetBody boresight method
+
+    let project (observer : string) (referenceFrame : string) (currentProjectedImage : Option<string * ParsedMetadata>)
                 (projection : InstrumentProjection) : Option<Trafo3d> =
 
-        let farPlaneMars = 30101626.50 * 1000.0
-        let instruments =
-            let frustum = Frustum.perspective 5.5306897076421 1000.0 farPlaneMars 1.0
-            let hsh = Frustum.perspective 15.23999 1000.0 farPlaneMars (217.0 / 409.0)
-            let hsh2 = Frustum.perspective 15.23999  1000.0 farPlaneMars (409.0 / 217.0)
-            let hsh3 = Frustum.perspective 9.9 1000.0 farPlaneMars (217.0 / 409.0)
-            Map.ofList [
-                "HERA_AFC-1", frustum
-                "HERA_AFC-2", frustum
-                "HERA_HSH", hsh2
-            ]
         match currentProjectedImage with
-        | Some (_, (Some mbi,_)) -> 
+        | Some (_, (Some mbi,_)) ->
+            let distance = mbi.targetPos.Length * 1000.0
+            let near, far = InstrumentProjection.nearFarForDistance distance
+            let instruments = InstrumentProjection.instruments near far
             let p = {
                 projection with
                     time = mbi.obs_date
                 }
-            let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
-            let spice = InstrumentProjection.projectOnto referenceFrame observer instruments p
-            spice
-        | _  -> 
+            InstrumentProjection.projectOnto referenceFrame observer instruments p
+        | _  ->
             None
 
     let creatProjectionFunction (observer : aval<string>) (referenceFrame : aval<string>) 

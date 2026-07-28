@@ -1210,7 +1210,7 @@ module Sg =
     let stableTrafoShader = 
         Effect.compose [toEffect Shader.StableTrafo.stableTrafo]
 
-    module private Font =
+    module Font =
         open System.Reflection
 
         let private getEmbeddedFont (name: string) =
@@ -1218,7 +1218,7 @@ module Sg =
                 let asm = Assembly.GetExecutingAssembly()
                 let resourceName =
                     asm.GetManifestResourceNames()
-                    |> Array.find (String.toLowerInvariant >> String.endsWith (String.toLowerInvariant name))
+                    |> Array.find (_.ToLowerInvariant() >> String.endsWith (name.ToLowerInvariant()))
 
                 asm.GetManifestResourceStream resourceName
             with _ ->

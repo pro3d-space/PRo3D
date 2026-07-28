@@ -49,7 +49,7 @@ module Calendar =
         | (true, date) -> 
             date
         | _ -> 
-            let dateString = String.trimc '"' dateString
+            let dateString = dateString.Trim '"'
             match DateTime.TryParse(dateString, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal) with
             | (true, date) -> 
                 date

@@ -4,119 +4,213 @@ on:
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - aardium/package.json
-      - .github/workflows/deploy.yml 
+      - .github/workflows/deploy.yml
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+
 jobs:
+  check-release:
+    name: Check for Release
+    runs-on: ubuntu-latest
+    outputs:
+      should-skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check if release exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(./build.sh Version | grep -oP 'VERSION=\K.*')
+          TAG_NAME="v$VERSION"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME exists. Setting skip to true."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release $TAG_NAME new. Setting skip to false."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
 
   # Gate the whole deployment on the kernel-independent test suite. The HERA
   # tests are skipped here (--skip-hera, via runTests.sh) since the HERA kernels
   # are not public; the SPICE stack is still exercised via the default kernels.
   test:
-    name: tests
+    name: Tests
     runs-on: ubuntu-latest
+    needs: check-release
+    if: needs.check-release.outputs.should-skip != 'true'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
       - name: Install Dotnet
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
       - name: Restore tools
         run: dotnet tool restore
+
       - name: Restore paket
         run: dotnet paket restore
+
       - name: Run kernel-independent tests
         run: bash ./runTests.sh
 
-  win32_x64:
-      name: windows
-      # windows-latest rolled to Visual Studio 18, which node-gyp 11.4.2 (pinned
-      # by node-shared-mem) can't detect ("unknown version undefined"). Pin to
-      # windows-2022 (VS 2022 / v17) so the native module's node-gyp rebuild works.
-      runs-on: windows-2022
-      needs: test
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-        - name: Install Dotnet
-          uses: actions/setup-dotnet@v4
-          with:
-            global-json-file: global.json
-        #- name: Yarn Install
-        #  working-directory: aardium
-        #  run: yarn install  
-        - name: Enable Corepack
-          run: corepack enable
-        - name: Set Yarn version
-          working-directory: aardium
-          run: corepack prepare yarn@4.10.3 --activate
-        - name: Activate latest Yarn
-          run: yarn set version 4.10.3
-        - name: Verify
-          run: yarn --version
-        - name: Setup Node.js with specific npm
-          uses: actions/setup-node@v4
-          with:
-            node-version: '20' 
-        - name: Verify node
-          working-directory: aardium
-          run: npm --version
-        #- name: Install specific npm version
-        #  working-directory: aardium
-        #  run: |
-        #    npm install -g npm@20.11.1
-        #    npm --version
-        - name: Create ZIP Release
-          env:
-              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          run: .\build.cmd GitHubRelease
-        - name: Build
-          env:
-              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          run: .\build.cmd PublishToElectron
+  draft:
+    name: Release Draft
+    runs-on: windows-2022
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Create GitHub Release
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\build.cmd GitHubRelease
+
+  win32_x64:
+    name: Windows
+    # windows-latest rolled to Visual Studio 18, which node-gyp 11.4.2 (pinned
+    # by node-shared-mem) can't detect ("unknown version undefined"). Pin to
+    # windows-2022 (VS 2022 / v17) so the native module's node-gyp rebuild works.
+    runs-on: windows-2022
+    needs: draft
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+
+      - name: Verify node
+        working-directory: aardium/Aardium
+        run: npm --version
+
+      - name: Build
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\build.cmd PublishToElectron
 
   mac_x64:
     name: OSX (x64)
     runs-on: macos-15-intel
-    needs: win32_x64
+    needs: draft
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
+      - name: Verify Notarization Credentials
+        run: |
+          xcrun notarytool history \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" > /dev/null 2>&1
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
+
       - name: Install Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           architecture: 'x64'
+
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
       - name: Add Cert to Keychain
         uses: apple-actions/import-codesign-certs@v1
         with:
           p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
           p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
-      - name: Enable Corepack
-        run: corepack enable
-      - name: Set Yarn version
-        working-directory: aardium
-        run: corepack prepare yarn@4.10.3 --activate
-      - name: Activate latest Yarn
-        run: yarn set version 4.10.3
-      - name: Verify
-        run: yarn --version
-      - name: Setup Node.js with specific npm
-        uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24.15.0'
+
       - name: Verify node
-        working-directory: aardium
+        working-directory: aardium/Aardium
         run: npm --version
+
       # Spotlight (mds/mdworker) auto-indexes the temp DMG that electron-builder
       # mounts and keeps the volume busy, so 'hdiutil detach' intermittently
       # fails with EBUSY (exit 16). Disabling indexing avoids the busy volume.
       - name: Disable Spotlight indexing (avoid hdiutil detach EBUSY)
         run: sudo mdutil -a -i off || true
+
       - name: Build
         run: |
           detach_stale() {
@@ -139,56 +233,74 @@ jobs:
             attempt=$((attempt + 1))
           done
         env:
-          MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
-          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-          MAC_DEV_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
           MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
   mac_arm64:
     name: OSX (arm64)
     runs-on: macos-15
-    needs: win32_x64
+    needs: draft
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
+      - name: Verify Notarization Credentials
+        run: |
+          xcrun notarytool history \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID"  > /dev/null 2>&1
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
+
       - name: Install Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           architecture: 'arm64'
+
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
       - name: Add Cert to Keychain
         uses: apple-actions/import-codesign-certs@v1
         with:
           p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
           p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
-      - name: Enable Corepack
-        run: corepack enable
-      - name: Set Yarn version
-        working-directory: aardium
-        run: corepack prepare yarn@4.10.3 --activate
-      - name: Activate latest Yarn
-        run: yarn set version 4.10.3
-      - name: Verify
-        run: yarn --version
-      - name: Setup Node.js with specific npm
-        uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24.15.0'
+
       - name: Verify node
-        working-directory: aardium
+        working-directory: aardium/Aardium
         run: npm --version
-      # Spotlight (mds/mdworker) auto-indexes the temp DMG that electron-builder
-      # mounts and keeps the volume busy, so 'hdiutil detach' intermittently
-      # fails with EBUSY (exit 16). Disabling indexing avoids the busy volume.
+
       - name: Disable Spotlight indexing (avoid hdiutil detach EBUSY)
         run: sudo mdutil -a -i off || true
+
       - name: Build
         run: |
           detach_stale() {
@@ -211,44 +323,48 @@ jobs:
             attempt=$((attempt + 1))
           done
         env:
-          MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
-          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-          MAC_DEV_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
           MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
-
   linux_x64:
-    name: linux 
-    runs-on: ubuntu-latest
-    needs: win32_x64
-    steps:  
+    name: Linux
+    runs-on: ubuntu-22.04
+    needs: draft
+    steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Snapcraft
-        uses: samuelmeuli/action-snapcraft@v1
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
       - name: Install Dotnet
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
-      - name: Enable Corepack
-        run: corepack enable
-      - name: Set Yarn version
-        working-directory: aardium
-        run: corepack prepare yarn@4.10.3 --activate
-      - name: Activate latest Yarn
-        run: yarn set version 4.10.3
-      - name: Verify
-        run: yarn --version
-      - name: Setup Node.js with specific npm
-        uses: actions/setup-node@v4
+
+      - name: Cache Paket
+        uses: actions/cache@v6
         with:
-          node-version: '20' 
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+
       - name: Verify node
-        working-directory: aardium
+        working-directory: aardium/Aardium
         run: npm --version
+
       - name: Build
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

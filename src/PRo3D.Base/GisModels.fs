@@ -370,22 +370,33 @@ module ReferenceFrame =
             spiceNameText = "IAU_MOON"
             isEditing   = false
         }
-    let iauDidymos = // TODO: how is the correct reference frame name?
+    // The Hera mission's frame kernels (hera_v14.tf and later) never define an
+    // "IAU_DIDYMOS" frame -- that name was retired from an earlier kernel
+    // version. The current body-fixed frame is "DIDYMOS_FIXED" (class 5,
+    // two-vector, keyed to body -658030 -- matches hera_didymos_v06.tpc's
+    // BODY-658030_POLE_RA/DEC/PM). Confirmed by direct query against the
+    // hera_plan kernel set: IAU_DIDYMOS -> J2000 fails with
+    // SPICE(FRAMEDATANOTFOUND), DIDYMOS_FIXED -> J2000 resolves cleanly.
+    let didymosFixed =
         {
             version     = ReferenceFrame.current
-            label       = "IAU_DIDY"
+            label       = "DIDYMOS_FIXED"
             description = Some "Didymos body-fixed frame"
-            spiceName   = FrameSpiceName "IAU_DIDY"
-            spiceNameText = "IAU_DIDY"
+            spiceName   = FrameSpiceName "DIDYMOS_FIXED"
+            spiceNameText = "DIDYMOS_FIXED"
             isEditing   = false
         }
-    let iauDimorphos = // TODO: how is the corrent reference frame name?
+    // Same situation as Didymos: no "IAU_DIMORPHOS" frame exists. Dimorphos has
+    // no stable PCK rotation model (post-DART tumbling means ESA never defined
+    // POLE/PM for body -658031); the current frame is "DIMORPHOS_FIXED" (class
+    // 5, two-vector, relative to DIDYMOS_FIXED).
+    let dimorphosFixed =
         {
             version     = ReferenceFrame.current
-            label       = "IAU_DIMO"
+            label       = "DIMORPHOS_FIXED"
             description = Some "Dimorphos body-fixed frame"
-            spiceName   = FrameSpiceName "IAU_DIMO"
-            spiceNameText = "IAU_DIMO"
+            spiceName   = FrameSpiceName "DIMORPHOS_FIXED"
+            spiceNameText = "DIMORPHOS_FIXED"
             isEditing   = false
         }
 

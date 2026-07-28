@@ -75,10 +75,17 @@ type InstrumentVisibilityMode =
     | Off = 0
     | RelativeCount = 1
 
-type LightingMode = 
+type LightingMode =
     | Off = 0
     | SunDirect = 1
     | SunShadow = 2
+
+/// Which of InstrumentProjection's two orientation computations is used to place a
+/// projected image: the SPICE-derived (target-body-lookat) trafo, or the mbi
+/// sidecar's measured spacecraft quaternion.
+type ProjectionMethod =
+    | Spice = 0
+    | MbiBased = 1
 
 [<ModelType>]
 type ProjectedImageListModel =
@@ -91,6 +98,7 @@ type ProjectedImageListModel =
         cameraState          : OrbitState
         instrumentVisibility : InstrumentVisibilityMode
         lightingMode         : LightingMode
+        projectionMethod     : ProjectionMethod
     }
 
 module ProjectedImageListModel =
@@ -103,6 +111,7 @@ module ProjectedImageListModel =
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         instrumentVisibility = InstrumentVisibilityMode.Off
         lightingMode = LightingMode.Off
+        projectionMethod = ProjectionMethod.Spice
     }
 
 type ImageMessage =
@@ -130,4 +139,10 @@ type ProjectedImageListMessage =
     | SetPitch of Numeric.Action
     | SetInstrumentVisbilityMode of InstrumentVisibilityMode
     | SetLightingMode of LightingMode
+    | SetProjectionMethod of ProjectionMethod
+    /// User picked a SPICE kernel root folder to load the kernel (and
+    /// observation time) the selected image's mbi sidecar was generated
+    /// against. Handled by GisApp.update (needs the mbi + spice state that
+    /// live outside this model), not locally.
+    | LoadSpiceAndTime of directory : string
     | Nop

@@ -19,9 +19,11 @@ module ImageProjectionOpcExtensions =
                     | Some p ->
                         (p.localImageProjectionTrafos, context.modelTrafo)
                         ||> AVal.map2 (fun arr modelTrafo ->  
-                            arr |> Array.map (fun (vp : Trafo3d) -> 
-                                // first to body space, then through projection
-                                vp.Forward  * patch.info.Local2Global.Forward  |> M44f
+                            arr |> Array.map (fun (vp : Trafo3d) ->
+                                // first to body space, then through projection.
+                                // modelTrafo included for the same reason as in
+                                // ProjectedImageModelViewProj below.
+                                vp.Forward * modelTrafo.Forward * patch.info.Local2Global.Forward |> M44f
                             )
                         )
                 ) :> IAdaptiveValue
@@ -47,10 +49,12 @@ module ImageProjectionOpcExtensions =
                 context.projectedImages |> AVal.bind (function 
                     | None -> AVal.constant M44d.Identity
                     | Some p -> 
-                        (p.imageProjection, context.modelTrafo) ||> AVal.map2 (fun vp m -> 
+                        (p.imageProjection, context.modelTrafo) ||> AVal.map2 (fun vp m ->
                             match vp with
-                            | Some vp -> 
-                                vp.Forward * patch.info.Local2Global.Forward
+                            | Some vp ->
+                                // m.Forward (the surface model trafo) is required; it only
+                                // worked without while every body sat at identity.
+                                vp.Forward * m.Forward * patch.info.Local2Global.Forward
                             | None -> 
                                 M44d.Identity
                         ) 

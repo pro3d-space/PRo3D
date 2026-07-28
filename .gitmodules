@@ -1,3 +1,6 @@
 [submodule "src/ModelViewer/resources"]
 	path = src/ModelViewer/resources
 	url = https://github.com/pro3d-space/PRo3D.Resources.Models
+[submodule "aardium"]
+	path = aardium
+	url = https://github.com/pro3d-space/aardium.git

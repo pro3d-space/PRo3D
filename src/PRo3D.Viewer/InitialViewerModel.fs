@@ -188,6 +188,7 @@ module Viewer =
             pickPreviewRequested = new ConsumableAsyncValue<_>()
             roseUsePolyline = false
             roseUseDnS      = true
+            userPreferences      = UserPreferences.load ()
         } |> applyProvenaceIfEnabled
 
 

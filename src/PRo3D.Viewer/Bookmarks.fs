@@ -207,6 +207,7 @@ module Bookmarks =
                                 camera = { camState with view = bkm.cameraView }
                                 exploreCenter = bkm.exploreCenter
                                 navigationMode = bkm.navigationMode
+                                updatePerFrame = (bkm.navigationMode = NavigationMode.MapView)
                             }
                         let newOuterModel = Optic.set navigationModel nav' outerModel
                         newOuterModel, bookmarks
@@ -225,9 +226,12 @@ module Bookmarks =
                     Log.line "\"location\": \"%s\"," (bm.cameraView.Location.ToString ())
                     Log.line "\"up\": \"%s\"" (bm.cameraView.Up.ToString ())
 
-                    let lla = CooTransformation.getLatLonAlt planet bm.cameraView.Location |> CooTransformation.SphericalCoo.toV3d
+                    let llaStr =
+                        CooTransformation.tryGetLatLonAlt planet bm.cameraView.Location
+                        |> Option.map (CooTransformation.SphericalCoo.toV3d >> string)
+                        |> Option.defaultValue "(conversion failed; set planet)"
 
-                    Log.line "\"lon lat alt\": \"%s\"" (lla.ToString ())
+                    Log.line "\"lon lat alt\": \"%s\"" llaStr
 
                     outerModel, bookmarks
                 | _ -> outerModel, bookmarks
