@@ -9,9 +9,11 @@ on:
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   check-release:
+    name: Check for Release
     runs-on: ubuntu-latest
     outputs:
       should-skip: ${{ steps.check.outputs.skip }}
