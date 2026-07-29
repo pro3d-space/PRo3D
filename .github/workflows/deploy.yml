@@ -99,16 +99,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-paket-
 
-      # GitHubRelease now depends on the Publish target (it zips
-      # bin/publish/win-x64 into the standalone), so the paket tool + deps must
-      # be restored first.
-      - name: Restore tools
-        run: dotnet tool restore
-
-      - name: Restore paket
-        run: dotnet paket restore
-
-      - name: Create GitHub Release (draft + standalone zip)
+      # Keep this job fast: it only creates the empty draft + tag, so
+      # electron-builder attaches its installers to a single draft. The
+      # non-electron standalone zip is added later by the `standalone` job.
+      - name: Create GitHub Release
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .\build.cmd GitHubRelease
@@ -378,3 +372,42 @@ jobs:
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash ./build.sh PublishToElectron
+
+  # Non-electron Windows standalone build. Runs AFTER all electron jobs so the
+  # single draft (created by `draft`, populated by electron-builder) already
+  # exists; UploadStandalone builds bin/publish/win-x64, zips it, and attaches it
+  # to that draft via `gh release upload --clobber`. Skips together with the rest
+  # when the release already exists (its electron `needs` are gated on `test`).
+  standalone:
+    name: Standalone Zip
+    runs-on: windows-2022
+    needs: [win32_x64, mac_x64, mac_arm64, linux_x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore paket
+        run: dotnet paket restore
+
+      - name: Build standalone + upload to draft
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\build.cmd UploadStandalone
