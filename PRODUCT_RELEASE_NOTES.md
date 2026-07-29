@@ -1,3 +1,7 @@
+## 6.0.0-prerelease7
+- Snapshots: fixed a regression that prevented **bookmark / panorama snapshot animations from loading** in `PRo3D.Snapshots.exe` ("Could not read json File") — a required-vs-optional JSON read introduced by an earlier untested merge
+- Snapshots: `PRo3D.Snapshots.exe` (the sequenced-bookmark / batch renderer) is now **bundled into the installers** alongside `PRo3D.Viewer`, not only in the standalone zip
+
 ## 6.0.0-prerelease6
 - Navigation: the camera-mode dropdown now shows **MapView** even when no reference body is loaded — greyed out with a "needs a planet / reference body" note — instead of hiding the option entirely
 - Release: restored the non-electron Windows standalone build (`PRo3D.Viewer-<version>-win-x64-standalone.zip`) attached to the draft release alongside the installers
