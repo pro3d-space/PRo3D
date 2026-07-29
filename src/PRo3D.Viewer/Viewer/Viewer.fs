@@ -1,7 +1,5 @@
 namespace PRo3D
 
-open Aardvark.Service
-
 open System
 open System.Collections.Concurrent
 open System.IO
@@ -52,6 +50,7 @@ open Chiron
 open PRo3D.Core.Surface
 open Aardvark.UI.Animation.Deprecated
 open PRo3D.SimulatedViews.SnapshotApp
+open MapViewCameraController
 
 type UserFeedback<'a> = {
     id      : string
@@ -93,7 +92,7 @@ module ViewerApp =
         Optic.set _view view m
 
     let lookAtBoundingBox (bb: Box3d) (m: Model) =
-        let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value                
+        let view = ReferenceSystem.bodyAwareLookAt m.scene.referenceSystem bb.Max bb.Center
         m |> Optic.set _view view
     
     let lookAtSurface (m: Model) id =
@@ -155,6 +154,10 @@ module ViewerApp =
         {
             navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
+            north                 = ReferenceSystem.north_ >-> V3dInput.value_ |> Aether.toBase
+            frustum               = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_ |> Aether.toBase
+            windowSize            = ViewConfigModel.frustumModel_ >-> FrustumModel.windowSize_ |> Aether.toBase
+            planet                = (ReferenceSystem.planet_ |> Aether.toBase)
         }    
     
     let mutable cache = HashMap.Empty
@@ -242,6 +245,17 @@ module ViewerApp =
         | DockNodeConfig.Stack (weight,activeId,children) -> Stack(weight, activeId, List.append [de] children)
         | DockNodeConfig.Element element ->  Stack(0.2, None, List.append [de] [element]) 
 
+    let private updateUpNorthForPosition (pos : V3d) (m : Model) = 
+        let (refSystem',_) = 
+            pos
+            |> ReferenceSystemAction.UpdateUpNorth //updates position
+            |> ReferenceSystemApp.update 
+                m.scene.config 
+                LenseConfigs.referenceSystemConfig 
+                m.scene.referenceSystem
+                                                 
+        { m with scene = { m.scene with referenceSystem = refSystem' }} 
+
     let private createMultiSelectBox (startPoint: V2i) (viewPortSize: V2i) (currentPoint: V2i) =
         let clippingBox = Box2i.FromSize viewPortSize
         let newRenderBox = Box2i.FromPoints(clippingBox.Clamped(startPoint), clippingBox.Clamped(currentPoint)) // limited to rendercontrol-size!
@@ -272,22 +286,15 @@ module ViewerApp =
             //Log.stop()
             { m with drawing = drawing } |> stash
         | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                   
-            let (refSystem',_) = 
-                p 
-                |> ReferenceSystemAction.UpdateUpNorth //updates position
-                |> ReferenceSystemApp.update 
-                    m.scene.config 
-                    LenseConfigs.referenceSystemConfig 
-                    m.scene.referenceSystem
-                                                 
-            let m = { m with scene = { m.scene with referenceSystem = refSystem' }} 
+            let m = updateUpNorthForPosition p m
+            
             //update camera upvector
             SceneLoader.updateCameraUp m
         | Interactions.PickExploreCenter, ViewerMode.Standard ->
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
             let navigation', feedback = 
-                Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) m.ctrlFlag
+                Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) m.ctrlFlag
             { m with navigation = navigation' }
             |> logScreenOption 10000 feedback
         | Interactions.PlaceRover, ViewerMode.Standard ->
@@ -437,7 +444,7 @@ module ViewerApp =
                          aspect  = aspect}
             let m = // update FurstumModel to keep it consistent with Frustum in Model
                 m |> Optic.map _frustumModel (fun fm -> 
-                    {fm with frustum = FrustumUtils.withAspect aspect fm.frustum})
+                      {fm with frustum = FrustumUtils.withAspect aspect fm.frustum; windowSize = windowSize })
             m
 
 
@@ -456,8 +463,8 @@ module ViewerApp =
             match surf with
             | Some s ->
                 let bb = s.globalBB.Transformed(fullTrafo.Forward)
-                let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
-                let animationMessage = 
+                let view = ReferenceSystem.bodyAwareLookAt m.scene.referenceSystem bb.Max bb.Center
+                let animationMessage =
                     CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
                 let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                 a'
@@ -488,8 +495,8 @@ module ViewerApp =
 
             let pickingFunction () = 
                 V3d(0.0, 0.0, 0.0) |> pickRayNdc
-
-            let nav, feedback = Navigation.update c ref navConf true (Some pickingFunction) m.navigation msg m.ctrlFlag               
+                            
+            let nav, feedback = Navigation.update c ref navConf m.userPreferences true (Some pickingFunction) m.navigation msg m.ctrlFlag
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
@@ -497,6 +504,7 @@ module ViewerApp =
             |> logScreenOption 10000 feedback 
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
+            |> updateUpNorthForPosition nav.camera.view.Location
         | NavigationMessage msg, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_ -> // belongs to deprecated animation
@@ -564,6 +572,32 @@ module ViewerApp =
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with animations = a'}              
                 | None -> m
+            | Drawing.ExportMultiAttributeProfile path ->
+                if String.IsNullOrEmpty path then
+                    Log.warn "[MultiAttrProfile] no path specified"
+                else
+                    match GroupsModel.tryGetSelectedAnnotation m.drawing.annotations with
+                    | Some a ->
+                        let points = a |> Annotation.retrievePoints
+                        if points.Length < 2 then
+                            Log.warn "[MultiAttrProfile] annotation needs at least 2 points"
+                        else
+                            let surfacesModel = Optic.get _surfacesModel m
+                            let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                            let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+                            let up = m.scene.referenceSystem.up.value.Normalized
+
+                            let samples, attrNames, newCache =
+                                ProfileAttributeExtraction.extractProfile points up surfacesModel m.scene.referenceSystem observedSystem observerSystem Picking.cache
+                            Picking.cache <- newCache
+
+                            if samples.Length > 0 then
+                                ProfileAttributeExtraction.writeCsv path samples attrNames
+                            else
+                                Log.warn "[MultiAttrProfile] no samples extracted"
+                    | None ->
+                        Log.line "[MultiAttrProfile] please select an annotation to export"
+                m
             | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.inverseFlag) ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
@@ -632,9 +666,10 @@ module ViewerApp =
                     model
             model
             
-        | AnnotationMessage msg,_ ->                
+        | AnnotationMessage msg,_ ->
             match m.drawing.annotations.singleSelectLeaf with
-            | Some selected ->                             
+            | Some selected ->
+                let before = m.drawing.annotations
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
                     let a = AnnotationProperties.update m.scene.referenceSystem a msg
@@ -655,6 +690,14 @@ module ViewerApp =
                 let a = m.drawing.annotations |> Groups.updateLeaf selected f
                 let m = Optic.set _annotations a m
 
+                // record an undo snapshot for the property edit. CreateCrossSection does not
+                // mutate the annotation itself (it is handled below at the Viewer level), so it
+                // is excluded from the annotation undo history.
+                let m =
+                    match msg with
+                    | AnnotationProperties.CreateCrossSection -> m
+                    | _ -> { m with drawing = m.drawing |> DrawingApp.pushUndo (SnapshotDelta(before, a)) }
+
                 // on CreateCrossSection, extract annotation points + camera to build CrossSection
                 match msg with
                 | AnnotationProperties.CreateCrossSection ->
@@ -674,6 +717,46 @@ module ViewerApp =
                     | None -> m
                 | _ -> m
             | None -> m
+        | AnnotationBulkMessage msg,_ ->
+            // bulk edit: apply the same pure property update to every annotation in the
+            // green multi-selection (selectedLeaves). Falls back to the single selection
+            // if nothing is multi-selected, so a lone selection still behaves sensibly.
+            let selectedIds =
+                let multi =
+                    m.drawing.annotations.selectedLeaves
+                    |> HashSet.toList
+                    |> List.map (fun ts -> ts.id)
+                match multi with
+                | [] ->
+                    match m.drawing.annotations.singleSelectLeaf with
+                    | Some id -> [ id ]
+                    | None    -> []
+                | _ -> multi
+
+            match selectedIds with
+            | [] -> m
+            | ids ->
+                let before = m.drawing.annotations
+                let f = (fun x ->
+                    let a = x |> Leaf.toAnnotation
+                    let a = AnnotationProperties.update m.scene.referenceSystem a msg
+
+                    //update true thickness computation on dip angle change
+                    let a =
+                        if (a.geometry = Geometry.TT) then
+                           let up = m.scene.referenceSystem.up.value
+                           let north = m.scene.referenceSystem.north.value
+                           let planet = m.scene.referenceSystem.planet
+
+                           let results = Calculations.calcResultsLine a up north planet |> Some
+                           { a with results = results }
+                        else
+                            a
+                    a |> Leaf.Annotations)
+
+                let a = m.drawing.annotations |> GroupsApp.updateLeaves (ids |> IndexList.ofList) f
+                let m = Optic.set _annotations a m
+                { m with drawing = m.drawing |> DrawingApp.pushUndo (SnapshotDelta(before, a)) }
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
@@ -1024,14 +1107,45 @@ module ViewerApp =
                     //let csvTable = Csv.Seq.csv ";" true id result
                     //Csv.Seq.write ("./error.csv") csvTable |> ignore
 
-                    m 
+                    m
                     |> Optic.set _groups newGroups
                     |> Optic.set _lookUp lookup
                     |> Optic.set _flat newflat
-                with 
+                with
                 | e -> Log.error "[Viewer] %A" e; m
             | None -> m
-        | ImportSurfaceTrafo sl,_ ->  
+        | ImportSbmtAnnotations sl,_ ->
+            match sl |> List.tryHead with
+            | Some path ->
+                try
+                    // v1: identity trafo (no SHM->FIXED reprojection), default
+                    // reference-frame label "DIMORPHOS_SHM". See plans/sbmtImport.md
+                    // "Reference-system field storage" TODO before adding a frame modal.
+                    let imported, flat, lookup =
+                        AnnotationGroupsImporter.importSbmt
+                            Trafo3d.Identity path m.scene.referenceSystem "DIMORPHOS_SHM"
+
+                    let newGroups =
+                        m.drawing.annotations.rootGroup.subNodes
+                        |> IndexList.append imported
+
+                    let flat =
+                        flat
+                        |> HashMap.map (fun _ v ->
+                            let a = v |> Leaf.toAnnotation
+                            (if a.geometry = Geometry.DnS then { a with showDns = true } else a)
+                            |> Leaf.Annotations)
+
+                    let newflat = m.drawing.annotations.flat |> HashMap.union flat
+
+                    m
+                    |> Optic.set _groups newGroups
+                    |> Optic.set _lookUp lookup
+                    |> Optic.set _flat newflat
+                with
+                | e -> Log.error "[Viewer] %A" e; m
+            | None -> m
+        | ImportSurfaceTrafo sl,_ -> 
             match sl |> List.tryHead with
             | Some path ->
                 let imported = 
@@ -1186,13 +1300,19 @@ module ViewerApp =
                             | _ -> onlyActive
 
                         let hitF (surfaceId : SurfaceId) (camLocation : V3d) (p : V3d) = 
-                            let sky (planet : Planet) = 
+                            let sky (planet : Planet) =
                                 let up = CooTransformation.getUpVector p planet
-                                let reprojectionDistance = 
+                                let reprojectionDistance =
                                     match planet with
                                     | Planet.Mars -> 1000000.0
                                     | _ -> 100.0
-                                FastRay3d(p - (up * reprojectionDistance), up)  
+                                // Sky projection casts DOWN from above the sample point onto
+                                // the surface -- origin p + up*d, direction -up. This used to
+                                // be p - up*d, +up (from below, upward), which only appeared to
+                                // work while getUpVector returned garbage for small bodies; once
+                                // that was fixed the ray unambiguously searched upward (issue
+                                // #628). Matches the preview-pick sky rays above (p + up*5000, -up).
+                                FastRay3d(p + (up * reprojectionDistance), -up)
 
                             let ray =
                                 match m.drawing.projection with
@@ -1213,22 +1333,23 @@ module ViewerApp =
                                 | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
                             match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache Config.diagnosticTimings with
-                            | Some (t,surf), c ->                             
-                                cache <- c; ray.Ray.GetPointOnRay t.RayHit.T |> Some
+                            | Some hitInfo, c ->
+                                cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
                             | None, c ->
                                 cache <- c; None
                                    
                         let result = 
                             match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache Config.diagnosticTimings with
-                            | Some (t,surf), c ->                         
+                            | Some hitInfo, c ->
                                 cache <- c
-                                let hit = r.GetPointOnRay(t.RayHit.T)
+                                let surf = hitInfo.surface
+                                let hit = r.GetPointOnRay(hitInfo.hit.RayHit.T)
 
                                 Log.line "[PickSurface] surface hit at %A" hit
 
-                                let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
+                                let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location
                                 let hitF = hitF surf.guid cameraLocation
-                   
+
                                 lastHash <- rayHash
 
                                 let observedSystem = observedSystem surf.guid
@@ -1343,9 +1464,8 @@ module ViewerApp =
                     let c   = m.scene.config
                     let ref = m.scene.referenceSystem
                     let navigation', _ = 
-                        Navigation.update c ref navConf true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) m.ctrlFlag
-                    { m with navigation = navigation' }       
-                    
+                        Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) m.ctrlFlag
+                    { m with navigation = navigation' }
                 | _ -> m
           
 
@@ -1899,12 +2019,15 @@ module ViewerApp =
             let m = Optic.set _sequencedBookmarks bookmarks m
             m
         | SBookmarksToPoseDefinition, _ -> //RNO for creating dummy data for testing batch rendering with pose files
-            let poseData = PoseData.fromSequencedBookmarks m.scene.sequencedBookmarks 
+            let poseData = PoseData.fromSequencedBookmarks m.scene.sequencedBookmarks
             poseData
-            |> Json.serialize 
-            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Json.serialize
+            |> Json.formatWith JsonFormattingOptions.Pretty
             |> Serialization.Chiron.writeToFile poseData.path
             m
+        | SetUserPreferences prefs, _ ->
+            UserPreferences.save prefs
+            { m with userPreferences = prefs }
         | WriteBookmarkMetadata (path, bm) , _ ->
             match bm.metadata with
             | Some md ->
@@ -1977,9 +2100,9 @@ module ViewerApp =
                     m.animations
             (Optic.set _gisApp gisApp m)
             |> Optic.set ViewerLenses._animation animations
-        | unknownAction, _ -> 
+        | unknownAction, _ ->
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
-            m       
+            m
                    
    //let mutable lastMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
     let updateInternal 
@@ -2021,7 +2144,7 @@ module ViewerApp =
         else
             newModel
 
-    let mkBrushISg color size trafo : ISg<Message> =
+    let mkBrushISg color size trafo : ISg<_> =
       Sg.sphere 5 color size 
         |> Sg.shader {
             do! Shader.stableTrafo
@@ -2043,9 +2166,13 @@ module ViewerApp =
                     yield! FreeFlyController.extractAttributes model.camera Navigation.Action.FreeFlyAction
                 | NavigationMode.ArcBall, true ->                         
                     yield! ArcBallController.extractAttributes model.camera Navigation.Action.ArcBallAction
-                | NavigationMode.FreeFly, false
-                | NavigationMode.ArcBall, false ->
+                | NavigationMode.MapView, true -> 
+                    yield! MapViewController.extractAttributes model.camera Navigation.Action.MapViewControllerAction
+                | NavigationMode.FreeFly, false                
+                | NavigationMode.ArcBall, false 
+                | NavigationMode.MapView, false ->
                     yield! AMap.empty
+                
                 | _ -> 
                     failwith "Invalid NavigationMode"
             } 
@@ -2059,9 +2186,12 @@ module ViewerApp =
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
                 attribute "data-samples" (sprintf "%i" dataSamples)
                 attribute "useMapping" "true"
-                //attribute "showFPS" "true"        
+                // Pull keyboard focus onto the render control as soon as the cursor enters,
+                // so modifier keys (ctrlFlag, drawing-key shortcuts) work without a prior click.
+                attribute "onmouseenter" "this.focus()"
+                //attribute "showFPS" "true"
                 //attribute "data-renderalways" "true"
-                Aardvark.UI.Events.onKeyDown' (fun k -> 
+                Aardvark.UI.Events.onKeyDown' (fun k ->
                     let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k (m.inverseFlag |> AVal.force)
                     [KeyDown k; DrawingMessage drawingAction]
                 )
@@ -2079,7 +2209,7 @@ module ViewerApp =
                 )] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
                 //onResize  (fun s -> OnResize(s,id))
             AttributeMap.ofList [
-                onEvent "onRendered" [] (fun _ -> AnewmationMessage Animation.AnimatorMessage.RealTimeTick)                    
+                onAfterRender (fun _ -> AnewmationMessage Animation.AnimatorMessage.RealTimeTick)
             ] 
         ]            
 
@@ -2348,13 +2478,15 @@ module ViewerApp =
 
         // instrument view control
         let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed depthTested m.scene.viewPlans.instrumentCam false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
-                        |> AList.map ViewerUtils.mapRenderCommand
+                        |> Aardvark.UI.RenderCommand.Ordered
+                        |> Sg.execute
+                        |> Sg.map ViewerMessage
         
         //onBoot "attachResize('__ID__')" (
         //    DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         //)
         onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds, None) //AttributeMap.Empty
+            DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds) //AttributeMap.Empty
         )
 
     let createOverlaySg (m: AdaptiveModel) = 
@@ -2427,18 +2559,18 @@ module ViewerApp =
                 false 
                 runtime 
                 m
-            |> AList.map ViewerUtils.mapRenderCommand
+            |> Aardvark.UI.RenderCommand.Ordered
+            |> Sg.execute
+            |> Sg.map ViewerMessage
         onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
+            DomNode.RenderControl((renderControlAttributes id m), cam, cmds)
         )
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
 
-        let viewerDependencies = [
-            { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
+        let viewerDependencies = Html.semui @ [
             { kind = Stylesheet;  name = "semui-overrides"; url = "./resources/semui-overrides.css" }
             { kind = Stylesheet;  name = "fonts";           url = "./resources/fonts.css" }
-            { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
             { kind = Script;      name = "errorReporting";  url = "./resources/errorReporting.js"  }
             { kind = Script;      name = "resize";  url = "./resources/ResizeSensor.js"  }
             { kind = Script;      name = "resizeElem";  url = "./resources/ElementQueries.js"  }
@@ -2472,6 +2604,9 @@ module ViewerApp =
             | NavigationMode.ArcBall ->
                 ArcBallController.threads m.navigation.camera
                 |> ThreadPool.map Navigation.ArcBallAction |> ThreadPool.map NavigationMessage
+            | NavigationMode.MapView ->
+                MapViewController.threads m.navigation.camera
+                |> ThreadPool.map Navigation.MapViewControllerAction |> ThreadPool.map NavigationMessage
             | _ -> failwith "invalid nav mode"
          
       //  let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
@@ -2563,5 +2698,5 @@ module ViewerApp =
             update    = updateWithProvenanceTracking runtime enableProvenance signature sendQueue messagingMailbox
             initial   = m
         }
-        app.startAndGetState()
+        app.start()
 

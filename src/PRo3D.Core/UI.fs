@@ -84,8 +84,8 @@ module UI =
                 | [] -> chosen []
                 | x::[] when x <> null -> 
                     x 
-                    |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                    |> List.map Aardvark.Service.PathUtils.ofUnixStyle 
+                    |> Pickler.json.UnPickleOfString
+                    |> List.map Path.ofUnixStyle
                     |> chosen
                 | _ -> 
                     chosen []
@@ -99,8 +99,8 @@ module UI =
                     let id = id
                     let path = 
                         x 
-                        |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                        |> List.map Aardvark.Service.PathUtils.ofUnixStyle 
+                        |> Pickler.json.UnPickleOfString
+                        |> List.map Path.ofUnixStyle
                         |> List.tryHead
                     match path with
                     | Some p -> 
@@ -115,8 +115,8 @@ module UI =
                 match xs with
                 | x::[] when x <> null -> 
                     x 
-                    |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                    |> Aardvark.Service.PathUtils.ofUnixStyle 
+                    |> Pickler.json.UnPickleOfString
+                    |> Path.ofUnixStyle
                     |> chosen
                 | _ -> 
                     chosen String.Empty //failwithf "onSaveFile: %A" xs
@@ -129,7 +129,7 @@ module UI =
                 | None ->
                     match xs with
                     | x::[] when x <> null -> 
-                        x |> Aardvark.Service.Pickler.json.UnPickleOfString |> Aardvark.Service.PathUtils.ofUnixStyle |> chosen
+                        x |> Pickler.json.UnPickleOfString |> Path.ofUnixStyle |> chosen
                     | _ -> 
                         String.Empty |> chosen
             onEvent "onsave" [] cb

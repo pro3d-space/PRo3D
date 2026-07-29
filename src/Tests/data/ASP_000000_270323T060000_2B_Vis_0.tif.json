@@ -1,0 +1,37 @@
+{
+    "product_information": {
+        "schema_id": "https://www.joanneum.at/jim/product_information.schema.json",
+        "schema_version": 7262,
+        "product_type": "MultiBandImage (MBI) frame",
+        "product_state": "imported",
+        "creator_id": "Fits2Mbi",
+        "creation_datetime": "2026-06-02T12:08:19.615816+0000"
+    },
+    "schema_id": "https://www.joanneum.at/jim/camera_image.schema.json",
+    "schema_version": 8749,
+    "product_type": "image",
+    "image_width": 640,
+    "image_height": 512,
+    "channels": 1,
+    "data_type": "float",
+    "file_md5": "630c3432bda9be89add0499792b591eb",
+    "image_file_format": "tif",
+    "compression_type": "none",
+    "image_statistics": [
+        {
+            "minimum": 0.0,
+            "maximum": 0.18855854868888855,
+            "mean": 0.04247896804992588,
+            "median": 0.0005634740079905825,
+            "standard_deviation": 0.06048926446320817,
+            "variance": 0.0036589511152999386
+        }
+    ],
+    "mbi_frame": {
+        "label": "Vis_0",
+        "description": "ASPECT Vis channel frame 0",
+        "task": "N/A",
+        "exposure": 0.01,
+        "wavelength": 675.0
+    }
+}

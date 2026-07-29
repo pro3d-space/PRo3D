@@ -495,19 +495,22 @@ module Sg =
             //toEffect <| DefaultSurfaces.stableHeadlight
         ]
 
+    // composed once (like stableLight above), not per sphere' call
+    let private sphereEffect =
+        Effect.compose [
+            toEffect Shader.ScreenSpaceScale.screenSpaceScale
+            toEffect DefaultSurfaces.stableTrafo
+            toEffect DefaultSurfaces.vertexColor
+        ]
+
     //spheres
     let sphere' color radius (pos : aval<V3d>) =
-        Sg.sphere 4 (color) (~~1.0) 
-        |> Sg.noEvents        
+        Sg.sphere 4 (color) (~~1.0)
+        |> Sg.noEvents
         |> Sg.trafo (pos |> AVal.map Trafo3d.Translation)
         |> Sg.uniform "WorldPos" pos
         |> Sg.uniform "Size" radius
-        |> Sg.effect [
-            toEffect <| Shader.ScreenSpaceScale.screenSpaceScale
-            toEffect <| DefaultSurfaces.stableTrafo
-            toEffect <| DefaultSurfaces.vertexColor
-            //toEffect <| DefaultSurfaces.stableHeadlight
-        ]
+        |> Sg.effect [sphereEffect]
 
     //lines
     let toColoredEdges (offset:V3d) (color : C4b) (points : array<V3d>) =

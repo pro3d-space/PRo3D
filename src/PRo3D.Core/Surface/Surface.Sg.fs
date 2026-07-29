@@ -10,7 +10,6 @@ open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.Data.Opc
 open Aardvark.SceneGraph.Semantics
-open Aardvark.UI
 
 open Aardvark.UI.Primitives
 open Aardvark.UI
@@ -518,7 +517,7 @@ module Sg =
                 //plainPatchLod
                 patchLodWithTextures
             )
-            |> SgFSharp.Sg.ofArray  
+            |> Aardvark.SceneGraph.SgFSharp.Sg.ofArray
                                                                       
         g, patchHierarchies, kdTrees
     
@@ -638,8 +637,8 @@ module Sg =
                         yield fail
                 | None -> 
                     yield fail
-            }|> Aardvark.UI.``F# Sg``.Sg.set
-        Aardvark.UI.``F# Sg``.Sg.ofList [point]
+            }|> Sg.set
+        Sg.ofList [point]
 
     let viewLeafLabels 
         (near   : aval<float>)

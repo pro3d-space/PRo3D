@@ -31,6 +31,8 @@ printfn "%A" notes
 
 let solutionName = "src/PRo3D.sln"
 let framework = "net9.0"
+let aardiumPath = Path.Combine("aardium", "Aardium")
+let dotnetOutputPath = Path.Combine(aardiumPath, "build", "dotnet")
 
 // detect the running architecture and turn it into the matching macOS RID
 let osxArch =
@@ -61,7 +63,7 @@ let copyMacNativeLibs (arch : Architecture) (targetDir : string) =
 // notes, so electron-builder's release tag (v{version}) matches the FAKE
 // GitHubRelease tag and both publishers land in the same draft.
 let patchAardiumVersion (version : string) =
-    let path = "aardium/package.json"
+    let path = Path.Combine(aardiumPath, "package.json")
     let text = File.ReadAllText path
     // only the first "version": "..." is the top-level field (before "build");
     // nested ones (buildVersion ${version}, deps) must stay untouched.
@@ -275,7 +277,7 @@ let test = """let viewerVersion       = "3.1.3" """
     res
     *)
 
-let aardiumVersion = "2.1.1"
+let aardiumVersion = "3.0.2"
     //let versions = getInstalledPackageVersions()
     //match Map.tryFind "Aardium" versions with
     //| Some v -> v
@@ -294,74 +296,39 @@ Target.create "Tests" (fun _ ->
     ) "./src/Tests/Tests.fsproj"
 )
 
-let yarnName =
-    if Environment.OSVersion.Platform = PlatformID.Unix || Environment.OSVersion.Platform = PlatformID.MacOSX then "yarn"
-    else "yarn.cmd"
-
 let npmName =
     if Environment.OSVersion.Platform = PlatformID.Unix || Environment.OSVersion.Platform = PlatformID.MacOSX then "npm"
     else "npm.cmd"
 
-let yarn (args : list<string>) =
-    let yarn =
-        match ProcessUtils.tryFindFileOnPath yarnName with
+let npm (args : string list) =
+    let npm =
+        match ProcessUtils.tryFindFileOnPath npmName with
             | Some path -> path
-            | None -> failwith "could not locate yarn"
+            | None -> failwith "could not locate npm"
 
     let ret : ProcessResult<_> = 
-        Command.RawCommand(yarn, Arguments.ofList args)
+        Command.RawCommand(npm, Arguments.ofList args)
         |> CreateProcess.fromCommand
-        |> CreateProcess.setEnvironmentVariable  "BUILD_VERSION" notes.NugetVersion
-        |> CreateProcess.withWorkingDirectory "aardium"
+        |> CreateProcess.withWorkingDirectory aardiumPath
         |> Proc.run
-        //ProcessHelper.ExecProcess (fun info ->
-        //     info.FileName <- yarn
-        //     info.WorkingDirectory <- "Aardium"
-        //     info.Arguments <- String.concat " " args
-        //     ()
-        // ) TimeSpan.MaxValue
 
     if ret.ExitCode <> 0 then
-        failwith "yarn failed"
- 
-
-Target.create "InstallYarn" (fun _ ->
-
-    match ProcessUtils.tryFindFileOnPath yarnName with
-        | None ->
-    
-            match ProcessUtils.tryFindFileOnPath npmName with
-                | Some npm ->
-                    
-                    let ret = 
-                        Command.RawCommand(npm, Arguments.ofList ["install -g yarn"])
-                        |> CreateProcess.fromCommand
-                        |> Proc.run
-
-                    if ret.ExitCode <> 0 then
-                        failwith "npm install failed"
-                | None ->
-                    failwith "could not locate npm"   
-        | _ ->
-            Trace.tracefn "yarn already installed"
-)
-
-Target.create "Yarn" (fun _ ->
-    yarn []
-)
+        let args = args |> String.concat " "
+        failwith $"npm {args} failed"
 
 Target.create "PublishToElectron" (fun _ ->
-    yarn ["install"]
+    npm ["install"]
     if RuntimeInformation.IsOSPlatform OSPlatform.Windows then 
-        yarn ["dist"]
+        npm ["run"; "publish"]
         //File.WriteAllBytes("Aardium/dist/Aardium-Linux-x64.tar.gz", [||]) |> ignore
         //File.WriteAllBytes("Aardium/dist/Aardium-Darwin-x64.tar.gz", [||]) |> ignore
-    if RuntimeInformation.IsOSPlatform OSPlatform.Linux then 
-        yarn ["dist"]
+    if RuntimeInformation.IsOSPlatform OSPlatform.Linux then
+        npm ["run"; "publish"]
         //Directory.CreateDirectory "Aardium/dist/Aardium-win32-x64" |> ignore
         //File.WriteAllBytes("Aardium/dist/Aardium-Darwin-x64.tar.gz", [||]) |> ignore
-    if RuntimeInformation.IsOSPlatform OSPlatform.OSX then 
-        yarn ["dist"]
+    if RuntimeInformation.IsOSPlatform OSPlatform.OSX then
+        npm ["run"; "signbuild"]
+        npm ["run"; "publish"]
         //File.WriteAllBytes("Aardium/dist/Aardium-Linux-x64.tar.gz", [||]) |> ignore
         //Directory.CreateDirectory "Aardium/dist/Aardium-win32-x64" |> ignore
 )
@@ -376,8 +343,8 @@ let extractNativeDependenciesInFolder (os : OSPlatform) (arch : Architecture) (d
  
 Target.create "CopyToElectron" (fun _ -> 
 
-    if Directory.Exists "./aardium/build/build" then 
-        Directory.Delete("./aardium/build/build", true) 
+    if Directory.Exists dotnetOutputPath then
+        Directory.Delete(dotnetOutputPath, true)
 
     // 0.0 copy version over into source code...
     let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
@@ -404,13 +371,13 @@ Target.create "CopyToElectron" (fun _ ->
                  //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
                  Configuration = DotNet.BuildConfiguration.Release
                  VersionSuffix = Some notes.NugetVersion
-                 OutputPath = Some "aardium/build/build"
+                 OutputPath = Some dotnetOutputPath
                  MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
              }
          )
-         copyMacNativeLibs arch "aardium/build/build"
+         copyMacNativeLibs arch dotnetOutputPath
 
-         extractNativeDependenciesInFolder OSPlatform.OSX arch "aardium/build/build"
+         extractNativeDependenciesInFolder OSPlatform.OSX arch dotnetOutputPath
 
     elif System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux) then
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
@@ -421,16 +388,16 @@ Target.create "CopyToElectron" (fun _ ->
                     //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
                     Configuration = DotNet.BuildConfiguration.Release
                     VersionSuffix = Some notes.NugetVersion
-                    OutputPath = Some "aardium/build/build"
+                    OutputPath = Some dotnetOutputPath
                     MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
                 }
         )
         for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/linux/AMD64") do    
-            let target = Path.Combine("aardium/build/build", Path.GetFileName f)
+            let target = Path.Combine(dotnetOutputPath, Path.GetFileName f)
             printfn "copy: %s => %s" f target
             File.Copy(f, target)
 
-        extractNativeDependenciesInFolder OSPlatform.Linux Architecture.X64 "aardium/build/build" 
+        extractNativeDependenciesInFolder OSPlatform.Linux Architecture.X64 dotnetOutputPath
 
     else
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
@@ -440,7 +407,7 @@ Target.create "CopyToElectron" (fun _ ->
                 Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
-                OutputPath = Some "aardium/build/build"
+                OutputPath = Some dotnetOutputPath
                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
             }
         )
@@ -453,29 +420,29 @@ Target.create "CopyToElectron" (fun _ ->
                 Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
-                OutputPath = Some "aardium/build/build"
+                OutputPath = Some dotnetOutputPath
                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
             }
         )
 
-        extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 "aardium/build/build"
+        extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 dotnetOutputPath
 
-        File.Copy("data/runtime/vcruntime140.dll", "aardium/build/build/vcruntime140.dll")
-        File.Copy("data/runtime/vcruntime140_1.dll", "aardium/build/build/vcruntime140_1.dll")
-        File.Copy("data/runtime/msvcp140.dll", "aardium/build/build/msvcp140.dll")
-
-
+        File.Copy("data/runtime/vcruntime140.dll", Path.Combine(dotnetOutputPath, "vcruntime140.dll"))
+        File.Copy("data/runtime/vcruntime140_1.dll", Path.Combine(dotnetOutputPath, "vcruntime140_1.dll"))
+        File.Copy("data/runtime/msvcp140.dll", Path.Combine(dotnetOutputPath, "msvcp140.dll"))
 
 
-    File.Copy("CREDITS.MD", "aardium/build/build/CREDITS.MD", true)
-    File.Copy("CREDITS.MD", "aardium/CREDITS.MD", true)
+
+
+    File.Copy("CREDITS.MD", Path.Combine(dotnetOutputPath, "CREDITS.MD"), true)
+    File.Copy("CREDITS.MD", Path.Combine(aardiumPath, "CREDITS.MD"), true)
 
 )
 
-"InstallYarn" ==> "CopyToElectron" ==> "PublishToElectron" |> ignore
+"CopyToElectron" ==> "PublishToElectron" |> ignore
 
 Target.create "TestUnpack" (fun _ -> 
-    extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 "./aardium/build/build"
+    extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 dotnetOutputPath
 )
 
 Target.create "Publish" (fun _ ->
@@ -712,12 +679,12 @@ Target.create "GitHubRelease" (fun _ ->
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
-            //let files = System.IO.Directory.EnumerateFiles("bin/publish")
-            let release = sprintf "bin/PRo3D.Viewer-standalone.%s.zip" notes.NugetVersion
-            let z =
-                if File.Exists release then
-                    File.Delete(release)
-                System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
+            // Non-electron standalone: zip the self-contained win-x64 publish
+            // (built by the Publish target this depends on) and upload it to the
+            // same draft below, so it lands alongside the electron installers.
+            let standaloneZip = sprintf "bin/PRo3D.Viewer-%s-win-x64-standalone.zip" notes.NugetVersion
+            if File.Exists standaloneZip then File.Delete(standaloneZip)
+            System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", standaloneZip)
 
             // record where the draft came from: append the commit + tag so the
             // release always states its source (the tag itself anchors the
@@ -735,19 +702,23 @@ Target.create "GitHubRelease" (fun _ ->
             let release =
                 GitHub.createClientWithToken token
                 |> GitHub.draftNewRelease "pro3d-space" "PRo3D" tagName (notes.SemVer.PreRelease <> None) body
-                |> GitHub.uploadFiles (Seq.singleton release)
+                |> GitHub.uploadFiles (Seq.singleton standaloneZip)
                 //|> GitHub.publishDraft
                 |> Async.RunSynchronously
 
             try Branches.pushTag "." "origin" tagName with e -> Trace.logf "could not create tag: %A" e
 
-        with e -> 
+        with e ->
             Trace.logf "failed to create github release: %A" e
             Branches.deleteTag "." tagName
     finally
         ()
-        
+
 )
+
+// GitHubRelease zips bin/publish/win-x64 into the standalone; make sure that
+// self-contained publish exists first (the deploy 'draft' job runs GitHubRelease).
+"Publish" ==> "GitHubRelease" |> ignore
 
 
 Target.create "Pack" (fun _ ->
@@ -852,10 +823,14 @@ Target.create "Push" (fun _ ->
     ()
 )
 
-"Publish" ==> "GithubRelease" |> ignore
+//"Publish" ==> "GithubRelease" |> ignore
 
 Target.create "Run" (fun _ -> 
     Target.run 1 "AddNativeResources" []
+)
+
+Target.create "Version" (fun _ ->
+    printfn "VERSION=%s" notes.NugetVersion
 )
 
 "CompileInstruments" ==> "AddNativeResources" |> ignore
