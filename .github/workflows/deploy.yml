@@ -97,7 +97,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-paket-
 
-      - name: Create GitHub Release
+      # GitHubRelease now depends on the Publish target (it zips
+      # bin/publish/win-x64 into the standalone), so the paket tool + deps must
+      # be restored first.
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore paket
+        run: dotnet paket restore
+
+      - name: Create GitHub Release (draft + standalone zip)
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .\build.cmd GitHubRelease

@@ -1,3 +1,7 @@
+## 6.0.0-prerelease6
+- Navigation: the camera-mode dropdown now shows **MapView** even when no reference body is loaded — greyed out with a "needs a planet / reference body" note — instead of hiding the option entirely
+- Release: restored the non-electron Windows standalone build (`PRo3D.Viewer-<version>-win-x64-standalone.zip`) attached to the draft release alongside the installers
+
 ## 6.0.0-prerelease5
 - macOS: fixed PRo3D failing to start on Apple Silicon (and Intel) Macs — a stale x86_64 `libCooTransformation` bundled with the instrument-platform wrappers shadowed the correct-architecture SPICE native; removed it so SPICE/CooTransformation initializes on all platforms
 - Profiles: multi-attribute profile data extraction and export
