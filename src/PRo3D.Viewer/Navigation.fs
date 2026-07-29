@@ -231,13 +231,16 @@ module Navigation =
                     alist {
                         let navMode = model.navigationMode
                         let! p = planet
-                        let exclude = 
-                            if p = Planet.None then 
+                        // MapView needs a reference body (it orients to the planet
+                        // centre with up = north). With Planet.None we still show it,
+                        // but greyed out with a note, instead of hiding it.
+                        let disabled =
+                            if p = Planet.None then
                                 [ NavigationMode.MapView ] |> HashSet.ofList
                             else
-                                HashSet.Empty
+                                HashSet.empty
 
-                        Drawing.UI.dropDown exclude navMode SetNavigationMode geometryTooltip
+                        Drawing.UI.dropDownDisabled HashSet.empty disabled "needs a planet" navMode SetNavigationMode geometryTooltip
                     })]
             ]
 
