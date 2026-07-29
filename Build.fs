@@ -411,6 +411,20 @@ Target.create "CopyToElectron" (fun _ ->
                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
             }
         )
+        // snapshots CLI (PRo3D.Snapshots.exe) — same as in the standalone "Publish" target,
+        // published into the same folder so electron-builder ships it via extraFiles.
+        "src/PRo3D.Snapshots/PRo3D.Snapshots.fsproj" |> DotNet.publish (fun o ->
+            { o with
+                Framework = Some framework
+                Runtime = Some "win-x64"
+                Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+                Configuration = DotNet.BuildConfiguration.Release
+                VersionSuffix = Some notes.NugetVersion
+                OutputPath = Some dotnetOutputPath
+                MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+            }
+        )
+
         extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 dotnetOutputPath
 
         File.Copy("data/runtime/vcruntime140.dll", Path.Combine(dotnetOutputPath, "vcruntime140.dll"))
