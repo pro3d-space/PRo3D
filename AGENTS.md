@@ -22,18 +22,22 @@ PRo3D is built on top of the [Aardvark Platform](https://github.com/aardvark-pla
 
 | Component | Version | Purpose |
 |-----------|---------|---------|
-| .NET SDK | 9.0.0 (`global.json`, `rollForward: latestFeature`) | Runtime/SDK |
+| .NET SDK | 9.0.100 (`global.json`, `rollForward: latestFeature`) | Runtime/SDK |
 | F# | All projects | Language (one C# helper project: `CSharpUtils`) |
 | Paket | 9.0.2 | Dependency management |
 | Adaptify | 1.3.7 | Code generation for adaptive models (`*.g.fs`) |
 | Aardpack | 2.0.5 | NuGet packaging |
 | Fantomas | 6.2.3 | F# code formatter |
 | FAKE | 6.1.4 | Build orchestration (`Build.fs`) |
-| Aardvark.Rendering / UI | ~> 5.6.0 | Rendering + aardvark.media UI |
-| Aardvark.Base / Geometry | ~> 5.3.2 / ~> 5.5.0 | Math, geometry, intersection |
+| Aardvark.Rendering | ~> 5.6.9 | Rendering backend (GL/Vulkan, Text) |
+| Aardvark.UI / UI.Primitives / UI.Giraffe | ~> 5.7.3 | aardvark.media UI + Giraffe hosting |
+| Aardvark.Base / Aardvark.Geometry | ~> 5.3.2 | Math, geometry |
+| Aardvark.Geometry.Intersection / .PointTree / .PolyMesh / .Clustering | ~> 5.5.0 | Intersection, spatial queries, meshes |
 | Aardvark.Data.Opc | ~> 0.11.0 | OPC terrain data |
-| Aardvark.GeoSpatial.Opc | ~> 5.13.0-prerelease | OPC level-of-detail rendering |
-| PRo3D.SPICE | ~> 1.0.6 | Planetary ephemeris / coordinate transforms |
+| Aardvark.GeoSpatial.Opc | ~> 5.13.0-prerelease0002 | OPC level-of-detail rendering |
+| PRo3D.SPICE | ~> 1.0.9 | Planetary ephemeris / coordinate transforms |
+
+Versions above are the `paket.dependencies` constraints; resolved versions are in `paket.lock`. Note that `Aardvark.Rendering` and `Aardvark.UI` are on **different** version lines — do not assume they move together.
 
 ## Dependency Management: Paket
 
@@ -77,7 +81,7 @@ src/
 ├── opc-tool/              # CLI: validate OPC datasets, build/convert textures + KdTrees
 ├── ModelViewer/           # Standalone mesh model viewer
 ├── CSharpUtils/           # C# helper utilities (netstandard2.1)
-└── Tests/                 # NUnit/FsUnit tests + notebooks
+└── Tests/                 # Expecto tests (NUnit/FsUnit also referenced) + notebooks
 ```
 
 Native code wrappers (instruments) live under `src/InstrumentPlatforms` (built into `lib/JR.Wrappers.dll`). See [ai/RENDERING.md](ai/RENDERING.md) and [ai/AUTOMATION.md](ai/AUTOMATION.md).
@@ -105,7 +109,7 @@ PRo3D uses an **issue + feature-branch + PR** workflow (full details in [CONTRIB
 
 - **Never commit directly to `main`/`develop`.** Work on a branch named `features/[issue#]_name` or `bugs/[issue#]_name`, and open a Pull Request for review.
 - A PR is expected to include the corresponding [`docs/`](docs/) page for any feature it adds or changes (see rule 7 above).
-- Releases are driven by editing `PRODUCT_RELEASE_NOTES.md` / `aardium/package.json` (CI builds and tags). See [docs/Build-Deploy-System.md](docs/Build-Deploy-System.md).
+- Releases are driven by editing `PRODUCT_RELEASE_NOTES.md` / `aardium/Aardium/package.json` (CI builds and tags). See [docs/Build-Deploy-System.md](docs/Build-Deploy-System.md).
 
 ## Common Failures
 
@@ -120,7 +124,7 @@ PRo3D uses an **issue + feature-branch + PR** workflow (full details in [CONTRIB
 
 ## Relationship to aardvark.media
 
-PRo3D is an aardvark.media application. For the **base framework** — `App<'model,'mmodel,'msg>`, `Unpersist`, `[<ModelType>]`, `DomNode`, attributes/events, `RenderControl`, camera controllers (`FreeFly`/`ArcBall`/`Orbit`), the animation system, `ThreadPool`/`proclist`, and Suave/`MutableApp.toWebPart` hosting — consult the upstream docs:
+PRo3D is an aardvark.media application. For the **base framework** — `App<'model,'mmodel,'msg>`, `Unpersist`, `[<ModelType>]`, `DomNode`, attributes/events, `RenderControl`, camera controllers (`FreeFly`/`ArcBall`/`Orbit`), the animation system, `ThreadPool`/`proclist`, and Giraffe/`MutableApp.toWebPart` hosting — consult the upstream docs:
 
 - https://github.com/aardvark-platform/aardvark.media/tree/main/ai
   - `ARCHITECTURE.md` — ELM pattern, App type, Unpersist, ThreadPool

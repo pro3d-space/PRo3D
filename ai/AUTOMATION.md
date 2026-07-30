@@ -30,7 +30,7 @@ Startup then optionally pipelines scene/data loading into the initial model (see
 
 ## Remote API
 
-When enabled, an HTTP API is mounted by the Suave server alongside the UI (`src/PRo3D.Viewer/Program.fs:395`, `prefix "/api" >=> remoteApi`). It is implemented in `src/PRo3D.Viewer/RemoteApi.fs` (plus `QueriesRemoteApi.fs`), and turns messages into the running app's update loop via the `messagingMailbox`. This is how external Python/notebook clients control a live PRo3D instance (see `provex/PROVEX.MD`).
+When enabled, an HTTP API is mounted by the Giraffe server alongside the UI (`src/PRo3D.Viewer/Program.fs:375`, `http.subRoute "/api" remoteApi`). It is implemented in `src/PRo3D.Viewer/RemoteApi.fs` (plus `QueriesRemoteApi.fs`), and turns messages into the running app's update loop via the `messagingMailbox`. This is how external Python/notebook clients control a live PRo3D instance (see `provex/PROVEX.MD`).
 
 Route groups under `/api`:
 
@@ -47,7 +47,7 @@ Route groups under `/api`:
 | `/api/queries/findAnnotation`, `/queryAnnotationAsJson`, `/queryAnnotationAsObj` | Run [queries](DOMAIN.md#queries) against surfaces and return JSON/OBJ |
 | `/api/annotations/%s/points` | Per-annotation point data |
 
-The viewer also serves `/websocket` (UI updates), `/crash.txt`, and `/minilog.txt`. A separate **remote-control** app (`RemoteControlApp.fs`) exposes `POST /shots` and `POST /platformshots` for screenshot/platform-shot capture (`Program.fs:473`).
+The viewer also serves `/websocket` (UI updates), `/crash.txt`, and `/minilog.txt`. A separate **remote-control** app (`RemoteControlApp.fs`) exposes `POST /shots` and `POST /platformshots` for screenshot/platform-shot capture (`Program.fs:446`).
 
 ---
 

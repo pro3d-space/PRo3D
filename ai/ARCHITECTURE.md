@@ -2,7 +2,7 @@
 
 How PRo3D is structured on top of aardvark.media's ELM architecture.
 
-> **Prerequisite:** This document assumes the aardvark.media model — `App<'model,'mmodel,'msg>`, `Unpersist`, `[<ModelType>]`, the adaptive (`aval`/`aset`/`alist`/`amap`) update model, `ThreadPool`/`proclist`, and Suave/`MutableApp.toWebPart` hosting. See [aardvark.media/ai/ARCHITECTURE.md](https://github.com/aardvark-platform/aardvark.media/tree/main/ai). Here we only cover what PRo3D adds.
+> **Prerequisite:** This document assumes the aardvark.media model — `App<'model,'mmodel,'msg>`, `Unpersist`, `[<ModelType>]`, the adaptive (`aval`/`aset`/`alist`/`amap`) update model, `ThreadPool`/`proclist`, and Giraffe/`MutableApp.toWebPart` hosting. See [aardvark.media/ai/ARCHITECTURE.md](https://github.com/aardvark-platform/aardvark.media/tree/main/ai). Here we only cover what PRo3D adds.
 
 ---
 
@@ -38,7 +38,7 @@ Defined in `src/PRo3D.Viewer/Viewer-Model.fs`.
 
 Two layers matter:
 
-1. **`Scene`** (`Viewer-Model.fs:207`) — the **persisted** part of the application: everything that is saved to a `.pro3d` scene file. It carries a `version : int` for migration and aggregates the persisted sub-models:
+1. **`Scene`** (`Viewer-Model.fs:211`) — the **persisted** part of the application: everything that is saved to a `.pro3d` scene file. It carries a `version : int` for migration and aggregates the persisted sub-models:
 
    ```fsharp
    type Scene = {
@@ -65,7 +65,7 @@ Two layers matter:
    }
    ```
 
-2. **`Model`** (`Viewer-Model.fs:574`) — the **full runtime** model. It embeds `scene : Scene` plus transient/runtime-only state that is *not* persisted: the live `drawing : DrawingModel`, `navigation : NavigationModel`, `animations`/`animator`, `provenanceModel`, picking flags (`picking`, `pivotType`, `surfaceIntersection`), the `messagingMailbox`, undo/redo (`past`/`future`, marked `[<TreatAsValue>]`), background thread pools (`snapshotThreads`, `backgroundPicking`), and so on.
+2. **`Model`** (`Viewer-Model.fs:584`) — the **full runtime** model. It embeds `scene : Scene` plus transient/runtime-only state that is *not* persisted: the live `drawing : DrawingModel`, `navigation : NavigationModel`, `animations`/`animator`, `provenanceModel`, picking flags (`picking`, `pivotType`, `surfaceIntersection`), the `messagingMailbox`, undo/redo (`past`/`future`, marked `[<TreatAsValue>]`), background thread pools (`snapshotThreads`, `backgroundPicking`), and so on.
 
    Fields annotated `[<NonAdaptive>]` (e.g. `animator`) are excluded from the adaptive model; `[<TreatAsValue>]` fields (e.g. undo history) are treated as opaque values rather than adaptified deeply.
 
@@ -87,7 +87,7 @@ type ViewerAction =
     // ... plus many viewer-level actions (imports, picking, config, key/mouse, IO)
 ```
 
-The app is actually started with a slightly wider message type that layers animation + provenance on top of `ViewerAction` (`Viewer-Model.fs:650`):
+The app is actually started with a slightly wider message type that layers animation + provenance on top of `ViewerAction` (`Viewer-Model.fs:666`):
 
 ```fsharp
 type ViewerAnimationAction =
@@ -134,7 +134,7 @@ The dispatch chain in `src/PRo3D.Viewer/Viewer/Viewer.fs`:
 
 ## App Startup & Hosting
 
-The app record is assembled and started in `ViewerApp.start` (`src/PRo3D.Viewer/Viewer/Viewer.fs:2490`):
+The app record is assembled and started in `ViewerApp.start` (`src/PRo3D.Viewer/Viewer/Viewer.fs:2634`):
 
 ```fsharp
 let app = {
@@ -147,7 +147,7 @@ let app = {
 app.startAndGetState()   // -> (AdaptiveModel, MutableApp<...>)
 ```
 
-The initial model `m` is built from `Viewer.initial` and then, depending on `StartupArgs`, optionally pipelined through scene loaders (`LoadScene`, `Viewer.fs:2475`):
+The initial model `m` is built from `Viewer.initial` and then, depending on `StartupArgs`, optionally pipelined through scene loaders (`ViewerStartupLoad`, `Viewer.fs:2629`):
 `SceneLoader.loadSceneFromFile` → `loadRoverData` → `loadAnnotations` → `loadCorrelations` → `loadSequencedBookmarks` → `addScaleBarSegments` → `addGeologicSurfaces`.
 
 Process startup, backend selection, and SPICE init happen in `src/PRo3D.Viewer/Program.fs` (`[<EntryPoint; STAThread>]`):
@@ -155,7 +155,7 @@ Process startup, backend selection, and SPICE init happen in `src/PRo3D.Viewer/P
 - `Aardvark.Init()`, create `OpenGlApplication` (Vulkan optionally), apply GPU workarounds.
 - Initialize SPICE coordinate transforms (`CooTransformation.initCooTrafo`).
 - Parse command line (`CommandLine.parseArguments`, see [AUTOMATION.md](AUTOMATION.md)).
-- Host via Suave `MutableApp.toWebPart' runtime false mainApp` (`Program.fs:393`), optionally mounting the remote API and remote-control app. UI is shown through **Aardium** (the Aardvark Electron-style shell), or headless in server mode.
+- Host via Giraffe `MutableApp.toWebPart' runtime false mainApp` (`Program.fs:373`, `open Aardvark.UI.Giraffe`), optionally mounting the remote API and remote-control app. UI is shown through **Aardium** (the Aardvark Electron-style shell), or headless in server mode.
 
 ### Dockable UI
 
@@ -181,7 +181,7 @@ PRo3D uses aardvark.media's `ThreadPool<'msg>`/`proclist` for background work th
 
 Scenes are saved as `.pro3d` files using **Chiron** JSON codecs (with `PRo3D.Base/Serialization.fs` providing the serializers; see [RENDERING.md](RENDERING.md#serialization) for the binary/JSON split). The key pattern is **explicit versioning**:
 
-- `Scene.version` holds the schema version; `Scene.current = 3` (`Viewer-Model.fs:242`).
+- `Scene.version` holds the schema version; `Scene.current = 3` (`Viewer-Model.fs:247`).
 - Per-version reader functions `read0`, `read1`, `read2`, `read3` deserialize the corresponding on-disk schema, filling missing fields with defaults so **older scenes load into the current model**.
 - Version history is noted in comments, e.g. v2 added traverses/sequenced-bookmarks/comparison, v3 added view plans.
 
