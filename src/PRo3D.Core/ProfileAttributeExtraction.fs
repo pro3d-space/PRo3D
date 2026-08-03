@@ -109,17 +109,11 @@ module ProfileAttributeExtraction =
             match texturePath with
             | None -> ()
             | Some (texturePath, texName) ->
-                let isExr = Path.GetExtension(texturePath).ToLower() = ".exr"
-                let extension =
-                    match Path.GetExtension(texturePath).ToLower() with
-                    | ".dds" -> Some TextureLoading.DDS
-                    | ".tiff" | ".tif" -> Some TextureLoading.TIFF
-                    | ".exr" -> Some TextureLoading.TextureFormat.OpenEXR
-                    | _ -> None
+                let format = PixImage.GetFormatOfExtension texturePath
 
-                if isExr then
+                if format = PixFileFormat.Exr then
                     use stream = Prinziple.openRead texturePath
-                    let mipMap = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex 0) extension
+                    let mipMap = TextureLoading.loadImageFromStream format (ChannelReference.ChannelWithIndex 0) stream
                     match mipMap.ImageArray |> Seq.tryHead with
                     | Some img ->
                         match sampleImageAtUV uv img with
@@ -129,7 +123,7 @@ module ProfileAttributeExtraction =
                         Log.warn "[Extraction] no image in EXR mipmap for texture %d" i
                 else
                     use stream = Prinziple.openRead texturePath
-                    let mipMap = TextureLoading.loadImageFromStream stream ChannelReference.NoChannelSelection extension
+                    let mipMap = TextureLoading.loadImageFromStream format ChannelReference.NoChannelSelection stream
                     match mipMap.ImageArray |> Seq.tryHead with
                     | Some img ->
                         match sampleImageAtUV uv img with

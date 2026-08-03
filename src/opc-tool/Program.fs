@@ -41,18 +41,16 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
                 match TexturePaths.tryGetLayer d.info.Textures 0 with 
                 | Some texture, _ ->
                     let texturePath = TexturePaths.extractTexturePath patchHierarchy.opcPaths texture
-                    let extension, errors =
-                        match Path.GetExtension(texturePath).ToLower() with
-                        | ".dds" -> Some TextureLoading.DDS, 0
-                        | ".tiff" | ".tif" -> Some TextureLoading.TIFF, 0
-                        | _ -> 
-                            None, 1
+                    let format = PixImage.GetFormatOfExtension texturePath
 
+                    let errors =
+                        match format with
+                        | PixFileFormat.Dds | PixFileFormat.Tiff -> 0
+                        | _ -> 1
 
                     let mip = 
                         use stream = Prinziple.openRead texturePath
-                        
-                        TextureLoading.loadImageFromStream stream ChannelReference.NoChannelSelection extension
+                        TextureLoading.loadImageFromStream format ChannelReference.NoChannelSelection stream
 
                     match mip.ImageArray |> Seq.tryHead with
                     | Some i -> 
@@ -60,17 +58,17 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
                         let smallerHuge = i.Size.AllSmallerOrEqual(32768)
                         if greaterZero && smallerHuge then 
                             let writeDDS =
-                                match extension with
-                                | Some TextureLoading.DDS  -> overwriteDdds
-                                | Some TextureLoading.TIFF -> true
+                                match format with
+                                | PixFileFormat.Dds  -> overwriteDdds
+                                | PixFileFormat.Tiff -> true
                                 | _ -> false
                             if generateDds && writeDDS then
                                 try
                                     Log.startTimed "Converting texture to DDS %s" texturePath
-                                    let img = DevILSharp.Image.Load(texturePath)
+                                    let img = PixImage.Load(texturePath, PixImageFreeImage.Loader)
                                     let tmp = Path.ChangeExtension(Path.GetTempFileName(), ".dds")
                                     try
-                                        img.Save(tmp, DevILSharp.ImageType.Dds)
+                                        img.Save(tmp, PixFileFormat.Dds, loader = PixImageDevil.Loader) // FreeImage does not support saving DDS
                                         File.Move(tmp, texturePath, true)
                                     finally
                                         if File.Exists tmp then File.Delete tmp
@@ -227,7 +225,6 @@ let main args =
         Log.line "degrees of parallelism: %A" parsed.Value.degreesOfParallelism
 
         Aardvark.Init()
-        PixImageDevil.InitDevil()
 
         runForDirectories degresOfParallelism parsed.Value.forcekdtreerebuild  parsed.Value.generatedds parsed.Value.overwritedds parsed.Value.ignoreMasterKdTree parsed.Value.skipPatchValidation directories
         0
