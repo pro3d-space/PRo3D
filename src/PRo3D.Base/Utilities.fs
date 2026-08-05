@@ -1163,28 +1163,31 @@ module Sg =
         |> Sg.trafo trafo
 
     //## TEXT ##
-    let invariantScaleTrafo 
-        (view : aval<CameraView>) 
-        (near : aval<float>) 
-        (pos  : aval<V3d>) 
-        (size : aval<double>) 
-        (hfov : aval<float>) 
+    /// Scale factor that keeps geometry at a constant size on screen ("fixed pixel size"):
+    /// size is a fraction of the viewport and does not depend on the distance to the camera.
+    /// This is the single definition of the text size convention used throughout PRo3D
+    /// (annotations, scale bars, reference system, traverse sol labels) - the constants matter,
+    /// do not reimplement it: half the field of view, no additional factor.
+    let invariantScale (hfovInDegrees : float) (distance : float) (size : float) =
+        let hfov_rad = Conversion.RadiansFromDegrees hfovInDegrees
+        Fun.Tan(hfov_rad / 2.0) * size * distance
+
+    let invariantScaleTrafo
+        (view : aval<CameraView>)
+        (near : aval<float>)   // unused: the near plane cancels out in the scale factor
+        (pos  : aval<V3d>)
+        (size : aval<double>)
+        (hfov : aval<float>)
         : aval<Trafo3d> =
 
         adaptive {
             let! hfov = hfov
-            let hfov_rad = Conversion.RadiansFromDegrees(hfov)
-
-            let! near = near
-            let! size = size 
-            let wz = Fun.Tan(hfov_rad / 2.0) * near * size
-
+            let! size = size
             let! p = pos
             let! v = view
-            let dist = Vec.Distance(p, v.Location)
-            let scale = ( wz / near ) * dist
 
-            return Trafo3d.Scale scale
+            let dist = Vec.Distance(p, v.Location)
+            return Trafo3d.Scale (invariantScale hfov dist size)
         }
 
     let private screenAlignedTrafo (forw : V3d) (up : V3d) (modelTrafo: Trafo3d) =
