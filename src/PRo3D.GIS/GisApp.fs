@@ -422,15 +422,14 @@ module GisApp =
                      (surfaces : AdaptiveGroupsModel) 
                      (m : AdaptiveGisApp) =
         alist {
-            let! s = surfaces.activeGroup
-            let color = sprintf "color: %s" (Html.color C4b.White)                
-            let children = AList.collecti (fun i v -> viewTree (i::path) v surfaces m) group.subNodes    
+            let children = AList.collecti (fun i v -> viewTree (i::path) v surfaces m) group.subNodes
             let activeAttributes = GroupsApp.setActiveGroupAttributeMap path surfaces group GroupsMessage
-                                   
+            let colorAttributes = GroupsApp.activeGroupColorAttributes surfaces group ""
+
             let desc =
-                div [style color] [       
+                Incremental.div colorAttributes <| AList.ofList [
                     Incremental.text group.name
-                    Incremental.i activeAttributes AList.empty 
+                    Incremental.i activeAttributes AList.empty
                     |> UI.wrapToolTip DataPosition.Bottom "Set active"
                 ]
                  
@@ -438,10 +437,13 @@ module GisApp =
                 amap {
                     yield onMouseClick (fun _ -> SurfaceAppAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                     let! selected = group.expanded
-                    if selected 
+                    if selected
                     then yield clazz "icon outline open folder"
                     else yield clazz "icon outline folder"
-                    yield style "overflow-y : visible"
+                    // the icon is a sibling of the (white) description div and would
+                    // otherwise inherit semantic ui's default (black) on our dark background
+                    let! color = GroupsApp.activeGroupColor surfaces group
+                    yield style ("overflow-y : visible; " + color)
                 } |> AttributeMap.ofAMap
             
             let childrenAttribs =
