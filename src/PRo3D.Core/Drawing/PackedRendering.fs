@@ -432,12 +432,16 @@ module PackedRendering =
           sg, (instanceAttribs |> AVal.map (fun i -> i.ids )), boundingBox
 
 
-    let linesNoIndirect (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
-          let data = 
-              AVal.custom (fun t -> 
+    let linesNoIndirect (cbc : AdaptiveColorByCategoryModel) (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
+          let data =
+              AVal.custom (fun t ->
                   Log.startTimed "mk lines"
                   let annos = annoSet.Content.GetValue(t)
                   let selected = selected.Content.GetValue(t)
+                  // hoisted above the annotation loop; every field is pulled with this
+                  // token, so the color buffers rebuild on any panel edit
+                  let cbcSettings =
+                      if cbc.enabled.GetValue t then Some (ColorByCategory.readSettings cbc t) else None
                   let vertices = List<_>()
                   let colors = List<_>()
                   let tolerances = List<float32>()
@@ -456,10 +460,14 @@ module PackedRendering =
                       let ps = p.GetValue(t)
                       b <- Box3d(b, Box3d(ps))
                       let offset = 0.0
-                      let color = if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
+                      let baseColor =
+                          match cbcSettings with
+                          | Some s -> ColorByCategory.resolve s anno t
+                          | None   -> anno.color.c.GetValue(t)
+                      let color = if HashSet.contains id selected then C4b.VRVisGreen else baseColor
                       let thickness = anno.thickness.value.GetValue(t)
                       let tolerance = 0.0
-                      let modelTrafo = 
+                      let modelTrafo =
                           match modelTrafo with
                           | None -> 
                                 let t = anno.modelTrafo.GetValue(t)
@@ -559,23 +567,28 @@ module PackedRendering =
         }
 
 
-    let points (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
-        let instanceAttribs = 
-            AVal.custom (fun t -> 
+    let points (cbc : AdaptiveColorByCategoryModel) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
+        let instanceAttribs =
+            AVal.custom (fun t ->
                 Log.startTimed "creating points"
                 let annos       = annoSet.Content.GetValue(t)
                 let selected    = selected.Content.GetValue(t)
                 let modelPos    = List<V3d>()
                 let colors      = List<C4b>()
                 let sizes       = List<float32>()
+                let cbcSettings =
+                    if cbc.enabled.GetValue t then Some (ColorByCategory.readSettings cbc t) else None
 
-                for (id,anno) in annos do   
+                for (id,anno) in annos do
                     let kind = anno.geometry.GetValue t
                     let isVisible = anno.visible.GetValue(t)
                     if isVisible then
                         let isSelected = HashSet.exists (fun (x : Guid) -> x = id) selected
-                        let c = anno.color.c
-                        let color = if isSelected then C4b.VRVisGreen else c.GetValue(t)
+                        let baseColor =
+                            match cbcSettings with
+                            | Some s -> ColorByCategory.resolve s anno t
+                            | None   -> anno.color.c.GetValue(t)
+                        let color = if isSelected then C4b.VRVisGreen else baseColor
                         match kind with
                         | Geometry.Point ->
                             let p    = PRo3D.Core.Drawing.Sg.getPolylinePoints anno

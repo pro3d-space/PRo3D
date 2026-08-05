@@ -53,8 +53,35 @@ module Gui =
     
     let dnsColorLegend (m : AdaptiveModel) =
         let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DnsLegend" m.drawing.dnsColorLegend
-        
+
         Incremental.Svg.svg falseColorAttributes falseColorSvg
+
+    /// the loaded annotations, for the attributes that need to enumerate them (surfaces)
+    let annotationSet (m : AdaptiveModel) : aset<AdaptiveAnnotation> =
+        m.drawing.annotations.flat
+        |> AMap.toASet
+        |> ASet.choose (fun (_, leaf) ->
+            match leaf with
+            | AdaptiveAnnotations a -> Some a
+            | _ -> None)
+
+    /// falseColorAttributes hardcodes `left: 0%`, so the Color by Category legend needs its
+    /// own map with an offset or the two overlap when both are switched on
+    let colorByCategoryAttributes =
+        [
+                "display"               => "block";
+                "width"                 => "170px";
+                "height"                => "75%";
+                "preserveAspectRatio"   => "xMidYMid meet";
+                "viewBox"               => "0 0 5% 100%"
+                "style"                 => "position:absolute; left: 60px; top: 25%"
+                "pointer-events"        => "None"
+        ]
+        |> AttributeMap.ofList
+
+    let colorByCategoryLegend (m : AdaptiveModel) =
+        Incremental.Svg.svg colorByCategoryAttributes
+            (ColorByCategory.Draw.legend (annotationSet m) m.drawing.colorByCategory)
                             
     let scalarsColorLegend (m : AdaptiveModel) =
         Incremental.Svg.svg falseColorAttributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
@@ -1000,9 +1027,16 @@ module Gui =
         
             model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties    
             
-        let viewDnSColorLegendUI (model : AdaptiveModel) = 
-            model.drawing.dnsColorLegend 
-            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage 
+        let viewDnSColorLegendUI (model : AdaptiveModel) =
+            model.drawing.dnsColorLegend
+            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage
+            |> AVal.constant
+
+        /// Unlike the other Properties panels this one is global rather than per-selection,
+        /// so it does not go through GroupsApp.viewSelected.
+        let viewColorByCategory (model : AdaptiveModel) =
+            ColorByCategory.view Config.colorPaletteStore (annotationSet model) model.drawing.colorByCategory
+            |> UI.map (fun a -> ViewerAction.DrawingMessage(DrawingAction.ColorByCategoryMessage a))
             |> AVal.constant
           
         let annotationLeafButtonns' (model : AdaptiveModel) = 
@@ -1371,7 +1405,8 @@ module Gui =
                                 yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
-                                yield dnsColorLegend m                                
+                                yield dnsColorLegend m
+                                yield colorByCategoryLegend m
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield projectedColorLegend m
@@ -1443,6 +1478,9 @@ module Gui =
                         
                         GuiEx.accordion "Dip&Strike" "Calculator" false [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewDipAndStrike m))]
+
+                        GuiEx.accordion "Color by Category" "Theme" false [
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewColorByCategory m))]
                     ]
 
                 require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))

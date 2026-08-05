@@ -86,6 +86,46 @@ module FalseColorLegendApp =
             let currHSV     = HSVf(hue, 1.0f, 1.0f)
             currHSV.ToC3f().ToC3b()
 
+        /// Pure scalar -> ramp color. Shared by the adaptive `getColorDnS` below and by
+        /// token-based callers that cannot use an aval-returning helper (ColorByCategory,
+        /// which resolves colors inside the packed renderer's AVal.custom).
+        let getColorForValue
+            (lowerBound : float) (upperBound : float) (interval : float)
+            (lowerColor : C4b)   (upperColor : C4b)   (invert : bool)
+            (value : float) : C4b =
+
+            // the ramp is seeded with the *upper* color as its start hue and the *lower*
+            // color as its end hue; kept as-is so existing DnS coloring is unchanged
+            let hsvStart = HSVf.FromC3f (upperColor.ToC3f())
+            let hsvEnd   = HSVf.FromC3f (lowerColor.ToC3f())
+
+            let range = upperBound - lowerBound
+            let numOfRangeGaps = int (System.Math.Round (range / interval))
+            let numOfStops = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
+
+            let hStepSize =
+              if hsvStart.H < hsvEnd.H then
+                (hsvEnd.H - hsvStart.H) / (single (numOfStops-1))
+              else
+                ((hsvEnd.H + 1.0f) - hsvStart.H) / (single (numOfStops-1))
+
+            let pos =
+                match lowerBound < value with
+                     | true -> int (System.Math.Round ( (value - lowerBound) / (float)interval )) //+1
+                     | _ -> 0
+            let pos' =
+                match upperBound < value with
+                    | true -> numOfRangeGaps + 1
+                    | _ -> pos
+
+            let currColor =
+              if invert then
+                getColor (hsvStart.H + (hStepSize * (single (pos'))))
+              else
+                getColor (hsvEnd.H - (hStepSize * (single (pos'))))
+
+            currColor.ToC3f().ToC4b()
+
         let getColorDnS (model : AdaptiveFalseColorsModel) (angle: aval<float>) =
             adaptive {
                 let! dipAngle = angle
@@ -95,36 +135,12 @@ module FalseColorLegendApp =
                 let! invertMapping  = model.invertMapping
                 let! fcUpperBound   = model.upperBound.value
                 let! fcLowerBound   = model.lowerBound.value
-                                
-                let hsvStart = HSVf.FromC3f (startColor.ToC3f())
-                let hsvEnd   = HSVf.FromC3f (endColor.ToC3f())
 
-                let range = fcUpperBound - fcLowerBound
-                let numOfRangeGaps = int (System.Math.Round (range / fcInterval))
-                let numOfStops = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
-
-                let hStepSize =
-                  if hsvStart.H < hsvEnd.H then 
-                    (hsvEnd.H - hsvStart.H) / (single (numOfStops-1)) 
-                  else 
-                    ((hsvEnd.H + 1.0f) - hsvStart.H) / (single (numOfStops-1))
-                
-                let pos = 
-                    match fcLowerBound < dipAngle with
-                         | true -> int (System.Math.Round ( (dipAngle - fcLowerBound) / (float)fcInterval )) //+1
-                         | _ -> 0
-                let pos' = 
-                    match fcUpperBound < dipAngle with
-                        | true -> numOfRangeGaps + 1
-                        | _ -> pos
-                     
-                let currColor = 
-                  if invertMapping then
-                    getColor (hsvStart.H + (hStepSize * (single (pos'))))
-                  else 
-                    getColor (hsvEnd.H - (hStepSize * (single (pos'))))
-                    
-                return currColor.ToC3f().ToC4b()
+                return
+                    getColorForValue
+                        fcLowerBound fcUpperBound fcInterval
+                        endColor startColor invertMapping
+                        dipAngle
             }
 
         let getShaderParams (model : AdaptiveFalseColorsModel) : aval<FalseColorsShaderParams> = 

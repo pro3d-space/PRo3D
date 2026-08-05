@@ -64,7 +64,8 @@ type DrawingAction =
 | NorthVectorChanged     of V3d
 | GroupsMessage          of GroupsAppAction
 | RecalculateMeasurements
-| DnsColorLegendMessage  of FalseColorLegendApp.Action  
+| DnsColorLegendMessage  of FalseColorLegendApp.Action
+| ColorByCategoryMessage of ColorByCategoryAction
 | ExportAsAnnotations    of string
 | AddAnnotations         of list<string>
 | PickAnnotation         of SceneHit * Guid
@@ -123,6 +124,10 @@ type DrawingModel = {
 
     dnsColorLegend : FalseColorsModel
 
+    /// display-only override that colors annotations by an attribute; never written back
+    /// to the annotations themselves
+    colorByCategory : ColorByCategoryModel
+
     // test laura
     haltonPoints   : list<V3d>
 
@@ -177,6 +182,8 @@ module DrawingModel =
         redoStack = []
         
         dnsColorLegend = FalseColorsModel.initDnSLegend
+
+        colorByCategory = ColorByCategoryModel.initial
 
         // test laura
         haltonPoints = []

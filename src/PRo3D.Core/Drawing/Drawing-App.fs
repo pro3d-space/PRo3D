@@ -606,8 +606,15 @@ module DrawingApp =
                         ) model.annotations.flat
                 
                 { model with annotations = { model.annotations with flat = annotationsFlat }}
-            | DnsColorLegendMessage msg,_, _ -> 
+            | DnsColorLegendMessage msg,_, _ ->
                 { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
+            | ColorByCategoryMessage msg,_, _ ->
+                // the annotations are needed because FitRangeToData - and SetAttribute,
+                // which auto-fits - scan them for the attribute's min/max
+                let annotations =
+                    model.annotations.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
+                { model with
+                    colorByCategory = ColorByCategory.update annotations model.colorByCategory msg }
             | FlyToAnnotation msg, _, _ ->               
                 model        
 
@@ -868,8 +875,8 @@ module DrawingApp =
             Log.startTimed "[Drawing] creating finished annotation geometry"
             let annotations =              
                 annoSet 
-                |> ASet.map(fun (_,(a, t)) -> 
-                    let c = UI.mkColor model.annotations a
+                |> ASet.map(fun (_,(a, t)) ->
+                    let c = UI.mkColor model.colorByCategory model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
                         a.geometry 
@@ -883,7 +890,7 @@ module DrawingApp =
 
             let hoveredAnnotation = cval -1
             let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
-            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
+            let lines, pickIds, bb = PackedRendering.linesNoIndirect model.colorByCategory config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
             let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
             pickRenderTarget.Acquire()
             let packedLines = 
@@ -924,7 +931,7 @@ module DrawingApp =
                        )
                 ]
             let packedPoints = 
-                PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
+                PackedRendering.points model.colorByCategory (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
                 |> Sg.noEvents
 
             let overlay = 
@@ -949,8 +956,8 @@ module DrawingApp =
             Log.startTimed "[Drawing] creating finished annotation geometry"
             let annotations =              
                 annoSet 
-                |> ASet.map(fun (_,(a,t)) -> 
-                    let c = UI.mkColor model.annotations a
+                |> ASet.map(fun (_,(a,t)) ->
+                    let c = UI.mkColor model.colorByCategory model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
                         a.geometry 

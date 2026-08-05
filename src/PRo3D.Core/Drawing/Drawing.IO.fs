@@ -10,10 +10,11 @@ module IO =
 
     let getSerialized (model : DrawingModel) : string =
         {
-            version        = Annotations.current
-            annotations    = model.annotations
-            dnsColorLegend = model.dnsColorLegend
-        } 
+            version         = Annotations.current
+            annotations     = model.annotations
+            dnsColorLegend  = model.dnsColorLegend
+            colorByCategory = model.colorByCategory
+        }
         |> Json.serialize 
         |> Json.formatWith JsonFormattingOptions.Pretty 
     

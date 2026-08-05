@@ -23,6 +23,7 @@
 	<None Include="Annotations\annotation_1_xyz_latlon.json" />
     <Compile Include="TestUtils.fs" />
     <Compile Include="GeoJsonExportTest.fs" />
+    <Compile Include="ColorByCategoryPersistenceTest.fs" />
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />

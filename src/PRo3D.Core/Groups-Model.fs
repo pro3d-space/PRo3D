@@ -450,22 +450,39 @@ type AnnotationGroupsImporterModel = {
 }
 
 type Annotations = {
-    version        : int
-    annotations    : GroupsModel
-    dnsColorLegend : FalseColorsModel
+    version         : int
+    annotations     : GroupsModel
+    dnsColorLegend  : FalseColorsModel
+    colorByCategory : ColorByCategoryModel
 }
 
-type Annotations with 
-    static member current = 0
-    static member private readV0 = 
-        json {            
+type Annotations with
+    static member current = 1
+    static member private readV0 =
+        json {
             let! annotations    = Json.read "annotations"
             let! dnsColorLegend = Json.read "dnsColorLegend"
 
             return {
-                version        = Annotations.current
-                annotations    = annotations
-                dnsColorLegend = dnsColorLegend
+                version         = Annotations.current
+                annotations     = annotations
+                dnsColorLegend  = dnsColorLegend
+                // absent from v0 files, so the panel comes up disabled
+                colorByCategory = ColorByCategoryModel.initial
+            }
+        }
+
+    static member private readV1 =
+        json {
+            let! annotations     = Json.read "annotations"
+            let! dnsColorLegend  = Json.read "dnsColorLegend"
+            let! colorByCategory = Json.read "colorByCategory"
+
+            return {
+                version         = Annotations.current
+                annotations     = annotations
+                dnsColorLegend  = dnsColorLegend
+                colorByCategory = colorByCategory
             }
         }
 
@@ -474,14 +491,16 @@ type Annotations with
             let! v = Json.read "version"
             match v with
             | 0 -> return! Annotations.readV0
+            | 1 -> return! Annotations.readV1
             | _ -> return! v |> sprintf "don't know version %d  of Annotations" |> Json.error
         }
 
     static member ToJson (x : Annotations) =
         json {
-            do! Json.write "version"        x.version
-            do! Json.write "annotations"    x.annotations
-            do! Json.write "dnsColorLegend" x.dnsColorLegend
+            do! Json.write "version"         x.version
+            do! Json.write "annotations"     x.annotations
+            do! Json.write "dnsColorLegend"  x.dnsColorLegend
+            do! Json.write "colorByCategory" x.colorByCategory
         }
 
 [<ModelType>]

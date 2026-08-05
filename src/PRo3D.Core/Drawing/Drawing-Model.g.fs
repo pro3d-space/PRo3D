@@ -1,5 +1,5 @@
-//2a5c1294-597f-bf5c-1fba-c0190c248415
-//011fab16-2e0f-378e-5edf-99b0128f7a93
+//d5b35ac5-a195-5713-df8c-75f001c4521a
+//19670ec6-31e7-b365-91d3-af0b8ac80978
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -63,6 +63,7 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     let _undoStack_ = FSharp.Data.Adaptive.cval(value.undoStack)
     let _redoStack_ = FSharp.Data.Adaptive.cval(value.redoStack)
     let _dnsColorLegend_ = PRo3D.Base.AdaptiveFalseColorsModel(value.dnsColorLegend)
+    let _colorByCategory_ = PRo3D.Base.Annotation.AdaptiveColorByCategoryModel(value.colorByCategory)
     let _haltonPoints_ = FSharp.Data.Adaptive.cval(value.haltonPoints)
     let _automaticGeoJsonExport_ = AdaptiveAutomaticGeoJsonExport(value.automaticGeoJsonExport)
     let mutable __value = value
@@ -91,6 +92,7 @@ type AdaptiveDrawingModel(value : DrawingModel) =
             _undoStack_.Value <- value.undoStack
             _redoStack_.Value <- value.redoStack
             _dnsColorLegend_.Update(value.dnsColorLegend)
+            _colorByCategory_.Update(value.colorByCategory)
             _haltonPoints_.Value <- value.haltonPoints
             _automaticGeoJsonExport_.Update(value.automaticGeoJsonExport)
     member __.Current = __adaptive
@@ -112,6 +114,7 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     member __.undoStack = _undoStack_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<AnnotationsDelta>>
     member __.redoStack = _redoStack_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<AnnotationsDelta>>
     member __.dnsColorLegend = _dnsColorLegend_
+    member __.colorByCategory = _colorByCategory_
     member __.haltonPoints = _haltonPoints_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>>
     member __.automaticGeoJsonExport = _automaticGeoJsonExport_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
@@ -125,7 +128,7 @@ module DrawingModelLenses =
         static member projection_ = ((fun (self : DrawingModel) -> self.projection), (fun (value : PRo3D.Base.Annotation.Projection) (self : DrawingModel) -> { self with projection = value }))
         static member geometry_ = ((fun (self : DrawingModel) -> self.geometry), (fun (value : PRo3D.Base.Annotation.Geometry) (self : DrawingModel) -> { self with geometry = value }))
         static member semantic_ = ((fun (self : DrawingModel) -> self.semantic), (fun (value : PRo3D.Base.Annotation.Semantic) (self : DrawingModel) -> { self with semantic = value }))
-        static member thickness_ =((fun (self : DrawingModel) -> self.thickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with thickness = value }))
+        static member thickness_ = ((fun (self : DrawingModel) -> self.thickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with thickness = value }))
         static member samplingAmount_ = ((fun (self : DrawingModel) -> self.samplingAmount), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with samplingAmount = value }))
         static member samplingUnit_ = ((fun (self : DrawingModel) -> self.samplingUnit), (fun (value : SamplingUnit) (self : DrawingModel) -> { self with samplingUnit = value }))
         static member samplingDistance_ = ((fun (self : DrawingModel) -> self.samplingDistance), (fun (value : Microsoft.FSharp.Core.float) (self : DrawingModel) -> { self with samplingDistance = value }))
@@ -135,6 +138,7 @@ module DrawingModelLenses =
         static member undoStack_ = ((fun (self : DrawingModel) -> self.undoStack), (fun (value : Microsoft.FSharp.Collections.list<AnnotationsDelta>) (self : DrawingModel) -> { self with undoStack = value }))
         static member redoStack_ = ((fun (self : DrawingModel) -> self.redoStack), (fun (value : Microsoft.FSharp.Collections.list<AnnotationsDelta>) (self : DrawingModel) -> { self with redoStack = value }))
         static member dnsColorLegend_ = ((fun (self : DrawingModel) -> self.dnsColorLegend), (fun (value : PRo3D.Base.FalseColorsModel) (self : DrawingModel) -> { self with dnsColorLegend = value }))
+        static member colorByCategory_ = ((fun (self : DrawingModel) -> self.colorByCategory), (fun (value : PRo3D.Base.Annotation.ColorByCategoryModel) (self : DrawingModel) -> { self with colorByCategory = value }))
         static member haltonPoints_ = ((fun (self : DrawingModel) -> self.haltonPoints), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>) (self : DrawingModel) -> { self with haltonPoints = value }))
         static member automaticGeoJsonExport_ = ((fun (self : DrawingModel) -> self.automaticGeoJsonExport), (fun (value : AutomaticGeoJsonExport) (self : DrawingModel) -> { self with automaticGeoJsonExport = value }))
 
