@@ -1,3 +1,8 @@
+## 6.0.0-prerelease8
+- Groups: the **active group is visible again** in the surface, annotation, bookmark and GIS trees — the filled/outline circle indicator broke with the Aardvark.Media 5.7 icon set, and the active group name is now highlighted; folder icons are no longer black on the dark panels
+- Surfaces: the **DistanceFilter** now explains itself — it only takes effect once a home position is set, so the (previously unlabeled) *Home Position* button moved next to the filter, shows `set`/`not set`, and both rows have tooltips
+- Traverses: **sol label size** uses the same screen-size convention as annotation and scale-bar labels, in both the fast and the stable text mode; sizes stored in existing scenes are converted on load, so labels keep their size
+
 ## 6.0.0-prerelease7
 - Snapshots: fixed a regression that prevented **bookmark / panorama snapshot animations from loading** in `PRo3D.Snapshots.exe` ("Could not read json File") — a required-vs-optional JSON read introduced by an earlier untested merge
 - Snapshots: `PRo3D.Snapshots.exe` (the sequenced-bookmark / batch renderer) is now **bundled into the installers** alongside `PRo3D.Viewer`, not only in the standalone zip
