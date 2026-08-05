@@ -230,9 +230,9 @@ module UI =
                                                   
         let setActiveAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                        
-        let color = sprintf "color: %s" (Html.color C4b.White)
+        let colorAttributes = GroupsApp.activeGroupColorAttributes model group ""
         let desc =
-            div [style color] [       
+            Incremental.div colorAttributes <| AList.ofList [
                 Incremental.text group.name
                 Incremental.i setActiveAttributes AList.empty 
                 |> UI.wrapToolTip DataPosition.Bottom "Set active"
@@ -257,11 +257,14 @@ module UI =
             amap {
                 yield onMouseClick (fun _ -> DrawingAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                 let! expanded = group.expanded
-                if expanded then 
+                if expanded then
                     yield clazz "icon outline open folder"
-                else 
+                else
                     yield clazz "icon outline folder"
-                    yield style "overflow-y : visible"
+                // the icon is a sibling of the (white) description div and would
+                // otherwise inherit semantic ui's default (black) on our dark background
+                let! color = GroupsApp.activeGroupColor model group
+                yield style ("overflow-y : visible; " + color)
             } |> AttributeMap.ofAMap
           
         let childrenAttribs =
