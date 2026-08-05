@@ -78,6 +78,7 @@ testbed-output/
 # test run artifacts
 /Aardvark.log
 /logs/
+/tools/profileDrawing/test_profile_*.svg
 
 # Yarn (Berry) local state / cache
 **/.yarn/*
