@@ -173,7 +173,7 @@ module UI =
                             | "" ->  
                                 geometry  |> sprintf "%A"
                             | _ -> 
-                                sprintf "%A (%A)" text geometry
+                                sprintf "%s (%A)" text geometry
                         | _ -> 
                             let (SemanticId s) = semantic
                             s
