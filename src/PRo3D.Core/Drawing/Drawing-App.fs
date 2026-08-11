@@ -646,10 +646,12 @@ module DrawingApp =
             | ExportAsCsv path, _, _ ->
                 if path.IsNullOrEmpty() |> not then 
                     let up = smallConfig.up.Get(bigConfig)
+                    let planet = smallConfig.planet.Get(bigConfig)
                     let lookups = GroupsApp.updateGroupsLookup model.annotations
                     let annotations = extractVisibleAnnotations model
-                    CSVExport.writeCSV lookups up path annotations
-                model      
+                    CSVExport.writeCSV lookups planet up path annotations
+               
+                model
             | ExportAsProfileCsv path, _, _ ->
                 //get selected annotation
                 let selected =  GroupsModel.tryGetSelectedAnnotation model.annotations

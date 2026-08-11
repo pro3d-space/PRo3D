@@ -182,11 +182,16 @@ module UI =
                     let! geometry = a.geometry
                     let! semantic = a.semanticId
                     let! semanticType = a.semanticType
+                    let! text = a.text
 
                     return 
                         match semanticType with
-                        | SemanticType.Undefined -> 
-                            geometry  |> sprintf "%A"
+                        | SemanticType.Undefined ->
+                            match text with
+                            | "" ->  
+                                geometry  |> sprintf "%A"
+                            | _ -> 
+                                sprintf "%s (%A)" text geometry
                         | _ -> 
                             let (SemanticId s) = semantic
                             s
