@@ -617,14 +617,15 @@ module GroupsApp =
 
     let setActiveGroupAttributeMap (path : list<Index>)
                                    (model : AdaptiveGroupsModel)
-                                   (group : AdaptiveNode) 
+                                   (group : AdaptiveNode)
                                    (msg : GroupsAppAction -> 'a) =
         amap {
-            let! name = group.name
-            let setActive = GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, name)
             let! icon = activeIcon model group
             yield clazz icon
-            yield onClick (fun _ -> (msg setActive))
+            yield onClick (fun _ ->
+                let setActive =
+                    GroupsAppAction.SetActiveGroup (AVal.force group.key, path, AVal.force group.name)
+                msg setActive)
         } |> AttributeMap.ofAMap
 
     let viewSelectionButtons =
