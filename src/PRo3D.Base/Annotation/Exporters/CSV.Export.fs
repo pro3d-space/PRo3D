@@ -155,10 +155,13 @@ module CSVExport =
             Calculations.horizontalDelta (points |> Array.toList) upVector
 
         let center = Box3d(points).Center
-        let centerGeo = 
-            CooTransformation.getLatLonAlt planet center 
-            |> CooTransformation.SphericalCoo.toV3d 
-        
+        let centerGeo =
+            match CooTransformation.tryGetLatLonAlt planet center with
+            | Some coord -> coord |> CooTransformation.SphericalCoo.toV3d
+            | None ->
+                Log.warn "[CSV] lat/lon conversion failed for annotation center on %A; exporting NaN" planet
+                V3d(Double.NaN)
+
         {   
             //non-measurement
             key               = a.key
