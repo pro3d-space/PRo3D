@@ -25,7 +25,10 @@ module ScreenshotApp =
         let stats = ScreenshotUtilities.Utilities.downloadClientStatistics baseUrl httpClient
         
         let color = m.backgroundColor.c.ToC4f().ToV4f()
-        let renderingNodeId = stats.[0].name
+        let renderingNodeId =
+            match stats with
+            | first :: _ -> first.name
+            | [] -> failwith "[Screenshots] no rendering client available"
         let url = 
             sprintf "%s/rendering/screenshot/%s?w=%i&h=%i&samples=%i&fmt=%s&background=[%f,%f,%f,%f]" 
                 baseUrl 
