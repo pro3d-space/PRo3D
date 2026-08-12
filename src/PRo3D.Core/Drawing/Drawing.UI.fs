@@ -83,7 +83,25 @@ module UI =
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
             Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
-            Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
+            Html.Layout.boxH [ Incremental.div (AttributeMap.empty) (
+                alist {
+                    let! geometry = model.geometry
+                    // An ellipse is fitted in the plane through its axis points and is only
+                    // meaningful under the sky projection: SetGeometry forces Projection.Sky
+                    // for both ellipse tools, but nothing stops a later SetProjection from
+                    // moving it off Sky again (Drawing-App.fs). Grey the whole list out while
+                    // an ellipse tool is active, so the projection cannot be changed to one
+                    // the ellipse construction does not handle.
+                    let disabled =
+                        match geometry with
+                        | Geometry.AxisEllipse
+                        | Geometry.Axis4PEllipse ->
+                            Enum.GetValues(typeof<Projection>) |> unbox<Projection[]> |> HashSet.ofArray
+                        | _ ->
+                            HashSet.empty
+
+                    dropDownDisabled HashSet.empty disabled "fixed for ellipses" model.projection SetProjection projectionTooltip
+                })]
             // annotation color now comes from the active group's default color, so the tool-level color picker was removed
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
