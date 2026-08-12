@@ -40,7 +40,10 @@ type ReferenceSystemConfig<'a> = {
 
 type ReferenceSystemAction =
     | InferCoordSystem   of V3d
+    /// places the reference system at the given position (moves `origin`)
     | UpdateUpNorth      of V3d
+    /// recomputes up/north for the given position but leaves `origin` where the user put it
+    | RefreshUpNorth     of V3d
     | SetUp              of Vector3d.Action
     | SetNorth           of Vector3d.Action
     | SetNOffset         of Numeric.Action
