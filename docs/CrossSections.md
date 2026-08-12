@@ -66,3 +66,7 @@ Next choose curtain settings and set up the curtain:
 ## 7. Inspection of cross section & curtain
 
 ![alt text](images/crossSectionAndCurtain.png)
+
+## Future work
+
+This might be interesting: https://www.youtube.com/watch?v=RKH1gKXCD6A
