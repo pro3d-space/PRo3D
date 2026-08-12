@@ -76,6 +76,14 @@ Figure~\ref{fig:drawAnnotations} shows the settings for drawing annotations. Fir
 	\item \textit{Polyline}: An arbitrary number of points on the surface can be picked. The connecting line segments depend on the projection mode. The polyline is finished by pressing Enter.
 	\item \textit{Polygon}: An arbitrary number of points on the surface can be picked. The connecting line segments depend on the projection mode. The region of interest is closed and finished by pressing Enter.
 	\item \textit{DnS}: (\textit{= Dip and Strike}) A polyline onto a surface, e.g. alongside a rock layer can be picked. After clicking Enter, a plane is fitted (least squares) to this polyline (blue), which is then intersected with a horizontal plane, which gives us the so-called strike vector (red). This vector represents the direction within the plane with the least inclination and orthogonal to it is the dip vector (green) which shows the direction of highest inclination as shown in Figure~\ref{fig:drawAnnotations}.
+	\item \textit{AxisEllipse}: A three-point ellipse for marking roughly elliptical features such as craters, boulders, or instrument footprints.
+	Pick two points with CTRL+LMB to define the \textbf{major axis} endpoints, then pick a third point to set the \textbf{semi-minor radius} as a perpendicular distance from the major axis.
+	The resulting ellipse is always symmetric about the major axis.
+	\item \textit{Axis4PEllipse}: A four-point ellipse that allows asymmetric and half-moon shapes.
+	As with AxisEllipse, the first two points define the \textbf{major axis} endpoints.
+	The third and fourth points each define a semi-minor extent on either side of the major axis:
+	if both points are picked on the \textbf{same side}, the result is a half-moon shape;
+	if picked on \textbf{opposite sides}, the ellipse is symmetric when the two distances are equal, or asymmetric when they differ.
 \end{itemize}
 To pick an annotation point on the surface press CTRL+LMB.
 
