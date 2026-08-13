@@ -332,7 +332,45 @@ module PackedRendering =
         
 
 
-    module LensShader = 
+    module FillShader =
+
+        open FShade
+
+        type FillVertex =
+            {
+                [<Position>] pos : V4f
+                [<Color>]    c   : V4f
+            }
+
+        type FillPickVertex =
+            {
+                [<Position>] pos : V4f
+                [<Color>]    c   : V4f
+                [<Semantic("ObjId")>] obId : int
+                [<Semantic("Id")>]    id   : int
+            }
+
+        /// Plain MV + projection. No geometry shader, so the clip-space W survives into the
+        /// fragment stage untouched and depthOffsetFS can divide by it - unlike the line path,
+        /// which has to restore W explicitly after thickLine.
+        let fillVertex (v : FillVertex) =
+            vertex {
+                let mv : M44f = uniform?MV
+                let vp = mv * v.pos
+                return { v with pos = uniform.ProjTrafo * vp }
+            }
+
+        /// As fillVertex, but forwards the packed object id into the Id semantic Picking.pickId
+        /// writes out.
+        let fillVertexPicking (v : FillPickVertex) =
+            vertex {
+                let mv : M44f = uniform?MV
+                let vp = mv * v.pos
+                return { v with pos = uniform.ProjTrafo * vp; id = v.obId }
+            }
+
+
+    module LensShader =
         open FShade
         open Aardvark.Rendering.Effects
 
@@ -519,31 +557,52 @@ module PackedRendering =
 
 
 
-    let pickRenderTarget (runtime : IRuntime) (pickingTolerance : aval<float>) lines (view : aval<CameraView>) (frustum : aval<Frustum>) (viewport : aval<V2i>) =
-        let pickColors = 
+    let pickRenderTarget (runtime : IRuntime) (pickingTolerance : aval<float>) lines fills (view : aval<CameraView>) (frustum : aval<Frustum>) (viewport : aval<V2i>) =
+        let pickColors =
             let signature =
                 runtime.CreateFramebufferSignature [
                     DefaultSemantic.Colors, TextureFormat.Rgba32f
                     DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
                 ]
 
-            let pickColors = 
-                lines
+            let withCamera sg =
+                sg
                 |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
                 |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
-                |> Sg.shader { 
+
+            let pickColors =
+                lines
+                |> withCamera
+                |> Sg.shader {
                       do! LineShader.noIndirectLineVertexPicking
                       do! LineShader.thickLine
-                      do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
+                      do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS
                       do! Picking.pickId
                 }
                 |> Sg.uniform "PickingTolerance" (pickingTolerance |> AVal.map (fun p -> p * 2.0))
                 |> Sg.compile runtime signature
 
+            // the object ids the fill emits index the same array as the lines', so a click inside
+            // a filled annotation reads back the annotation it belongs to.
+            //
+            // Deliberately none of the visible pass's state: blending would corrupt the id, which
+            // this target carries in the alpha channel.
+            let pickFills =
+                fills
+                |> withCamera
+                |> Sg.shader {
+                      do! FillShader.fillVertexPicking
+                      do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS
+                      do! Picking.pickId
+                }
+                |> Sg.compile runtime signature
+
             let cleared = RenderTask.ofList [
                 runtime.CompileClear(signature, C4f(0.0f,0.0f,0.0f,-1.0f))
+                // fills first so an outline still wins the pick over its own interior
+                pickFills
                 pickColors
-            ] 
+            ]
 
             cleared |> RenderTask.renderToColor viewport
 
@@ -558,26 +617,6 @@ module PackedRendering =
                 do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
         }
 
-
-    module FillShader =
-
-        open FShade
-
-        type FillVertex =
-            {
-                [<Position>] pos : V4f
-                [<Color>]    c   : V4f
-            }
-
-        /// Plain MV + projection. No geometry shader, so the clip-space W survives into the
-        /// fragment stage untouched and depthOffsetFS can divide by it - unlike the line path,
-        /// which has to restore W explicitly after thickLine.
-        let fillVertex (v : FillVertex) =
-            vertex {
-                let mv : M44f = uniform?MV
-                let vp = mv * v.pos
-                return { v with pos = uniform.ProjTrafo * vp }
-            }
 
     /// A flat cap needs a far larger bias than a surface-hugging line: it only touches the
     /// terrain at its rim, and sits above or below it everywhere else.
@@ -597,13 +636,23 @@ module PackedRendering =
         | _ -> false
 
     /// Packs the filled interiors of every annotation with showFill into one triangle draw.
+    ///
+    /// Returns raw geometry: the visible pass and the pick pass need different shaders and very
+    /// different render state, so neither is baked in here. Same split as linesNoIndirect /
+    /// packedRender.
     let fills (depthOffset : aval<float>) (annoSet : aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
         let data =
             AVal.custom (fun t ->
                 let annos = annoSet.Content.GetValue(t)
                 let vertices = List<V3f>()
                 let colors = List<C4f>()
+                let objIds = List<int>()
                 let mutable pivotTrafo = None
+
+                // object ids must index the same array linesNoIndirect builds, so this counter
+                // advances once per annotation in the same iteration over the same aset content -
+                // filled or not, visible or not - exactly as it does there
+                let mutable oid = 0
 
                 for (_, anno) in annos do
                     let visible  = anno.visible.GetValue(t)
@@ -645,9 +694,13 @@ module PackedRendering =
                             for p in mesh.positions do
                                 vertices.Add(pivot.Backward.TransformPos p |> V3f)
                                 colors.Add color
+                                objIds.Add oid
+
+                    oid <- oid + 1
 
                 {| points     = vertices.ToArray()
                    colors     = colors.ToArray()
+                   objIds     = objIds.ToArray()
                    modelTrafo = Option.defaultValue Trafo3d.Identity pivotTrafo |})
 
         let mv = (data, view) ||> AVal.map2 (fun d v -> v * d.modelTrafo.Forward)
@@ -655,9 +708,14 @@ module PackedRendering =
         Sg.draw IndexedGeometryMode.TriangleList
         |> Sg.vertexAttribute DefaultSemantic.Positions (data |> AVal.map (fun d -> d.points))
         |> Sg.vertexAttribute DefaultSemantic.Colors    (data |> AVal.map (fun d -> d.colors))
+        |> Sg.vertexAttribute (Sym.ofString "ObjId")    (data |> AVal.map (fun d -> d.objIds))
         |> Sg.uniform "MV" mv
         |> Sg.uniform "DepthOffset"
             (depthOffset |> AVal.map (fun d -> (d * fillDepthOffsetFactor) / (100.0 - 0.1)))
+
+    /// Visible pass for the packed fills.
+    let packedFillRender fills =
+        fills
         |> Sg.shader {
             do! FillShader.fillVertex
             do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS

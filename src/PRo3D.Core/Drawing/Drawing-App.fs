@@ -888,7 +888,8 @@ module DrawingApp =
             let hoveredAnnotation = cval -1
             let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
             let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
-            let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
+            let fillGeometry = PackedRendering.fills config.offset (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
+            let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines fillGeometry view frustum viewport
             pickRenderTarget.Acquire()
             let packedLines = 
                 let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
@@ -938,7 +939,7 @@ module DrawingApp =
             // fill and outline stay aligned. The legacy branch below applies it to both for the
             // same reason. See pro3d-space/PRo3D#672.
             let packedFills =
-                PackedRendering.fills config.offset (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
+                PackedRendering.packedFillRender fillGeometry
                 |> Sg.noEvents
 
             let overlay =
@@ -978,7 +979,9 @@ module DrawingApp =
                     let sg =
                         Sg.ofList [
                             // fill first, so the outline draws over it
-                            PackedRendering.fills config.offset (ASet.single (g, a)) viewMatrix |> Sg.noEvents
+                            PackedRendering.fills config.offset (ASet.single (g, a)) viewMatrix
+                            |> PackedRendering.packedFillRender
+                            |> Sg.noEvents
                             Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
                         ]
                         |> Sg.trafo t
