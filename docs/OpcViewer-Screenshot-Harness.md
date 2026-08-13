@@ -84,6 +84,33 @@ thing you suspect:
   is 1. Multisampled targets are resolved into a single-sample texture before download.
 - `--near` / `--far`, `--cull`, `--wireframe`, `--compressed`.
 
+## Measuring frame time
+
+`--benchmark <frames>` measures instead of writing a PNG: it settles the LOD tree the
+same way a screenshot does, then renders batches of `frames` frames from the fixed camera
+and reports ms/frame. `--repeats <n>` (default 5) sets the number of batches, reported
+individually — one mean cannot tell you whether a difference between two configurations
+is bigger than the spread inside one of them. On an M1 the spread within a configuration
+is around 1–3%.
+
+GL commands are queued, so timing one `task.Run` would measure CPU-side submission rather
+than GPU work. Each batch therefore submits every frame and syncs once at the end, which
+amortises the single readback instead of stalling the pipeline every frame.
+
+`--drop <a,b>` removes named stages from the composition entirely, using the same stage
+names as the viewer's `PRO3D_SURFACE_EFFECT_DROP`. This is **not** the same as switching a
+stage off through its uniform: leaving `--triangle-filter` off still composes
+`triangleSizeFilter`, so the geometry-shader stage still runs and every vertex still
+travels through it. Only `--drop` removes it. Unknown stage names are rejected rather than
+ignored — a typo that silently measures the unmodified effect would report "no
+difference", which is the worst way for this tool to fail.
+
+```bash
+# the geometry-shader stage costs ~75 ms/frame on an M1, independent of resolution
+dotnet bin/Release/net9.0/OpcViewer.dll --dataset victoria --stack minimal --benchmark 60
+dotnet bin/Release/net9.0/OpcViewer.dll --dataset victoria --stack filter  --benchmark 60
+```
+
 ## Diagnostics
 
 - `--dump-glsl` logs the generated GLSL for every rung. The cheapest way to check what a

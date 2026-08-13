@@ -153,6 +153,9 @@ module Cli =
             triangleFilter : Option<float>
             sun        : Option<V3d>
             samples    : int
+            benchmark  : Option<int>
+            benchRepeats : int
+            dropStages : Set<string>
             legacy     : Option<Kind>
         }
 
@@ -180,6 +183,9 @@ module Cli =
             triangleFilter = None
             sun = None
             samples = 1
+            benchmark = None
+            benchRepeats = 5
+            dropStages = Set.empty
             legacy = None
         }
 
@@ -214,6 +220,18 @@ OpcViewer -- headless / interactive OPC renderer for reproducing surface artefac
   --compressed           expect .dds textures instead of the source images
   --dump-glsl            log the generated GLSL for each rung
   --interactive          open a window and fly around instead of writing PNGs
+
+  --benchmark <frames>   measure frame time instead of writing a PNG: settle the LOD
+                         tree, then render this many frames per batch from the fixed
+                         camera and report ms/frame
+  --repeats <n>          benchmark batches (default 5); reported individually so the
+                         spread within one configuration is visible
+  --drop <a,b>           omit these stages from the effect composition entirely.
+                         Same stage names as the viewer's PRO3D_SURFACE_EFFECT_DROP.
+                         Not the same as switching a stage off by uniform: dropping
+                         triangleSizeFilter removes the geometry-shader stage,
+                         whereas leaving --triangle-filter off only makes it a
+                         pass-through that every vertex still travels through.
 
   --legacy <kind>        run an old hard-coded viewer:
                          scene | annotations | solarsystem | multitexturing
@@ -254,6 +272,22 @@ OpcViewer -- headless / interactive OPC renderer for reproducing surface artefac
             | "--compressed" :: rest      -> go { o with compressed = true } rest
             | "--dump-glsl" :: rest       -> go { o with dumpGlsl = true } rest
             | "--interactive" :: rest     -> go { o with interactive = true } rest
+            | "--benchmark" :: v :: rest  -> go { o with benchmark = Some (int v) } rest
+            | "--repeats" :: v :: rest    -> go { o with benchRepeats = int v } rest
+            | "--drop" :: v :: rest ->
+                let names =
+                    v.Split([| ','; ';' |], StringSplitOptions.RemoveEmptyEntries)
+                    |> Array.map (fun s -> s.Trim())
+                    |> Set.ofArray
+                // a typo here would silently measure the unmodified effect and report
+                // "no difference", which is the worst possible failure for this tool
+                let unknown = Set.difference names ScreenshotViewer.knownStages
+                if Set.isEmpty unknown then go { o with dropStages = Set.union o.dropStages names } rest
+                else
+                    Result.Error (
+                        sprintf "unknown --drop stage(s): %s\nknown: %s"
+                            (String.concat ", " unknown)
+                            (String.concat ", " ScreenshotViewer.knownStages))
             | "--stack" :: v :: rest ->
                 match ScreenshotViewer.EffectStack.parse v with
                 | Some s -> go { o with stacks = o.stacks @ [ s ] } rest
@@ -371,4 +405,7 @@ let main argv =
         triangleFilter = o.triangleFilter
         sun         = o.sun
         samples     = o.samples
+        benchmark   = o.benchmark
+        benchRepeats = o.benchRepeats
+        dropStages  = o.dropStages
     }

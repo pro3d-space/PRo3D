@@ -109,6 +109,15 @@ module ScreenshotViewer =
             /// shader's types actually became -- notably whether anything reached the
             /// GPU as `double`, which Apple Silicon has no hardware for.
             dumpGlsl    : bool
+            /// Some frames = measure frame time instead of writing a PNG, rendering this
+            /// many frames per batch.
+            benchmark   : Option<int>
+            /// Batches to run in benchmark mode. Reported individually: one mean hides
+            /// whether a difference is real or run-to-run spread.
+            benchRepeats : int
+            /// Stage names removed from the effect composition (see `effect`). Distinct
+            /// from switching a stage off via its uniform, which leaves it in the pipeline.
+            dropStages  : Set<string>
         }
 
     // ---------------------------------------------------------------- camera
@@ -181,32 +190,50 @@ module ScreenshotViewer =
 
     /// The ladder. Stage order matches `ViewerUtils.surfaceEffect` exactly; a rung is a
     /// prefix of that list, not a re-ordering of it.
-    let effect (stack : EffectStack) =
-        let vertexLighting =
-            [ PRo3D.SPICE.Shaders.planetLocalLightingViewSpace |> toEffect
-              PRo3D.Core.ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect
-              PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect ]
+    ///
+    /// `dropped` removes named stages from the composition entirely, using the same stage
+    /// names as the viewer's `PRO3D_SURFACE_EFFECT_DROP`. This is a different thing from
+    /// switching a stage off through its uniform: `FilterTriangleEnabled = false` still
+    /// leaves `triangleSizeFilter` in the pipeline, so the geometry-shader stage still
+    /// runs and every vertex still passes through it. Only dropping the stage removes
+    /// that cost, which is exactly the distinction the frame-time question turns on.
+    let effect (dropped : Set<string>) (stack : EffectStack) =
+        let keep name eff = if Set.contains name dropped then [] else [ eff ]
 
-        let transform = [ PRo3D.Base.OpcSurfaceShader.stableTrafo |> toEffect ]
-        let sizeFilter = [ PRo3D.Base.OpcSurfaceShader.triangleSizeFilter |> toEffect ]
-        let genNormal = [ PRo3D.Core.ImageProjection.Shaders.generateNormal |> toEffect ]
-        let texture = [ PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect ]
+        let vertexLighting =
+            keep "planetLocalLighting" (PRo3D.SPICE.Shaders.planetLocalLightingViewSpace |> toEffect)
+            @ keep "imageProjTrafo" (PRo3D.Core.ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect)
+            @ keep "shadowVertices" (PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect)
+
+        let transform = keep "stableTrafo" (PRo3D.Base.OpcSurfaceShader.stableTrafo |> toEffect)
+        let sizeFilter = keep "triangleSizeFilter" (PRo3D.Base.OpcSurfaceShader.triangleSizeFilter |> toEffect)
+        let genNormal = keep "generateNormal" (PRo3D.Core.ImageProjection.Shaders.generateNormal |> toEffect)
+        let texture = keep "diffuseTexture" (PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect)
         let colorChain =
-            [ PRo3D.Base.Shader.mapColorAdaption |> toEffect
-              PRo3D.Base.Shader.mapRadiometry |> toEffect ]
-        let lighting = [ PRo3D.SPICE.Shaders.solarLighting |> toEffect ]
+            keep "colorAdaption" (PRo3D.Base.Shader.mapColorAdaption |> toEffect)
+            @ keep "radiometry" (PRo3D.Base.Shader.mapRadiometry |> toEffect)
+        let lighting = keep "solarLighting" (PRo3D.SPICE.Shaders.solarLighting |> toEffect)
 
         let stages =
             match stack with
             | Minimal -> transform @ texture
             | Filter  -> transform @ sizeFilter @ texture
             | Normals ->
-                [ PRo3D.Core.ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect ]
+                keep "imageProjTrafo" (PRo3D.Core.ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect)
                 @ transform @ sizeFilter @ genNormal @ texture
             | Lit     -> vertexLighting @ transform @ sizeFilter @ genNormal @ texture @ lighting
             | Color   -> vertexLighting @ transform @ sizeFilter @ genNormal @ texture @ colorChain @ lighting
 
         FShade.Effect.compose stages
+
+    /// Stage names `--drop` accepts, so a typo fails loudly instead of silently measuring
+    /// the unmodified effect and reporting "no difference".
+    let knownStages =
+        Set.ofList [
+            "planetLocalLighting"; "imageProjTrafo"; "shadowVertices"
+            "stableTrafo"; "triangleSizeFilter"; "generateNormal"
+            "diffuseTexture"; "colorAdaption"; "radiometry"; "solarLighting"
+        ]
 
     // ---------------------------------------------------------------- scene graph
 
@@ -296,6 +323,66 @@ module ScreenshotViewer =
             (if stable < 2 then sprintf " (NOT converged, hit --max-frames %d)" maxFrames else "")
         image
 
+    /// Frame time for one effect configuration, from a fixed camera.
+    ///
+    /// Two things make a naive timing loop measure the wrong thing here. GL commands are
+    /// queued, so timing a single `task.Run` measures CPU-side submission, not GPU work;
+    /// and the LOD tree keeps refining for the first few frames, so early frames draw
+    /// less geometry than later ones. This settles the tree first (same convergence rule
+    /// as `renderStable`), then submits whole batches and syncs once per batch, so the
+    /// single readback is amortised to noise rather than stalling the pipeline every
+    /// frame. Batches are reported individually because the interesting question is
+    /// whether a difference between two configurations is larger than the spread within
+    /// one of them.
+    let private benchmark (runtime : IRuntime) (signature : IFramebufferSignature)
+                          (fbo : OutputDescription) (color : IBackendTexture)
+                          (resolve : unit -> unit) (maxFrames : int)
+                          (frames : int) (repeats : int) (sg : ISg) =
+        use clear = runtime.CompileClear(signature, AVal.constant C4f.Black, AVal.constant 1.0)
+        use task = runtime.CompileRender(signature, sg)
+
+        let renderOnce () =
+            clear.Run(fbo)
+            task.Run(fbo)
+
+        // settle the LOD tree: batches that draw different patch sets are not comparable
+        let mutable last = 0UL
+        let mutable stable = 0
+        let mutable warm = 0
+        while warm < maxFrames && stable < 2 do
+            renderOnce ()
+            resolve ()
+            let h = fingerprint (runtime.Download(color))
+            if warm > 0 && h = last then stable <- stable + 1 else stable <- 0
+            last <- h
+            warm <- warm + 1
+        Log.line "[bench] warm-up %d frame(s)%s" warm
+            (if stable < 2 then sprintf " (NOT converged, hit --max-frames %d)" maxFrames else "")
+
+        let sw = System.Diagnostics.Stopwatch()
+        let results = Array.zeroCreate repeats
+        for r in 0 .. repeats - 1 do
+            sw.Restart()
+            for _ in 1 .. frames do renderOnce ()
+            // the only sync point the runtime exposes here; one per batch, not per frame
+            resolve ()
+            runtime.Download(color) |> ignore
+            sw.Stop()
+            let msPerFrame = sw.Elapsed.TotalMilliseconds / float frames
+            results.[r] <- msPerFrame
+            Log.line "[bench] batch %d/%d: %7.3f ms/frame (%6.1f fps)"
+                (r + 1) repeats msPerFrame (1000.0 / msPerFrame)
+
+        let sorted = Array.sort results
+        let median =
+            if sorted.Length % 2 = 1 then sorted.[sorted.Length / 2]
+            else (sorted.[sorted.Length / 2 - 1] + sorted.[sorted.Length / 2]) / 2.0
+        // min is the least noisy summary of a throughput measurement: interference from
+        // other work on the machine only ever makes a batch slower.
+        Log.line "[bench] min %7.3f  median %7.3f  max %7.3f ms/frame"
+            sorted.[0] median sorted.[sorted.Length - 1]
+        median
+
     let private save (dir : string) (name : string) (image : PixImage) =
         if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
         let path = Path.Combine(dir, name)
@@ -349,7 +436,7 @@ module ScreenshotViewer =
             |> Sg.ofList
             |> Sg.viewTrafo viewTrafo
             |> Sg.projTrafo projTrafo
-            |> Sg.effect [ effect stack ]
+            |> Sg.effect [ effect cfg.dropStages stack ]
             |> applyDefaultUniforms cfg
             |> Sg.fillMode (AVal.constant cfg.fillMode)
             |> Sg.cullMode (AVal.constant cfg.cullMode)
@@ -386,9 +473,17 @@ module ScreenshotViewer =
             let projTrafo = AVal.constant (Frustum.projTrafo frustum)
 
             for stack in stacks do
-                Log.line "[stack] %s" (EffectStack.name stack)
+                Log.line "[stack] %s%s" (EffectStack.name stack)
+                    (if Set.isEmpty cfg.dropStages then ""
+                     else sprintf " (dropped: %s)" (String.concat ", " cfg.dropStages))
                 let sg = decorate signature runner false stack viewTrafo projTrafo
-                let image = renderStable runtime signature fbo color resolve cfg.maxFrames sg
-                save cfg.outputDir (sprintf "%s-%s.png" cfg.name (EffectStack.name stack)) image
-                |> ignore
+                match cfg.benchmark with
+                | Some frames ->
+                    benchmark runtime signature fbo color resolve cfg.maxFrames
+                              frames cfg.benchRepeats sg
+                    |> ignore
+                | None ->
+                    let image = renderStable runtime signature fbo color resolve cfg.maxFrames sg
+                    save cfg.outputDir (sprintf "%s-%s.png" cfg.name (EffectStack.name stack)) image
+                    |> ignore
             0
