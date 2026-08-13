@@ -1,4 +1,4 @@
-## 6.0.0-prerelease10
+## 6.0.0-rc1
 - Screenshots: **screenshots are written again** — this completes the fix started in prerelease9, which got the rendering statistics parsing right but left the image download failing. Taking a screenshot blocked the update thread while the render service was waiting for that very thread to release the scene, so the request timed out after 100 seconds and PRo3D froze meanwhile
 
 ## 6.0.0-prerelease9
