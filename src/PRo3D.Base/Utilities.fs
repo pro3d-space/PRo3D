@@ -1444,17 +1444,32 @@ module ScreenshotUtilities =
               frameTime       : float
           }
 
+        /// Aardvark.UI's /rendering/stats.json handler pickles the statistics to a string and
+        /// then hands that string to http.json, which pickles it a second time
+        /// (RenderServer.fs: `http.json (Pickler.json.PickleToString stats)`, Aardvark.UI 5.7.3).
+        /// The body is therefore a JSON string wrapping the actual payload. Peel that layer off
+        /// when it is there, so we keep working against both the current and a fixed
+        /// aardvark.media. See https://github.com/aardvark-platform/aardvark.media/issues/53
+        let private unwrapDoubleEncodedJson (body : string) =
+            if body.TrimStart().StartsWith "\"" then
+                try Newtonsoft.Json.JsonConvert.DeserializeObject<string> body with _ -> body
+            else
+                body
+
         let downloadClientStatistics baseAddress (httpClient : HttpClient) =
             let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
             Log.line "[Screenshot] querying rendering stats at: %s" path
-            let result = httpClient.GetStringAsync(path).Result
+            let result = httpClient.GetStringAsync(path).Result |> unwrapDoubleEncodedJson
 
             let clientBla : list<ClientStatistics> =
-                Pickler.unpickleOfJson  result
+                try
+                    Pickler.unpickleOfJson result
+                with e ->
+                    failwithf "Could not parse client statistics from %s: %s (body was: %s)" path e.Message result
 
-            match clientBla.Length with
-            | 1 | 2 -> clientBla // clientBla.[1] 
-            | _ -> failwith (sprintf "Could not download client statistics for %s" path)  //"no client bla"
+            match clientBla with
+            | [] -> failwith (sprintf "No rendering client reported statistics at %s" path)
+            | _ -> clientBla
 
         let getScreenshotUrl baseAddress clientStatistic width height =                                
 
@@ -1486,11 +1501,11 @@ module ScreenshotUtilities =
             let clientStatistics = downloadClientStatistics baseAddress httpClient
             
             let cs =
-                match clientStatistics.Length with
-                | 2 -> clientStatistics.[1] 
-                | 1 -> clientStatistics.[0]
-                | _ -> failwith (sprintf "Could not download client statistics")
-                
+                match clientStatistics with
+                | _ :: second :: _ -> second
+                | first :: _ -> first
+                | [] -> failwith (sprintf "Could not download client statistics")
+
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format
             httpClient.DownloadFile(screenshot,filename)        
