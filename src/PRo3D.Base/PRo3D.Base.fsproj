@@ -53,6 +53,7 @@
     <Compile Include="InstrumentProjection.fs" />
     <Compile Include="GisModels.fs" />
     <Compile Include="GisModels.g.fs" />
+    <Compile Include="SurfaceChart.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />
     <Compile Include="FalseColors\FalseColors-Model.g.fs" />
     <Compile Include="FalseColors\FalseColorLegendApp.fs" />
