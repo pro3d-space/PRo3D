@@ -2,21 +2,33 @@
 
 ## Goal
 
-Catch rendering regressions in the OPC surface pipeline — in particular the class of bug
-where **the geometry is fine and the shading is wrong on one GPU only**.
+Catch regressions in the OPC surface pipeline that no other test sees — both the class
+where **the geometry is fine and the shading is wrong on one GPU only**, and the class
+where **nothing looks wrong but a stage is quietly expensive**.
 
 CI has no GPU today, so this starts as a **deliberately-invoked gate run on team machines**.
 GPU runners are expected later, so the harness must be **CI-ready from day one**: turning
 it on should be a one-line change, not a redesign (see Gate 1 and "CI-readiness").
 
-Success criterion, restated for that reality: the `crossSectionClip` bug (Apple Silicon,
-`releases/6.0.0`, fixed in #666) would have been caught by one command run on an Apple
-Silicon machine before release — and that command would have printed **the name of the
-offending shader stage**, not shown a picture for someone to judge.
+Two success criteria, both phrased as bugs that already happened:
 
-The second half matters as much as the first. A harness that says "these pixels differ"
-saves nothing; the expensive part of this session was not seeing the artefact, it was
-finding which of 22 shader stages produced it.
+1. **Correctness.** The `crossSectionClip` bug (Apple Silicon, `releases/6.0.0`, fixed in
+   #666) would have been caught by one command on an Apple Silicon machine before release
+   — and that command would print **the name of the offending shader stage**, not show a
+   picture for someone to judge.
+2. **Performance.** The geometry-shader cost found in the follow-up investigation would
+   have been surfaced the same way. A stage that is *switched off* and still dominates
+   frame time is exactly what nobody notices until someone goes looking — and it stayed
+   invisible precisely because every correctness check passed.
+
+The "name the stage" half matters as much as the detection half in both cases. A harness
+that reports "these pixels differ" or "this got slower" saves little; the expensive part is
+attribution across ~22 shader stages.
+
+**Both criteria reduce to the same primitive, and that is the central design fact of this
+plan**: compose a prefix of `surfaceEffect` / drop a named stage, render, then either
+assert an invariant or take a measurement. One mechanism, two questions — arrived at
+independently twice, once hunting a correctness bug and once attributing frame time.
 
 ## The motivating bug, stated precisely
 
@@ -29,7 +41,9 @@ producing a lattice of holes.
 
 1. **Invisible to a simple OPC render.** Geometry, LOD, textures, `stableTrafo`,
    `triangleSizeFilter` and `generateNormal` were all clean. It only appeared under the
-   full viewer `surfaceEffect`.
+   full viewer `surfaceEffect`. *"Clean" here means correct, not cheap* — the two
+   geometry-shader stages in that list later turned out to dominate frame time. A stage
+   can pass every invariant in this document and still be the performance problem.
 2. **Triggered by configuration, not content.** `clippingEnabled` defaults to `true`; the
    bug needed that flag live *and* no cross-section present. No camera or dataset would
    have found it — a config combination did.
@@ -179,6 +193,19 @@ The full cartesian product is unaffordable. Two tiers:
 - **Neutrality tier** — for each flag independently, render with it off, and with it on in
   a state where it should have no visible effect. Assert pixel-identical. Linear in the
   number of flags. This is the tier that catches the motivating bug.
+
+  **Both arms must be composition-identical: the same stages composed, differing only in
+  uniform values.** This is not a detail — it is what keeps the exact comparison viable.
+  A geometry shader that passes a triangle through unchanged does *not* reproduce the
+  rasteriser's input bit-for-bit; measured on `minimal` vs `filter`, 0.4% of bytes differ,
+  82% of them by exactly ±1. That is re-emission noise, not a bug, and it would make an
+  exact assertion fail forever for the wrong reason.
+
+  So neutrality is a claim about a stage's **output**, never about its **presence**.
+  Comparing "stage absent" against "stage present but disabled" is a different question,
+  belongs to the performance tier, and must never be asserted pixel-exact. Keeping that
+  line sharp is also what makes the performance problem expressible: *disabled* and *not
+  composed* are different things, and the whole geometry-shader cost lives in the gap.
 - **Smoke tier** — a handful of realistic combinations, asserting coverage and opacity only.
 
 ### Determinism
@@ -203,13 +230,59 @@ what found the bug by hand over several rounds; automating it is the difference 
 useful gate and a screenshot to squint at. With no CI history to bisect against, this is
 the only bisect available.
 
+Comparison across rungs must be on **invariants (coverage), never on pixels** — rungs
+differ in composition, so the ±1 re-emission noise above applies. Bisect asks "at which
+stage does the invariant break", not "at which stage do the pixels change".
+
 That requires `surfaceEffect` to be an inspectable, filterable list of named stages with
 declared inter-stage dependencies — a fragment stage that reads a varying needs the vertex
 stage that writes it, or the GL backend throws `Could not get attribute`. A working
-version exists on `bugs/apple-silicon-crosssection-clip`, written under time pressure with
-an environment-variable interface. It should be **redesigned properly**: the stage list and
-its dependency graph are part of the rendering architecture, not test scaffolding, and
-belong in their own PR with their own review. The env-var interface should not survive.
+version exists on `bugs/apple-silicon-crosssection-clip` (commit `890cf57a`), written under
+time pressure with an environment-variable interface. It should be **redesigned properly**:
+the stage list and its dependency graph are part of the rendering architecture, not test
+scaffolding, and belong in their own PR with their own review. The env-var interface should
+not survive.
+
+**Stages are not independently droppable, and the design must not pretend otherwise.**
+FShade merges adjacent shaders of the same kind into one GLSL stage — `triangleSizeFilter`
+and `generateNormal` become a single geometry stage. Dropping either alone was measured at
+~3%; dropping both, 13.9×. Worse, dropping `generateNormal` *alone* measured **slower** than
+composing both, which is unexplained. Consequences:
+
+- Attribution may only ever claim *"dropping X saves Y"*, never *"X costs Y"*.
+- A bisect that assumes additive, independent stages will mislead. Report the prefix that
+  changed behaviour, not a per-stage cost table.
+
+## Performance tier
+
+Same primitive, different reduction: instead of asserting an invariant on the rendered
+image, time it.
+
+- **Budget** — total frame time for a reference (scene, config, camera) against a recorded
+  threshold. Catches "everything got slower" without attributing it.
+- **Attribution** — for each stage, drop it and re-measure, reporting the delta. Subject to
+  the non-additivity caveat above: this ranks candidates, it does not decompose a total.
+
+Both need far more care about measurement noise than the correctness tiers, and neither
+should gate a release until it has a replicated baseline. Start informational.
+
+### Known measurements, unreplicated
+
+From the follow-up investigation, recorded so the numbers are not re-derived — and flagged
+because they are **one machine, one dataset, one camera, via a machine-specific
+`--data-root`**, which the CI-readiness rules forbid and open question 3 must fix:
+
+- The geometry-shader *stage* costs ~92% of frame time, resolution-independent, while
+  `FilterTriangleEnabled = false`.
+- The **viewer itself was never benchmarked.** That `ViewerUtils.surfaceEffect` pays the
+  same cost is an inference from code reading (it composes both stages unconditionally),
+  not a measurement. Verify before anyone acts on it.
+- The originally reported symptom — `--triangle-filter 5` feeling slower interactively —
+  **did not reproduce offscreen**; it measured slightly *faster*. The cost was present in
+  both arms of the reported comparison.
+
+No fix has been attempted. The shader-vs-CPU direction was put to the user per
+`ai/CONVENTIONS.md` and deferred; it remains open and is not this plan's to close.
 
 ## Cross-platform coverage without a CI matrix
 
@@ -256,9 +329,12 @@ to the work than any technical gate, and it needs a deliberate answer:
 
 ## Open questions
 
-1. Do the config-neutrality pairs actually hold today on Windows/Linux? If some flags
-   already perturb pixels while nominally inactive, that is either a second bug or a
-   modelling error in the invariant. Expect to find at least one.
+1. ~~Do the config-neutrality pairs hold today?~~ **Partly answered.** A composition change
+   (`minimal` vs `filter`) is *not* pixel-identical — ±1 re-emission noise, not a bug. That
+   was a different comparison from the one this tier specifies, and the resolution is the
+   composition-identical rule above rather than a tolerance. **Still open:** whether any
+   genuine *uniform* toggle perturbs pixels while nominally inactive. Resolve before
+   building the tier, or the first flag tested settles it by accident.
 2. How much of `Surface.Sg`'s per-patch attribute plumbing can be driven without the full
    viewer model? `applyFootprint` / `applyCrossSection` / `applySecondaryTextureId` are Ag
    attributes whose absence throws at `CompileRender`
@@ -289,12 +365,22 @@ to the work than any technical gate, and it needs a deliberate answer:
 2. Agree and land the OPC fixture in `PRo3D.Resources.Models` (open question 3).
 3. Coverage + determinism invariants. **Validate against a reverted #666** — this is the
    step that proves the harness works, and nothing after it is worth doing until it passes.
+   Record frame time while here; it is free at this point and establishes the performance
+   baseline before anyone needs it.
 4. `surfaceEffect` as a designed, named, dependency-aware stage list (own PR, own review).
-5. Config neutrality tier over the flags in `ViewerUtils`.
-6. Automatic stage bisect on failure.
+   **Foundation, not leverage** — it has two independent consumers (correctness bisect and
+   performance attribution) and is the only thing that makes either possible.
+   *Shipping order still puts it after 3*: that it is foundational is an argument about
+   architecture, not about sequence.
+4b. Performance tier — budget + attribution mode, directly on top of the stage list.
+   Informational until a baseline is replicated on a second machine.
+5. Config neutrality tier over the flags in `ViewerUtils`. Settle open question 1 first.
+6. Automatic stage bisect on failure — invariant-based, not pixel-based.
 7. Smoke tier + release-checklist entry naming the platforms to cover.
 8. *(when GPU runners exist)* Drop `--skip-render` from `runTests` and add the matrix.
    Nothing else should need to change; if it does, the CI-readiness rules were violated.
 
-Steps 1–3 are the whole value; 4–7 are leverage. If the work stops early it should stop
-after 3 with something real, not halfway through 5.
+Steps 1–3 are still the whole value; 4–7 are leverage. A performance tier is worth less
+than a correctness gate that actually runs, and the argument for promoting step 4 is about
+foundations, not shipping order. If the work stops early it should stop after 3 with
+something real, not halfway through 5.
