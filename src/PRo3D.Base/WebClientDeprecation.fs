@@ -12,5 +12,8 @@ module Helpers =
                 return! File.WriteAllBytesAsync(filename, data)
             }
 
+        /// GetAwaiter().GetResult() rethrows the original exception, while Wait() wraps it
+        /// in an AggregateException whose message is the useless "One or more errors
+        /// occurred." - keep the actual cause visible in the log.
         member x.DownloadFile(uri : string, filename : string) =
-            x.DownloadFileAsync(uri, filename).Wait()
+            x.DownloadFileAsync(uri, filename).GetAwaiter().GetResult()

@@ -1432,6 +1432,7 @@ module Copy =
 module ScreenshotUtilities = 
     module Utilities =
         open System.Net.Http
+        open System.Threading
 
         type ClientStatistics =
           {
@@ -1456,10 +1457,8 @@ module ScreenshotUtilities =
             else
                 body
 
-        let downloadClientStatistics baseAddress (httpClient : HttpClient) =
-            let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
-            Log.line "[Screenshot] querying rendering stats at: %s" path
-            let result = httpClient.GetStringAsync(path).Result |> unwrapDoubleEncodedJson
+        let private parseClientStatistics path (body : string) =
+            let result = body |> unwrapDoubleEncodedJson
 
             let clientBla : list<ClientStatistics> =
                 try
@@ -1470,6 +1469,21 @@ module ScreenshotUtilities =
             match clientBla with
             | [] -> failwith (sprintf "No rendering client reported statistics at %s" path)
             | _ -> clientBla
+
+        let downloadClientStatisticsAsync baseAddress (httpClient : HttpClient) (ct : CancellationToken) =
+            task {
+                let path = sprintf "%s/rendering/stats.json" baseAddress
+                Log.line "[Screenshot] querying rendering stats at: %s" path
+                let! body = httpClient.GetStringAsync(path, ct)
+                return parseClientStatistics path body
+            }
+
+        /// Blocking wrapper for the callers that still live in a synchronous `update`
+        /// (RemoteControlApp, Rover-Model). New code should await the async version -
+        /// blocking here costs a second thread and can starve the pool.
+        let downloadClientStatistics baseAddress (httpClient : HttpClient) =
+            (downloadClientStatisticsAsync baseAddress httpClient CancellationToken.None)
+                .GetAwaiter().GetResult()
 
         let getScreenshotUrl baseAddress clientStatistic width height =                                
 
