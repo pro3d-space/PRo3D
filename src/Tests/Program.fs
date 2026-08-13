@@ -22,6 +22,9 @@ let allTests () : Test =
 
         ProjectedImageMetadataTest.tests()
 
+        // *.opc.json sidecars; the fixture-backed case self-skips without the data
+        OpcSidecarTests.tests()
+
         // Kernel-swap count matters: the native DeInit does not fully clear CSPICE's
         // binary-kernel (DAF) state, so handles go stale after repeated metakernel swaps
         // (SPICE(DAFNOSUCHHANDLE) on SPK/CK reads; text-kernel frames keep working).

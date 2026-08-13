@@ -1074,8 +1074,50 @@ module Gui =
             ]    
 
     module Config =
-        let config (model : AdaptiveModel) = 
-            ConfigProperties.view model.scene.config 
+
+        /// Read-out of the OPC per-vertex attribute layers under the 3D cursor.
+        ///
+        /// The values come from the hit patch's `*.aara` attribute layers, barycentrically
+        /// interpolated at the picked point - not from sampling the attribute textures.
+        /// Texture sampling costs an image decode per layer, which is fine for profile
+        /// extraction but not per mouse move, so surfaces without per-vertex layers show
+        /// nothing here and say so.
+        let underCursor (m : AdaptiveModel) : DomNode<ViewerAction> =
+            // several opened namespaces carry records with `name` / `surfaceName` fields,
+            // so the types below are spelled out to keep field resolution unambiguous
+            let formatValues (values : float[]) =
+                values |> Array.map (sprintf "%g") |> String.concat "; "
+
+            let hint (message : string) =
+                div [style "color: #cccccc; padding: 4px"] [text message]
+
+            let content =
+                alist {
+                    let! enabled = m.scene.config.showPreviewIntersection
+                    if not enabled then
+                        yield hint "Preview cursor is off - enable \"Show Preview Cursor\" above."
+                    else
+                        let! cursor = m.cursorAttributes
+                        match cursor with
+                        | None ->
+                            yield hint "Hold CTRL and move the mouse over a surface."
+                        | Some (cursor : CursorAttributes) ->
+                            let hit : AttributeHit = cursor.hit
+                            yield Html.table [
+                                yield Html.row "Surface:"  [text cursor.surfaceName]
+                                yield Html.row "Patch:"    [text hit.patchName]
+                                yield Html.row "Position:" [text (hit.position.ToString("0.000"))]
+                                for a : SampledAttribute in hit.attributes do
+                                    yield Html.row (a.name + ":") [text (formatValues a.values)]
+                            ]
+                            if hit.attributes.IsEmpty then
+                                yield hint "No per-vertex attribute layers on this surface."
+                }
+
+            Incremental.div AttributeMap.empty content
+
+        let config (model : AdaptiveModel) =
+            ConfigProperties.view model.scene.config
             |> UI.map ConfigPropertiesMessage
             |> AVal.constant
               
@@ -1095,6 +1137,9 @@ module Gui =
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
                     ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage
+                ]
+                GuiEx.accordion "Under Cursor" "Crosshairs" true [
+                    underCursor m
                 ]
                 GuiEx.accordion "Data Management" "Settings" false [
                     Html.table [  
@@ -1446,7 +1491,7 @@ module Gui =
                     ]
 
                 require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))
-            | Some "config" -> 
+            | Some "config" ->
                 require (viewerDependencies) (body bodyAttributes [Config.configUI m |> UI.map ViewerMessage])
             | Some "viewplanner" -> 
                 require (viewerDependencies) (body bodyAttributes [ViewPlanner.viewPlannerUI m |> UI.map ViewerMessage])

@@ -30,6 +30,30 @@ module TriangleSet =
 
         result.ToArray()
 
+    /// Top-left grid index of every quad `computeGridIndices` emits triangles for, in the
+    /// same order - so triangle `i` belongs to quad `i / 2`.
+    ///
+    /// This is the compact form of the triangle-to-grid mapping needed to look up
+    /// per-vertex data at a picked triangle: one int per quad instead of six, and no
+    /// jagged per-triangle arrays. For a 1032x1032 patch that is 4 MB rather than the
+    /// ~100 MB a `int[3]` per triangle costs, which matters because the mapping is cached
+    /// per patch and rebuilt whenever the 3D cursor moves onto a new patch.
+    let computeValidQuadStarts (size : V2i) (positions : V3f[]) =
+        let w = size.X
+        let h = size.Y
+        let result = List<int>((w - 1) * (h - 1))
+
+        for y in 0 .. h - 2 do
+            for x in 0 .. w - 2 do
+                let a = y * w + x
+                let b = a + w
+
+                if not (positions.[a].AnyNaN || positions.[b].AnyNaN ||
+                        positions.[a + 1].AnyNaN || positions.[b + 1].AnyNaN) then
+                    result.Add a
+
+        result.ToArray()
+
 
     let getInvalidIndices3f (positions : V3f[]) =
         let result = System.Collections.Generic.List<int>(64)
