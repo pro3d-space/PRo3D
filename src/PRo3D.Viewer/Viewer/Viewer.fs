@@ -572,32 +572,6 @@ module ViewerApp =
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with animations = a'}              
                 | None -> m
-            | Drawing.ExportMultiAttributeProfile path ->
-                if String.IsNullOrEmpty path then
-                    Log.warn "[MultiAttrProfile] no path specified"
-                else
-                    match GroupsModel.tryGetSelectedAnnotation m.drawing.annotations with
-                    | Some a ->
-                        let points = a |> Annotation.retrievePoints
-                        if points.Length < 2 then
-                            Log.warn "[MultiAttrProfile] annotation needs at least 2 points"
-                        else
-                            let surfacesModel = Optic.get _surfacesModel m
-                            let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
-                            let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
-                            let up = m.scene.referenceSystem.up.value.Normalized
-
-                            let samples, attrNames, newCache =
-                                ProfileAttributeExtraction.extractProfile points up surfacesModel m.scene.referenceSystem observedSystem observerSystem Picking.cache
-                            Picking.cache <- newCache
-
-                            if samples.Length > 0 then
-                                ProfileAttributeExtraction.writeCsv path samples attrNames
-                            else
-                                Log.warn "[MultiAttrProfile] no samples extracted"
-                    | None ->
-                        Log.line "[MultiAttrProfile] please select an annotation to export"
-                m
             | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.inverseFlag) ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
@@ -760,6 +734,16 @@ module ViewerApp =
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
+        | AnnotationExportMessage msg,_ ->
+            match msg with
+            | AnnotationExportAction.Export path ->
+                // needs the group tree and the reference system, so it cannot
+                // be handled inside AnnotationExportApp.update
+                let settings = AnnotationExportModel.toSettings m.annotationExport
+                AnnotationExportViewer.export settings path m.drawing m.scene.referenceSystem
+                { m with annotationExport = { m.annotationExport with isOpen = false } }
+            | _ ->
+                { m with annotationExport = AnnotationExportApp.update m.annotationExport msg }
         | BookmarkMessage msg,_ ->
             Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 

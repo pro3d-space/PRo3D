@@ -194,6 +194,7 @@ type ViewerAction =
 | LoadPoseDefinitionFile         of list<string>
 | GisAppMessage                  of Gis.GisAppAction
 | CrossSectionMessage            of CrossSectionAction
+| AnnotationExportMessage        of AnnotationExportAction
 | SBookmarksToPoseDefinition
 | SetUserPreferences             of UserPreferences
 | Nop
@@ -610,6 +611,11 @@ type Model = {
     navigation       : NavigationModel
 
     properties       : Properties
+
+    /// Settings of the annotation export window. Session-only on purpose — it
+    /// lives here rather than on `Scene` so nothing has to be serialised.
+    annotationExport : AnnotationExportModel
+
     multiSelectBox   : Option<MultiSelectionBox>
     shiftFlag        : bool
     picking          : bool

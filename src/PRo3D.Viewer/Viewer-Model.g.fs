@@ -1,5 +1,5 @@
-﻿//5a0851b5-7ede-7845-5bcc-5bce88c611c3
-//0c537f1c-d451-16f4-b0c1-6b5730b3ebd9
+//cb5b4693-9d01-c067-9b83-1a2bd3b4717c
+//08e3fe32-f5b6-7682-5e12-13b5b8563f29
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -200,6 +200,7 @@ type AdaptiveModel(value : Model) =
     let _mailboxState_ = FSharp.Data.Adaptive.cval(value.mailboxState)
     let _navigation_ = PRo3D.Base.AdaptiveNavigationModel(value.navigation)
     let _properties_ = FSharp.Data.Adaptive.cval(value.properties)
+    let _annotationExport_ = PRo3D.Core.AdaptiveAnnotationExportModel(value.annotationExport)
     let _multiSelectBox_ = FSharp.Data.Adaptive.cval(value.multiSelectBox)
     let _shiftFlag_ = FSharp.Data.Adaptive.cval(value.shiftFlag)
     let _picking_ = FSharp.Data.Adaptive.cval(value.picking)
@@ -258,6 +259,7 @@ type AdaptiveModel(value : Model) =
             _mailboxState_.Value <- value.mailboxState
             _navigation_.Update(value.navigation)
             _properties_.Value <- value.properties
+            _annotationExport_.Update(value.annotationExport)
             _multiSelectBox_.Value <- value.multiSelectBox
             _shiftFlag_.Value <- value.shiftFlag
             _picking_.Value <- value.picking
@@ -302,6 +304,7 @@ type AdaptiveModel(value : Model) =
     member __.mailboxState = _mailboxState_ :> FSharp.Data.Adaptive.aval<MailboxState>
     member __.navigation = _navigation_
     member __.properties = _properties_ :> FSharp.Data.Adaptive.aval<Properties>
+    member __.annotationExport = _annotationExport_
     member __.multiSelectBox = _multiSelectBox_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<MultiSelectionBox>>
     member __.shiftFlag = _shiftFlag_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.picking = _picking_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -349,6 +352,7 @@ module ModelLenses =
         static member mailboxState_ = ((fun (self : Model) -> self.mailboxState), (fun (value : MailboxState) (self : Model) -> { self with mailboxState = value }))
         static member navigation_ = ((fun (self : Model) -> self.navigation), (fun (value : PRo3D.Base.NavigationModel) (self : Model) -> { self with navigation = value }))
         static member properties_ = ((fun (self : Model) -> self.properties), (fun (value : Properties) (self : Model) -> { self with properties = value }))
+        static member annotationExport_ = ((fun (self : Model) -> self.annotationExport), (fun (value : PRo3D.Core.AnnotationExportModel) (self : Model) -> { self with annotationExport = value }))
         static member multiSelectBox_ = ((fun (self : Model) -> self.multiSelectBox), (fun (value : Microsoft.FSharp.Core.Option<MultiSelectionBox>) (self : Model) -> { self with multiSelectBox = value }))
         static member shiftFlag_ = ((fun (self : Model) -> self.shiftFlag), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with shiftFlag = value }))
         static member picking_ = ((fun (self : Model) -> self.picking), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with picking = value }))

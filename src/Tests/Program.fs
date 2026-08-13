@@ -11,6 +11,7 @@ let allTests () : Test =
     testSequenced <| testList "all tests" [
         // kernel-independent tests (use only the default SPICE kernels)
         GeoJsonRework.Tests.tests()
+        AnnotationExportTest.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
 

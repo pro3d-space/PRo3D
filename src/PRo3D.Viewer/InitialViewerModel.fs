@@ -122,6 +122,7 @@ module Viewer =
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
+            annotationExport = AnnotationExportModel.initial
             interaction     = Interactions.DrawAnnotation
             multiSelectBox  = None
             shiftFlag       = false

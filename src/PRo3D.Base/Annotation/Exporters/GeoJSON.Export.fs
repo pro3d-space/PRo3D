@@ -106,41 +106,6 @@ module GeoJSONExport =
         geometry
         |> Json.serialize
 
-    let toGeoJsonString 
-        (planet      : option<Planet>) 
-        (isSelected  : Annotation -> bool)
-        (annotations : list<Annotation>) 
-        : string = 
-
-        let geometryCollection =
-            let annos = 
-                annotations
-                |> List.map (annotationToGeoJsonGeometry isSelected planet)
-            GeoJsonGeometry.GeometryCollection(annos, None)
-
-        geometryCollection
-        |> Json.serialize
-        |> Json.formatWith JsonFormattingOptions.Pretty
-
-    let writeGeoJSON 
-        (planet      : option<Planet>) 
-        (path        : string) 
-        (isSelected : Annotation -> bool)
-        (annotations : list<Annotation>) 
-        : unit = 
-        toGeoJsonString planet isSelected annotations
-        |> Serialization.writeToFile path
-
-    let writeGeoJSONQGIS
-        (cooConfig : GeoJsonQGIS.CoordinateConfiguration)
-        (path        : string) 
-        (isSelected : Annotation -> bool)
-        (annotations : list<Annotation>) 
-        : unit = 
-        GeoJsonQGIS.encoder cooConfig isSelected annotations
-        |> Serialization.writeToFile path
-
-
     // exports geojson objects as line delimited json: https://en.wikipedia.org/wiki/JSON_streaming#Line-delimited_JSON
     // the feature has been discussed here: https://github.com/pro3d-space/PRo3D/issues/185
     let writeStreamGeoJSON_XYZ (isSelected : Annotation -> bool) (path : string) (annotations : list<Annotation>) : unit = 

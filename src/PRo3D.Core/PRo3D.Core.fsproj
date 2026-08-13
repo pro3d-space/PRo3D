@@ -52,6 +52,9 @@
     <Compile Include="Model.fs" />
     <Compile Include="Sg.fs" />
     <Compile Include="UI.fs" />
+    <Compile Include="AnnotationExport-Model.fs" />
+    <Compile Include="AnnotationExport-Model.g.fs" />
+    <Compile Include="AnnotationExportApp.fs" />
     <Compile Include="ReferenceSystem.fs" />
     <Compile Include="TransformationApp.fs" />
     <Compile Include="TriangleSet.fs" />

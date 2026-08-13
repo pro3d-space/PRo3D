@@ -362,46 +362,9 @@ module DrawingApp =
     let automaticallyReExportGeoJson (action : DrawingAction) =
         match action with
         | DrawingAction.Move p  -> false
-        | ExportAsGeoJSON _     -> false
         | ExportAsAnnotations _ -> false
-        | ExportAsCsv _         -> false
-        | ExportAsProfileCsv _  -> false
-        | ExportMultiAttributeProfile _ -> false
-        | ExportAsGeoJSON_xyz _ -> false
-        | ExportAsGeoJSONQGIS_latlon _ -> false
-        | ExportAsGeoJSONQGIS_xyz _ -> false
-        | ExportAsGeoJSONQGIS_both _ -> false
         | LegacySaveVersioned   -> false
         | _ -> true
-
-    // exports geojson, optionally using XYZ format
-    let exportGeoJson 
-        (xyz         : bool)
-        (bigConfig   : 'a)
-        (smallConfig : SmallConfig<'a>)
-        (model       : DrawingModel) 
-        (path        : string) =
-
-        let annotations = extractVisibleAnnotations model
-
-        try
-            if xyz then
-                GeoJSONExport.writeGeoJSON None path (isSelected model) annotations
-            else 
-                let planet = smallConfig.planet.Get(bigConfig)            
-                GeoJSONExport.writeGeoJSON (Some planet) path (isSelected model) annotations
-        with e -> 
-            Log.warn "[Drawing] exportGeoJson failed with %A" e
-
-    let exportGeoJsonQGIS
-        (cooConfig   : GeoJsonQGIS.CoordinateConfiguration)
-        (model       : DrawingModel) 
-        (path        : string) =
-
-        let annotations = extractVisibleAnnotations model
-
-        GeoJSONExport.writeGeoJSONQGIS cooConfig path (isSelected model) annotations
-
 
     // exports geojson, optionally using XYZ format
     let exportGeoJsonStream  
@@ -428,23 +391,6 @@ module DrawingApp =
         | Some leaf -> result |> pushUndo (LeafAdded(leaf, groupPath))
         | None      -> result
 
-    type ProfilePoint = {
-        position  : V3d
-        elevation : double
-    }
-
-    let rec accumulateDistance 
-        (input    : list<ProfilePoint * ProfilePoint>)
-        (distance : double) 
-        : list<double * double> =
-        
-        match input with
-        | (a, b) :: [] ->
-            [(distance, a.elevation); (distance + Vec.distance a.position b.position, b.elevation)]
-        | (a, b) :: vs ->
-            (distance, a.elevation) :: (accumulateDistance vs (distance + (Vec.distance a.position b.position)))
-        | _ ->
-            []
 
     let rec update<'a> 
         (bigConfig       : 'a) 
@@ -643,87 +589,7 @@ module DrawingApp =
                     Drawing.IO.saveVersioned model path
                 else
                     model
-            | ExportAsCsv path, _, _ ->
-                if path.IsNullOrEmpty() |> not then 
-                    let up = smallConfig.up.Get(bigConfig)
-                    let planet = smallConfig.planet.Get(bigConfig)
-                    let lookups = GroupsApp.updateGroupsLookup model.annotations
-                    let annotations = extractVisibleAnnotations model
-                    CSVExport.writeCSV lookups planet up path annotations
-               
-                model
-            | ExportAsProfileCsv path, _, _ ->
-                //get selected annotation
-                let selected =  GroupsModel.tryGetSelectedAnnotation model.annotations
-                match selected with
-                | Some a -> 
-                    //convert points to profile
-                    let points = a |> Annotation.retrievePoints
-                        
-                    //transform to distance elevation pairs
-                    let planet = smallConfig.planet.Get(bigConfig)
-                    let convertedOpt =
-                        points
-                        |> List.map(fun x ->
-                            match CooTransformation.tryGetLatLonAlt planet x with
-                            | None -> None
-                            | Some k ->
-                                CooTransformation.tryGetXYZFromLatLonAlt { k with altitude = 0.0 } planet
-                                |> Option.map (fun projected ->
-                                    { position = projected; elevation = k.altitude }))
-
-                    if convertedOpt |> List.exists Option.isNone then
-                        Log.warn "[DrawingApp] profile export aborted: one or more points could not be converted to lat/lon"
-                    else
-                        let transformed = convertedOpt |> List.choose id |> List.pairwise
-                        let profile =
-                            accumulateDistance transformed 0.0
-
-                        let csvTable =
-                            profile
-                            |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
-                            |> CSV.Seq.csv "," true id
-
-                        if path.IsEmptyOrNull() |> not then
-                            csvTable |> CSV.Seq.write path
-
-                        Log.line "[DrawingApp] wrote %A to %s" profile path
-                | None -> 
-                    Log.line "please select annotation to export"
-                //write csv
-
-                model
-            | ExportMultiAttributeProfile _, _, _ ->
-                // handled at viewer level (needs access to SurfaceModel)
-                model
-            | ExportAsGeoJSON path, _, _ ->
-                if path.IsNullOrEmpty() |> not then
-                    exportGeoJson false bigConfig smallConfig model path
-                model
-
-            | ExportAsGeoJSON_xyz path, _, _ ->                       
-                if path.IsNullOrEmpty() |> not then         
-                    exportGeoJson true bigConfig smallConfig model path
-                model
-
-            | ExportAsGeoJSONQGIS_latlon path, _, _ ->     
-                if path.IsNullOrEmpty() |> not then 
-                    let planet = smallConfig.planet.Get(bigConfig).ToString()
-                    exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.GeographicOnly planet) model path
-                model
-
-            | ExportAsGeoJSONQGIS_xyz path, _, _ ->      
-                if path.IsNullOrEmpty() |> not then 
-                    exportGeoJsonQGIS GeoJsonQGIS.CoordinateConfiguration.CartesianOnly model path
-                model
-
-            | ExportAsGeoJSONQGIS_both path, _, _ ->    
-                if path.IsNullOrEmpty() |> not then 
-                    let planet = smallConfig.planet.Get(bigConfig).ToString()
-                    exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.Both planet) model path
-                model
-
-            | ContinuouslyGeoJson path, _, _ -> 
+            | ContinuouslyGeoJson path, _, _ ->
                 if path.IsNullOrEmpty() |> not then 
                     // remember this path in order to drive the automatic export feature.
                     let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true }

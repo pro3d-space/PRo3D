@@ -476,125 +476,55 @@ module Gui =
         let jsExportAnnotationsFileDialog = 
             "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
-        let jsExportAnnotationsAsCSVDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-
-        let jsExportProfileAsCSVDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Profile (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-
-        let jsExportMultiAttrProfileDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Multi-Attribute Profile (*.csv)', filters:  [{ name: 'Profile (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-
         let jsExportAnnotationsAsGeoJSONDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
-        let jsExportAnnotationsAsGeoJSONQGISDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
+        // The data exports (CSV / GeoJSON / Attitude) all live in the export
+        // window now; only the native round-trip format and the automatic
+        // GeoJSON stream stay here, since neither has any settings.
+        let annotationMenu : DomNode<ViewerAction> =
+            let drawingItem attributes children =
+                div attributes children |> UI.map DrawingMessage
 
-        let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
-                i [clazz "dropdown icon"] [] 
-                div [ clazz "menu"] [                    
-                    div [
+                i [clazz "dropdown icon"] []
+                div [ clazz "menu"] [
+                    drawingItem [
                         clazz "ui inverted item"
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
                     ] [
                         text "Import Directory"
                     ]
-                    div [
+                    drawingItem [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
                     ] [
                         text "Clear"
-                    ]      
-                    div [ clazz "ui dropdown item"] [
-                        text "Export"
-                        i [clazz "dropdown icon"] [] 
-                        div [ clazz "menu"] [
-                    
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsAnnotations
-                                clientEvent "onclick" jsExportAnnotationsFileDialog
-                            ] [
-                                text "all as 'PRo3D' annotations (*.pro3d.ann)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsCsv
-                                clientEvent "onclick" jsExportAnnotationsAsCSVDialog
-                            ] [
-                                text "visible as table (*.csv)"
-                            ]     
-                            div [
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsProfileCsv
-                                clientEvent "onclick" jsExportProfileAsCSVDialog
-                            ]  [
-                                text "selected as profile (*.csv)"
-                            ]
-                            div [
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportMultiAttributeProfile
-                                clientEvent "onclick" jsExportMultiAttrProfileDialog
-                            ] [
-                                text "selected as multi-attribute profile (*.csv)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSON
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ]  [
-                                text "visible as GeoJSON (*.json)"
-                            ]     
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSON_xyz
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ] [
-                                text "visible as GeoJSON xyz (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_latlon
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
-                            ] [
-                                text "export as latlon GeoJSON for QGIS (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_xyz
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
-                            ] [
-                                text "export as xyz GeoJSON for QGIS (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_both
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
-                            ] [
-                                text "export as latlon GeoJSON for QGIS + xyz metadata (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ContinuouslyGeoJson
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ] [
-                                text "continuously export as GeoJSON xyz (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsAttitude
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ] [
-                                text "dns as 'Attitude' planes (*.json)"
-                            ]
-                        ]
+                    ]
+                    div [
+                        clazz "ui inverted item"
+                        onClick (fun _ -> AnnotationExportMessage AnnotationExportAction.Open)
+                    ] [
+                        text "Export..."
+                    ]
+                    drawingItem [
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsAnnotations
+                        clientEvent "onclick" jsExportAnnotationsFileDialog
+                    ] [
+                        text "Save as 'PRo3D' annotations (*.pro3d.ann)"
+                    ]
+                    drawingItem [
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ContinuouslyGeoJson
+                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                    ] [
+                        text "Continuously export as GeoJSON xyz (*.json)"
                     ]
                 ]
-            ]       
-        
+            ]
+
         // Checkbox-style menu item bound to a single bool flag on
         // `m.userPreferences`. Click toggles the flag — the update handler
         // dispatches SetUserPreferences which both updates the model and
@@ -649,7 +579,7 @@ module Gui =
                                 div [ clazz "ui dropdown item"] (scene m)
                             
                                 //annotations menu
-                                annotationMenu |> UI.map DrawingMessage;   
+                                annotationMenu;   
                                 subMenu "Change Mode"
                                         [
                                           menuItem "M2020" (ChangeDashboardMode DashboardModes.m2020)
@@ -1073,8 +1003,14 @@ module Gui =
                 ]
             ]    
 
+    module AnnotationExport =
+
+        let exportWindow (m : AdaptiveModel) =
+            AnnotationExportApp.viewModal m.annotationExport
+            |> UI.map AnnotationExportMessage
+
     module Config =
-        let config (model : AdaptiveModel) = 
+        let config (model : AdaptiveModel) =
             ConfigProperties.view model.scene.config 
             |> UI.map ConfigPropertiesMessage
             |> AVal.constant
@@ -1513,6 +1449,10 @@ module Gui =
                                     |> ViewerUtils.mapAttribute ViewerMessage
                                 ]
                             ]
+                            // Overlay window; absent from the DOM while closed,
+                            // so there is no JS modal state to keep in sync.
+                            AnnotationExport.exportWindow m
+                            |> UI.map ViewerMessage
                         ]
                     )
                 )
