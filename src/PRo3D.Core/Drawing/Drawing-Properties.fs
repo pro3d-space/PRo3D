@@ -29,6 +29,9 @@ module AnnotationProperties =
     | SetManualDippingAngle of Numeric.Action
     | SetManualDippingAzimuth of Numeric.Action
     | CreateCrossSection
+    | SetShowFill     of bool
+    | ChangeFillColor of ColorPicker.Action
+    | SetFillAlpha    of Numeric.Action
         
     let update (referenceSystem : ReferenceSystem) (model : Annotation) (act : Action) =
         match act with
@@ -79,6 +82,12 @@ module AnnotationProperties =
             { model with dnsResults = dnsResults }
         | CreateCrossSection ->
             model // handled at Viewer level
+        | SetShowFill b ->
+            { model with showFill = b }
+        | ChangeFillColor a ->
+            { model with fillColor = ColorPicker.update model.fillColor a }
+        | SetFillAlpha a ->
+            { model with fillAlpha = Numeric.update model.fillAlpha a }
 
 
     let view (paletteFile : string) (model : AdaptiveAnnotation) = 
@@ -95,6 +104,10 @@ module AnnotationProperties =
                 Html.row "Show Text:"   [GuiEx.iconCheckBoxSet model.showText SetShowText ]
                 Html.row "Visible:"     [GuiEx.iconCheckBoxSet model.visible SetVisible ]
                 Html.row "Show DnS:"    [GuiEx.iconCheckBoxSet model.showDns SetShowDns ]
+                // only closed geometries can be filled; the renderer ignores the rest
+                Html.row "Fill:"        [GuiEx.iconCheckBoxSet model.showFill SetShowFill ]
+                Html.row "Fill Color:"  [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3dFill" true model.fillColor |> UI.map ChangeFillColor ]
+                Html.row "Fill Alpha:"  [Numeric.view' [InputBox] model.fillAlpha |> UI.map SetFillAlpha ]
                 Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
                 Html.row "Dip Azimuth:" [Numeric.view' [InputBox] model.manualDipAzimuth |> UI.map SetManualDippingAzimuth]
                 Html.row "Cross Section:" [button [clazz "ui button tiny"; onClick (fun _ -> CreateCrossSection)] [text "Create"]]
@@ -120,6 +133,10 @@ module AnnotationProperties =
                 Html.row "Show Text:"   [GuiEx.iconCheckBoxSet model.showText SetShowText ]
                 Html.row "Visible:"     [GuiEx.iconCheckBoxSet model.visible SetVisible ]
                 Html.row "Show DnS:"    [GuiEx.iconCheckBoxSet model.showDns SetShowDns ]
+                Html.row "Fill:"        [GuiEx.iconCheckBoxSet model.showFill SetShowFill ]
+                // distinct picker id, same reason as the color row above
+                Html.row "Fill Color:"  [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3dBulkFill" true model.fillColor |> UI.map ChangeFillColor ]
+                Html.row "Fill Alpha:"  [Numeric.view' [InputBox] model.fillAlpha |> UI.map SetFillAlpha ]
             ]
         )
 
