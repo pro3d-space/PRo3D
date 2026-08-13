@@ -1,3 +1,6 @@
+## 6.0.0-prerelease10
+- Screenshots: **screenshots are written again** — this completes the fix started in prerelease9, which got the rendering statistics parsing right but left the image download failing. Taking a screenshot blocked the update thread while the render service was waiting for that very thread to release the scene, so the request timed out after 100 seconds and PRo3D froze meanwhile
+
 ## 6.0.0-prerelease9
 - Surfaces: fixed **holes across OPC surfaces on Apple Silicon Macs** — cross-section clipping ran on every scene even with no cross-section defined, discarding fragments based on a per-vertex attribute that was never filled; Windows and Linux were unaffected
 - Reference system: the **coordinate cross no longer vanishes** on click or scroll — refreshing up/north at the camera position also moved the cross's origin onto the camera
