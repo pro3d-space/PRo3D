@@ -1,0 +1,2221 @@
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{fancyhdr}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{pifont}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{colortbl}
+
+\hypersetup{
+	colorlinks=true,
+	linkcolor=black,
+	urlcolor=blue
+}
+
+% Custom colors
+\definecolor{headerblue}{RGB}{0,70,127}
+\definecolor{lightgray}{RGB}{240,240,240}
+\definecolor{passgreen}{RGB}{0,150,0}
+\definecolor{failred}{RGB}{180,0,0}
+\definecolor{sectionblue}{RGB}{220,235,250}
+
+% Custom commands
+\newcommand{\testpass}{\textcolor{passgreen}{\ding{51}~Pass}}
+\newcommand{\testfail}{\textcolor{failred}{\ding{55}~Fail}}
+\newcommand{\checkbox}{$\square$}
+\newcommand{\key}[1]{\fbox{\texttt{#1}}}
+\newcommand{\button}[1]{\textbf{``#1''}}
+\newcommand{\menu}[1]{\textit{#1}}
+\newcommand{\tab}[1]{\textbf{#1 tab}}
+\newcommand{\ui}[1]{\textsf{#1}}
+
+% Test case IDs are derived automatically from the section/subsection number,
+% e.g. the second test in section 3 prints as "TC-3.2". Adding or removing a test
+% only renumbers the tests inside that same section; the summary table and all
+% cross-references update on the next compile via \ref{tc:<key>}.
+\makeatletter
+\newcommand{\testcase}[2]{% #1 = label key, #2 = test title
+    \refstepcounter{subsection}%
+    \protected@edef\@currentlabel{TC-\thesubsection}%
+    \subsection*{TC-\thesubsection: #2}%
+    \addcontentsline{toc}{subsection}{TC-\thesubsection: #2}%
+    \label{tc:#1}%
+}
+\makeatother
+
+% Page style
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small PRo3D Test Protocol}
+\fancyhead[R]{\small Version \testversion}
+\fancyfoot[L]{\small \today}
+\fancyfoot[R]{\small Page \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\newcommand{\testversion}{1.0}
+
+%----------------------------------------------------------------------------------------
+\begin{document}
+	%----------------------------------------------------------------------------------------
+	
+	%----------------------------------------------------------------------------------------
+	% TITLE PAGE
+	%----------------------------------------------------------------------------------------
+	\begin{titlepage}
+		\centering
+		\vspace*{2cm}
+		{\scshape\Huge \textcolor{headerblue}{\textbf{PRo3D}} \par}
+		\vspace{0.5cm}
+		{\scshape\LARGE Test Protocol \par}
+		\vspace{0.3cm}
+		{\large Version \testversion \par}
+		\vspace{2cm}
+		\rule{\textwidth}{0.5pt}\\[0.4cm]
+		{\large\textbf{Purpose:} Manual feature verification against the PRo3D Short User Manual \par}
+		\rule{\textwidth}{0.5pt}\\[1cm]
+		
+		\begin{tabular}{ll}
+			\textbf{Document Status:} & Draft \\[4pt]
+			\textbf{Created:}         & \today \\[4pt]
+			\textbf{Reference Manual:} & PRo3D Short User Manual v5.5.0 \\[4pt]
+			\textbf{Scope:}           & All features described in the Short User Manual \\
+		\end{tabular}
+		
+		\vspace{2cm}
+		\textbf{Tester Sign-off}\\[1em]
+		\begin{tabular}{p{5cm} p{5cm} p{3cm}}
+			\hline\\[-6pt]
+			Name & Signature & Date \\[12pt]
+			\hline\\
+			& & \\[12pt]
+			\hline
+		\end{tabular}
+		
+		\vfill
+		{\small Planetary Robotics 3D Viewer $\cdot$ VRVis Research Center}
+	\end{titlepage}
+	
+	\newpage
+	
+	%----------------------------------------------------------------------------------------
+	% HOW TO USE THIS DOCUMENT
+	%----------------------------------------------------------------------------------------
+	\section*{How to Use This Test Protocol}
+	
+	This document provides step-by-step test cases covering all features described in the PRo3D Short User Manual.
+	Each test case specifies:
+	\begin{itemize}
+		\item \textbf{Prerequisites} -- what must be set up before starting the test.
+		\item \textbf{Steps} -- the exact sequence of actions (buttons to click, keys to press).
+		\item \textbf{Expected Result} -- what the tester should observe if the feature works correctly.
+		\item \textbf{Result} -- a checkbox the tester fills in as \testpass{} or \testfail{}.
+		\item \textbf{Notes} -- space to record defects, screenshots, or observations.
+	\end{itemize}
+	
+	\noindent\textbf{Notation used in this document:}
+	\begin{itemize}
+		\item \button{Button Name} -- a button in the GUI that the tester should click.
+		\item \menu{Menu $\rightarrow$ Item} -- a menu path to follow.
+		\item \key{KEY} -- a keyboard key to press.
+		\item \key{CTRL}+\key{LMB} -- hold Ctrl and click the Left Mouse Button on the 3D surface.
+		\item \tab{Tab Name} -- a tab in the right-hand side panel.
+	\end{itemize}
+	
+	\noindent A test case \textbf{passes} when all expected results are observed. If any expected result is not observed, mark the test as \textbf{fail} and add details in the Notes field.
+	
+	\newpage
+	
+	%----------------------------------------------------------------------------------------
+	% SUMMARY TABLE
+	%----------------------------------------------------------------------------------------
+	\section*{Test Summary}
+	\label{sec:summary}
+	
+	\begin{longtable}{p{1.8cm} p{6.5cm} p{2.5cm} p{2.5cm}}
+		\toprule
+		\textbf{Test ID} & \textbf{Feature} & \textbf{Result} & \textbf{Notes} \\
+		\midrule
+		\endhead
+		\ref{tc:01} & Start PRo3D & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:02} & Add Surface (OPC) & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:03} & Surface FlyTo & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:04} & Save Scene & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:05} & Load Scene (Open) & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:06} & Load Scene (Recent) & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:07} & FreeFly Navigation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:08} & ArcBall Navigation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:09} & Pick Explore Center & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:10} & Place Coordinate System & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:11} & Draw Point Annotation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:12} & Draw Line Annotation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:13} & Draw Polyline Annotation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:14} & Draw Polygon Annotation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:15} & Draw Dip and Strike Annotation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:60} & Draw AxisEllipse Annotation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:61} & Draw Axis4PEllipse Annotation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:16} & Annotation Projection Modes & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:17} & Pick Annotation (via UI list) & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:18} & Pick Annotation (via 3D view) & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:19} & Pick Surface (via UI list) & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:20} & Pick Surface (via 3D view) & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:21} & Surface Properties Panel & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:22} & Surface Visibility Toggle & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:23} & Surface Color Correction & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:24} & Surface Translation & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:25} & Surface FillMode (Wireframe) & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:26} & Annotation Properties Panel & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:27} & Annotation Measurements & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:28} & Annotation Text Note & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:29} & Place Scalebar & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:30} & Scalebar Properties & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:31} & Add Bookmark & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:32} & Bookmark FlyTo & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:33} & Sequenced Bookmarks -- Add \& Animate & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:34} & Sequenced Bookmarks -- Record \& Render & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:35} & Viewer Config Settings & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:36} & Screenshots & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:37} & Grouping -- Create Group & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:38} & Grouping -- Move Leafs & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:39} & View Planner -- Place Rover & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:40} & View Planner -- Instrument View & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:41} & GIS View -- Load SPICE Kernel & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:42} & GIS View -- Observation Settings & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:43} & Contour Lines & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:44} & Multitexturing & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:57} & Cross Sections & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:45} & Surface Comparison -- Activate Mode & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:46} & Surface Comparison -- Select Area & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:47} & Surface Comparison -- Surface Measurements & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:48} & Surface Comparison -- Length Measurements & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:49} & Minerva -- Load Data \& Listing & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:50} & Minerva -- Query App Filter & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:51} & Minerva -- Product Selection & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:52} & Minerva -- Pick Linking & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:53} & CLI -- Snapshot Rendering & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:54} & RIMFAX -- Load Traverse & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:55} & RIMFAX -- Load Surfaces & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:56} & Keyboard Shortcuts & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:58} & Undo/Redo for Drawing & \checkbox~Pass / \checkbox~Fail & \\
+		\ref{tc:59} & Group Default Color & \checkbox~Pass / \checkbox~Fail & \\
+		\bottomrule
+	\end{longtable}
+	
+	\newpage
+	
+	%----------------------------------------------------------------------------------------
+	% TABLE OF CONTENTS
+	%----------------------------------------------------------------------------------------
+	\tableofcontents
+	\newpage
+	
+	%----------------------------------------------------------------------------------------
+	%  SECTION 1: STARTING PRo3D
+	%----------------------------------------------------------------------------------------
+	\section{Starting PRo3D}
+	
+	%--- tc:01 ---
+	\testcase{01}{Start PRo3D}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & PRo3D is installed. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Double-click \texttt{PRo3D.exe} (or the application shortcut).
+			\item Wait for the application to finish loading.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The PRo3D main window opens.
+			\item A menu icon (hamburger or similar) is visible in the top-left corner of the window.
+			\item No error messages or crash dialogs appear.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:02 ---
+	\testcase{02}{Add Surface (OPC)}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & PRo3D is running (\ref{tc:01} passed). An OPC surface folder is available on disk. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Click the main menu icon in the top-left corner.
+			\item Hover over the \menu{Import} tab.
+			\item Click \button{OPC}.
+			\item In the ``Select Folder'' dialog, navigate to the OPC folder and click \button{Select Folder}.
+			\item Wait for the surface to load.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The ``Select Folder'' dialog opens and allows folder selection.
+			\item After confirming, the surface is listed in the \tab{Surfaces} panel on the right side of the window.
+			\item The surface name appears in the list.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:03 ---
+	\testcase{03}{Surface FlyTo}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface has been loaded (\ref{tc:02} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the \tab{Surfaces} panel (right side), locate the loaded surface in the list.
+			\item Click the \button{FlyTo} button below the surface name.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The camera performs a smooth fly-to animation.
+			\item The 3D surface becomes visible and centered in the main 3D view.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:04 ---
+	\testcase{04}{Save Scene}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & At least one surface is loaded (\ref{tc:02} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Click the main menu icon in the top-left corner.
+			\item Navigate to \menu{Scene $\rightarrow$ Save as\ldots}.
+			\item In the Save dialog, enter a name for the scene file (e.g., \texttt{TestScene}).
+			\item Click \button{Save}.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The save dialog opens.
+			\item After saving, a \texttt{.scn} file appears in the chosen directory.
+			\item No error messages are shown.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:05 ---
+	\testcase{05}{Load Scene (Open)}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A scene file (\texttt{.scn}) exists on disk (\ref{tc:04} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Restart PRo3D (or close the current scene).
+			\item Click the main menu icon in the top-left.
+			\item Navigate to \menu{Scene $\rightarrow$ Open}.
+			\item In the file dialog, navigate to the saved \texttt{.scn} file and select it.
+			\item Click \button{Open} (or double-click the file).
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The scene loads successfully.
+			\item Previously added surfaces appear in the \tab{Surfaces} list.
+			\item The 3D view displays the loaded surface data.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:06 ---
+	\testcase{06}{Load Scene (Recent)}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A scene has been opened at least once before (\ref{tc:05} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Click the main menu icon in the top-left.
+			\item Hover over \menu{Scene $\rightarrow$ Recent}.
+			\item A list of recently opened scenes appears; click the desired scene name.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A list of recent scene files is shown on hovering.
+			\item Clicking a scene name loads that scene without opening a file dialog.
+			\item Surfaces from the selected scene appear in the list and 3D view.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 2: VIEWER ACTIONS / NAVIGATION
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Viewer Actions and Navigation}
+	
+	%--- tc:07 ---
+	\testcase{07}{FreeFly Navigation}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded and visible in the 3D view (\ref{tc:03} passed). The navigation mode is set to FreeFly. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Ensure the viewer interaction mode is set to \button{PickExploreCenter} (press \key{F1} or select from the actions menu).
+			\item Press \key{W} to move forward.
+			\item Press \key{S} to move backward.
+			\item Press \key{A} to strafe left.
+			\item Press \key{D} to strafe right.
+			\item Hold \key{LMB} (Left Mouse Button) and drag to rotate the camera.
+			\item Scroll the mouse wheel to zoom in and out.
+			\item Hold \key{RMB} (Right Mouse Button) and drag to move forward/backward.
+			\item Hold the Middle Mouse Button and drag to pan.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item \key{W}/\key{S} moves the camera forward and backward through the scene.
+			\item \key{A}/\key{D} strafes the camera left and right.
+			\item Dragging with \key{LMB} held rotates the camera's orientation.
+			\item Mouse wheel zooms smoothly in and out.
+			\item Dragging with \key{RMB} held moves the camera forward/backward.
+			\item Dragging with Middle Mouse Button pans the view.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:08 ---
+	\testcase{08}{ArcBall Navigation}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & ArcBall navigation mode is active. A surface is loaded. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Switch to ArcBall mode via the navigation mode selector.
+			\item Hold \key{LMB} and drag to rotate the camera around the current explore center.
+			\item Press \key{W} or scroll the mouse wheel to move forward.
+			\item Press \key{S} or scroll the mouse wheel to move backward.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The camera orbits around the explore center when \key{LMB} is held and dragged.
+			\item \key{W}/\key{S} and the mouse wheel change the distance to the explore center.
+			\item The explore center remains stationary during rotation.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:09 ---
+	\testcase{09}{Pick Explore Center}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & ArcBall navigation mode is active. A surface is loaded and visible. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the actions drop-down, select \button{PickExploreCenter} (or press \key{F1}).
+			\item Hold \key{Ctrl} and click \key{LMB} on a point on the 3D surface.
+			\item Observe the viewport.
+			\item Then hold \key{LMB} and drag to orbit.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A pink dot appears at the clicked location on the surface.
+			\item Orbiting (dragging with \key{LMB}) now rotates the camera around the new pink dot position.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:10 ---
+	\testcase{10}{Place Coordinate System}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded and visible. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the actions drop-down, select \button{PlaceCoordinateSystem} (or press \key{F4}).
+			\item Select a unit of measurement from the unit drop-down (e.g., meters).
+			\item Hold \key{Ctrl} and click \key{LMB} on a point on the 3D surface.
+			\item Observe the viewport and the Config panel.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A coordinate system widget appears at the clicked position on the surface.
+			\item A blue arrow (up vector) points in the positive Z direction.
+			\item A red arrow (north vector) points in the positive Y direction.
+			\item The position, up vector, and north vector values are updated in the \tab{Config} panel under \menu{Coordinate System}.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 3: ANNOTATIONS
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Drawing and Managing Annotations}
+	
+	%--- tc:11 ---
+	\testcase{11}{Draw Point Annotation}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded and visible. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the actions drop-down, select \button{DrawAnnotation} (or press \key{F2}).
+			\item In the annotation mode selector, choose \button{Point}.
+			\item Hold \key{Ctrl} and click \key{LMB} on the surface.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A single point marker appears on the surface at the clicked location.
+			\item The new annotation appears in the \tab{Annotations} list on the right.
+			\item Clicking the annotation name in the list highlights it in green.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:12 ---
+	\testcase{12}{Draw Line Annotation}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & DrawAnnotation mode is active. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the annotation mode selector, choose \button{Line}.
+			\item Hold \key{Ctrl} and click \key{LMB} on a first point on the surface.
+			\item Hold \key{Ctrl} and click \key{LMB} on a second point on the surface.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Two points are placed and connected by a line projected onto the surface.
+			\item The line appears in the \tab{Annotations} list.
+			\item The \menu{Measurements} panel shows distance values (Length, WayLength).
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:13 ---
+	\testcase{13}{Draw Polyline Annotation}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & DrawAnnotation mode is active. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the annotation mode selector, choose \button{Polyline}.
+			\item Hold \key{Ctrl} and click \key{LMB} to place the first point.
+			\item Hold \key{Ctrl} and click \key{LMB} to place at least two more points.
+			\item Press \key{Enter} to finish the polyline.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Each click places a new point and a connecting line segment is drawn.
+			\item Pressing \key{Enter} finalizes the polyline.
+			\item The polyline appears in the \tab{Annotations} list.
+			\item Measurements (Length, WayLength, Slope, etc.) are shown in the properties panel.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:14 ---
+	\testcase{14}{Draw Polygon Annotation}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & DrawAnnotation mode is active. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the annotation mode selector, choose \button{Polygon}.
+			\item Hold \key{Ctrl} and click \key{LMB} to place at least three points.
+			\item Press \key{Enter} to close and finish the polygon.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Points are placed and connected by segments.
+			\item Pressing \key{Enter} closes the polygon (last point connects to first point).
+			\item The polygon appears in the \tab{Annotations} list.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:15 ---
+	\testcase{15}{Draw Dip and Strike (DnS) Annotation}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & DrawAnnotation mode is active. A surface with geological structure is loaded. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the annotation mode selector, choose \button{DnS}.
+			\item Hold \key{Ctrl} and click \key{LMB} to place at least three points along a rock layer.
+			\item Press \key{Enter} to finish and compute the dip and strike.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A polyline (blue) is drawn along the picked points.
+			\item A fitted plane is shown with a strike vector (red) and dip vector (green).
+			\item A disc visualizing the dip direction appears on the surface.
+			\item Dip and Strike measurements (azimuth, dip angle) appear in the properties panel.
+			\item The annotation appears in the \tab{Annotations} list.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+
+	%--- tc:60 ---
+	\testcase{60}{Draw AxisEllipse Annotation}
+
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & DrawAnnotation mode is active. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the annotation mode selector, choose \button{AxisEllipse}.
+			\item Hold \key{Ctrl} and click \key{LMB} on the surface to set the \textbf{first endpoint} of the major axis.
+			\item Hold \key{Ctrl} and click \key{LMB} on a second point to set the \textbf{second endpoint} of the major axis.
+			\item Hold \key{Ctrl} and click \key{LMB} on a third point to define the \textbf{semi-minor radius} (perpendicular distance from the major axis).
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A symmetric ellipse is drawn on the surface, centred on the midpoint of the major axis.
+			\item The annotation appears in the \tab{Annotations} list.
+			\item The properties panel shows the semi-major axis, semi-minor axis, and rotation angle, which can be edited.
+			\item The ellipse remains visible when the camera is moved.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+
+	\vspace{1em}
+
+	%--- tc:61 ---
+	\testcase{61}{Draw Axis4PEllipse Annotation}
+
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & DrawAnnotation mode is active. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the annotation mode selector, choose \button{Axis4PEllipse}.
+			\item Hold \key{Ctrl} and click \key{LMB} to set the \textbf{first endpoint} of the major axis.
+			\item Hold \key{Ctrl} and click \key{LMB} to set the \textbf{second endpoint} of the major axis.
+			\item Hold \key{Ctrl} and click \key{LMB} to set a \textbf{third point} defining the semi-minor extent on one side.
+			\item Hold \key{Ctrl} and click \key{LMB} to set a \textbf{fourth point} defining the semi-minor extent on the other side (or on the same side for a half-moon).
+			\item Verify a symmetric ellipse, asymmetric ellipse, and a half-moon by varying where points 3 and 4 are placed relative to the major axis.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item \textbf{Opposite sides, equal distance}: a symmetric ellipse is drawn.
+			\item \textbf{Opposite sides, different distances}: an asymmetric ellipse is drawn (the two halves have different widths).
+			\item \textbf{Same side}: a half-moon shape is drawn.
+			\item In all cases the annotation appears in the \tab{Annotations} list and remains visible when the camera is moved.
+			\item The properties panel shows the semi-axis values and rotation angle.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+
+	\vspace{1em}
+
+	%--- tc:16 ---
+	\testcase{16}{Annotation Projection Modes}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & DrawAnnotation mode is active in Line or Polyline mode. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the projection selector, choose \button{Linear}.
+			\item Draw a line annotation on the surface. Observe the result.
+			\item Draw another line with \button{ViewPoint} projection and compare.
+			\item Draw another line with \button{Sky} projection and compare.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item \textbf{Linear}: The line is a straight point-to-point connection without surface projection.
+			\item \textbf{ViewPoint}: The line follows the surface contour as seen from the current camera position; it hugs depressions and ridges.
+			\item \textbf{Sky}: The line is projected along the scene's up-vector, following the surface from above.
+			\item The three lines visibly differ in their path across the surface.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:17 ---
+	\testcase{17}{Pick Annotation (via UI List)}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & At least one annotation exists (\ref{tc:11} through \ref{tc:15} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the \tab{Annotations} panel, click on an annotation's name.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The annotation's name turns green in the list.
+			\item The annotation is highlighted with a green border in the 3D view.
+			\item The annotation's properties appear in the Properties panel.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:18 ---
+	\testcase{18}{Pick Annotation (via 3D View)}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & At least one annotation exists in the 3D view. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the actions drop-down, select \button{PickAnnotation} (or press \key{F3}).
+			\item Hold \key{Ctrl} and click \key{LMB} on or near an annotation in the main 3D view.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The annotation under the cursor is selected.
+			\item It turns green in the annotations list.
+			\item It gets a green border in the 3D view.
+			\item Its properties are shown in the Properties panel.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:19 ---
+	\testcase{19}{Pick Surface (via UI List)}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & At least one surface is loaded. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{Surfaces} panel.
+			\item Click on the surface's name in the list.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The surface's name turns green in the list.
+			\item The surface's properties appear in the Properties panel.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:20 ---
+	\testcase{20}{Pick Surface (via 3D View)}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & At least one surface is loaded and visible. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the actions drop-down, select \button{PickSurface}.
+			\item Hold \key{Ctrl} and click \key{LMB} on the surface in the 3D view.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The surface's name turns green in the \tab{Surfaces} list.
+			\item The surface's properties appear in the Properties panel.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 4: SURFACE PROPERTIES
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Surface Properties and Controls}
+	
+	%--- tc:21 ---
+	\testcase{21}{Surface Properties Panel}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is selected (\ref{tc:19} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item With the surface selected, view the Properties panel on the right.
+			\item Change the surface name by clicking the name field, typing a new name, and pressing \key{Enter}.
+			\item Change the \menu{Priority} value to \texttt{0.1} and press \key{Enter}.
+			\item Change the \menu{FillMode} to \texttt{Wireframe}.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The new name appears in the \tab{Surfaces} list.
+			\item The priority change is accepted (no error).
+			\item The surface renders as a wireframe mesh in the 3D view.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:22 ---
+	\testcase{22}{Surface Visibility Toggle}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded and visible in the 3D view. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the \tab{Surfaces} list, click \button{Toggle Visible} below the surface name.
+			\item Observe the 3D view.
+			\item Click \button{Toggle Visible} again.
+			\item Observe the 3D view.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item After the first click, the surface disappears from the 3D view.
+			\item After the second click, the surface reappears.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:23 ---
+	\testcase{23}{Surface Color Correction}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is selected and visible (\ref{tc:19} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item With the surface selected, locate the \menu{Color Correction} panel in the Properties section.
+			\item Adjust the \menu{Contrast} slider.
+			\item Adjust the \menu{Brightness} slider.
+			\item Observe the 3D view after each change.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Adjusting the contrast slider visibly changes the contrast of the surface texture in the 3D view.
+			\item Adjusting the brightness slider visibly lightens or darkens the surface texture.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:24 ---
+	\testcase{24}{Surface Translation}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is selected and a Coordinate System has been placed (\ref{tc:10} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item With the surface selected, locate the \menu{Translation} panel in the Properties section.
+			\item Enter a small offset value (e.g., \texttt{1.0}) in the \menu{North} axis field and press \key{Enter}.
+			\item Observe the 3D view.
+			\item Reset the value back to \texttt{0.0}.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The surface moves by the specified amount along the north axis.
+			\item The 3D view updates immediately.
+			\item Resetting to 0 returns the surface to its original position.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:25 ---
+	\testcase{25}{Surface FillMode (Wireframe)}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is selected. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the surface Properties panel, find the \menu{FillMode} drop-down.
+			\item Set it to \texttt{Wireframe}.
+			\item Observe the 3D view.
+			\item Set it to \texttt{Point}.
+			\item Observe the 3D view.
+			\item Set it back to \texttt{Solid}.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item \textbf{Wireframe}: The surface is rendered as a mesh of triangles (edges only).
+			\item \textbf{Point}: The surface is rendered as a point cloud (vertices only).
+			\item \textbf{Solid}: The surface renders normally with filled triangles and texture.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 5: ANNOTATION PROPERTIES
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Annotation Properties and Measurements}
+	
+	%--- tc:26 ---
+	\testcase{26}{Annotation Properties Panel}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A line or polyline annotation is selected (\ref{tc:17} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item With an annotation selected, find the Properties panel.
+			\item Change the \menu{Color} to a different color.
+			\item Change the \menu{Thickness} to a larger value (e.g., \texttt{5}).
+			\item Toggle the \menu{Visible} checkbox off, then on.
+			\item Change the \menu{TextSize} value.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The annotation updates its color in the 3D view immediately.
+			\item The line thickness visibly increases in the 3D view.
+			\item Toggling visibility hides and then shows the annotation in the 3D view.
+			\item Text size changes affect any label displayed near the annotation.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:27 ---
+	\testcase{27}{Annotation Measurements}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A polyline annotation with multiple points is selected. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item With a polyline annotation selected, navigate to the \menu{Measurements} panel.
+			\item Read the following values: \menu{Length}, \menu{WayLength}, \menu{Height}, \menu{HeightDelta}, \menu{Slope}, \menu{Bearing}.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item All measurement fields are populated with numeric values.
+			\item \menu{Length} shows the straight-line distance sum.
+			\item \menu{WayLength} shows the projected distance along the surface.
+			\item \menu{Height} shows the elevation difference between start and end.
+			\item \menu{Slope} and \menu{Bearing} are displayed in appropriate units (degrees).
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:28 ---
+	\testcase{28}{Annotation Text Note}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & An annotation is selected. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the annotation Properties panel, locate the \menu{Text} field.
+			\item Type a short note (e.g., \texttt{Test Note}).
+			\item Press \key{Enter}.
+			\item Observe the 3D view.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The entered text appears as a label next to the annotation in the 3D view.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 6: SCALEBARS
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Scalebars}
+	
+	%--- tc:29 ---
+	\testcase{29}{Place Scalebar}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. A coordinate system has been placed (\ref{tc:10} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the actions drop-down, select \button{PlaceScaleBar}.
+			\item Select an orientation mode (e.g., \texttt{Horizontal\_cam}).
+			\item Choose a position (e.g., \texttt{Middle}).
+			\item Enter a length value (e.g., \texttt{10}) and select a unit (e.g., \texttt{m}).
+			\item Hold \key{Ctrl} and click \key{LMB} on the surface to place the scalebar.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A scalebar appears on the surface in the 3D view, aligned according to the selected orientation.
+			\item The length label (e.g., \texttt{10 m}) is shown beside the scalebar.
+			\item The scalebar is listed in the \tab{ScaleBars} panel.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:30 ---
+	\testcase{30}{Scalebar Properties}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A scalebar exists (\ref{tc:29} passed) and is selected. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Click the scalebar name in the \tab{ScaleBars} list to select it.
+			\item Change the \menu{Thickness} value.
+			\item Change the \menu{Subdivisions} value (e.g., to \texttt{5}).
+			\item Toggle \menu{TextVisible} to hide the label, then show it again.
+			\item Click the \button{Toggle} button below the scalebar name to hide/show it.
+			\item Click the \button{remove} button below the scalebar name to delete it.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Thickness change updates the scalebar line width visually.
+			\item Subdivisions change updates the number of black-white segments on the bar.
+			\item Toggling text visibility hides/shows the length label.
+			\item Clicking Toggle hides/shows the entire scalebar.
+			\item Clicking remove deletes the scalebar from the list and the 3D view.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 7: BOOKMARKS
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Bookmarks}
+	
+	%--- tc:31 ---
+	\testcase{31}{Add Bookmark}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. Navigate to a desired viewpoint in the 3D view. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{Bookmarks} page in the right panel.
+			\item Click the \button{+} button at the top of the bookmarks page.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A new bookmark entry appears in the bookmarks list.
+			\item The bookmark captures the current camera position.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:32 ---
+	\testcase{32}{Bookmark FlyTo}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & At least one bookmark exists (\ref{tc:31} passed). Move the camera to a different viewpoint. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the \tab{Bookmarks} list, click the ``house'' icon beside the bookmark's name.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The camera animates (flies) back to the saved viewpoint.
+			\item The 3D view shows the scene from the position saved in the bookmark.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 8: SEQUENCED BOOKMARKS
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Sequenced Bookmarks}
+	
+	%--- tc:33 ---
+	\testcase{33}{Sequenced Bookmarks -- Add and Animate}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. Navigate to at least two different viewpoints to capture. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{Sequenced Bookmarks} page.
+			\item Navigate the camera to a first position, then click the \button{+} button (A in the UI) to add a bookmark.
+			\item Navigate the camera to a second position, then click \button{+} again.
+			\item In the bookmark list (B), set a \menu{Duration} for the second bookmark (e.g., \texttt{3} seconds).
+			\item In the Animation section (D), click the \textbf{Play} button ($\blacktriangleright$).
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Two bookmarks appear in the sequenced bookmarks list.
+			\item Clicking Play starts a camera animation that travels from the first to the second bookmark.
+			\item The animation duration corresponds to the set value.
+			\item The Pause and Stop buttons become active during animation.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:34 ---
+	\testcase{34}{Sequenced Bookmarks -- Record and Generate Images}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & At least two sequenced bookmarks exist (\ref{tc:33} passed). An output path is set in the Snapshots section (E). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the \menu{Snapshots} section (E), ensure the \menu{Output Path} is valid.
+			\item Set an \menu{Image Resolution} (e.g., \texttt{1920x1080}).
+			\item Click the red \textbf{Record} button in the Snapshots section.
+			\item Click the \textbf{Play} button in the Animation section (D) to animate the camera.
+			\item Wait for the animation to complete.
+			\item Click the red \textbf{Stop} button in the Snapshots section.
+			\item Click the \textbf{Generate Images} button (camera icon).
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The Record button changes to a Stop button when recording starts.
+			\item After stopping, a JSON file is saved in the output folder.
+			\item After clicking Generate Images, PRo3D renders images in the background.
+			\item Images (named \texttt{img\_000.png} etc.) appear in the output folder.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 9: VIEWER CONFIGURATION
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Viewer Configuration}
+	
+	%--- tc:35 ---
+	\testcase{35}{Viewer Config Settings}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{Config} page in the right panel.
+			\item Adjust the \menu{Navigation Sensitivity} slider.
+			\item Change the \menu{Arrow Length} value.
+			\item Enable \menu{Lod Colors} (if available) and observe.
+			\item Press \key{Page Up} to increase navigation sensitivity.
+			\item Press \key{Page Down} to decrease navigation sensitivity.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Adjusting the Navigation Sensitivity slider changes how fast the camera responds to input.
+			\item \key{Page Up}/\key{Page Down} also adjusts sensitivity (the value updates in the Config panel).
+			\item Arrow Length change affects the size of direction arrows visible in the scene.
+			\item Lod Colors colors the geometry by level-of-detail (different shades visible on the surface).
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:36 ---
+	\testcase{36}{Screenshots}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded and visible. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{Config} page.
+			\item Locate the \menu{Screenshots} section.
+			\item Set a width and height (e.g., \texttt{1920} and \texttt{1080}).
+			\item Select output format \texttt{PNG}.
+			\item Click the \textbf{camera icon} button to capture a screenshot.
+			\item Click the \textbf{folder icon} button to open the output folder.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Clicking the camera icon creates a screenshot file in the output directory.
+			\item Clicking the folder icon opens the operating system's file explorer showing the output folder.
+			\item The screenshot file (e.g., \texttt{img0.png}) is present in the folder and matches the current 3D view.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 10: GROUPING
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Grouping}
+	
+	%--- tc:37 ---
+	\testcase{37}{Grouping -- Create Group}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & At least two annotations exist. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{Annotations} panel.
+			\item In the listing, right-click or use the group context menu on the ``root'' group.
+			\item Select \button{Add Group} from the context menu.
+			\item Verify a new empty group appears below root.
+			\item Right-click the new group and select \button{Set Active}.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A new subgroup entry appears in the annotations hierarchy.
+			\item Setting it as active means any new annotation will be placed in this group.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:38 ---
+	\testcase{38}{Grouping -- Move Leafs}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & At least two annotations exist, and a group has been created (\ref{tc:37} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the \tab{Annotations} list, click the square icon in front of one or more annotations. The square turns green.
+			\item Set the target group as active (right-click $\rightarrow$ \button{Set Active}).
+			\item In the leaf actions panel, click \button{Selection: Move}.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The selected annotations (green squares) move to the active group in the hierarchy.
+			\item They no longer appear under the root group, but appear under the target group.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 11: VIEW PLANNER
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{View Planner}
+	
+	%--- tc:39 ---
+	\testcase{39}{View Planner -- Place Rover}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. A \texttt{rover.xml} file is present in the \texttt{Release\textbackslash InstrumentStuff} folder. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the actions drop-down, select \button{PlaceRover}.
+			\item From the rover model selector, choose a rover model.
+			\item Hold \key{Ctrl} and click \key{LMB} on a first point on the surface (rover position -- shown in green).
+			\item Hold \key{Ctrl} and click \key{LMB} on a second point on the surface (viewing direction -- shown in yellow).
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A rover model appears on the surface at the first picked point.
+			\item The rover faces the direction indicated by the second point.
+			\item The View Plan entry appears in the \tab{ViewPlanner} list.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:40 ---
+	\testcase{40}{View Planner -- Instrument View}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A rover has been placed (\ref{tc:39} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the \tab{ViewPlanner} list, click the square icon next to a View Plan to select it.
+			\item From the \menu{Instrument} drop-down, select a camera instrument.
+			\item Adjust \menu{Sensor (px)} and \menu{Focal (mm)} parameters.
+			\item Adjust \menu{Pan} and \menu{Tilt} angles.
+			\item Enable \menu{show footprint}.
+			\item Click \menu{export footprint}.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The camera footprint (light gray projection) appears on the surface in the 3D view.
+			\item An Instrument View panel appears showing the view from the selected instrument.
+			\item Adjusting pan/tilt updates the footprint and instrument view.
+			\item Exporting footprint saves a screenshot from the main view, an instrument view screenshot, and a \texttt{.svx} metadata file.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 12: GIS VIEW
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{GIS View}
+	
+	%--- tc:41 ---
+	\testcase{41}{GIS View -- Load SPICE Kernel}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & GIS View is available (application started with GIS mode enabled or via Change Mode). A SPICE kernel file (\texttt{.tm}) is available on disk. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{GIS} tab in the right panel.
+			\item Locate the kernel loading section and click the button to browse for or enter the kernel path.
+			\item Select or enter the path to the \texttt{.tm} kernel file.
+			\item Confirm the selection.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The kernel path appears in the GIS View settings pane.
+			\item A green check mark appears below the path, indicating successful loading.
+			\item If loading fails, a red exclamation mark is shown (check PRo3D console for details).
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:42 ---
+	\testcase{42}{GIS View -- Observation Settings}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A SPICE kernel is loaded (\ref{tc:41} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the \menu{Current Observation Settings} section, set an \menu{Observed Body} (e.g., \texttt{MARS}).
+			\item Set a \menu{Camera Source Body} (e.g., \texttt{PHOBOS}).
+			\item Set a valid \menu{Time} (within the kernel's coverage).
+			\item Set a \menu{Reference Frame}.
+			\item Click the \button{Reset} button.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The camera moves to the location of the Camera Source Body and points toward the Observed Body.
+			\item The 3D view updates to show the configured observation scenario.
+			\item Entities with proxy geometry enabled are visible in the scene.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 13: CONTOUR LINES AND MULTITEXTURING
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Contour Lines and Multitexturing}
+	
+	%--- tc:43 ---
+	\testcase{43}{Contour Lines}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A multilayer OPC surface (with an \texttt{.opcx} file and an elevation layer) is loaded and selected. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item With the surface selected, in the surface Properties panel, navigate to the \menu{Textures} selector and choose the elevation layer as the secondary texture.
+			\item Find the \menu{Contour} section in the surface properties.
+			\item Enable contour lines by checking the enable checkbox.
+			\item Set a \menu{Distance} value (line interval).
+			\item Set \menu{Line Width} and \menu{Line Border} values.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Contour lines appear on the surface in the 3D view, spaced by the specified distance.
+			\item Adjusting the interval changes the spacing between contour lines visibly.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:44 ---
+	\testcase{44}{Multitexturing}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface with an \texttt{.opcx} file providing multiple texture and/or scalar layers is loaded and selected. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item With the surface selected, find the \menu{Scalars} and \menu{Textures} combo boxes in the Properties panel.
+			\item Select a different layer from the \menu{Scalars} drop-down (e.g., an elevation or accuracy layer).
+			\item Locate the \menu{Multitexturing} controls in the surface properties.
+			\item Adjust the opacity or blending slider.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The selected scalar/attribute layer is applied as a false-color map on the surface.
+			\item A color legend appears on the left side of the 3D view.
+			\item Adjusting the blending slider changes how much the additional layer overlays the base texture.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:57 ---
+	\testcase{57}{Cross Sections}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded and visible. A curtain image (PNG) prepared from an exported profile is available on disk (see the \menu{Cross Sections} section of the Short User Manual). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In \button{DrawAnnotation} mode, choose \button{Polyline} with \button{Sky} projection and draw a polyline along the area to be cut. Use an adequate sampling distance to avoid excessive segment counts.
+			\item Select the polyline annotation and open its Properties panel.
+			\item Use \button{Export Profile} to export the profile as a CSV file.
+			\item Move the camera far away from the cross section so that everything between the annotation and the camera will be clipped.
+			\item In the annotation properties, trigger \button{Create Cross Section}.
+			\item Open the \menu{Curtain} settings, set the curtain height and minimum altitude to match the values used when generating the curtain image, and select the prepared curtain image.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The exported CSV contains \texttt{distance,elevation} columns with one row per sampled point.
+			\item After creating the cross section, the surface data in front of the cutting plane is clipped away, leaving the cut visible.
+			\item The curtain image is mapped onto the cutting plane and aligned with the profile.
+			\item The cross section and curtain can be inspected in the 3D view without artifacts.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 14: SURFACE COMPARISON
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Surface Comparison}
+	
+	%--- tc:45 ---
+	\testcase{45}{Surface Comparison -- Activate Mode}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & Two surfaces with different names are loaded. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Click the main menu icon.
+			\item Navigate to \menu{Change Mode $\rightarrow$ Surface Comparison}.
+			\item In the Surface Comparison tab, select one surface from the \menu{Surface1} drop-down.
+			\item Select the second surface from the \menu{Surface2} drop-down.
+			\item Press \key{t} on the keyboard.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The Surface Comparison interface appears with Surface1 and Surface2 selectors.
+			\item Both surfaces can be selected independently.
+			\item Pressing \key{t} toggles visibility between the two surfaces (only one is visible at a time).
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:46 ---
+	\testcase{46}{Surface Comparison -- Select Area}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & Surface Comparison mode is active and two surfaces are selected (\ref{tc:45} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the menu bar above the 3D view, choose \button{Select Area} from the drop-down.
+			\item Hold \key{Ctrl} and click \key{LMB} on the surface to select a location.
+			\item Observe the sphere indicator.
+			\item Press \key{+} to increase the sphere size; press \key{-} to decrease it.
+			\item Click the calculator icon button to update measurements.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A translucent sphere appears at the clicked location.
+			\item The \key{+}/\key{-} keys change the sphere radius.
+			\item After clicking the calculator icon, colored spheres appear within the area, color-coded by distance between the two surfaces (red = large difference, green = small difference).
+			\item A color legend is shown on the left side.
+			\item Statistics appear in the panel on the right for the selected area.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:47 ---
+	\testcase{47}{Surface Comparison -- Surface Measurements}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & Two surfaces are selected in the Comparison tab (\ref{tc:45} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the Surface Comparison panel, navigate to the \menu{Surface Measurements} section.
+			\item From the \menu{Origin} drop-down, select a center calculation method.
+			\item Click the calculator icon button to update measurements.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Size measurements along the coordinate axes are listed for each surface.
+			\item Differences between the two surfaces are shown below the individual measurements.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:48 ---
+	\testcase{48}{Surface Comparison -- Length Measurements via Bookmarks}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & Two surfaces are selected in Surface Comparison mode. A bookmark is available. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{Bookmarks} page and select a bookmark (it should be highlighted in green).
+			\item Switch to \button{DrawAnnotation} mode (\key{F2}).
+			\item In the projection selector, choose \button{Bookmark} projection mode.
+			\item Draw one annotation on Surface1.
+			\item Press \key{t} to switch to Surface2.
+			\item Draw another annotation on Surface2 (same bookmark selected).
+			\item Return to the Surface Comparison window and click the calculator icon.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The Bookmark projection mode is available in the DrawAnnotation panel.
+			\item Both annotations use the same bookmark as the projection origin.
+			\item The \menu{Annotation Length Comparison} section shows the length measurements for both annotations and their difference.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 15: MINERVA
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Minerva}
+	
+	%--- tc:49 ---
+	\testcase{49}{Minerva -- Load Data and Product Listing}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A \texttt{dump.csv} file is present in the \texttt{Release\textbackslash netcoreapp2.0\textbackslash MinervaData} folder. PRo3D is started. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Start PRo3D.
+			\item Navigate to the \tab{Minerva} tab in the right panel.
+			\item Observe the product listing.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The Minerva tab is visible.
+			\item Products are listed, grouped by instrument.
+			\item Up to 20 products per instrument are shown in the list.
+			\item Products appear as dots/markers in the 3D view after a surface is loaded.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:50 ---
+	\testcase{50}{Minerva -- Query App Filter}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & Minerva data is loaded (\ref{tc:49} passed). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Click the \button{Query App} button (B in the Minerva tab) to open the Query App.
+			\item Set a \menu{min sol} and \menu{max sol} range.
+			\item Uncheck some instruments.
+			\item Click \button{ApplyFilter}.
+			\item Observe the product listing and 3D view.
+			\item Click \button{ClearFilter}.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item After applying the filter, only products within the sol range and checked instruments are shown.
+			\item The 3D view updates to display only filtered products.
+			\item Clicking ClearFilter restores all products.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:51 ---
+	\testcase{51}{Minerva -- Product Selection}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & Minerva data is loaded. Surface is loaded. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the product listing, click on a product name.
+			\item Observe the Properties panel and the color change in the list.
+			\item Click the \button{FlyTo} button below the product name.
+			\item In the actions drop-down, set \button{PickMinervaProduct}.
+			\item Hold \key{Ctrl} and click \key{LMB} on a product dot in the 3D view.
+			\item Hold \key{Shift}+\key{LMB} and drag a rectangle over multiple products in the 3D view.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Clicking a product name highlights it in green in the list and shows its properties.
+			\item FlyTo animates the camera to the product location.
+			\item PickMinervaProduct allows selecting a product by clicking it in the 3D view.
+			\item Shift-dragging selects multiple products within the drawn rectangle; all are highlighted.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:52 ---
+	\testcase{52}{Minerva -- Pick Linking}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & Minerva data is loaded. A surface is loaded. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the actions drop-down, select \button{PickLinking}.
+			\item Hold \key{Ctrl} and click \key{LMB} to pick a point on the surface.
+			\item Observe the 3D view.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item Camera frustums are displayed for all products whose field of view captures the selected point.
+			\item The frustums are drawn as wire cones/pyramids from each product's camera location toward the surface.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 16: COMMAND LINE INTERFACE
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Command Line Interface}
+	
+	%--- tc:53 ---
+	\testcase{53}{CLI -- Snapshot Rendering}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & PRo3D is installed. An OPC surface folder is available. A valid snapshot JSON file (\texttt{snapshots.json}) is prepared according to the manual's format. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Open a terminal (Command Prompt or PowerShell) and navigate to the directory containing \texttt{PRo3D.Snapshots.exe}.
+			\item Run: \texttt{PRo3D.Snapshots.exe --help} and read the output.
+			\item Run the basic snapshot command: \texttt{PRo3D.Snapshots.exe --opcs MyOPCs\textbackslash surface\textbackslash  --asnap snapshots.json --out MyImages\textbackslash }
+			\item Wait for the rendering to complete.
+			\item Check the output folder.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The \texttt{--help} flag prints a list of all available arguments.
+			\item The rendering process starts and the viewer renders each snapshot.
+			\item Rendered image files appear in the specified output folder (\texttt{MyImages\textbackslash}).
+			\item The number of output images matches the number of snapshot entries in the JSON file.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 17: RIMFAX
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{RIMFAX}
+	
+	%--- tc:54 ---
+	\testcase{54}{RIMFAX -- Load Traverse}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & RIMFAX data (including a \texttt{RIMFAX\_traverse.json} file and the expected folder structure) is available. A surface is loaded. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Click the main menu icon.
+			\item Navigate to the \menu{Extra} panel.
+			\item Click the button to load a RIMFAX traverse file and select the \texttt{RIMFAX\_traverse.json} file.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item The RIMFAX traverse is loaded and displayed in the 3D view.
+			\item The traverse path appears aligned with the rover path on the surface.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	\vspace{1em}
+	
+	%--- tc:55 ---
+	\testcase{55}{RIMFAX -- Load Surfaces}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A RIMFAX traverse is loaded (\ref{tc:54} passed). The full RIMFAX folder structure (with OBJ/PNG files) is available. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item In the RIMFAX attribute window, click the \button{Import Surfaces} button.
+			\item Navigate to the root RIMFAX data folder and select it.
+			\item Observe the 3D view and the Sol panel.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item RIMFAX surface images appear in the 3D view alongside the traverse.
+			\item Sol numbers are listed in the Sol panel.
+			\item The RIMFAX mode can be changed per sol in the Sol panel.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 18: KEYBOARD SHORTCUTS
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Keyboard Shortcuts}
+	
+	%--- tc:56 ---
+	\testcase{56}{Keyboard Shortcuts}
+	
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. At least two surfaces are available for the surface comparison shortcut. \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Press \key{f} -- toggle linear texture magnification filtering. Observe the surface texture.
+			\item Press \key{p} -- show/hide exploration point. Observe the pink explore center dot.
+			\item Press \key{t} -- toggle visibility between two surfaces selected in the Comparison window.
+			\item Press \key{Page Up} -- raise navigation sensitivity. Observe faster movement.
+			\item Press \key{Page Down} -- lower navigation sensitivity. Observe slower movement.
+			\item Press \key{Ctrl}+\key{s} -- save the existing scene. Verify the save completes.
+			\item Press \key{Ctrl}+\key{c} -- print current camera parameters in snapshot format to the console.
+			\item Press \key{Space} -- save a waypoint. Observe any console/UI feedback.
+			\item Press \key{F1} -- switch to Pick Explore Center interaction mode.
+			\item Press \key{F2} -- switch to Draw Annotation interaction mode.
+			\item Press \key{F3} -- switch to Pick Annotation interaction mode.
+			\item Press \key{F4} -- switch to Place Coordinate System interaction mode.
+			\item Press \key{Ctrl}+\key{Z} -- undo the last drawing action. Observe the annotation list.
+			\item Press \key{Ctrl}+\key{Y} -- redo the previously undone action. Observe the annotation list.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item \key{f}: Surface texture filtering toggles visually (texture appears smoother/crisper).
+			\item \key{p}: The pink explore center dot appears or disappears.
+			\item \key{t}: Surfaces toggle between visible and invisible (in Comparison mode).
+			\item \key{Page Up}/\key{Page Down}: Navigation speed changes noticeably.
+			\item \key{Ctrl}+\key{s}: The current scene is saved without opening a dialog.
+			\item \key{Ctrl}+\key{c}: Camera parameters are printed in the console output.
+			\item \key{Space}: A waypoint is recorded (feedback in console or UI).
+			\item \key{F1}--\key{F4}: The selected interaction mode changes in the actions drop-down.
+			\item \key{Ctrl}+\key{Z}: The last added annotation disappears from the list and the 3D view.
+			\item \key{Ctrl}+\key{Y}: The undone annotation reappears in the list and the 3D view.
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[2cm]
+		\bottomrule
+	\end{tabularx}
+	
+	%----------------------------------------------------------------------------------------
+	% SECTION 19: UNDO / REDO AND GROUP DEFAULT COLOR
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section{Undo/Redo and Group Default Color}
+
+	%--- tc:58 ---
+	\testcase{58}{Undo/Redo for Drawing}
+
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. At least one annotation has been drawn (e.g., a polyline from \ref{tc:13}). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Draw a new polyline annotation on the surface (\button{DrawAnnotation} mode, \button{Polyline}, finish with \key{Enter}).
+			      Note its name in the \tab{Annotations} list.
+			\item Press \key{Ctrl}+\key{Z} (Undo).
+			\item Observe the \tab{Annotations} list and the 3D view.
+			\item Press \key{Ctrl}+\key{Z} again to undo a second annotation (if one exists).
+			\item Press \key{Ctrl}+\key{Y} (Redo).
+			\item Observe the \tab{Annotations} list and the 3D view.
+			\item Draw another annotation, then in the \tab{Annotations} list click \button{remove} to delete it.
+			\item Press \key{Ctrl}+\key{Z} to undo the deletion.
+			\item Observe the \tab{Annotations} list.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item After \key{Ctrl}+\key{Z}: The last drawn annotation is removed from both the \tab{Annotations} list and the 3D view. The undo is immediate with no dialog.
+			\item Multiple \key{Ctrl}+\key{Z} presses step back through the annotation history one action at a time.
+			\item After \key{Ctrl}+\key{Y}: The undone annotation reappears in the list and the 3D view, restoring it exactly as it was.
+			\item Undoing a deletion (\button{remove}): The deleted annotation is restored in the list and the 3D view.
+			\item When there is nothing left to undo/redo, additional presses of \key{Ctrl}+\key{Z}/\key{Y} have no effect (no error or crash).
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+
+	\vspace{1em}
+
+	%--- tc:59 ---
+	\testcase{59}{Group Default Color}
+
+	\begin{tabularx}{\textwidth}{lX}
+		\toprule
+		\textbf{Prerequisites} & A surface is loaded. At least one annotation group exists in the \tab{Annotations} panel (the ``root'' group is always present). \\
+		\midrule
+		\textbf{Steps} &
+		\begin{enumerate}[leftmargin=*, nosep]
+			\item Navigate to the \tab{Annotations} panel.
+			\item In the group hierarchy, locate the active group (e.g., ``root'' or a subgroup created in \ref{tc:37}).
+			\item Find the color picker labeled \textbf{Default color for new annotations in this group} shown in the group's action area.
+			\item Change the default color to a clearly distinct color (e.g., bright red).
+			\item Make sure this group is set as active (right-click $\rightarrow$ \button{Set Active}).
+			\item Switch to \button{DrawAnnotation} mode (\key{F2}) and draw a new polyline annotation on the surface.
+			\item Observe the color of the newly drawn annotation in the 3D view and its color in the Properties panel.
+			\item Change the group's default color to a different color (e.g., blue).
+			\item Draw another annotation.
+			\item Observe that each new annotation uses the group's current default color at the time of drawing.
+		\end{enumerate} \\
+		\midrule
+		\textbf{Expected Result} &
+		\begin{itemize}[leftmargin=*, nosep]
+			\item A color picker is visible in the group's context area in the \tab{Annotations} panel.
+			\item The first new annotation is drawn in the red color that was set as the group default.
+			\item The annotation's \menu{Color} field in the Properties panel shows the same red color.
+			\item The second new annotation is drawn in blue.
+			\item Existing annotations are \textbf{not} recolored when the group default color changes; only newly created annotations inherit the current default color.
+			\item The default color is persisted when the scene is saved and reloaded (\ref{tc:04}/\ref{tc:05}).
+		\end{itemize} \\
+		\midrule
+		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+		\midrule
+		\textbf{Notes} & \\[1.5cm]
+		\bottomrule
+	\end{tabularx}
+
+	%----------------------------------------------------------------------------------------
+	% APPENDIX: DEFECT LOG
+	%----------------------------------------------------------------------------------------
+	\newpage
+	\section*{Defect Log}
+	\label{sec:defects}
+	\addcontentsline{toc}{section}{Defect Log}
+	
+	Use this table to record any defects found during testing.
+	
+	\begin{longtable}{p{1.0cm} p{1.5cm} p{3.5cm} p{5.5cm} p{1.5cm}}
+		\toprule
+		\textbf{ID} & \textbf{Test ID} & \textbf{Summary} & \textbf{Steps to Reproduce / Observation} & \textbf{Severity} \\
+		\midrule
+		\endhead
+		D-01 & & & & \\[1.2cm]
+		\hline
+		D-02 & & & & \\[1.2cm]
+		\hline
+		D-03 & & & & \\[1.2cm]
+		\hline
+		D-04 & & & & \\[1.2cm]
+		\hline
+		D-05 & & & & \\[1.2cm]
+		\hline
+		D-06 & & & & \\[1.2cm]
+		\hline
+		D-07 & & & & \\[1.2cm]
+		\hline
+		D-08 & & & & \\[1.2cm]
+		\bottomrule
+	\end{longtable}
+	
+	\textbf{Severity levels:} Critical (blocks testing), High (major feature broken), Medium (feature partially broken), Low (minor issue / cosmetic).
+	
+	%----------------------------------------------------------------------------------------
+\end{document}
+%----------------------------------------------------------------------------------------
