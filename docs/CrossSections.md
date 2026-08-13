@@ -67,6 +67,32 @@ Next choose curtain settings and set up the curtain:
 
 ![alt text](images/crossSectionAndCurtain.png)
 
+## How clipping is implemented
+
+`Surface.Sg` writes a signed distance to the cross-section polygon (negative inside) into
+a per-vertex `InsideOutsideV4` attribute, and the `crossSectionClip` fragment stage
+discards fragments whose interpolated distance is negative.
+
+Two flags gate it, and they are not redundant:
+
+- **`CrossSectionClippingEnabled`** — the user's Clipping checkbox. Defaults to **true**,
+  so it only means "clip if there is something to clip against".
+- **`CrossSectionDefined`** — whether a cross-section actually exists.
+
+Without the second, the clip shader ran on every scene from the first frame. In that
+state `InsideOutsideV4` holds no meaningful data: `Surface.Sg` binds it as a constant
+attribute (`SingleValueBuffer`), and on Apple Silicon that value does not arrive — whole
+patches read back garbage instead of the bound zero, roughly half of it negative, so the
+shader discarded a lattice of fragments across the terrain. Windows and Linux were
+unaffected.
+
+**Do not read `InsideOutsideV4` without checking `CrossSectionDefined`.**
+
+Whether the underlying fault is Apple's GL driver or how Aardvark's GL backend handles
+constant vertex attributes is not established; substituting a real zero-filled buffer for
+the same attribute reads back correctly on the same machine, which narrows it to that
+path but not to a cause.
+
 ## Future work
 
 This might be interesting: https://www.youtube.com/watch?v=RKH1gKXCD6A
