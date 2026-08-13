@@ -154,20 +154,25 @@ Because CI adoption is expected, avoid anything that would have to be undone lat
 - **Skipping is a flag, not a `#if`.** Conditional compilation would make the eventual
   switch a code change instead of a script change.
 
-### Gate 2 — test data. **RESOLVED: `PRo3D.Resources.Models`.**
+### Gate 2 — test data. **RESOLVED: `PRo3D.Resources.TestData`.**
 
-Test OPCs will land in https://github.com/pro3d-space/PRo3D.Resources.Models, already
-consumed as a git submodule (`src/ModelViewer/resources`, see `.gitmodules`) and already
-using git-lfs selectively (`.gitattributes`).
+Test OPCs live in https://github.com/pro3d-space/PRo3D.Resources.TestData, consumed as a
+git submodule mounted at `src/Tests/data/opc` (see `.gitmodules` and
+[docs/tests/TestData.md](../docs/tests/TestData.md)).
+
+The first fixture was published under `PRo3D-Testdata/` in `PRo3D.Resources.Models` and
+moved to its own repository: a submodule always mounts a repository *root*, so reusing
+`src/ModelViewer/resources` would have made anyone who only wants to run the tests fetch
+the ModelViewer's spacecraft and terrain models too (869 MB of working tree for a 167 MB
+fixture). Test data and ModelViewer data are now fetched independently.
 
 Consequences to design for:
 
 - The submodule is **not** initialised by default. Rendering tests must skip cleanly when
   the OPC fixture is absent, same idiom as above — never fail with a path error.
-- OPC patch data (`.aara`, textures) needs LFS patterns adding to that repo's
-  `.gitattributes`.
-- Reuse the existing submodule path if the OPCs land under it; add a second submodule only
-  if they land in a separate repo.
+- No git-lfs: the largest file is ~5.5 MB, well inside plain-blob territory, and LFS
+  bandwidth is a metered org-wide quota while plain blobs are not.
+- Keep fixtures at the repository root, one directory per surface, importable as-is.
 
 **What to ask for in the fixture** (the data does not exist yet, so this is the moment to
 specify it):

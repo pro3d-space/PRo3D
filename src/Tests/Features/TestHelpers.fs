@@ -102,7 +102,8 @@ module Render =
 
     /// The OPC surface lives in the PRo3D.Resources.TestData submodule mounted at
     /// src/Tests/data/opc — 167 MB of binary patch data kept out of the main repo.
-    /// Absent unless the clone used --recurse-submodules; see `available` / `skipReason`.
+    /// Absent until it is fetched (`git submodule update --init src/Tests/data/opc`,
+    /// or a clone with --recurse-submodules); see `available` / `skipReason`.
     let opcSurfaceDir = Path.Combine(dataDir, "opc", surfaceName)
 
     /// The OPC scene graph — and with it every surface bounding box — cannot be
@@ -136,7 +137,8 @@ module Render =
 
     let skipReason () =
         if not (Directory.Exists opcSurfaceDir) then
-            Some (sprintf "no OPC test data at %s" opcSurfaceDir)
+            Some (sprintf "no OPC test data at %s — run: git submodule update --init src/Tests/data/opc"
+                    opcSurfaceDir)
         elif context.Value |> Option.isNone then
             Some "no OpenGL runtime in this environment"
         else

@@ -86,6 +86,15 @@ If you have any questions, feel free to contact us on [discord](https://discord.
 
 # Development
 
+## Tests
+
+Run `runTests.cmd` (or `./runTests.sh`) — extra arguments are passed through to the
+[Expecto](https://github.com/haf/expecto) runner, e.g. `runTests.cmd --list-tests`.
+
+Tests that need a real OPC surface use a fixture kept in a separate repository, fetched
+with `git submodule update --init src/Tests/data/opc`; without it those tests skip
+themselves.
+
 ## Adaptify
 
 The project makes heavy use of the [`adaptify`](https://github.com/krauthaufen/Adaptify) tool. Until 20.11.2024 all model type generation was handled by the msbuild tool implicitly. For better development experience we now use local adaptify mode, some documentation can be found [here](./docs/ModelTypes.md).
