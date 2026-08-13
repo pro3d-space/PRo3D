@@ -96,9 +96,15 @@ module VertexAttributes =
     /// Irrelevant for plain directories, which are read with random access.
     let private inMemoryCacheLimit = 512L * 1024L * 1024L
 
-    /// Cached layers keyed by absolute file path, and cached layer *sets* keyed by
-    /// absolute patch directory. Attribute layers are immutable on disk, so a patch is
-    /// discovered once and reused for every pick.
+    /// Cached layers keyed by absolute file path, and cached layer *sets* keyed by absolute
+    /// patch directory. Attribute layers are immutable on disk, so a patch is discovered once
+    /// and reused for every pick.
+    ///
+    /// Both dictionaries and the byte accounting are guarded by one lock: the eviction path
+    /// runs inside a `tryGetLayer` call but clears `layerCache` too, and `getLayers` calls
+    /// `tryGetLayer`, so two separate locks would either race or deadlock. Monitor is
+    /// re-entrant, so the nested call is fine.
+    let private cacheLock = obj()
     let private fileCache = Dictionary<string, Option<VertexAttributeLayer>>()
     let private layerCache = Dictionary<string, VertexAttributeLayer[]>()
     let mutable private inMemoryBytes = 0L
@@ -185,7 +191,7 @@ module VertexAttributes =
     /// Reads a single *.aara file as a sampleable layer, cached by path. Used for grids
     /// that are not attribute layers, e.g. the patch's texture coordinates.
     let tryGetLayer (path : string) =
-        lock fileCache (fun () ->
+        lock cacheLock (fun () ->
             match fileCache.TryGetValue path with
             | true, layer -> layer
             | _ ->
@@ -198,7 +204,7 @@ module VertexAttributes =
     /// for patches that ship no `<Attributes>` (older OPCs), which is the caller's
     /// signal to fall back to texture sampling.
     let getLayers (patchDir : string) (patchInfo : PatchFileInfo) =
-        lock layerCache (fun () ->
+        lock cacheLock (fun () ->
             match layerCache.TryGetValue patchDir with
             | true, layers -> layers
             | _ ->
@@ -239,6 +245,14 @@ module VertexAttributes =
             if n <= 0 then eof <- true else read <- read + n
         read = elementSize
 
+    /// Whether the attribute grid can be centred in the position grid at all. A negative
+    /// difference (attribute grid larger) or an odd one (asymmetric skirt) would silently
+    /// shift every sample onto a neighbouring vertex, so such a layer is refused instead.
+    let private isCentrable (positionsGridSize : V2i) (attrSize : V2i) =
+        let dx = positionsGridSize.X - attrSize.X
+        let dy = positionsGridSize.Y - attrSize.Y
+        dx >= 0 && dy >= 0 && dx % 2 = 0 && dy % 2 = 0
+
     /// Maps a position grid index onto the layer's attribute grid. Returns -1 when the
     /// vertex lies in the position grid's skirt, which carries no attribute values.
     let private attributeIndex (positionsGridSize : V2i) (attrSize : V2i) (positionIndex : int) =
@@ -251,6 +265,12 @@ module VertexAttributes =
 
     let private sampleLayer (positionsGridSize : V2i) (gridIndices : int[]) (w : float[]) (layer : VertexAttributeLayer) =
         let header = layer.header
+        if not (isCentrable positionsGridSize header.size) then
+            Log.warn "[VertexAttributes] %s: %dx%d attribute grid cannot be centred in a %dx%d position grid - skipping"
+                layer.name header.size.X header.size.Y positionsGridSize.X positionsGridSize.Y
+            None
+        else
+
         let indices = gridIndices |> Array.map (attributeIndex positionsGridSize header.size)
 
         if indices |> Array.exists (fun i -> i < 0) then None
@@ -320,8 +340,8 @@ module VertexAttributes =
 
     /// Drops all cached layers so ZIP payloads and stale headers do not outlive their scene.
     let clearCache () =
-        lock layerCache (fun () ->
-            lock fileCache (fun () -> fileCache.Clear())
+        lock cacheLock (fun () ->
+            fileCache.Clear()
             layerCache.Clear()
             inMemoryBytes <- 0L
         )

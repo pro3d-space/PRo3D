@@ -25,29 +25,34 @@ open PRo3DCompability
 
 open System.Globalization
 
-/// Compact triangle-to-position-grid mapping of one patch. `TriangleSet.computeGridIndices`
-/// emits two triangles per valid quad, so storing each valid quad's top-left grid index is
-/// enough to recover any triangle's three grid indices.
+/// Compact triangle-to-position-grid mapping of one patch: two triangles per quad, so each
+/// quad's top-left grid index is enough to recover any triangle's three grid indices.
+/// Built by `TriangleSet.computeTriangleQuadStarts`, which documents how the numbering
+/// follows the KdTree's object set.
 type PatchTriangleGrid =
     {
         /// size of the patch's position grid (index = y * gridSize.X + x)
         gridSize  : V2i
-        /// top-left grid index of each valid quad, in triangle emission order
+        /// top-left grid index of each quad in triangle order, -1 where the triangles are
+        /// degenerate fillers with no grid position
         quadStart : int[]
     }
 
     member x.TriangleCount = x.quadStart.Length * 2
 
     /// The three position grid indices of triangle `triangleIndex`, matching the winding
-    /// `TriangleSet.computeGridIndices` produces (a,b,c then c,b,d).
+    /// `TriangleSet.computeGridIndices` produces (a,b,c then c,b,d). None for a filler
+    /// triangle or an index outside the patch.
     member x.TryGetTriangleIndices (triangleIndex : int) =
         let quad = triangleIndex / 2
         if triangleIndex < 0 || quad >= x.quadStart.Length then None
         else
             let a = x.quadStart.[quad]
-            let b = a + x.gridSize.X
-            if triangleIndex % 2 = 0 then Some [| a; b; a + 1 |]
-            else Some [| a + 1; b; b + 1 |]
+            if a < 0 then None
+            else
+                let b = a + x.gridSize.X
+                if triangleIndex % 2 = 0 then Some [| a; b; a + 1 |]
+                else Some [| a + 1; b; b + 1 |]
 
 /// What to do for layers the per-vertex `*.aara` data does not cover.
 [<RequireQualifiedAccess>]
@@ -103,8 +108,8 @@ module ProfileAttributeExtraction =
     let private triGridMappingCache = Dictionary<string, PatchTriangleGrid>()
 
     /// Maps triangles of a patch's KdTree TriangleSet back onto the position grid it was
-    /// built from. Relies on `TriangleSet.computeGridIndices` emitting triangles in the
-    /// same order (and with the same NaN-quad skipping) as the KdTree construction did.
+    /// built from. `TriangleSet.computeTriangleQuadStarts` documents how the numbering has to
+    /// follow the object set the KdTree was built from.
     let buildTriangleToGridMapping (affine: Trafo3d) (objectSetPath: string) =
         lock triGridMappingCache (fun () ->
             match triGridMappingCache.TryGetValue(objectSetPath) with
@@ -115,7 +120,7 @@ module ProfileAttributeExtraction =
                 let mapping =
                     {
                         gridSize  = size
-                        quadStart = TriangleSet.computeValidQuadStarts size positions.Data
+                        quadStart = TriangleSet.computeTriangleQuadStarts size positions.Data
                     }
 
                 if triGridMappingCache.Count >= maxCachedTriangleGrids then
@@ -128,10 +133,6 @@ module ProfileAttributeExtraction =
                 mapping
         )
 
-    /// Drops cached per-patch data. Called when surfaces are removed.
-    let clearCaches () =
-        lock triGridMappingCache (fun () -> triGridMappingCache.Clear())
-        VertexAttributes.clearCache ()
 
     /// Interpolated texture coordinate at a hit. Only the three corner texels are read
     /// from the coordinates *.aara instead of loading the whole grid.
@@ -265,6 +266,9 @@ module ProfileAttributeExtraction =
     /// `objectSetPath` persisted in a kd-tree does. A case-sensitive lookup silently misses
     /// every patch of such a surface.
     let buildPatchInfoLookup (sgSurface : SgSurface) =
+        // reached from the background picking thread and from profile export on the update
+        // thread, so the shared Dictionary needs the same lock as the mapping cache
+        lock patchInfoLookupCache (fun () ->
         match patchInfoLookupCache.TryGetValue(sgSurface.surface) with
         | true, lookup -> lookup
         | _ ->
@@ -283,6 +287,13 @@ module ProfileAttributeExtraction =
             patchInfoLookupCache.[sgSurface.surface] <- dict
             Log.line "[Extraction] built patch info lookup for surface %A with %d entries" sgSurface.surface dict.Count
             dict
+        )
+
+    /// Drops all cached per-patch data. Called when surfaces are removed.
+    let clearCaches () =
+        lock triGridMappingCache (fun () -> triGridMappingCache.Clear())
+        lock patchInfoLookupCache (fun () -> patchInfoLookupCache.Clear())
+        VertexAttributes.clearCache ()
 
     /// Extract attributes at a KdTree hit point.
     ///
@@ -318,7 +329,14 @@ module ProfileAttributeExtraction =
                             let layers = VertexAttributes.getLayers patchDir patchInfo
                             VertexAttributes.sample layers positionsGridSize gridIndices weights
 
-                        let covered = fromVertices |> List.map (fun a -> a.name) |> Set.ofList
+                        // texture layer names come from the Images/<Layer> folder, per-vertex
+                        // ones from the *.aara base name - compared case-insensitively so a
+                        // spelling difference cannot let the less accurate texture value
+                        // through and override the per-vertex one
+                        let covered =
+                            // System's HashSet - FSharp.Data.Adaptive.HashSet has no comparer
+                            System.Collections.Generic.HashSet<string>(
+                                fromVertices |> List.map (fun a -> a.name), StringComparer.OrdinalIgnoreCase)
 
                         let fromTextures =
                             // Only pay for image decoding when the per-vertex layers are

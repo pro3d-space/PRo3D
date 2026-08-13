@@ -1111,7 +1111,9 @@ module Gui =
                                     yield Html.row (a.name + ":") [text (formatValues a.values)]
                             ]
                             if hit.attributes.IsEmpty then
-                                yield hint "No per-vertex attribute layers on this surface."
+                                // either the surface ships no *.aara layers at all, or the hit
+                                // triangle touches the position grid's skirt, which carries none
+                                yield hint "No per-vertex attribute layers cover this point."
                 }
 
             Incremental.div AttributeMap.empty content

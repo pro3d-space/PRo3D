@@ -1223,8 +1223,9 @@ module ViewerApp =
             { m with backgroundPicking = ThreadPool.add "BackgroundPicking" p ThreadPool.empty; }
 
         | ViewerAction.PreviewPickSurfaceFinished(_, _, None, _), _ ->
-            // preview request lead to no hit. ignore
-            m
+            // preview request lead to no hit - drop the read-out rather than leaving the
+            // previous point's values on screen as if they were current
+            { m with cursorAttributes = None }
         | ViewerAction.PreviewPickSurfaceFinished(_, name, hit, attributes), _ ->
             match hit with
             | Some (p, hitPosOnRay) ->
