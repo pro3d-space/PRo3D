@@ -35,9 +35,6 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Remove="Drawing\**" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="ResettableAsyncValue.fs" />
     <None Include="RunAdaptify.fsx" />
     <None Include="paket.references" />
