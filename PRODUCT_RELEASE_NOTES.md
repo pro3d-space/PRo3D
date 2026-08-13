@@ -1,3 +1,6 @@
+## 6.0.0-rc2
+- Snapshots: **batch-rendered images are no longer black** — sequenced-bookmark animations, panorama collections and command-line snapshot rendering all wrote empty frames, because the offscreen framebuffer the images were rendered into did not match the one the scene was prepared for
+
 ## 6.0.0-rc1
 - Screenshots: **screenshots are written again** — this completes the fix started in prerelease9, which got the rendering statistics parsing right but left the image download failing. Taking a screenshot blocked the update thread while the render service was waiting for that very thread to release the scene, so the request timed out after 100 seconds and PRo3D froze meanwhile
 
