@@ -1,0 +1,300 @@
+# Scene Render Test Harness — plan
+
+## Goal
+
+Catch rendering regressions in the OPC surface pipeline — in particular the class of bug
+where **the geometry is fine and the shading is wrong on one GPU only**.
+
+CI has no GPU today, so this starts as a **deliberately-invoked gate run on team machines**.
+GPU runners are expected later, so the harness must be **CI-ready from day one**: turning
+it on should be a one-line change, not a redesign (see Gate 1 and "CI-readiness").
+
+Success criterion, restated for that reality: the `crossSectionClip` bug (Apple Silicon,
+`releases/6.0.0`, fixed in #666) would have been caught by one command run on an Apple
+Silicon machine before release — and that command would have printed **the name of the
+offending shader stage**, not shown a picture for someone to judge.
+
+The second half matters as much as the first. A harness that says "these pixels differ"
+saves nothing; the expensive part of this session was not seeing the artefact, it was
+finding which of 22 shader stages produced it.
+
+## The motivating bug, stated precisely
+
+Every design decision below follows from one of its properties.
+
+`crossSectionClip` discarded fragments on `InsideOutsideV4 < 0`. With no cross-section
+defined, that attribute is bound as a constant (`SingleValueBuffer`) whose value does not
+arrive on Apple Silicon; roughly half the surface read negative and was discarded,
+producing a lattice of holes.
+
+1. **Invisible to a simple OPC render.** Geometry, LOD, textures, `stableTrafo`,
+   `triangleSizeFilter` and `generateNormal` were all clean. It only appeared under the
+   full viewer `surfaceEffect`.
+2. **Triggered by configuration, not content.** `clippingEnabled` defaults to `true`; the
+   bug needed that flag live *and* no cross-section present. No camera or dataset would
+   have found it — a config combination did.
+3. **Platform-specific.** Windows and Linux were correct.
+4. **Not reproducible in isolation.** Four attempts at a standalone repro (many draw calls,
+   pass-through geometry shader, 24k verts/draw, sibling attributes) all passed. It needs
+   the real OPC LOD path.
+5. **Silent.** No exception, no GL error, no log line. Only pixels.
+
+## Design constraints these impose
+
+| From | Constraint |
+|---|---|
+| (1) | Must render through the **real** `ViewerUtils.surfaceEffect` and `Surface.Sg` scene graph. A harness that reimplements the pipeline tests the reimplementation. |
+| (2) | The unit of test is a **(scene × surface configuration)** pair, and configurations must be swept, not hand-picked. |
+| (3) | Assertions must be **absolute**, not relative to a reference platform — there is no CI matrix to compare against. |
+| (4) | Must drive the actual OPC path with real patch data, not synthetic geometry. |
+| (5) | Assertions must be on **pixels**, and must not require a human to look. |
+
+A sixth, from the session rather than the bug: **shared code, not copied code.** The
+throwaway harness only stayed honest because `stableTrafo` and `triangleSizeFilter` were
+moved to `PRo3D.Base` and composed from there. Any shader the harness renders must be the
+same object the viewer renders.
+
+## Core idea: invariants, not golden images
+
+### Rejected as the gate: golden images
+
+A reference PNG per (scene, config), compared with a tolerance.
+
+Rejected twice over. First, the tolerance has to absorb genuine cross-driver differences —
+rasterisation rules, texture filtering, FP rounding — easily a few percent of pixels on
+this codebase. The `crossSectionClip` artefact was *itself* a few percent of pixels: a
+threshold loose enough to avoid false positives is loose enough to miss the bug we are
+building this for. Second, with no CI there is nowhere to bless or store per-platform
+reference sets, and no automation to regenerate them.
+
+Keep renders as **local failure artifacts** written next to the test output, so a human
+can look after a failure. Never gate on them.
+
+### The gate: invariants
+
+Properties that must hold on *every* driver, which the artefact violates structurally.
+
+For the motivating bug the invariant is one line: **with no cross-section defined, no
+surface fragment may be discarded.** Render against a distinctive clear colour, count
+clear-coloured pixels inside the terrain's projected silhouette, fail on any hole.
+Driver-independent, no reference image, fails specifically.
+
+In rough order of value:
+
+- **Config neutrality** — toggling a feature that is *inactive* must not change a single
+  pixel. Enabling cross-section clipping with no cross-section defined must be a no-op.
+  This is the general form of the bug: it would have caught it without anyone having
+  thought about cross-sections, and it generalises to every flag in `surfaceEffect`.
+- **Coverage** — fragments that should be drawn are drawn. Catches discard/clip bugs,
+  over-aggressive triangle filtering, LOD holes.
+- **Determinism** — same scene, same config, two runs, byte-identical. Catches
+  uninitialised buffers and attribute-state leakage, which is the root-cause *class* here.
+- **Opacity** — final alpha is 1 where the surface is drawn.
+
+All four are absolute, which is what constraint (3) requires.
+
+## Gates — both now resolved
+
+### Gate 1 — CI. **RESOLVED: skipped on CI for now; GPU runners expected later.**
+
+Rendering tests are gated out of CI until GPU runners are available. Until then the gate
+is run by the team on their own machines, which is also how cross-platform coverage is
+obtained (see "Cross-platform coverage" below).
+
+Follow the existing `--skip-hera` idiom exactly (`src/Tests/HeraSpiceTests.fs`,
+`runTests.sh`): a test skips when its resource is absent **or** when the skip flag is
+passed, so CI skips *deterministically* rather than by accident of environment.
+
+- Rendering tests skip if `--skip-render` is passed **or** if a GL context cannot be
+  created.
+- `runTests.sh` / `runTests.cmd` add `--skip-render` to their existing `--skip-hera`, so
+  the CI matrix keeps passing untouched.
+- A new `runRenderTests.sh` / `.cmd` opts in.
+
+The GL-context probe is not redundant with the flag — it is what stops the suite from
+erroring out on a machine without a usable context, and it is what will let CI adopt these
+tests by simply dropping `--skip-render`.
+
+### CI-readiness
+
+Because CI adoption is expected, avoid anything that would have to be undone later:
+
+- **No window server, no screenshots, no interaction.** Offscreen rendering only. (System
+  screenshots proved the fix this session and remain useful for local debugging, but must
+  never be what a test asserts on.)
+- **No absolute paths, no machine-specific configuration.** Fixtures resolve relative to
+  the submodule.
+- **Budget runtime for CI from the start**, not just for human patience — the neutrality
+  tier should stay well under a minute so a four-platform matrix stays affordable.
+- **Machine-readable results.** Expecto already gives this; don't add output that only a
+  human can interpret.
+- **Skipping is a flag, not a `#if`.** Conditional compilation would make the eventual
+  switch a code change instead of a script change.
+
+### Gate 2 — test data. **RESOLVED: `PRo3D.Resources.Models`.**
+
+Test OPCs will land in https://github.com/pro3d-space/PRo3D.Resources.Models, already
+consumed as a git submodule (`src/ModelViewer/resources`, see `.gitmodules`) and already
+using git-lfs selectively (`.gitattributes`).
+
+Consequences to design for:
+
+- The submodule is **not** initialised by default. Rendering tests must skip cleanly when
+  the OPC fixture is absent, same idiom as above — never fail with a path error.
+- OPC patch data (`.aara`, textures) needs LFS patterns adding to that repo's
+  `.gitattributes`.
+- Reuse the existing submodule path if the OPCs land under it; add a second submodule only
+  if they land in a separate repo.
+
+**What to ask for in the fixture** (the data does not exist yet, so this is the moment to
+specify it):
+
+- One small OPC, **at least two LOD levels** — a single-level patch would not exercise the
+  LOD streaming path, which is exactly where the constant-attribute bug lived.
+- Real textures, since the texture path is part of what is under test.
+- A total size budget worth agreeing up front; a few MB, not a few hundred.
+- Ideally a second fixture containing **invalid/NaN vertices**, which is what the triangle
+  filter exists for and is otherwise untested.
+
+## Shape of the thing
+
+### Where it lives
+
+Extend `src/Tests` (Expecto, already cross-platform, already has the skip idiom) rather
+than adding a project.
+
+### Test case shape
+
+```
+scene fixture  ×  surface configuration  ×  camera  →  render  →  invariants
+```
+
+A configuration is a declarative record of the surface/config flags that feed uniforms:
+cross-section clipping, triangle filter + size, contour lines, secondary texture /
+transfer function, footprint, colour adaption, radiometry, false colour, LOD colouring,
+MSAA samples, near/far. Each maps to something `ViewerUtils` already binds.
+
+The full cartesian product is unaffordable. Two tiers:
+
+- **Neutrality tier** — for each flag independently, render with it off, and with it on in
+  a state where it should have no visible effect. Assert pixel-identical. Linear in the
+  number of flags. This is the tier that catches the motivating bug.
+- **Smoke tier** — a handful of realistic combinations, asserting coverage and opacity only.
+
+### Determinism
+
+Screenshots must not race the loader. Known-good from this session: build patch nodes with
+`asyncLoading = false`, then render until two consecutive frames are byte-identical, with a
+cap. Without it the harness produces flaky coarse-LOD frames that read as rendering
+differences. Render offscreen (`CompileRender` → `Download`), as
+`PRo3D.ProjectionTestbed/Offscreen.fs` already does — no window, no window-manager
+dependency.
+
+(The in-viewer snapshot feature is **broken on `releases/6.0.0`**, observed this session.
+Separate bug, out of scope. System screenshots test what the user actually sees and were
+what proved the fix, but need a window server and Screen Recording permission — keep as a
+local debugging mode only.)
+
+### Bisect as a first-class feature
+
+When a case fails, the harness must report *which stage* by composing `surfaceEffect`
+progressively and naming the first stage at which the invariant breaks. This is precisely
+what found the bug by hand over several rounds; automating it is the difference between a
+useful gate and a screenshot to squint at. With no CI history to bisect against, this is
+the only bisect available.
+
+That requires `surfaceEffect` to be an inspectable, filterable list of named stages with
+declared inter-stage dependencies — a fragment stage that reads a varying needs the vertex
+stage that writes it, or the GL backend throws `Could not get attribute`. A working
+version exists on `bugs/apple-silicon-crosssection-clip`, written under time pressure with
+an environment-variable interface. It should be **redesigned properly**: the stage list and
+its dependency graph are part of the rendering architecture, not test scaffolding, and
+belong in their own PR with their own review. The env-var interface should not survive.
+
+## Cross-platform coverage without a CI matrix
+
+The bug was platform-specific, so coverage across platforms is the whole point — and until
+GPU runners exist it comes from team members running the gate on the machines they have.
+That is workable but has a failure mode CI does not: **nobody can tell which platforms were
+actually covered before a release.** "It passed for me" on one machine is not the same
+claim as a green matrix, and it is easy to mistake one for the other.
+
+Minimum viable answer: the release checklist names the platforms that must be exercised
+(at least Apple Silicon and Windows — the pair that differed here), and the run's summary
+output is pasted into the release PR or notes. Cheap, and it makes a gap visible rather
+than silent.
+
+## The dominant risk: a suite nobody runs
+
+Nothing forces this to run until CI gets GPUs. An unrun test suite rots into a liability —
+it fails for unrelated reasons, nobody trusts it, it gets deleted. This is a bigger threat
+to the work than any technical gate, and it needs a deliberate answer:
+
+- **Wire it into the release process.** Running it on Apple Silicon and Windows should be a
+  checklist item alongside `PRODUCT_RELEASE_NOTES.md`, not folklore.
+- **Keep it fast.** Well under a minute for the neutrality tier. 256×256 targets are ample
+  for coverage statistics.
+- **Make failure output good enough that people want to run it** — a named stage and a
+  written-out PNG, not a bare assertion failure.
+- **Adopt CI the moment GPU runners exist.** That is the real fix, and the CI-readiness
+  rules above exist to keep the switch to a one-line change. Until then, do not treat the
+  manual gate as equivalent to automation.
+
+## Decisions taken
+
+- Invariants are the gate; renders are failure artifacts only.
+- Offscreen rendering, not window capture — required for the eventual CI switch.
+- Extend `src/Tests`; skip via the `--skip-hera` idiom (`--skip-render` + GL probe +
+  fixture-absent). Skipping is a runtime flag, never conditional compilation, so CI
+  adoption is a script change.
+- Build CI-ready from day one even though CI is deferred.
+- Fixtures come from `PRo3D.Resources.Models` via submodule; tests skip when uninitialised.
+- Compose the viewer's real shaders and scene graph. No reimplementation, no copies.
+- `asyncLoading = false` plus frame-stability convergence.
+- The stage list / bisect machinery is production code in `ViewerUtils`, designed and
+  reviewed on its own terms, with the harness as one consumer.
+
+## Open questions
+
+1. Do the config-neutrality pairs actually hold today on Windows/Linux? If some flags
+   already perturb pixels while nominally inactive, that is either a second bug or a
+   modelling error in the invariant. Expect to find at least one.
+2. How much of `Surface.Sg`'s per-patch attribute plumbing can be driven without the full
+   viewer model? `applyFootprint` / `applyCrossSection` / `applySecondaryTextureId` are Ag
+   attributes whose absence throws at `CompileRender`
+   (`PRo3D.ProjectionTestbed/Program.fs` documents this). Needs a small scene-graph
+   construction helper — shared with the testbed, not duplicated.
+3. Exact fixture contents and size budget — needs agreeing with whoever populates
+   `PRo3D.Resources.Models`. Blocking for step 2 below.
+4. Should this subsume `PRo3D.ProjectionTestbed`? Both render OPCs offscreen and compare.
+   Not now — but do not build a third offscreen-render helper; factor the existing one.
+
+## Risks
+
+- **Nobody runs it.** See above. The main risk.
+- **Invariants too weak** — a coverage rule that passes on a subtly wrong image.
+  Mitigation: validate each invariant against a *known-bad* build. Concretely: revert #666
+  locally and confirm the harness fails. An invariant never validated against the bug it
+  claims to catch is decoration.
+- **Flakiness** poisoning trust. Mitigation: determinism is itself an asserted invariant,
+  so flakiness surfaces as a specific failure rather than noise.
+- **Scope creep** into a general rendering-test framework. The success criterion at the top
+  is the scope.
+
+## Suggested staging
+
+1. Offscreen render helper + deterministic settling, factored from
+   `ProjectionTestbed/Offscreen.fs`. Skip idiom wired up (`--skip-render`, GL probe,
+   fixture-absent). One test: renders the fixture, asserts non-empty.
+2. Agree and land the OPC fixture in `PRo3D.Resources.Models` (open question 3).
+3. Coverage + determinism invariants. **Validate against a reverted #666** — this is the
+   step that proves the harness works, and nothing after it is worth doing until it passes.
+4. `surfaceEffect` as a designed, named, dependency-aware stage list (own PR, own review).
+5. Config neutrality tier over the flags in `ViewerUtils`.
+6. Automatic stage bisect on failure.
+7. Smoke tier + release-checklist entry naming the platforms to cover.
+8. *(when GPU runners exist)* Drop `--skip-render` from `runTests` and add the matrix.
+   Nothing else should need to change; if it does, the CI-readiness rules were violated.
+
+Steps 1–3 are the whole value; 4–7 are leverage. If the work stops early it should stop
+after 3 with something real, not halfway through 5.
