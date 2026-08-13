@@ -742,62 +742,11 @@ module ViewerUtils =
             member x.HomePositionViewSpace : V3f = x?HomePositionViewSpace
 
 
-        // performs all checks in view space
-        let triangleSizeFilter (input : Triangle<Vertex>) =
-            triangle {
-                let p0 = input.P0.vp.XYZ
-                let p1 = input.P1.vp.XYZ
-                let p2 = input.P2.vp.XYZ
-
-                // TriangleSize
-                let maxSize = uniform?MaxTriangleSize
-
-                let a = (p1 - p0)
-                let b = (p2 - p1)
-                let c = (p0 - p2)
-
-                let alpha = a.Length < maxSize
-                let beta  = b.Length < maxSize
-                let gamma = c.Length < maxSize
-
-                let filterDistanceActive : bool = uniform.FilterByDistance
-                let disabled = not uniform.FilterTriangleEnabled
-                let smallTriangle = alpha && beta && gamma
-                // if disabled, let all trianlges pass
-                let validTriangle = disabled || smallTriangle
-
-                if filterDistanceActive then
-                    let filterRange : float32 = uniform.FilterDistance
-                    let homePositionVSp : V3f = uniform.HomePositionViewSpace
-
-                    let inRange =
-                        (Vec.distance homePositionVSp p0) < filterRange &&
-                        (Vec.distance homePositionVSp p1) < filterRange &&
-                        (Vec.distance homePositionVSp p2) < filterRange
-
-                    if validTriangle && inRange then
-                        yield { input.P0 with sourceVertexIndex = 0 } 
-                        yield { input.P1 with sourceVertexIndex = 1 } 
-                        yield { input.P2 with sourceVertexIndex = 2 } 
-                else
-                    if validTriangle then
-                        yield { input.P0 with sourceVertexIndex = 0 } 
-                        yield { input.P1 with sourceVertexIndex = 1 } 
-                        yield { input.P2 with sourceVertexIndex = 2 } 
-            }
-         
-
-        let stableTrafo (v : Vertex) =
-            vertex {
-                let p = uniform.ModelViewProjTrafo * v.pos
-
-                return
-                    { v with
-                        pos = p
-                        c = v.c
-                        vp = uniform.ModelViewTrafo * v.pos
-                    }
-            }
+        // Both moved to PRo3D.Base (OpcSurfaceShader) so the headless OPC harness
+        // (src/OpcViewer, ScreenshotViewer) renders these exact shaders rather than
+        // copies that drift out of sync.
+        let stableTrafo = PRo3D.Base.OpcSurfaceShader.stableTrafo
+        let triangleSizeFilter = PRo3D.Base.OpcSurfaceShader.triangleSizeFilter
 
         type UniformScope with
             member x.HasNormals : bool = x?HasNormals
@@ -943,67 +892,114 @@ module ViewerUtils =
             Shader.fixAlpha          |> toEffect
         ]
 
-    let surfaceEffect =
-        Effect.compose [
-
+    /// The surface effect, one named stage per entry, in composition order. Order is
+    /// load-bearing -- FShade composes these in sequence, so a stage may only be dropped,
+    /// never moved.
+    ///
+    /// Named and filterable because of the Apple Silicon surface artefact (regular dark
+    /// quads across the terrain, M-series only). The headless harness in src/OpcViewer
+    /// renders `minimal` cleanly on an M1, and so does the viewer when cut down to it, so
+    /// the artefact is caused by one of the stages *not* in `minimalStages`. See
+    /// docs/OpcViewer-Screenshot-Harness.md.
+    let private surfaceStages : list<string * Effect> =
+        [
             // image projection
-            PRo3D.SPICE.Shaders.planetLocalLightingViewSpace   |> toEffect
-            ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect
-            PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect
-            
-            
-            Shaders.donutVertex |> toEffect
-            Shader.footprintV        |> toEffect 
-            Shader.stableTrafo       |> toEffect
-            Shader.triangleSizeFilter   |> toEffect
-            
-            ImageProjection.Shaders.generateNormal |> toEffect
-           
-            Shader.fixAlpha |> toEffect
-            PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
-            PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
-           
-            
+            "planetLocalLighting",  PRo3D.SPICE.Shaders.planetLocalLightingViewSpace   |> toEffect
+            "imageProjTrafo",       ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect
+            "shadowVertices",       PRo3D.SPICE.Shaders.transformShadowVertices        |> toEffect
+
+            "donutVertex",          Shaders.donutVertex                                |> toEffect
+            "footprintV",           Shader.footprintV                                  |> toEffect
+            "stableTrafo",          Shader.stableTrafo                                 |> toEffect
+            "triangleSizeFilter",   Shader.triangleSizeFilter                          |> toEffect
+
+            "generateNormal",       ImageProjection.Shaders.generateNormal             |> toEffect
+
+            "fixAlpha",             Shader.fixAlpha                                    |> toEffect
+            "diffuseTexture",       PRo3D.Base.OPCFilter.improvedDiffuseTexture        |> toEffect
+            "markPatchBorders",     PRo3D.Base.OPCFilter.markPatchBorders              |> toEffect
+
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
             // Shader.selectionColor          |> toEffect
             //PRo3D.Base.Shader.differentColor   |> toEffect
-                        
-            OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
+
+            "lodColor",             OpcViewer.Base.Shader.LoDColor.LoDColor            |> toEffect
             //PRo3D.Base.Shader.falseColorsScalars |> toEffect
-            PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
-            PRo3D.Base.Shader.mapRadiometry |> toEffect
+            "colorAdaption",        PRo3D.Base.Shader.mapColorAdaption                 |> toEffect
+            "radiometry",           PRo3D.Base.Shader.mapRadiometry                    |> toEffect
 
-            Shader.secondaryTexture |> toEffect 
+            "secondaryTexture",     Shader.secondaryTexture                            |> toEffect
 
-            Shader.contourLines |> toEffect
-            Shaders.donutFragment |> toEffect
+            "contourLines",         Shader.contourLines                                |> toEffect
+            "donutFragment",        Shaders.donutFragment                              |> toEffect
 
-            CrossSectionShader.crossSectionClip |> toEffect
+            "crossSectionClip",     CrossSectionShader.crossSectionClip                |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
-            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
+            "depthCalculation",     PRo3D.Base.Shader.depthCalculation2                |> toEffect
 
-            PRo3D.Base.Shader.footPrintF        |> toEffect
+            "footPrintF",           PRo3D.Base.Shader.footPrintF                       |> toEffect
 
             // TODO HERA: make this optional
-            ImageProjection.Shaders.stableImageProjection |> toEffect
+            "imageProjection",      ImageProjection.Shaders.stableImageProjection      |> toEffect
 
             if not Config.limitedShaderCapabilities then
-                ImageProjection.Shaders.localImageProjections |> toEffect
+                ("localImageProjections", ImageProjection.Shaders.localImageProjections |> toEffect)
 
-            PRo3D.SPICE.Shaders.solarLighting |> toEffect
+            "solarLighting",        PRo3D.SPICE.Shaders.solarLighting                  |> toEffect
         ]
-        //Effect.compose [
-            
-        //    Shader.stableTrafo       |> toEffect
-           
 
-        //    PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
-        //    PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
+    /// Exactly the stages the OpcViewer harness's `color` rung composes -- the subset
+    /// known to render clean on Apple Silicon.
+    let private minimalStages =
+        Set.ofList [
+            "planetLocalLighting"; "imageProjTrafo"; "shadowVertices"
+            "stableTrafo"; "triangleSizeFilter"; "generateNormal"
+            "diffuseTexture"; "colorAdaption"; "radiometry"; "solarLighting"
+        ]
 
+    /// Which stages to compose, from the environment so the variants can be A/B'd in one
+    /// session without a rebuild. Unset = the real effect, unchanged.
+    ///
+    ///   PRO3D_SURFACE_EFFECT=minimal   only the known-clean subset
+    ///   PRO3D_SURFACE_EFFECT_ADD=a,b   minimal plus these (bisect upwards)
+    ///   PRO3D_SURFACE_EFFECT_DROP=a,b  everything except these (bisect downwards)
+    ///
+    /// ADD and DROP both imply their own base, so give one or the other. Unknown names
+    /// are an error rather than a silent no-op: a typo that quietly changes nothing
+    /// produces a "clean" run that means nothing.
+    let private selectedStageNames () =
+        let env name =
+            match System.Environment.GetEnvironmentVariable name with
+            | null | "" -> None
+            | v -> v.Split([| ','; ';' |], System.StringSplitOptions.RemoveEmptyEntries)
+                   |> Array.map (fun s -> s.Trim())
+                   |> Set.ofArray
+                   |> Some
 
-        //    OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
-        //]
+        let known = surfaceStages |> List.map fst |> Set.ofList
+        let checkKnown (which : string) (names : Set<string>) =
+            let unknown = Set.difference names known
+            if not (Set.isEmpty unknown) then
+                failwithf "%s names unknown surface stage(s): %s\nknown stages: %s"
+                    which (String.concat ", " unknown) (String.concat ", " (List.map fst surfaceStages))
+            names
+
+        match env "PRO3D_SURFACE_EFFECT_ADD", env "PRO3D_SURFACE_EFFECT_DROP" with
+        | Some add, _ -> Set.union minimalStages (checkKnown "PRO3D_SURFACE_EFFECT_ADD" add)
+        | None, Some drop -> Set.difference known (checkKnown "PRO3D_SURFACE_EFFECT_DROP" drop)
+        | None, None ->
+            if System.Environment.GetEnvironmentVariable "PRO3D_SURFACE_EFFECT" = "minimal"
+            then minimalStages else known
+
+    let surfaceEffect =
+        let selected = selectedStageNames ()
+        let stages = surfaceStages |> List.filter (fun (n, _) -> Set.contains n selected)
+        if stages.Length <> surfaceStages.Length then
+            Log.warn "surfaceEffect: %d/%d stages active" stages.Length surfaceStages.Length
+            Log.warn "surfaceEffect: dropped %s"
+                (surfaceStages |> List.map fst |> List.filter (Set.contains >> (|>) selected >> not) |> String.concat ", ")
+        Effect.compose (stages |> List.map snd)
 
     let isViewPlanVisible (m:AdaptiveModel) =
         adaptive {
