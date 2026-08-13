@@ -1,3 +1,10 @@
+## 6.0.0-prerelease9
+- Surfaces: fixed **holes across OPC surfaces on Apple Silicon Macs** — cross-section clipping ran on every scene even with no cross-section defined, discarding fragments based on a per-vertex attribute that was never filled; Windows and Linux were unaffected
+- Reference system: the **coordinate cross no longer vanishes** on click or scroll — refreshing up/north at the camera position also moved the cross's origin onto the camera
+- Screenshots: fixed **screenshots failing** with a deserialization error on the `/rendering/stats.json` body
+- Annotations: **lat/lon/alt columns** in the CSV export, and the annotation list shows the annotation text instead of its geometry type
+- Groups: fixed group activation
+
 ## 6.0.0-prerelease8
 - Groups: the **active group is visible again** in the surface, annotation, bookmark and GIS trees — the filled/outline circle indicator broke with the Aardvark.Media 5.7 icon set, and the active group name is now highlighted; folder icons are no longer black on the dark panels
 - Surfaces: the **DistanceFilter** now explains itself — it only takes effect once a home position is set, so the (previously unlabeled) *Home Position* button moved next to the filter, shows `set`/`not set`, and both rows have tooltips
