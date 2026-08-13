@@ -38,6 +38,7 @@
     <Compile Include="DidymosProjectionSpiceTest.fs" />
     <None Include="RemoteApi.rest" />
     <Compile Include="TriangleSetTests.fs" />
+    <Compile Include="PolygonFillTests.fs" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
     <Compile Include="BaseTests.fs" />
     <Compile Include="Features\TestHelpers.fs" />
