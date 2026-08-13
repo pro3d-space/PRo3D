@@ -99,8 +99,17 @@ In rough order of value:
   pixel. Enabling cross-section clipping with no cross-section defined must be a no-op.
   This is the general form of the bug: it would have caught it without anyone having
   thought about cross-sections, and it generalises to every flag in `surfaceEffect`.
+- **Config efficacy** — the dual, and just as necessary: turning a feature on in a state
+  where it *should* act must change pixels. A feature that silently stops working is
+  invisible to every other invariant here, and the #666 fix created exactly that exposure:
+  the `CrossSectionDefined` guard is one boolean away from disabling cross-section
+  clipping outright, and nothing in the neutrality tier would notice. Neutrality without
+  efficacy tests only that features are harmless when off, never that they work when on.
 - **Coverage** — fragments that should be drawn are drawn. Catches discard/clip bugs,
-  over-aggressive triangle filtering, LOD holes.
+  over-aggressive triangle filtering, LOD holes. Note this is *expected* coverage, not
+  "no holes": with an active cross-section, clipping is supposed to remove fragments. The
+  invariant is that coverage matches what the configuration calls for, which is why the
+  fixture must carry a cross-section whose clipped region is known.
 - **Determinism** — same scene, same config, two runs, byte-identical. Catches
   uninitialised buffers and attribute-state leakage, which is the root-cause *class* here.
 - **Opacity** — final alpha is 1 where the surface is drawn.
@@ -166,9 +175,24 @@ specify it):
 - One small OPC, **at least two LOD levels** — a single-level patch would not exercise the
   LOD streaming path, which is exactly where the constant-attribute bug lived.
 - Real textures, since the texture path is part of what is under test.
+- **A defined cross-section** — a stored annotation/polygon over the fixture, so the
+  *active* clipping path is exercised, not only the empty one. This is the branch where
+  `InsideOutsideV4` carries a real `ArrayBuffer`; #666 only fixed the branch where it does
+  not, and that branch has never been under test. Required for both the efficacy invariant
+  and expected-coverage.
+- **A secondary texture plus a transfer function** — so `secondaryTexture`, `contourLines`
+  and the `TextureCombiner` modes (Primary/Secondary/Multiply/Blend) are driven rather than
+  skipped. These are fragment stages that can silently degrade to passthrough; without data
+  they are only ever tested in their inactive state.
 - A total size budget worth agreeing up front; a few MB, not a few hundred.
 - Ideally a second fixture containing **invalid/NaN vertices**, which is what the triangle
-  filter exists for and is otherwise untested.
+  filter exists for and is otherwise untested. Note the filter is **off by default**
+  (`SurfaceApp.mk`), so this exercises a non-default path — while the measurements above
+  say the default path pays for the filter's geometry stage regardless.
+
+The cross-section and secondary-texture assets are the part that does not exist anywhere
+today; the OPC itself is the easy half. Worth specifying them in the same conversation
+rather than discovering later that the fixture only supports half the tiers.
 
 ## Shape of the thing
 
@@ -188,7 +212,12 @@ cross-section clipping, triangle filter + size, contour lines, secondary texture
 transfer function, footprint, colour adaption, radiometry, false colour, LOD colouring,
 MSAA samples, near/far. Each maps to something `ViewerUtils` already binds.
 
-The full cartesian product is unaffordable. Two tiers:
+Two of these must be driven in their **active** state, not merely toggled: cross sections
+(clipping against a real polygon) and secondary textures (with a transfer function, across
+the `TextureCombiner` modes). Both are fragment paths that degrade silently to passthrough,
+and both are otherwise only ever seen switched off.
+
+The full cartesian product is unaffordable. Three tiers:
 
 - **Neutrality tier** — for each flag independently, render with it off, and with it on in
   a state where it should have no visible effect. Assert pixel-identical. Linear in the
@@ -206,6 +235,12 @@ The full cartesian product is unaffordable. Two tiers:
   belongs to the performance tier, and must never be asserted pixel-exact. Keeping that
   line sharp is also what makes the performance problem expressible: *disabled* and *not
   composed* are different things, and the whole geometry-shader cost lives in the gap.
+- **Efficacy tier** — for each feature that can be *made* to act, drive it with real data
+  and assert it changes pixels, deterministically and in the expected direction. Cross
+  section: clipping with a defined polygon removes a non-empty, stable set of fragments,
+  and disabling it restores full coverage. Secondary texture: each `TextureCombiner` mode
+  produces a distinct result, and the transfer function maps a known input to a known
+  output band. Composition-identical arms, same as neutrality.
 - **Smoke tier** — a handful of realistic combinations, asserting coverage and opacity only.
 
 ### Determinism
@@ -341,7 +376,9 @@ to the work than any technical gate, and it needs a deliberate answer:
    (`PRo3D.ProjectionTestbed/Program.fs` documents this). Needs a small scene-graph
    construction helper — shared with the testbed, not duplicated.
 3. Exact fixture contents and size budget — needs agreeing with whoever populates
-   `PRo3D.Resources.Models`. Blocking for step 2 below.
+   `PRo3D.Resources.Models`. Blocking for Phase 1 steps 4–5. The OPC is the easy half; the
+   cross-section polygon and the secondary texture + transfer function do not exist
+   anywhere today and are what the efficacy tier depends on.
 4. Should this subsume `PRo3D.ProjectionTestbed`? Both render OPCs offscreen and compare.
    Not now — but do not build a third offscreen-render helper; factor the existing one.
 
@@ -359,28 +396,43 @@ to the work than any technical gate, and it needs a deliberate answer:
 
 ## Suggested staging
 
+### Phase 1 — a gate that works
+
+Everything here is reachable **without** the named stage list: these tiers toggle uniforms
+and swap fixture data, they do not recompose the effect.
+
 1. Offscreen render helper + deterministic settling, factored from
    `ProjectionTestbed/Offscreen.fs`. Skip idiom wired up (`--skip-render`, GL probe,
    fixture-absent). One test: renders the fixture, asserts non-empty.
-2. Agree and land the OPC fixture in `PRo3D.Resources.Models` (open question 3).
+2. Agree and land the fixture in `PRo3D.Resources.Models` — OPC **plus** the cross-section
+   and secondary-texture assets (open question 3). Blocking for 4 and 5.
 3. Coverage + determinism invariants. **Validate against a reverted #666** — this is the
    step that proves the harness works, and nothing after it is worth doing until it passes.
    Record frame time while here; it is free at this point and establishes the performance
    baseline before anyone needs it.
-4. `surfaceEffect` as a designed, named, dependency-aware stage list (own PR, own review).
-   **Foundation, not leverage** — it has two independent consumers (correctness bisect and
-   performance attribution) and is the only thing that makes either possible.
-   *Shipping order still puts it after 3*: that it is foundational is an argument about
-   architecture, not about sequence.
-4b. Performance tier — budget + attribution mode, directly on top of the stage list.
-   Informational until a baseline is replicated on a second machine.
-5. Config neutrality tier over the flags in `ViewerUtils`. Settle open question 1 first.
-6. Automatic stage bisect on failure — invariant-based, not pixel-based.
-7. Smoke tier + release-checklist entry naming the platforms to cover.
-8. *(when GPU runners exist)* Drop `--skip-render` from `runTests` and add the matrix.
-   Nothing else should need to change; if it does, the CI-readiness rules were violated.
+4. Config neutrality tier over the flags in `ViewerUtils`. Settle open question 1 first.
+5. Config efficacy tier — cross sections and secondary textures driven with real data.
+6. Smoke tier + release-checklist entry naming the platforms to cover.
 
-Steps 1–3 are still the whole value; 4–7 are leverage. A performance tier is worth less
-than a correctness gate that actually runs, and the argument for promoting step 4 is about
-foundations, not shipping order. If the work stops early it should stop after 3 with
-something real, not halfway through 5.
+### Phase 2 — attribution
+
+Deferred. Phase 1 tells you *that* something broke or slowed; this phase tells you *which
+stage*.
+
+7. `surfaceEffect` as a designed, named, dependency-aware stage list (own PR, own review).
+   **Foundation, not leverage** — two independent consumers (correctness bisect and
+   performance attribution), and the only thing that makes either possible. That it is
+   foundational is an argument about architecture, not about shipping order.
+8. Automatic stage bisect on failure — invariant-based, not pixel-based.
+9. Performance tier — budget + attribution mode on top of the stage list. Informational
+   until a baseline is replicated on a second machine.
+
+### Phase 3 — automation
+
+10. *(when GPU runners exist)* Drop `--skip-render` from `runTests` and add the matrix.
+    Nothing else should need to change; if it does, the CI-readiness rules were violated.
+
+Steps 1–3 are still the whole value. If the work stops early it should stop after 3 with
+something real, not halfway through 4. A performance tier is worth less than a correctness
+gate that actually runs, which is why Phase 2 sits behind a working Phase 1 even though the
+stage list is architecturally the foundation.
