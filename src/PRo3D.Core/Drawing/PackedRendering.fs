@@ -559,6 +559,116 @@ module PackedRendering =
         }
 
 
+    module FillShader =
+
+        open FShade
+
+        type FillVertex =
+            {
+                [<Position>] pos : V4f
+                [<Color>]    c   : V4f
+            }
+
+        /// Plain MV + projection. No geometry shader, so the clip-space W survives into the
+        /// fragment stage untouched and depthOffsetFS can divide by it - unlike the line path,
+        /// which has to restore W explicitly after thickLine.
+        let fillVertex (v : FillVertex) =
+            vertex {
+                let mv : M44f = uniform?MV
+                let vp = mv * v.pos
+                return { v with pos = uniform.ProjTrafo * vp }
+            }
+
+    /// A flat cap needs a far larger bias than a surface-hugging line: it only touches the
+    /// terrain at its rim, and sits above or below it everywhere else.
+    let private fillDepthOffsetFactor = 5.0
+
+    // Aardvark.Rendering exports a Geometry type of its own, and it is opened after
+    // PRo3D.Base.Annotation - so the annotation one needs saying explicitly
+    type private AnnoGeometry = PRo3D.Base.Annotation.Geometry
+
+    let private isFillable (g : AnnoGeometry) =
+        match g with
+        | AnnoGeometry.Polygon
+        | AnnoGeometry.Ellipse
+        | AnnoGeometry.AxisEllipse
+        | AnnoGeometry.Axis4PEllipse -> true
+        // DnS already visualises its plane through showDns; open geometries have no interior
+        | _ -> false
+
+    /// Packs the filled interiors of every annotation with showFill into one triangle draw.
+    let fills (depthOffset : aval<float>) (annoSet : aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
+        let data =
+            AVal.custom (fun t ->
+                let annos = annoSet.Content.GetValue(t)
+                let vertices = List<V3f>()
+                let colors = List<C4f>()
+                let mutable pivotTrafo = None
+
+                for (_, anno) in annos do
+                    let visible  = anno.visible.GetValue(t)
+                    let showFill = anno.showFill.GetValue(t)
+                    let geometry = anno.geometry.GetValue(t)
+
+                    if visible && showFill && isFillable geometry then
+                        // world-space points shifted by a common pivot purely to keep the float32
+                        // vertex buffer precise at planetary magnitudes; any shared trafo works
+                        let pivot =
+                            match pivotTrafo with
+                            | None ->
+                                let mt = anno.modelTrafo.GetValue(t)
+                                pivotTrafo <- Some mt
+                                mt
+                            | Some mt -> mt
+
+                        let points = anno.points.Content.GetValue(t) |> IndexList.toArray
+
+                        let chart =
+                            // the dip-and-strike plane is what the ellipse ring was built on, so
+                            // reusing it makes fill and outline coincide exactly
+                            let fromDns =
+                                match anno.dnsResults.GetValue(t) with
+                                | AdaptiveSome dns -> SurfaceChart.tryOfPlane (dns.plane.GetValue(t))
+                                | _ -> None
+                            // otherwise fit, using the same plane calculatePolygonArea reports on
+                            fromDns
+                            |> Option.orElseWith (fun () ->
+                                SurfaceChart.tryOfPlane (Calculations.calculateVertexPlane points))
+
+                        match chart |> Option.bind (fun c -> PolygonFill.tryComputeFill c points) with
+                        | None -> ()
+                        | Some mesh ->
+                            let rgb = anno.fillColor.c.GetValue(t).ToC4f()
+                            let alpha = anno.fillAlpha.value.GetValue(t)
+                            let color = C4f(rgb.R, rgb.G, rgb.B, float32 alpha)
+
+                            for p in mesh.positions do
+                                vertices.Add(pivot.Backward.TransformPos p |> V3f)
+                                colors.Add color
+
+                {| points     = vertices.ToArray()
+                   colors     = colors.ToArray()
+                   modelTrafo = Option.defaultValue Trafo3d.Identity pivotTrafo |})
+
+        let mv = (data, view) ||> AVal.map2 (fun d v -> v * d.modelTrafo.Forward)
+
+        Sg.draw IndexedGeometryMode.TriangleList
+        |> Sg.vertexAttribute DefaultSemantic.Positions (data |> AVal.map (fun d -> d.points))
+        |> Sg.vertexAttribute DefaultSemantic.Colors    (data |> AVal.map (fun d -> d.colors))
+        |> Sg.uniform "MV" mv
+        |> Sg.uniform "DepthOffset"
+            (depthOffset |> AVal.map (fun d -> (d * fillDepthOffsetFactor) / (100.0 - 0.1)))
+        |> Sg.shader {
+            do! FillShader.fillVertex
+            do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS
+        }
+        |> Sg.blendMode (AVal.constant BlendMode.Blend)
+        // occluded rather than overlay: a ridge in front hides the fill, so it reads as lying on
+        // the surface instead of floating over the scene
+        |> Sg.depthTest (AVal.constant DepthTest.LessOrEqual)
+        // no depth write, so the outline and other fills are not occluded by the cap
+        |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
+
     let points (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
         let instanceAttribs = 
             AVal.custom (fun t -> 

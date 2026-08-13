@@ -927,15 +927,25 @@ module DrawingApp =
                                 DrawingAction.Nop
                        )
                 ]
-            let packedPoints = 
+            let packedPoints =
                 PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
                 |> Sg.noEvents
 
-            let overlay = 
+            // listed before the lines so outlines draw on top of their own fill. The fill writes
+            // no depth, so this ordering is all that separates them.
+            //
+            // NOTE: the spice trafo (t) is dropped here exactly as linesNoIndirect drops it, so
+            // fill and outline stay aligned. The legacy branch below applies it to both for the
+            // same reason. See pro3d-space/PRo3D#672.
+            let packedFills =
+                PackedRendering.fills config.offset (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
+                |> Sg.noEvents
+
+            let overlay =
                 Sg.ofList [
-                    // brush model.hoverPosition; 
+                    // brush model.hoverPosition;
                     annotations
-                    Sg.ofSeq [packedLines; packedPoints]
+                    Sg.ofSeq [packedFills; packedLines; packedPoints]
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
                 ]
 
@@ -949,24 +959,33 @@ module DrawingApp =
 
             (overlay, depthTest)
 
-        else 
+        else
             Log.startTimed "[Drawing] creating finished annotation geometry"
-            let annotations =              
-                annoSet 
-                |> ASet.map(fun (_,(a,t)) -> 
+            let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+            let annotations =
+                annoSet
+                |> ASet.map(fun (g,(a,t)) ->
                     let c = UI.mkColor model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
-                    let showPoints = 
-                        a.geometry 
+                    let showPoints =
+                        a.geometry
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
 
-                    let sg = 
-                        Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
+                    // This branch applies the spice trafo per annotation, unlike the packed one
+                    // above which drops it - so the fill has to be built here, under the same
+                    // trafo as its outline, or the two separate. See pro3d-space/PRo3D#672.
+                    // Used by PRo3D.Snapshots, which turns packed rendering off.
+                    let sg =
+                        Sg.ofList [
+                            // fill first, so the outline draws over it
+                            PackedRendering.fills config.offset (ASet.single (g, a)) viewMatrix |> Sg.noEvents
+                            Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
+                        ]
                         |> Sg.trafo t
 
-                    sg 
+                    sg
                  )
-                |> Sg.set               
+                |> Sg.set
             Log.stop()
                                   
             let overlay = 
