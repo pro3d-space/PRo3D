@@ -491,6 +491,15 @@ module Sg =
                                     //Log.stop()
                                     AVal.constant (ArrayBuffer(arr) :> IBuffer)
                                 | None ->
+                                    // NOTE: on Apple Silicon this constant attribute does not
+                                    // arrive as the zero it binds -- whole patches read back
+                                    // garbage. Verified by swapping in a real zero-filled
+                                    // ArrayBuffer, which reads back as exact zero on the same
+                                    // machine. It is kept because a real buffer would cost an
+                                    // extra Patch.load per patch on the no-cross-section path
+                                    // (i.e. almost always); crossSectionClip instead guards on
+                                    // CrossSectionDefined so it never reads this. Do not read
+                                    // InsideOutsideV4 without that guard. See docs/CrossSections.md.
                                     SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
                             )
 

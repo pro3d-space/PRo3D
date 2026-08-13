@@ -67,6 +67,55 @@ Next choose curtain settings and set up the curtain:
 
 ![alt text](images/crossSectionAndCurtain.png)
 
+## How clipping is implemented
+
+`Surface.Sg` writes a **signed distance to the cross-section polygon** into a per-vertex
+`InsideOutsideV4` attribute (negative inside), interpolated across triangles so the clip
+edge is smooth rather than snapping to mesh-edge midpoints. The `crossSectionClip`
+fragment stage in `ViewerUtils.surfaceEffect` discards fragments whose interpolated
+distance is negative.
+
+Two flags gate it, and they are not redundant:
+
+- **`CrossSectionClippingEnabled`** — the user's Clipping checkbox. Defaults to **true**
+  (`CrossSection-Model.fs`), so it only means "clip if there is something to clip against".
+- **`CrossSectionDefined`** — whether a cross-section actually exists.
+
+### Why `CrossSectionDefined` exists
+
+Without it, the clip shader ran on every scene from the first frame, before any
+cross-section was defined. In that state `Surface.Sg` binds `InsideOutsideV4` as a
+*constant* vertex attribute (`SingleValueBuffer`) — and **on Apple Silicon that value does
+not arrive**. Whole patches read back garbage instead of the bound zero; roughly half of
+it is negative, so the shader discarded a mesh-grid lattice of fragments across the
+terrain.
+
+Substituting a real zero-filled `ArrayBuffer` makes the same machine read exact zeros,
+which pins the fault to the constant-attribute path specifically rather than to this
+attribute or shader. **What is wrong with that path has not been established.** Two
+candidates, neither verified: Apple's GL driver, or how Aardvark's GL backend drives it
+(`glVertexAttrib*f` sets *context* state rather than VAO state, and only takes effect
+while the attribute array is disabled — either could leave a per-draw value stale or let
+another buffer be read instead). Do not repeat either as fact without testing it; if it
+turns out to be the backend, it belongs upstream in Aardvark.Rendering.
+
+The real buffer is not used as the fix because it would cost an extra `Patch.load` per
+patch on the no-cross-section path, which is almost always. Guarding the shader costs
+nothing.
+
+That was the Apple-Silicon-only "regular dark quads" artefact. It never reproduced on
+Windows or Linux, and never in the headless harness, which does not bind the attribute at
+all. It was found by bisecting `surfaceEffect` one stage at a time — see
+[OpcViewer-Screenshot-Harness.md](OpcViewer-Screenshot-Harness.md#bisecting-the-viewers-surface-effect).
+
+**If you touch this path:** do not make the shader read `InsideOutsideV4` when no
+cross-section is defined. `PRO3D_SURFACE_EFFECT_ADD=crossSectionDebug` paints the
+attribute instead of discarding on it (green = 0, red = negative, blue = positive); with
+no cross-section it must be uniformly green.
+
+`SingleValueBuffer` is used in exactly one place in the repo (this attribute). Treat any
+new use as suspect on Apple Silicon.
+
 ## Future work
 
 This might be interesting: https://www.youtube.com/watch?v=RKH1gKXCD6A

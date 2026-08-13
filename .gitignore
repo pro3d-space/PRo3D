@@ -88,3 +88,7 @@ testbed-output/
 !**/.yarn/sdks
 !**/.yarn/versions
 src/Tests/logs/
+
+# harness / bisect screenshot output
+capture-output/
+opcviewer-output/
