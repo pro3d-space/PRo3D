@@ -30,6 +30,15 @@ UI, the serialization and the packed draw call. Options A and C are drop-in repl
 
 ## Known limitations
 
+> **Accepted, not a bug: large polygons on rugged terrain.** The cap is flat within each
+> triangle, so across a large or rough polygon its middle sits above or below the surface while
+> only the rim is anchored. No depth offset fixes this - it is inherent to Option B. Verified in
+> the viewer and accepted as the shipped behaviour.
+>
+> The fix, if it ever becomes worth it, is Option A: subdivide in chart space and raycast every
+> interior vertex onto the surface. That replaces the geometry step in section 5 and reuses the
+> model, UI, serialization, renderer and picking unchanged.
+
 - **The cap is flat within each triangle.** With a plane chart the whole cap is planar; with a
   geographic chart the vertices sit on the datum but triangle interiors still chord across it.
   Full surface conformance needs subdivision (Option A).
