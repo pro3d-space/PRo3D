@@ -295,6 +295,10 @@ closed polygon per piece and pushes one `SnapshotDelta`. Raycast enrichment shar
 viewer branch. Section 20 covers: cut with areas summing and closed piece rings, one-step undo,
 dry-run colours, refusal keeping the stroke, and no-selection refusal (316 tests green).
 
+### Checkpoint 5 — passed 2026-08-14
+
+Cut verified hands-on in the viewer on the Jezero scene: select, stroke, apply, undo — working.
+
 ### Checkpoints 4 + 5
 
 Mirror checkpoints 2 + 3: `Section20` grows message tests (draw polygon → select → cut-mode
