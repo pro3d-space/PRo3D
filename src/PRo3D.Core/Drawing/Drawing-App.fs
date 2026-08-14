@@ -196,7 +196,11 @@ module DrawingApp =
                     //(Annotation.make model.projection model.geometry model.semantic surfaceName)
                     //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
                     (Annotation.make model.projection None model.geometry referenceSystem groupColor model.thickness surfaceName)
-                        with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
+                        with points = IndexList.ofList [p]
+                             modelTrafo = Trafo3d.Translation p
+                             // fillColor is left as make set it: the active group's default colour
+                             showFill = model.fillNewAnnotations
+                             fillAlpha = model.defaultFillAlpha
                 }, None
       
         //let text = 
@@ -535,6 +539,10 @@ module DrawingApp =
                 { model with projection = mode }                  
             | ChangeThickness th, _, _ ->
                 { model with thickness = Numeric.update model.thickness th }
+            | SetFillNewAnnotations b, _, _ ->
+                { model with fillNewAnnotations = b }
+            | ChangeDefaultFillAlpha a, _, _ ->
+                { model with defaultFillAlpha = Numeric.update model.defaultFillAlpha a }
             | ChangeSamplingAmount k, _, _ ->
                 let samplingAmount = Numeric.update model.samplingAmount k
                 { model with samplingAmount = samplingAmount ; samplingDistance = DrawingModel.calculateSamplingDistance samplingAmount model.samplingUnit }
@@ -887,8 +895,11 @@ module DrawingApp =
 
             let hoveredAnnotation = cval -1
             let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
-            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
-            let fillGeometry = PackedRendering.fills config.offset (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
+            // one cached ordering shared by every packed draw that writes an object id, so the
+            // ids the pick target reads back agree across lines and fills by construction
+            let ordered = PackedRendering.orderedAnnotations (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s)))
+            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) ordered viewMatrix
+            let fillGeometry = PackedRendering.fills config.offset ordered viewMatrix
             let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines fillGeometry view frustum viewport
             pickRenderTarget.Acquire()
             let packedLines = 
@@ -979,7 +990,9 @@ module DrawingApp =
                     let sg =
                         Sg.ofList [
                             // fill first, so the outline draws over it
-                            PackedRendering.fills config.offset (ASet.single (g, a)) viewMatrix
+                            // no pick target in this branch, so the ids are unused - but the
+                            // ordering is how fills takes its input
+                            PackedRendering.fills config.offset (PackedRendering.orderedAnnotations (ASet.single (g, a))) viewMatrix
                             |> PackedRendering.packedFillRender
                             |> Sg.noEvents
                             Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed

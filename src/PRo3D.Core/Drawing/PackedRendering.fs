@@ -470,11 +470,20 @@ module PackedRendering =
           sg, (instanceAttribs |> AVal.map (fun i -> i.ids )), boundingBox
 
 
-    let linesNoIndirect (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
-          let data = 
-              AVal.custom (fun t -> 
+    /// The packed object-id space. Object id N means "index N of this array", and the Guid there
+    /// is what a pick reads back.
+    ///
+    /// Every packed draw that writes ObjId must derive its ids from this one cached ordering.
+    /// Two separate enumerations of the same aset are not guaranteed to agree, and a
+    /// disagreement shows up as clicking one annotation and selecting another.
+    let orderedAnnotations (annoSet : aset<Guid * AdaptiveAnnotation>) : aval<(Guid * AdaptiveAnnotation)[]> =
+        AVal.custom (fun t -> annoSet.Content.GetValue(t) |> HashSet.toArray)
+
+    let linesNoIndirect (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
+          let data =
+              AVal.custom (fun t ->
                   Log.startTimed "mk lines"
-                  let annos = annoSet.Content.GetValue(t)
+                  let annos = ordered.GetValue(t)
                   let selected = selected.Content.GetValue(t)
                   let vertices = List<_>()
                   let colors = List<_>()
@@ -640,21 +649,19 @@ module PackedRendering =
     /// Returns raw geometry: the visible pass and the pick pass need different shaders and very
     /// different render state, so neither is baked in here. Same split as linesNoIndirect /
     /// packedRender.
-    let fills (depthOffset : aval<float>) (annoSet : aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
+    let fills (depthOffset : aval<float>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
         let data =
             AVal.custom (fun t ->
-                let annos = annoSet.Content.GetValue(t)
+                // same cached ordering linesNoIndirect indexes, so position i here and object id i
+                // there are the same annotation by construction
+                let annos = ordered.GetValue(t)
                 let vertices = List<V3f>()
                 let colors = List<C4f>()
                 let objIds = List<int>()
                 let mutable pivotTrafo = None
 
-                // object ids must index the same array linesNoIndirect builds, so this counter
-                // advances once per annotation in the same iteration over the same aset content -
-                // filled or not, visible or not - exactly as it does there
-                let mutable oid = 0
-
-                for (_, anno) in annos do
+                for i in 0 .. annos.Length - 1 do
+                    let (_, anno) = annos.[i]
                     let visible  = anno.visible.GetValue(t)
                     let showFill = anno.showFill.GetValue(t)
                     let geometry = anno.geometry.GetValue(t)
@@ -694,9 +701,7 @@ module PackedRendering =
                             for p in mesh.positions do
                                 vertices.Add(pivot.Backward.TransformPos p |> V3f)
                                 colors.Add color
-                                objIds.Add oid
-
-                    oid <- oid + 1
+                                objIds.Add i
 
                 {| points     = vertices.ToArray()
                    colors     = colors.ToArray()
