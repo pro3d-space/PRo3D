@@ -57,11 +57,13 @@ type Model =
 
 type Message =
     | SetTool       of Tool
-    | AddPoint      of V2d
+    /// One mousedown message; update dispatches on the active tool. Two separate messages on the
+    /// same event were silently collapsed to one by the attribute map - only one handler per
+    /// event kind survives on a node.
+    | MouseDown     of V2d
+    | MouseUp       of V2d
     | ClosePolygon
     | MoveCursor    of V2d
-    | StartCut      of V2d
-    | EndCut        of V2d
     | ToggleSelect  of int
     | MergeSelected
     | DeleteSelected

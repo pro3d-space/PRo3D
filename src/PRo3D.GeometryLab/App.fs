@@ -43,7 +43,7 @@ let initial =
         drawing = IndexList.empty
         cursor  = None
         cutFrom = None
-        status  = "draw a polygon: click to add points, double-click or Close to finish"
+        status  = "draw a polygon: click to add points, Close to finish"
         past    = None
         future  = None
     }
@@ -65,10 +65,11 @@ let update (m : Model) (msg : Message) =
     | SetTool t ->
         { m with tool = t; drawing = IndexList.empty; cutFrom = None }
 
-    | AddPoint p ->
+    | MouseDown p ->
         match m.tool with
-        | Draw -> { m with drawing = m.drawing |> IndexList.add p }
-        | _    -> m
+        | Draw   -> { m with drawing = m.drawing |> IndexList.add p }
+        | Cut    -> { m with cutFrom = Some p }
+        | Select -> m
 
     | ClosePolygon ->
         let ring = m.drawing |> IndexList.toArray
@@ -84,10 +85,7 @@ let update (m : Model) (msg : Message) =
     | MoveCursor p ->
         { m with cursor = Some p }
 
-    | StartCut p ->
-        if m.tool = Cut then { m with cutFrom = Some p } else m
-
-    | EndCut p ->
+    | MouseUp p ->
         match m.tool, m.cutFrom with
         | Cut, Some from ->
             let m = remember m
@@ -203,6 +201,14 @@ let view (m : AdaptiveModel) =
         alist {
             let! pts = m.drawing |> AList.toAVal
             let pts = pts |> IndexList.toArray
+            // vertices drawn individually, so the very first click is already visible
+            for p in pts do
+                yield Svg.circle [
+                    attribute "cx" (sprintf "%.2f" p.X)
+                    attribute "cy" (sprintf "%.2f" p.Y)
+                    attribute "r" "3"
+                    attribute "fill" "#ff9800"
+                ]
             if pts.Length > 1 then
                 yield Svg.path [
                     attribute "d" (pathOf pts)
@@ -242,9 +248,8 @@ let view (m : AdaptiveModel) =
                     attribute "width" "1000"
                     attribute "height" "700"
                     style "border:1px solid #cfd8dc; background:#ffffff"
-                    Events.onMouseDownRel (fun p -> AddPoint p)
-                    Events.onMouseDownRel (fun p -> StartCut p)
-                    Events.onMouseUpRel   (fun p -> EndCut p)
+                    Events.onMouseDownRel (fun p -> MouseDown p)
+                    Events.onMouseUpRel   (fun p -> MouseUp p)
                     Events.onMouseMoveRel (fun p -> MoveCursor p)
                  ])
                 (AList.append (shapes |> AList.map (fun s -> s)) inProgress)
