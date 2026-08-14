@@ -32,6 +32,9 @@ The hint line beside the interaction dropdown says which of the two states you a
 - **Ctrl is what separates picking from navigating**, here as everywhere else in PRo3D. Without it
   the mouse drives the camera. If you have the "invert drawing" toggle on, it is the other way
   round.
+- **The 3D cursor is switched on for you** while you are in this mode, whatever the scene's
+  "preview intersection" setting says — the drop needs a live surface hit. Your setting is read,
+  never overwritten, and applies again as soon as you leave the mode.
 - **Clicking an annotation's body selects it** instead of grabbing anything, so you can move from
   one annotation to the next without leaving the mode.
 - **You have to move the cursor between picking a point up and putting it down.** A pick-up
@@ -73,6 +76,32 @@ While a point is in hand nothing is written to the annotation at all, which is w
 instant and free.
 
 ## How it works
+
+### Why the handles are drawn the way they are
+
+Each handle is **six vertices expanded on the CPU** — two triangles at the same world position,
+told apart by a corner offset that the vertex shader turns into a screen-space quad. That looks
+roundabout for what is visually a dot, and the alternatives were each tried and rejected:
+
+- **`gl_PointSize` + `gl_PointCoord`** depends on `GL_PROGRAM_POINT_SIZE`, and every point draw in
+  the codebase that actually renders composes `DefaultSurfaces.pointSprite` alongside it.
+- **`DefaultSurfaces.pointSprite`** cannot be used, because it does not carry `ObjId`/`SubId`
+  through — and carrying those is the entire purpose of this draw.
+- **A hand-written point→quad geometry shader** works in principle (`LineShader.thickLine` is one
+  for lines) but adds a stage for no gain once the expansion is this cheap: 14 handles is 84
+  vertices.
+
+Two more constraints worth knowing before editing these shaders:
+
+- The shader bodies are **written out inline** — no `[<ReflectedDefinition>]` helper, no
+  module-level colour constants. FShade has to inline the whole body.
+- The pick pass uses **one** fragment shader (`handlePickFragment`), not `handleFragment` followed
+  by `Picking.pickVertexId`. Chaining two fragment shaders makes FShade carry the whole
+  `HandleVertex` record — including its `[<Position>]` — between them.
+- `uniform.ViewportSize` is **not** the pick target's size. The handles are drawn into two
+  different targets, so the viewport is passed explicitly per pass as `HandleViewport`.
+- `Id` and `SubId` are declared `Flat`: integers cannot be interpolated, and `Picking.SubVertex`
+  already declared them that way.
 
 ### Handles and picking
 
