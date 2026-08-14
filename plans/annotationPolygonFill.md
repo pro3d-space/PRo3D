@@ -568,32 +568,53 @@ the model cannot store them. Three ways out:
 (3) is the honest answer and (1) is the cheap one. Worth deciding before the merge/split PR
 starts, because it determines whether that PR is a week or a day.
 
-### An aardvark.base contribution worth making
+### The upstream gap — fixed, pending release
 
-The attribute channel that makes the fill rim exact (section 5, step 3) **does not survive a
-boolean op**. `PolygonTessellator.Triangulate` and `Combine` both carry a per-vertex `'a`
-through libtess via the `interpolate : float[] -> 'a[] -> 'a` callback
-(`PolyRegion2d.fs:238-284`), but `PolyRegion` itself is `list<Polygon2d>` (`:485`) — plain,
-attribute-free — and its operators (`+`, `-`, `*`, `^^^`) drop any payload.
+The attribute channel that makes the fill rim exact (section 5, step 3) originally **did not
+survive a boolean op**: `PolygonTessellator.Triangulate` and `Combine` carried a per-vertex `'a`
+through libtess, but `PolyRegion` was `list<Polygon2d>` and its operators dropped any payload.
+A merged annotation could not carry its terrain-projected world points through a union, so its
+fill would fall back to `chart.toWorld` and re-flatten the rim onto the datum — exactly the
+artifact section 5 avoids.
 
-So a merged annotation cannot carry its original terrain-projected world points through the
-union, and its fill would fall back to `chart.toWorld` — re-flattening the rim onto the datum,
-exactly the artifact section 5 avoids.
+Filed as [aardvark-platform/aardvark.base#100](https://github.com/aardvark-platform/aardvark.base/issues/100)
+and **implemented upstream** in
+[`0420fd19`](https://github.com/aardvark-platform/aardvark.base/commit/0420fd19bdf3ca27e9bd6c77036afbabf652e50f):
 
-The fix belongs upstream, not in PRo3D: a `PolyRegion<'a>` whose boolean operators thread the
-attribute through, taking the same `interpolate` callback the tessellator already accepts. The
-underlying machinery is already wired — libtess's `CombineCallback` is invoked for precisely
-the vertices a boolean op invents (`:259-260`). It is a matter of threading `'a` through the
-type and its operators.
+```fsharp
+type PolyRegion<'a> =
+    member Triangulate : (float[] -> 'a[] -> 'a) -> …     // TessellationRule.EvenOdd
+    static member Union / Difference / Intersection / Xor // each takes the interpolate callback
+```
 
-Note that an *indexed* variant would not be sufficient: boolean ops create vertices that
-correspond to no input index, so "60% of A + 40% of B" has to be expressible. The attribute +
-`interpolate` design already handles that; indices cannot.
+It carries point-aligned attributes through construction, all four boolean operations, contour
+closure, orientation and redundant-vertex cleanup. Legacy `PolyRegion` is untouched.
+`AttributedPolyRegion.removeRedundant` drops attributes alongside the collinear vertices it
+culls — the alignment hazard this plan flagged. Covered by `AttributedPolyRegionTests.fs`.
 
-Filed upstream as [aardvark-platform/aardvark.base#100](https://github.com/aardvark-platform/aardvark.base/issues/100).
-Source is checked out at `C:\Users\haral\Desktop\aardvark\aardvark.base`.
+**Assessment: it fits.** `Triangulate` uses `TessellationRule.EvenOdd`, the same rule the fill
+already uses via `PolygonTessellator.Triangulate`, so moving the fill onto `PolyRegion<'a>` when
+merge/split arrives is semantically continuous. The required `interpolate` callback is the
+weighted blend `PolygonFill.interpolateWorld` already implements. Forcing it explicitly per
+operation is the right call — there is no sensible default for blending an invented vertex.
 
-### Vendoring — the answer for *this* feature, and it does not block on upstream
+**The one gap is availability.** `0420fd19` is on master and in no tag (latest is 5.3.27);
+PRo3D resolves Aardvark.Geometry 5.3.26. So merge/split still cannot consume it from a package.
+
+Two things to confirm when adopting, both cheap:
+- our rings reach `Union` consistently oriented — it is positive-winding, and `ensureCcw` exists
+  upstream, but our input comes from arbitrary user drawing order
+- the self-intersecting bowtie still resolves as section 9 pins it; region construction plus
+  orientation normalisation is a different path from direct EvenOdd tessellation
+
+### Vendoring — now only a bridge until the release lands
+
+Since #100 is implemented, vendoring no longer means writing our own attributed boolean ops. If
+merge/split starts before a release carrying `0420fd19`, copy that file verbatim as a bridge and
+delete it when the package catches up — the steps below still apply, but the diff is upstream's
+own code rather than ours, so there is nothing to contribute back.
+
+
 
 **Nothing needs vendoring for the fill.** `Aardvark.Geometry.PolygonTessellator.Triangulate`
 with its `'a` attribute channel ships in the 5.3.26 package PRo3D already resolves (verified by
