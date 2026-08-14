@@ -219,11 +219,12 @@ both now fixed and regression-tested with the scene's exact rings:
    same folds (< smallest operand × 1e-3), keeping the area error orders below the invariant
    tolerances. Substantial holes still refuse.
 
-### Checkpoint 3 (manual, viewer)
+### Checkpoint 3 (manual, viewer) — passed 2026-08-14
 
-Union two overlapping polygons on a real OPC scene: outline coincides with the originals where
-untouched; fill (if on) renders the new ring; save → reload survives; sequenced bookmark from
-before the union still restores its own state.
+Union of two overlapping polygons on the Jezero scene (`unionFail.pro3d`), after the two fixes
+above: one closed outline replacing both originals, confirmed working by the user. Still worth a
+look when convenient: fill rendering on a union result, save → reload round-trip, and a
+sequenced bookmark from before a union restoring its own state.
 
 ## 3. Stage 2: cut
 
