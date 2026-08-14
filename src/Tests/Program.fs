@@ -39,6 +39,7 @@ let allTests () : Test =
         PolygonFillTests.tests()
         RegionOpsTests.tests()
         RegionFixtureTests.tests()
+        AnnotationRegionOpsTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()

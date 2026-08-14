@@ -32,8 +32,8 @@ two messages, and (for cut only) one interaction mode.
 
 ## 1. The pure core: `AnnotationRegionOps` — build and test this first
 
-New file in `PRo3D.Core` (it needs `Annotation` *and* `GroupsModel` context stays out — take
-and return plain values):
+New file `src/PRo3D.Base/Geometry/AnnotationRegionOps.fs`, compiled after `Annotation-Model.fs`
+(it needs `Annotation`; `GroupsModel` context stays out — take and return plain values):
 
 ```fsharp
 module AnnotationRegionOps =
@@ -45,13 +45,11 @@ module AnnotationRegionOps =
         | DegenerateInput of reason : string
         | StrokeDoesNotCut
 
-    /// The first-selected annotation's chart wins (decided): its own construction plane where
-    /// it has one, else its fitted plane - the same selection rule the fill uses. Operands that
-    /// do not project cleanly through it surface as ChartProjectionFailed; no separate
-    /// diverging-planes warning machinery. The all-NaN dnsResults sentinel
-    /// (Annotation-Model.fs:237-242) must fall through to the fit, exactly as PolygonFill
-    /// already handles it.
-    val chartOf : Annotation -> Option<SurfaceChart>
+    /// One chart every operand projects through (decided): a plane fitted over the
+    /// concatenated points of all operands. No diverging-planes warning machinery - an operand
+    /// the chart cannot cover surfaces as ChartProjectionFailed and the operation is refused
+    /// with that message. SurfaceChart.tryOfPlane already rejects degenerate fits.
+    val commonChart : seq<Annotation> -> Option<SurfaceChart>
 
     /// Chart-project a ring, keeping each vertex's world position as the region attribute.
     /// Any point the chart cannot project => None (the chart does not cover the annotation).
@@ -85,10 +83,10 @@ Decisions folded in:
   parameter — tests stub it with identity or an analytic surface. Only vertices that do not
   match an input attribute are projected (survivors are already terrain points); a failed
   projection falls back to the blend for that vertex alone.
-- **Chart choice: the first-selected annotation's chart wins (decided).** Its own construction
-  plane where it has one, else its fitted plane. No diverging-planes warning machinery: an
-  operand the chart cannot cover fails with `ChartProjectionFailed` and the union is refused
-  with that message. Geographic chart stays opt-in and out of stage 1.
+- **Chart choice: one plane fitted over all operands' points (decided).** "First wins" applies
+  to metadata only, not the chart. No diverging-planes warning machinery: an operand the chart
+  cannot cover fails with `ChartProjectionFailed` and the operation is refused with that
+  message. Geographic chart stays opt-in and out of stage 1.
 - **Holes refused, components exploded** — as decided in `booleanOperations.md`. The lab
   measures how often refusal actually bites; if it turns out common, the escape hatch is the
   model extension (rings list), a scene-version bump deliberately not taken now.
@@ -104,6 +102,19 @@ Decisions folded in:
   areas sum, containment, re-cut no-op. No new invariant definitions; one source of truth.
 - FsCheck: random simple rings on a plane chart (generators already exist in
   `RegionOpsTests.fs`), lifted to annotations; union/cut invariants over 100 cases.
+
+### Checkpoint 1 result — done, and it caught a real defect
+
+`AnnotationRegionOps` + `AnnotationRegionOpsTests` are implemented and green (306 tests).
+The tilted-chart tests immediately caught something the lab could never see, because its chart
+is the identity: **after a cut, the attribute channel is contaminated.** Vertices on the stroke
+blend the region's world points with the synthetic side polygon, whose "world" attributes are
+chart coordinates — and such a garbage blend can even land within tolerance of a *real* input
+point by accident, so attributes cannot even identify surviving vertices. `cut` therefore
+matches survivors by their (exact) chart position and lifts every other vertex through
+`chart.toWorld` + `projectToSurface`; `RegionOps.outerContours` exposes contours with chart
+positions alongside attributes for exactly this. Union is unaffected — both operands carry
+real world attributes, so its blends are legitimate chords.
 
 ## 2. Stage 1: union
 
@@ -261,7 +272,8 @@ so this follows the feature rather than chording it.
   appearance (`color`, `thickness`, fill fields, `textSize`), classification (`semantic`,
   `text`, `projection`), and group placement. The result copies all of them from the
   first-selected operand; `key` is always new, `dnsResults`/measurements always recomputed.
-- (ii) **chart: the first-selected annotation's chart wins** — no warn/refuse threshold; an
-  operand the chart cannot cover is a `ChartProjectionFailed` refusal (§1).
+- (ii) **chart: one plane fitted over all operands' points** — "first wins" was metadata only.
+  No warn/refuse threshold; an operand the chart cannot cover is a `ChartProjectionFailed`
+  refusal (§1).
 - (iii) **invented vertices are terrain-projected in v1** via the existing `projectToSurface`
   raycast (§1); a failed projection falls back to the chord blend per vertex.

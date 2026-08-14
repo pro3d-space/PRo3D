@@ -43,6 +43,7 @@
     <Compile Include="PolygonFillTests.fs" />
     <Compile Include="RegionOpsTests.fs" />
     <Compile Include="RegionFixtureTests.fs" />
+    <Compile Include="AnnotationRegionOpsTests.fs" />
     <None Include="data\regions\seed-basic.region" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
     <Compile Include="BaseTests.fs" />

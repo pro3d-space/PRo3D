@@ -52,6 +52,16 @@ module RegionOps =
     let outerRings (r : Region) =
         r.Polygons |> List.filter (fun p -> signedArea p.Points > 0.0) |> List.map (fun p -> p.Attributes)
 
+    /// Outer contours with the chart position alongside each attribute. For callers that must
+    /// reconstruct positions of invented vertices: after a cut, attributes of vertices on the
+    /// stroke are blends involving the synthetic side polygon (whose "world" attributes are
+    /// chart coordinates), so only the 2D position is trustworthy there - see
+    /// AnnotationRegionOps.cut.
+    let outerContours (r : Region) : list<(V2d * V3d)[]> =
+        r.Polygons
+        |> List.filter (fun p -> signedArea p.Points > 0.0)
+        |> List.map (fun p -> Array.zip p.Points p.Attributes)
+
     /// Hole contours, clockwise. Non-empty means the region cannot be stored as a single-ring
     /// annotation - see the viewer-integration note in the plan.
     let holes (r : Region) =
