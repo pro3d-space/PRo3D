@@ -45,11 +45,13 @@ module AnnotationRegionOps =
         | DegenerateInput of reason : string
         | StrokeDoesNotCut
 
-    /// One chart both operands project through. Fitted plane over the *union* of all points;
-    /// an annotation's own dnsResults plane only when there is a single operand (cut). The
-    /// all-NaN dnsResults sentinel (Annotation-Model.fs:237-242) must fall through to the fit,
-    /// exactly as PolygonFill already handles it.
-    val commonChart : seq<Annotation> -> Option<SurfaceChart>
+    /// The first-selected annotation's chart wins (decided): its own construction plane where
+    /// it has one, else its fitted plane - the same selection rule the fill uses. Operands that
+    /// do not project cleanly through it surface as ChartProjectionFailed; no separate
+    /// diverging-planes warning machinery. The all-NaN dnsResults sentinel
+    /// (Annotation-Model.fs:237-242) must fall through to the fit, exactly as PolygonFill
+    /// already handles it.
+    val chartOf : Annotation -> Option<SurfaceChart>
 
     /// Chart-project a ring, keeping each vertex's world position as the region attribute.
     /// Any point the chart cannot project => None (the chart does not cover the annotation).
@@ -58,13 +60,15 @@ module AnnotationRegionOps =
     /// World-space rings of the result, one per output annotation. Union explodes into one
     /// ring per component; holes are refused (the decided policy). Vertices that survive from
     /// the inputs are *exactly* the input world points (the attribute channel); invented
-    /// vertices (edge crossings) are blends of their edge endpoints.
-    val union : list<Annotation> -> Result<list<V3d[]>, Refusal>
+    /// vertices (edge crossings) are re-projected onto the terrain through projectToSurface -
+    /// the same raycast infrastructure ellipse construction uses. A vertex whose projection
+    /// fails falls back to its chord blend rather than failing the operation.
+    val union : projectToSurface : (V3d -> Option<V3d>) -> list<Annotation> -> Result<list<V3d[]>, Refusal>
 
     /// Stroke points are world positions picked on the terrain, projected through the same
     /// chart as the annotation. A stroke that does not cut is a Refusal, not a silent no-op,
     /// so the UI can say why nothing happened.
-    val cut : Annotation -> stroke : V3d[] -> Result<list<V3d[]>, Refusal>
+    val cut : projectToSurface : (V3d -> Option<V3d>) -> Annotation -> stroke : V3d[] -> Result<list<V3d[]>, Refusal>
 ```
 
 Decisions folded in:
@@ -74,15 +78,17 @@ Decisions folded in:
   come back as world points through the attribute channel, so a merged outline coincides with
   the drawn outlines wherever they survive. This is the reason the attributed `PolyRegion` was
   vendored — the union is where it pays off.
-- **Invented vertices are chord blends, v1.** Where two rings cross, the new vertex is a blend
-  of the edge endpoints — it lies on the chord, not on the terrain. Accepted for v1 (same
-  limitation class as the fill's flat triangles). The upgrade path is re-projecting just those
-  vertices through the existing `samplePoint` raycast at apply time; the pure API stays
-  unchanged, so defer until it is visibly wrong.
-- **Chart choice**: fitted plane over all operands' points. Two annotations on wildly different
-  terrain orientations produce a bad shared plane — detect via the fit residual or the angle
-  between per-annotation fitted planes and *warn* in the status message rather than refuse
-  (open decision (ii)). Geographic chart stays opt-in and out of stage 1.
+- **Invented vertices are re-projected onto the terrain (decided).** Where two rings cross, the
+  blended vertex lies on a chord; the raycast infrastructure to fix that exists
+  (`projectToSurface` as used by `constructAndSampleFromPlane`, `EllipseAnnotation.fs:62`), so
+  v1 uses it rather than dodging it. The pure module takes the projection function as a
+  parameter — tests stub it with identity or an analytic surface. Only vertices that do not
+  match an input attribute are projected (survivors are already terrain points); a failed
+  projection falls back to the blend for that vertex alone.
+- **Chart choice: the first-selected annotation's chart wins (decided).** Its own construction
+  plane where it has one, else its fitted plane. No diverging-planes warning machinery: an
+  operand the chart cannot cover fails with `ChartProjectionFailed` and the union is refused
+  with that message. Geographic chart stays opt-in and out of stage 1.
 - **Holes refused, components exploded** — as decided in `booleanOperations.md`. The lab
   measures how often refusal actually bites; if it turns out common, the escape hatch is the
   model extension (rings list), a scene-version bump deliberately not taken now.
@@ -249,11 +255,13 @@ so this follows the feature rather than chording it.
 5. `CutAnnotation` mode + `cutStroke` + dry-run feedback + checkpoint 4 tests
 6. manual checkpoint 5; `docs/AnnotationBooleanOps.md` for both stages
 
-## 5. Open decisions
+## 5. Decisions — all three closed (2026-08-14)
 
-- (i) union metadata: first-selected wins (recommended above) vs. asking — decide at PR review
-  with a concrete scene in front of us.
-- (ii) diverging fitted planes between operands: warn (recommended) vs. refuse above an angle
-  threshold.
-- (iii) whether invented vertices ever need terrain re-projection — revisit after checkpoint 3
-  with a km-scale merge on real terrain.
+- (i) **union metadata: first-selected wins.** Metadata means everything beside the geometry:
+  appearance (`color`, `thickness`, fill fields, `textSize`), classification (`semantic`,
+  `text`, `projection`), and group placement. The result copies all of them from the
+  first-selected operand; `key` is always new, `dnsResults`/measurements always recomputed.
+- (ii) **chart: the first-selected annotation's chart wins** — no warn/refuse threshold; an
+  operand the chart cannot cover is a `ChartProjectionFailed` refusal (§1).
+- (iii) **invented vertices are terrain-projected in v1** via the existing `projectToSurface`
+  raycast (§1); a failed projection falls back to the chord blend per vertex.
