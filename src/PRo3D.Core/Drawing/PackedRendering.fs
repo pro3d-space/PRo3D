@@ -573,8 +573,7 @@ module PackedRendering =
                   let mutable b = Box3d.Invalid
                   for (id,anno) in annos do   
                       let kind = anno.geometry.GetValue t
-                      let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
-                      let ps = p.GetValue(t)
+                      let ps = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
                       b <- Box3d(b, Box3d(ps))
                       let offset = 0.0
                       let color = if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
@@ -664,8 +663,7 @@ module PackedRendering =
                   let mutable oid = 0
                   for (id,anno) in annos do   
                       let kind = anno.geometry.GetValue t
-                      let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
-                      let ps = p.GetValue(t)
+                      let ps = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
                       b <- Box3d(b, Box3d(ps))
                       let offset = 0.0
                       let color = if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
@@ -1047,21 +1045,16 @@ module PackedRendering =
                         let color = if isSelected then C4b.VRVisGreen else c.GetValue(t)
                         match kind with
                         | Geometry.Point ->
-                            let p    = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
-                            let c    = anno.color.c
-                            let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
-                            let px   = p.GetValue(t)
+                            let px   = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
+                            let size = anno.thickness.value.GetValue(t) + 0.5
 
                             modelPos.Add(px.[0])
                             colors.Add(color)
-                            sizes.Add(float32 <| size.GetValue(t))
+                            sizes.Add(float32 size)
                         | Geometry.DnS -> 
                             if isSelected then
-                                let p    = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
-                                let c    = anno.color.c.GetValue(t)
-                                let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
-                                let size = size.GetValue(t)
-                                let px   = p.GetValue(t)
+                                let px   = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
+                                let size = anno.thickness.value.GetValue(t) + 0.5
 
                                 for p in px do 
                                     modelPos.Add(p)
@@ -1131,11 +1124,10 @@ module PackedRendering =
                 let dnsResults = anno.dnsResults.GetValue(t)
                 match dnsResults with
                 | AdaptiveSome s when visible && showDns -> 
-                    let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                    let ps = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
                     let dipAngle = s.dipAngle.GetValue(t)
                     let _ = fcm.Current.GetValue(t)
                     let r = PRo3D.FalseColorLegendApp.Draw.getColorDnS fcm s.dipAngle
-                    let ps = p.GetValue(t)
                     let color = r.GetValue(t)
 
                     if ps.Length > 0 then
