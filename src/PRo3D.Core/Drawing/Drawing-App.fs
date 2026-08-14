@@ -1093,8 +1093,6 @@ module DrawingApp =
                                 // and whether it was a handle
                                 let sub : int = floor p.R |> int
                                 let ids = pickIds.GetValue()
-                                if vertexEditingAllowed.GetValue() && (id >= 0 || sub >= 0) then
-                                    Log.line "[VertexPick] raw pixel R=%f A=%f -> obj=%d sub=%d" p.R p.A id sub
                                 if id >= 0 && id < ids.Length  && allowed then
                                     //Log.line "hoverhit %A" (id, ids.[id])
                                     transact (fun _ ->
@@ -1128,12 +1126,11 @@ module DrawingApp =
                                     // the annotation you are editing would deselect it and take its
                                     // handles away - which is exactly what a slightly missed handle
                                     // click looks like.
-                                    Log.line "editclick (already selected) %A vertex=%d" ids.[id] vertex
                                     DrawingAction.Nop
                                 else
                                     // a click on the body still re-selects, so you can move
                                     // between annotations without leaving edit mode
-                                    Log.line "clickhit %A editing=%b vertex=%d" (id, ids.[id]) editing vertex
+                                    Log.line "clickhit %A" (id, ids.[id])
                                     DrawingAction.PickDirectly(ids.[id])
                             else
                                 DrawingAction.Nop
@@ -1156,7 +1153,7 @@ module DrawingApp =
             // after the lines, so a handle is never hidden by the outline running through it -
             // matching the pick pass, where handles are drawn last for the same reason
             let packedVertexHandles =
-                PackedRendering.packedVertexHandleRender hoveredVertex grabbedVertex handleGeometry
+                PackedRendering.packedVertexHandleRender hoveredVertex grabbedVertex viewport handleGeometry
                 |> Sg.noEvents
 
             let overlay =

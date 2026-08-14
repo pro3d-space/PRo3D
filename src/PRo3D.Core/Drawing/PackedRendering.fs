@@ -431,10 +431,14 @@ module PackedRendering =
                 // ObjId is the per-vertex attribute; Id is what Picking.pickVertexId reads. Same
                 // in/out pair the line path uses (ThickLineVertex.obId -> id).
                 [<Semantic("ObjId")>] obId : int
-                [<Semantic("Id")>] id : int
 
-                // SubId is both the attribute and the output - it passes straight through.
-                [<Semantic("SubId")>] subId : int
+                // Id and SubId travel to the fragment stage, so they must be flat - integers cannot
+                // be interpolated - and must agree with Picking.SubVertex, which declares them flat.
+                // Without this the pick pass composes two fragment shaders with conflicting
+                // interpolation for the same varying and the draw silently produces nothing, while
+                // the visible pass (which never sees Picking.SubVertex) renders perfectly.
+                [<Semantic("Id"); Interpolation(InterpolationMode.Flat)>] id : int
+                [<Semantic("SubId"); Interpolation(InterpolationMode.Flat)>] subId : int
             }
 
         type UniformScope with
@@ -442,8 +446,13 @@ module PackedRendering =
             member x.HoveredVertex : int = uniform?HoveredVertex
             /// Control point index currently grabbed, or -1.
             member x.GrabbedVertex : int = uniform?GrabbedVertex
-            /// Extra radius, in the same units as Sizes, applied only in the pick pass.
-            member x.HandlePickBonus : float32 = uniform?HandlePickBonus
+
+            /// Size in pixels of the target this pass renders into.
+            ///
+            /// Supplied explicitly rather than read from uniform.ViewportSize, because the handles
+            /// are drawn into two different targets - the render control and the offscreen pick
+            /// buffer - and the quad has to be scaled by the size of whichever one it is in.
+            member x.HandleViewport : V2f = uniform?HandleViewport
 
         // Everything below is written out inline rather than sharing a [<ReflectedDefinition>]
         // helper or module-level colour constants: FShade has to be able to inline the whole body,
@@ -463,8 +472,8 @@ module PackedRendering =
 
                 // a zero viewport would push every corner to infinity and the quad would silently
                 // never rasterize
-                let vpX = max 1.0f (float32 uniform.ViewportSize.X)
-                let vpY = max 1.0f (float32 uniform.ViewportSize.Y)
+                let vpX = max 1.0f uniform.HandleViewport.X
+                let vpY = max 1.0f uniform.HandleViewport.Y
                 // NDC spans 2 units across the viewport, hence the factor of two
                 let dx = v.corner.X * v.size * 2.0f / vpX * clip.W
                 let dy = v.corner.Y * v.size * 2.0f / vpY * clip.W
@@ -484,9 +493,11 @@ module PackedRendering =
                 let mv : M44f = uniform?MV
                 let clip = uniform.ProjTrafo * (mv * v.pos)
 
-                let vpX = max 1.0f (float32 uniform.ViewportSize.X)
-                let vpY = max 1.0f (float32 uniform.ViewportSize.Y)
-                let size = v.size + uniform.HandlePickBonus
+                let vpX = max 1.0f uniform.HandleViewport.X
+                let vpY = max 1.0f uniform.HandleViewport.Y
+                // literal, like the +5.0f noIndirectLineVertexPicking adds to line width: one less
+                // uniform to bind on a pass whose only job is to be hit-tested
+                let size = v.size + 5.0f
                 let dx = v.corner.X * size * 2.0f / vpX * clip.W
                 let dy = v.corner.Y * size * 2.0f / vpY * clip.W
 
@@ -506,6 +517,22 @@ module PackedRendering =
                 if v.corner.Length > 1.0f then
                     discard()
                 return { v with c = v.c }
+            }
+
+        /// The pick pass's fragment stage: the same disc, writing the ids instead of a colour.
+        ///
+        /// One shader rather than handleFragment followed by Picking.pickVertexId. Chaining two
+        /// fragment shaders makes FShade carry HandleVertex's whole record - including its
+        /// [<Position>] - between them, and the draw silently produces nothing.
+        ///
+        /// Channel layout matches Picking.pickId: alpha is the packed object id, red is the
+        /// sub-index within it (here the control point), and pickId writes -1 to red so that
+        /// red >= 0 means "this is a handle".
+        let handlePickFragment (v : HandleVertex) =
+            fragment {
+                if v.corner.Length > 1.0f then
+                    discard()
+                return V4f(float32 v.subId, v.c.Y, v.c.Z, float32 v.id)
             }
 
     module LensShader =
@@ -708,10 +735,6 @@ module PackedRendering =
     /// target rather than a hairline.
     let private handleSizeBonus = 6.0f
 
-    /// Further radius the handle gets in the pick pass only - the same forgiveness
-    /// noIndirectLineVertexPicking gives lines.
-    let private handlePickBonus = 5.0f
-
     let pickRenderTarget (runtime : IRuntime) (pickingTolerance : aval<float>) lines fills handles (view : aval<CameraView>) (frustum : aval<Frustum>) (viewport : aval<V2i>) =
         let pickColors =
             let signature =
@@ -758,11 +781,10 @@ module PackedRendering =
             let pickHandles =
                 handles
                 |> withCamera
-                |> Sg.uniform "HandlePickBonus" (AVal.constant handlePickBonus)
+                |> Sg.uniform "HandleViewport" (viewport |> AVal.map (fun (v : V2i) -> V2d(float v.X, float v.Y)))
                 |> Sg.shader {
                       do! VertexHandleShader.handleVertexPicking
-                      do! VertexHandleShader.handleFragment
-                      do! Picking.pickVertexId
+                      do! VertexHandleShader.handlePickFragment
                 }
                 // No depth test. This pass contains no terrain - only lines, fills and handles -
                 // so depth here only arbitrates between annotation geometry, and a handle must
@@ -971,14 +993,6 @@ module PackedRendering =
                                 colors.Add(C4f(1.0f, 1.0f, 1.0f, 1.0f))
                             i <- i + 1
 
-                // only runs when the selection or the annotation changes, so this is not chatty -
-                // and "no handles appeared" is otherwise very hard to tell from "handles missed"
-                Log.line "[VertexHandles] selected=%A -> %d handle(s), %d vertices" selected (positions.Count / 6) positions.Count
-                if positions.Count > 0 then
-                    let pivot = Option.defaultValue Trafo3d.Identity pivotTrafo
-                    Log.line "[VertexHandles] pivot=%A local[0]=%A world[0]=%A size[0]=%f"
-                        pivot.Forward.C3.XYZ positions.[0] (pivot.Forward.TransformPos (V3d positions.[0])) sizes.[0]
-
                 {| points     = positions.ToArray()
                    corners    = corners.ToArray()
                    subIds     = subIds.ToArray()
@@ -1000,10 +1014,11 @@ module PackedRendering =
 
     /// Visible pass for the vertex handles. `hovered` and `grabbed` are control point indices, or
     /// -1; the shader compares them per vertex the way SelectedId works for lines.
-    let packedVertexHandleRender (hovered : aval<int>) (grabbed : aval<int>) handles =
+    let packedVertexHandleRender (hovered : aval<int>) (grabbed : aval<int>) (viewport : aval<V2i>) handles =
         handles
         |> Sg.uniform "HoveredVertex" hovered
         |> Sg.uniform "GrabbedVertex" grabbed
+        |> Sg.uniform "HandleViewport" (viewport |> AVal.map (fun (v : V2i) -> V2d(float v.X, float v.Y)))
         |> Sg.shader {
             do! VertexHandleShader.handleVertex
             do! VertexHandleShader.handleFragment
