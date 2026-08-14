@@ -210,6 +210,83 @@ let tests () =
             Expect.equal indices.[5] 7 "f"
         }
 
+        test "quad mapping matches the kd-tree triangle order when vertex 0 is valid" {
+            // The kd-tree object set that hit.SetObject.Index refers to is built by
+            // DebugKdTreesX.loadTriangles' = ComputeIndexArray + getTriangleSet. That path
+            // does NOT compact: an invalid quad leaves six zero indices, so it becomes the
+            // degenerate triangle (v0, v0, v0) - which survives the NaN filter whenever v0
+            // itself is valid. So the mapping used to look up per-vertex attributes must
+            // follow that numbering, not a compacted one.
+            //
+            // 4x2 grid, vertex 1 NaN, vertex 0 VALID:
+            //  0--X--2--3        quad(0,0) and quad(1,0) touch the NaN,
+            //  |  |  |  |        quad(2,0) is valid
+            //  4--5--6--7
+            let positions = [|
+                V3f(0.0f, 0.0f, 0.0f); V3f.NaN;                V3f(2.0f, 0.0f, 0.0f); V3f(3.0f, 0.0f, 0.0f)
+                V3f(0.0f, 1.0f, 0.0f); V3f(1.0f, 1.0f, 0.0f); V3f(2.0f, 1.0f, 0.0f); V3f(3.0f, 1.0f, 0.0f)
+            |]
+            let size = V2i(4, 2)
+            let vertices = positions |> Array.map (fun p -> p.ToV3d())
+
+            let invalids = DebugKdTreesX.getInvalidIndices3f positions |> List.toArray
+            let kdTriangles = DebugKdTreesX.getTriangleSet (PRo3DCSharp.ComputeIndexArray(size, invalids)) vertices
+            let kdCount = triangleCount kdTriangles
+            Expect.equal kdCount 6 "the two degenerate quads survive because vertex 0 is valid"
+
+            let mapping : PatchTriangleGrid =
+                { gridSize = size; quadStart = TriangleSet.computeTriangleQuadStarts size positions }
+
+            Expect.equal mapping.TriangleCount kdCount
+                "mapping must cover exactly the triangles the kd-tree holds"
+
+            // every non-degenerate kd-tree triangle must map back to its own three corners
+            let tris = extractTriangles kdTriangles
+            let mutable realTriangles = 0
+            for i in 0 .. kdCount - 1 do
+                let t = tris.[i]
+                let degenerate = t.P0 = t.P1 && t.P1 = t.P2
+                match mapping.TryGetTriangleIndices i, degenerate with
+                | None, true -> ()   // degenerate filler carries no grid position
+                | Some g, false ->
+                    realTriangles <- realTriangles + 1
+                    Expect.equal vertices.[g.[0]] t.P0 $"triangle {i} P0"
+                    Expect.equal vertices.[g.[1]] t.P1 $"triangle {i} P1"
+                    Expect.equal vertices.[g.[2]] t.P2 $"triangle {i} P2"
+                | None, false -> failtest $"no grid indices for real triangle {i}"
+                | Some _, true -> failtest $"degenerate filler triangle {i} was given grid indices"
+            Expect.equal realTriangles 2 "one valid quad = two real triangles"
+        }
+
+        test "quad mapping skips invalid quads when vertex 0 is NaN" {
+            // Mirror case: with vertex 0 NaN the degenerate fillers are NaN too and get
+            // filtered, so the kd-tree holds only the valid quads' triangles.
+            let positions = [|
+                V3f.NaN;               V3f(1.0f, 0.0f, 0.0f); V3f(2.0f, 0.0f, 0.0f); V3f(3.0f, 0.0f, 0.0f)
+                V3f(0.0f, 1.0f, 0.0f); V3f(1.0f, 1.0f, 0.0f); V3f(2.0f, 1.0f, 0.0f); V3f(3.0f, 1.0f, 0.0f)
+            |]
+            let size = V2i(4, 2)
+            let vertices = positions |> Array.map (fun p -> p.ToV3d())
+
+            let invalids = DebugKdTreesX.getInvalidIndices3f positions |> List.toArray
+            let kdTriangles = DebugKdTreesX.getTriangleSet (PRo3DCSharp.ComputeIndexArray(size, invalids)) vertices
+            let kdCount = triangleCount kdTriangles
+            Expect.equal kdCount 4 "quad(0,0) drops; quad(1,0) and quad(2,0) survive"
+
+            let mapping : PatchTriangleGrid =
+                { gridSize = size; quadStart = TriangleSet.computeTriangleQuadStarts size positions }
+            Expect.equal mapping.TriangleCount kdCount "mapping must match the compacted order"
+
+            let tris = extractTriangles kdTriangles
+            for i in 0 .. kdCount - 1 do
+                match mapping.TryGetTriangleIndices i with
+                | None -> failtest $"no grid indices for triangle {i}"
+                | Some g ->
+                    Expect.equal vertices.[g.[0]] tris.[i].P0 $"triangle {i} P0"
+                    Expect.equal vertices.[g.[1]] tris.[i].P1 $"triangle {i} P1"
+                    Expect.equal vertices.[g.[2]] tris.[i].P2 $"triangle {i} P2"
+        }
+
         test "computeGridIndices matches legacy on clean grid" {
             // 3x2 grid, no NaN → 2 quads → 4 triangles
             let positions = [|
