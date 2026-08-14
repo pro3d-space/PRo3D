@@ -333,4 +333,49 @@ let tests () =
                     "an uncovered ring must degrade to no fill, not to garbage"
             }
         ]
+
+        // -----------------------------------------------------------------------------------
+        // The same properties, applied to every shape rather than asserted once each. FsCheck
+        // will feed generated rings to these identical functions - see plans/testingStrategy.md.
+        // -----------------------------------------------------------------------------------
+
+        testList "invariants over a corpus" [
+
+            let corpus =
+                [ "square",         square
+                  "concave L",      concaveL
+                  "ellipse ring",   ellipseRing 7.0 3.0 200
+                  "tilted quad",    [| V3d(0,0,0); V3d(10,0,3); V3d(10,10,-2); V3d(0,10,5) |]
+                  "closed square",  Array.append square [| square.[0] |]
+                  "doubled corners",[| for p in square do yield p; yield p |] ]
+
+            // degenerate inputs: normalize must cope, fills need not exist
+            let degenerate =
+                [ "empty",     [||]
+                  "single",    [| V3d.Zero |]
+                  "two",       [| V3d.Zero; V3d(1,0,0) |]
+                  "collinear", [| V3d(0,0,0); V3d(1,0,0); V3d(2,0,0) |]
+                  "identical", Array.create 5 (V3d(3,3,3)) ]
+
+            for name, ring in corpus @ degenerate do
+                test (sprintf "normalize invariants: %s" name) {
+                    match FillInvariants.normalizeViolations ring with
+                    | [] -> ()
+                    | vs -> failtest (String.concat "; " vs)
+                }
+
+            for name, ring in corpus do
+                test (sprintf "fill invariants: %s" name) {
+                    match PolygonFill.tryComputeFill xyChart ring with
+                    | None -> failtest "corpus shapes must all produce a fill"
+                    | Some mesh ->
+                        let vs =
+                            FillInvariants.fillViolations mesh
+                            @ FillInvariants.planarAreaViolations xyChart ring mesh
+                            @ FillInvariants.verticesAreInputPointsViolations ring mesh
+                        match vs with
+                        | [] -> ()
+                        | vs -> failtest (String.concat "; " vs)
+                }
+        ]
     ]
