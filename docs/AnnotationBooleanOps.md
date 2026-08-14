@@ -1,6 +1,6 @@
 # Boolean operations on annotations
 
-Union (merge) of annotations in the viewer. Cutting is the planned second stage — design in
+Union (merge) and cutting of annotations in the viewer. Design in
 `plans/viewerIntegration.md`; the underlying geometry is documented in
 `plans/booleanOperations.md` and exercised interactively in the [Geometry Lab](GeometryLab.md).
 
@@ -26,6 +26,20 @@ The selected annotations are replaced by their union:
   contains at least one whole operand, so components smaller than the smallest operand — and
   micro-holes from the same folds — are recognised as artifacts and removed rather than turned
   into absurd sliver annotations.
+
+## Cut
+
+Select exactly one closed annotation, switch the interaction mode to **CutAnnotation**, and
+Ctrl+click a polyline stroke on the terrain across the annotation. The stroke colours itself by
+a live dry-run: **green** when it would cut, **red** when it would not (a cutting stroke needs
+both *ends* outside the annotation — interior points may dip inside, so the cut can follow a
+terrain feature instead of a straight chord). Keys, matching annotation drawing:
+
+- **Enter** applies the cut: the annotation is replaced by one polygon per piece, metadata
+  copied to each, measurements recomputed. One undo step restores the original.
+- **Backspace** removes the last stroke point; **Escape** discards the stroke.
+- A refused cut (red stroke applied anyway, or no selection) logs the reason and keeps the
+  stroke so it can be corrected.
 
 ## How the geometry works
 

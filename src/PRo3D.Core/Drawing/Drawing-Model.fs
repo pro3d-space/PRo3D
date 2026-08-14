@@ -70,6 +70,14 @@ type DrawingAction =
 /// invented by the union on the terrain; the UI sends None and the viewer re-dispatches with
 /// the surface raycast - the same enrichment pattern as AddPointAdv's sample function.
 | UnionSelectedAnnotations of Option<V3d -> Option<V3d>>
+/// Append a terrain-picked point to the cut stroke (Interactions.CutAnnotation).
+| AddCutStrokePoint      of V3d
+| RemoveLastCutPoint
+| ClearCutStroke
+/// Cut the selected annotation along the stroke. Raycast enrichment as in
+/// UnionSelectedAnnotations: keyboard/UI send None, the viewer re-dispatches with the surface
+/// raycast. A refused cut keeps the stroke so it can be corrected.
+| ApplyCutStroke         of Option<V3d -> Option<V3d>>
 | DnsColorLegendMessage  of FalseColorLegendApp.Action  
 | ExportAsAnnotations    of string
 | AddAnnotations         of list<string>
@@ -105,6 +113,12 @@ type DrawingModel = {
     hoverPosition : option<Trafo3d>    
 
     working    : Option<Annotation>
+
+    /// Polyline stroke cutting the selected annotation, live while in
+    /// Interactions.CutAnnotation. Carried as an Annotation so the working-annotation rendering
+    /// draws it; its colour flips green/red with the dry-run "would this stroke cut" answer.
+    /// Cleared on apply and escape; never persisted.
+    cutStroke  : Option<Annotation>
 
     //TODO refactor ... put this into separate model type and save it with the scene or in user/app data
     projection : Projection
@@ -174,6 +188,7 @@ module DrawingModel =
         defaultFillAlpha   = Annotation.initialFillAlpha
 
         working     = None
+        cutStroke   = None
         projection  = Projection.Linear
         geometry    = Geometry.Line
         semantic    = Semantic.Horizon3

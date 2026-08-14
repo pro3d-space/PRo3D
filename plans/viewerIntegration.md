@@ -281,6 +281,20 @@ Finish -> AnnotationRegionOps.cut annotation strokeWorldPoints
                       (metadata copied to every piece, per the decided design)
 ```
 
+### Checkpoint 4 result — done
+
+`Interactions.CutAnnotation` (enum case 21) routes viewport picks to `AddCutStrokePoint`;
+Enter/Backspace/Escape reroute per-mode in `getDrawingActionForKey` to
+`ApplyCutStroke`/`RemoveLastCutPoint`/`ClearCutStroke`. The stroke lives in
+`DrawingModel.cutStroke : Option<Annotation>` so `Sg.drawWorkingAnnotation` renders it
+unchanged, and its colour flips green/red with a dry-run `AnnotationRegionOps.cut` after every
+point — the invisible ends-outside precondition made visible. Apply removes the target via the
+new path-independent `GroupsApp.removeLeafById` (viewport picks store the root path in
+`TreeSelection` regardless of the leaf's group, so path-based removal is a trap), adds one
+closed polygon per piece and pushes one `SnapshotDelta`. Raycast enrichment shares the union's
+viewer branch. Section 20 covers: cut with areas summing and closed piece rings, one-step undo,
+dry-run colours, refusal keeping the stroke, and no-selection refusal (316 tests green).
+
 ### Checkpoints 4 + 5
 
 Mirror checkpoints 2 + 3: `Section20` grows message tests (draw polygon → select → cut-mode

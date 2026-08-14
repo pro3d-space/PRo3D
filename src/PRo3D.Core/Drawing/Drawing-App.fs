@@ -616,6 +616,82 @@ module DrawingApp =
                         ) model.annotations.flat
                 
                 { model with annotations = { model.annotations with flat = annotationsFlat }}
+            | AddCutStrokePoint p, _, _ ->
+                match GroupsModel.tryGetSelectedAnnotation model.annotations with
+                | None ->
+                    Log.warn "[Drawing] select the annotation to cut before drawing the stroke"
+                    model
+                | Some target ->
+                    let points =
+                        match model.cutStroke with
+                        | Some s -> s.points |> IndexList.add p
+                        | None   -> IndexList.single p
+                    // dry-run feedback: the ends-outside precondition is invisible on terrain,
+                    // so the stroke itself answers "would this cut" by colour
+                    let wouldCut =
+                        points.Count >= 2 &&
+                        (match PRo3D.Base.Geometry.AnnotationRegionOps.cut (fun _ -> None) target (points |> IndexList.toArray) with
+                         | Result.Ok _ -> true
+                         | Result.Error _ -> false)
+                    let color = if wouldCut then C4b(60uy, 200uy, 90uy) else C4b(230uy, 70uy, 60uy)
+                    let stroke =
+                        { Annotation.make Projection.Linear None Geometry.Line None { c = color } model.thickness "" with
+                            points = points }
+                    { model with cutStroke = Some stroke }
+
+            | RemoveLastCutPoint, _, _ ->
+                match model.cutStroke with
+                | Some s when s.points.Count > 1 ->
+                    { model with cutStroke = Some { s with points = s.points |> IndexList.removeAt (s.points.Count - 1) } }
+                | Some _ -> { model with cutStroke = None }
+                | None -> model
+
+            | ClearCutStroke, _, _ ->
+                { model with cutStroke = None }
+
+            | ApplyCutStroke projectToSurface, _, _ ->
+                match model.cutStroke, GroupsModel.tryGetSelectedAnnotation model.annotations with
+                | Some stroke, Some target when stroke.points.Count >= 2 ->
+                    let projectToSurface = projectToSurface |> Option.defaultValue (fun _ -> None)
+                    match PRo3D.Base.Geometry.AnnotationRegionOps.cut projectToSurface target (stroke.points |> IndexList.toArray) with
+                    | Result.Ok rings ->
+                        let up     = smallConfig.up.Get(bigConfig)
+                        let north  = smallConfig.north.Get(bigConfig)
+                        let planet = smallConfig.planet.Get(bigConfig)
+
+                        let before  = model.annotations
+                        let removed = GroupsApp.removeLeafById target.key model.annotations
+
+                        // metadata copied to every piece (the decided design); rings stored
+                        // closed like drawn polygons, results recomputed
+                        let makePiece (ring : V3d[]) =
+                            let closed =
+                                if ring.Length > 2 then Array.append ring [| ring.[0] |] else ring
+                            let a =
+                                { target with
+                                    key             = Guid.NewGuid()
+                                    geometry        = Geometry.Polygon
+                                    points          = IndexList.ofArray closed
+                                    segments        = IndexList.empty
+                                    dnsResults      = None
+                                    ellipticResults = None }
+                            { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+
+                        let after =
+                            rings
+                            |> List.fold (fun g ring ->
+                                GroupsApp.addLeafToActiveGroup (Leaf.Annotations (makePiece ring)) false g) removed
+
+                        { model with annotations = after; cutStroke = None }
+                        |> pushUndo (SnapshotDelta(before, after))
+                    | Result.Error refusal ->
+                        // the stroke stays on screen so it can be corrected
+                        Log.warn "[Drawing] cut refused: %A" refusal
+                        model
+                | _ ->
+                    Log.warn "[Drawing] cutting needs a selected annotation and a stroke of at least two points"
+                    model
+
             | UnionSelectedAnnotations projectToSurface, _, _ ->
                 let projectToSurface = projectToSurface |> Option.defaultValue (fun _ -> None)
 
@@ -1029,6 +1105,7 @@ module DrawingApp =
                     annotations
                     Sg.ofSeq [packedFills; packedLines; packedPoints]
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+                    Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.cutStroke)
                 ]
 
             //let depthTest = 
@@ -1079,6 +1156,7 @@ module DrawingApp =
                     // brush model.hoverPosition; 
                     annotations
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+                    Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.cutStroke)
                 ]
 
             let depthTest = 
