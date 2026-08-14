@@ -106,8 +106,32 @@ module RegionOps =
         let polygon = Polygon2d<V3d>(pts, pts |> Array.map toV3d)
         PolyRegion<V3d>(polygon, TessellationRule.EvenOdd, interpolate)
 
+    /// A cut line passing *exactly* through region vertices makes LibTess drop tangent slivers,
+    /// losing area from the pieces. Users produce this case routinely - shapes drawn on round
+    /// coordinates put vertices on nice diagonals, and a bounds-centred stroke hits them (found
+    /// by a lab-exported fixture: the 135° stroke through a U-shape's centre grazed three of its
+    /// corners and lost 14% of its area). Nudge the line sideways until it clears every vertex;
+    /// the shift is orders of magnitude below the invariant tolerances, and it keeps re-cutting
+    /// a piece along the same line a no-op (the sliver it leaves is far under the area ratio
+    /// cutsThrough requires).
+    let private clearOfVertices (p0 : V2d) (p1 : V2d) (r : Region) =
+        let d = (p1 - p0).Normalized
+        let n = V2d(-d.Y, d.X)
+        let bb = bounds r
+        let eps = (bb.Size.Length + 1.0) * 1e-9
+        let touches (shift : float) =
+            r.Polygons |> List.exists (fun poly ->
+                poly.Points |> Seq.exists (fun v -> abs (Vec.Dot(v - p0, n) - shift) < eps))
+        let mutable shift = 0.0
+        let mutable step = eps * 4.0
+        while touches shift do
+            shift <- shift + step
+            step <- step * 2.0
+        p0 + n * shift, p1 + n * shift
+
     /// The two sides of the infinite line through p0..p1.
     let private sides (p0 : V2d) (p1 : V2d) (r : Region) =
+        let p0, p1 = clearOfVertices p0 p1 r
         let quad = halfPlaneQuad p0 p1 r
         PolyRegion<V3d>.Intersection(r, quad, interpolate),
         PolyRegion<V3d>.Difference(r, quad, interpolate)

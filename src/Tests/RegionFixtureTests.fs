@@ -41,7 +41,9 @@ let private replay (path : string) =
                         for v in RegionInvariants.mergeViolations a b do
                             yield sprintf "regions %d and %d: %s" i j v
         ]
-    Expect.isEmpty violations (sprintf "%d invariant violation(s)" violations.Length)
+    match violations with
+    | [] -> ()
+    | vs -> failtest (String.concat "\n" vs)
 
 let tests () =
     let files =
