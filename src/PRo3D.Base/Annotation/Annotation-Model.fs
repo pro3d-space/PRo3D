@@ -22,16 +22,30 @@ type Projection =
 | Sky = 2
 | Bookmark = 3
 
-type Geometry = 
-| Point         = 0 
-| Line          = 1 
-| Polyline      = 2 
-| Polygon       = 3 
+type Geometry =
+| Point         = 0
+| Line          = 1
+| Polyline      = 2
+| Polygon       = 3
 | DnS           = 4
 | TT            = 5
 | Ellipse       = 6
 | AxisEllipse   = 7
 | Axis4PEllipse = 8
+
+module Geometry =
+
+    /// Whether an annotation's `points` are still the control points the user clicked, and so can
+    /// be edited one vertex at a time.
+    ///
+    /// The ellipse tools are excluded: once the ellipse is constructed, `getFinishedAnnotation`
+    /// replaces their `points` with the sampled outline, so there are no control points left to
+    /// move. DnS and TT are excluded because their points carry a fitted plane's meaning rather
+    /// than a free polyline's.
+    let isVertexEditable (geometry : Geometry) =
+        match geometry with
+        | Geometry.Point | Geometry.Line | Geometry.Polyline | Geometry.Polygon -> true
+        | _ -> false
 
 type Semantic = 
 | Horizon0 = 0 
