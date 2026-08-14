@@ -16,10 +16,13 @@ Opens an Aardium window served at `http://localhost:4322/`.
 
 ## Tools
 
-- **Draw** — click to add points, **Close** to finish the polygon. A ring that encloses nothing
-  (collinear, fewer than three distinct points) is rejected with a message.
-- **Cut** — drag a stroke across a shape. A stroke cuts when both ends are outside the shape and
-  it leaves area on both sides; every shape it cuts is replaced by its pieces.
+- **Draw** — click to add points, double-click or **Close / Apply cut** to finish the polygon. A
+  ring that encloses nothing (collinear, fewer than three distinct points) is rejected with a
+  message.
+- **Cut** — click points along a polyline stroke, double-click or **Close / Apply cut** to apply.
+  A stroke cuts when both *ends* are outside the shape and it leaves area on both sides —
+  interior stroke points may dip inside, so a cut can follow a feature instead of a chord. Every
+  shape it cuts is replaced by its pieces.
 - **Select** — click shapes to toggle selection; **Merge** unions exactly two selected shapes,
   **Delete** removes the selection.
 - **Undo / Redo** — one step of history per operation.

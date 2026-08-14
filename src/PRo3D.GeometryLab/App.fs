@@ -32,8 +32,8 @@ module Events =
                 | _ -> cb V2d.Zero)
 
     let onMouseDownRel cb = relative "onmousedown" cb
-    let onMouseUpRel   cb = relative "onmouseup" cb
     let onMouseMoveRel cb = relative "onmousemove" cb
+    let onDblClick (msg : 'msg) = onEvent "ondblclick" [] (fun _ -> msg)
 
 let initial =
     {
@@ -42,8 +42,8 @@ let initial =
         tool    = Draw
         drawing = IndexList.empty
         cursor  = None
-        cutFrom = None
-        status  = "draw a polygon: click to add points, Close to finish"
+        cutPath = IndexList.empty
+        status  = "draw a polygon: click to add points, double-click or Close to finish"
         past    = None
         future  = None
     }
@@ -63,54 +63,57 @@ let private addShape (region : Region) (m : Model) =
 let update (m : Model) (msg : Message) =
     match msg with
     | SetTool t ->
-        { m with tool = t; drawing = IndexList.empty; cutFrom = None }
+        { m with tool = t; drawing = IndexList.empty; cutPath = IndexList.empty }
 
     | MouseDown p ->
         match m.tool with
         | Draw   -> { m with drawing = m.drawing |> IndexList.add p }
-        | Cut    -> { m with cutFrom = Some p }
+        | Cut    -> { m with cutPath = m.cutPath |> IndexList.add p }
         | Select -> m
 
-    | ClosePolygon ->
-        let ring = m.drawing |> IndexList.toArray
-        match ofRing2d ring with
-        | None ->
-            { m with drawing = IndexList.empty; status = "that ring encloses nothing" }
-        | Some region ->
-            let m = remember m
-            { addShape region m with
-                drawing = IndexList.empty
-                status  = sprintf "added shape, area %.1f" (area region) }
+    | Finish ->
+        match m.tool with
+        | Draw ->
+            let ring = m.drawing |> IndexList.toArray
+            match ofRing2d ring with
+            | None ->
+                { m with drawing = IndexList.empty; status = "that ring encloses nothing" }
+            | Some region ->
+                let m = remember m
+                { addShape region m with
+                    drawing = IndexList.empty
+                    status  = sprintf "added shape, area %.1f" (area region) }
+        | Cut ->
+            let stroke = m.cutPath |> IndexList.toArray
+            if stroke.Length < 2 then
+                { m with cutPath = IndexList.empty; status = "a cut stroke needs at least two points" }
+            else
+                let m = remember m
+                let mutable cutCount = 0
+                let mutable nextId = m.nextId
+                let rebuilt =
+                    m.shapes
+                    |> IndexList.toList
+                    |> List.collect (fun s ->
+                        match cut stroke s.region with
+                        | [ single ] -> [ { s with region = single } ]     // untouched
+                        | pieces ->
+                            cutCount <- cutCount + 1
+                            pieces |> List.map (fun piece ->
+                                let id = nextId
+                                nextId <- nextId + 1
+                                { id = id; region = piece; selected = false }))
+                { m with
+                    shapes  = IndexList.ofList rebuilt
+                    nextId  = nextId
+                    cutPath = IndexList.empty
+                    status  =
+                        if cutCount = 0 then "the stroke did not cut through anything"
+                        else sprintf "cut %d shape(s)" cutCount }
+        | Select -> m
 
     | MoveCursor p ->
         { m with cursor = Some p }
-
-    | MouseUp p ->
-        match m.tool, m.cutFrom with
-        | Cut, Some from ->
-            let m = remember m
-            let mutable cutCount = 0
-            let mutable nextId = m.nextId
-            let rebuilt =
-                m.shapes
-                |> IndexList.toList
-                |> List.collect (fun s ->
-                    match cut from p s.region with
-                    | [ single ] -> [ { s with region = single } ]     // untouched
-                    | pieces ->
-                        cutCount <- cutCount + 1
-                        pieces |> List.map (fun piece ->
-                            let id = nextId
-                            nextId <- nextId + 1
-                            { id = id; region = piece; selected = false }))
-            { m with
-                shapes  = IndexList.ofList rebuilt
-                nextId  = nextId
-                cutFrom = None
-                status  =
-                    if cutCount = 0 then "the stroke did not cut through anything"
-                    else sprintf "cut %d shape(s)" cutCount }
-        | _ -> m
 
     | ToggleSelect id ->
         { m with
@@ -159,11 +162,12 @@ let update (m : Model) (msg : Message) =
 
 // ---------------------------------------------------------------------------------------------
 
-let private pathOf (pts : V2d[]) =
+let private openPathOf (pts : V2d[]) =
     pts
     |> Array.mapi (fun i p -> sprintf "%s%.2f %.2f" (if i = 0 then "M" else "L") p.X p.Y)
     |> String.concat " "
-    |> fun s -> s + " Z"
+
+let private pathOf (pts : V2d[]) = openPathOf pts + " Z"
 
 let view (m : AdaptiveModel) =
 
@@ -217,16 +221,29 @@ let view (m : AdaptiveModel) =
                     attribute "stroke-width" "1.5"
                 ]
 
-            let! from = m.cutFrom
-            let! cur  = m.cursor
-            match from, cur with
-            | Some a, Some b ->
-                yield Svg.line [
-                    attribute "x1" (sprintf "%.2f" a.X); attribute "y1" (sprintf "%.2f" a.Y)
-                    attribute "x2" (sprintf "%.2f" b.X); attribute "y2" (sprintf "%.2f" b.Y)
-                    attribute "stroke" "#d32f2f"; attribute "stroke-width" "2"
+            let! cutPts = m.cutPath |> AList.toAVal
+            let cutPts = cutPts |> IndexList.toArray
+            let! cur = m.cursor
+            // the committed stroke plus a tail to the cursor, so the next segment is visible
+            let preview =
+                match cur with
+                | Some c when cutPts.Length > 0 -> Array.append cutPts [| c |]
+                | _ -> cutPts
+            for p in cutPts do
+                yield Svg.circle [
+                    attribute "cx" (sprintf "%.2f" p.X)
+                    attribute "cy" (sprintf "%.2f" p.Y)
+                    attribute "r" "3"
+                    attribute "fill" "#d32f2f"
                 ]
-            | _ -> ()
+            if preview.Length > 1 then
+                yield Svg.path [
+                    attribute "d" (openPathOf preview)
+                    attribute "fill" "none"
+                    attribute "stroke" "#d32f2f"
+                    attribute "stroke-width" "2"
+                    attribute "stroke-dasharray" "6 3"
+                ]
         }
 
     require Html.semui (
@@ -235,7 +252,7 @@ let view (m : AdaptiveModel) =
                 toolButton Draw "Draw"
                 toolButton Cut "Cut"
                 toolButton Select "Select"
-                button [ clazz "ui button"; onClick (fun _ -> ClosePolygon) ] [ text "Close" ]
+                button [ clazz "ui button"; onClick (fun _ -> Finish) ] [ text "Close / Apply cut" ]
                 button [ clazz "ui button"; onClick (fun _ -> MergeSelected) ] [ text "Merge" ]
                 button [ clazz "ui button"; onClick (fun _ -> DeleteSelected) ] [ text "Delete" ]
                 button [ clazz "ui button"; onClick (fun _ -> Undo) ] [ text "Undo" ]
@@ -249,8 +266,8 @@ let view (m : AdaptiveModel) =
                     attribute "height" "700"
                     style "border:1px solid #cfd8dc; background:#ffffff"
                     Events.onMouseDownRel (fun p -> MouseDown p)
-                    Events.onMouseUpRel   (fun p -> MouseUp p)
                     Events.onMouseMoveRel (fun p -> MoveCursor p)
+                    Events.onDblClick Finish
                  ])
                 (AList.append (shapes |> AList.map (fun s -> s)) inProgress)
         ]

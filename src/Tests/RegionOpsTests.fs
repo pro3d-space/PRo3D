@@ -1,4 +1,4 @@
-module RegionOpsTests
+﻿module RegionOpsTests
 
 open Expecto
 open FsCheck
@@ -111,40 +111,56 @@ let tests () =
 
             test "a stroke across the square splits it in two" {
                 let p0, p1 = V2d(-5.0, 5.0), V2d(15.0, 5.0)
-                Expect.isTrue (cutsThrough p0 p1 square) "a stroke drawn across must cut"
-                let pieces = cut p0 p1 square
+                Expect.isTrue (cutsThrough [|p0; p1|] square) "a stroke drawn across must cut"
+                let pieces = cut [|p0; p1|] square
                 Expect.equal pieces.Length 2 "two halves"
-                failIfAny (RegionInvariants.cutViolations p0 p1 square)
+                failIfAny (RegionInvariants.cutViolations [|p0; p1|] square)
             }
 
             test "a stroke stopping inside is a no-op" {
                 // starts outside, ends in the middle: it does not cut through
                 let p0, p1 = V2d(-5.0, 5.0), V2d(5.0, 5.0)
-                Expect.isFalse (cutsThrough p0 p1 square) "an unfinished stroke must not cut"
-                Expect.equal (cut p0 p1 square).Length 1 "the region is returned unchanged"
-                failIfAny (RegionInvariants.cutViolations p0 p1 square)
+                Expect.isFalse (cutsThrough [|p0; p1|] square) "an unfinished stroke must not cut"
+                Expect.equal (cut [|p0; p1|] square).Length 1 "the region is returned unchanged"
+                failIfAny (RegionInvariants.cutViolations [|p0; p1|] square)
             }
 
             test "a stroke entirely inside is a no-op" {
                 let p0, p1 = V2d(3.0, 5.0), V2d(7.0, 5.0)
-                Expect.isFalse (cutsThrough p0 p1 square) "both ends inside is not a cut"
+                Expect.isFalse (cutsThrough [|p0; p1|] square) "both ends inside is not a cut"
             }
 
             test "a stroke that misses is a no-op, even when its extension would hit" {
                 // parallel to a cutting stroke, offset well clear of the square
                 let p0, p1 = V2d(-5.0, 50.0), V2d(15.0, 50.0)
-                Expect.isFalse (cutsThrough p0 p1 square) "a stroke that misses must not cut"
-                Expect.equal (cut p0 p1 square).Length 1 "unchanged"
+                Expect.isFalse (cutsThrough [|p0; p1|] square) "a stroke that misses must not cut"
+                Expect.equal (cut [|p0; p1|] square).Length 1 "unchanged"
             }
 
             test "cutting is a no-op on a region the stroke never reaches" {
                 let p0, p1 = V2d(-5.0, 5.0), V2d(15.0, 5.0)
-                Expect.isFalse (cutsThrough p0 p1 far) "the far region is untouched"
+                Expect.isFalse (cutsThrough [|p0; p1|] far) "the far region is untouched"
             }
 
             test "a concave shape cut through the notch obeys the invariants" {
                 let p0, p1 = V2d(-5.0, 1.0), V2d(15.0, 1.0)
-                failIfAny (RegionInvariants.cutViolations p0 p1 lShape)
+                failIfAny (RegionInvariants.cutViolations [|p0; p1|] lShape)
+            }
+
+            test "a V-shaped stroke carves a wedge out of the square" {
+                // both ends below the square, tip dipping inside: only the ends must be outside
+                let stroke = [| V2d(2.0, -5.0); V2d(5.0, 5.0); V2d(8.0, -5.0) |]
+                Expect.isTrue (cutsThrough stroke square) "a V dipping in must cut"
+                let pieces = cut stroke square
+                Expect.isTrue (pieces.Length >= 2) "wedge and remainder"
+                failIfAny (RegionInvariants.cutViolations stroke square)
+            }
+
+            test "a zigzag stroke across the square obeys the invariants and round-trips" {
+                let stroke = [| V2d(-5.0, 3.0); V2d(4.0, 7.0); V2d(6.0, 2.0); V2d(15.0, 6.0) |]
+                Expect.isTrue (cutsThrough stroke square) "the zigzag crosses the square"
+                failIfAny (RegionInvariants.cutViolations stroke square)
+                failIfAny (RegionInvariants.roundTripViolations stroke square)
             }
         ]
 
@@ -172,11 +188,11 @@ let tests () =
         testList "round trip" [
 
             test "square: cut then merge restores the original" {
-                failIfAny (RegionInvariants.roundTripViolations (V2d(-5.0, 5.0)) (V2d(15.0, 5.0)) square)
+                failIfAny (RegionInvariants.roundTripViolations [|V2d(-5.0, 5.0); V2d(15.0, 5.0)|] square)
             }
 
             test "L shape: cut then merge restores the original" {
-                failIfAny (RegionInvariants.roundTripViolations (V2d(-5.0, 1.0)) (V2d(15.0, 1.0)) lShape)
+                failIfAny (RegionInvariants.roundTripViolations [|V2d(-5.0, 1.0); V2d(15.0, 1.0)|] lShape)
             }
         ]
 
@@ -188,7 +204,7 @@ let tests () =
                         match ofRing2d ringPts with
                         | None -> true          // degenerate generation, nothing to assert
                         | Some r ->
-                            match RegionInvariants.cutViolations p0 p1 r with
+                            match RegionInvariants.cutViolations [|p0; p1|] r with
                             | [] -> true
                             | vs -> failwith (String.concat "; " vs))
                 |> Check.QuickThrowOnFailure
@@ -200,8 +216,8 @@ let tests () =
                         match ofRing2d ringPts with
                         | None -> true
                         | Some r ->
-                            if cutsThrough p0 p1 r then failwith "a stroke clear of the ring reported a cut"
-                            elif (cut p0 p1 r).Length <> 1 then failwith "a no-op cut changed the region"
+                            if cutsThrough [|p0; p1|] r then failwith "a stroke clear of the ring reported a cut"
+                            elif (cut [|p0; p1|] r).Length <> 1 then failwith "a no-op cut changed the region"
                             else true)
                 |> Check.QuickThrowOnFailure
             }
@@ -212,7 +228,7 @@ let tests () =
                         match ofRing2d ringPts with
                         | None -> true
                         | Some r ->
-                            match RegionInvariants.roundTripViolations p0 p1 r with
+                            match RegionInvariants.roundTripViolations [|p0; p1|] r with
                             | [] -> true
                             | vs -> failwith (String.concat "; " vs))
                 |> Check.QuickThrowOnFailure

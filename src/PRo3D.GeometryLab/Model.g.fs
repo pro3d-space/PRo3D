@@ -1,5 +1,5 @@
-//8b50ca9a-0d3a-70e8-cd5f-54cf0542e6db
-//63897610-a109-2b72-10bc-caa7357dd412
+//a89fbd15-9ff5-80a9-17cc-593bb2e8cb8d
+//b91b2000-1b03-dcfb-a910-d28d7ab2a711
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -17,7 +17,7 @@ type AdaptiveModel(value : Model) =
     let _tool_ = FSharp.Data.Adaptive.cval(value.tool)
     let _drawing_ = FSharp.Data.Adaptive.clist(value.drawing)
     let _cursor_ = FSharp.Data.Adaptive.cval(value.cursor)
-    let _cutFrom_ = FSharp.Data.Adaptive.cval(value.cutFrom)
+    let _cutPath_ = FSharp.Data.Adaptive.clist(value.cutPath)
     let _status_ = FSharp.Data.Adaptive.cval(value.status)
     let _past_ = FSharp.Data.Adaptive.cval(value.past)
     let _future_ = FSharp.Data.Adaptive.cval(value.future)
@@ -34,7 +34,7 @@ type AdaptiveModel(value : Model) =
             _tool_.Value <- value.tool
             _drawing_.Value <- value.drawing
             _cursor_.Value <- value.cursor
-            _cutFrom_.Value <- value.cutFrom
+            _cutPath_.Value <- value.cutPath
             _status_.Value <- value.status
             _past_.Value <- value.past
             _future_.Value <- value.future
@@ -44,7 +44,7 @@ type AdaptiveModel(value : Model) =
     member __.tool = _tool_ :> FSharp.Data.Adaptive.aval<Tool>
     member __.drawing = _drawing_ :> FSharp.Data.Adaptive.alist<Aardvark.Base.V2d>
     member __.cursor = _cursor_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Base.V2d>>
-    member __.cutFrom = _cutFrom_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Base.V2d>>
+    member __.cutPath = _cutPath_ :> FSharp.Data.Adaptive.alist<Aardvark.Base.V2d>
     member __.status = _status_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.past = _past_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Model>>
     member __.future = _future_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Model>>
@@ -56,7 +56,7 @@ module ModelLenses =
         static member tool_ = ((fun (self : Model) -> self.tool), (fun (value : Tool) (self : Model) -> { self with tool = value }))
         static member drawing_ = ((fun (self : Model) -> self.drawing), (fun (value : FSharp.Data.Adaptive.IndexList<Aardvark.Base.V2d>) (self : Model) -> { self with drawing = value }))
         static member cursor_ = ((fun (self : Model) -> self.cursor), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Base.V2d>) (self : Model) -> { self with cursor = value }))
-        static member cutFrom_ = ((fun (self : Model) -> self.cutFrom), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Base.V2d>) (self : Model) -> { self with cutFrom = value }))
+        static member cutPath_ = ((fun (self : Model) -> self.cutPath), (fun (value : FSharp.Data.Adaptive.IndexList<Aardvark.Base.V2d>) (self : Model) -> { self with cutPath = value }))
         static member status_ = ((fun (self : Model) -> self.status), (fun (value : Microsoft.FSharp.Core.string) (self : Model) -> { self with status = value }))
         static member past_ = ((fun (self : Model) -> self.past), (fun (value : Microsoft.FSharp.Core.Option<Model>) (self : Model) -> { self with past = value }))
         static member future_ = ((fun (self : Model) -> self.future), (fun (value : Microsoft.FSharp.Core.Option<Model>) (self : Model) -> { self with future = value }))

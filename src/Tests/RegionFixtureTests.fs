@@ -10,16 +10,24 @@ open PRo3D.Base.Geometry.RegionOps
 
 let private fixtureDir = Path.Combine(__SOURCE_DIRECTORY__, "data", "regions")
 
-/// Strokes derived from the region's bounds: through the centre at four angles, with both ends
-/// well outside. Whether each one actually cuts depends on the shape - cutViolations and
-/// roundTripViolations state the right facts for both branches, so no case analysis is needed.
+/// Strokes derived from the region's bounds: straight through the centre at four angles plus a
+/// zigzag, with both ends well outside. Whether each one actually cuts depends on the shape -
+/// cutViolations and roundTripViolations state the right facts for both branches, so no case
+/// analysis is needed.
 let private strokesFor (r : Region) =
     let bb = bounds r
     let reach = bb.Size.Length * 2.0 + 1.0
-    [ for deg in [ 0.0; 45.0; 90.0; 135.0 ] do
-        let a = deg * Constant.RadiansPerDegree
-        let d = V2d(cos a, sin a)
-        yield bb.Center - d * reach, bb.Center + d * reach ]
+    [
+        for deg in [ 0.0; 45.0; 90.0; 135.0 ] do
+            let a = deg * Constant.RadiansPerDegree
+            let d = V2d(cos a, sin a)
+            yield [| bb.Center - d * reach; bb.Center + d * reach |]
+        // a polyline stroke: bends inside the bounds, ends outside
+        yield [| bb.Center - V2d.IO * reach
+                 bb.Center + V2d.OI * (bb.Size.Y * 0.25)
+                 bb.Center - V2d.OI * (bb.Size.Y * 0.25)
+                 bb.Center + V2d.IO * reach |]
+    ]
 
 let private replay (path : string) =
     let regions = RegionFixture.read (File.ReadAllText path)
@@ -29,11 +37,11 @@ let private replay (path : string) =
             for i, r in List.indexed regions do
                 for v in RegionInvariants.mergeIdempotenceViolations r do
                     yield sprintf "region %d: %s" i v
-                for p0, p1 in strokesFor r do
-                    for v in RegionInvariants.cutViolations p0 p1 r do
-                        yield sprintf "region %d, stroke %A .. %A: %s" i p0 p1 v
-                    for v in RegionInvariants.roundTripViolations p0 p1 r do
-                        yield sprintf "region %d, stroke %A .. %A: %s" i p0 p1 v
+                for stroke in strokesFor r do
+                    for v in RegionInvariants.cutViolations stroke r do
+                        yield sprintf "region %d, stroke %A: %s" i stroke v
+                    for v in RegionInvariants.roundTripViolations stroke r do
+                        yield sprintf "region %d, stroke %A: %s" i stroke v
 
             for i, a in List.indexed regions do
                 for j, b in List.indexed regions do

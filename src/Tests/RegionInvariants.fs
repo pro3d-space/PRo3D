@@ -47,9 +47,9 @@ let sampledEquivalent (a : Region) (b : Region) = sampledDisagreement 40 a b <= 
 // cut
 // ---------------------------------------------------------------------------------------------
 
-let cutViolations (p0 : V2d) (p1 : V2d) (r : Region) : string list =
-    let pieces = cut p0 p1 r
-    let cutHappened = cutsThrough p0 p1 r
+let cutViolations (stroke : V2d[]) (r : Region) : string list =
+    let pieces = cut stroke r
+    let cutHappened = cutsThrough stroke r
     [
         if not cutHappened then
             // a stroke that does not cross must change nothing at all
@@ -79,10 +79,10 @@ let cutViolations (p0 : V2d) (p1 : V2d) (r : Region) : string list =
                 if outside > 0.02 then
                     yield sprintf "piece %d is not contained in the original" k
 
-            // re-cutting a piece with the same line must do nothing: it lies wholly on one side
+            // re-cutting a piece with the same stroke must do nothing: it lies wholly on one side
             for k, piece in List.indexed pieces do
-                if cutsThrough p0 p1 piece then
-                    yield sprintf "piece %d is still cut by the same line" k
+                if cutsThrough stroke piece then
+                    yield sprintf "piece %d is still cut by the same stroke" k
     ]
 
 // ---------------------------------------------------------------------------------------------
@@ -116,8 +116,8 @@ let mergeIdempotenceViolations (a : Region) : string list =
 /// Cut a region, merge the pieces back, and you must have what you started with. This checks both
 /// operations against each other rather than against a hand-computed expectation, which is why it
 /// is worth more than any single-operation property.
-let roundTripViolations (p0 : V2d) (p1 : V2d) (r : Region) : string list =
-    match cut p0 p1 r with
+let roundTripViolations (stroke : V2d[]) (r : Region) : string list =
+    match cut stroke r with
     | [] -> [ "cut produced nothing at all" ]
     | pieces ->
         let rejoined = pieces |> List.reduce merge

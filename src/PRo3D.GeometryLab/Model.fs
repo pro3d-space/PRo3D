@@ -44,8 +44,8 @@ type Model =
         drawing   : IndexList<V2d>
         cursor    : Option<V2d>
 
-        /// stroke being dragged, in cut mode
-        cutFrom   : Option<V2d>
+        /// polyline stroke under construction, in cut mode
+        cutPath   : IndexList<V2d>
 
         status    : string
 
@@ -61,8 +61,9 @@ type Message =
     /// same event were silently collapsed to one by the attribute map - only one handler per
     /// event kind survives on a node.
     | MouseDown     of V2d
-    | MouseUp       of V2d
-    | ClosePolygon
+    /// Complete whatever is under construction: close the drawn ring, or apply the cut stroke.
+    /// Sent by the Close / Apply cut buttons and by double-click.
+    | Finish
     | MoveCursor    of V2d
     | ToggleSelect  of int
     | MergeSelected

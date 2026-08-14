@@ -88,95 +88,154 @@ module RegionOps =
     // cutting
     // -----------------------------------------------------------------------------------------
 
-    /// A rectangle covering the region, lying entirely on one side of the infinite line through
-    /// p0..p1. Intersecting with it and subtracting it gives the two sides of the cut.
-    let private halfPlaneQuad (p0 : V2d) (p1 : V2d) (r : Region) =
+    // A cut stroke is a polyline of at least two points; a straight cut is the two-point case.
+    // Only the *ends* must lie outside the region - interior stroke points may dip inside, which
+    // is what lets a cut follow a feature instead of a chord.
+
+    /// Consecutive duplicates removed, so segment directions are well-defined.
+    let private dedupStroke (stroke : V2d[]) =
+        if stroke.Length = 0 then stroke
+        else
+            let out = ResizeArray<V2d>(stroke.Length)
+            out.Add stroke.[0]
+            for i in 1 .. stroke.Length - 1 do
+                if Vec.Distance(stroke.[i], out.[out.Count - 1]) > 1e-9 then out.Add stroke.[i]
+            out.ToArray()
+
+    let private strokeLength (stroke : V2d[]) =
+        let mutable acc = 0.0
+        for i in 0 .. stroke.Length - 2 do
+            acc <- acc + Vec.Distance(stroke.[i], stroke.[i + 1])
+        acc
+
+    /// A stroke segment passing *exactly* through region vertices makes LibTess drop tangent
+    /// slivers, losing area from the pieces. Users produce this case routinely - shapes drawn on
+    /// round coordinates put vertices on nice diagonals, and a bounds-centred stroke hits them
+    /// (found by a lab-exported fixture: the 135° stroke through a U-shape's centre grazed three
+    /// of its corners and lost 14% of its area). Nudge the whole stroke sideways until it clears
+    /// every vertex; the shift is orders of magnitude below the invariant tolerances, and it
+    /// keeps re-cutting a piece along the same stroke a no-op (the sliver it leaves is far under
+    /// the area ratio cutsThrough requires).
+    let private clearOfVertices (stroke : V2d[]) (r : Region) =
         let bb = bounds r
-        let reach = (bb.Size.Length + Vec.Distance(p0, p1)) * 4.0 + 1.0
-        let d = (p1 - p0).Normalized
-        let n = V2d(-d.Y, d.X)
-        // an origin that lies on the line but near the region, so the quad stays well-conditioned
-        // even when the stroke was drawn far away
-        let o = p0 + d * Vec.Dot(bb.Center - p0, d)
-        let pts =
-            [| o - d * reach
-               o + d * reach
-               o + d * reach + n * reach
-               o - d * reach + n * reach |]
+        let eps = (bb.Size.Length + 1.0) * 1e-9
+        let d0 = (stroke.[1] - stroke.[0]).Normalized
+        let n0 = V2d(-d0.Y, d0.X)
+        let distToSegment (p : V2d) (a : V2d) (b : V2d) =
+            let ab = b - a
+            let len2 = ab.LengthSquared
+            if len2 < 1e-18 then Vec.Distance(p, a)
+            else
+                let t = clamp 0.0 1.0 (Vec.Dot(p - a, ab) / len2)
+                Vec.Distance(p, a + ab * t)
+        let touches (shift : V2d) =
+            r.Polygons |> List.exists (fun poly ->
+                poly.Points |> Seq.exists (fun v ->
+                    seq { 0 .. stroke.Length - 2 }
+                    |> Seq.exists (fun i ->
+                        distToSegment v (stroke.[i] + shift) (stroke.[i + 1] + shift) < eps)))
+        let mutable shift = V2d.Zero
+        let mutable step = eps * 4.0
+        let mutable iter = 0
+        // capped: a vertex sliding along a segment parallel to the shift direction could resist
+        // forever, and a residual graze merely costs a sliver the tolerances absorb
+        while iter < 60 && touches shift do
+            shift <- shift + n0 * step
+            step <- step * 2.0
+            iter <- iter + 1
+        stroke |> Array.map (fun p -> p + shift)
+
+    /// One side of the stroke, as a region: the stroke extended well past the region at both
+    /// ends, then closed through an arc so far out that the closure cannot interfere with
+    /// anything near the region. Which of the two sides the polygon covers depends on the arc
+    /// direction and does not matter - the cut takes both the intersection and the difference,
+    /// and they are complementary within the region either way.
+    let private sidePolygon (stroke : V2d[]) (r : Region) : Region =
+        let bb = bounds r
+        let c = bb.Center
+        let reach = (bb.Size.Length + strokeLength stroke + Vec.Distance(c, stroke.[0])) * 4.0 + 1.0
+        let last = stroke.Length - 1
+        let d0 = (stroke.[1] - stroke.[0]).Normalized
+        let dn = (stroke.[last] - stroke.[last - 1]).Normalized
+        let ext =
+            Array.concat [
+                [| stroke.[0] - d0 * reach |]
+                stroke
+                [| stroke.[last] + dn * reach |] ]
+        let ext = clearOfVertices ext r
+        let a = ext.[0]
+        let b = ext.[ext.Length - 1]
+        // radial connectors out to a far circle, then an arc between them: every closure edge
+        // stays at several times the region's diameter, so within the region the polygon's
+        // even-odd membership is decided by the stroke alone
+        let rBig = reach * 4.0
+        let angA = atan2 (a - c).Y (a - c).X
+        let angB = atan2 (b - c).Y (b - c).X
+        let sweep =
+            let d = angA - angB
+            if d <= 0.0 then d + Constant.PiTimesTwo else d
+        let steps = 16
+        let arc =
+            [| for i in 0 .. steps ->
+                 let ang = angB + sweep * (float i / float steps)
+                 c + V2d(cos ang, sin ang) * rBig |]
+        let pts = Array.concat [ ext; arc ]
         let polygon = Polygon2d<V3d>(pts, pts |> Array.map toV3d)
         PolyRegion<V3d>(polygon, TessellationRule.EvenOdd, interpolate)
 
-    /// A cut line passing *exactly* through region vertices makes LibTess drop tangent slivers,
-    /// losing area from the pieces. Users produce this case routinely - shapes drawn on round
-    /// coordinates put vertices on nice diagonals, and a bounds-centred stroke hits them (found
-    /// by a lab-exported fixture: the 135° stroke through a U-shape's centre grazed three of its
-    /// corners and lost 14% of its area). Nudge the line sideways until it clears every vertex;
-    /// the shift is orders of magnitude below the invariant tolerances, and it keeps re-cutting
-    /// a piece along the same line a no-op (the sliver it leaves is far under the area ratio
-    /// cutsThrough requires).
-    let private clearOfVertices (p0 : V2d) (p1 : V2d) (r : Region) =
-        let d = (p1 - p0).Normalized
-        let n = V2d(-d.Y, d.X)
-        let bb = bounds r
-        let eps = (bb.Size.Length + 1.0) * 1e-9
-        let touches (shift : float) =
-            r.Polygons |> List.exists (fun poly ->
-                poly.Points |> Seq.exists (fun v -> abs (Vec.Dot(v - p0, n) - shift) < eps))
-        let mutable shift = 0.0
-        let mutable step = eps * 4.0
-        while touches shift do
-            shift <- shift + step
-            step <- step * 2.0
-        p0 + n * shift, p1 + n * shift
+    /// The two sides of the (extended) stroke.
+    let private sides (stroke : V2d[]) (r : Region) =
+        let p = sidePolygon stroke r
+        PolyRegion<V3d>.Intersection(r, p, interpolate),
+        PolyRegion<V3d>.Difference(r, p, interpolate)
 
-    /// The two sides of the infinite line through p0..p1.
-    let private sides (p0 : V2d) (p1 : V2d) (r : Region) =
-        let p0, p1 = clearOfVertices p0 p1 r
-        let quad = halfPlaneQuad p0 p1 r
-        PolyRegion<V3d>.Intersection(r, quad, interpolate),
-        PolyRegion<V3d>.Difference(r, quad, interpolate)
-
-    /// Does the drawn segment actually reach the region, as opposed to its infinite extension?
+    /// Does the drawn stroke actually reach the region, as opposed to its infinite extension?
     ///
     /// Sampled rather than solved: a false negative is possible for a sliver thinner than the
     /// sample spacing, which is preferable to the fragility of exact segment/edge intersection at
     /// vertices - see the note on cutsThrough.
-    let private segmentReaches (p0 : V2d) (p1 : V2d) (r : Region) =
+    let private strokeReaches (stroke : V2d[]) (r : Region) =
         let steps = 64
-        seq { 1 .. steps - 1 }
-        |> Seq.exists (fun i -> contains (p0 + (p1 - p0) * (float i / float steps)) r)
+        seq {
+            for i in 0 .. stroke.Length - 2 do
+                for j in 1 .. steps - 1 ->
+                    stroke.[i] + (stroke.[i + 1] - stroke.[i]) * (float j / float steps) }
+        |> Seq.exists (fun p -> contains p r)
 
-    /// A stroke cuts a region only if it is drawn *across* it: both ends outside, the segment
-    /// actually reaches the region, and the line leaves area on both sides.
+    /// A stroke cuts a region only if it is drawn *across* it: both ends outside, the stroke
+    /// actually reaches the region, and it leaves area on both sides.
     ///
     /// The area test rather than counting boundary crossings. Crossing counts cannot tell "the
-    /// line passes through the interior" from "the line runs along a boundary an earlier cut
+    /// stroke passes through the interior" from "the stroke runs along a boundary an earlier cut
     /// created" - in both cases the two edges adjacent to the collinear stretch register a
-    /// transition. That made re-cutting a piece with the same line report a cut, which the
+    /// transition. That made re-cutting a piece with the same stroke report a cut, which the
     /// round-trip property caught. Vertex and collinear special cases do not fix it; the
     /// formulation was wrong.
     ///
     /// The endpoint test alone is also insufficient: a short stroke beside a region, whose
     /// infinite extension passes through it, has both ends outside and area on both sides.
-    let cutsThrough (p0 : V2d) (p1 : V2d) (r : Region) =
-        if r.IsEmpty || Vec.Distance(p0, p1) < 1e-9 then false
-        elif contains p0 r || contains p1 r then false
-        elif not (segmentReaches p0 p1 r) then false
+    let cutsThrough (stroke : V2d[]) (r : Region) =
+        let stroke = dedupStroke stroke
+        if r.IsEmpty || stroke.Length < 2 then false
+        elif contains stroke.[0] r || contains stroke.[stroke.Length - 1] r then false
+        elif not (strokeReaches stroke r) then false
         else
-            let a, b = sides p0 p1 r
+            let a, b = sides stroke r
             let total = area r
             area a > total * 1e-6 && area b > total * 1e-6
 
-    /// Splits a region along a line into its two sides. Returns the region unchanged when the
-    /// stroke does not cut through it.
+    /// Splits a region along a polyline stroke into its two sides. Returns the region unchanged
+    /// when the stroke does not cut through it.
     ///
-    /// Each side is one region, which for a concave shape may itself hold several contours - a
-    /// side is not necessarily connected. Splitting into connected components is a separate
-    /// concern (it needs holes paired to their outer contour) and is deliberately not done here.
-    let cut (p0 : V2d) (p1 : V2d) (r : Region) : Region list =
-        if not (cutsThrough p0 p1 r) then [ r ]
+    /// Each side is one region, which for a concave shape or a zigzag stroke may itself hold
+    /// several contours - a side is not necessarily connected. Splitting into connected
+    /// components is a separate concern (it needs holes paired to their outer contour) and is
+    /// deliberately not done here.
+    let cut (stroke : V2d[]) (r : Region) : Region list =
+        let stroke = dedupStroke stroke
+        if not (cutsThrough stroke r) then [ r ]
         else
-            let a, b = sides p0 p1 r
+            let a, b = sides stroke r
             [ a; b ] |> List.filter (fun x -> not x.IsEmpty)
 
     // -----------------------------------------------------------------------------------------
