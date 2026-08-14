@@ -1,0 +1,259 @@
+# Boolean operations in the viewer — union first, then cut
+
+Integration plan for `RegionOps` cut/merge into PRo3D proper. Geometry design and lab:
+`plans/booleanOperations.md`; testing rationale: `plans/testingStrategy.md`.
+
+Staged deliberately: **stage 1 is union** (no new interaction machinery needed), **stage 2 is
+cut** (needs a drawing-like mode). Each stage is its own PR, and each lands with its tests
+before any UI exists — the same discipline that caught the `cutsThrough` and vertex-graze
+defects before a user ever saw them.
+
+## 0. Readiness audit — what exists, what is missing
+
+Verified against the code, not the older plans:
+
+| Needed | State | Anchor |
+|---|---|---|
+| 2D chart abstraction | **exists** | `SurfaceChart.fs:17-23`: `toChart : V3d -> V2d option`, `toWorld`, with `ofPlane` (`:37`), `tryOfPlane` (`:52`), `ofUpVector` (`:60`), `geographic` (`:94`) |
+| Attributed regions + boolean ops | **exists** | vendored `PolyRegion<V3d>`, `RegionOps` cut (polyline strokes) / merge, 293 tests |
+| Plane fitting for a common chart | **exists** | `PlaneFitting.Fit` (`CSharpUtils/PlaneFitting.cs:11`), used by `AnnotationHelpers.calculateVertexPlane:104` |
+| Multi-selection of annotations | **exists** | `GroupsModel.selectedLeaves : HashSet<TreeSelection>` (`Groups-Model.fs:222`), filled by shift+click while ctrl-picking (`Drawing-App.fs:632-637`) and by the tree UI (`Drawing.UI.fs:290-296`) |
+| "Exactly N selected" action precedent | **exists** | `GeologicSurfaceApp.fs:185-214` requires exactly 2 selected annotations |
+| Atomic undo for a multi-leaf change | **exists** | `AnnotationsDelta.SnapshotDelta of before * after : GroupsModel` (`Drawing-Model.fs:27-30`), one message = one undo step (`Drawing-App.fs:562-573`) |
+| Terrain-picked polyline drawing | **exists** | the working-annotation pipeline: `DrawingModel.working` (`Drawing-Model.fs:103`), `addPoint` (`Drawing-App.fs:141`), Enter=`Finish`, Backspace=`RemoveLastPoint`, Esc=`ClearWorking` (`Viewer.fs:428-430`) |
+| Add/remove annotation leaves | **exists** | `GroupsApp.addLeafToActiveGroup:159`, `removeLeaf:211` |
+| Region from chart-projected ring | **missing** | `RegionOps.ofRing` assumes z=0 ≙ world; a `SurfaceChart`-aware constructor is new (§1) |
+| Common chart for several annotations | **missing** | chart choice rules exist per-annotation only (§1) |
+| Union/cut at the `Annotation` level | **missing** | the pure core of both stages (§1) |
+| Refusal/feedback UX | **missing** | §2/§3 |
+
+So the geometry and the model machinery are prepared; what is genuinely new is one pure module,
+two messages, and (for cut only) one interaction mode.
+
+## 1. The pure core: `AnnotationRegionOps` — build and test this first
+
+New file in `PRo3D.Core` (it needs `Annotation` *and* `GroupsModel` context stays out — take
+and return plain values):
+
+```fsharp
+module AnnotationRegionOps =
+
+    type Refusal =
+        | TooFewAnnotations
+        | ChartProjectionFailed of annotationName : string
+        | ResultHasHoles of holeCount : int
+        | DegenerateInput of reason : string
+        | StrokeDoesNotCut
+
+    /// One chart both operands project through. Fitted plane over the *union* of all points;
+    /// an annotation's own dnsResults plane only when there is a single operand (cut). The
+    /// all-NaN dnsResults sentinel (Annotation-Model.fs:237-242) must fall through to the fit,
+    /// exactly as PolygonFill already handles it.
+    val commonChart : seq<Annotation> -> Option<SurfaceChart>
+
+    /// Chart-project a ring, keeping each vertex's world position as the region attribute.
+    /// Any point the chart cannot project => None (the chart does not cover the annotation).
+    val toRegion : SurfaceChart -> Annotation -> Option<Region>
+
+    /// World-space rings of the result, one per output annotation. Union explodes into one
+    /// ring per component; holes are refused (the decided policy). Vertices that survive from
+    /// the inputs are *exactly* the input world points (the attribute channel); invented
+    /// vertices (edge crossings) are blends of their edge endpoints.
+    val union : list<Annotation> -> Result<list<V3d[]>, Refusal>
+
+    /// Stroke points are world positions picked on the terrain, projected through the same
+    /// chart as the annotation. A stroke that does not cut is a Refusal, not a silent no-op,
+    /// so the UI can say why nothing happened.
+    val cut : Annotation -> stroke : V3d[] -> Result<list<V3d[]>, Refusal>
+```
+
+Decisions folded in:
+
+- **All geometry in 2D chart space, all identity in world space.** The chart is topology-only,
+  exactly like the fill (`PolygonFill` §5 of `annotationPolygonFill.md`): output ring vertices
+  come back as world points through the attribute channel, so a merged outline coincides with
+  the drawn outlines wherever they survive. This is the reason the attributed `PolyRegion` was
+  vendored — the union is where it pays off.
+- **Invented vertices are chord blends, v1.** Where two rings cross, the new vertex is a blend
+  of the edge endpoints — it lies on the chord, not on the terrain. Accepted for v1 (same
+  limitation class as the fill's flat triangles). The upgrade path is re-projecting just those
+  vertices through the existing `samplePoint` raycast at apply time; the pure API stays
+  unchanged, so defer until it is visibly wrong.
+- **Chart choice**: fitted plane over all operands' points. Two annotations on wildly different
+  terrain orientations produce a bad shared plane — detect via the fit residual or the angle
+  between per-annotation fitted planes and *warn* in the status message rather than refuse
+  (open decision (ii)). Geographic chart stays opt-in and out of stage 1.
+- **Holes refused, components exploded** — as decided in `booleanOperations.md`. The lab
+  measures how often refusal actually bites; if it turns out common, the escape hatch is the
+  model extension (rings list), a scene-version bump deliberately not taken now.
+
+### Checkpoint 1 (pure, CI, no GL) — before any viewer change
+
+- `toRegion` round-trip: plane-chart annotation → region → `outerRings` returns exactly the
+  input world points (attribute fidelity, the property that pins the whole design).
+- `commonChart` fallbacks: all-NaN `dnsResults`, collinear points, < 3 points.
+- `union`: two overlapping synthetic rings → one ring, area = inclusion–exclusion (against
+  `RegionOps.area`); disjoint → two rings; nested/U+bar → `ResultHasHoles`.
+- `cut`: piece rings replayed through **the same `RegionInvariants`** the lab fixtures use —
+  areas sum, containment, re-cut no-op. No new invariant definitions; one source of truth.
+- FsCheck: random simple rings on a plane chart (generators already exist in
+  `RegionOpsTests.fs`), lifted to annotations; union/cut invariants over 100 cases.
+
+## 2. Stage 1: union
+
+### UX — two candidates, sequenced not competing
+
+**(B) Operate on the existing selection — build first.** Annotations are already
+multi-selectable (shift+click during ctrl-pick, or in the annotations tree). Add one action,
+"Union selected annotations", in the annotations panel next to the existing bulk actions,
+enabled when ≥ 2 annotations are selected — the exact pattern `GeologicSurfaceApp` uses for
+"make surface from 2 selected". No new interaction mode, no gating changes, works from the tree
+alone (no 3D picking needed at all).
+
+**(A) A dedicated "union annotations" click-through mode — add second, as sugar.** The
+requested flow: enter the mode, click annotations one after another, each click toggles
+membership in the union set (highlighted), Enter applies, Esc cancels. Genuinely nicer for
+picking many annotations in the viewport. Costs, stated honestly:
+
+- a new `Interactions` case (the enum at `Model.fs:5-26` already has 21 cases) plus its
+  `hideSet` entry, dropdown text, and gating: `allowAnnotationPicking` (`Viewer.fs:2248-2256`)
+  must include the new mode or clicks select nothing;
+- the ctrl-held-to-pick convention (`StartPicking`, `Viewer.fs:431-435`) either applies — one
+  more thing to hold — or the mode picks without ctrl, diverging from `PickAnnotation`;
+- highlight state for "in the union set" — reusable from `selectedLeaves` if the mode simply
+  drives the *existing* selection, which is the trick that keeps (A) cheap: **the mode is then
+  only an input affordance over (B)'s selection set**, and Apply is the same message.
+
+Recommendation: ship (B) in the union PR; add (A) in a follow-up sized commit once (B)'s
+semantics are proven, implementing it as selection-driving sugar so there is exactly one code
+path. If (A) is wanted immediately, it still sits on top of (B)'s message — the order does not
+change the architecture, only the PR size.
+
+### Message flow
+
+```
+DrawingAction.UnionSelectedAnnotations
+  -> leaves = selectedLeaves resolved via flat        (Groups-Model.fs:274-291)
+  -> AnnotationRegionOps.union annotations
+  -> Error r  -> status/log message, model unchanged
+  -> Ok rings -> before = model.annotations
+                 remove originals (GroupsApp.removeLeaf), add one leaf per ring
+                   (Annotation.make + metadata policy below, GroupsApp.addLeafToActiveGroup)
+                 push SnapshotDelta(before, after)     -- one undo step, already supported
+```
+
+- **Metadata policy**: the result copies colour, thickness, projection, semantic and group
+  placement from the *first-selected* operand (`lastSelectedItem` order is not stable across
+  the set — use the tree order of `selectedLeaves` and document it). `dnsResults` and other
+  derived values are recomputed by routing the new leaves through the existing
+  `RecalculateMeasurements` path (`Drawing-App.fs:589-601`).
+- **Key dangling**: deleting originals leaves their ids in — audit result:
+  sequenced-bookmark scene states (`SequencedBookmarks-Model.fs:203`, full `GroupsModel`
+  snapshots — restoring an old bookmark resurrects the pre-union annotations, which is
+  *snapshot semantics, not a bug*, but document it), provenance snapshots
+  (`ProvenanceModel.fs:50`, same semantics), comparison measurements
+  (`Comparison-Model.fs:36`, `annotationKey` dangles — degrade gracefully: `tryFind`, drop the
+  row), correlation-panel `ContactId`s (latent — the wiring is commented out at
+  `Viewer.fs:611-632`), and `Annotation.bookmarkId` points the *other* way (safe). None block
+  stage 1; comparison needs the `tryFind` check in the same PR.
+
+### Checkpoint 2 (sub-app messages, CI, no GL)
+
+The existing `src/Tests/Features` harness drives the real `ViewerApp.updateViewer`
+(`TestHelpers.fs:163`) and already creates annotations by feeding picked points directly
+(`Section03_DrawingAnnotations.fs`). Add `Section20_BooleanOperations.fs`:
+
+- draw two overlapping polygons via `AddPointAdv` + `Finish` (points supplied directly, no GL)
+- select both (`SingleSelectLeaf` + `AddLeafToSelection`)
+- send `UnionSelectedAnnotations` → assert: one annotation, expected area (vs
+  `calculatePolygonArea`), originals gone, group placement, metadata copied
+- `Undo` → both originals back, selection sane; `Redo` → union again
+- refusal case (U + bar shapes) → model unchanged, no undo step pushed
+- comparison module holding a deleted key → no crash
+
+### Checkpoint 3 (manual, viewer)
+
+Union two overlapping polygons on a real OPC scene: outline coincides with the originals where
+untouched; fill (if on) renders the new ring; save → reload survives; sequenced bookmark from
+before the union still restores its own state.
+
+## 3. Stage 2: cut
+
+### UX — select, then draw the stroke
+
+Requested flow, assessed: select one annotation → enter a "cut annotation" mode → click a
+polyline stroke on the terrain (exactly like drawing an annotation) → Enter applies, Esc
+cancels. **Verdict: possible without new machinery, and it does not escalate** — provided the
+stroke reuses the working-annotation pipeline rather than growing its own:
+
+- stroke points come from the same `addPoint` sampling (`Drawing-App.fs:141`) — terrain
+  picking, projection handling and multi-surface sampling come for free;
+- the stroke renders through `Sg.drawWorkingAnnotation` (`Drawing.Sg.fs:282-313`) with a
+  distinct colour — no new scene-graph code;
+- Enter/Backspace/Esc already route to `Finish`/`RemoveLastPoint`/`ClearWorking`
+  (`Viewer.fs:428-430`) — the cut mode reinterprets `Finish` as "apply the cut".
+
+Drawbacks, thought through:
+
+1. **Mode-matrix growth.** One more `Interactions` case (`CutAnnotation`), its gating in
+   `matchPickingInteraction` (`Viewer.fs:279`), and mutual exclusion with picking. Bounded:
+   the mode is a thin router; all geometry stays in `AnnotationRegionOps`. The enum is UI
+   state on `Model`, not persisted scene state — no version bump.
+2. **The precondition is invisible.** A stroke cuts only if both *ends* project outside the
+   ring in chart space — the user cannot see the chart. Mitigation: live feedback — after each
+   added stroke point run `AnnotationRegionOps.cut` in dry-run (it is pure and cheap at these
+   sizes) and colour the stroke green/red for "would cut / would not". This turns the
+   invisible rule into an affordance and costs one `aval`.
+3. **Projection surprises on rugged terrain.** A stroke sensible in 3D can self-intersect
+   once flattened; behaviour is then winding-resolution (pinned by tests, not undefined), but
+   the result may surprise. The green/red feedback covers the "does not cut" half; a status
+   line ("stroke crosses itself in projection") covers the rest.
+4. **Which annotation is being cut** must be unambiguous: entering the mode requires exactly
+   one selected annotation (`tryGetSelectedAnnotation`, `Groups-Model.fs:312`); selection is
+   frozen while the mode is active (picking is off in draw-like modes anyway, the same
+   mutual exclusivity noted in `annotationPolygonFill.md` §8).
+5. **Mid-cut state on mode switch / scene load.** The stroke lives in `DrawingModel` next to
+   `working` (`cutStroke : Option<...>`); leaving the mode clears it, and it is *not*
+   persisted — same policy as `working`.
+
+Alternative considered and rejected for v1: cutting *all* shapes the stroke crosses (the lab's
+behaviour, no selection needed). Cheaper to trigger but dangerous in a scene with many
+annotations — an unlucky stroke cuts things off-screen. The lab keeps that behaviour for
+experimentation; the viewer cuts the selected annotation only.
+
+### Message flow
+
+```
+enter CutAnnotation (requires exactly 1 selected, else status message)
+AddPointAdv (routed to cutStroke, not working)
+Finish -> AnnotationRegionOps.cut annotation strokeWorldPoints
+       -> Error  -> status message, stroke kept for correction
+       -> Ok rings -> SnapshotDelta undo, remove original, add piece per ring
+                      (metadata copied to every piece, per the decided design)
+```
+
+### Checkpoints 4 + 5
+
+Mirror checkpoints 2 + 3: `Section20` grows message tests (draw polygon → select → cut-mode
+messages → stroke points → `Finish` → two annotations with areas summing to the original;
+undo restores; non-cutting stroke → refusal, model unchanged, stroke retained). Manual: cut a
+polygon along a terrain feature with a multi-point stroke — the polyline cut exists precisely
+so this follows the feature rather than chording it.
+
+## 4. Order of work
+
+1. `AnnotationRegionOps` + checkpoint 1 tests (pure; the union PR's first commits)
+2. `UnionSelectedAnnotations` message + panel button (UX B) + checkpoint 2 tests
+3. manual checkpoint 3 on a real scene; comparison `tryFind` hardening
+4. *(optional, follow-up)* click-through union mode (UX A) as selection-driving sugar
+5. `CutAnnotation` mode + `cutStroke` + dry-run feedback + checkpoint 4 tests
+6. manual checkpoint 5; `docs/AnnotationBooleanOps.md` for both stages
+
+## 5. Open decisions
+
+- (i) union metadata: first-selected wins (recommended above) vs. asking — decide at PR review
+  with a concrete scene in front of us.
+- (ii) diverging fitted planes between operands: warn (recommended) vs. refuse above an angle
+  threshold.
+- (iii) whether invented vertices ever need terrain re-projection — revisit after checkpoint 3
+  with a km-scale merge on real terrain.

@@ -13,9 +13,21 @@ Testing approach and its rationale: `plans/testingStrategy.md`.
 | B. `RegionOps` — cut, merge, and their properties | **done** |
 | C. `PRo3D.GeometryLab` — SVG lab + fixture export | **done** — builds, in the sln, `docs/GeometryLab.md` |
 | D. Fixture replay | **done** — `RegionFixtureTests`, one test per `.region` file |
-| Viewer integration | out of scope, design decided below |
+| Viewer integration | **planned** — `plans/viewerIntegration.md` |
 
-289 tests passing, FsCheck properties confirmed running 100 cases each.
+293 tests passing, FsCheck properties confirmed running 100 cases each.
+
+Two defects found and fixed after the lab went interactive, both worth remembering:
+
+- **Vertex grazing** (`fix(base) 118f870b`): a cut stroke passing exactly through region
+  vertices made LibTess drop tangent slivers — a lab-exported fixture caught 14% of a U-shape's
+  area vanishing. The stroke is now nudged off every vertex before cutting; the shift is far
+  below the invariant tolerances. Found by the export→replay loop on its first real use.
+- **Cut is now a polyline stroke** (`feat(base) 9e3bf29d`), not only a straight line: one side
+  of the stroke is built by extending its ends far past the region and closing through a far
+  arc, so within the region even-odd membership is decided by the stroke alone. Only the
+  stroke's *ends* must be outside the region — interior points may dip inside, letting a cut
+  follow a feature instead of a chord.
 
 ## A. Vendoring
 
@@ -134,14 +146,19 @@ the replay mechanism itself runs in CI from day one.
 - run the lab and report **how often merge produces holes** — that decides refuse-versus-extend for
   the viewer integration below
 
-## Viewer integration (out of scope, decided)
+## Viewer integration — planned in `plans/viewerIntegration.md`
+
+The decisions taken here carry over unchanged and are folded into that plan:
 
 - a cut deletes the original annotation and creates **N new ones with metadata copied to each**
 - merge results explode into one annotation per component; **holes are refused with a message**
 
 This avoids growing `Annotation` to multiple rings: cut never produces a hole, and merge only does
-when two rings enclose a gap. The lab is there to measure how often that actually happens before
-committing to refuse-versus-extend.
+when two rings enclose a gap. The lab measured the hole case: it takes deliberate construction
+(a U capped by a bar) but is natural once users merge shapes grown around something — refusal
+with a clear message stands for v1.
 
-One consequence to handle: deleting the original drops its `key`, so anything referencing it —
-bookmarks, logs, provenance — breaks. Audit what holds annotation keys before shipping.
+The integration plan stages the work as **union first** (operating on the existing annotation
+multi-selection — no new interaction mode needed) **then cut** (a drawing-like mode over the
+selected annotation, reusing the working-annotation pipeline). The annotation-key dangling
+audit this section demanded is done and recorded there.
