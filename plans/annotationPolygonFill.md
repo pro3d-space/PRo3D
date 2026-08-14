@@ -411,6 +411,26 @@ overlay list (`:930-936`). Legacy branch (`:948-979`): per-annotation constructi
 `PRo3D.Snapshots\Program.fs:89` sets `usePackedAnnotationRendering <- false`, so skipping the
 legacy branch means snapshots silently render without fills.
 
+## 7b. Default fill in the drawing toolbar — implemented
+
+Two controls beside thickness and sampling in `viewAnnotationToolsHorizontal`
+(`Drawing.UI.fs:83-93`): whether the next annotation is filled, and at what alpha.
+
+- `DrawingModel.fillNewAnnotations : bool` and `defaultFillAlpha : NumericInput`
+- `SetFillNewAnnotations` / `ChangeDefaultFillAlpha`, handled beside `ChangeThickness`
+- applied in `addPoint`'s existing `with` clause (`Drawing-App.fs:198`) — `Annotation.make`'s
+  signature is untouched
+
+**No fill colour control, deliberately.** `Drawing.UI.fs:87` records that the tool-level colour
+picker was removed because annotation colour comes from the active group's default. A toolbar
+fill colour would reintroduce exactly that and give one annotation two colour sources.
+`Annotation.make` already sets `fillColor = color`, so the fill follows the group colour for
+free; the properties panel still allows a per-annotation override.
+
+Session state, like the controls next to it: `drawing : DrawingModel` lives on `Model`, not
+`Scene` (`Viewer-Model.fs:598`), so geometry, thickness, sampling and now the fill defaults all
+reset each launch.
+
 ## 8. Picking — build it, clickable by default
 
 `Sg.pickable'` uses the line bounding box and the pick target only rasterizes lines
@@ -437,6 +457,23 @@ does not win the pick against its own outline.
 
 Once merge/split lands, this can be reimplemented as `PolyRegion.containsPoint` in chart space
 and the pick-target geometry dropped entirely (section 10).
+
+### The object-id space — implemented
+
+Line and fill draws both write object ids indexing the same array. They originally agreed only
+because each enumerated `annoSet.Content` independently and happened to see the same order —
+two separate `AVal.custom` nodes with nothing enforcing agreement. A drift would have shown up
+as clicking one annotation and selecting another.
+
+`PackedRendering.orderedAnnotations` is now the single cached ordering both consume; object id N
+*is* index N of that array, so `fills` uses the loop index directly and its counter is gone. Any
+future packed draw that writes `ObjId` must take its ids from the same ordering.
+
+> Unrelated: a report of hover highlighting while ctrl+click failed to select is **not** this.
+> Ctrl is a stateful toggle that flips `model.pick` on key-up (`Viewer.fs:1571-1576`), and
+> selection is gated on `match (act, model.draw, model.pick)` needing `(_, false, true)`
+> (`Drawing-App.fs:615`) while hover is gated only by `allowAnnotationPicking`. A parity mismatch
+> produces exactly that symptom. Pre-existing; worth its own look if it recurs.
 
 ## 9. Unit tests — `src\Tests\PolygonFillTests.fs`
 
