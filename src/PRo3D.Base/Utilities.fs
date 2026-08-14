@@ -76,6 +76,26 @@ module OPCFilter =
                     return v.c
             }
 
+        type UniformScope with
+            member x.WhiteDiscardEnabled   : bool    = x?WhiteDiscardEnabled
+            member x.WhiteDiscardThreshold : float32 = x?WhiteDiscardThreshold
+
+
+        // Discards the large white areas above and beneath the RIMFAX data
+        let discardWhiteBands (v : Effects.Vertex) =
+            fragment {
+                if uniform.HasDiffuseColorTexture then
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0f)
+                    if uniform.WhiteDiscardEnabled then
+                        let t = uniform.WhiteDiscardThreshold
+                        if texColor.Y >= t then
+                            discard()
+                    return texColor
+                else
+                    return v.c
+
+            }
+
         let improvedDiffuseTexture (v : Effects.Vertex) =
             fragment {
                 let texColor = diffuseSampler.Sample(v.tc,-1.0f)
@@ -1143,28 +1163,31 @@ module Sg =
         |> Sg.trafo trafo
 
     //## TEXT ##
-    let invariantScaleTrafo 
-        (view : aval<CameraView>) 
-        (near : aval<float>) 
-        (pos  : aval<V3d>) 
-        (size : aval<double>) 
-        (hfov : aval<float>) 
+    /// Scale factor that keeps geometry at a constant size on screen ("fixed pixel size"):
+    /// size is a fraction of the viewport and does not depend on the distance to the camera.
+    /// This is the single definition of the text size convention used throughout PRo3D
+    /// (annotations, scale bars, reference system, traverse sol labels) - the constants matter,
+    /// do not reimplement it: half the field of view, no additional factor.
+    let invariantScale (hfovInDegrees : float) (distance : float) (size : float) =
+        let hfov_rad = Conversion.RadiansFromDegrees hfovInDegrees
+        Fun.Tan(hfov_rad / 2.0) * size * distance
+
+    let invariantScaleTrafo
+        (view : aval<CameraView>)
+        (near : aval<float>)   // unused: the near plane cancels out in the scale factor
+        (pos  : aval<V3d>)
+        (size : aval<double>)
+        (hfov : aval<float>)
         : aval<Trafo3d> =
 
         adaptive {
             let! hfov = hfov
-            let hfov_rad = Conversion.RadiansFromDegrees(hfov)
-
-            let! near = near
-            let! size = size 
-            let wz = Fun.Tan(hfov_rad / 2.0) * near * size
-
+            let! size = size
             let! p = pos
             let! v = view
-            let dist = Vec.Distance(p, v.Location)
-            let scale = ( wz / near ) * dist
 
-            return Trafo3d.Scale scale
+            let dist = Vec.Distance(p, v.Location)
+            return Trafo3d.Scale (invariantScale hfov dist size)
         }
 
     let private screenAlignedTrafo (forw : V3d) (up : V3d) (modelTrafo: Trafo3d) =
@@ -1190,7 +1213,7 @@ module Sg =
     let stableTrafoShader = 
         Effect.compose [toEffect Shader.StableTrafo.stableTrafo]
 
-    module private Font =
+    module Font =
         open System.Reflection
 
         let private getEmbeddedFont (name: string) =
@@ -1198,7 +1221,7 @@ module Sg =
                 let asm = Assembly.GetExecutingAssembly()
                 let resourceName =
                     asm.GetManifestResourceNames()
-                    |> Array.find (String.toLowerInvariant >> String.endsWith (String.toLowerInvariant name))
+                    |> Array.find (_.ToLowerInvariant() >> String.endsWith (name.ToLowerInvariant()))
 
                 asm.GetManifestResourceStream resourceName
             with _ ->
@@ -1409,6 +1432,7 @@ module Copy =
 module ScreenshotUtilities = 
     module Utilities =
         open System.Net.Http
+        open System.Threading
 
         type ClientStatistics =
           {
@@ -1421,17 +1445,45 @@ module ScreenshotUtilities =
               frameTime       : float
           }
 
-        let downloadClientStatistics baseAddress (httpClient : HttpClient) =
-            let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
-            Log.line "[Screenshot] querying rendering stats at: %s" path
-            let result = httpClient.GetStringAsync(path).Result
+        /// Aardvark.UI's /rendering/stats.json handler pickles the statistics to a string and
+        /// then hands that string to http.json, which pickles it a second time
+        /// (RenderServer.fs: `http.json (Pickler.json.PickleToString stats)`, Aardvark.UI 5.7.3).
+        /// The body is therefore a JSON string wrapping the actual payload. Peel that layer off
+        /// when it is there, so we keep working against both the current and a fixed
+        /// aardvark.media. See https://github.com/aardvark-platform/aardvark.media/issues/53
+        let private unwrapDoubleEncodedJson (body : string) =
+            if body.TrimStart().StartsWith "\"" then
+                try Newtonsoft.Json.JsonConvert.DeserializeObject<string> body with _ -> body
+            else
+                body
+
+        let private parseClientStatistics path (body : string) =
+            let result = body |> unwrapDoubleEncodedJson
 
             let clientBla : list<ClientStatistics> =
-                Pickler.unpickleOfJson  result
+                try
+                    Pickler.unpickleOfJson result
+                with e ->
+                    failwithf "Could not parse client statistics from %s: %s (body was: %s)" path e.Message result
 
-            match clientBla.Length with
-            | 1 | 2 -> clientBla // clientBla.[1] 
-            | _ -> failwith (sprintf "Could not download client statistics for %s" path)  //"no client bla"
+            match clientBla with
+            | [] -> failwith (sprintf "No rendering client reported statistics at %s" path)
+            | _ -> clientBla
+
+        let downloadClientStatisticsAsync baseAddress (httpClient : HttpClient) (ct : CancellationToken) =
+            task {
+                let path = sprintf "%s/rendering/stats.json" baseAddress
+                Log.line "[Screenshot] querying rendering stats at: %s" path
+                let! body = httpClient.GetStringAsync(path, ct)
+                return parseClientStatistics path body
+            }
+
+        /// Blocking wrapper for the callers that still live in a synchronous `update`
+        /// (RemoteControlApp, Rover-Model). New code should await the async version -
+        /// blocking here costs a second thread and can starve the pool.
+        let downloadClientStatistics baseAddress (httpClient : HttpClient) =
+            (downloadClientStatisticsAsync baseAddress httpClient CancellationToken.None)
+                .GetAwaiter().GetResult()
 
         let getScreenshotUrl baseAddress clientStatistic width height =                                
 
@@ -1463,11 +1515,11 @@ module ScreenshotUtilities =
             let clientStatistics = downloadClientStatistics baseAddress httpClient
             
             let cs =
-                match clientStatistics.Length with
-                | 2 -> clientStatistics.[1] 
-                | 1 -> clientStatistics.[0]
-                | _ -> failwith (sprintf "Could not download client statistics")
-                
+                match clientStatistics with
+                | _ :: second :: _ -> second
+                | first :: _ -> first
+                | [] -> failwith (sprintf "Could not download client statistics")
+
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format
             httpClient.DownloadFile(screenshot,filename)        
@@ -1495,7 +1547,6 @@ module FrustumUtils =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
         let hfov = 2.0 * atan(11.84 /(focal*2.0))
-        Log.line $"computed hvov: {hfov}."
         Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
 
     let calculateFrustum' (focal : float) (near : float) 
@@ -1503,5 +1554,4 @@ module FrustumUtils =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
         let hfov = 2.0 * atan(11.84 /(focal*2.0))
-        Log.line $"computed hvov: {hfov}."
         Frustum.perspective (hfov.DegreesFromRadians()) near far aspect

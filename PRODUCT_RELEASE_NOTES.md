@@ -1,3 +1,83 @@
+## 6.0.0
+First stable release of the 6.0 line. The individual changes since 5.x are listed in the `6.0.0-prerelease*` and `6.0.0-rc*` entries below.
+
+- Sequenced bookmarks: **playback keeps the camera pointing where the bookmarks point** — moving between two bookmarks that look the same way lost the view direction and swung the camera up into the sky for the whole segment. Stepping to a bookmark, and batch-rendered snapshots, were unaffected
+
+## 6.0.0-rc2
+- Snapshots: **batch-rendered images are no longer black** — sequenced-bookmark animations, panorama collections and command-line snapshot rendering all wrote empty frames, because the offscreen framebuffer the images were rendered into did not match the one the scene was prepared for
+
+## 6.0.0-rc1
+- Screenshots: **screenshots are written again** — this completes the fix started in prerelease9, which got the rendering statistics parsing right but left the image download failing. Taking a screenshot blocked the update thread while the render service was waiting for that very thread to release the scene, so the request timed out after 100 seconds and PRo3D froze meanwhile
+
+## 6.0.0-prerelease9
+- Surfaces: fixed **holes across OPC surfaces on Apple Silicon Macs** — cross-section clipping ran on every scene even with no cross-section defined, discarding fragments based on a per-vertex attribute that was never filled; Windows and Linux were unaffected
+- Reference system: the **coordinate cross no longer vanishes** on click or scroll — refreshing up/north at the camera position also moved the cross's origin onto the camera
+- Screenshots: fixed **screenshots failing** with a deserialization error on the `/rendering/stats.json` body
+- Annotations: **lat/lon/alt columns** in the CSV export, and the annotation list shows the annotation text instead of its geometry type
+- Groups: fixed group activation
+
+## 6.0.0-prerelease8
+- Groups: the **active group is visible again** in the surface, annotation, bookmark and GIS trees — the filled/outline circle indicator broke with the Aardvark.Media 5.7 icon set, and the active group name is now highlighted; folder icons are no longer black on the dark panels
+- Surfaces: the **DistanceFilter** now explains itself — it only takes effect once a home position is set, so the (previously unlabeled) *Home Position* button moved next to the filter, shows `set`/`not set`, and both rows have tooltips
+- Traverses: **sol label size** uses the same screen-size convention as annotation and scale-bar labels, in both the fast and the stable text mode; sizes stored in existing scenes are converted on load, so labels keep their size
+
+## 6.0.0-prerelease7
+- Snapshots: fixed a regression that prevented **bookmark / panorama snapshot animations from loading** in `PRo3D.Snapshots.exe` ("Could not read json File") — a required-vs-optional JSON read introduced by an earlier untested merge
+- Snapshots: `PRo3D.Snapshots.exe` (the sequenced-bookmark / batch renderer) is now **bundled into the installers** alongside `PRo3D.Viewer`, not only in the standalone zip
+
+## 6.0.0-prerelease6
+- Navigation: the camera-mode dropdown now shows **MapView** even when no reference body is loaded — greyed out with a "needs a planet / reference body" note — instead of hiding the option entirely
+- Release: restored the non-electron Windows standalone build (`PRo3D.Viewer-<version>-win-x64-standalone.zip`) attached to the draft release alongside the installers
+
+## 6.0.0-prerelease5
+- macOS: fixed PRo3D failing to start on Apple Silicon (and Intel) Macs — a stale x86_64 `libCooTransformation` bundled with the instrument-platform wrappers shadowed the correct-architecture SPICE native; removed it so SPICE/CooTransformation initializes on all platforms
+- Profiles: multi-attribute profile data extraction and export
+- MapView overview camera controller; small-body camera fixes (sky vector, pole guard)
+- SBMT annotation import (points + ellipses, chunked UI groups)
+- Instrument image projection testbed and fixes: SPICE kernel loading no longer depends on the process working directory; per-hierarchy OPC face-normal winding; `getRotationTrafo` returns honest `None` on failure; mbi-quaternion attitude without a spacecraft CK
+- Per-computer user preferences (MapView WASD invert)
+
+## 6.0.0-prerelease4-media57
+- Updated to Aardvark.Media 5.7
+- Switched from Suave to Giraffe
+- Implemented report dialogs
+
+## 6.0.0-prerelease4
+- Drawing: added undo/redo support for drawing/annotation edits, including a fix for scenes created before this feature
+- Groups: annotations now default to their group's color; removed the redundant top-menu annotation color picker
+- Cross sections: added a file dialog for choosing a cross-section image
+- RIMFAX: reworked surface selection visualization and added priority rendering so RIMFAX and rover traverse render correctly relative to each other; white-band discard for RIMFAX imagery moved to the traverse section
+- Fixed the DnS (Drift and Stare) plane, which had stopped rendering
+
+## 6.0.0-prerelease3
+- Snapshots: fixed "could not find PRo3D.Snapshots.exe" — the snapshot/panorama renderer is now resolved beside the running executable and launched with that working directory (previously a relative path failed because SPICE init leaves the process working directory in the kernel config folder)
+
+## 6.0.0-prerelease2
+- Dashboards: default to the M2020 docking layout (includes the Traverse panel) and added "M2020" to the Change Mode menu so it can be selected
+
+## 6.0.0-prerelease1
+- Apple Silicon: native macOS arm64 builds — PRo3D now runs natively on M-series Macs (no Rosetta), alongside Intel macOS, Windows and Linux
+- SPICE: updated to PRo3D.SPICE 1.0.9 with native CooTransformation/cspice libraries for macOS arm64
+- Build/release: unified the GitHub draft release so the standalone zip and the installers share one draft, with consistent v-prefixed tags and commit provenance
+
+## 5.9.0-prerelease1
+- **Cross sections (experimental preview).** Place a cross section from a line annotation and render an extruded "curtain" along it. This is a preview feature; its model and UI may still change.
+  - curtain: surface-relative texture mapping, smoother cross-section clip edge, adjustable base colour, and a button to remove a placed cross section
+- Traverse: added a "Fast Text" toggle for sol-number labels — fast batched billboards (default) or numerically stable per-label rendering that does not jitter at distance
+- Surface distance filter: fixed — it previously clipped the entire surface and ignored the distance value; now works correctly in stable view space
+- Sequenced bookmarks: fixed a crash (NullReferenceException) when playing a sequence containing bookmarks with identical / coincident camera positions
+- Camera & picking: fixed surface picks and placements firing while navigating — e.g. placing a coordinate system and then orbiting no longer re-places it
+- OBJ surfaces: added a white-pixel discard render stage (with GUI checkbox) and a threshold modifier in surface properties
+- removed debug logging that spammed the console during animation
+
+## 5.6.0-prerelease2
+- added cross sections
+## 5.7.0-prerelease1
+- MapView camera controller (overview mode)
+- Profile data extraction / multi-attribute export
+- MapView rotate fix under Ctrl modifier
+
+
 ## 5.5.0
 - triangle Filter for Scene Objects (and Checkbox for de-activation added)
 - Preview Cursor

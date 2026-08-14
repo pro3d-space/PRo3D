@@ -130,39 +130,55 @@ module Gui =
                 )  
             
             let pnb = pitchAndBearing m cv
-            
-            let pitch    = pnb |> AVal.map(fun (p,_) -> sprintf "%s deg" (p.ToString("0.00")))
-            let bearing  = pnb |> AVal.map(fun (_,b) -> sprintf "%s deg" (b.ToString("0.00")))
+
+            // Bearing/pitch suppressed on small bodies. The current math
+            // (AnnotationHelpers.bearing/pitch + ReferenceSystem.northVector)
+            // assumes world +Z is the body's north pole and computes pitch
+            // against a global plane through origin -- both wrong for small
+            // irregular bodies like Dimorphos (north pole is -Z in SHM, and
+            // the camera sits a body-radius away from origin). Better to show
+            // nothing than nonsense. See TODOS.md "small-body bearing/pitch
+            // overlay" before re-enabling.
+            let pitch =
+                AVal.map2 (fun (p,_) planet ->
+                    if CooTransformation.isSmallBody planet then "n/a"
+                    else sprintf "%s deg" ((p : float).ToString("0.00"))) pnb m.planet
+            let bearing =
+                AVal.map2 (fun (_,b) planet ->
+                    if CooTransformation.isSmallBody planet then "n/a"
+                    else sprintf "%s deg" ((b : float).ToString("0.00"))) pnb m.planet
             
             let position = cv |> AVal.map(fun x -> x.Location.ToString("0.00"))
             
-            let spericalc = 
-                AVal.map2 (fun (a : CameraView) b -> 
-                    CooTransformation.getLatLonAlt b a.Location
+            let spericalc =
+                AVal.map2 (fun (a : CameraView) b ->
+                    CooTransformation.tryGetLatLonAlt b a.Location
                 ) cv m.planet
-            
-            let altitude = 
-                AVal.map2 (fun (a : CameraView) b -> 
-                    CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
-            
-            let lon = 
-                spericalc 
-                |> AVal.map(fun x -> 
-                    if x.longitude.IsNaN() then
-                        sprintf "not available"
-                    else
-                        sprintf "%s deg" ((360.0 - x.longitude).ToString())
-                )
-            let lat = 
-                spericalc 
-                |> AVal.map(fun x -> 
-                    if x.latitude.IsNaN() then
-                        sprintf "not available"
-                    else
-                        sprintf "%s deg" ((x.latitude).ToString())
-                ) 
-                
-            let alt2 = altitude |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
+
+            let altitude =
+                AVal.map2 (fun (a : CameraView) b ->
+                    CooTransformation.tryGetAltitude a.Location a.Up b) cv m.planet
+
+            let formatCoo (project : CooTransformation.SphericalCoo -> string) =
+                spericalc |> AVal.map (function
+                    | Some sc -> project sc
+                    | None    -> "conversion failed (set planet)")
+
+            let lon = formatCoo (fun x -> sprintf "%s deg" ((360.0 - x.longitude).ToString()))
+            let lat = formatCoo (fun x -> sprintf "%s deg" (x.latitude.ToString()))
+
+            let alt2 =
+                altitude |> AVal.map (function
+                    | Some v -> sprintf "%s m" (v.ToString("0.00"))
+                    | None   -> "conversion failed (set planet)")
+
+            let conventionLabel =
+                m.planet |> AVal.map (fun p ->
+                    match CooTransformation.getConvention p with
+                    | CooTransformation.Planetographic    -> "planetographic"
+                    | CooTransformation.Spherical r       -> sprintf "spherical r=%.1fm" r
+                    | CooTransformation.Ellipsoidal _     -> "ellipsoidal"
+                    | CooTransformation.NonPlanetary      -> "n/a")
                                                    
             let style' = "color: white; font-family: Roboto Mono"
             
@@ -201,9 +217,13 @@ module Gui =
                     tr [] [
                         td [style style'] [text "Altitude: "]
                         td [style style'] [Incremental.text alt2]
-                    ]                    
+                    ]
+                    tr [] [
+                        td [style style'] [text "Convention: "]
+                        td [style style'] [Incremental.text conventionLabel]
+                    ]
                 ]
-            ]                     
+            ]
         ]
     
     let textOverlaysInstrumentView (m : AdaptiveViewPlanModel)  = 
@@ -462,6 +482,9 @@ module Gui =
         let jsExportProfileAsCSVDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Profile (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
+        let jsExportMultiAttrProfileDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Multi-Attribute Profile (*.csv)', filters:  [{ name: 'Profile (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
         let jsExportAnnotationsAsGeoJSONDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
 
@@ -504,13 +527,20 @@ module Gui =
                             ] [
                                 text "visible as table (*.csv)"
                             ]     
-                            div [ 
+                            div [
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsProfileCsv
                                 clientEvent "onclick" jsExportProfileAsCSVDialog
                             ]  [
                                 text "selected as profile (*.csv)"
-                            ]     
+                            ]
+                            div [
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportMultiAttributeProfile
+                                clientEvent "onclick" jsExportMultiAttrProfileDialog
+                            ] [
+                                text "selected as multi-attribute profile (*.csv)"
+                            ]
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsGeoJSON
@@ -565,8 +595,30 @@ module Gui =
                 ]
             ]       
         
-        let menu (m : AdaptiveModel) =          
-            let subMenu name menuItems = 
+        // Checkbox-style menu item bound to a single bool flag on
+        // `m.userPreferences`. Click toggles the flag — the update handler
+        // dispatches SetUserPreferences which both updates the model and
+        // writes the JSON file under %APPDATA%/Pro3D.
+        let prefToggle (label : string)
+                       (getter : UserPreferences -> bool)
+                       (setter : bool -> UserPreferences -> UserPreferences)
+                       (m : AdaptiveModel) =
+            let iconAttrs =
+                amap {
+                    let! prefs = m.userPreferences
+                    yield clazz (if getter prefs then "check square outline icon" else "square icon")
+                } |> AttributeMap.ofAMap
+
+            div [ clazz "ui item"
+                  onClick (fun _ ->
+                      let prefs = AVal.force m.userPreferences
+                      SetUserPreferences (setter (not (getter prefs)) prefs)) ] [
+                Incremental.i iconAttrs AList.empty
+                text (" " + label)
+            ]
+
+        let menu (m : AdaptiveModel) =
+            let subMenu name menuItems =
                 div [ clazz "ui dropdown item"] [
                   text name
                   i [clazz "dropdown icon"] [] 
@@ -600,6 +652,7 @@ module Gui =
                                 annotationMenu |> UI.map DrawingMessage;   
                                 subMenu "Change Mode"
                                         [
+                                          menuItem "M2020" (ChangeDashboardMode DashboardModes.m2020)
                                           menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
                                           menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
                                           menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
@@ -629,7 +682,18 @@ module Gui =
                                             clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ] [
                                             text "Import v1 Annotations (*.xml)"
                                         ]
-                                        
+
+                                        // SBMT structure files: real fixtures sometimes have no extension
+                                        // (e.g. boulder catalogs) so the filter is wide. Frame is hardcoded
+                                        // to DIMORPHOS_SHM in the handler -- see plans/sbmtImport.md.
+                                        let jsOpenSbmtFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import SBMT annotations', filters: [{ name: 'SBMT structure files', extensions: ['txt', '*']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        div [ clazz "ui item";
+                                            Dialogs.onChooseFiles ImportSbmtAnnotations;
+                                            clientEvent "onclick" jsOpenSbmtFileDialogue ] [
+                                            text "Import SBMT Annotations"
+                                        ]
+
                                         let jsImportTraverseDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Traverse files' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
                                         div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" jsImportTraverseDialog ] [
@@ -678,8 +742,11 @@ module Gui =
                                         
 
                                         //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
-                                        div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
-                                            text "Send log to maintainers"
+                                        div [clazz "ui item"; clientEvent "onclick" "aardvark.showReportDialog?.()"] [ // server-mode (i.e. deploy version) only
+                                            text "Report Issue"
+                                        ]
+                                        div [clazz "ui item"; clientEvent "onclick" "aardvark.showLogViewer?.()"] [ // server-mode (i.e. deploy version) only
+                                            text "View Log"
                                         ]
                                         a [style "visibility:hidden"; clazz "invisibleCrashButton"] []
 
@@ -695,7 +762,28 @@ module Gui =
                                         //]
                                     ]
                                 ]
-                            ] 
+
+                                // Preferences: per-computer settings persisted to
+                                // %APPDATA%/Pro3D/userPreferences.json. NOT part of
+                                // the scene file or any bookmark.
+                                div [ clazz "ui dropdown item"] [
+                                    text "Preferences"
+                                    i [clazz "dropdown icon"] []
+                                    div [ clazz "menu"] [
+                                        div [clazz "header"; style "padding: 6px 10px; color: black; font-weight: bold"] [
+                                            text "MapView controls"
+                                        ]
+                                        prefToggle "Invert W / S (forward-back)"
+                                            (fun p -> p.mapInvertForward)
+                                            (fun b p -> { p with mapInvertForward = b })
+                                            m
+                                        prefToggle "Invert A / D (strafe)"
+                                            (fun p -> p.mapInvertStrafe)
+                                            (fun b p -> { p with mapInvertStrafe = b })
+                                            m
+                                    ]
+                                ]
+                            ]
                         ]
                     )
                 ]
@@ -792,35 +880,53 @@ module Gui =
             | Interactions.PickPivotPoint        -> ""
             | _ -> ""
         
-        let topMenuItems (model : AdaptiveModel) = [ 
-            div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
+        let topMenuItems (model : AdaptiveModel) = [
+            div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
-            Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
-              
+            Navigation.UI.viewNavigationModes model.scene.referenceSystem.planet model.navigation |> UI.map NavigationMessage
+
+            // Interaction selector + ctrl-click hint. The mode-specific tool
+            // controls (annotation geometry, rover selector, etc.) live on the
+            // secondary toolbar row below so the planet selector and scene
+            // path stay visible on the main row at every window width.
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
                 Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
-                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
-                Html.Layout.boxH [ 
-                    div [style "font-style:italic; width:100%; text-align:right"] [
+                Html.Layout.boxH [
+                    div [style "font-style:italic"] [
                         Incremental.text (model.interaction |> AVal.map interactionText)
                     ]]
             ]
-              
+
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
-            ] 
+            ]
             Html.Layout.horizontal [
                 scenepath model
-            ]        
-        ]        
-        
+            ]
+        ]
+
+        // The secondary toolbar is always rendered (even when the active
+        // interaction has no tool controls) so the dock below never jumps
+        // when switching tools. `dynamicTopMenu` returns an empty div for
+        // interactions without a secondary toolbar; the row height stays
+        // stable thanks to the wrapping `.ui.menu`'s min-height.
+        let secondaryToolbarRow (m : AdaptiveModel) =
+            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0; border:0"] [
+                div [clazz "item topmenu"] [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
+                ]
+            ]
+
         let getTopMenu (m:AdaptiveModel) =
-            div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
-                yield (menu m)
-                for t in (topMenuItems m) do
-                    yield div [clazz "item topmenu"] [t]
+            div [clazz "pro3d-topbar"] [
+                div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
+                    yield (menu m)
+                    for t in (topMenuItems m) do
+                        yield div [clazz "item topmenu"] [t]
+                ]
+                secondaryToolbarRow m
             ]
         
     module Annotations =
@@ -832,7 +938,52 @@ module Gui =
                   | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
-                
+
+        // Bulk edit surface: targets the green multi-selection (selectedLeaves), which stays
+        // distinct from the single-selection that drives the Properties panel. Fields bind to a
+        // representative annotation but every edit is routed (write-only) to all selected.
+        let viewBulkAnnotationProperties (model : AdaptiveModel) =
+            let annotations = model.drawing.annotations
+            adaptive {
+                let! selected = annotations.selectedLeaves.Content
+                let selectedList = selected |> HashSet.toList
+                let count = selectedList |> List.length
+                let! single = annotations.singleSelectLeaf
+
+                // representative the fields show: the single-selected one when it is part of the
+                // multi-selection, otherwise the first selected leaf (e.g. after a group Select All)
+                let repId =
+                    match single with
+                    | Some id when selectedList |> List.exists (fun ts -> ts.id = id) -> Some id
+                    | _ -> selectedList |> List.tryHead |> Option.map (fun ts -> ts.id)
+
+                if count < 2 then
+                    return div [style "font-style:italic; padding:5px"]
+                               [ text "Select two or more annotations (multi-select via the cube icons or a group's Select All) to bulk edit." ]
+                else
+                    match repId with
+                    | None -> return div [] []
+                    | Some id ->
+                        match! AMap.tryFind id annotations.flat with
+                        | Some (AdaptiveAnnotations ann) ->
+                            let header =
+                                div [clazz "ui small header"; style "color:white; padding: 5px 0px"]
+                                    [ text (sprintf "%d annotations selected — edits apply to all" count) ]
+                            let clear =
+                                div [style "padding: 5px 0px"] [
+                                    button [
+                                        clazz "ui tiny button"
+                                        onClick (fun _ -> ViewerAction.DrawingMessage(DrawingAction.GroupsMessage(GroupsAppAction.ClearSelection)))
+                                    ] [ text "Clear selection" ]
+                                ]
+                            let fields =
+                                AnnotationProperties.viewBulk Config.colorPaletteStore ann
+                                |> UI.map ViewerAction.AnnotationBulkMessage
+                            return div [] [ header; fields; clear ]
+                        | _ ->
+                            return div [style "font-style:italic; padding:5px"] [ text "no annotation selected" ]
+            }
+
         let viewAnnotationResults (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
@@ -906,6 +1057,9 @@ module Gui =
                     GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
                     Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
+                ]
+                GuiEx.accordion "Curtain Settings" "Expand" false [
+                    CrossSectionApp.viewCurtainSettings m.scene.crossSectionModel |> UI.map CrossSectionMessage
                 ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))
@@ -1152,9 +1306,9 @@ module Gui =
     //TODO refactor: two codes for resize attachments
     module Pages =
         let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
-        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
+        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) (request : IHttpRequest) =
             
-            match Map.tryFind "page" request.queryParams with
+            match request.QueryParam "page" with
             | Some "instrumentview" ->
                 let id = System.Guid.NewGuid().ToString()
 
@@ -1278,7 +1432,11 @@ module Gui =
                         GuiEx.accordion "Properties" "Content" true [
                                            Incremental.div AttributeMap.empty (AList.ofAValSingle prop)
                         ]
-                                       
+
+                        GuiEx.accordion "Bulk Edit" "edit" false [
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle (Annotations.viewBulkAnnotationProperties m))
+                        ]
+
                         GuiEx.accordion "Measurements" "Content" true [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
                         ]
@@ -1341,15 +1499,15 @@ module Gui =
                             |> UI.map GisAppMessage
                             |> UI.map ViewerMessage]
                 )
-            | None -> 
+            | None ->
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (
-                        body [] [                    
+                        body [] [
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [
                                 m.scene.dockConfig
-                                |> docking [                                           
+                                |> docking [
                                     style "width:100%; height:100%; background:#F00"
                                     onLayoutChanged UpdateDockConfig
                                     |> ViewerUtils.mapAttribute ViewerMessage

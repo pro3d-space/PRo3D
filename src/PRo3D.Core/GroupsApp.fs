@@ -32,6 +32,7 @@ type GroupsAppAction =
     | ToggleGroup           of list<Index>
     | SetVisibility         of path : list<Index> * isVisible : bool
     | SetSelection          of path : list<Index> * isSelected : bool
+    | SetGroupDefaultColor  of path : list<Index> * action : ColorPicker.Action
     | MoveLeaves      
     | AddAndSelectGroup     of list<Index> * Node
     | ClearSnapshotsGroup
@@ -280,15 +281,16 @@ module GroupsApp =
             }
             
     let createEmptyGroup () = 
-        {    
-            version   = Node.current
-            name      = "newGroup" 
-            key       = Guid.NewGuid()
-            leaves    = IndexList.Empty
-            subNodes  = IndexList.Empty
-            visible   = true
-            expanded  = true
-        }    
+        {
+            version      = Node.current
+            name         = "newGroup"
+            key          = Guid.NewGuid()
+            leaves       = IndexList.Empty
+            subNodes     = IndexList.Empty
+            visible      = true
+            expanded     = true
+            defaultColor = Node.initialDefaultColor
+        }
 
     let clearGroupAtRoot (model : GroupsModel) (groupName : string) =
         let node = 
@@ -536,7 +538,10 @@ module GroupsApp =
             if isSelected then
                 { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
             else
-                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }              
+                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }
+        | SetGroupDefaultColor (p, a) ->
+            let func = fun (x:Node) -> { x with defaultColor = ColorPicker.update x.defaultColor a }
+            { model with rootGroup = updateNodeAt p func model.rootGroup }
         | MoveLeaves  -> 
             moveChildren model
         | ClearSelection ->
@@ -581,22 +586,46 @@ module GroupsApp =
 
     let activeIcon (model : AdaptiveGroupsModel)
                    (group : AdaptiveNode) =
-        adaptive { 
+        adaptive {
             let! activeGroup = model.activeGroup
             let! group  =  group.key
-            return if (activeGroup.id = group) then "circle icon" else "circle thin icon"
+            // "circle thin" is font-awesome 4; the shipped semantic ui knows only "circle outline",
+            // and silently falls back to the filled circle - making active and inactive indistinguishable
+            return if (activeGroup.id = group) then "circle icon" else "circle outline icon"
         }
+
+    /// css color for a group in the tree view: green if it is the active group, white otherwise.
+    /// (the tree renders on a dark background, hence white rather than the semantic ui default)
+    let activeGroupColor (model : AdaptiveGroupsModel)
+                         (group : AdaptiveNode) : aval<string> =
+        adaptive {
+            let! activeGroup = model.activeGroup
+            let! key = group.key
+            let c = if activeGroup.id = key then C4b.VRVisGreen else C4b.White
+            return sprintf "color: %s" (Html.color c)
+        }
+
+    /// style attributes highlighting the active group; use with Incremental.div/i so that
+    /// switching the active group only updates the style instead of rebuilding the tree node
+    let activeGroupColorAttributes (model : AdaptiveGroupsModel)
+                                   (group : AdaptiveNode)
+                                   (additionalStyle : string) =
+        amap {
+            let! color = activeGroupColor model group
+            yield style (additionalStyle + color)
+        } |> AttributeMap.ofAMap
 
     let setActiveGroupAttributeMap (path : list<Index>)
                                    (model : AdaptiveGroupsModel)
-                                   (group : AdaptiveNode) 
+                                   (group : AdaptiveNode)
                                    (msg : GroupsAppAction -> 'a) =
         amap {
-            let! name = group.name
-            let setActive = GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, name)
             let! icon = activeIcon model group
             yield clazz icon
-            yield onClick (fun _ -> (msg setActive))
+            yield onClick (fun _ ->
+                let setActive =
+                    GroupsAppAction.SetActiveGroup (AVal.force group.key, path, AVal.force group.name)
+                msg setActive)
         } |> AttributeMap.ofAMap
 
     let viewSelectionButtons =

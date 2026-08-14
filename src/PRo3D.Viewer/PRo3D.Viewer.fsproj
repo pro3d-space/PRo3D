@@ -35,9 +35,6 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Remove="Drawing\**" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="ResettableAsyncValue.fs" />
     <None Include="RunAdaptify.fsx" />
     <None Include="paket.references" />
@@ -52,6 +49,7 @@
 	<Compile Include="Models\Model.g.fs" />
     <Compile Include="Models\Lenses.fs" />
     <Compile Include="Utilities.fs" />
+    <Compile Include="MapViewCameraController.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Navigation.fs" />  
     <Compile Include="ViewconfigApp.fs" />

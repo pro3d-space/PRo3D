@@ -90,6 +90,7 @@ type ViewerAction =
 | AnimationMessage                of AnimationAction // SequencedBookmarkId that corresponds to this AnimationAction
 | ReferenceSystemMessage          of ReferenceSystemAction
 | AnnotationMessage               of AnnotationProperties.Action
+| AnnotationBulkMessage           of AnnotationProperties.Action
 | BookmarkMessage                 of BookmarkAction
 | BookmarkUIMessage               of GroupsAppAction
 | SequencedBookmarkMessage        of SequencedBookmarksAction
@@ -109,6 +110,7 @@ type ViewerAction =
 | ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
 | ImportPRo3Dv1Annotations        of list<string>
+| ImportSbmtAnnotations           of list<string>
 | ImportSurfaceTrafo              of list<string>
 | ImportRoverPlacement            of list<string>
 | ImportTraverse                  of list<string>
@@ -187,11 +189,13 @@ type ViewerAction =
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera
-| StopGeoJsonAutoExport        
+| StopGeoJsonAutoExport
 | SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
 | GisAppMessage                  of Gis.GisAppAction
+| CrossSectionMessage            of CrossSectionAction
 | SBookmarksToPoseDefinition
+| SetUserPreferences             of UserPreferences
 | Nop
 
 and MailboxState = {
@@ -234,6 +238,7 @@ type Scene = {
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
     gisApp                : PRo3D.Core.Gis.GisApp
+    crossSectionModel     : CrossSectionModel
 }
 
 module Scene =
@@ -286,10 +291,11 @@ module Scene =
                     comparisonApp         = ComparisonApp.init
                     screenshotModel       = ScreenshotModel.initial
                     gisApp                = Gis.GisApp.initial None
+                    crossSectionModel     = CrossSectionModel.initial
                 }
         }
 
-    let read1 = 
+    let read1 =
         json {            
             let! cameraView             = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
             let! navigationMode         = Json.read "navigationMode"
@@ -338,10 +344,11 @@ module Scene =
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
                     gisApp                  = Gis.GisApp.initial None
+                    crossSectionModel       = CrossSectionModel.initial
                 }
         }
 
-    let read2 = 
+    let read2 =
         json {            
             let! cameraView             = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
             let! navigationMode         = Json.read "navigationMode"
@@ -395,6 +402,7 @@ module Scene =
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
                     gisApp                  = Gis.GisApp.initial None
+                    crossSectionModel       = CrossSectionModel.initial
                 }
         }
 
@@ -421,13 +429,13 @@ module Scene =
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
             let! gisApp                 = Json.tryRead "gisApp"
-            let gisApp = 
+            let gisApp =
                 match gisApp with
                 | Some gisApp -> gisApp
                 | None -> Gis.GisApp.initial None
-            //let! viewplans     = Json.tryRead "viewplans"
+            let! crossSectionModel      = Json.tryRead "crossSectionModel"
 
-            return 
+            return
                 {
                     version                 = current
 
@@ -458,6 +466,7 @@ module Scene =
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
                     gisApp                  = gisApp
+                    crossSectionModel       = crossSectionModel |> Option.defaultValue CrossSectionModel.initial
                 }
         }
 
@@ -500,6 +509,7 @@ type Scene with
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
             do! Json.write "screenshotModel"    x.screenshotModel
             do! Json.write "gisApp"             x.gisApp
+            do! Json.write "crossSectionModel"  x.crossSectionModel
         }
 
 type SceneHandle = {
@@ -645,7 +655,13 @@ type Model = {
     surfaceIntersection : Option<SurfaceIntersection>
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
-} 
+
+    /// Per-computer user preferences (e.g. MapView WASD invert flags).
+    /// Loaded from / saved to `%APPDATA%/Pro3D/userPreferences.json`.
+    /// Outside scene/bookmark serialisation.
+    [<TreatAsValue>]
+    userPreferences      : UserPreferences
+}
 
 type ViewerAnimationAction =
     | ViewerMessage     of ViewerAction

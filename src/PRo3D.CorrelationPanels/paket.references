@@ -3,8 +3,7 @@ FSharp.Core
 Aardvark.Base                        
 Aardvark.Base.Incremental            
 Aardvark.Base.FSharp                 
-Aardvark.Base.Essentials             
-Aardvark.Service                     
+Aardvark.Base.Essentials                                  
 Aardvark.UI                          
 Aardvark.UI.Primitives               
 
@@ -18,13 +17,8 @@ Aardvark.GPGPU
 Adaptify.MSBuild
 Adaptify.Core
 
-
 FsPickler                            
 FsPickler.Json                       
-
-Suave                                
-
-Aardium                              
 
 Aardvark.Data.Opc  
 Aardvark.Application.Slim

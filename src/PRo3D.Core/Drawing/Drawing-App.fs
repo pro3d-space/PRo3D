@@ -95,25 +95,25 @@ module DrawingApp =
                 match w.geometry, sampleSurface with
                 | Geometry.AxisEllipse, Some sampleSurface
                 | Geometry.Axis4PEllipse, Some sampleSurface -> 
-                    //let geo = false
-                    //if geo then
-                    match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
-                    | Some (ellipses, sampledPoints) -> 
-                        let points = IndexList.ofArray sampledPoints
-                        { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
-                    | _ -> 
-                        w
-                    //else
-                    //    match dns with
-                    //    | None -> w
-                    //    | Some dns -> 
-                    //        match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
-                    //        | Some r -> 
-                    //            let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
-                    //            let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
-                    //            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = Some(ellipses.[1]) }}
-                    //        | _ -> 
-                    //            w
+                    let geo = false
+                    if geo then
+                        match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
+                        | Some (ellipses, sampledPoints) -> 
+                            let points = IndexList.ofArray sampledPoints
+                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
+                        | _ -> 
+                            w
+                    else
+                        match dns with
+                        | None -> w
+                        | Some dns -> 
+                            match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
+                            | Some r -> 
+                                let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
+                                let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
+                                { w with points = points; ellipticResults = None }
+                            | _ -> 
+                                w
                         
                 | _ -> 
                     w
@@ -187,11 +187,15 @@ module DrawingApp =
                     | _ -> failwith "case does not exist"            
                 result 
             | None ->  //no working state, start new working annotation
-                { 
+                // use the active group's default color for newly created annotations
+                let groupColor =
+                    GroupsApp.getNode model.annotations.activeGroup.path model.annotations.rootGroup
+                    |> fun node -> node.defaultColor
+                {
                     //annotation states should be immutable after creation
-                    //(Annotation.make model.projection model.geometry model.semantic surfaceName)  
+                    //(Annotation.make model.projection model.geometry model.semantic surfaceName)
                     //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
-                    (Annotation.make model.projection None model.geometry referenceSystem model.color model.thickness surfaceName)
+                    (Annotation.make model.projection None model.geometry referenceSystem groupColor model.thickness surfaceName)
                         with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
                 }, None
       
@@ -265,8 +269,34 @@ module DrawingApp =
         
     let pickler = MBrace.FsPickler.Json.JsonSerializer(indent=true)
 
-    let stash (model : DrawingModel) =
-        { model with past = Some model; future = None }
+    let pushUndo (delta : AnnotationsDelta) (model : DrawingModel) =
+        { model with undoStack = delta :: model.undoStack; redoStack = [] }
+
+    // Apply a delta in reverse (Undo): restore the annotations to the state before the action.
+    let applyUndoDelta (groups : GroupsModel) (delta : AnnotationsDelta) : GroupsModel =
+        match delta with
+        | LeafAdded (leaf, groupPath) ->
+            GroupsApp.removeLeaf groups leaf.id groupPath true
+        | LeafRemoved (leaf, groupPath) ->
+            let flat' = groups.flat |> HashMap.add leaf.id leaf
+            let func  = fun (x : Node) -> { x with leaves = x.leaves |> IndexList.prepend leaf.id }
+            let root' = GroupsApp.updateNodeAt groupPath func groups.rootGroup
+            { groups with flat = flat'; rootGroup = root' }
+        | SnapshotDelta (before, _) ->
+            before
+
+    // Apply a delta in the forward direction (Redo): re-apply the action.
+    let applyRedoDelta (groups : GroupsModel) (delta : AnnotationsDelta) : GroupsModel =
+        match delta with
+        | LeafAdded (leaf, groupPath) ->
+            let flat' = groups.flat |> HashMap.add leaf.id leaf
+            let func  = fun (x : Node) -> { x with leaves = x.leaves |> IndexList.prepend leaf.id }
+            let root' = GroupsApp.updateNodeAt groupPath func groups.rootGroup
+            { groups with flat = flat'; rootGroup = root' }
+        | LeafRemoved (leaf, groupPath) ->
+            GroupsApp.removeLeaf groups leaf.id groupPath true
+        | SnapshotDelta (_, after) ->
+            after
 
     type SmallConfig<'a> =
         {
@@ -338,6 +368,7 @@ module DrawingApp =
         | ExportAsAnnotations _ -> false
         | ExportAsCsv _         -> false
         | ExportAsProfileCsv _  -> false
+        | ExportMultiAttributeProfile _ -> false
         | ExportAsGeoJSON_xyz _ -> false
         | ExportAsGeoJSONQGIS_latlon _ -> false
         | ExportAsGeoJSONQGIS_xyz _ -> false
@@ -387,8 +418,17 @@ module DrawingApp =
         let up     = smallConfig.up.Get(bigConfig)
         let north  = smallConfig.north.Get(bigConfig)
         let planet = smallConfig.planet.Get(bigConfig)
-
-        (finishAndAppend up north planet None None view model) |> stash
+        let groupPath  = model.annotations.activeGroup.path
+        let flatBefore = model.annotations.flat
+        let result = finishAndAppend up north planet None None view model
+        let newLeaf =
+            result.annotations.flat
+            |> HashMap.toList
+            |> List.tryFind (fun (id, _) -> not (HashMap.containsKey id flatBefore))
+            |> Option.map snd
+        match newLeaf with
+        | Some leaf -> result |> pushUndo (LeafAdded(leaf, groupPath))
+        | None      -> result
 
     type ProfilePoint = {
         position  : V3d
@@ -434,13 +474,26 @@ module DrawingApp =
                 let up    = smallConfig.up.Get(bigConfig)
                 let north = smallConfig.north.Get(bigConfig)
                 let planet = smallConfig.planet.Get(bigConfig)
+                let groupPath  = model.annotations.activeGroup.path
+                let flatBefore = model.annotations.flat
 
-                let model, newSegment = addPoint up north planet referenceFrame projectSurface point view model name webSocket bookmarkId
-            
-                match newSegment with
-                | None         -> model
-                | Some segment -> addNewSegment projectSurface model segment
-                |> stash
+                let model', newSegment = addPoint up north planet referenceFrame projectSurface point view model name webSocket bookmarkId
+                let model' =
+                    match newSegment with
+                    | None         -> model'
+                    | Some segment -> addNewSegment projectSurface model' segment
+
+                // For geometries that auto-finish after N points (Line, Point, Ellipse, …),
+                // addPoint calls finishAndAppend internally. Detect that by checking whether
+                // a new leaf appeared in the flat map and push the undo delta here.
+                let newLeaf =
+                    model'.annotations.flat
+                    |> HashMap.toList
+                    |> List.tryFind (fun (id, _) -> not (HashMap.containsKey id flatBefore))
+                    |> Option.map snd
+                match newLeaf with
+                | Some leaf -> model' |> pushUndo (LeafAdded(leaf, groupPath))
+                | None      -> model'
             | RemoveLastPoint, _, _ -> 
               //let annotation = { w with points = w.points |> IndexList.append p }
               // { annotation with segments = IndexList.append newSegment annotation.segments }
@@ -480,8 +533,6 @@ module DrawingApp =
                 { model with geometry = mode; projection = projection; }
             | SetProjection mode, _, _ ->
                 { model with projection = mode }                  
-            | ChangeColor c, _, _ -> 
-                { model with color = ColorPicker.update model.color c }
             | ChangeThickness th, _, _ ->
                 { model with thickness = Numeric.update model.thickness th }
             | ChangeSamplingAmount k, _, _ ->
@@ -496,19 +547,33 @@ module DrawingApp =
             | ClearWorking,_ , _->
                 { model with working = None }
             | DrawingAction.Clear,_ , _->
-                { model with annotations = GroupsModel.initial }
-            | DrawingAction.Nop, _, _ -> model                   
-            | Undo, _, _ -> 
-                match model.past with
-                | Some p -> { p with future = Some model }
-                | None -> model
+                let before = model.annotations
+                let after  = GroupsModel.initial
+                { model with annotations = after } |> pushUndo (SnapshotDelta(before, after))
+            | DrawingAction.Nop, _, _ -> model
+            | Undo, _, _ ->
+                match model.undoStack with
+                | [] -> model
+                | delta :: rest ->
+                    let annotations = applyUndoDelta model.annotations delta
+                    { model with annotations = annotations; undoStack = rest; redoStack = delta :: model.redoStack }
             | Redo, _, _ ->
-                match model.future with
-                | Some f -> f
-                | None -> model           
+                match model.redoStack with
+                | [] -> model
+                | delta :: rest ->
+                    let annotations = applyRedoDelta model.annotations delta
+                    { model with annotations = annotations; undoStack = delta :: model.undoStack; redoStack = rest }
             | GroupsMessage msg,_, _ ->
-                let m = { model with annotations = GroupsApp.update model.annotations msg}
-                m
+                let annotations = GroupsApp.update model.annotations msg
+                let model' = { model with annotations = annotations }
+                match msg with
+                | GroupsAppAction.RemoveLeaf (id, path) ->
+                    match model.annotations.flat.TryFind id with
+                    | Some leaf -> model' |> pushUndo (LeafRemoved(leaf, path))
+                    | None      -> model'
+                | GroupsAppAction.RemoveGroup _ | GroupsAppAction.ClearGroup _ ->
+                    model' |> pushUndo (SnapshotDelta(model.annotations, annotations))
+                | _ -> model'
             | RecalculateMeasurements, _,_ -> 
                 let up    = smallConfig.up.Get(bigConfig)
                 let north = smallConfig.north.Get(bigConfig)
@@ -583,10 +648,12 @@ module DrawingApp =
             | ExportAsCsv path, _, _ ->
                 if path.IsNullOrEmpty() |> not then 
                     let up = smallConfig.up.Get(bigConfig)
+                    let planet = smallConfig.planet.Get(bigConfig)
                     let lookups = GroupsApp.updateGroupsLookup model.annotations
                     let annotations = extractVisibleAnnotations model
-                    CSVExport.writeCSV lookups up path annotations
-                model      
+                    CSVExport.writeCSV lookups planet up path annotations
+               
+                model
             | ExportAsProfileCsv path, _, _ ->
                 //get selected annotation
                 let selected =  GroupsModel.tryGetSelectedAnnotation model.annotations
@@ -597,35 +664,42 @@ module DrawingApp =
                         
                     //transform to distance elevation pairs
                     let planet = smallConfig.planet.Get(bigConfig)
-                    let transformed =
-                        points 
-                        |> List.map(fun x -> 
-                            let k = CooTransformation.getLatLonAlt planet x
+                    let convertedOpt =
+                        points
+                        |> List.map(fun x ->
+                            match CooTransformation.tryGetLatLonAlt planet x with
+                            | None -> None
+                            | Some k ->
+                                CooTransformation.tryGetXYZFromLatLonAlt { k with altitude = 0.0 } planet
+                                |> Option.map (fun projected ->
+                                    { position = projected; elevation = k.altitude }))
 
-                            let elevation = k.altitude
-                            let projected = CooTransformation.getXYZFromLatLonAlt { k with altitude = 0 } planet
-                            { position =  projected; elevation = elevation }
-                        ) |> List.pairwise                    
-                    
-                    let profile =
-                        accumulateDistance transformed 0.0
-                    
-                    let csvTable = 
-                        profile
-                        |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
-                        |> CSV.Seq.csv "," true id
+                    if convertedOpt |> List.exists Option.isNone then
+                        Log.warn "[DrawingApp] profile export aborted: one or more points could not be converted to lat/lon"
+                    else
+                        let transformed = convertedOpt |> List.choose id |> List.pairwise
+                        let profile =
+                            accumulateDistance transformed 0.0
 
-                    if path.IsEmptyOrNull() |> not then 
-                        csvTable |> CSV.Seq.write path
+                        let csvTable =
+                            profile
+                            |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
+                            |> CSV.Seq.csv "," true id
 
-                    Log.line "[DrawingApp] wrote %A to %s" profile path
+                        if path.IsEmptyOrNull() |> not then
+                            csvTable |> CSV.Seq.write path
+
+                        Log.line "[DrawingApp] wrote %A to %s" profile path
                 | None -> 
                     Log.line "please select annotation to export"
                 //write csv
 
                 model
-            | ExportAsGeoJSON path, _, _ ->        
-                if path.IsNullOrEmpty() |> not then 
+            | ExportMultiAttributeProfile _, _, _ ->
+                // handled at viewer level (needs access to SurfaceModel)
+                model
+            | ExportAsGeoJSON path, _, _ ->
+                if path.IsNullOrEmpty() |> not then
                     exportGeoJson false bigConfig smallConfig model path
                 model
 
@@ -689,12 +763,13 @@ module DrawingApp =
                 Log.line "[Drawing] Reading annotations"
                 let (annos : list<Annotation>) = path |> Serialization.readFromFile |> Json.parse |> Json.deserialize // CHECK-merge IO.
                 let annos = annos |> List.map(fun x -> (x.key,x |> Leaf.Annotations)) |> HashMap.ofList
-            
+
                 Log.line "[Drawing] Reading grouping"
                 let grouping = Serialization.loadAs<GroupsModel> pathgGrouping
                 let grouping = { grouping with flat = annos }
 
                 { model with annotations = grouping }
+
             | _ -> model
 
         // optionally also store geojson to disk

@@ -10,7 +10,9 @@ In order to deploy all supported architectures using github actions is the prefe
 
 Deployments are triggered by github actions. 
 There are two release types:
- 1. public releases, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md) and change the version number [here](https://github.com/pro3d-space/PRo3D/blob/0fc290263430b5c2ff172c18286885a8bf0b73a0/aardium/package.json#L4) and let the CI build a multiplatform build with installer, the result will appear at as a draft in the github release page
+ 1. public releases: add a new top entry (with the new version) to [PRODUCT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md), commit and push. The CI builds a multiplatform build with installers and the result appears as a draft on the github release page.
+
+> **You no longer need to edit `aardium/package.json`.** `PRODUCT_RELEASE_NOTES.md` is the single source of truth for the release version: the build syncs `package.json`'s `version` from it automatically (see *How a release is crafted* below). A push that touches `PRODUCT_RELEASE_NOTES.md` is enough to trigger the deploy workflow.
 
 The draft release looks like this:
 ![alt text](images/draftRelease1.png)
@@ -23,6 +25,26 @@ When publishing the release, make sure to set the correct tag, branch and verify
  2. test releases for internal testing, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/TEST_RELEASE_NOTES.md) file and let the CI build a zip which appears on the github release page as a draft
 
 
+## How a release is crafted (end to end)
+
+A single draft release is assembled from two independent publishers; everything is keyed off **one version string** and **one tag**.
+
+1. **Trigger & version.** `.github/workflows/deploy.yml` runs on a push that touches `PRODUCT_RELEASE_NOTES.md`, `aardium/package.json`, or `deploy.yml`. The version is the topmost entry in `PRODUCT_RELEASE_NOTES.md` (`notes.NugetVersion`). It is the only source of truth — the build patches `aardium/package.json`'s top-level `version` to it (`patchAardiumVersion` in `CopyToElectron`) and patches `viewerVersion` in `Program.fs`. The committed `package.json` version is irrelevant to the result; it is overwritten at build time.
+
+2. **The runner matrix.** Each platform builds on its own runner and all `needs: win32_x64`:
+   - `win32_x64` (windows-latest) — runs `GitHubRelease` **then** `PublishToElectron`.
+   - `mac_x64` (macos-15-intel) and `mac_arm64` (macos-15, Apple Silicon) — run `PublishToElectron` (signed + notarized).
+   - `linux_x64` (ubuntu-latest) — runs `PublishToElectron`.
+
+3. **Two publishers, one draft.** Both target the same tag `v{version}`:
+   - **Standalone** (`GitHubRelease`, win-x64 only): zips `bin/publish/win-x64` into `PRo3D.Viewer-standalone.{version}.zip`, creates the draft release with tag_name `v{version}`, and appends the source commit + tag to the release body. It also creates and pushes the git tag `v{version}`.
+   - **Electron** (`PublishToElectron` → `yarn dist` → electron-builder, `--publish always`): builds the installer for the runner's OS/arch (`.exe`/`.dmg`/`.AppImage`) and publishes to a draft with tag `v{version}` (electron-builder's default `vPrefixedTagName`). Because the win job's `GitHubRelease` step has already created that draft, electron-builder attaches its artifacts to the **same** draft instead of creating a second one. The mac/linux jobs (`needs: win32_x64`) likewise attach to the existing draft.
+
+4. **Tag & provenance.** git tag, standalone release tag, and electron release tag are all `v{version}`. The pushed git tag points at the built commit, so the published release anchors to that commit, and the release body records `built from commit <sha>`.
+
+5. **Publishing.** The release stays a **draft** (`GitHub.publishDraft` is commented out; electron uses `releaseType: draft`). A human reviews artifacts/notes and publishes it. Verify the tag and target branch when publishing.
+
+> Because both sides derive the tag from `notes.NugetVersion`, the standalone zip and the installers always land together. The one thing to confirm on a real run is that electron-builder attaches to the existing draft (it should, matching by tag) rather than forking a second one.
 
 
 ## Details
@@ -50,6 +72,33 @@ tags and release notes taken from PRODCT_RELEASE_NOTES.md
 ## Version numbers
 
 when creating releases from within branches suffix the version number with the name of the branch to make the version unique.
+
+### Allowed version strings
+
+The version comes from the top heading of `PRODUCT_RELEASE_NOTES.md` and **must be valid [SemVer 2.0](https://semver.org/)** — it is consumed by FAKE's release-notes parser (`notes.SemVer`), by npm/electron-builder (`package.json` `version`), and by NuGet (`Pack`). Anything that is not valid SemVer makes the build fail early.
+
+- Format: `MAJOR.MINOR.PATCH` with an optional `-prerelease` label, e.g. `6.0.0`, `6.0.0-prerelease1`.
+- A custom prerelease label like `6.0.0-funysuperversion` **is allowed** — but the label may only contain dot-separated identifiers of ASCII letters, digits, and hyphens (`[0-9A-Za-z-]`). No spaces, underscores, slashes, or other symbols. So `6.0.0-funysuperversion` ✓, `6.0.0-rc.2-mybranch` ✓; `6.0.0-funy_version` ✗, `6.0.0-funy super` ✗, `6.0.0-releases/6` ✗ (sanitize branch names before using them as a suffix).
+- The git/release tag becomes `v{version}` (e.g. `v6.0.0-funysuperversion`).
+- **macOS:** prerelease labels are fine. electron-builder maps `version` → `CFBundleShortVersionString` and `buildVersion` → `CFBundleVersion`, both written verbatim into `Info.plist`. The "numeric dotted only" rule for those keys is enforced only by **App Store** submission — PRo3D ships via **Developer ID + notarization**, which does not validate the version-string format. Proof: releases already ship as `X.Y.Z-prerelease1` (e.g. `5.9.0-prerelease1`) with working signed/notarized `.dmg`s. So `6.0.0-prerelease1` deploys fine.
+
+### Number prereleases `001`, `002`, `003` — never `1`, `2`, `3`
+
+**Zero-pad the counter in a prerelease label to three digits**, i.e. `6.1.0-rc001`, `6.1.0-rc002`, … and `6.1.0-prerelease001`, … Start a version line that way; it cannot be fixed later.
+
+The build does **not** take the topmost entry of `PRODUCT_RELEASE_NOTES.md` — FAKE's `ReleaseNotes.load` returns the entry with the **highest SemVer**. And per [SemVer §11.4](https://semver.org/#spec-item-11), a prerelease identifier containing letters is compared *lexically in ASCII order*, not numerically. So the counter breaks the moment it reaches two digits:
+
+```
+rc9  vs  rc10   →  'r','c' equal, then '9' (0x39) > '1' (0x31)   →  rc10 < rc9
+```
+
+`6.0.0-prerelease10` therefore sorted *below* `6.0.0-prerelease9`. The failure is silent and expensive: `deploy.yml` resolved the older version, found that release already existed, set `skip=true`, and every downstream job was skipped — **the workflow reported success while building nothing**. That is why the 6.0.0 line jumps from `prerelease9` to `rc1`: `rc` sorts above `prerelease` (`'r' > 'p'`), which was the only way out that kept the same `MAJOR.MINOR.PATCH`.
+
+Zero-padding fixes this because the identifiers stay the same length, so lexical order matches numeric order: `rc001 < rc002 < … < rc009 < rc010 < … < rc999`.
+
+**You cannot retrofit the padding mid-line.** `rc002` sorts *below* `rc1` (`'0' < '1'`), so switching schemes part-way re-creates the exact bug. Once a line has started unpadded, keep counting unpadded and **do not go past `9`**; adopt the padded form at the next `MAJOR.MINOR.PATCH`. (This is why `6.0.0` continues `rc2`, `rc3`, … rather than moving to `rc002`.)
+
+If a line does run out of single digits before it ships, `6.0.0-rc9.1` sorts above `6.0.0-rc9` (more dot-identifiers win when the leading ones are equal) — ugly, but it unblocks a release.
 
 ## Resources
 

@@ -90,10 +90,32 @@ module GisApp =
         | None ->
             m
 
-    let loadSpiceKernelForced (m : GisApp) = 
+    let loadSpiceKernelForced (m : GisApp) =
         match m.spiceKernel with
         | Some kernel -> loadSpiceKernel true kernel.FullPath m
         | None -> m
+
+    /// Like loadSpiceKernel, but resets SPICE's kernel pool first (see
+    /// CooTransformation.switchKernel) instead of just adding on top of
+    /// whatever is already loaded. Used when switching to a kernel from a
+    /// possibly different mission phase (e.g. via LoadSpiceAndTime), where
+    /// layering would risk silently conflicting kernel data.
+    let loadSpiceKernelSwitching (path : string) (m : GisApp) =
+        if File.Exists path then
+            let directory = Path.GetDirectoryName path
+            let name = Path.GetFileName path
+            match CooTransformation.switchKernel directory name with
+            | None ->
+                Log.line "[GisApp] Could not load spice kernel %s" path
+                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
+                        spiceKernelLoadSuccess = false}
+            | Some spiceKernel ->
+                Log.line "[GisApp] Successfully loaded spice kernel %s" path
+                {m with spiceKernel = Some spiceKernel
+                        spiceKernelLoadSuccess = true}
+        else
+            Log.line "[GisApp] Could not find path %s" path
+            {m with spiceKernelLoadSuccess = false}
 
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
         let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
@@ -250,21 +272,38 @@ module GisApp =
             viewer, {m with cameraInObserver = not m.cameraInObserver}
         | GisAppAction.ToggleDrawMarkers -> 
             viewer, {m with showMarkers = not m.showMarkers }
-        | GisAppAction.ProjectedImageListMessage msg -> 
-            // SP: Change time of GIS App
-            //let m = 
-            //    match msg with 
-            //    | ImageProjectionMessage.SelectImage idx -> 
-            //        match IndexList.tryGet idx m.projectedImages.images with
-            //        | None -> m
-            //        | Some img -> 
-            //            match img.projection with
-            //            | None -> m
-            //            | Some p ->
-            //                let info = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime p.time)
-            //                let m = {m with defaultObservationInfo = info}
-            //                m
-            //    | _ -> m
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.LoadSpiceAndTime directory) ->
+            if String.IsNullOrEmpty directory then
+                viewer, m // user cancelled the folder dialog
+            else
+                let selectedTexturePath =
+                    m.projectedImageList.selectedImage
+                    |> Option.bind (fun idx -> IndexList.tryGet idx m.projectedImageList.images)
+                    |> Option.map (fun img -> img.texture)
+                match selectedTexturePath with
+                | None ->
+                    Log.warn "[GisApp] no image selected -- select an image before loading its spice kernel"
+                    viewer, m
+                | Some texturePath ->
+                    match InstrumentMetadata.tryParseMetadataForImagePath texturePath with
+                    | None, _ ->
+                        Log.warn "[GisApp] selected image has no mbi sidecar metadata"
+                        viewer, m
+                    | Some mbi, _ ->
+                        let info = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime mbi.obs_date)
+                        let m = {m with defaultObservationInfo = info}
+                        match mbi.spiceMk with
+                        | None ->
+                            Log.warn "[GisApp] selected image's mbi sidecar does not declare a SPICE_MK kernel name"
+                            viewer, m
+                        | Some mkName ->
+                            match CooTransformation.tryFindSpiceKernelFile directory mkName with
+                            | None ->
+                                Log.warn "[GisApp] could not find kernel \"%s\" (.tm) under %s" mkName directory
+                                viewer, {m with spiceKernelLoadSuccess = false}
+                            | Some kernelPath ->
+                                viewer, loadSpiceKernelSwitching kernelPath m
+        | GisAppAction.ProjectedImageListMessage msg ->
             viewer, {m with projectedImageList = ProjectedImageListApp.update m.projectedImageList msg }
         | GisAppAction.InitializeMissionTimeEntries ->
              let data : list<MissionTimeEntry> = getMissionTimeEntriesData()
@@ -383,15 +422,14 @@ module GisApp =
                      (surfaces : AdaptiveGroupsModel) 
                      (m : AdaptiveGisApp) =
         alist {
-            let! s = surfaces.activeGroup
-            let color = sprintf "color: %s" (Html.color C4b.White)                
-            let children = AList.collecti (fun i v -> viewTree (i::path) v surfaces m) group.subNodes    
+            let children = AList.collecti (fun i v -> viewTree (i::path) v surfaces m) group.subNodes
             let activeAttributes = GroupsApp.setActiveGroupAttributeMap path surfaces group GroupsMessage
-                                   
+            let colorAttributes = GroupsApp.activeGroupColorAttributes surfaces group ""
+
             let desc =
-                div [style color] [       
+                Incremental.div colorAttributes <| AList.ofList [
                     Incremental.text group.name
-                    Incremental.i activeAttributes AList.empty 
+                    Incremental.i activeAttributes AList.empty
                     |> UI.wrapToolTip DataPosition.Bottom "Set active"
                 ]
                  
@@ -399,10 +437,13 @@ module GisApp =
                 amap {
                     yield onMouseClick (fun _ -> SurfaceAppAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                     let! selected = group.expanded
-                    if selected 
+                    if selected
                     then yield clazz "icon outline open folder"
                     else yield clazz "icon outline folder"
-                    yield style "overflow-y : visible"
+                    // the icon is a sibling of the (white) description div and would
+                    // otherwise inherit semantic ui's default (black) on our dark background
+                    let! color = GroupsApp.activeGroupColor surfaces group
+                    yield style ("overflow-y : visible; " + color)
                 } |> AttributeMap.ofAMap
             
             let childrenAttribs =
@@ -1062,8 +1103,8 @@ module GisApp =
                 (ReferenceFrame.iauDeimos.spiceName, ReferenceFrame.iauDeimos)
                 (ReferenceFrame.iauPhobos.spiceName, ReferenceFrame.iauPhobos)
                 (ReferenceFrame.iauMoon.spiceName, ReferenceFrame.iauMoon)
-                // (ReferenceFrame.iauDidymos.spiceName, ReferenceFrame.iauDidymos)
-                // (ReferenceFrame.iauDimorphos.spiceName, ReferenceFrame.iauDimorphos)
+                (ReferenceFrame.didymosFixed.spiceName, ReferenceFrame.didymosFixed)
+                (ReferenceFrame.dimorphosFixed.spiceName, ReferenceFrame.dimorphosFixed)
             ] |> HashMap.ofList
 
         let missionTimeEntries : list<MissionTimeEntry> = getMissionTimeEntriesData()

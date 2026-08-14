@@ -78,7 +78,12 @@ module ReferenceSystemApp =
         let east = V3d.OOI.Cross(up).Normalized
         up.Cross(east).Normalized
     
-    let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
+    /// Recomputes up/north/northO for the position p. `placeOrigin` decides whether the
+    /// reference system is also *moved* there: placing the coordinate system does, refreshing
+    /// the orientation while navigating must not — `origin` is where the cross is drawn
+    /// (Sg.view), what the reference system panel reports and what gets persisted into scenes
+    /// and bookmarks. See https://github.com/pro3d-space/PRo3D/issues/662
+    let updateCoordSystemAt (placeOrigin:bool) (p:V3d) (planet:Planet) (model : ReferenceSystem) =
         let up = upVector p planet
         let north  = 
             match planet with 
@@ -92,10 +97,13 @@ module ReferenceSystemApp =
             model with 
                 north  = ReferenceSystem.setV3d north
                 up     = ReferenceSystem.setV3d up
-                northO = no 
+                northO = no
                 planet = planet
-                origin = p
+                origin = if placeOrigin then p else model.origin
         }
+
+    let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) =
+        updateCoordSystemAt true p planet model
 
     let update<'a> 
         (bigConfig  : 'a) 
@@ -111,6 +119,8 @@ module ReferenceSystemApp =
             m, bigConfig
         | UpdateUpNorth p ->
             updateCoordSystem p model.planet model, bigConfig
+        | RefreshUpNorth p ->
+            updateCoordSystemAt false p model.planet model, bigConfig
         | SetUp up ->    
             let up = Vector3d.update model.up up
             let up = ReferenceSystem.setV3d up.value.Normalized
@@ -146,24 +156,37 @@ module ReferenceSystemApp =
 
         let view (model:AdaptiveReferenceSystem)  =
             
-            let sphericalCoo = 
+            let sphericalCoo =
                 adaptive {
                     let! pos = model.origin
                     let! planet = model.planet
-                    //let! up = model.up.value
-                    return CooTransformation.getLatLonAlt planet pos
+                    return CooTransformation.tryGetLatLonAlt planet pos
                 }
 
+            let formatCoo (project : CooTransformation.SphericalCoo -> double) =
+                sphericalCoo |> AVal.map (function
+                    | Some sc -> (project sc).ToString("0.00")
+                    | None    -> "conversion failed (set planet)")
+
+            let conventionLabel =
+                model.planet |> AVal.map (fun p ->
+                    match CooTransformation.getConvention p with
+                    | CooTransformation.Planetographic    -> "planetographic"
+                    | CooTransformation.Spherical r       -> sprintf "spherical r=%.1fm" r
+                    | CooTransformation.Ellipsoidal _     -> "ellipsoidal"
+                    | CooTransformation.NonPlanetary      -> "n/a")
+
             require GuiEx.semui (
-                Html.table [                                                
+                Html.table [
                     Html.row "Pos:"         [Incremental.text (model.origin     |> AVal.map (fun x -> x.ToString("0.00")))]
                     Html.row "Up:"          [Vector3d.view model.up |> UI.map SetUp ]
                     Html.row "North:"       [Incremental.text (model.north.value |> AVal.map (fun x -> x.ToString("0.00")))]
                     Html.row "NorthO:"      [Incremental.text (model.northO |> AVal.map (fun x -> x.ToString("0.00")))]
-                    Html.row "N-Offset:"    [Numeric.view' [InputBox] model.noffset |> UI.map SetNOffset ] 
-                    Html.row "Longitude:"   [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.longitude.ToString("0.00")))]
-                    Html.row "Latitude:"    [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.latitude.ToString("0.00")))]
-                    Html.row "Altitude:"    [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.altitude.ToString("0.00")))]
+                    Html.row "N-Offset:"    [Numeric.view' [InputBox] model.noffset |> UI.map SetNOffset ]
+                    Html.row "Longitude:"   [Incremental.text (formatCoo (fun x -> x.longitude))]
+                    Html.row "Latitude:"    [Incremental.text (formatCoo (fun x -> x.latitude))]
+                    Html.row "Altitude:"    [Incremental.text (formatCoo (fun x -> x.altitude))]
+                    Html.row "Convention:"  [Incremental.text conventionLabel]
                     Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
                     Html.row "Textsize:"    [Numeric.view' [NumericInputType.InputBox] model.textsize |> UI.map SetTextsize ]  
                     Html.row "Textcolor:"   [ColorPicker.view model.textcolor |> UI.map SetTextColor ]

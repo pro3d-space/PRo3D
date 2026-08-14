@@ -1,7 +1,5 @@
 ﻿namespace PRo3D
 
-open Aardvark.Service
-
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
@@ -261,9 +259,15 @@ module ViewerLenses =
                             m
                     | None ->
                         //update camera to bookmark's camera
-                        let m = Optic.set _view sb.cameraView m
-                        m
-                   
+                        // guard against a null CameraView (reference type): a zero-duration
+                        // animation segment can emit Unchecked.defaultof<CameraView>, which
+                        // would otherwise null out navigation.camera.view -> NRE
+                        if obj.ReferenceEquals(sb.cameraView, null) then
+                            Log.warn "[SequencedBookmarks] null cameraView for bookmark %A - skipping view update" sb.bookmark.key
+                            m
+                        else
+                            Optic.set _view sb.cameraView m
+
                 m
 
             match sb with

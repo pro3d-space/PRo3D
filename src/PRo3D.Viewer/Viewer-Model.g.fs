@@ -1,5 +1,5 @@
-//ebd81791-8cd3-8afe-5f52-2a9fa1adfe38
-//8534625a-c669-b9ba-4055-85be0094d704
+﻿//5a0851b5-7ede-7845-5bcc-5bce88c611c3
+//0c537f1c-d451-16f4-b0c1-6b5730b3ebd9
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -36,6 +36,7 @@ type AdaptiveScene(value : Scene) =
     let _sequencedBookmarks_ = PRo3D.Core.SequencedBookmarks.AdaptiveSequencedBookmarks(value.sequencedBookmarks)
     let _screenshotModel_ = PRo3D.SimulatedViews.AdaptiveScreenshotModel(value.screenshotModel)
     let _gisApp_ = PRo3D.Core.Gis.AdaptiveGisApp(value.gisApp)
+    let _crossSectionModel_ = PRo3D.Core.AdaptiveCrossSectionModel(value.crossSectionModel)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Scene) = AdaptiveScene(value)
@@ -68,6 +69,7 @@ type AdaptiveScene(value : Scene) =
             _sequencedBookmarks_.Update(value.sequencedBookmarks)
             _screenshotModel_.Update(value.screenshotModel)
             _gisApp_.Update(value.gisApp)
+            _crossSectionModel_.Update(value.crossSectionModel)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.cameraView = _cameraView_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
@@ -93,6 +95,7 @@ type AdaptiveScene(value : Scene) =
     member __.sequencedBookmarks = _sequencedBookmarks_
     member __.screenshotModel = _screenshotModel_
     member __.gisApp = _gisApp_
+    member __.crossSectionModel = _crossSectionModel_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SceneLenses = 
     type Scene with
@@ -120,6 +123,7 @@ module SceneLenses =
         static member sequencedBookmarks_ = ((fun (self : Scene) -> self.sequencedBookmarks), (fun (value : PRo3D.Core.SequencedBookmarks.SequencedBookmarks) (self : Scene) -> { self with sequencedBookmarks = value }))
         static member screenshotModel_ = ((fun (self : Scene) -> self.screenshotModel), (fun (value : PRo3D.SimulatedViews.ScreenshotModel) (self : Scene) -> { self with screenshotModel = value }))
         static member gisApp_ = ((fun (self : Scene) -> self.gisApp), (fun (value : PRo3D.Core.Gis.GisApp) (self : Scene) -> { self with gisApp = value }))
+        static member crossSectionModel_ = ((fun (self : Scene) -> self.crossSectionModel), (fun (value : PRo3D.Core.CrossSectionModel) (self : Scene) -> { self with crossSectionModel = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveRecent(value : Recent) =
     let _recentScenes_ = FSharp.Data.Adaptive.cval(value.recentScenes)
@@ -227,6 +231,7 @@ type AdaptiveModel(value : Model) =
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Viewer.EllipseModel, PRo3D.Viewer.AdaptiveEllipseModel, PRo3D.Viewer.AdaptiveEllipseModel>(value.ellipseModel, (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o), (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o))
     let _pickPreviewRequested_ = FSharp.Data.Adaptive.cval(value.pickPreviewRequested)
+    let _userPreferences_ = FSharp.Data.Adaptive.cval(value.userPreferences)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Model) = AdaptiveModel(value)
@@ -277,6 +282,7 @@ type AdaptiveModel(value : Model) =
             _surfaceIntersection_.Value <- value.surfaceIntersection
             _ellipseModel_.Update(value.ellipseModel)
             _pickPreviewRequested_.Value <- value.pickPreviewRequested
+            _userPreferences_.Value <- value.userPreferences
     member __.Current = __adaptive
     member __.viewerVersion = _viewerVersion_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.startupArgs = _startupArgs_ :> FSharp.Data.Adaptive.aval<PRo3D.StartupArgs>
@@ -321,6 +327,7 @@ type AdaptiveModel(value : Model) =
     member __.surfaceIntersection = _surfaceIntersection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<SurfaceIntersection>>
     member __.ellipseModel = _ellipseModel_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<EllipseModel, AdaptiveEllipseModel, AdaptiveEllipseModel>>
     member __.pickPreviewRequested = _pickPreviewRequested_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>>
+    member __.userPreferences = _userPreferences_ :> FSharp.Data.Adaptive.aval<PRo3D.UserPreferences>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ModelLenses = 
     type Model with
@@ -367,4 +374,5 @@ module ModelLenses =
         static member surfaceIntersection_ = ((fun (self : Model) -> self.surfaceIntersection), (fun (value : Microsoft.FSharp.Core.Option<SurfaceIntersection>) (self : Model) -> { self with surfaceIntersection = value }))
         static member ellipseModel_ = ((fun (self : Model) -> self.ellipseModel), (fun (value : Microsoft.FSharp.Core.Option<EllipseModel>) (self : Model) -> { self with ellipseModel = value }))
         static member pickPreviewRequested_ = ((fun (self : Model) -> self.pickPreviewRequested), (fun (value : Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>) (self : Model) -> { self with pickPreviewRequested = value }))
+        static member userPreferences_ = ((fun (self : Model) -> self.userPreferences), (fun (value : PRo3D.UserPreferences) (self : Model) -> { self with userPreferences = value }))
 

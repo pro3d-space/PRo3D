@@ -14,6 +14,7 @@ open Aardvark.Rendering
 open Aardvark.Application.Slim
 open Aardvark.SceneGraph.Opc
 open Aardvark.UI
+open Aardvark.UI.Giraffe
 open Aardvark.VRVis
 open Aardvark.VRVis.Opc
 open Aardvark.GeoSpatial.Opc
@@ -31,16 +32,6 @@ open Aardium
 
 open Chiron
 
-open Suave
-open Suave.WebPart
-open Suave.Sockets
-open Suave.Sockets.Control
-open Suave.WebSocket
-open Suave.Operators
-open Suave.Filters
-open Suave.Successful
-open Suave.Json
-
 open FSharp.Data.Adaptive
 
 open Aardvark.GeoSpatial.Opc.Load
@@ -57,14 +48,6 @@ let rec allFiles dirs =
     if Seq.isEmpty dirs then Seq.empty else
         seq { yield! dirs |> Seq.collect Directory.EnumerateFiles
               yield! dirs |> Seq.collect Directory.EnumerateDirectories |> allFiles }
-   
-
-let getFreePort() =
-    let l = System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
-    l.Start()
-    let ep = l.LocalEndpoint |> unbox<Net.IPEndPoint>
-    l.Stop()
-    ep.Port
 
 let startApplication (startupArgs : CLStartupArgs) =
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
@@ -85,7 +68,7 @@ let startApplication (startupArgs : CLStartupArgs) =
 
     let crashDumpFile = "Aardvark.log"
 
-    Aardium.init()      
+    Aardium.Init()
   
     Aardvark.Init()
 
@@ -114,24 +97,21 @@ let startApplication (startupArgs : CLStartupArgs) =
   
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
   
-        let signature =
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-            ]
+        // must match the offscreen targets the snapshots are rendered into, see
+        // SnapshotFramebuffer - a mismatch makes the runtime reject every prepared
+        // command and all rendered frames come out black
+        let signature = SnapshotFramebuffer.createSignature runtime
 
         use sendQueue = new BlockingCollection<string>()    
       
-        let ws (webSocket : WebSocket) (context: HttpContext) =
-            socket {
+        let ws (cancellationToken : CancellationToken) (webSocket : IWebSocket) (context: 'HttpContext) : Tasks.Task =
+            task {
                 let mutable loop = true
           
-                while loop do
+                while loop && not cancellationToken.IsCancellationRequested do
                     let str = sendQueue.Take()
                     Log.warn "taking item from bc"
-                    let s = ByteSegment(System.Text.Encoding.UTF8.GetBytes str)
-              
-                    do! webSocket.send Text s true
+                    do! webSocket.SendText(str, cancellationToken)
             }        
 
 
@@ -149,20 +129,22 @@ let startApplication (startupArgs : CLStartupArgs) =
         //Log.startTimed "[Viewer] reading json scene"
 
 
-        let port = getFreePort()
+        let port = Server.getFreeTcpPort Net.IPAddress.Loopback
         let uri = sprintf "http://localhost:%d" port
 
-        let (mainApp, mModel) =
+        let mainApp =
             SimulatedViews.PRo3DUtils.start 
                 runtime signature startupArgs.startEmpty messagingMailbox 
                 sendQueue dumpFile cacheFile uri 8 "" viewerVersion 
                 { StartupArgs.initArgs with showExplorationPoint = startupArgs.showExplorationPoint; showReferenceSystem = startupArgs.showReferenceSystem }
 
+        disposables.Add mainApp
+
         let s = 
             {MailboxState.empty with update = 
                                         (fun a -> 
                                             let a = Seq.map ViewerMessage a
-                                            mainApp.update Guid.Empty a)
+                                            mainApp.Update(Guid.Empty, a))
             }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post
   
@@ -177,35 +159,28 @@ let startApplication (startupArgs : CLStartupArgs) =
         if catchDomainErrors then
             AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
 
-        let setCORSHeaders =
-            Suave.Writers.setHeader  "Access-Control-Allow-Origin" "*"
-            >=> Suave.Writers.setHeader "Access-Control-Allow-Headers" "content-type"
-  
+        let http = HttpBackend.Instance
+        let (>=>) x y = http.compose x y
+    
         let allow_cors : WebPart =
-            choose [
-                OPTIONS >=>
-                    fun context ->
-                        context |> (
-                            setCORSHeaders
-                            >=> OK "CORS approved" )
-            ]
-
+            http.method HttpMethod.Options
+            >=> http.header "Access-Control-Allow-Origin" "*"
+            >=> http.header "Access-Control-Allow-Headers" "content-type"
+            >=> http.ok "CORS approved"
 
         let suaveServer = 
-            WebPart.startServerLocalhost port [
+            Server.startLocalhost port mainApp.CancellationToken [
                 allow_cors
                 MutableApp.toWebPart' runtime false mainApp
-                path "/websocket" >=> handShake ws
-                Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
-                Aardvark.UI.Primitives.Resources.WebPart
+                http.route "/websocket" >=> http.handShake (ws mainApp.CancellationToken)
+                WebPart.ofType<EmbeddedRessource>
+                WebPart.ofType<Aardvark.UI.Primitives.EmbeddedResources>
                 // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                 // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 
-                path "/crash.txt" >=> Suave.Writers.setMimeType "text/plain" >=> request (fun r -> 
-                    Files.sendFile "Aardvark.log" false
-                )
+                http.route "/crash.txt" >=> http.mimeType "text/plain" >=> http.sendFile "Aardvark.log"
 
-                path "/minilog.txt" >=> Suave.Writers.setMimeType "text/plain" >=> request (fun r -> 
+                http.route "/minilog.txt" >=> http.mimeType "text/plain" >=> http.request (fun r -> 
                     use s = File.Open("Aardvark.log", FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
                     use r = new StreamReader(s)
                     let log = 
@@ -221,7 +196,7 @@ let startApplication (startupArgs : CLStartupArgs) =
                     let trail = log.[max 0 (log.Length - 20) .. max 0 (log.Length - 1)]
                     let newline = """%0D%0A"""
                     let miniLog = sprintf "%s%s..truncated..%s%s" (String.concat "%0D%0A" head) newline (String.concat "%0D%0A" trail) newline
-                    OK miniLog
+                    http.ok miniLog
                     //Files.sendFile "Aardvark.log" false
                 )
                 // should all be handled via embedded resources
@@ -237,7 +212,7 @@ let startApplication (startupArgs : CLStartupArgs) =
 
 
         Sg.useAsyncLoading <- false // need this for rendering without gui!
-        SnapshotGenerator.animate runtime mModel mainApp startupArgs |> ignore
+        SnapshotGenerator.animate runtime mainApp.MutableModel mainApp startupArgs |> ignore
         try            
             match startupArgs.exitOnFinish with
             | true ->

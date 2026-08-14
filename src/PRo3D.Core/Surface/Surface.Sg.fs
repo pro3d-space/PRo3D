@@ -10,7 +10,6 @@ open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.Data.Opc
 open Aardvark.SceneGraph.Semantics
-open Aardvark.UI
 
 open Aardvark.UI.Primitives
 open Aardvark.UI
@@ -456,10 +455,52 @@ module Sg =
 
                     let extractTextureScope f (p : OpcPaths) (lodScope : obj) (r : RenderPatch) =
                         let context = unbox<OpcRenderingExtensions.Context> lodScope
-                        f p context.texturesScope r 
+                        f p context.texturesScope r
 
                     let getTextures = extractTextureScope SecondaryTexture.textures
-                    let getVertexAttributes = extractTextureScope SecondaryTexture.vertexAttributes
+
+                    let getVertexAttributes (p : OpcPaths) (lodScope : obj) (r : PatchLod.RenderPatch) =
+                        let context = unbox<OpcRenderingExtensions.Context> lodScope
+                        let baseAttrs = SecondaryTexture.vertexAttributes p context.texturesScope r
+
+                        let crossSectionBuf : aval<IBuffer> =
+                            context.crossSectionData
+                            |> AVal.bind (fun csOpt ->
+                                match csOpt with
+                                | Some cs ->
+                                    let (g, _) = Aardvark.Data.Opc.Patch.load h.opcPaths r.modality r.info
+                                    let positions = g.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
+                                    let arr : V4f[] = Array.zeroCreate positions.Length
+                                    let poly = cs.polygon
+                                    let basis = cs.basis
+                                    //Log.startTimed "computing inside"
+                                    for i = 0 to positions.Length - 1 do
+                                        let pLocal = V3d positions.[i]
+                                        let pWorld = r.info.Local2Global.TransformPos pLocal
+                                        let q2 = PRo3D.Base.Annotation.CrossSection.projectTo2d basis pWorld
+                                        // Signed distance to the polygon boundary (negative inside),
+                                        // interpolated across triangles so the clip edge is smooth
+                                        // rather than snapping to mesh-edge midpoints.
+                                        let signed =
+                                            if q2.AnyNaN then -1.0f
+                                            else
+                                                let closest = poly.GetClosestPointOn q2
+                                                let d = float32 (q2 - closest).Length
+                                                if poly.Contains q2 then -d else d
+                                        arr.[i] <- V4f(signed, 0.0f, 0.0f, 0.0f)
+                                    //Log.stop()
+                                    AVal.constant (ArrayBuffer(arr) :> IBuffer)
+                                | None ->
+                                    // Placeholder only. This constant attribute does not
+                                    // arrive as the bound zero on Apple Silicon -- whole
+                                    // patches read back garbage. Do not read
+                                    // InsideOutsideV4 unless a cross-section is defined;
+                                    // crossSectionClip guards on CrossSectionDefined.
+                                    SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
+                            )
+
+                        baseAttrs
+                        |> Map.add (Sym.ofString "InsideOutsideV4") (BufferView(crossSectionBuf, typeof<V4f>))
 
                     PatchNode(
                         signature, 
@@ -481,7 +522,7 @@ module Sg =
                 //plainPatchLod
                 patchLodWithTextures
             )
-            |> SgFSharp.Sg.ofArray  
+            |> Aardvark.SceneGraph.SgFSharp.Sg.ofArray
                                                                       
         g, patchHierarchies, kdTrees
     
@@ -601,8 +642,8 @@ module Sg =
                         yield fail
                 | None -> 
                     yield fail
-            }|> Aardvark.UI.``F# Sg``.Sg.set
-        Aardvark.UI.``F# Sg``.Sg.ofList [point]
+            }|> Sg.set
+        Sg.ofList [point]
 
     let viewLeafLabels 
         (near   : aval<float>)

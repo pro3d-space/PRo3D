@@ -101,10 +101,10 @@ module SurfaceUtils =
             
             contourModel = ContourLineModel.initial
 
-            highlightSelected = true
-            highlightAlways   = false
-        }       
-   
+            highlightSelected     = true
+            highlightAlways       = false
+        }
+
     module ObjectFiles =        
         open Aardvark.Geometry
         open Aardvark.Data.Wavefront
@@ -1289,28 +1289,27 @@ module SurfaceApp =
 
         alist {
 
-            let! s = model.activeGroup
-            let color = sprintf "color: %s" (Html.color C4b.White)                
-            let children = AList.collecti (fun i v -> viewTree scenePath (i::path) v model) group.subNodes    
+            let children = AList.collecti (fun i v -> viewTree scenePath (i::path) v model) group.subNodes
             let activeAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
-                                   
-            let toggleIcon = 
+            let colorAttributes = GroupsApp.activeGroupColorAttributes model group ""
+
+            let toggleIcon =
                 AVal.constant "unhide icon" //group.visible |> AVal.map(fun toggle -> if toggle then "unhide icon" else "hide icon")                
 
             let toggleAttributes = GroupsApp.clickIconAttributes toggleIcon (GroupsMessage(GroupsAppAction.ToggleGroup path))
                
             let desc =
-                div [style color] [       
+                Incremental.div colorAttributes <| AList.ofList [
                     Incremental.text group.name
-                    Incremental.i activeAttributes AList.empty 
+                    Incremental.i activeAttributes AList.empty
                     |> UI.wrapToolTip DataPosition.Bottom "Set active"
-                        
-                    i [clazz "plus icon"
-                       onMouseClick (fun _ -> 
-                         GroupsMessage(GroupsAppAction.AddGroup path))] []
-                    |> UI.wrapToolTip DataPosition.Bottom "Add Group"           
 
-                    Incremental.i toggleAttributes AList.empty 
+                    i [clazz "plus icon"
+                       onMouseClick (fun _ ->
+                         GroupsMessage(GroupsAppAction.AddGroup path))] []
+                    |> UI.wrapToolTip DataPosition.Bottom "Add Group"
+
+                    Incremental.i toggleAttributes AList.empty
                     |> UI.wrapToolTip DataPosition.Bottom "Toggle Group"
                    // GuiEx.iconCheckBox group.visible (GroupsMessage(Groups.ToggleGroup path))
                 ]
@@ -1319,10 +1318,13 @@ module SurfaceApp =
                 amap {
                     yield onMouseClick (fun _ -> SurfaceAppAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                     let! selected = group.expanded
-                    if selected 
+                    if selected
                     then yield clazz "icon outline open folder"
                     else yield clazz "icon outline folder"
-                    yield style "overflow-y : visible"
+                    // the icon is a sibling of the (white) description div and would
+                    // otherwise inherit semantic ui's default (black) on our dark background
+                    let! color = GroupsApp.activeGroupColor model group
+                    yield style ("overflow-y : visible; " + color)
                 } |> AttributeMap.ofAMap
             
             let childrenAttribs =

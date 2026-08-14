@@ -170,7 +170,9 @@ module MeasurementsImporter =
             bookmarkId       = None
             referenceSystem  = None
             ellipticResults  = None
-        }        
+            crossSectionClipping = false
+            crossSectionRefPoint = None
+        }
         
 
     type XmlReader with

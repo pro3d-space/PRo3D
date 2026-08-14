@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Tests": {
+      "commandName": "Project",
+      "commandLineArgs": "--testdatasource C:\\pro3ddata\\testdata"
+    },
+    "OnlyProfiles": {
+      "commandName": "Project",
+      "commandLineArgs": "--testdatasource C:\\pro3ddata\\testdata  --filter-test-case \"profile\""
+    }
+  }
+}
