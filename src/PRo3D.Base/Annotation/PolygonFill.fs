@@ -1,7 +1,9 @@
 namespace PRo3D.Base.Annotation
 
 open Aardvark.Base
-open Aardvark.Geometry
+// the vendored copy rather than Aardvark.Geometry, so PolygonTessellator, Polygon2d<'a> and
+// Triangle2d<'a> come from one place - see src/PRo3D.Base/Geometry/PolyRegion2d.fs
+open PRo3D.Base.Geometry
 open PRo3D.Base
 
 /// Triangulates the interior of a closed annotation ring.

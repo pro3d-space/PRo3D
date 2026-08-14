@@ -54,6 +54,7 @@
     <Compile Include="GisModels.fs" />
     <Compile Include="GisModels.g.fs" />
     <Compile Include="SurfaceChart.fs" />
+    <Compile Include="Geometry\PolyRegion2d.fs" />
     <Compile Include="Annotation\PolygonFill.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />
     <Compile Include="FalseColors\FalseColors-Model.g.fs" />
