@@ -59,6 +59,8 @@
     <Compile Include="Features\Section16_CommandLine.fs" />
     <Compile Include="Features\Section18_KeyboardShortcuts.fs" />
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
+    <!-- after Features\TestHelpers.fs: drives the real DrawingApp through the Draw harness -->
+    <Compile Include="VertexEditingTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>

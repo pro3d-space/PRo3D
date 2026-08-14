@@ -2435,6 +2435,48 @@ module ViewerApp =
             distancePointsText
         ] |> Sg.ofList
                                  
+    /// While a control point is grabbed, shows where it would land: straight lines from the live
+    /// surface hit to the two neighbouring control points.
+    ///
+    /// Straight on purpose. The terrain re-sampling happens on drop, so bending these to the
+    /// surface here would promise a shape that has not been computed yet. The grabbed handle stays
+    /// drawn at its old position, so the pair reads as "from here, to there".
+    ///
+    /// Drawn with PRo3D.Core.Drawing.Sg.lines, which re-bases the polyline on its first point and
+    /// places it with a trafo, so the float32 vertex buffer never sees planetary-scale coordinates.
+    let private vertexEditPreview (m : AdaptiveModel) =
+        // previous -> live hit -> next, as one polyline. An end point of an open chain has only
+        // one neighbour, so this is two points there and three in the middle of a line.
+        let polyline =
+            AVal.custom (fun t ->
+                match m.drawing.vertexGrab.GetValue t, m.surfaceIntersection.GetValue t with
+                | Some grab, Some hit ->
+                    match m.drawing.annotations.flat.Content.GetValue t |> HashMap.tryFind grab.annotation with
+                    | Some (AdaptiveAnnotations ann) ->
+                        let points = ann.points.Content.GetValue t
+                        let count  = IndexList.count points
+                        // a ring has as many segments as points, so its ends are neighbours too
+                        let isClosed = IndexList.count (ann.segments.Content.GetValue t) >= count
+
+                        let previous =
+                            if grab.pointIndex > 0 then IndexList.tryAt (grab.pointIndex - 1) points
+                            elif isClosed then IndexList.tryLast points
+                            else None
+                        let next =
+                            if grab.pointIndex < count - 1 then IndexList.tryAt (grab.pointIndex + 1) points
+                            elif isClosed then IndexList.tryFirst points
+                            else None
+
+                        [| previous; Some hit.hitPoint; next |] |> Array.choose id
+                    | _ -> [||]
+                | _ -> [||])
+
+        polyline
+        |> AVal.map (fun points ->
+            if points.Length < 2 then Sg.empty
+            else PRo3D.Core.Drawing.Sg.lines C4b.VRVisGreen 3.0 points)
+        |> Sg.dynamic
+
     // depthTested that occur in instrumentview + main renderview
     let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
         let annotations, discs = 
@@ -2506,10 +2548,14 @@ module ViewerApp =
                 m.scene.viewPlans 
             |> Sg.map ViewPlanMessage    
 
-        let surfaceIntersection = 
+        let surfaceIntersection =
             Picking.pickVisualization m
-            |> Sg.noEvents     
-            
+            |> Sg.noEvents
+
+        let vertexEdit =
+            vertexEditPreview m
+            |> Sg.noEvents
+
         let ellipseDrawing = 
             m.ellipseModel |> AVal.map (function
                 | AdaptiveNone -> Sg.empty
@@ -2528,6 +2574,7 @@ module ViewerApp =
                 traverses
                 distancePoints
                 surfaceIntersection
+                vertexEdit
                 curtainSg
             ] |> Sg.ofList
 
