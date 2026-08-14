@@ -413,11 +413,20 @@ module PackedRendering =
         type HandleVertex =
             {
                 [<Position>] pos : V4f
-                [<Semantic("np")>] np : V4f
+
+                /// Radius in pixels. Per vertex; the pick pass inflates it.
                 [<Semantic("Sizes")>] size : float32
-                [<PointSize>] pointSize : float32
+
                 [<Color>] c : V4f
-                [<PointCoord>] tc : V2f
+
+                /// Which corner of the quad this vertex is, in [-1,1]^2. Supplied per vertex by
+                /// `vertexHandles`, which emits six vertices per control point.
+                ///
+                /// The billboard is expanded here rather than in a geometry shader: a stock sprite
+                /// stage such as DefaultSurfaces.pointSprite would not carry ObjId/SubId through,
+                /// which is the whole point of this draw, and gl_PointSize would additionally
+                /// depend on GL_PROGRAM_POINT_SIZE. Six vertices per handle is nothing.
+                [<Semantic("HandleCorner")>] corner : V2f
 
                 // ObjId is the per-vertex attribute; Id is what Picking.pickVertexId reads. Same
                 // in/out pair the line path uses (ThickLineVertex.obId -> id).
@@ -426,9 +435,6 @@ module PackedRendering =
 
                 // SubId is both the attribute and the output - it passes straight through.
                 [<Semantic("SubId")>] subId : int
-
-                [<Depth(DepthWriteMode.OnlyLess)>]
-                depth : float32
             }
 
         type UniformScope with
@@ -439,61 +445,67 @@ module PackedRendering =
             /// Extra radius, in the same units as Sizes, applied only in the pick pass.
             member x.HandlePickBonus : float32 = uniform?HandlePickBonus
 
-        // A fixed palette, deliberately independent of the annotation's own colour: handles have to
-        // stay legible whatever colour the group is, and green already reads as "selected"
+        // Everything below is written out inline rather than sharing a [<ReflectedDefinition>]
+        // helper or module-level colour constants: FShade has to be able to inline the whole body,
+        // and self-contained shader code removes that question entirely.
+        //
+        // The palette is deliberately independent of the annotation's own colour - handles have to
+        // stay legible whatever the group colour is, and green already reads as "selected"
         // everywhere else in PRo3D.
-        let private handleNormal  = V4f(1.0f, 1.0f, 1.0f, 1.0f)
-        let private handleHovered = V4f(1.0f, 0.85f, 0.1f, 1.0f)
-        let private handleGrabbed = V4f(0.2f, 0.8f, 0.2f, 1.0f)
 
         /// Places a handle from its local-space position through the MV uniform, matching the
-        /// convention linesNoIndirect and fills use. (PointsShader.pointSpriteVertex instead expects
-        /// positions already view-transformed on the CPU.)
+        /// convention linesNoIndirect and fills use, then offsets it to its quad corner. The offset
+        /// is scaled by the clip-space W so the perspective divide leaves a constant pixel size.
         let handleVertex (v : HandleVertex) =
             vertex {
                 let mv : M44f = uniform?MV
-                let vp = mv * v.pos
+                let clip = uniform.ProjTrafo * (mv * v.pos)
+
+                // a zero viewport would push every corner to infinity and the quad would silently
+                // never rasterize
+                let vpX = max 1.0f (float32 uniform.ViewportSize.X)
+                let vpY = max 1.0f (float32 uniform.ViewportSize.Y)
+                // NDC spans 2 units across the viewport, hence the factor of two
+                let dx = v.corner.X * v.size * 2.0f / vpX * clip.W
+                let dy = v.corner.Y * v.size * 2.0f / vpY * clip.W
+
                 let c =
-                    if v.subId = uniform.GrabbedVertex then handleGrabbed
-                    elif v.subId = uniform.HoveredVertex then handleHovered
-                    else handleNormal
-                return { v with pos = uniform.ProjTrafo * vp; np = vp; pointSize = v.size; c = c }
+                    if v.subId = uniform.GrabbedVertex then V4f(0.2f, 0.8f, 0.2f, 1.0f)
+                    elif v.subId = uniform.HoveredVertex then V4f(1.0f, 0.85f, 0.1f, 1.0f)
+                    else V4f(1.0f, 1.0f, 1.0f, 1.0f)
+
+                return { v with pos = V4f(clip.X + dx, clip.Y + dy, clip.Z, clip.W); c = c }
             }
 
-        /// As handleVertex, but fattens the sprite so a handle is forgiving to click, and forwards
-        /// the object and control point ids for Picking.pickVertexId. The colour is left alone -
-        /// the pick pass only reads the ids.
+        /// As handleVertex, but fattens the quad so a handle is forgiving to click, and forwards the
+        /// object id for Picking.pickVertexId. The colour is left alone - the pick pass reads ids.
         let handleVertexPicking (v : HandleVertex) =
             vertex {
                 let mv : M44f = uniform?MV
-                let vp = mv * v.pos
-                return
-                    { v with
-                        pos = uniform.ProjTrafo * vp
-                        np = vp
-                        pointSize = v.size + uniform.HandlePickBonus
-                        id = v.obId }
+                let clip = uniform.ProjTrafo * (mv * v.pos)
+
+                let vpX = max 1.0f (float32 uniform.ViewportSize.X)
+                let vpY = max 1.0f (float32 uniform.ViewportSize.Y)
+                let size = v.size + uniform.HandlePickBonus
+                let dx = v.corner.X * size * 2.0f / vpX * clip.W
+                let dy = v.corner.Y * size * 2.0f / vpY * clip.W
+
+                return { v with pos = V4f(clip.X + dx, clip.Y + dy, clip.Z, clip.W); id = v.obId }
             }
 
-        /// Shades the sprite as a disc and discards outside it, so the pickable region is exactly
-        /// the visible circle. Same construction as PointsShader.pointSpriteFragment.
+        /// Shades the sprite as a flat disc and discards outside it, so the pickable region is
+        /// exactly the visible circle - which is what makes a grab land where it looks like it will.
+        ///
+        /// Writes no gl_FragDepth. PointsShader.pointSpriteFragment does, computing a sphere normal
+        /// and re-projecting it, but a handle is an editing overlay for one annotation: it should be
+        /// reachable whenever it is on screen, and both passes disable the depth test for exactly
+        /// that reason. Custom depth here would only reintroduce the question.
         let handleFragment (v : HandleVertex) =
             fragment {
-                let tc = v.tc
-
-                let c = 2.0f * tc - V2f.II
-                if c.Length > 1.0f then
+                // `corner` interpolates across the quad, so it doubles as the disc coordinate
+                if v.corner.Length > 1.0f then
                     discard()
-
-                let n = V3f(c, sqrt(1.0f - Vec.dot c c)) |> Vec.normalize
-                let p = v.np + V4f(n, 1.0f)
-
-                let pp = uniform.ProjTrafo * p
-                let nd = pp.Z / pp.W
-                let d = (nd + 1.0f) / 2.0f
-
-                let d = (d - uniform.DepthOffset) / v.pos.W
-                return { v with c = v.c; depth = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0f }
+                return { v with c = v.c }
             }
 
     module LensShader =
@@ -692,10 +704,6 @@ module PackedRendering =
 
 
 
-    /// Handles sit further off the surface than the fills, which already sit further off than the
-    /// lines, so a handle wins the pick against the annotation it belongs to.
-    let private handleDepthOffsetFactor = 10.0
-
     /// Radius added to a handle on top of the annotation's line thickness, so a control point is a
     /// target rather than a hairline.
     let private handleSizeBonus = 6.0f
@@ -756,6 +764,11 @@ module PackedRendering =
                       do! VertexHandleShader.handleFragment
                       do! Picking.pickVertexId
                 }
+                // No depth test. This pass contains no terrain - only lines, fills and handles -
+                // so depth here only arbitrates between annotation geometry, and a handle must
+                // always beat the outline running through it. Tuning depth offsets to achieve that
+                // is fragile; drawing last with the test off says it outright.
+                |> Sg.depthTest (AVal.constant DepthTest.None)
                 |> Sg.compile runtime signature
 
             let cleared = RenderTask.ofList [
@@ -913,6 +926,8 @@ module PackedRendering =
                 let subIds    = List<int>()
                 let objIds    = List<int>()
                 let sizes     = List<float32>()
+                let colors    = List<C4f>()
+                let corners   = List<V2f>()
                 let mutable pivotTrafo = None
 
                 // the object id *is* the index into the shared ordering
@@ -935,30 +950,53 @@ module PackedRendering =
                         let thickness = anno.thickness.value.GetValue(t)
                         let size = float32 thickness + handleSizeBonus
 
+                        // two triangles per control point, all six vertices at the same world
+                        // position and told apart only by their corner offset, which the vertex
+                        // shader turns into a screen-space quad
+                        let quad =
+                            [| V2f(-1.0f, -1.0f); V2f(1.0f, -1.0f); V2f(1.0f, 1.0f)
+                               V2f(-1.0f, -1.0f); V2f(1.0f, 1.0f); V2f(-1.0f, 1.0f) |]
+
                         let mutable i = 0
                         for p in anno.points.Content.GetValue(t) do
-                            positions.Add(pivot.Backward.TransformPos p |> V3f)
-                            subIds.Add i
-                            objIds.Add oid
-                            sizes.Add size
+                            let local = pivot.Backward.TransformPos p |> V3f
+                            for c in quad do
+                                positions.Add local
+                                corners.Add c
+                                subIds.Add i
+                                objIds.Add oid
+                                sizes.Add size
+                                // the shader chooses the visible colour; supplied because every
+                                // packed draw does and HandleVertex declares Colors as an input
+                                colors.Add(C4f(1.0f, 1.0f, 1.0f, 1.0f))
                             i <- i + 1
 
+                // only runs when the selection or the annotation changes, so this is not chatty -
+                // and "no handles appeared" is otherwise very hard to tell from "handles missed"
+                Log.line "[VertexHandles] selected=%A -> %d handle(s), %d vertices" selected (positions.Count / 6) positions.Count
+                if positions.Count > 0 then
+                    let pivot = Option.defaultValue Trafo3d.Identity pivotTrafo
+                    Log.line "[VertexHandles] pivot=%A local[0]=%A world[0]=%A size[0]=%f"
+                        pivot.Forward.C3.XYZ positions.[0] (pivot.Forward.TransformPos (V3d positions.[0])) sizes.[0]
+
                 {| points     = positions.ToArray()
+                   corners    = corners.ToArray()
                    subIds     = subIds.ToArray()
                    objIds     = objIds.ToArray()
                    sizes      = sizes.ToArray()
+                   colors     = colors.ToArray()
                    modelTrafo = Option.defaultValue Trafo3d.Identity pivotTrafo |})
 
         let mv = (data, view) ||> AVal.map2 (fun d v -> v * d.modelTrafo.Forward)
 
-        Sg.draw IndexedGeometryMode.PointList
-        |> Sg.vertexAttribute DefaultSemantic.Positions (data |> AVal.map (fun d -> d.points))
-        |> Sg.vertexAttribute (Sym.ofString "ObjId")    (data |> AVal.map (fun d -> d.objIds))
-        |> Sg.vertexAttribute (Sym.ofString "SubId")    (data |> AVal.map (fun d -> d.subIds))
-        |> Sg.vertexAttribute (Sym.ofString "Sizes")    (data |> AVal.map (fun d -> d.sizes))
+        Sg.draw IndexedGeometryMode.TriangleList
+        |> Sg.vertexAttribute DefaultSemantic.Positions   (data |> AVal.map (fun d -> d.points))
+        |> Sg.vertexAttribute (Sym.ofString "HandleCorner") (data |> AVal.map (fun d -> d.corners))
+        |> Sg.vertexAttribute (Sym.ofString "ObjId")      (data |> AVal.map (fun d -> d.objIds))
+        |> Sg.vertexAttribute (Sym.ofString "SubId")      (data |> AVal.map (fun d -> d.subIds))
+        |> Sg.vertexAttribute (Sym.ofString "Sizes")      (data |> AVal.map (fun d -> d.sizes))
+        |> Sg.vertexAttribute DefaultSemantic.Colors      (data |> AVal.map (fun d -> d.colors))
         |> Sg.uniform "MV" mv
-        |> Sg.uniform "DepthOffset"
-            (depthOffset |> AVal.map (fun d -> (d * handleDepthOffsetFactor) / (100.0 - 0.1)))
 
     /// Visible pass for the vertex handles. `hovered` and `grabbed` are control point indices, or
     /// -1; the shader compares them per vertex the way SelectedId works for lines.
@@ -970,6 +1008,10 @@ module PackedRendering =
             do! VertexHandleShader.handleVertex
             do! VertexHandleShader.handleFragment
         }
+        // Always visible while the annotation is being edited, and never occluded by its own
+        // outline. The pick pass makes the same choice, so what you see is what you can grab.
+        |> Sg.depthTest (AVal.constant DepthTest.None)
+        |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
 
     let points (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
         let instanceAttribs = 

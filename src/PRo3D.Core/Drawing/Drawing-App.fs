@@ -1093,6 +1093,8 @@ module DrawingApp =
                                 // and whether it was a handle
                                 let sub : int = floor p.R |> int
                                 let ids = pickIds.GetValue()
+                                if vertexEditingAllowed.GetValue() && (id >= 0 || sub >= 0) then
+                                    Log.line "[VertexPick] raw pixel R=%f A=%f -> obj=%d sub=%d" p.R p.A id sub
                                 if id >= 0 && id < ids.Length  && allowed then
                                     //Log.line "hoverhit %A" (id, ids.[id])
                                     transact (fun _ ->
@@ -1120,10 +1122,18 @@ module DrawingApp =
                                 if vertex >= 0 && editing then
                                     Log.line "vertexhit %A" (id, ids.[id], vertex)
                                     DrawingAction.GrabVertex(ids.[id], vertex)
+                                elif editing && model.annotations.singleSelectLeaf.GetValue() = Some ids.[id] then
+                                    // A body click on the annotation being edited must not reach
+                                    // PickDirectly: addSingleSelectedLeaf *toggles*, so clicking
+                                    // the annotation you are editing would deselect it and take its
+                                    // handles away - which is exactly what a slightly missed handle
+                                    // click looks like.
+                                    Log.line "editclick (already selected) %A vertex=%d" ids.[id] vertex
+                                    DrawingAction.Nop
                                 else
                                     // a click on the body still re-selects, so you can move
                                     // between annotations without leaving edit mode
-                                    Log.line "clickhit %A" (id, ids.[id])
+                                    Log.line "clickhit %A editing=%b vertex=%d" (id, ids.[id]) editing vertex
                                     DrawingAction.PickDirectly(ids.[id])
                             else
                                 DrawingAction.Nop
