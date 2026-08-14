@@ -122,7 +122,7 @@ type ViewerAction =
 
 | PickSurface                     of SceneHit * string * bool
 | PreviewPickSurface              of SceneHit * string * bool
-| PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d>
+| PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d> * Option<AttributeHit>
 
 
 | PickObject                      of V3d*Guid
@@ -552,6 +552,15 @@ type MultiSelectionBox =
 
 type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
 
+/// Per-vertex attribute values under the 3D cursor, shown in the "Cursor" panel.
+/// Refreshed by the background preview pick, so it only exists while the preview
+/// cursor is enabled and the mouse is over a surface in picking mode.
+type CursorAttributes =
+    {
+        surfaceName : string
+        hit         : AttributeHit
+    }
+
 type ProjectedEllipse = 
     {
         surfaceProjectedPoints : Option<array<V3d>>
@@ -653,6 +662,7 @@ type Model = {
     backgroundPicking    : ThreadPool<ViewerAction>
 
     surfaceIntersection : Option<SurfaceIntersection>
+    cursorAttributes    : Option<CursorAttributes>
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
 

@@ -1213,8 +1213,16 @@ module ViewerApp =
                             let ct = Async.DefaultCancellationToken
                             while not ct.IsCancellationRequested do
                                 let! (m, sceneHit, name) = Async.AwaitTask <| m.pickPreviewRequested.WaitAsync()
-                                let pick = Picking.pickRay m sceneHit.globalRay.Ray (Some name)
-                                let previewIntersection = PreviewPickSurfaceFinished(p, name, pick)
+                                let pick = Picking.pickRayInfo m sceneHit.globalRay.Ray (Some name)
+                                // per-vertex attribute layers only - the texture fallback
+                                // decodes one image per layer and cannot run per mouse move
+                                let attributes =
+                                    pick
+                                    |> Option.bind (fun (hitInfo, _) ->
+                                        ProfileAttributeExtraction.extractAttributesFromHit TextureFallback.Disabled hitInfo sceneHit.globalRay.Ray
+                                    )
+                                let hit = pick |> Option.map (fun (hitInfo, hitPosOnRay) -> hitInfo.hit, hitPosOnRay)
+                                let previewIntersection = PreviewPickSurfaceFinished(p, name, hit, attributes)
                                 mailbox.Post(MailboxAction.ViewerAction previewIntersection)
                         }
 
@@ -1224,12 +1232,13 @@ module ViewerApp =
                 }
             { m with backgroundPicking = ThreadPool.add "BackgroundPicking" p ThreadPool.empty; }
 
-        | ViewerAction.PreviewPickSurfaceFinished(_,_, None), _ -> 
-            // preview request lead to no hit. ignore
-            m 
-        | ViewerAction.PreviewPickSurfaceFinished(_, name, hit), _ -> 
+        | ViewerAction.PreviewPickSurfaceFinished(_, _, None, _), _ ->
+            // preview request lead to no hit - drop the read-out rather than leaving the
+            // previous point's values on screen as if they were current
+            { m with cursorAttributes = None }
+        | ViewerAction.PreviewPickSurfaceFinished(_, name, hit, attributes), _ ->
             match hit with
-            | Some (p, hitPosOnRay) -> 
+            | Some (p, hitPosOnRay) ->
                 let info = p.GetIntersectionRayHitInfo()
                 let project p = 
                     let up = m.scene.referenceSystem.up.value
@@ -1242,8 +1251,9 @@ module ViewerApp =
                         p
                 let normal = if info.HasValidNormal then Some info.Normal else None
                 let s = { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }
-                { m with 
+                { m with
                     surfaceIntersection = Some { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }
+                    cursorAttributes = attributes |> Option.map (fun hit -> { surfaceName = name; hit = hit })
                     ellipseModel = EllipseAnnotations.App.update m.scene.referenceSystem.up.value  project (EllipseAnnotations.SetPreviewPoint s) m.ellipseModel
                 }
             | _ -> 
