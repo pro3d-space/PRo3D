@@ -23,7 +23,6 @@ FsPickler.Json
 Aardium
 Uncodium.Eigensystems 
 
-Suave
 FSharp.Core
 FSharp.Data
 
@@ -34,4 +33,6 @@ Aardvark.Data.Wavefront
 
 Chiron
 
-Thoth.Json.Net
+FSharp.Json
+MathNet.Numerics.FSharp
+

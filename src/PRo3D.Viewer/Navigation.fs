@@ -12,6 +12,8 @@ open Aardvark.Rendering
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Navigation2
+open MapViewCameraController
+open MapViewCameraController.MapViewController
 
 module Navigation =
     
@@ -19,31 +21,70 @@ module Navigation =
 
 
     type Action =
-        | ArcBallAction         of ArcBallController.Message
-        //| FreeFlyAction         of CameraController.Message
-        | FreeFlyAction         of FreeFlyController.Message
-        | SetNavigationMode     of NavigationMode
+        | ArcBallAction            of ArcBallController.Message        
+        //| FreeFlyAction            of CameraController.Message
+        | FreeFlyAction            of FreeFlyController.Message
+        | MapViewControllerAction  of MapViewController.Message
+        | SetNavigationMode        of NavigationMode
 
     type smallConfig<'a,'b> = 
         {
             navigationSensitivity : Lens<'a, float>
             up                    : Lens<'b, V3d>
+            north                 : Lens<'b, V3d>
+            frustum               : Lens<'a, Frustum>
+            windowSize            : Lens<'a, V2i>
+            planet                : Lens<'b, Planet>
         }
 
-    let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (model : NavigationModel) (act : Action) =
+    let pickOrbitCenter (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) = 
+        let orbitCenter = 
+            match pickFunction with
+            | None -> None
+            | Some f -> 
+                Log.startTimed "pick new orbit"
+                let point = f()
+                Log.stop()
+                point
+
+        match orbitCenter with
+        | None -> 
+            Log.warn "could not get new orbit center, please center view to surface"
+
+            let oldNavMode = 
+                if model.navigationMode = NavigationMode.ArcBall then NavigationMode.FreeFly
+                else model.navigationMode
+                    
+
+            { model with navigationMode = oldNavMode }, Some "could not pick new orbit center with center ray.\n Please center view to surface before changing to ArcBall or select explore center manually"
+        | Some p -> 
+            Log.line "new orbit implicitly set to center ray"
+            { model with exploreCenter = p; navigationMode = NavigationMode.ArcBall }, Some("New orbit set with center ray")
+
+    let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (userPrefs : UserPreferences) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) (ctrlFlag : bool) =
         match act with            
         | ArcBallAction a -> 
-            let model =
+            let model, feedback =
                 match a with 
                 | ArcBallController.Message.Pick a when switchToArcball->
-                    { model with navigationMode =  NavigationMode.ArcBall; exploreCenter = a }
-                | _ ->  { model with navigationMode =  NavigationMode.ArcBall } //model
-            
-            let cam = ArcBallController.update model.camera a
+                    { model with navigationMode =  NavigationMode.ArcBall; exploreCenter = a }, None
+                | _ ->                      
+                    model, None
+                    
+            let (msg : ArcBallController.Message) =
+                match a with
+                | ArcBallController.Message.Down (button, pos) -> 
+                    let mb = if (ctrlFlag && button = MouseButtons.Right) then MouseButtons.Left else button
+                    ArcBallController.Message.Down (mb, pos)
+                | ArcBallController.Message.Up button -> 
+                    let mb = if (ctrlFlag && button = MouseButtons.Right) then MouseButtons.Left else button
+                    ArcBallController.Message.Up mb
+                | _ -> a
+            let cam = ArcBallController.update model.camera msg
             let cam = { cam with sensitivity = smallConfig.navigationSensitivity.Get(bigConfigA); orbitCenter = Some model.exploreCenter } 
             match cam.orbitCenter with
-            | Some oc -> { model with camera = cam; exploreCenter = oc}
-            | None -> { model with camera = cam }
+            | Some oc -> { model with camera = cam; exploreCenter = oc}, feedback
+            | None -> { model with camera = cam }, feedback
                   
         | FreeFlyAction a ->
             let cam' = FreeFlyController.update model.camera a
@@ -61,20 +102,95 @@ module Navigation =
             
             { 
               model with camera = { cam' with freeFlyConfig = config }
-            }
+            }, None
+        | MapViewControllerAction a ->
+            let frustum = smallConfig.frustum.Get(bigConfigA)
+
+            let angle = Math.Tanh(frustum.right / frustum.near) * 2.0
+
+            let windowSize = smallConfig.windowSize.Get(bigConfigA)
+
+            //let view =
+            //    model.camera.view
+            //    |> CameraView.withUp (smallConfig.north.Get(bigConfigB))
+            //    |> setCameraViewCenter (smallConfig.north.Get(bigConfigB))
+
+            // Apply user MapView WASD invert preferences before dispatch so
+            // the controller stays unaware of user prefs.
+            let a =
+                match a with
+                | MapViewController.Message.KeyDown k ->
+                    MapViewController.Message.KeyDown (UserPreferences.remapMapViewKey userPrefs k)
+                | MapViewController.Message.KeyUp k ->
+                    MapViewController.Message.KeyUp (UserPreferences.remapMapViewKey userPrefs k)
+                | _ -> a
+
+            let cam = {
+                model.camera with
+                    view = model.camera.view
+                    sensitivity    = smallConfig.navigationSensitivity.Get(bigConfigA)
+                    orbitCenter    = Some model.exploreCenter
+                    targetPhiTheta = V2d(windowSize.X, windowSize.Y)
+                    panFactor      = angle
+                }
+
+            let cam = MapViewController.update cam a
+                                    
+            let cam = 
+                let planet     = smallConfig.planet.Get(bigConfigB)
+
+                if model.updatePerFrame then
+                    match a with 
+                    | KeyUp _ 
+                    | Up _ 
+                    | Move _
+                    | StepTime ->
+                        cam |> MapViewController.updateCameraForMapView planet                    
+                    | _ -> cam
+                else
+                    match a with 
+                    | KeyUp _ 
+                    | Up _ -> 
+                        cam |> MapViewController.updateCameraForMapView planet                    
+                    | _ -> cam
+
+            { model with camera = cam }, None
+
         | SetNavigationMode mode ->
             match mode with
+            | NavigationMode.ArcBall ->
+                let model, message = pickOrbitCenter pickFunction model
+                { model with updatePerFrame = false }, message
             | NavigationMode.FreeFly ->
-                let center = 
+                let center =
                     match model.camera.orbitCenter with
                     | Some x ->  x
                     | None   -> V3d.OOO
-                
+
+                let sky =
+                    ReferenceSystem.bodyAwareSky
+                        (smallConfig.planet.Get(bigConfigB))
+                        (smallConfig.up.Get(bigConfigB))
                 let view' =
-                    CameraView.lookAt model.camera.view.Location center (smallConfig.up.Get(bigConfigB))
-                
-                { model with camera = { model.camera with view = view'}; navigationMode = mode} 
-            | _ ->  { model with navigationMode = mode }
+                    CameraView.lookAt model.camera.view.Location center sky
+
+                { model with camera = { model.camera with view = view'}; navigationMode = mode; updatePerFrame = false}, None
+            | NavigationMode.MapView ->
+                let planet     = smallConfig.planet.Get(bigConfigB)
+
+                let cam = model.camera |> switchToMapViewController planet
+
+                // Approximate body radius for pan/zoom scaling. Avoids a
+                // synchronous kdtree pick which stalls the UI on large scenes.
+                let radiusEstimate =
+                    let fromExplore = Vec.Length model.exploreCenter
+                    if fromExplore > 0.0 then fromExplore
+                    else Vec.Length cam.view.Location
+
+                let cam = { cam with rotationFactor = radiusEstimate }
+
+                { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.MapView; updatePerFrame = true }, None
+            | _ ->  { model with navigationMode = mode; updatePerFrame = false }, None
                
     module UI =        
 
@@ -97,13 +213,35 @@ module Navigation =
                 match state with
                 | NavigationMode.FreeFly -> yield! FreeFlyController.extractAttributes model.camera FreeFlyAction
                 | NavigationMode.ArcBall -> yield! ArcBallController.extractAttributes model.camera ArcBallAction
+                | NavigationMode.MapView -> yield! MapViewController.extractAttributes model.camera MapViewControllerAction
                 | _ -> failwith "Invalid NavigationMode"
             } |> AttributeMap.ofAMap
 
-        let viewNavigationModes  (model : AdaptiveNavigationModel) =
+        let geometryTooltip (nMode : NavigationMode) : string =
+            match nMode with 
+            | NavigationMode.FreeFly -> "Enter FreeFlyMode"
+            | NavigationMode.ArcBall -> "Enter ArcBallMode - Camera is focused on a point and moves arround it"
+            | NavigationMode.MapView -> "Enter MapViewMode - Camera is focused on current planetery object center, up is north and move speed depends on camera distance to surface"
+            | _  -> ""         
+
+        let viewNavigationModes  (planet : aval<Planet>) (model : AdaptiveNavigationModel) =
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large location arrow icon"] [] ]
-                Html.Layout.boxH [ Html.SemUi.dropDown model.navigationMode SetNavigationMode ]                
+                Html.Layout.boxH [ i [clazz "large location arrow icon"] [] ]                
+                Html.Layout.boxH [ Incremental.div (AttributeMap.empty) (
+                    alist {
+                        let navMode = model.navigationMode
+                        let! p = planet
+                        // MapView needs a reference body (it orients to the planet
+                        // centre with up = north). With Planet.None we still show it,
+                        // but greyed out with a note, instead of hiding it.
+                        let disabled =
+                            if p = Planet.None then
+                                [ NavigationMode.MapView ] |> HashSet.ofList
+                            else
+                                HashSet.empty
+
+                        Drawing.UI.dropDownDisabled HashSet.empty disabled "needs a planet" navMode SetNavigationMode geometryTooltip
+                    })]
             ]
 
     module Sg =

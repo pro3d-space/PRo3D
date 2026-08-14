@@ -1,7 +1,5 @@
 ﻿namespace PRo3D
 
-open Aardvark.Service
-
 open System
 open System.Collections.Concurrent
 open System.IO
@@ -14,7 +12,6 @@ open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
-open Aardvark.SceneGraph
 open Aardvark.Rendering.Text
 open Aardvark.UI
 open Aardvark.UI.Operators
@@ -105,259 +102,44 @@ module SnapshotSg =
                 |> Sg.trafo (m.scene.exploreCenter  |> AVal.map Trafo3d.Translation)
         sg
 
-    let useOverlays = false
     /// create scengegraph using Rendering.RenderCommands
     let createSceneGraph (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
-                         overlayed depthTested (runtime : IRuntime) (allowFootprint : bool) 
-                         (calcDepth : bool) (m:AdaptiveModel)  =
-        let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
-        let filterTexture = ~~true
-
-        //avoids kdtree intersections for certain interactions
-        let surfacePicking = 
-            m.interaction 
-            |> AVal.map(fun x -> 
-                match x with
-                | Interactions.PickAnnotation | Interactions.PickLog -> false
-                | _ -> true
-            )
-        let vpVisible = isViewPlanVisible m
-        let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
-        let refSystem = m.scene.referenceSystem
+                         (overlayed: ISg<_>) (depthTested: ISg<_>) (runtime : IRuntime) (allowFootprint : bool)
+                         (allowDepthview : bool) 
+                         (calcDepth : bool) id cam (m:AdaptiveModel)  =
         let view = m.navigation.camera.view
-        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-        let grouped = 
-            sgGrouped |> AList.map(
-                fun x -> ( x 
-                    |> AMap.map(fun guid surface ->              
-                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
-                        let s = 
-                            viewSingleSurfaceSg 
-                                surface 
-                                m.scene.surfacesModel.surfaces.flat
-                                m.frustum 
-                                selected 
-                                surfacePicking
-                                surface.globalBB
-                                refSystem 
-                                observationSystem
-                                observerSystem
-                                m.footPrint
-                                vpVisible
-                                usehighlighting filterTexture
-                                allowFootprint
-                                false
-                                view
-                        match surface.isObj with
-                        | true -> 
-                            s 
-                            |> Sg.effect [
-                                objEffect
-                            ] 
-                        | false -> 
-                            s
-                            |> Sg.effect [surfaceEffect] 
-                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-                       )
-                    |> AMap.toASet 
-                    |> ASet.map snd                     
-                )                
-            )
+        let grouped = ViewerUtils.createGroupedSgs sgGrouped view allowFootprint allowDepthview m      
 
-        //grouped   
-        let last = grouped |> AList.tryLast
-
-        let sgs = 
-            // bundles of sgs
-            alist {                    
-                for set in grouped do       
-                    yield alist {
-                        let sg = 
-                            set 
-                            |> Sg.set
-
-                        yield sg :> ISg 
-
-                        if (not calcDepth) then
-                            let depthTested = 
-                                last 
-                                |> AVal.map (function 
-                                    | Some e when System.Object.ReferenceEquals(e,set) -> 
-                                        depthTested 
-                                    | _ -> 
-                                        Sg.empty
-                                )
-                        
-                            yield (depthTested |> Sg.dynamic) :> ISg 
-                    }
-            }
 
         let commands = 
+            
             alist {
-                for sgBundle in sgs do
-                    if (not calcDepth) then yield RenderCommand.ClearDepth(1.0) 
-                    yield RenderCommand.Ordered sgBundle
+                for sg in grouped do
+                    if (not calcDepth) then yield RenderCommand.ClearDepth 1.0
+                    yield RenderCommand.Render sg
                     
-                if (not calcDepth) then yield RenderCommand.ClearDepth(1.0) 
-                if useOverlays then
-                    yield RenderCommand.Unordered [(overlayed :> ISg)] 
+                yield RenderCommand.Render depthTested
+                if (not calcDepth) then 
+                    yield RenderCommand.ClearDepth 1.0
+                    yield RenderCommand.Render overlayed
             } |> RenderCommand.Ordered
 
         Sg.execute commands
 
-
-
-    // duplicate code, see Viewer.fs
-    // could be resolved by dividing up code in Viewer.fs
-    // duplicated to minimise merge troubles, but should be changed once merge is done // TODO RNO
     let viewRenderView (runtime : IRuntime) (id : string) 
                        (viewportSize : aval<V2i>) (calcDepth : bool) (m: AdaptiveModel) = 
-        //PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false  // not the problem
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) 
                                 m.overlayFrustum m.frustum // use overlay frustum if Some()
-        //let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
         let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-        let annotations, discs = 
-            DrawingApp.view 
-                m.scene.config 
-                mdrawingConfig 
-                observer
-                m.navigation.camera.view 
-                frustum
-                runtime
-                (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
-                (allowAnnotationPicking m)                 
-                m.drawing
-            
-        let annotationSg = 
-            let ds =
-                discs
-                |> Sg.map DrawingMessage
-                |> Sg.fillMode (AVal.constant FillMode.Fill)
-                |> Sg.cullMode (AVal.constant CullMode.None)
 
-            let annos = 
-                annotations
-                |> Sg.map DrawingMessage
-                |> Sg.fillMode (AVal.constant FillMode.Fill)
-                |> Sg.cullMode (AVal.constant CullMode.None)
-
-            Sg.ofList[ds;annos;]
-
-        let overlayed =
-
-            let refSystem =
-                Sg.view
-                    m.scene.config
-                    mrefConfig
-                    m.scene.referenceSystem
-                    m.navigation.camera.view
-                |> Sg.map ReferenceSystemMessage  
-
-            let exploreCenter =
-                Navigation.Sg.view m.navigation
-                |> Sg.onOff m.scene.config.showExplorationPointGui     
-          
-            let homePosition =
-                Sg.viewHomePosition m.scene.surfacesModel
-                                 
-            let viewPlans =
-                ViewPlanApp.Sg.view 
-                    m.scene.config 
-                    mrefConfig 
-                    m.scene.viewPlans 
-                    m.navigation.camera.view
-                |> Sg.map ViewPlanMessage           
-
-            //let solText = 
-            //    MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
-                
-            let traverse = 
-                [ 
-                    TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
-                    TraverseApp.Sg.viewText m.scene.referenceSystem
-                        m.navigation.camera.view
-                        m.scene.config.nearPlane.value 
-                        m.scene.traverses
-                ]
-                |> Sg.ofList
-                |> Sg.map TraverseMessage
-           
-            let heightValidation =
-                HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
-            
-            //let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
-
-            let annotationTexts =
-                DrawingApp.viewTextLabels 
-                    m.scene.config
-                    mdrawingConfig
-                    m.navigation.camera.view
-                    m.drawing            
-
-            let scaleBarTexts = 
-                ScaleBarsApp.Sg.viewTextLabels 
-                    m.scene.scaleBars 
-                    m.navigation.camera.view 
-                    m.scene.config
-                    mrefConfig
-                    m.scene.referenceSystem
-
-            [
-                exploreCenter; 
-                refSystem; 
-                viewPlans; 
-                homePosition; 
-                //solText; 
-                annotationTexts |> Sg.noEvents
-                heightValidation
-                scaleBarTexts
-                traverse                
-            ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
-
-        let heightValidationDiscs =
-            HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
-
-        let scaleBars =
-            ScaleBarsApp.Sg.view
-                m.scene.scaleBars
-                m.navigation.camera.view
-                m.scene.config
-                mrefConfig
-                m.scene.referenceSystem
-            |> Sg.map ScaleBarsMessage
-
-        let sceneObjects =
-            SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
-
-        let geologicSurfacesSg = 
-            GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
-            |> Sg.map GeologicSurfacesMessage 
-
-
-        let traverses =
-            TraverseApp.Sg.view       
-                m.navigation.camera.view
-                m.scene.referenceSystem
-                m.scene.traverses   
-            |> Sg.map TraverseMessage
+        let overlayed = ViewerApp.createOverlaySg m
 
         let depthTested = 
-            [
-                //linkingSg; 
-                annotationSg; 
-                //minervaSg;
-                heightValidationDiscs; 
-                scaleBars; 
-                sceneObjects; 
-                geologicSurfacesSg 
-                traverses
-            ] |> Sg.ofList
+            ViewerApp.getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
         let sg = createSceneGraph m.scene.surfacesModel.sgGrouped 
-                                  overlayed depthTested runtime true calcDepth m
+                                  overlayed depthTested runtime true false calcDepth id camera m
         sg
             |> Sg.noEvents
             |> Sg.camera camera
@@ -365,13 +147,4 @@ module SnapshotSg =
 
 
         
-        
-        //FreeFlyController.controlledControl // WORKS! NEED TO ADD ORBIT CONTROLLER
-        //            m.navigation.camera (fun msg ->
-        //                                    msg |> Navigation.FreeFlyAction
-        //                                        |> ViewerAction.NavigationMessage)
-        //            frustum 
-        //            (renderControlAttributes id m) sg
-
-        ///// END DEBUG
-
+     

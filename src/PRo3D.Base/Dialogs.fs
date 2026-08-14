@@ -1,18 +1,18 @@
 ﻿namespace PRo3D.Base
 
+open Aardvark.Base
 open Aardvark.UI
 open System
 
-module Dialogs =    
-    
+module Dialogs =   
     let onChooseFiles (chosen : list<string> -> 'msg) =
         let cb xs =
             match xs with
             | [] -> chosen []
             | x::[] when x <> null -> 
                 x 
-                |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                |> List.map Aardvark.Service.PathUtils.ofUnixStyle 
+                |> Pickler.json.UnPickleOfString
+                |> List.map Path.ofUnixStyle
                 |> chosen
             | _ -> 
                 chosen []
@@ -26,8 +26,8 @@ module Dialogs =
                 let id = id
                 let path = 
                     x 
-                    |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                    |> List.map Aardvark.Service.PathUtils.ofUnixStyle 
+                    |> Pickler.json.UnPickleOfString
+                    |> List.map Path.ofUnixStyle
                     |> List.tryHead
                 match path with
                 | Some p -> 
@@ -42,8 +42,8 @@ module Dialogs =
             match xs with
             | x::[] when x <> null -> 
                 x 
-                |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                |> Aardvark.Service.PathUtils.ofUnixStyle 
+                |> Pickler.json.UnPickleOfString
+                |> Path.ofUnixStyle
                 |> chosen
             | _ -> 
                 chosen String.Empty //failwithf "onSaveFile: %A" xs
@@ -55,8 +55,8 @@ module Dialogs =
             | Some p-> p |> chosen
             | None ->
                 match xs with
-                | x::[] when x <> null -> 
-                    x |> Aardvark.Service.Pickler.json.UnPickleOfString |> Aardvark.Service.PathUtils.ofUnixStyle |> chosen
+                | [ x ] when x <> null ->
+                    x |> Pickler.json.UnPickleOfString |> Path.ofUnixStyle |> chosen
                 | _ -> 
                     String.Empty |> chosen
         onEvent "onsave" [] cb

@@ -21,9 +21,16 @@ type SamplingUnit =
 | cm = 2
 | mm = 3
 
+// Delta for the annotations collection — stores only what changed per undoable operation.
+// LeafAdded/LeafRemoved carry just the leaf and the group path, which is sufficient to reverse the operation.
+// SnapshotDelta stores a full GroupsModel before/after for rare bulk operations (RemoveGroup, Clear).
+type AnnotationsDelta =
+    | LeafAdded     of leaf: Leaf * groupPath: list<Index>
+    | LeafRemoved   of leaf: Leaf * groupPath: list<Index>
+    | SnapshotDelta of before: GroupsModel * after: GroupsModel
+
 type DrawingAction =
 | SetSemantic         of Semantic
-| ChangeColor         of ColorPicker.Action
 | ChangeThickness     of Numeric.Action
 | ChangeSamplingAmount of Numeric.Action
 | SetSamplingUnit     of SamplingUnit
@@ -38,7 +45,7 @@ type DrawingAction =
 | StopPicking  
 | StartPickingMulti     
 | StopPickingMulti  
-| AddPointAdv         of V3d * (V3d -> Option<V3d>) * string * option<Guid>
+| AddPointAdv         of V3d * (V3d -> Option<V3d>) * Option<PRo3D.Base.Gis.SpiceReferenceSystem> * string * option<Guid>
 | RemoveLastPoint  
 | ClearWorking
 | ClearSelection
@@ -56,6 +63,7 @@ type DrawingAction =
 | UpVectorChanged        of V3d
 | NorthVectorChanged     of V3d
 | GroupsMessage          of GroupsAppAction
+| RecalculateMeasurements
 | DnsColorLegendMessage  of FalseColorLegendApp.Action  
 | ExportAsAnnotations    of string
 | AddAnnotations         of list<string>
@@ -63,8 +71,12 @@ type DrawingAction =
 | PickDirectly           of Guid
 | ExportAsCsv            of string
 | ExportAsProfileCsv     of string
+| ExportMultiAttributeProfile of string
 | ExportAsGeoJSON        of string
 | ExportAsGeoJSON_xyz    of string
+| ExportAsGeoJSONQGIS_latlon    of string
+| ExportAsGeoJSONQGIS_xyz       of string 
+| ExportAsGeoJSONQGIS_both      of string // also exports geojson with lat lon, but additionally adds xyz information to metadata
 | ContinuouslyGeoJson    of string
 | ExportAsAttitude       of string
 
@@ -92,7 +104,6 @@ type DrawingModel = {
     projection : Projection
     geometry   : Geometry
     semantic   : Semantic
-    color      : ColorInput
     thickness  : NumericInput
 
     samplingAmount   : NumericInput
@@ -105,10 +116,10 @@ type DrawingModel = {
     pendingIntersections : ThreadPool<DrawingAction>    
 
     [<TreatAsValue>]
-    past : Option<DrawingModel> 
+    undoStack : list<AnnotationsDelta>
 
     [<TreatAsValue>]
-    future : Option<DrawingModel>
+    redoStack : list<AnnotationsDelta>
 
     dnsColorLegend : FalseColorsModel
 
@@ -145,7 +156,6 @@ module DrawingModel =
         draw          = false  
         pick          = false
         multi         = false
-        color         = { c = C4b.DarkBlue } 
         thickness     = Annotation.Initial.thickness
 
         working     = None
@@ -163,8 +173,8 @@ module DrawingModel =
         
         pendingIntersections = ThreadPool.empty
 
-        past    = None
-        future  = None
+        undoStack = []
+        redoStack = []
         
         dnsColorLegend = FalseColorsModel.initDnSLegend
 

@@ -24,16 +24,10 @@ open PRo3D.SimulatedViews
 
 open Adaptify.FSharp.Core
 open Aardvark.GeoSpatial.Opc
+open PRo3D.InstrumentVisualization
 
 module ViewerUtils =    
     type Self = Self
-
-    let mapRenderCommand rc =
-        match rc with
-            | SceneGraph sg -> 
-                RenderCommand.SceneGraph (sg |> Sg.map ViewerMessage)
-            | RenderCommand.Clear (a,b,c) -> 
-                RenderCommand<ViewerAnimationAction>.Clear (a,b,c)
 
     let mapAttribute (f : 'msg -> 'newmsg) (a : Attribute<'msg>) =
         let (str, a) = a
@@ -43,8 +37,7 @@ module ViewerUtils =
     //let _surfaceModelLens = Model.Lens.scene |. Scene.Lens.surfacesModel
     //let _flatSurfaces = Scene.Lens.surfacesModel |. SurfaceModel.Lens.surfaces |. GroupsModel.Lens.flat
         
-    let colormap = 
-        let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
+    let colormap =
         let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
         let pi = PixImage.Load(s)
         PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
@@ -143,9 +136,9 @@ module ViewerUtils =
                         )
 
         let upperC = 
-          scalar 
+            scalar 
             |> AVal.bind (fun x ->
-               match x with 
+                 match x with 
                  | AdaptiveSome s -> 
                    s.colorLegend.upperColor.c 
                      |> AVal.map(fun x -> 
@@ -156,9 +149,9 @@ module ViewerUtils =
                  | AdaptiveNone -> AVal.constant(1.0)
                )
         let lowerC = 
-          scalar 
+            scalar 
             |> AVal.bind ( fun x ->
-              match x with 
+                match x with 
                 | AdaptiveSome s -> 
                   s.colorLegend.lowerColor.c 
                     |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H))
@@ -166,22 +159,22 @@ module ViewerUtils =
               )
 
         let rangeToMinMax = 
-          scalar 
+            scalar 
             |> AVal.bind (fun x ->
-              match x with 
-                  | AdaptiveSome s -> s.definedRange |> AVal.map(fun y -> V2d(y.Min, y.Max))
-                  | AdaptiveNone   -> AVal.constant(V2d(0.0,1.0))
+                match x with 
+                | AdaptiveSome s -> s.definedRange |> AVal.map(fun y -> V2d(y.Min, y.Max))
+                | AdaptiveNone   -> AVal.constant(V2d(0.0,1.0))
               )
         isg
-            |> Sg.uniform "falseColors"    selectedScalar
-            |> Sg.uniform "startC"         lowerC  
-            |> Sg.uniform "endC"           upperC
-            |> Sg.uniform "interval"       interval
-            |> Sg.uniform "inverted"       inverted
-            |> Sg.uniform "lowerBound"     lowerB
-            |> Sg.uniform "upperBound"     upperB
-            |> Sg.uniform "MinMax"         rangeToMinMax
-            |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
+        |> Sg.uniform "falseColors"    selectedScalar
+        |> Sg.uniform "startC"         lowerC  
+        |> Sg.uniform "endC"           upperC
+        |> Sg.uniform "interval"       interval
+        |> Sg.uniform "inverted"       inverted
+        |> Sg.uniform "lowerBound"     lowerB
+        |> Sg.uniform "upperBound"     upperB
+        |> Sg.uniform "MinMax"         rangeToMinMax
+        |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
     let addDepthMappingParameters (fp : AdaptiveFootPrint)   (isg:ISg<'a>) =
         isg 
@@ -190,7 +183,7 @@ module ViewerUtils =
             |> Sg.uniform "endC"           ((C4b.Red |> AVal.constant)  |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H)))  
             |> Sg.uniform "interval"       fp.depthColorLegend.interval.value
             |> Sg.uniform "inverted"       (false |> AVal.constant)
-            |> Sg.uniform "lowerBound"     (AVal.constant(0.0)) //fp.depthColorLegend.lowerBound.value //
+            |> Sg.uniform "lowerBound"     fp.depthColorLegend.lowerBound.value //(AVal.constant(0.0)) //
             |> Sg.uniform "upperBound"     fp.depthColorLegend.upperBound.value //
             |> Sg.uniform "MinMax"         (AVal.constant(3000.0)) //(AVal.constant(V2d(0.0,1.0)))
             |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
@@ -231,46 +224,31 @@ module ViewerUtils =
             let! texture = s.primaryTexture 
             let attr : AttributeParameters = 
                 {
-                    selectedTexture = texture |> Option.map(fun x -> x.index)
+                    selectedTexture = texture |> Option.map (fun x -> { texture = TextureReference.LegacyId x.index; channel = ChannelReference.NoChannelSelection })
                     selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
                 }
 
             return attr
         }
 
-    let attributeParameters' (surf:Surface) =
-            let s = surf
-            let scalar = s.selectedScalar
-            let scalar' = 
-                match scalar with
-                | Some m -> m.label |> Some
-                | None -> None
-            
-            let texture = s.primaryTexture 
-            let attr : AttributeParameters = 
-                {
-                    selectedTexture = texture |> Option.map(fun x -> x.index)
-                    selectedScalar  = scalar'
-                }
-
-            attr    
-
     type Vertex = {
-        [<Position>]        pos     : V4d
-        [<Color>]           c       : V4d
-        [<TexCoord>]        tc      : V2d
-        [<Semantic("ViewSpacePos")>]  vp    : V4d
-        [<Semantic("FootPrintProj")>] tc0   : V4d
-        [<Semantic("DepthTex")>]      tc1   : V4d
+        [<Position>]        pos     : V4f
+        [<Color>]           c       : V4f
+        [<TexCoord>]        tc      : V2f
+        [<Semantic("ViewSpacePos")>]  vp    : V4f
+        [<Semantic("FootPrintProj")>] tc0   : V4f
+        [<Semantic("DepthTex")>]      tc1   : V4f
     }
 
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
+        (m               : AdaptiveModel) 
         (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>) 
         (selectedId      : aval<Option<Guid>>)
         (surfacePicking  : aval<bool>)
+        (previewPickingEnabled : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
         (observedSystem  : aval<Option<SpiceReferenceSystem>>) 
@@ -281,6 +259,7 @@ module ViewerUtils =
         (filterTexture   : aval<bool>)
         (allowFootprint  : bool)  
         (allowDepthview  : bool) 
+        (cursorWorldSpace : aval<Option<V3d * float>>)
         (view            : aval<CameraView>) =
 
         adaptive {
@@ -305,6 +284,7 @@ module ViewerUtils =
                     |> Sg.fillMode(surf.fillMode)
                                                 
                 let triangleFilter = surf.triangleSize.value
+                let triangleFilterEnabled = surf.filterByTriangleSize
 
                 let trafo =
                     adaptive {
@@ -388,30 +368,42 @@ module ViewerUtils =
                     |> Sg.dynamic
 
                
+                // transform the home position into view space on the CPU (double precision)
+                // and hand a clean V3f to the shader; the per-vertex check then runs in the
+                // numerically stable view space (vp), no planet-scale world coords on the GPU
                 let homePositionViewSpace =
                     adaptive {
                         let! homePosition = surf.homePosition
-                        
+
                         match homePosition with
-                        | Some hp -> 
+                        | Some hp ->
                             let! view' = view
                             let mv = (view' |> CameraView.viewTrafo).Forward
-                            return (mv.TransformPos hp.Location)
+                            return V3f (mv.TransformPos hp.Location)
                         | None ->
                             let! bb = surface.globalBB
-                            return bb.Center                        
-                    }               
+                            return V3f bb.Center
+                    }
                     
                 let filterByDistance =
                     adaptive {
                         let! homePosition = surf.homePosition 
                         
                         match homePosition with
-                        | Some _ -> 
-                            return! surf.filterByDistance 
+                        | Some _ ->
+                            return! surf.filterByDistance
                         | None ->
                             return false
-                    }               
+                    }  
+                    
+                let cusorViewSpace = 
+                    (view, cursorWorldSpace) ||> AVal.map2 (fun view p -> 
+                        match p with
+                        | None -> V4d.Zero
+                        | Some (p, _) -> 
+                            let vp = (CameraView.viewTrafo view).Forward.TransformPos p
+                            V4d(vp, 1.0) // w for indication if valid
+                    )
 
                 let surfaceSg =
                     surface.sceneGraph
@@ -419,14 +411,31 @@ module ViewerUtils =
                     |> Sg.dynamic
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
+                    |> Sg.applyBody (observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value))
+                    |> Sg.noEvents
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     //|> addAttributeFalsecolorMappingParameters surf
                     |> addDepthMappingParameters fp
-                    |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
+                    |> Sg.uniform "FilterTriangleEnabled" triangleFilterEnabled
+                    |> Sg.uniform "MaxTriangleSize"   triangleFilter  
                     |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
-                    |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
+                    |> Sg.uniform "FilterDistance" (surf.filterDistance.value |> AVal.map float32)
+
+
+                    |> Sg.uniform "CursorViewSpace" cusorViewSpace
+                    |> Sg.uniform "CursorWorldSizeSquared" (
+                        cursorWorldSpace |> AVal.map (function 
+                            | None -> V4f.Zero 
+                            | Some (_, s) -> 
+                                let r = s * 0.2
+                                // radius start gradient, radius start inner cirucle, radius end gradient
+                                V4f(r, r + 0.1 * r, r + 0.2 * r, r + 0.25 * r) ////(V4f(2.0, 2.1, 2.2, 2.3)  |> AVal.constant)
+                        )
+                    ) 
+                    |> Sg.uniform "CursorShaderEnabled" (AVal.constant true)
+
                     |> addImageCorrectionParameters  surf
                     |> addRadiometryParameters surf
                     |> Sg.uniform "DepthVisible" depthVisible //(AVal.constant(true)) //
@@ -440,13 +449,17 @@ module ViewerUtils =
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
                     
                     |> SecondaryTexture.Sg.applySecondaryTextureId (
-                            surf.secondaryTexture 
-                            |> AVal.map (function
-                                | None -> -1
-                                | Some s -> s.index
+                            (surf.secondaryTexture, surf.secondaryTextureLayer) 
+                            ||> AVal.map2 (fun texture layer ->
+                                match texture, layer with
+                                | Some s, Some l -> Some { texture = TextureReference.LegacyId s.index; channel = ChannelReference.ChannelWithIndex l }
+                                | Some s, None -> 
+                                    Some { texture = TextureReference.LegacyId s.index; channel = ChannelReference.NoChannelSelection }
+                                | _ -> None
                             )
                     )
                     |> Sg.pickable' pickable
+
                     |> Sg.noEvents 
 
                     |> Sg.texture "SecondaryTextureTransferFunction" (
@@ -491,20 +504,31 @@ module ViewerUtils =
                     )
 
 
+
                     |> Sg.withEvents [
-                        SceneEventKind.Move, (
-                            fun sceneHit -> 
+                        if Config.previewIntersections  then
+                            yield SceneEventKind.Move, (
+                                fun sceneHit ->
+                                    let surfacePicking = surfacePicking |> AVal.force
+                                    let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
+                                    // only show the preview cursor while in picking mode (ctrl held,
+                                    // modulo invert) - no preview while navigating the camera
+                                    if previewPickingEnabled.GetValue() && surfacePicking && surfacePickingActivated then
+                                        let name  = surf.name |> AVal.force
+                                        true, Seq.ofList [PreviewPickSurface (sceneHit, name, true)]
+                                    else
+                                        true, Seq.empty
+                            )
+                        yield SceneEventKind.Click, (
+                           fun sceneHit -> 
                                 let name  = surf.name |> AVal.force        
                                 let surfacePicking = surfacePicking |> AVal.force
-                                true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
-                        )
-                        SceneEventKind.Click, (
-                           fun sceneHit -> 
-                             let name  = surf.name |> AVal.force        
-                             let surfacePicking = surfacePicking |> AVal.force
-                             //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
-                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)]
-                         )
+                                let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
+                                if surfacePicking && surfacePickingActivated then
+                                    true, Seq.ofList [PickSurface (sceneHit, name, true)]
+                                else 
+                                    true, Seq.ofList []
+                            )
                        ]  
                     // handle surface visibility
                     |> Sg.onOff (surf.isVisible) // on off variant
@@ -575,41 +599,18 @@ module ViewerUtils =
                                 return (fullTrafo * preTransform)
                                 //return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                         }
-
-                let triangleFilterX (input : Triangle<Vertex>) =
-                    triangle {
-                        let p0 = input.P0.pos.XYZ
-                        let p1 = input.P1.pos.XYZ
-                        let p2 = input.P2.pos.XYZ
-
-                        let maxSize = uniform?TriangleSize
-
-                        let a = (p1 - p0)
-                        let b = (p2 - p1)
-                        let c = (p0 - p2)
-
-                        let alpha = a.Length < maxSize
-                        let beta  = b.Length < maxSize
-                        let gamma = c.Length < maxSize
-
-                        let check = (alpha && beta && gamma)
-                        if check then
-                            yield input.P0 
-                            yield input.P1
-                            yield input.P2
-                    }
             
                 let test =             
                   surface.sceneGraph
                     |> AVal.map createSg
                     |> Sg.dynamic
                     |> Sg.trafo trafo 
-                    |> Sg.uniform "TriangleSize"   triangleFilter 
+                    |> Sg.uniform "MaxTriangleSize"   triangleFilter 
                     |> Sg.onOff (surf.isVisible)
                     |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys  observedSystem observerSystem frustum )
                     |> Sg.noEvents 
                     |> Sg.effect [
-                        triangleFilterX     |> toEffect
+                        Shader.TriangleFilter.triangleFilter     |> toEffect
                         Shader.stableTrafo  |> toEffect 
                         Shader.OPCFilter.improvedDiffuseTexture |> toEffect
                     ]
@@ -630,13 +631,13 @@ module ViewerUtils =
             
         let surfacesToSg surfaces =
             surfaces
-              |> AMap.map (fun guid sf -> 
-                    let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
-                    getSimpleSingleSurfaceSg sf surfs m.frustum refSystem observationSystem observerSystem
+            |> AMap.map (fun guid sf -> 
+                  let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
+                  getSimpleSingleSurfaceSg sf surfs m.frustum refSystem observationSystem observerSystem
                )
-              |> AMap.toASet 
-              |> ASet.map snd    
-              |> Sg.set
+            |> AMap.toASet 
+            |> ASet.map snd    
+            |> Sg.set
 
         let grouped = 
             sgGrouped |> AList.map surfacesToSg
@@ -709,46 +710,47 @@ module ViewerUtils =
         open FShade
 
         type Vertex = {
-            [<FShade.InstrinsicAttributes.Position>]        pos     : V4d
-            [<WorldPosition>]   wp      : V4d
-            [<Color>]           c       : V4d
-            [<TexCoord>]        tc      : V2d
+            [<Position>]        pos     : V4f
+            [<Color>]           c       : V4f
+            [<TexCoord>]        tc      : V2f
 
-            [<Semantic("ViewSpacePos")>] 
-            vp : V4d
+            [<Semantic("ViewSpacePos")>]
+            vp : V4f
 
-            [<Semantic("FootPrintProj")>] 
-            tc0     : V4d
+            [<Semantic("FootPrintProj")>]
+            tc0     : V4f
 
-            [<Normal>] n : V3d
-            //[<SourceVertexIndex>]  sv      : int
+            [<Normal>] 
+            n : V3f
+
+            [<SourceVertexIndex>]  sourceVertexIndex : int
         }
 
-        //let stableTrafo (v : Vertex) =
-        //      vertex {
-        //          let mvp : M44d = uniform?MVP?ModelViewTrafo
-        //          let vp = mvp * v.pos
-
-        //          return 
-        //              { v with
-        //                  pos = uniform.ProjTrafo * vp
-        //                  c = v.c
-        //                  vp = uniform.ModelViewTrafo * v.pos
-        //              }
-        //      }
-
         let fixAlpha (v : Vertex) =
-            fragment {         
-               return V4d(v.c.X, v.c.Y,v.c.Z, 1.0)           
+            fragment {
+               return V4f(v.c.X, v.c.Y,v.c.Z, 1.0f)
             }
 
-        let triangleFilterX (input : Triangle<Vertex>) =
+        type UniformScope with
+            // size filter stuff
+            member x.MaxTriangleSize : float = x?MaxTriangleSize
+            member x.FilterTriangleEnabled : bool = x?FilterTriangleEnabled
+
+            // filter for distance to home position
+            member x.FilterByDistance : bool = x?FilterByDistance
+            member x.FilterDistance : float32 = x?FilterDistance
+            member x.HomePositionViewSpace : V3f = x?HomePositionViewSpace
+
+
+        // performs all checks in view space
+        let triangleSizeFilter (input : Triangle<Vertex>) =
             triangle {
                 let p0 = input.P0.vp.XYZ
                 let p1 = input.P1.vp.XYZ
                 let p2 = input.P2.vp.XYZ
 
-                let maxSize = uniform?TriangleSize
+                // TriangleSize
+                let maxSize = uniform?MaxTriangleSize
 
                 let a = (p1 - p0)
                 let b = (p2 - p1)
@@ -758,41 +760,42 @@ module ViewerUtils =
                 let beta  = b.Length < maxSize
                 let gamma = c.Length < maxSize
 
-                let filterDistanceActive : bool = uniform?FilterByDistance
-                let triangleSizeCheck = (alpha && beta && gamma)
+                let filterDistanceActive : bool = uniform.FilterByDistance
+                let disabled = not uniform.FilterTriangleEnabled
+                let smallTriangle = alpha && beta && gamma
+                // if disabled, let all trianlges pass
+                let validTriangle = disabled || smallTriangle
 
                 if filterDistanceActive then
-                    let filterRange : float = uniform?FilterDistance
-                    let homePositionVSp : V3d = uniform?HomePositionViewSpace
+                    let filterRange : float32 = uniform.FilterDistance
+                    let homePositionVSp : V3f = uniform.HomePositionViewSpace
 
-                    let inRange = 
-                        (Vec.Distance(homePositionVSp, p0)) < filterRange &&
-                        (Vec.Distance(homePositionVSp, p1)) < filterRange &&
-                        (Vec.Distance(homePositionVSp, p2)) < filterRange
+                    let inRange =
+                        (Vec.distance homePositionVSp p0) < filterRange &&
+                        (Vec.distance homePositionVSp p1) < filterRange &&
+                        (Vec.distance homePositionVSp p2) < filterRange
 
-                    if triangleSizeCheck && inRange then
-                        yield input.P0 
-                        yield input.P1
-                        yield input.P2
+                    if validTriangle && inRange then
+                        yield { input.P0 with sourceVertexIndex = 0 } 
+                        yield { input.P1 with sourceVertexIndex = 1 } 
+                        yield { input.P2 with sourceVertexIndex = 2 } 
                 else
-                    if triangleSizeCheck then
-                        yield input.P0 
-                        yield input.P1
-                        yield input.P2
+                    if validTriangle then
+                        yield { input.P0 with sourceVertexIndex = 0 } 
+                        yield { input.P1 with sourceVertexIndex = 1 } 
+                        yield { input.P2 with sourceVertexIndex = 2 } 
             }
          
 
         let stableTrafo (v : Vertex) =
             vertex {
                 let p = uniform.ModelViewProjTrafo * v.pos
-                let wp = uniform.ModelTrafo * v.pos
 
-                return 
+                return
                     { v with
                         pos = p
                         c = v.c
                         vp = uniform.ModelViewTrafo * v.pos
-                        wp = wp
                     }
             }
 
@@ -811,47 +814,166 @@ module ViewerUtils =
         let textureOrLightingIfPossible (v : Vertex) =
             fragment {
                 if uniform.HasDiffuseColorTexture then
-                    let texColor = diffuseSampler.Sample(v.tc,-1.0) // TODO: to why is -1 being used here as lod offset?
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0f) // TODO: to why is -1 being used here as lod offset?
                     return texColor
                 else
                     if uniform.HasNormals then 
-                        let ambient = 0.2
-                        let lView = V3d.OOO - v.vp.XYZ |> Vec.normalize
+                        let ambient = 0.2f
+                        let lView = V3f.OOO - v.vp.XYZ |> Vec.normalize
                         let nView = uniform.ModelViewTrafo.TransformDir(v.n) |> Vec.normalize
                         let diffuse = Vec.dot nView lView |> abs
-                        return V4d(v.c.XYZ * diffuse + ambient * V3d.III, 1.0)
+                        return V4f(v.c.XYZ * diffuse + ambient * V3f.III, 1.0f)
                     else
                         return v.c
             }
 
        
 
+    module CrossSectionShader =
+        open FShade
+
+        type CrossSectionVertex = {
+            [<Semantic("InsideOutsideV4")>]
+            insideOutside : V4f
+        }
+
+        type UniformScope with
+            member x.CrossSectionClippingEnabled : bool = x?CrossSectionClippingEnabled
+            member x.CrossSectionDefined : bool = x?CrossSectionDefined
+
+        /// Discards surface fragments outside the cross-section polygon, using the signed
+        /// distance Surface.Sg writes into the per-vertex InsideOutsideV4 attribute.
+        ///
+        /// CrossSectionDefined is not redundant with CrossSectionClippingEnabled: clipping
+        /// is enabled by default and only means "clip if there is something to clip
+        /// against". Without the guard this ran on every scene from the first frame, and
+        /// with no cross-section defined InsideOutsideV4 holds no meaningful data --
+        /// Surface.Sg binds it as a constant attribute (SingleValueBuffer) whose value does
+        /// not arrive on Apple Silicon, so roughly half the surface read negative and was
+        /// discarded, producing a lattice of holes across the terrain.
+        let crossSectionClip (v : CrossSectionVertex) =
+            fragment {
+                if uniform.CrossSectionClippingEnabled && uniform.CrossSectionDefined
+                   && v.insideOutside.X < 0.0f then
+                    discard()
+                return v
+            }
+
+    module CurtainShader =
+        open FShade
+
+        type CurtainVertex = {
+            [<Position>]                     pos        : V4f
+            [<TexCoord>]                     tc         : V2f
+            [<Semantic("ViewPos")>]          vp         : V4f
+            [<Semantic("TotalDepth")>]       totalDepth : float32
+            [<Semantic("SurfaceElevation")>] surfElev   : float32
+        }
+
+        type UniformScope with
+            member x.UpVS : V3f = uniform?UpVS
+            member x.TextureDepth : float32 = uniform?TextureDepth
+            member x.CurtainBaseColor : V4f = uniform?CurtainBaseColor
+            // 1 = absolute altitude-band texture mapping, 0 = surface-relative
+            member x.CurtainAbsoluteMode : int = uniform?CurtainAbsoluteMode
+
+        let curtainVertex (v : CurtainVertex) =
+            vertex {
+                let vp = uniform.ModelViewTrafo * v.pos
+                return { v with vp = vp }
+            }
+
+        let curtainGeometry (line : Line<CurtainVertex>) =
+            triangle {
+                let up     = uniform.UpVS |> Vec.normalize
+                // Per-vertex extrusion depths encoded in tc.Y by the CPU
+                let depth0 = line.P0.tc.Y
+                let depth1 = line.P1.tc.Y
+                let offset0 = V4f(up * depth0, 0.0f)
+                let offset1 = V4f(up * depth1, 0.0f)
+                let p0 = line.P0.vp
+                let p1 = line.P1.vp
+                let u0 = line.P0.tc.X
+                let u1 = line.P1.tc.X
+                let elev0 = line.P0.surfElev
+                let elev1 = line.P1.surfElev
+                // top edge (surface, v=1); bottom edge (extruded down, v=0)
+                yield { line.P0 with pos = uniform.ProjTrafo * p0;             tc = V2f(u0, 1.0f); totalDepth = depth0; surfElev = elev0 }
+                yield { line.P0 with pos = uniform.ProjTrafo * (p0 - offset0); tc = V2f(u0, 0.0f); totalDepth = depth0; surfElev = elev0 }
+                yield { line.P1 with pos = uniform.ProjTrafo * p1;             tc = V2f(u1, 1.0f); totalDepth = depth1; surfElev = elev1 }
+                yield { line.P1 with pos = uniform.ProjTrafo * (p1 - offset1); tc = V2f(u1, 0.0f); totalDepth = depth1; surfElev = elev1 }
+            }
+
+        let private curtainSampler =
+            sampler2d {
+                texture uniform?DiffuseColorTexture
+                filter Filter.MinMagMipLinear
+                addressU WrapMode.Clamp
+                addressV WrapMode.Clamp
+            }
+
+        let curtainFragment (v : CurtainVertex) =
+            fragment {
+                let texDepth  = uniform.TextureDepth
+                let baseColor = uniform.CurtainBaseColor
+                let totalD    = v.totalDepth
+                // v.tc.Y = 1.0 at surface, 0.0 at bottom; distFromSurface grows downward
+                let distFromSurface = (1.0f - v.tc.Y) * totalD
+                if uniform.CurtainAbsoluteMode = 1 then
+                    // Absolute mode: texture occupies the absolute altitude band
+                    // [texStartAlt - texDepth, texStartAlt]. surfElev is pre-offset on
+                    // CPU: (elevation - texStartAlt), so fragRelAlt = 0 at texStartAlt.
+                    let fragRelAlt = v.surfElev - distFromSurface
+                    if fragRelAlt <= 0.0f && fragRelAlt >= -texDepth && texDepth > 0.0f then
+                        // V=1 at top (fragRelAlt=0), V=0 at bottom (fragRelAlt=-texDepth)
+                        let t = (fragRelAlt + texDepth) / texDepth
+                        return curtainSampler.Sample(V2f(v.tc.X, t))
+                    else
+                        return baseColor
+                else
+                    // Surface-relative mode: texture starts on the surface and drapes
+                    // down texDepth metres, independent of absolute altitude.
+                    if distFromSurface <= texDepth && texDepth > 0.0f then
+                        // V=1 at surface (distFromSurface=0), V=0 at texDepth down
+                        let t = 1.0f - distFromSurface / texDepth
+                        return curtainSampler.Sample(V2f(v.tc.X, t))
+                    else
+                        return baseColor
+            }
+
     let objEffect =
         Effect.compose [
             //Shader.footprintV       |> toEffect 
             Shader.stableTrafo      |> toEffect
-            Shader.triangleFilterX  |> toEffect
+            Shader.triangleSizeFilter  |> toEffect
 
             Shader.textureOrLightingIfPossible |> toEffect
 
             PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
-            Shader.mapColorAdaption  |> toEffect   
+            Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
         ]
 
     let surfaceEffect =
         Effect.compose [
+
+            // image projection
+            PRo3D.SPICE.Shaders.planetLocalLightingViewSpace   |> toEffect
+            ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect
+            PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect
             
+            
+            Shaders.donutVertex |> toEffect
             Shader.footprintV        |> toEffect 
             Shader.stableTrafo       |> toEffect
-            Shader.triangleFilterX   |> toEffect
-           
+            Shader.triangleSizeFilter   |> toEffect
+            
+            ImageProjection.Shaders.generateNormal |> toEffect
            
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
             PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
-
            
             
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
@@ -859,17 +981,29 @@ module ViewerUtils =
             //PRo3D.Base.Shader.differentColor   |> toEffect
                         
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
-            //PRo3D.Base.Shader.falseColorLegend2 |> toEffect
+            //PRo3D.Base.Shader.falseColorsScalars |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
             Shader.secondaryTexture |> toEffect 
+
             Shader.contourLines |> toEffect
+            Shaders.donutFragment |> toEffect
+
+            CrossSectionShader.crossSectionClip |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
+
+            // TODO HERA: make this optional
+            ImageProjection.Shaders.stableImageProjection |> toEffect
+
+            if not Config.limitedShaderCapabilities then
+                ImageProjection.Shaders.localImageProjections |> toEffect
+
+            PRo3D.SPICE.Shaders.solarLighting |> toEffect
         ]
         //Effect.compose [
             
@@ -915,11 +1049,13 @@ module ViewerUtils =
                         let surfaces = m.scene.surfacesModel.surfaces.flat
                         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         viewSingleSurfaceSg 
-                            sf 
+                            sf
+                            m
                             surfaces 
                             m.frustum 
                             selected 
-                            m.ctrlFlag 
+                            (AVal.map2 (&&) m.ctrlFlag m.inverseFlag)
+                            m.scene.config.showPreviewIntersection
                             sf.globalBB 
                             refSystem 
                             observationSystem
@@ -929,6 +1065,7 @@ module ViewerUtils =
                             usehighlighting m.filterTexture
                             true
                             false
+                            (AVal.constant None)
                             view)
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -955,25 +1092,12 @@ module ViewerUtils =
             
             }                              
         sgs
-  
-    //TODO TO refactor screenshot specific
-    let getSurfacesSgWithCamera (runtime : IRuntime) (m : AdaptiveModel) =
-        let sgs = getSurfacesScenegraphs runtime m
-        let camera =
-            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
-        sgs 
-            |> ASet.ofAList
-            |> Sg.set
-            |> (camera |> Sg.camera)
 
-    let renderCommands 
+    let createGroupedSgs 
         (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
-        (overlayed      : ISg<ViewerAction>)
-        (depthTested    : ISg<ViewerAction>)
         (view           : aval<CameraView>)
         (allowFootprint : bool) 
         (allowDepthview : bool) 
-        (runtime        : IRuntime) 
         (m              : AdaptiveModel)  =
 
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
@@ -992,69 +1116,271 @@ module ViewerUtils =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         //let view = m.navigation.camera.view
-        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-        let grouped = 
-            sgGrouped |> AList.map(
-                fun x -> ( x 
-                    |> AMap.map(fun guid surface ->   
-                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
-                        let s =
-                            viewSingleSurfaceSg 
-                                surface 
-                                m.scene.surfacesModel.surfaces.flat
-                                m.frustum 
-                                selected 
-                                surfacePicking
-                                surface.globalBB
-                                refSystem 
-                                observationSystem
-                                observerSystem
-                                m.footPrint 
-                                vpVisible
-                                usehighlighting filterTexture
-                                allowFootprint
-                                allowDepthview
-                                view
 
+
+        let cursorWorldPos = 
+            (m.surfaceIntersection, m.scene.config.previewIntersectionWorldSize.value, m.scene.config.showPreviewIntersection) 
+            |||> AVal.map3 (fun hitPoint previewSize showIt -> 
+                match hitPoint with
+                | Some hitPoint when showIt -> Some (hitPoint.hitPoint, previewSize)
+                | _ -> None
+            )
+
+        let validSurfacePriority v = 
+            // only relevant in secondary pass with overlayed geometry to render "missing" traverses
+            AVal.constant true
+
+        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
+                              
+        let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
+            let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
+            let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
+            let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
+
+            sg
+            |> Sg.applyProjectedImages (fun body -> 
+                body 
+                |> AVal.map (function 
+                    | Some b -> 
+                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp surfaceId "MARS"
+                        r
+                    | _ -> None 
+                )
+            )
+            |> Sg.texture "ProjectedTexture" projectedTexture
+            |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
+            |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
+            |> Sg.noEvents
+
+
+        // Compute cross-section clipping data from scene-level cross section model
+        let crossSectionData : aval<Option<Sg.CrossSectionData>> =
+            m.scene.crossSectionModel.crossSection
+            |> AVal.bind (fun csOpt ->
+                match csOpt with
+                | None -> AVal.constant None
+                | Some cs ->
+                    m.scene.referenceSystem.planet |> AVal.map (fun planet ->
+                        match cs.geometry with
+                        | LineOnSurface points ->
+                            if points.Length >= 2 then
+                                let refPoint = cs.refPoint
+                                let up = CooTransformation.getUpVector (points.[0]) planet
+                                let basis = PRo3D.Base.Annotation.CrossSection.buildBasisFromUp up
+                                match PRo3D.Base.Annotation.CrossSection.buildPolygon basis points refPoint with
+                                | Some poly ->
+                                    Some { Sg.CrossSectionData.polygon = poly; basis = basis }
+                                | None -> None
+                            else None
+                    )
+            )
+
+        sgGrouped
+        |> AList.map (fun group ->
+
+            let surfaces =
+                group
+                |> AMap.map(fun guid surface ->
+
+
+                    let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
+                    let s =
+                        viewSingleSurfaceSg 
+                            surface 
+                            m
+                            m.scene.surfacesModel.surfaces.flat
+                            m.frustum 
+                            selected 
+                            surfacePicking
+                            m.scene.config.showPreviewIntersection
+                            surface.globalBB
+                            refSystem 
+                            observationSystem
+                            observerSystem
+                            m.footPrint 
+                            vpVisible
+                            usehighlighting filterTexture
+                            allowFootprint
+                            allowDepthview
+                            cursorWorldPos
+                            view
+
+
+                    let surfaceSg =
                         match surface.isObj with
-                        | true -> 
-                            s 
-                            |> Sg.effect [
-                                objEffect
-                            ] 
-                        | false -> 
+                        | true ->
+                            s
+                            |> Sg.effect [objEffect]
+                        | false ->
                             s
                             |> Sg.effect [surfaceEffect] 
                             |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                             |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-                       )
-                    |> AMap.toASet 
-                    |> ASet.map snd                     
-                )                 
+
+
+                    surfaceSg
+                    |> wrapGisData guid
+                )
+
+            let depthComposed = 
+                group.Content
+                |> AVal.map (fun surfaces -> 
+                    match surfaces |> HashMap.toValueSeq |> Seq.tryHead with
+                    | None -> Sg.empty
+                    | Some someSurf -> 
+                        let priority = 
+                            AMap.tryFind someSurf.surface m.scene.surfacesModel.surfaces.flat
+                            |> AVal.bind (function
+                                | (Some (AdaptiveSurfaces s)) -> 
+                                    s.priority.value |> AVal.map (int >> Some) 
+                                | _ -> AVal.constant None
+                            )
+                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority false
+                        |> Sg.map ViewerAction.TraverseMessage
+                )
+                |> Sg.dynamic
+
+            let surfaces =
+                surfaces
+                |> AMap.toASet
+                |> ASet.map snd
+                |> Sg.set
+                |> Sg.uniform "CrossSectionClippingEnabled" m.scene.crossSectionModel.clippingEnabled
+                // Whether there is a cross-section at all. See crossSectionClip.
+                |> Sg.uniform "CrossSectionDefined" (crossSectionData |> AVal.map Option.isSome)
+                |> Sg.applyCrossSection crossSectionData
+                |> Sg.noEvents
+
+            Sg.ofList [surfaces; depthComposed]
+        )
+
+    let createCurtainSg (view : aval<CameraView>) (m : AdaptiveModel) : ISg<ViewerAction> =
+        let curtainSgOpt =
+            AVal.custom (fun token ->
+                let csm        = m.scene.crossSectionModel
+                let enabled    = csm.curtainEnabled.GetValue(token)
+                let texPath    = csm.curtainTexturePath.GetValue(token)
+                let depth      = csm.curtainExtrusionDepth.value.GetValue(token)
+                let absMode    = csm.curtainAbsoluteMode.GetValue(token)
+                let targetAlt  = csm.curtainTargetAltitude.value.GetValue(token)
+                let texDepth   = csm.curtainTextureDepth.value.GetValue(token)
+                let texStartAlt = csm.curtainTextureStartAltitude.value.GetValue(token)
+                let baseColor  = csm.curtainBaseColor.c.GetValue(token)
+                let csOpt      = csm.crossSection.GetValue(token)
+                let planet     = m.scene.referenceSystem.planet.GetValue(token)
+                let camView    = view.GetValue(token)
+
+                if not enabled then Sg.empty
+                else
+                    match texPath with
+                    | None -> Sg.empty
+                    | Some path when not (System.IO.File.Exists path) -> Sg.empty
+                    | Some path ->
+                        match csOpt with
+                        | None -> Sg.empty
+                        | Some cs ->
+                            let ptsWS =
+                                match cs.geometry with
+                                | LineOnSurface pts -> pts
+                            if ptsWS.Length < 2 then Sg.empty
+                            else
+                            let n        = ptsWS.Length
+                            let modelTrafo = Trafo3d.Translation(ptsWS.[0])
+                            let ptsLocal   = ptsWS |> Array.map modelTrafo.Backward.TransformPos
+
+                            // Arc-length UV
+                            let segs = ptsLocal |> Array.pairwise |> Array.map (fun (a,b) -> Vec.distance a b)
+                            let cum  = Array.zeroCreate n
+                            let mutable s = 0.0
+                            for i in 1 .. n-1 do
+                                s <- s + segs.[i-1]
+                                cum.[i] <- s
+                            let total = max 1e-12 s
+                            let u = cum |> Array.map (fun x -> float32 (x / total))
+
+                            // Geometry: LineList
+                            let positions : V3f[] = ptsLocal |> Array.map V3f
+
+                            // Per-vertex extrusion depth encoded in tc.Y
+                            let depths : float32[] =
+                                if absMode then
+                                    ptsWS |> Array.map (fun p ->
+                                        // failure -> depth 0 for that vertex (tryGet API
+                                        // replaced the old failure-as-zero getElevation')
+                                        let alt = CooTransformation.tryGetElevation planet p |> Option.defaultValue targetAlt
+                                        float32 (max 0.0 (alt - targetAlt)))
+                                else
+                                    Array.create n (float32 depth)
+
+                            // Per-vertex surface elevation relative to texture start altitude
+                            // (offset to keep values small and avoid float32 precision issues)
+                            let surfElevs : float32[] =
+                                ptsWS |> Array.map (fun p ->
+                                    let alt = CooTransformation.tryGetElevation planet p |> Option.defaultValue texStartAlt
+                                    float32 (alt - texStartAlt))
+
+                            let texcoords : V2f[] = Array.map2 (fun (uu : float32) (d : float32) -> V2f(uu, d)) u depths
+                            let indices : int[] =
+                                Array.init ((n-1)*2) (fun k ->
+                                    let i = k / 2
+                                    if k % 2 = 0 then i else i + 1)
+                            let ig =
+                                IndexedGeometry(
+                                    Mode = IndexedGeometryMode.LineList,
+                                    IndexedAttributes = SymDict.ofList [
+                                        DefaultSemantic.Positions,               (positions :> Array)
+                                        DefaultSemantic.DiffuseColorCoordinates, (texcoords :> Array)
+                                        Sym.ofString "SurfaceElevation",         (surfElevs :> Array)
+                                    ],
+                                    IndexArray = indices
+                                )
+
+                            // Up vector in view space
+                            let upWorld = CooTransformation.getUpVector ptsWS.[0] planet
+                            let viewTrafo = camView |> CameraView.viewTrafo
+                            let upVS = viewTrafo.TransformDir upWorld |> V3f
+
+                            Sg.ofIndexedGeometry ig
+                            |> Sg.trafo (AVal.constant modelTrafo)
+                            |> Sg.shader {
+                                do! CurtainShader.curtainVertex
+                                do! CurtainShader.curtainGeometry
+                                do! CurtainShader.curtainFragment
+                            }
+                            |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
+                            |> Sg.uniform "UpVS" (AVal.constant upVS)
+                            |> Sg.uniform "TextureDepth" (AVal.constant (float32 texDepth))
+                            |> Sg.uniform "CurtainAbsoluteMode" (AVal.constant (if absMode then 1 else 0))
+                            |> Sg.uniform "CurtainBaseColor" (AVal.constant (baseColor.ToC4f().ToV4f()))
+                            |> Sg.cullMode (AVal.constant CullMode.None)
+                            |> Sg.noEvents
             )
+        curtainSgOpt |> Sg.dynamic
 
-        // TODO Laura: test depthTested outside the loop
+    let renderCommands
+        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
+        (overlayed      : ISg<ViewerAction>)
+        (depthTested    : ISg<ViewerAction>)
+        (view           : aval<CameraView>)
+        (allowFootprint : bool) 
+        (allowDepthview : bool) 
+        (runtime        : IRuntime) 
+        (m              : AdaptiveModel)  =
 
-        //grouped   
-        let last = grouped |> AList.tryLast
+        let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview m
 
 
 
         alist {                    
-            for set in grouped do  
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+            for sg in grouped do
+                yield RenderCommand<_>.ClearDepth 1.0
+                yield RenderCommand<_>.ClearDepth 1.0
+                yield RenderCommand<_>.Render sg
 
-                let sg = set |> Sg.set
-                    //|> Sg.effect [surfaceEffect] 
-                    //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+            yield RenderCommand<_>.Render depthTested
+            yield RenderCommand<_>.ClearDepth 1.0
 
-                yield RenderCommand.SceneGraph sg
-
-            yield RenderCommand.SceneGraph (depthTested)
-            yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-
-            yield RenderCommand.SceneGraph overlayed
+            yield RenderCommand<_>.Render overlayed
 
         }
 

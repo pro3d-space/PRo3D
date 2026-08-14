@@ -1,5 +1,5 @@
-//0372000e-adff-7e7d-731b-8a46566ff201
-//467f9d72-b605-3963-e059-0bc82710dfe9
+//e42b62a9-8b99-62ef-93ad-af8da951c2bc
+//ea3561eb-4774-0fe5-8bd2-a796dc98a94a
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -16,6 +16,7 @@ type AdaptiveFrustumModel(value : FrustumModel) =
     let _focal_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.focal)
     let _oldFrustum_ = FSharp.Data.Adaptive.cval(value.oldFrustum)
     let _frustum_ = FSharp.Data.Adaptive.cval(value.frustum)
+    let _windowSize_ = FSharp.Data.Adaptive.cval(value.windowSize)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : FrustumModel) = AdaptiveFrustumModel(value)
@@ -28,11 +29,13 @@ type AdaptiveFrustumModel(value : FrustumModel) =
             _focal_.Update(value.focal)
             _oldFrustum_.Value <- value.oldFrustum
             _frustum_.Value <- value.frustum
+            _windowSize_.Value <- value.windowSize
     member __.Current = __adaptive
     member __.toggleFocal = _toggleFocal_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.focal = _focal_
     member __.oldFrustum = _oldFrustum_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.Frustum>
     member __.frustum = _frustum_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.Frustum>
+    member __.windowSize = _windowSize_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V2i>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module FrustumModelLenses = 
     type FrustumModel with
@@ -40,6 +43,7 @@ module FrustumModelLenses =
         static member focal_ = ((fun (self : FrustumModel) -> self.focal), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : FrustumModel) -> { self with focal = value }))
         static member oldFrustum_ = ((fun (self : FrustumModel) -> self.oldFrustum), (fun (value : Aardvark.Rendering.Frustum) (self : FrustumModel) -> { self with oldFrustum = value }))
         static member frustum_ = ((fun (self : FrustumModel) -> self.frustum), (fun (value : Aardvark.Rendering.Frustum) (self : FrustumModel) -> { self with frustum = value }))
+        static member windowSize_ = ((fun (self : FrustumModel) -> self.windowSize), (fun (value : Aardvark.Base.V2i) (self : FrustumModel) -> { self with windowSize = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveViewConfigModel(value : ViewConfigModel) =
     let _nearPlane_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.nearPlane)
@@ -57,6 +61,8 @@ type AdaptiveViewConfigModel(value : ViewConfigModel) =
     let _filterTexture_ = FSharp.Data.Adaptive.cval(value.filterTexture)
     let _showExplorationPointGui_ = FSharp.Data.Adaptive.cval(value.showExplorationPointGui)
     let _showLeafLabels_ = FSharp.Data.Adaptive.cval(value.showLeafLabels)
+    let _showPreviewIntersection_ = FSharp.Data.Adaptive.cval(value.showPreviewIntersection)
+    let _previewIntersectionWorldSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.previewIntersectionWorldSize)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ViewConfigModel) = AdaptiveViewConfigModel(value)
@@ -80,6 +86,8 @@ type AdaptiveViewConfigModel(value : ViewConfigModel) =
             _filterTexture_.Value <- value.filterTexture
             _showExplorationPointGui_.Value <- value.showExplorationPointGui
             _showLeafLabels_.Value <- value.showLeafLabels
+            _showPreviewIntersection_.Value <- value.showPreviewIntersection
+            _previewIntersectionWorldSize_.Update(value.previewIntersectionWorldSize)
     member __.Current = __adaptive
     member __.version = __value.version
     member __.nearPlane = _nearPlane_
@@ -97,6 +105,8 @@ type AdaptiveViewConfigModel(value : ViewConfigModel) =
     member __.filterTexture = _filterTexture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showExplorationPointGui = _showExplorationPointGui_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showLeafLabels = _showLeafLabels_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.showPreviewIntersection = _showPreviewIntersection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.previewIntersectionWorldSize = _previewIntersectionWorldSize_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ViewConfigModelLenses = 
     type ViewConfigModel with
@@ -116,4 +126,6 @@ module ViewConfigModelLenses =
         static member filterTexture_ = ((fun (self : ViewConfigModel) -> self.filterTexture), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with filterTexture = value }))
         static member showExplorationPointGui_ = ((fun (self : ViewConfigModel) -> self.showExplorationPointGui), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with showExplorationPointGui = value }))
         static member showLeafLabels_ = ((fun (self : ViewConfigModel) -> self.showLeafLabels), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with showLeafLabels = value }))
+        static member showPreviewIntersection_ = ((fun (self : ViewConfigModel) -> self.showPreviewIntersection), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with showPreviewIntersection = value }))
+        static member previewIntersectionWorldSize_ = ((fun (self : ViewConfigModel) -> self.previewIntersectionWorldSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ViewConfigModel) -> { self with previewIntersectionWorldSize = value }))
 

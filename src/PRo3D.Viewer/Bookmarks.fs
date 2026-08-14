@@ -52,7 +52,7 @@ module Bookmarks =
                 GroupsApp.addLeafToActiveGroup (Leaf.Bookmarks newBm) true bookmarks
             
             outerModel, { groups with lastSelectedItem = SelectedItem.Child }
-        | ImportBookmarks pathList ->
+        | ImportGroupModel pathList ->
             match pathList with
             | filepath :: tail ->
                 match System.IO.File.Exists filepath with
@@ -68,15 +68,130 @@ module Bookmarks =
                     outerModel, bookmarks
             | [] -> outerModel, bookmarks
             
-        | ExportBookmarks filepath ->
+        | ExportGroupModel filepath ->
             if filepath <> "" then
                 bookmarks
-                  |> Json.serialize 
-                  |> Json.formatWith JsonFormattingOptions.Pretty 
-                  |> Serialization.writeToFile filepath
+                |> Json.serialize 
+                |> Json.formatWith JsonFormattingOptions.Pretty 
+                |> Serialization.writeToFile filepath
                 Log.line "[Comparison] Bookmarks exported to %s" (System.IO.Path.GetFullPath filepath)
                 outerModel, bookmarks
             else outerModel, bookmarks
+        | ImportBookmarks pathList ->
+            if pathList.IsEmpty |> not then                
+                let updatedBMs = 
+                    pathList 
+                    |> List.fold(fun bm path -> 
+                        let updateGuids (importObject : ExportSubNodeModel) = 
+                            let updatedChildren = 
+                                importObject.children
+                                |> HashMap.map (fun _ child -> 
+                                    let newGuid = System.Guid.NewGuid()
+                                    child.SetId newGuid)
+                                
+                            let rec updateChildren (subNode : Node) (uC : HashMap<System.Guid, Leaf>) =
+                                let newLeaves = 
+                                    subNode.leaves
+                                    |> IndexList.map(fun g -> 
+                                        if uC.ContainsKey g then
+                                            (uC.[g].id)
+                                        else 
+                                            g
+                                        )
+                                let newNodes = 
+                                    subNode.subNodes
+                                    |> IndexList.map(fun n -> updateChildren n uC)
+
+                                { subNode with leaves = newLeaves; subNodes = newNodes; key = System.Guid.NewGuid() }
+                                
+                            let newNode = 
+                                importObject.group
+                                |> Option.map (fun n -> updateChildren n updatedChildren)
+                            
+                            { importObject with group = newNode; children = updatedChildren }
+
+                        let importObject : ExportSubNodeModel = 
+                            path
+                            |> Serialization.Chiron.readFromFile 
+                            |> Json.parse 
+                            |> Json.deserialize
+                            |> updateGuids
+
+                        let addChildren (children : HashMap<System.Guid, Leaf> ) model = 
+                            children
+                            |> HashMap.fold (fun b _ leaf -> 
+                                { 
+                                    b with flat = b.flat |> HashMap.add leaf.id leaf
+                            }) model
+
+                        match importObject.itemType with
+                        | SelectedItem.Group ->
+                            importObject.group 
+                            |> Option.map (fun g -> GroupsApp.addNodeToActiveGroup g bookmarks)
+                            |> Option.defaultValue bookmarks
+                            |> addChildren importObject.children
+                            
+                        | SelectedItem.Child ->
+                            importObject.children 
+                            |> HashMap.fold(fun b _ leaf -> 
+                                b |> GroupsApp.addLeafToActiveGroup leaf false) bm
+                        | _ ->
+                            bookmarks                    
+                        ) bookmarks
+                outerModel, updatedBMs
+            else
+                outerModel, bookmarks
+        | ExportBookmarks filepath ->
+            if filepath <> "" then 
+                match bookmarks.lastSelectedItem with
+                | SelectedItem.Group -> 
+                    let exportGroup = GroupsApp.getNode bookmarks.activeGroup.path bookmarks.rootGroup
+                    let leaves = 
+                        GroupsApp.collectLeaves exportGroup 
+                        |> IndexList.toList
+
+                    let children = 
+                        bookmarks.flat
+                        |> HashMap.filter(fun _ l -> leaves |> List.contains(l.id))                        
+
+                    let exportObject = {
+                        itemType = bookmarks.lastSelectedItem
+                        group    = Some(exportGroup)
+                        children = children
+                    }                        
+
+                    exportObject
+                    |> Json.serialize
+                    |> Json.formatWith JsonFormattingOptions.Pretty
+                    |> Serialization.writeToFile filepath
+                    Log.line "Currently selected bookmark group exported to %s" (System.IO.Path.GetFullPath filepath)
+
+                    outerModel, bookmarks
+                | SelectedItem.Child ->                 
+                    if bookmarks.flat.ContainsKey bookmarks.activeChild.id then
+                        let activeLeaf =  bookmarks.flat[bookmarks.activeChild.id]
+                
+                        let exportObject = {
+                            itemType = bookmarks.lastSelectedItem
+                            group    = None
+                            children = HashMap.Empty |> HashMap.add activeLeaf.id activeLeaf
+                        }                 
+                
+                        exportObject
+                        |> Json.serialize
+                        |> Json.formatWith JsonFormattingOptions.Pretty
+                        |> Serialization.writeToFile filepath
+                        Log.line "Currently selected bookmark exported to %s" (System.IO.Path.GetFullPath filepath)  
+                    else
+                        Log.line "Currently selected bookmark not found - please reselect a bookmark"
+                        
+                    outerModel, bookmarks
+                | _ -> 
+                    outerModel, bookmarks
+
+            else    
+                outerModel, bookmarks
+
         | GroupsMessage msg -> 
             match msg with
             | GroupsAppAction.UpdateCam id -> 
@@ -92,6 +207,7 @@ module Bookmarks =
                                 camera = { camState with view = bkm.cameraView }
                                 exploreCenter = bkm.exploreCenter
                                 navigationMode = bkm.navigationMode
+                                updatePerFrame = (bkm.navigationMode = NavigationMode.MapView)
                             }
                         let newOuterModel = Optic.set navigationModel nav' outerModel
                         newOuterModel, bookmarks
@@ -110,9 +226,12 @@ module Bookmarks =
                     Log.line "\"location\": \"%s\"," (bm.cameraView.Location.ToString ())
                     Log.line "\"up\": \"%s\"" (bm.cameraView.Up.ToString ())
 
-                    let lla = CooTransformation.getLatLonAlt planet bm.cameraView.Location |> CooTransformation.SphericalCoo.toV3d
+                    let llaStr =
+                        CooTransformation.tryGetLatLonAlt planet bm.cameraView.Location
+                        |> Option.map (CooTransformation.SphericalCoo.toV3d >> string)
+                        |> Option.defaultValue "(conversion failed; set planet)"
 
-                    Log.line "\"lon lat alt\": \"%s\"" (lla.ToString ())
+                    Log.line "\"lon lat alt\": \"%s\"" llaStr
 
                     outerModel, bookmarks
                 | _ -> outerModel, bookmarks
@@ -214,13 +333,11 @@ module Bookmarks =
 
         alist {
 
-            let! active = model.activeGroup
-            let color = sprintf "color: %s" (Html.color C4b.White)                
-            
             let map = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
-               
+            let colorAttributes = GroupsApp.activeGroupColorAttributes model group ""
+
             let desc =
-                div [style color] [       
+                Incremental.div colorAttributes <| AList.ofList [
                     Incremental.text group.name
                     Incremental.i map AList.empty |> UI.wrapToolTip DataPosition.Bottom "Set active"
                         
@@ -234,10 +351,13 @@ module Bookmarks =
                 amap {
                     yield onMouseClick (fun _ -> BookmarkAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                     let! selected = group.expanded
-                    if selected 
+                    if selected
                     then yield clazz "icon large outline open folder"
                     else yield clazz "icon large outline folder"
-                    yield style "overflow-y : visible"
+                    // the icon is a sibling of the (white) description div and would
+                    // otherwise inherit semantic ui's default (black) on our dark background
+                    let! color = GroupsApp.activeGroupColor model group
+                    yield style ("overflow-y : visible; " + color)
                 } |> AttributeMap.ofAMap
             
             let childrenAttribs =
@@ -299,34 +419,49 @@ module Bookmarks =
             )
 
         let jsImportBookmarksDialog =
-            "top.aardvark.dialog.showOpenDialog({ title: 'Import Bookmarks', filters: [{ name: 'Bookmarks (*.bm)', extensions: ['bm']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            "top.aardvark.dialog.showOpenDialog({ title: 'Import Bookmarks', filters: [{ name: 'Bookmarks (*.bm)', extensions: ['bm']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         let jsExportBookmarksDialog = 
-            "top.aardvark.dialog.showSaveDialog({ title:'Save Bookmarks as', filters:  [{ name: 'Bookmarks (*.bm)', extensions: ['bm'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
-           
-        let menu =
-            div [ clazz "ui dropdown item"] [
-                text "Bookmarks"
-                i [clazz "dropdown icon"] [] 
-                div [ clazz "menu"] [                    
-                    div [
-                          clazz "ui inverted item"
-                          Dialogs.onChooseFiles ImportBookmarks
-                          clientEvent "onclick" jsImportBookmarksDialog
-                        ] [text "Import"]
-                    div [
-                          clazz "ui inverted item"
-                          Dialogs.onSaveFile ExportBookmarks;
-                          clientEvent "onclick" jsExportBookmarksDialog
-                        ] [text "Export"]
-                ]
-            ]
+            "top.aardvark.dialog.showSaveDialog({ title:'Save Bookmarks as', filters:  [{ name: 'Bookmarks (*.bm)', extensions: ['bm'] }] }).then(result => {aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
+            
+        //let menu =
+        //    div [ clazz "ui dropdown item"] [
+        //        text "Bookmarks"
+        //        i [clazz "dropdown icon"] [] 
+        //        div [ clazz "menu"] [                    
+        //            div [
+        //                  clazz "ui inverted item"
+        //                  Dialogs.onChooseFiles ImportBookmarks
+        //                  clientEvent "onclick" jsImportBookmarksDialog
+        //                ] [text "Import"]
+        //            div [
+        //                  clazz "ui inverted item"
+        //                  Dialogs.onSaveFile ExportBookmarks;
+        //                  clientEvent "onclick" jsExportBookmarksDialog
+        //                ] [text "Export"]
+        //        ]
+        //    ]
 
         let viewGUI = 
+            
             div [clazz "ui buttons inverted"] [
                 button [clazz "ui inverted icon button"
                         onMouseClick (fun _ -> AddBookmark )] [ 
                         i [clazz "plus icon"] [] 
                 ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
-            ] 
+                                
+                button [clazz "ui inverted icon button"
+                        Dialogs.onChooseFiles ImportBookmarks
+                        
+                        clientEvent "onclick" jsImportBookmarksDialog] [
+                        i [clazz "download icon"] []
+                ] |> UI.wrapToolTip DataPosition.Bottom "Import Bookmarks"
+                button [clazz "ui inverted icon button"
+                        Dialogs.onSaveFile ExportBookmarks
+                        clientEvent "onclick" jsExportBookmarksDialog] [
+                        i [clazz "upload icon"] []
+                ] |> UI.wrapToolTip DataPosition.Bottom "Export Bookmarks"
+            ]
+                        
+             
 
        

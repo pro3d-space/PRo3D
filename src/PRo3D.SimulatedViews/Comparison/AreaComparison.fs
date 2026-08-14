@@ -211,7 +211,7 @@ module AreaComparison =
         let create (colorLegend : AdaptiveFalseColorsModel) = 
             Incremental.Svg.svg attributes 
                                 (PRo3D.FalseColorLegendApp.Draw.createFalseColorLegendBasics 
-                                  "ScalarLegend" colorLegend)
+                                    "ScalarLegend" colorLegend)
         
         let legend = 
             AVal.map (fun stats -> 
@@ -284,8 +284,9 @@ module AreaComparison =
                                                                            (FastRay3d(ray)) 
                                                                            surfFilter 
                                                                            cache
+                                                                           true
                 cache <- c
-                hitInfo
+                hitInfo |> Option.map (fun info -> (info.hit.RayHit.T, info.surface))
 
             let calcDistanceRound (localPoint : V3d) =
                 let raysFrom : V3d = sgSurface1.globalBB.Center

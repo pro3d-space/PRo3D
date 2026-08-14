@@ -21,6 +21,28 @@ open Chiron
 
 
 
+/// The framebuffer the snapshots are rendered into has to have the *same* signature the
+/// scene graph's render objects were prepared against, otherwise the runtime rejects the
+/// prepared command ("Prepared command has framebuffer signature ... but expected ...")
+/// and every frame comes out black. Both the offscreen targets here and the app signature
+/// in PRo3D.Snapshots/Program.fs are built from these values so they cannot drift apart.
+module SnapshotFramebuffer =
+    open Aardvark.Rendering
+
+    [<Literal>]
+    let samples = 8
+
+    let depthStencilFormat = TextureFormat.Depth24Stencil8
+
+    let attachments =
+        [
+            DefaultSemantic.Colors, TextureFormat.Rgba8
+            DefaultSemantic.DepthStencil, depthStencilFormat
+        ]
+
+    let createSignature (runtime : IRuntime) =
+        runtime.CreateFramebufferSignature(attachments, samples)
+
 type NearFarRecalculation =
   | Both
   | FarPlane
@@ -30,7 +52,7 @@ type NearFarRecalculation =
 type SnapshotApp<'model,'aModel, 'msg> =
   {
     /// the app that is used to create the scenegraph that should be rendered; snapshot updates will be applied to this app
-    mutableApp           : MutableApp<'model, 'msg>
+    mutableApp           : MutableApp<'model, 'aModel, 'msg>
     /// the adaptive model associated with the mutable app
     adaptiveModel        : 'aModel
     // the sg (including camera) to be rendered 
@@ -104,8 +126,8 @@ module SnapshotApp =
             | Some fov -> fov
             | None -> defaultFoV
         let frustum =
-          Frustum.perspective foV near far 
-                              (float(resolution.X)/float(resolution.Y))
+            Frustum.perspective foV near far 
+                (float(resolution.X)/float(resolution.Y))
         frustum, recalcOption, near, far, foV
 
     let calculateFrustum (snapshotAnimation : BookmarkSnapshotAnimation)  = 
@@ -139,14 +161,11 @@ module SnapshotApp =
         if verbose then
             Log.line "calculated near plane as %f and far plane as %f" near far
 
-        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1);
-        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.DepthComponent32f, 1, 1); //Depth24Stencil8 test laura
+        let samples = SnapshotFramebuffer.samples
+        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, samples);
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, SnapshotFramebuffer.depthStencilFormat, 1, samples);
 
-        let signature = 
-             app.runtime.CreateFramebufferSignature ([
-                 DefaultSemantic.Colors, TextureFormat.Rgba8
-                 DefaultSemantic.DepthStencil, TextureFormat.DepthComponent32f 
-             ], 1)
+        let signature = SnapshotFramebuffer.createSignature app.runtime
 
         let fbo = 
             app.runtime.CreateFramebuffer(
@@ -156,7 +175,7 @@ module SnapshotApp =
                     DefaultSemantic.DepthStencil, depth.GetOutputView()
                 ]
             ) |> OutputDescription.ofFramebuffer
-        app.mutableApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)
+        app.mutableApp.UpdateSync(Guid.NewGuid(), app.getAnimationActions app.snapshotAnimation)
 
         let snapshots =
             let id, count =
@@ -167,7 +186,7 @@ module SnapshotApp =
             a.snapshots
                 |> List.indexed
                 |> List.filter (fun (i, x) -> i >= id && i < id + count)
-                |> List.map snd            
+                |> List.map (fun (f,s) -> {s with nearFarPlane = Some(s.nearFarPlane |> Option.defaultValue (V2d(near, far))) })
         let snapshots =
             match app.renderMask, a.renderMask with
             | true, _ | _, Some true ->
@@ -209,7 +228,7 @@ module SnapshotApp =
             let fullPathName = Path.combine [app.outputFolder;snapshot.filename]
             let actions = (app.getSnapshotActions (Snapshot.Surface snapshot) recalcOption fullPathName)
             if app.verbose then Log.line "[Snapshots] Updating parameters for next frame."
-            app.mutableApp.updateSync (Guid.NewGuid ()) actions 
+            app.mutableApp.UpdateSync(Guid.NewGuid(), actions)
 
             // write json file with camera params output
             let wjs = 
@@ -222,14 +241,11 @@ module SnapshotApp =
                                          (app : SnapshotApp<'model,'aModel, 'msg>) =
         let sg = app.sg 
         let resolution = V3i (a.resolution.X, a.resolution.Y, 1)
-        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 8);
-        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 8);
+        let samples = SnapshotFramebuffer.samples
+        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, samples);
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, SnapshotFramebuffer.depthStencilFormat, 1, samples);
 
-        let signature = 
-             app.runtime.CreateFramebufferSignature ([
-                 DefaultSemantic.Colors, TextureFormat.Rgba8
-                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-             ], 8)
+        let signature = SnapshotFramebuffer.createSignature app.runtime
 
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         let task = app.runtime.CompileRender(signature, sg)
@@ -248,7 +264,7 @@ module SnapshotApp =
                             |> Seq.map string
                             |> Seq.reduce (fun a b -> sprintf "%s %s" a b)
                           )
-        app.mutableApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)
+        app.mutableApp.UpdateSync(Guid.NewGuid(), app.getAnimationActions app.snapshotAnimation)
 
         let (size, depth) = 
             match app.renderDepth with 
@@ -277,7 +293,7 @@ module SnapshotApp =
                                 |> Seq.map string
                                 |> Seq.reduce (fun a b -> sprintf "%s %s" a b))
                           
-            app.mutableApp.updateSync (Guid.NewGuid ()) actions 
+            app.mutableApp.UpdateSync(Guid.NewGuid(), actions)
 
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters Trafo3d.Identity
 
@@ -303,17 +319,13 @@ module SnapshotApp =
                 match n.Length with
                 | len when len > 0 -> n
                 | _ -> surf.importPath
-            String.contains (String.toLowerInvariant name) (String.toLowerInvariant surfName)
+            String.contains (name.ToLowerInvariant()) (surfName.ToLowerInvariant())
 
         let transformSurf surfacesModel surf =
-            let surfaceUpdate  = 
+            let updatedSurfaces  = 
                 surfaceUpdates
-                    |> List.filter (fun s -> hasName surf s.surfname)
-                    |> List.tryHead
-
-            let updatedSurf =
-                match surfaceUpdate with
-                | Some upd ->
+                |> List.filter (fun s -> hasName surf s.surfname)
+                |> List.map (fun upd ->   
                     let surf =
                         match upd.visible with
                         | Some v -> {surf with isVisible    = v}
@@ -334,10 +346,13 @@ module SnapshotApp =
                           {surf with transformation = {surf.transformation with translation = translation}}
                         | None -> surf
                     surf
-                | None -> surf
 
-            // apply surface tranformation to each surface mentioned in the snapshot
-            SurfaceModel.updateSingleSurface updatedSurf surfacesModel
+                    // apply surface tranformation to each surface mentioned in the snapshot
+                    )
+            
+            updatedSurfaces |> List.fold (fun sModel updatedSurf -> SurfaceModel.updateSingleSurface updatedSurf sModel) surfacesModel
+
+            //SurfaceModel.updateSingleSurface updatedSurf surfacesModel
         
         
         let model = 

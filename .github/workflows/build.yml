@@ -1,0 +1,57 @@
+name: Build
+
+on:
+  push:
+    paths-ignore:
+    - 'README.md'
+    - 'docs/'
+  pull_request:
+    paths-ignore:
+    - 'README.md'
+    - 'docs/'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+        fail-fast: false
+        matrix:
+            os: [ubuntu-latest, windows-latest, macos-15-intel, macos-15]
+            include:
+              - os: ubuntu-latest
+                run-build: sh ./build.sh
+                run-tests: bash ./runTests.sh
+              - os: windows-latest
+                run-build: .\build.cmd
+                run-tests: .\runTests.cmd
+              - os: macos-15-intel
+                run-build: bash ./build.sh
+                run-tests: bash ./runTests.sh
+              - os: macos-15
+                run-build: bash ./build.sh
+                run-tests: bash ./runTests.sh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Build
+        run: ${{ matrix.run-build }}
+
+      # kernel-independent tests (HERA tests skip themselves via --skip-hera)
+      - name: Test
+        run: ${{ matrix.run-tests }}

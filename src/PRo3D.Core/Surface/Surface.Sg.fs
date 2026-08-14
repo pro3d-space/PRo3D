@@ -10,7 +10,6 @@ open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.Data.Opc
 open Aardvark.SceneGraph.Semantics
-open Aardvark.UI
 
 open Aardvark.UI.Primitives
 open Aardvark.UI
@@ -32,6 +31,40 @@ open OpcViewer.Base
 open Aardvark.Rendering.Text
 open Aardvark.Geometry
 
+
+module LodDecider =
+    open Aardvark.GeoSpatial.Opc
+    open FSharp.Data.Adaptive
+
+    let lodDeciderMars 
+           (preTrafo    : Trafo3d) (self        : AdaptiveToken) (viewTrafo   : aval<Trafo3d>) (_projection : aval<Trafo3d>) (p : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
+           (lodParams   : aval<LodParameters>) (isActive    : aval<bool>) =
+
+           let lodParams = lodParams.GetValue self
+           let isActive = isActive.GetValue self
+      
+           let campPos = (viewTrafo.GetValue self).Backward.C3.XYZ
+           let bb      = p.info.GlobalBoundingBox.Transformed(lodParams.trafo * preTrafo ) //* preTrafo)
+           let closest = bb.GetClosestPointOn(campPos)
+           let dist    = (closest - campPos).Length
+
+           //// super agressive to prune out far away stuff, too aggresive !!!
+           //if not isActive || (campPos - bb.Center).Length > p.info.GlobalBoundingBox.Size.[p.info.GlobalBoundingBox.Size.MajorDim] * 1.5 
+           //    then false
+           //else
+
+           let unitPxSize = lodParams.frustum.right / (float lodParams.size.X / 2.0)
+           let px = (lodParams.frustum.near * p.triangleSize) / dist // (pow dist 1.2) // (added pow 1.2 here... discuss)
+
+               //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
+           px > unitPxSize * (exp lodParams.factor)
+
+    let lodDeciderFixed 
+        (preTrafo    : Trafo3d) (self        : AdaptiveToken) (viewTrafo   : aval<Trafo3d>) (_projection : aval<Trafo3d>) (p : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
+        (lodParams   : aval<LodParameters>) (isActive    : aval<bool>) =
+
+        true
+
 module FootprintSg = 
     open Aardvark.SceneGraph.Sg
     
@@ -41,6 +74,8 @@ module FootprintSg =
 
     [<Rule>]
     type FootprintSem() =
+        member x.FootprintVP(r : Ag.Root<ISg>, scope : Ag.Scope) = 
+            r.Child?FootprintVP <- AVal.constant M44f.Identity
         member x.FootprintVP(n : FootprintApplicator, scope : Ag.Scope) =
             n.Child?FootprintVP <- n.ViewProj
 
@@ -58,8 +93,6 @@ module FootprintSg =
 
 module Sg =
     
-    type Ag.Scope with
-        member x.FootprintVP : aval<M44d> = x?FootprintVP
 
     let applyFootprint (v : aval<M44d>) (sg : ISg) = 
         FootprintSg.FootprintApplicator(v, sg) :> ISg
@@ -401,30 +434,73 @@ module Sg =
         //let lodDeciderMars = reworkedLoD scene.preTransform intersect
         let lodDeciderMars = cleanedOldLegacyLoD  scene.preTransform 
 
-        let map = 
+        let projectedImages = ImageProjectionOpcExtensions.projectionUniformMap
+
+        let footprintUniforms = 
             Map.ofList [
                 "FootprintModelViewProj", fun scope (patch : RenderPatch) -> 
-                    let viewTrafo,_ = scope |> unbox<aval<M44d> * obj>
+                    let context = unbox<OpcRenderingExtensions.Context> scope
+                    let viewTrafo = context.footprintVP
                     let r = AVal.map2 (fun viewTrafo (model : Trafo3d) -> viewTrafo * model.Forward) viewTrafo patch.trafo 
                     r :> IAdaptiveValue
             ]
+
+        let allUniforms = Map.unionMany [Map.empty; projectedImages; ]
 
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
             |> Array.map (fun h ->      
                 let patchLodWithTextures = 
-                    let context (n : PatchNode) (s : Ag.Scope) =
-                        let vp = s.FootprintVP
-                        let secondaryTexture = SecondaryTexture.getSecondary n s
-                        (vp, secondaryTexture)  :> obj
 
                     let extractTextureScope f (p : OpcPaths) (lodScope : obj) (r : RenderPatch) =
-                        let (_, textures) = unbox<aval<M44d> * obj> lodScope
-                        f p textures r 
+                        let context = unbox<OpcRenderingExtensions.Context> lodScope
+                        f p context.texturesScope r
 
                     let getTextures = extractTextureScope SecondaryTexture.textures
-                    let getVertexAttributes = extractTextureScope SecondaryTexture.vertexAttributes
+
+                    let getVertexAttributes (p : OpcPaths) (lodScope : obj) (r : PatchLod.RenderPatch) =
+                        let context = unbox<OpcRenderingExtensions.Context> lodScope
+                        let baseAttrs = SecondaryTexture.vertexAttributes p context.texturesScope r
+
+                        let crossSectionBuf : aval<IBuffer> =
+                            context.crossSectionData
+                            |> AVal.bind (fun csOpt ->
+                                match csOpt with
+                                | Some cs ->
+                                    let (g, _) = Aardvark.Data.Opc.Patch.load h.opcPaths r.modality r.info
+                                    let positions = g.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
+                                    let arr : V4f[] = Array.zeroCreate positions.Length
+                                    let poly = cs.polygon
+                                    let basis = cs.basis
+                                    //Log.startTimed "computing inside"
+                                    for i = 0 to positions.Length - 1 do
+                                        let pLocal = V3d positions.[i]
+                                        let pWorld = r.info.Local2Global.TransformPos pLocal
+                                        let q2 = PRo3D.Base.Annotation.CrossSection.projectTo2d basis pWorld
+                                        // Signed distance to the polygon boundary (negative inside),
+                                        // interpolated across triangles so the clip edge is smooth
+                                        // rather than snapping to mesh-edge midpoints.
+                                        let signed =
+                                            if q2.AnyNaN then -1.0f
+                                            else
+                                                let closest = poly.GetClosestPointOn q2
+                                                let d = float32 (q2 - closest).Length
+                                                if poly.Contains q2 then -d else d
+                                        arr.[i] <- V4f(signed, 0.0f, 0.0f, 0.0f)
+                                    //Log.stop()
+                                    AVal.constant (ArrayBuffer(arr) :> IBuffer)
+                                | None ->
+                                    // Placeholder only. This constant attribute does not
+                                    // arrive as the bound zero on Apple Silicon -- whole
+                                    // patches read back garbage. Do not read
+                                    // InsideOutsideV4 unless a cross-section is defined;
+                                    // crossSectionClip guards on CrossSectionDefined.
+                                    SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
+                            )
+
+                        baseAttrs
+                        |> Map.add (Sym.ofString "InsideOutsideV4") (BufferView(crossSectionBuf, typeof<V4f>))
 
                     PatchNode(
                         signature, 
@@ -436,16 +512,17 @@ module Sg =
                         ViewerModality.XYZ, 
                         PatchLod.CoordinatesMapping.Local, 
                         useAsyncLoading, 
-                        context, 
-                        map,
+                        OpcRenderingExtensions.captureContext, 
+                        allUniforms,
                         PatchLod.toRoseTree h.tree,
                         Some (getTextures h.opcPaths), 
                         Some (getVertexAttributes h.opcPaths), 
                         Aardvark.Data.PixImagePfim.Loader
                     )
+                //plainPatchLod
                 patchLodWithTextures
             )
-            |> SgFSharp.Sg.ofArray  
+            |> Aardvark.SceneGraph.SgFSharp.Sg.ofArray
                                                                       
         g, patchHierarchies, kdTrees
     
@@ -489,6 +566,7 @@ module Sg =
                 opcScene    = Some scene
                 dataSource  = DataSource.OpcHierarchy patchHierarchies
                 //transformation = Init.Transformations
+                sgImportPath = s.importPath
             }
         sgSurface
     
@@ -564,8 +642,8 @@ module Sg =
                         yield fail
                 | None -> 
                     yield fail
-            }|> Aardvark.UI.``F# Sg``.Sg.set
-        Aardvark.UI.``F# Sg``.Sg.ofList [point]
+            }|> Sg.set
+        Sg.ofList [point]
 
     let viewLeafLabels 
         (near   : aval<float>)

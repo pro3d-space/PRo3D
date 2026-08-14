@@ -169,7 +169,10 @@ module MeasurementsImporter =
             manualDipAzimuth = Annotation.initial.manualDipAzimuth
             bookmarkId       = None
             referenceSystem  = None
-        }        
+            ellipticResults  = None
+            crossSectionClipping = false
+            crossSectionRefPoint = None
+        }
         
 
     type XmlReader with

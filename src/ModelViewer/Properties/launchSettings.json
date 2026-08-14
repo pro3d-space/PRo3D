@@ -6,15 +6,23 @@
     },
     "AFC Camera": {
       "commandName": "Project",
-      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//gltf//AFC ..//..//..//resources//Cubemap-Mars"
+      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//Hera//gltf//AFC ..//..//..//resources//Cubemap-Mars"
     },
     "Hera Spacecraft": {
       "commandName": "Project",
-      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//gltf ..//..//..//resources//Cubemap-Mars"
+      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//Hera//gltf ..//..//..//resources//Cubemap-Mars"
     },
     "Perserverance Rover": {
       "commandName": "Project",
       "commandLineArgs": "..//..//..//resources//Perserverence-Rover//meshes ..//..//..//resources//Cubemap-Mars"
+    },
+    "Juventas": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//Juventas//gltf ..//..//..//resources//Cubemap-Mars"
+    },
+    "Milani": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//Milani//gltf ..//..//..//resources//Cubemap-Mars"
     }
   }
 }

@@ -2,7 +2,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>preview</LangVersion> <!-- https://github.com/dotnet/fsharp/issues/17501 -->
     <GenerateLenses>True</GenerateLenses>
   </PropertyGroup>
 
@@ -20,10 +21,12 @@
     <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="KdTrees.fs" />
     <None Include="RunAdaptify.fsx" />
     <Compile Include="AardvarkUIReworks.fs" />
     <EmbeddedResource Include="resources/groupmappings" />
     <Compile Include="Config.fs" />
+    <Compile Include="UserPreferences.fs" />
     <Compile Include="Core-Types.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="ReferenceSystem-Model.g.fs" />
@@ -45,13 +48,15 @@
     <Compile Include="GeologicSurface-Model.fs" />
     <Compile Include="GeologicSurface-Model.g.fs" />
     <Compile Include="ViewConfigModel.fs" />
-    <Compile Include="ViewConfigModel.g.fs" />
+	<Compile Include="ViewConfigModel.g.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Sg.fs" />
     <Compile Include="UI.fs" />
     <Compile Include="ReferenceSystem.fs" />
     <Compile Include="TransformationApp.fs" />
+    <Compile Include="TriangleSet.fs" />
     <Compile Include="Surface.fs" />
+    <Compile Include="ProfileAttributeExtraction.fs" />
     <Compile Include="GroupsApp.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Traverse-Model.fs" />
@@ -59,38 +64,48 @@
     <Compile Include="Surface\Translation.fs" />
     <Compile Include="Surface\Surface-Properties.fs" />
     <Compile Include="Surface\Surface.Files.fs" />
+    <Compile Include="Surface\OpcRenderingProperties.fs" />
+    <Compile Include="Surface\ImageProjectionOpcRendering.fs" />
     <Compile Include="Surface\Surface.Sg.fs" />
     <Compile Include="Surface\SurfaceApp.fs" />
     <Compile Include="Surface\SurfaceUtils.fs" />
     <Compile Include="Drawing\Drawing-Properties.fs" />
     <Compile Include="Drawing\Drawing-Model.fs" />
-    <Compile Include="Drawing\Drawing-Model.g.fs" />
+	<Compile Include="Drawing\Drawing-Model.g.fs" />
     <Compile Include="Drawing\DrawingUtilities.fs" />
     <Compile Include="Drawing\Drawing.UI.fs" />
     <Compile Include="Drawing\Drawing.Sg.fs" />
     <Compile Include="Drawing\Drawing.IO.fs" />
     <Compile Include="Drawing\PackedRendering.fs" />
+    <Compile Include="Drawing\EllipseConstruction.fs" />
+    <Compile Include="Drawing\EllipseAnnotation.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
+    <Compile Include="InstrumentMetadata.fs" />
+    <Compile Include="ProjectedImageList-Model.fs" />
+	<Compile Include="ProjectedImageList-Model.g.fs" />
     <Compile Include="GisApp-Model.fs" />
     <Compile Include="GisApp-Model.g.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarks-Model.fs" />
-    <Compile Include="SequencedBookmarks\SequencedBookmarks-Model.g.fs" />
+	<Compile Include="SequencedBookmarks\SequencedBookmarks-Model.g.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmark.fs" />
     <Compile Include="SequencedBookmarks\BookmarkUtils.fs" />
     <Compile Include="SequencedBookmarks\BookmarkAnimations.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarksApp.fs" />
-    <Compile Include="Gis\ObservationInfo.fs" />
-    <Compile Include="Gis\Entity.fs" />
-    <Compile Include="Gis\ReferenceFrame.fs" />
-    <Compile Include="Gis\GisApp.fs" />
+    <Compile Include="GisApp\ObservationInfo.fs" />
+    <Compile Include="GisApp\Entity.fs" />
+    <Compile Include="GisApp\ReferenceFrame.fs" />
     <Compile Include="SceneObjectsApp.fs" />
     <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="GeologicSurfaceApp.fs" />
+    <Compile Include="CrossSection-Model.fs" />
+    <Compile Include="CrossSection-Model.g.fs" />
+    <Compile Include="CrossSectionApp.fs" />
     <Compile Include="Validator/HeightValidator-Model.fs" />
     <Compile Include="Validator/HeightValidator-Model.g.fs" />
     <Compile Include="Validator/HeightValidatorApp.fs" />
     <Compile Include="Importers/MeasurementsImporter.fs" />
     <Compile Include="Importers/MeasurementsImporter.g.fs" />
+    <Compile Include="Importers/SbmtImporter.fs" />
     <Compile Include="Importers/AnnotationGroupsImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.g.fs" />

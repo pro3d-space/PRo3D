@@ -6,12 +6,12 @@ open Aardvark.Base
 open Aardvark.GeoSpatial.Opc
 open Aardvark.Opc
 
-type Kind = Scene | Annotations | Solarsystem
+type Kind = Scene | Annotations | Solarsystem | MultiTexturing
 
 [<EntryPoint>]
 let main argv =
     
-    let kind = Annotations
+    let kind = MultiTexturing
 
     let shaler =
         { 
@@ -76,6 +76,22 @@ let main argv =
             lodDecider       =  DefaultMetrics.mars2 
         }
 
+    let dimorphos =
+        { 
+            useCompressedTextures = true
+            preTransform     = Trafo3d.Identity
+            patchHierarchies = 
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"C:\pro3ddata\HERA\Workshop2\OPC\Dimorphos_DRACO1\Dimorphos_DRACO1") 
+                    )
+            boundingBox      = Box3d.Parse("[[-89.180763245, -87.157432556, -56.789569855], [87.699211121, 86.719993591, 58.670009613]]") 
+            near             = 0.1
+            far              = 1000.0
+            speed            = 1.0
+            lodDecider       =  DefaultMetrics.mars2 
+        }
+
+
     match kind with
 
     | Solarsystem -> 
@@ -84,6 +100,9 @@ let main argv =
     | Scene ->
     
         TestViewer.run mola
+
+    | MultiTexturing -> 
+        MultiTexturingViewer.run dimorphos
 
     | Annotations ->
 
@@ -193,8 +212,6 @@ let main argv =
         //        speed            = 5.0
         //        lodDecider       =  DefaultMetrics.mars2 
         //    }
-
-        Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
 
         let annotations = @"I:\OPC\Shaler_OPCs_2019\crazy2.pro3d.ann"
         let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\strangetest.pro3d.ann"

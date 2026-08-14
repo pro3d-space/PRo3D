@@ -20,7 +20,16 @@
             console.debug("[Debug] on select");
         },
         formatter: {
-            cellTime: 'H:mm',
+            time: function (date, settings) {
+                if (!date) return '';
+                return date.getUTCHours().toString().padStart(2, '0') + ':' +
+                    date.getUTCMinutes().toString().padStart(2, '0');
+            },
+            cellTime: function (date, settings) {
+                if (!date) return '';
+                return date.getUTCHours().toString().padStart(2, '0') + ':' +
+                    date.getUTCMinutes().toString().padStart(2, '0');
+            },
             date: 'YYYY-MM-DD',
             datetime: 'YYYY-MM-DD, H:mm',
             dayHeader: 'MMMM YYYY',
@@ -28,7 +37,6 @@
             minuteHeader: 'MMMM D, YYYY',
             month: 'MMMM YYYY',
             monthHeader: 'YYYY',
-            time: 'H:mm',
             year: 'YYYY'
         }
     });

@@ -1,7 +1,5 @@
 namespace PRo3D
 
-open Aardvark.Service
-
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
@@ -24,7 +22,7 @@ open System.IO
 
 module SnapshotGenerator =
     let loadData (args  : PRo3D.SimulatedViews.CLStartupArgs) 
-                 (mApp  : MutableApp<Model, ViewerAnimationAction>) =
+                 (mApp  : MutableApp<Model, AdaptiveModel, ViewerAnimationAction>) =
         match args.snapshotPath, args.snapshotType with
         | Some spath, Some stype ->   
             let hasLaodedScene = 
@@ -32,14 +30,14 @@ module SnapshotGenerator =
                 | Some sp ->
                     if args.verbose then
                         Log.line "Loading %s" sp
-                    mApp.updateSync Guid.Empty (ViewerAction.LoadScene sp |> ViewerMessage |> Seq.singleton)
+                    mApp.UpdateSync(Guid.Empty, ViewerAction.LoadScene sp |> ViewerMessage |> Seq.singleton)
                     true
                 | None -> false
 
             let hasLoadedOpc = 
                 match args.opcPaths with
                 | Some opcs ->
-                    mApp.updateSync Guid.Empty (ViewerAction.DiscoverAndImportOpcs opcs |> ViewerMessage |>  Seq.singleton)
+                    mApp.UpdateSync(Guid.Empty, ViewerAction.DiscoverAndImportOpcs opcs |> ViewerMessage |>  Seq.singleton)
                     if args.verbose then
                         Log.line "Loading %s" (opcs |> List.reduce (fun a b -> sprintf "%s %s" a b))
 
@@ -52,10 +50,10 @@ module SnapshotGenerator =
                     for x in objs do
                         if args.verbose then
                             Log.line "Loading %s" x
-                        mApp.updateSync Guid.Empty  (x |> List.singleton 
-                                                       |> (curry ViewerAction.ImportObject MeshLoaderType.Wavefront)
-                                                       |> ViewerMessage
-                                                       |> Seq.singleton)
+                        mApp.UpdateSync(Guid.Empty, x |> List.singleton
+                                                      |> (curry ViewerAction.ImportObject MeshLoaderType.Wavefront)
+                                                      |> ViewerMessage
+                                                      |> Seq.singleton)
                     true
                 | None -> 
                     hasLoadedOpc || hasLaodedScene
@@ -86,10 +84,14 @@ module SnapshotGenerator =
                 | None -> []
         
             let recalcNearFarAction =
-                match recalcNearFar with
-                | NearFarRecalculation.Both -> [ViewerAction.RecalculateNearFarPlane]
-                | NearFarRecalculation.FarPlane -> [ViewerAction.RecalculateFarPlane]
-                | NearFarRecalculation.NoRecalculation -> []
+                snapshot.nearFarPlane
+                |> Option.map (fun nfp -> [ViewerAction.RecalculateNearFarPlane nfp])
+                |> Option.defaultValue []
+                
+                //match recalcNearFar with
+                //| NearFarRecalculation.Both -> [ViewerAction.RecalculateNearFarPlane]
+                //| NearFarRecalculation.FarPlane -> [ViewerAction.RecalculateFarPlane]
+                //| NearFarRecalculation.NoRecalculation -> []
 
             // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
 
@@ -193,7 +195,7 @@ module SnapshotGenerator =
            
     let animate   (runtime      : IRuntime) 
                   (mModel       : AdaptiveModel)
-                  (mApp         : MutableApp<Model, ViewerAnimationAction>) 
+                  (mApp         : MutableApp<Model, AdaptiveModel, ViewerAnimationAction>)
                   (args         : CLStartupArgs) =
 
         let hasLoadedAny = loadData args mApp
@@ -225,40 +227,6 @@ module SnapshotGenerator =
                     }
                 SnapshotApp.executeAnimation snapshotApp
             | Some (SnapshotAnimation.BookmarkAnimation data) ->
-                //// DEBUG / Test for Panoramas
-                //let parnoamaCollection = 
-                //    SnapshotAnimation.PanoramaCollection 
-                //        {
-                //            fieldOfView             = Option.defaultValue 6.0 data.fieldOfView            
-                //            nearplane               = data.nearplane              
-                //            farplane                = data.farplane               
-                //            resolution              = data.resolution             
-                //            panoramaKind            = PanoramaKind.Spherical         
-                //            renderRgbWithoutOverlay = false
-                //            renderDepth             = true
-                //            renderRgbWithOverlay    = true
-                //            snapshots               = 
-                //                data.snapshots
-                //                |> List.map (fun s ->
-                //                    {
-                //                        filename = s.filename
-                //                        camera   = s.transformation.camera
-                //                    }
-                //                )
-                //        }
-                //let serialised = 
-                //    parnoamaCollection
-                //        |> Json.serialize 
-                //        |> Json.formatWith JsonFormattingOptions.Pretty 
-                //try 
-                //    System.IO.File.WriteAllText("panoramaInputFormat.json" , serialised)
-                //with e ->
-                //    Log.warn "[JsonChiron] Could not save %s" "panoramaInputFormat.json" 
-                //    Log.warn "%s" e.Message
-
-                //Log.warn "Debug Saved json to %s" (Path.GetFullPath "panoramaInputFormat.json")
-
-                /////
                 let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
                                                    (AVal.constant data.resolution) false mModel 
                 let snapshotApp  = 

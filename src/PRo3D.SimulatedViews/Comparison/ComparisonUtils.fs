@@ -95,10 +95,11 @@ module ComparisonUtils =
                                                                    (FastRay3d(ray)) 
                                                                    surfaceFilter 
                                                                    cache
+                                                                   true
         match intersected with
-        | Some (t,surf), c ->       
+        | Some hitInfo, c ->
             cache <- c
-            let hit = ray.GetPointOnRay(t) 
+            let hit = ray.GetPointOnRay(hitInfo.hit.RayHit.T) 
             //Log.warn "ray in direction %s hit surface at %s" (direction.ToString ()) (string hit) // rno debug
             hit |> Some
         |  None, c ->

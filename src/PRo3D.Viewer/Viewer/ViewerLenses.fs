@@ -1,7 +1,5 @@
 ﻿namespace PRo3D
 
-open Aardvark.Service
-
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
@@ -56,10 +54,6 @@ module ViewerLenses =
     // scale bars
     let _scaleBarsModel = Model.scene_  >->  Scene.scaleBars_
     let _scaleBars      = _scaleBarsModel >-> ScaleBarsModel.scaleBars_
-
-    // traverses
-    let _traversesModel = Model.scene_  >->  Scene.traverses_
-    let _traverses      = _traversesModel >-> TraverseModel.traverses_
 
     // geologic surfaces
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
@@ -144,8 +138,8 @@ module ViewerLenses =
                         state.stateConfig.frustumModel.frustum
             let m = 
                 let refSysState = 
-                    /// UPDATING REF SYSTEM HERE LEADS TO TRAVERSE CALCULATIONS BERING TRIGGERED, EVEN IF THE REF SYSTEM DOES NOT CHANGE!
-                    /// so we check manually if the reference system has changed, and only assign it if there is a change
+                    // UPDATING REF SYSTEM HERE LEADS TO TRAVERSE CALCULATIONS BERING TRIGGERED, EVEN IF THE REF SYSTEM DOES NOT CHANGE!
+                    // so we check manually if the reference system has changed, and only assign it if there is a change
                     {m.scene.referenceSystem with
                         origin        = state.stateReferenceSystem.origin       
                         isVisible     = state.stateReferenceSystem.isVisible    
@@ -265,9 +259,15 @@ module ViewerLenses =
                             m
                     | None ->
                         //update camera to bookmark's camera
-                        let m = Optic.set _view sb.cameraView m
-                        m
-                   
+                        // guard against a null CameraView (reference type): a zero-duration
+                        // animation segment can emit Unchecked.defaultof<CameraView>, which
+                        // would otherwise null out navigation.camera.view -> NRE
+                        if obj.ReferenceEquals(sb.cameraView, null) then
+                            Log.warn "[SequencedBookmarks] null cameraView for bookmark %A - skipping view update" sb.bookmark.key
+                            m
+                        else
+                            Optic.set _view sb.cameraView m
+
                 m
 
             match sb with

@@ -30,6 +30,12 @@ type Leaf =
           | Bookmarks   b -> b.key
           | Annotations a -> a.key
 
+      member x.SetId (newGuid : System.Guid) = 
+          match x with
+          | Surfaces    s -> Leaf.Surfaces    { s with guid = newGuid }
+          | Bookmarks   b -> Leaf.Bookmarks   { b with key  = newGuid }
+          | Annotations a -> Leaf.Annotations { a with key  = newGuid }
+
       member x.visible =
           match x with          
           | Surfaces    s -> s.isVisible
@@ -76,35 +82,62 @@ type Leaf with
                 
 [<ModelType;ReferenceEquality>]
 type Node = {
-    version     : int
-    key         : Guid
-    name        : string
-    leaves      : IndexList<Guid>
-    subNodes    : IndexList<Node>
-    visible     : bool
-    expanded    : bool
+    version      : int
+    key          : Guid
+    name         : string
+    leaves       : IndexList<Guid>
+    subNodes     : IndexList<Node>
+    visible      : bool
+    expanded     : bool
+    defaultColor : Aardvark.UI.ColorInput
 }
 
 type Node with
-    static member current = 0
+    // default color used for annotations that are created within this group
+    static member initialDefaultColor : Aardvark.UI.ColorInput = { c = C4b.White }
+    static member current = 1
     static member private read0 =
         json {
-            let! key      = Json.read "key"     
-            let! name     = Json.read "name"    
-            let! leaves   = Json.read "leaves"  
+            let! key      = Json.read "key"
+            let! name     = Json.read "name"
+            let! leaves   = Json.read "leaves"
             let! subNodes = Json.read "subNodes"
-            let! visible  = Json.read "visible" 
+            let! visible  = Json.read "visible"
             let! expanded = Json.read "expanded"
 
-            return 
+            return
                 {
-                    version  = Node.current
-                    key      = key     
-                    name     = name    
-                    leaves   = leaves   |> IndexList.ofList
-                    subNodes = subNodes |> IndexList.ofList
-                    visible  = visible 
-                    expanded = expanded
+                    version      = Node.current
+                    key          = key
+                    name         = name
+                    leaves       = leaves   |> IndexList.ofList
+                    subNodes     = subNodes |> IndexList.ofList
+                    visible      = visible
+                    expanded     = expanded
+                    defaultColor = Node.initialDefaultColor
+                }
+        }
+
+    static member private read1 =
+        json {
+            let! key          = Json.read "key"
+            let! name         = Json.read "name"
+            let! leaves       = Json.read "leaves"
+            let! subNodes     = Json.read "subNodes"
+            let! visible      = Json.read "visible"
+            let! expanded     = Json.read "expanded"
+            let! defaultColor = Json.readWith Ext.fromJson<Aardvark.UI.ColorInput, Ext> "defaultColor"
+
+            return
+                {
+                    version      = Node.current
+                    key          = key
+                    name         = name
+                    leaves       = leaves   |> IndexList.ofList
+                    subNodes     = subNodes |> IndexList.ofList
+                    visible      = visible
+                    expanded     = expanded
+                    defaultColor = defaultColor
                 }
         }
 
@@ -113,17 +146,19 @@ type Node with
             let! v = Json.read "version"
             match v with
             | 0 -> return! Node.read0
+            | 1 -> return! Node.read1
             | _ -> return! v |> sprintf "don't know version %d of Node" |> Json.error
         }
     static member ToJson (x : Node) =
         json {
             do! Json.write "version"  x.version
-            do! Json.write "key"      x.key     
-            do! Json.write "name"     x.name    
+            do! Json.write "key"      x.key
+            do! Json.write "name"     x.name
             do! Json.write "leaves"   (x.leaves   |> IndexList.toList)
             do! Json.write "subNodes" (x.subNodes |> IndexList.toList)
-            do! Json.write "visible"  x.visible 
+            do! Json.write "visible"  x.visible
             do! Json.write "expanded" x.expanded
+            do! Json.writeWith (Ext.toJson<Aardvark.UI.ColorInput, Ext>) "defaultColor" x.defaultColor
         }
 
 type TreeSelection = {
@@ -135,13 +170,14 @@ type TreeSelection = {
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Group =
     let initRoot = {
-        version  = Node.current
-        name     = "root"
-        key      =  Guid.NewGuid()
-        leaves   = IndexList.Empty
-        subNodes = IndexList.Empty 
-        visible  = true
-        expanded = true
+        version      = Node.current
+        name         = "root"
+        key          =  Guid.NewGuid()
+        leaves       = IndexList.Empty
+        subNodes     = IndexList.Empty
+        visible      = true
+        expanded     = true
+        defaultColor = Node.initialDefaultColor
     }
 
     let initChildSelection =  { 
@@ -261,6 +297,7 @@ module Leaf =
             | Leaf.Bookmarks b -> Some b
             | _ -> None)
 
+
     let mapToBookmarks bms =
         bms
         |> HashMap.choose(fun g x -> 
@@ -296,10 +333,12 @@ module GroupsModel =
             let groupsLookup  = groupsLookup |> HashMap.ofList //TODO TO: check if it is possible to create generic hmap from/to json            
                                     
             return {
-                version             = current         
-                rootGroup           = rootGroup 
-                activeGroup         = Group.initGroupSelection 
-                activeChild         = Group.initChildSelection 
+                version             = current
+                rootGroup           = rootGroup
+                // the selection has to point at the group tree we just read - the default
+                // selection refers to Group.initRoot, which is not part of it
+                activeGroup         = { id = rootGroup.key; path = List.empty; name = rootGroup.name }
+                activeChild         = Group.initChildSelection
                 flat                = flat
                 groupsLookup        = groupsLookup
                 lastSelectedItem    = SelectedItem.Child
@@ -544,4 +583,50 @@ type SurfaceModel with
         json {
             do! Json.write "version"  x.version
             do! Json.write "surfaces" x.surfaces
+        }
+
+
+type ExportSubNodeModel = {
+    itemType : SelectedItem
+    group    : Option<Node>
+    children : HashMap<Guid, Leaf>
+}
+
+type ExportSubNodeModel with
+    static member FromJson (_ : ExportSubNodeModel) =
+        json {
+            let! t = Json.read "itemType"
+            
+            //0 Child, 1 Group as defined in "Selected Item"
+            match t with
+            | 0 ->
+                let! children = Json.read "children"
+                return {
+                    itemType = SelectedItem.Child
+                    group = None
+                    children = children |> List.map(fun (a : Leaf) -> (a.id, a)) |> HashMap.ofList
+                }
+
+            | 1 ->
+                let! group = Json.read "group"
+                let! children = Json.read "children"
+                return {
+                    itemType = SelectedItem.Group
+                    group = Some(group)
+                    children = children |> List.map(fun (a : Leaf) -> (a.id, a)) |> HashMap.ofList
+                }
+            | _ -> 
+                return {
+                    itemType = SelectedItem.Child
+                    group    = None
+                    children = HashMap.Empty
+                }
+        }
+
+    static member ToJson (x : ExportSubNodeModel) =
+        json {
+            do! Json.write "itemType" (int x.itemType)
+            if x.group.IsSome then 
+                do! Json.write "group" x.group
+            do! Json.write "children" (x.children |> HashMap.toList |> List.map snd)
         }

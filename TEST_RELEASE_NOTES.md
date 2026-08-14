@@ -1,8 +1,16 @@
+## 5.0.7-prerelease1
+- Snapshot configuration fixed
+- Snapshots transformations fixed
+
+## 5.0.6 
+- added traverse priority feature
+
 ## 5.0.1 
 - major release preparation
 
-## 4.27.0-prerelease7
-- #412 update: *.json file with image info for every image
+## 5.0.1 
+- major release preparation
+
 
 ##4.27.0-prerelease9
 - update packages
@@ -31,6 +39,10 @@
 ## 4.27.0-prerelease1
 - coordinate frames as scale bars
 - fixed memory leak for high focal length fulcra
+
+## 5.0.0-prerelease-hera-5 
+- fixed surface priority 
+- improved handling of large trajectories
 
 ## 4.26.0-prerelease2 
 - fixed surface priority 

@@ -1,6 +1,5 @@
 ﻿namespace FSharp.Data.Adaptive
 
-open Aardvark.FontProvider
 open FSharp.Data.Adaptive
 open Adaptify.FSharp.Core
 
@@ -78,6 +77,8 @@ module MissingFunctionality =
 
 namespace Aether
 
+open Aardvark.Base
+
 [<AutoOpen>]
 module Conversion = 
     open Aether
@@ -103,15 +104,6 @@ module Missing =
             match a with
             | AdaptiveSome a -> Some a
             | AdaptiveNone -> None
-
-//namespace Aardvark.Rendering.Text
-
-//module Font =
-    
-//    type HackRegular = Aardvark.FontProvider.FontSquirrelProvider<Family = "Hack">
-
-//    let create name style =
-//        HackRegular.Font
 
 namespace Aardvark.Base
 
@@ -156,3 +148,13 @@ module Result =
         match r with
         | Result.Ok v -> Result.Ok v
         | Result.Error e -> Result.Ok (fallback e)
+
+
+// Used to wrap values with reference equality 
+// to prevent adaptify from comparing large arrays per value
+type RefEqual<'a>(v : 'a) = 
+    member x.Value = v
+
+module RefEqual = 
+    let fromValue (v : 'a) = RefEqual<_>(v)
+    let toValue (v : RefEqual<_>) = v.Value

@@ -386,19 +386,26 @@ module SequencedBookmarksApp =
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
                 (System.Runtime.InteropServices.OSPlatform.Windows) then
                     
-            let exeName = "PRo3D.Snapshots.exe"
+            // Resolve the snapshot exe beside the running executable and launch it
+            // with that working directory: SPICE init changes the process working
+            // directory (to the kernel dir) and does not restore it, so a
+            // CWD-relative path would fail to find PRo3D.Snapshots.exe.
+            // Config.besideExecuteable is the canonical exe dir (set from the real
+            // host exe path), so it is correct for self-contained / bundled apps.
+            let appDir = PRo3D.Config.besideExecuteable
+            let exeName = Path.combine [appDir; "PRo3D.Snapshots.exe"]
             match File.Exists exeName with
-            | true -> 
-                let args = 
+            | true ->
+                let args =
                     match m.debug with
                     | true ->
-                        sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --verbose" 
+                        sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --verbose"
                                         scenePath jsonPathName m.outputPath
                     | false ->
-                        sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
+                        sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish"
                                         scenePath jsonPathName m.outputPath
                 Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
-                snapshotProcess <- Some (runProcess exeName args None)
+                snapshotProcess <- Some (runProcess exeName args (Some appDir))
                 let id = System.Guid.NewGuid () |> string
                 let proclst =
                     proclist {
@@ -419,14 +426,16 @@ module SequencedBookmarksApp =
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
                 (System.Runtime.InteropServices.OSPlatform.Windows) then
                     
-            let exeName = "PRo3D.Snapshots.exe"
+            // resolve beside the running exe and run there (see generateSnapshots)
+            let appDir = PRo3D.Config.besideExecuteable
+            let exeName = Path.combine [appDir; "PRo3D.Snapshots.exe"]
             match File.Exists exeName with
-            | true -> 
+            | true ->
                 let args =
-                    sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
+                    sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish"
                                         scenePath jsonPathName m.outputPathDepthImages
                 Log.line "[Viewer] Starting panorama depth rendering with arguments: %s" args
-                snapshotProcess <- Some (runProcess exeName args None)
+                snapshotProcess <- Some (runProcess exeName args (Some appDir))
                 let id = System.Guid.NewGuid () |> string
                 let proclst =
                     proclist {

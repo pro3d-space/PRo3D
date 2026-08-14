@@ -67,11 +67,11 @@ module Shaders =
 
     type Vertex = 
         {
-            [<Position>] p: V3d
-            [<PointSize>] s : float
-            [<Color>] c: V4d
-            [<PointCoord>] tc: V2d
-            [<Semantic("Size")>] ndcSize : float
+            [<Position>] p: V3f
+            [<PointSize>] s : float32
+            [<Color>] c: V4f
+            [<PointCoord>] tc: V2f
+            [<Semantic("Size")>] ndcSize : float32
         }
 
 
@@ -82,17 +82,17 @@ module Shaders =
 
     let round (v : Vertex) =
         fragment {
-            let c = v.tc * 2.0 - V2d.II
-            let p = V3d(c, 1.0 - Vec.length c.XY)
-            let f = Vec.dot c c - 1.0
-            if f > 0.0 then discard()
-            return { v with c = v.c * Vec.dot V3d.III p }
+            let c = v.tc * 2.0f - V2f.II
+            let p = V3f(c, 1.0f - Vec.length c.XY)
+            let f = Vec.dot c c - 1.0f
+            if f > 0.0f then discard()
+            return { v with c = v.c * Vec.dot V3f.III p }
         }
 
     type UniformScope with
-        member x.SunPosViewSpace : V3d = uniform?SunPosViewSpace
-        member x.NormalToViewSpace : M33d = uniform?NormalToViewSpace
-        member x.CenterLocalSpace : V3d = uniform?CenterLocalSpace
+        member x.SunPosViewSpace : V3f = uniform?SunPosViewSpace
+        member x.NormalToViewSpace : M33f = uniform?NormalToViewSpace
+        member x.CenterLocalSpace : V3f = uniform?CenterLocalSpace
 
 
     let stableTrafo (v : Effects.Vertex) =
@@ -106,35 +106,35 @@ module Shaders =
 
     type LightingVertex = 
         {
-            [<Position>] pos : V4d
-            [<Color>] c: V4d
-            [<Normal>] vn : V3d
-            [<Semantic("ViewPos")>] vp : V3d
-            [<Depth>] d : float
+            [<Position>] pos : V4f
+            [<Color>] c: V4f
+            [<Normal>] vn : V3f
+            [<Semantic("ViewPos")>] vp : V3f
+            [<Depth>] d : float32
         }
 
     let normalViewSpace (v : LightingVertex) =
         vertex {
             // getting numerically stable "planet" normal is not easy...
             let surfaceViewSpace = uniform.ModelViewTrafo * v.pos
-            let centerViewSpace = uniform.ModelViewTrafo * V4d(uniform.CenterLocalSpace, 1.0)
+            let centerViewSpace = uniform.ModelViewTrafo * V4f(uniform.CenterLocalSpace, 1.0f)
             let n = (surfaceViewSpace.XYZ - centerViewSpace.XYZ).Normalized
             return { v with vn = n; vp = surfaceViewSpace.XYZ }
         }
 
     type UniformScope with
-        member x.Near : float = uniform?Near
-        member x.Far : float = uniform?Far
+        member x.Near : float32 = uniform?Near
+        member x.Far : float32 = uniform?Far
 
     [<ReflectedDefinition;Inline>]
-    let linearizeDepth (d : float) =
+    let linearizeDepth (d : float32) =
         uniform.Near * uniform.Far / (uniform.Far + d * (uniform.Near - uniform.Far))
 
     let sunLight (v : LightingVertex) = 
         fragment {
             let lightDirViewSpace = (uniform.SunPosViewSpace - v.vp).Normalized
-            let l = max 0.1 (Vec.dot lightDirViewSpace v.vn)
-            let cMars = v.c * V4d(1.0, 0.3, 0.3, 1.0)
+            let l = max 0.1f (Vec.dot lightDirViewSpace v.vn)
+            let cMars = v.c * V4f(1.0f, 0.3f, 0.3f, 1.0f)
             // hacky depth, use proper inverse depth for astronomical depth....
             return { v with c = cMars * l; d = -((v.vp.Z + uniform.Near) / (uniform.Far - uniform.Near)) }
         }

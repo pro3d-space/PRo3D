@@ -4,76 +4,410 @@ on:
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - aardium/package.json
-      - .github/workflows/deploy.yml 
-jobs:
-  mac_x64:
-    name: OSX (x64)
-    runs-on: macos-13
-    steps:  
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          architecture: 'x64'
-      - name: Setup .NET 8.0
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: 8.0.x
-      - name: Add Cert to Keychain
-        uses: apple-actions/import-codesign-certs@v1
-        with: 
-          p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
-          p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
-      - name: Yarn Install
-        working-directory: aardium
-        run: yarn install
-      - name: Build
-        run: bash ./build.sh PublishToElectron
-        env:
-          MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
-          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-          MAC_DEV_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }} 
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - .github/workflows/deploy.yml
 
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  check-release:
+    name: Check for Release
+    runs-on: ubuntu-latest
+    outputs:
+      should-skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check if release exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(./build.sh Version | grep -oP 'VERSION=\K.*')
+          TAG_NAME="v$VERSION"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME exists. Setting skip to true."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release $TAG_NAME new. Setting skip to false."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Gate the whole deployment on the kernel-independent test suite. The HERA
+  # tests are skipped here (--skip-hera, via runTests.sh) since the HERA kernels
+  # are not public; the SPICE stack is still exercised via the default kernels.
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: check-release
+    if: needs.check-release.outputs.should-skip != 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore paket
+        run: dotnet paket restore
+
+      - name: Run kernel-independent tests
+        run: bash ./runTests.sh
+
+  draft:
+    name: Release Draft
+    runs-on: windows-2022
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      # Keep this job fast: it only creates the empty draft + tag, so
+      # electron-builder attaches its installers to a single draft. The
+      # non-electron standalone zip is added later by the `standalone` job.
+      - name: Create GitHub Release
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\build.cmd GitHubRelease
 
   win32_x64:
-    name: windows
-    runs-on: windows-latest
-    steps:  
-      - name: Install Dotnet
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '8.0.x'
+    name: Windows
+    # windows-latest rolled to Visual Studio 18, which node-gyp 11.4.2 (pinned
+    # by node-shared-mem) can't detect ("unknown version undefined"). Pin to
+    # windows-2022 (VS 2022 / v17) so the native module's node-gyp rebuild works.
+    runs-on: windows-2022
+    needs: draft
+    steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Yarn Install
-        working-directory: aardium
-        run: yarn install  
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+
+      - name: Verify node
+        working-directory: aardium/Aardium
+        run: npm --version
+
       - name: Build
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .\build.cmd PublishToElectron
 
-  linux_x64:
-    name: linux 
-    runs-on: ubuntu-latest
-    steps:  
-      - name: Install Snapcraft
-        uses: samuelmeuli/action-snapcraft@v1
-      - name: Install Dotnet
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '8.0.x'
+  mac_x64:
+    name: OSX (x64)
+    runs-on: macos-15-intel
+    needs: draft
+    steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Yarn Install
-        working-directory: aardium
-        run: yarn install
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
+      - name: Verify Notarization Credentials
+        run: |
+          xcrun notarytool history \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" > /dev/null 2>&1
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Add Cert to Keychain
+        uses: apple-actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
+          p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+
+      - name: Verify node
+        working-directory: aardium/Aardium
+        run: npm --version
+
+      # Spotlight (mds/mdworker) auto-indexes the temp DMG that electron-builder
+      # mounts and keeps the volume busy, so 'hdiutil detach' intermittently
+      # fails with EBUSY (exit 16). Disabling indexing avoids the busy volume.
+      - name: Disable Spotlight indexing (avoid hdiutil detach EBUSY)
+        run: sudo mdutil -a -i off || true
+
+      - name: Build
+        run: |
+          detach_stale() {
+            # force-detach any DMG volume left mounted by a failed attempt
+            hdiutil info | awk '/^\/dev\/disk/ {print $1}' | while read -r d; do
+              hdiutil detach -force "$d" >/dev/null 2>&1 || true
+            done
+          }
+          attempt=1; max=3
+          while true; do
+            if bash ./build.sh PublishToElectron; then
+              break
+            fi
+            if [ "$attempt" -ge "$max" ]; then
+              echo "PublishToElectron failed after $attempt attempts"; exit 1
+            fi
+            echo "PublishToElectron failed (attempt $attempt) — likely hdiutil detach EBUSY; cleaning up and retrying"
+            detach_stale
+            sleep 20
+            attempt=$((attempt + 1))
+          done
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
+          MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  mac_arm64:
+    name: OSX (arm64)
+    runs-on: macos-15
+    needs: draft
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
+      - name: Verify Notarization Credentials
+        run: |
+          xcrun notarytool history \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID"  > /dev/null 2>&1
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          architecture: 'arm64'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Add Cert to Keychain
+        uses: apple-actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
+          p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+
+      - name: Verify node
+        working-directory: aardium/Aardium
+        run: npm --version
+
+      - name: Disable Spotlight indexing (avoid hdiutil detach EBUSY)
+        run: sudo mdutil -a -i off || true
+
+      - name: Build
+        run: |
+          detach_stale() {
+            # force-detach any DMG volume left mounted by a failed attempt
+            hdiutil info | awk '/^\/dev\/disk/ {print $1}' | while read -r d; do
+              hdiutil detach -force "$d" >/dev/null 2>&1 || true
+            done
+          }
+          attempt=1; max=3
+          while true; do
+            if bash ./build.sh PublishToElectron; then
+              break
+            fi
+            if [ "$attempt" -ge "$max" ]; then
+              echo "PublishToElectron failed after $attempt attempts"; exit 1
+            fi
+            echo "PublishToElectron failed (attempt $attempt) — likely hdiutil detach EBUSY; cleaning up and retrying"
+            detach_stale
+            sleep 20
+            attempt=$((attempt + 1))
+          done
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
+          MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  linux_x64:
+    name: Linux
+    runs-on: ubuntu-22.04
+    needs: draft
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Fetch Aardium
+        run: git submodule update --init aardium
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+
+      - name: Verify node
+        working-directory: aardium/Aardium
+        run: npm --version
+
       - name: Build
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash ./build.sh PublishToElectron
+
+  # Non-electron Windows standalone build. Runs AFTER all electron jobs so the
+  # single draft (created by `draft`, populated by electron-builder) already
+  # exists; UploadStandalone builds bin/publish/win-x64, zips it, and attaches it
+  # to that draft via `gh release upload --clobber`. Skips together with the rest
+  # when the release already exists (its electron `needs` are gated on `test`).
+  standalone:
+    name: Standalone Zip
+    runs-on: windows-2022
+    needs: [win32_x64, mac_x64, mac_arm64, linux_x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore paket
+        run: dotnet paket restore
+
+      - name: Build standalone + upload to draft
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\build.cmd UploadStandalone

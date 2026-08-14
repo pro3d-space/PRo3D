@@ -35,6 +35,7 @@ module SurfaceProperties =
         | SetScalarMap   of Option<ScalarLayer>
         | SetPrimaryTexture of Option<TextureLayer>
         | SetSecondaryTexture of Option<TextureLayer>
+        | SetSecondaryTextureChannel of Option<int>
         | SetTransferFunctionMode of Option<string>
         | SetTFMin of float
         | SetTFMax of float
@@ -44,6 +45,7 @@ module SurfaceProperties =
         | CountourAppMessage of ContourLineApp.Action
         | SetHomePosition 
         | ToggleFilterByDistance 
+        | ToggleFilterByTriangleSize
         | SetFilterDistance of Numeric.Action
         | ToggleHighlightSelected
         | ToggleHighlightAlways
@@ -63,6 +65,8 @@ module SurfaceProperties =
             { model with isVisible = not model.isVisible }
         | ToggleIsActive ->
             { model with isActive = not model.isActive }
+        | ToggleFilterByTriangleSize -> 
+            { model with filterByTriangleSize = not model.filterByTriangleSize }
         | SetTriangleSize a ->
             { model with triangleSize = Numeric.update model.triangleSize a}
         | ToggleFilterByDistance ->
@@ -86,6 +90,8 @@ module SurfaceProperties =
             { model with primaryTexture = texture } |> Console.print
         | SetSecondaryTexture texture ->                
             { model with secondaryTexture = texture } |> Console.print
+        | SetSecondaryTextureChannel channel -> 
+            { model with secondaryTextureLayer = channel } |> Console.print
         | SetTransferFunctionMode (Some name) -> 
             match name with
             | _ when name = ramp -> 
@@ -161,25 +167,40 @@ module SurfaceProperties =
         Incremental.table (AttributeMap.ofList [clazz "ui celled striped inverted table unstackable"]) <|
             alist {
                 // Html.row "Path:"        [Incremental.text (model.importPath |> AVal.map (fun x -> sprintf "%A" x ))]                
-                yield Html.row "Name:"        [Html.SemUi.textBox model.name SetName ]
-                yield Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
-                yield Html.row "Active:"      [GuiEx.iconCheckBox model.isActive ToggleIsActive ]
-                yield Html.row "Highlight Selected:"   [GuiEx.iconCheckBox model.highlightSelected ToggleHighlightSelected ]
-                yield Html.row "Highlight Always:"     [GuiEx.iconCheckBox model.highlightAlways ToggleHighlightAlways ]
-                yield Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] model.priority |> UI.map SetPriority ]       
-                yield Html.row "Quality:"     [Numeric.view' [NumericInputType.Slider]   model.quality  |> UI.map SetQuality ]
-                yield Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
-                yield Html.row "DistanceFilter:" [GuiEx.iconCheckBox model.filterByDistance ToggleFilterByDistance ]
-                yield Html.row "FilterDistance:" [Numeric.view' [NumericInputType.InputBox]   model.filterDistance  |> UI.map SetFilterDistance ]
+                yield Html.row "Name:"               [Html.SemUi.textBox model.name SetName ]
+                yield Html.row "Visible:"            [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
+                yield Html.row "Active:"             [GuiEx.iconCheckBox model.isActive ToggleIsActive ]
+                yield Html.row "Highlight Selected:" [GuiEx.iconCheckBox model.highlightSelected ToggleHighlightSelected ]
+                yield Html.row "Highlight Always:"   [GuiEx.iconCheckBox model.highlightAlways ToggleHighlightAlways ]
+                yield Html.row "Priority:"           [Numeric.view' [NumericInputType.InputBox] model.priority |> UI.map SetPriority ]       
+                yield Html.row "Quality:"            [Numeric.view' [NumericInputType.Slider]   model.quality  |> UI.map SetQuality ]
+                yield Html.row "TriangleFilter:"     [GuiEx.iconCheckBox model.filterByTriangleSize ToggleFilterByTriangleSize ]
+                yield Html.row "TriangleSize:"       [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
+                yield Html.row "DistanceFilter:"     [
+                    GuiEx.iconCheckBox model.filterByDistance ToggleFilterByDistance
+                    |> UI.wrapToolTip DataPosition.Bottom
+                        "Hides all geometry farther away than FilterDistance from this surface's home position. Has no effect until a home position is set (see 'Home Position' below)."
+                ]
+                yield Html.row "FilterDistance:"     [
+                    Numeric.view' [NumericInputType.InputBox] model.filterDistance |> UI.map SetFilterDistance
+                    |> UI.wrapToolTip DataPosition.Bottom "Radius [m] around the home position kept visible when DistanceFilter is enabled."
+                ]
+                yield Html.row "Home Position:"      [
+                    button [clazz "ui button tiny"; onClick (fun _ -> SetHomePosition )] [
+                        i [clazz "home icon"] []
+                        Incremental.text (model.homePosition |> AVal.map (function None -> "not set" | Some _ -> "set"))
+                    ]
+                    |> UI.wrapToolTip DataPosition.Bottom
+                        "Stores the current camera position as this surface's home position - the reference point for DistanceFilter. Navigate to the spot of interest, then click."
+                ]
                 // Html.row "Scale:"       [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
-                yield Html.row "Fillmode:"    [Html.SemUi.dropDown model.fillMode SetFillMode]                
-                yield Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
+                yield Html.row "Fillmode:"           [Html.SemUi.dropDown model.fillMode SetFillMode]                
+                yield Html.row "Scalars:"            [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
                 // Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> AVal.force)]
-                 
-                yield Html.row "Cull Faces:"  [Html.SemUi.dropDown model.cullMode SetCullMode]
-                yield Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> SetHomePosition )] []] //[text "DiscoverOpcs" ]  
+                       
+                yield Html.row "Cull Faces:"        [Html.SemUi.dropDown model.cullMode SetCullMode]
 
-                yield Html.row "OPCx Info path:"    [Incremental.text (model.opcxPath |> AVal.map (function None -> "none" | Some p -> p))]
+                yield Html.row "OPCx Info path:"    [div [style "max-width: 200px"] [Incremental.text (model.opcxPath |> AVal.map (function None -> "none" | Some p -> p))]]
                 yield Html.row "Primary Texture:"   [UI.dropDown'' model.textureLayers model.primaryTexture  (fun x -> SetPrimaryTexture x) (fun x -> x.label)]
                 
                 let tfToName (tf : ColorMaps.TF) =
@@ -187,9 +208,7 @@ module SurfaceProperties =
                     | ColorMaps.TF.Ramp(_,_,_) -> ramp
                     | ColorMaps.TF.Passthrough -> passthrough
                 
-                
-                
-                yield Html.row "Transfer Function" [ div [] [UI.dropDown'' (AList.ofList [ramp; passthrough]) (model.transferFunction |> AVal.map (fun tf -> Some (tfToName tf.tf))) SetTransferFunctionMode (fun a -> a)]]
+                yield Html.row "Transfer Function"    [ div [] [UI.dropDown'' (AList.ofList [ramp; passthrough]) (model.transferFunction |> AVal.map (fun tf -> Some (tfToName tf.tf))) SetTransferFunctionMode (fun a -> a)]]
                 yield Html.row "Secondary Texture:"   [UI.dropDown'' model.textureLayers model.secondaryTexture (fun x -> SetSecondaryTexture x) (fun x -> x.label)]
                 
                 let! tf = model.transferFunction

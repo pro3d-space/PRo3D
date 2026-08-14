@@ -18,6 +18,7 @@ type FrustumModel = {
     focal                   : NumericInput
     oldFrustum              : Frustum
     frustum                 : Frustum
+    windowSize              : V2i
     }
 
 module FrustumModel =
@@ -36,6 +37,7 @@ module FrustumModel =
             focal                   = focal
             oldFrustum              = Frustum.perspective 60.0 0.1 10000.0 1.0
             frustum                 = Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
+            windowSize              = V2i.II
         }
 
 type FrustumModel with
@@ -58,6 +60,7 @@ type FrustumModel with
                 focal       = {FrustumModel.focal with value = focal}
                 oldFrustum  = oldFrustum  
                 frustum     = frustum     
+                windowSize  = V2i.II
             }
         }
 
@@ -73,7 +76,7 @@ type ViewConfigModel = {
     arrowLength             : NumericInput
     arrowThickness          : NumericInput
     dnsPlaneSize            : NumericInput
-    offset                  : NumericInput
+    offset                  : NumericInput 
     pickingTolerance        : NumericInput
     lodColoring             : bool
     drawOrientationCube     : bool
@@ -83,6 +86,10 @@ type ViewConfigModel = {
 
     // labels rendered in 3D showing the individual location of patches
     showLeafLabels          : bool
+
+    // preview intersection (3D Cursor)
+    showPreviewIntersection : bool
+    previewIntersectionWorldSize : NumericInput
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -104,7 +111,7 @@ module ViewConfigModel =
     let initNavSens = {
         value   = 2.0
         min     = -1.0
-        max     = 8.0
+        max     = 14.0
         step    = 0.25
         format  = "{0:0.00}"
     }
@@ -152,7 +159,15 @@ module ViewConfigModel =
        value = 0.001
        step = 0.001
        format = "{0:0.000}"
-    }       
+    }    
+    
+    let previewIntersectionWorldSize = {
+        value   = 10.0
+        min     = 0.0
+        max     = 10000.0
+        step    = 0.05
+        format  = "{0:0.00}"
+    }
 
     let current = 4
  
@@ -160,20 +175,22 @@ module ViewConfigModel =
         version = current
         nearPlane             = initNearPlane
         farPlane              = initFarPlane
-        frustumModel         = FrustumModel.init 0.1 10000.0
+        frustumModel          = FrustumModel.init 0.1 10000.0
         navigationSensitivity = initNavSens
-        arrowLength         = initArrowLength
-        arrowThickness      = initArrowThickness
-        dnsPlaneSize        = initPlaneSize
-        lodColoring         = false
-        importTriangleSize  = initImportTriangleSize        
-        drawOrientationCube = false
-        offset              = depthOffset
-        pickingTolerance    = initPickingTolerance
-        filterTexture       = false
+        arrowLength           = initArrowLength
+        arrowThickness        = initArrowThickness
+        dnsPlaneSize          = initPlaneSize
+        lodColoring           = false
+        importTriangleSize    = initImportTriangleSize        
+        drawOrientationCube   = false
+        offset                = depthOffset
+        pickingTolerance      = initPickingTolerance
+        filterTexture         = false
         //useSurfaceHighlighting = true
         showExplorationPointGui = true
         showLeafLabels = false
+        showPreviewIntersection = false
+        previewIntersectionWorldSize = previewIntersectionWorldSize
     }
        
     module V0 =
@@ -208,6 +225,8 @@ module ViewConfigModel =
                     filterTexture         = false
                     showExplorationPointGui = true
                     showLeafLabels        = false
+                    showPreviewIntersection = false
+                    previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
     module V1 =
@@ -243,6 +262,8 @@ module ViewConfigModel =
                     filterTexture         = false
                     showExplorationPointGui = true
                     showLeafLabels        = false
+                    showPreviewIntersection = false
+                    previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
 
@@ -280,6 +301,8 @@ module ViewConfigModel =
                     filterTexture         = false
                     showExplorationPointGui = true
                     showLeafLabels        = false
+                    showPreviewIntersection = false
+                    previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
 
@@ -315,6 +338,8 @@ module ViewConfigModel =
                     filterTexture         = filterTexture 
                     showExplorationPointGui = true
                     showLeafLabels        = false
+                    showPreviewIntersection = false
+                    previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
 
@@ -332,25 +357,31 @@ module ViewConfigModel =
                 let! importTriangleSize            = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
                 let! (drawOrientationCube : bool)  = Json.read "drawOrientationCube"                        
                 let! depthoffset                   = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
-                let! (filterTexture : bool)        = Json.read "filterTexture"                        
+                let! (filterTexture : bool)        = Json.read "filterTexture"   
+                let! showExplorationPointGui       = Json.tryRead "showExplorationPointGui"                   
+                
+                let! previewIntersectionWorldSize'  = Json.tryRead "previewIntersectionWorldSize"
+                let! (showPreviewIntersection' : Option<bool>) = Json.tryRead "showPreviewIntersection"           
         
                 return {            
-                    version               = current
-                    nearPlane             = nearPlane
-                    farPlane              = farPlane
-                    frustumModel          = frustumModel
-                    navigationSensitivity = navigationSensitivity
-                    arrowLength           = arrowLength
-                    arrowThickness        = arrowThickness
-                    dnsPlaneSize          = dnsPlaneSize
-                    lodColoring           = lodColoring
-                    importTriangleSize    = importTriangleSize      
-                    drawOrientationCube   = drawOrientationCube
-                    offset                = depthoffset
-                    pickingTolerance      = initPickingTolerance
-                    filterTexture         = filterTexture 
-                    showExplorationPointGui = true
-                    showLeafLabels        = false
+                    version                 = current
+                    nearPlane               = nearPlane
+                    farPlane                = farPlane
+                    frustumModel            = frustumModel
+                    navigationSensitivity   = navigationSensitivity
+                    arrowLength             = arrowLength
+                    arrowThickness          = arrowThickness
+                    dnsPlaneSize            = dnsPlaneSize
+                    lodColoring             = lodColoring
+                    importTriangleSize      = importTriangleSize      
+                    drawOrientationCube     = drawOrientationCube
+                    offset                  = depthoffset
+                    pickingTolerance        = initPickingTolerance
+                    filterTexture           = filterTexture 
+                    showExplorationPointGui = if showExplorationPointGui.IsSome then showExplorationPointGui.Value else true
+                    showLeafLabels          = false
+                    showPreviewIntersection = Option.defaultValue false showPreviewIntersection'
+                    previewIntersectionWorldSize = { previewIntersectionWorldSize with value = Option.defaultValue previewIntersectionWorldSize.value previewIntersectionWorldSize' }
                 }
             }
 
@@ -383,4 +414,7 @@ type ViewConfigModel with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "pickingTolerance"      x.pickingTolerance
             do! Json.write "filterTexture" x.filterTexture
             do! Json.write "version" x.version
+            do! Json.write "showExplorationPointGui" x.showExplorationPointGui
+            do! Json.write "previewIntersectionWorldSize" x.previewIntersectionWorldSize.value
+            do! Json.write "showPreviewIntersection" x.showPreviewIntersection
         }

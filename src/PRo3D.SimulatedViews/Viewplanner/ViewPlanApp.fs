@@ -148,9 +148,9 @@ module ViewPlanApp =
         let mutable cache = cache
         let ray = FastRay3d(p, dir)  
                  
-        match SurfaceIntersection.doKdTreeIntersection 
-            surfaceModel refSystem (constF None) None ray (fun id l surf -> l.active) cache with
-        | Some (t,_), _ -> ray.Ray.GetPointOnRay(t) |> Some
+        match SurfaceIntersection.doKdTreeIntersection
+            surfaceModel refSystem (constF None) None ray (fun id l surf -> l.active) cache true with
+        | Some hitInfo, _ -> ray.Ray.GetPointOnRay(hitInfo.hit.RayHit.T) |> Some
         | None, _ -> None
 
     let getInstrumentResolution (vp:AdaptiveViewPlanModel) =
@@ -280,13 +280,15 @@ module ViewPlanApp =
         }
 
         let trafo = placementTrafoFromSolTrafo placementLocation ref rotationTrafo // (rotationTrafo * Trafo3d.Translation(placementLocation))
+        let forward, _, up = decomposeRoverTrafo trafo
+        let forward' = placementLocation + forward
         
         let newViewPlan = {
             version            = ViewPlan.current
             id                 = Guid.NewGuid()
             name               = name
             position           = placementLocation
-            lookAt             = ref.northO//(ref.northO |> rotationTrafo.Forward.TransposedTransformDir)
+            lookAt             = forward' //ref.northO//(ref.northO |> rotationTrafo.Forward.TransposedTransformDir)
             viewerState        = cameraView
             vectorsVisible     = true
             rover              = rover
@@ -485,7 +487,21 @@ module ViewPlanApp =
                     instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
                     instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0 }
 
-        
+    let calcPanTilt
+        (forward:V3d) = 
+        let pan = Math.Atan2(forward.X, forward.Z)
+        //let tilt = Math.Asin(-forward.Y
+        let tilt = Math.Atan2(-forward.Y, Math.Sqrt(Math.Pow(forward.X, 2.0) + Math.Pow(forward.Z, 2.0)))
+      
+        pan, tilt   
+
+    let getTiltFromRotationMatrix 
+        (rotTrafo : Trafo3d) =
+        let rotMat = rotTrafo.Forward.UpperLeftM33()
+        let C2 = rotMat.C2.Normalized
+        let rotTilt = Math.Asin(-C2.Z)
+        rotTilt
+
       
     let updateRovers 
         (model      : ViewPlanModel) 
@@ -536,7 +552,71 @@ module ViewPlanApp =
         let vp' = {selectedVp with footPrint = fp'}
         let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
         let newOuterModel = Optic.set _footprint fp' outerModel
-        newOuterModel, {model with viewPlans = viewPlans }         
+        newOuterModel, {model with viewPlans = viewPlans }      
+        
+    let getAngleUpdate
+        (vp : ViewPlan)
+        (roverModel : RoverModel)
+        (ax : Axis) 
+        (a : Utilities.PRo3DNumeric.Action) 
+        (id : string) =
+
+        let angle = Utilities.PRo3DNumeric.update ax.angle a
+        let ax' = { ax with angle = angle }
+
+        let rover = { vp.rover with axes = (vp.rover.axes |> HashMap.update id (fun _ -> ax')) }
+        let vp' = { vp with rover = rover; currentAngle = angle; }
+
+        let angleUpdate = { 
+            roverId       = vp'.rover.id
+            axisId        = ax'.id
+            angle         = Axis.Mapping.from180 ax'.angle.min ax'.angle.max ax'.angle.value
+            shiftedAngle  = ax'.degreesMapped
+            invertedAngle = ax'.degreesNegated
+        }
+        let roverModel = RoverApp.updateAnglePlatform angleUpdate roverModel
+        roverModel, vp'
+
+    let lookAtTarget
+        (model : ViewPlanModel)
+        (viewPlan : ViewPlan) 
+        (pointId : Guid) =
+        let selPoint = viewPlan.distancePoints |> HashMap.find pointId
+
+        let oldForward, right, up = decomposeRoverTrafo viewPlan.roverTrafo
+        let forward = (selPoint.position - viewPlan.position)
+
+        let panOld, tiltOld = calcPanTilt(oldForward.Normalized)
+        let panNew, tiltNew = calcPanTilt(forward.Normalized)
+
+        let deltaPan  = (panOld - panNew).DegreesFromRadians()
+        let deltaTilt = (tiltOld - tiltNew).DegreesFromRadians()
+        // Note: we have to calculate tilt from the rotation matrix because a big value for pan
+        // causes an unstable reference level (XY)
+        // For larger pans, the inclination of the vector in the XZ projection also changes, which distorts the tilt.
+        let rotTrafo1 =  Trafo3d.FromOrthoNormalBasis(oldForward.Normalized, right.Normalized, up.Normalized)
+        let newRight = forward.Normalized.Cross(up.Normalized)
+        let rotTrafo2 =  Trafo3d.FromOrthoNormalBasis(forward.Normalized, newRight.Normalized, up.Normalized) // forward cross up statt right?
+        let rotDiff = rotTrafo2 * rotTrafo1.Inverse
+        let rotTilt = getTiltFromRotationMatrix rotDiff
+
+        // pan axis update
+        let panUpdateRover, panUpdateVP =
+            match viewPlan.rover.axes.TryFind "Pan Axis" with
+            | Some ax -> 
+                let panTest = deltaPan 
+                getAngleUpdate viewPlan model.roverModel ax (Utilities.PRo3DNumeric.Action.SetValue panTest) "Pan Axis"
+            | None -> model.roverModel, viewPlan
+
+        // tilt axis update
+        let tiltUpdateRover, tiltUpdateVP =
+            match viewPlan.rover.axes.TryFind "Tilt Axis" with
+            | Some ax -> 
+                let tiltTest = rotTilt //deltaTilt 
+                getAngleUpdate panUpdateVP panUpdateRover ax (Utilities.PRo3DNumeric.Action.SetValue tiltTest) "Tilt Axis"
+            | None -> panUpdateRover, panUpdateVP 
+
+        tiltUpdateRover, tiltUpdateVP
 
     //let update (model : ViewPlanModel) (camState:CameraControllerState) (action : Action) =
     let update 
@@ -657,29 +737,11 @@ module ViewPlanApp =
                 let selectedVp = model.viewPlans |> HashMap.find vpid 
                 match selectedVp.rover.axes.TryFind id with
                 | Some ax -> 
-                    let angle = Utilities.PRo3DNumeric.update ax.angle a
-                    //printfn "numeric angle: %A" angle
-                    let ax' = { ax with angle = angle }
-
-                    let rover = { selectedVp.rover with axes = (selectedVp.rover.axes |> HashMap.update id (fun _ -> ax')) }
-                    let vp' = { selectedVp with rover = rover; currentAngle = angle; }
-
-                    let angleUpdate = { 
-                        roverId       = vp'.rover.id
-                        axisId        = ax'.id
-                        angle         = Axis.Mapping.from180 ax'.angle.min ax'.angle.max ax'.angle.value
-                        shiftedAngle  = ax'.degreesMapped
-                        invertedAngle = ax'.degreesNegated
-                    }
-
-                    let roverModel = RoverApp.updateAnglePlatform angleUpdate model.roverModel
+                    let roverModel, vp' = getAngleUpdate selectedVp model.roverModel ax a id
 
                     let fp = Optic.get _footprint outerModel
                     let fp, model' = updateRovers model roverModel vp' fp
                     let newOuterModel = Optic.set _footprint fp outerModel
-
-                    //let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
-                                                
                     newOuterModel, model' //{ model with viewPlans = viewPlans }
                 | None -> outerModel, model
             | None -> outerModel, model
@@ -884,18 +946,12 @@ module ViewPlanApp =
             match model.selectedViewPlan with
             | Some vpid -> 
                 let selectedVp = model.viewPlans |> HashMap.find vpid
-                let selPoint = selectedVp.distancePoints |> HashMap.find id
-                
-                let footPrint = Optic.get _footprint outerModel
-                let forward, right, up = decomposeRoverTrafo selectedVp.roverTrafo
-                let forward = (selPoint.position - selectedVp.position).Normalized
+                let rover, vp' = lookAtTarget model selectedVp id
 
-                let rTrafo = initialPlacementTrafo' selectedVp.position forward up
-                let vp' = {selectedVp with roverTrafo = rTrafo}
-                let fp', m'       = updateInstrumentCam vp' model footPrint
-                let newOuterModel = Optic.set _footprint fp' outerModel
-
-                updateVPOutput m' vp' newOuterModel
+                let fp = Optic.get _footprint outerModel
+                let fp, model' = updateRovers model rover vp' fp
+                let newOuterModel = Optic.set _footprint fp outerModel
+                newOuterModel, model'
             | None -> outerModel, model   
         | ToggleText           -> 
             match model.selectedViewPlan with
@@ -1081,7 +1137,7 @@ module ViewPlanApp =
                         }
 
                         let up = { marker with direction = camUpTrans; color = (AVal.constant C4b.Red)}
-
+                     
                         match sid = id with
                         | true ->
                             let lookAt = { marker with direction = camLookAtTrans; color = (AVal.constant C4b.Cyan)}
@@ -1193,23 +1249,29 @@ module ViewPlanApp =
                     Trafo3d.Translation(offset * up)
             )
         
-        let getTextPosition (point : aval<V3d>) (dist : aval<float>) (size : aval<float>) =
+        let getTextPosition (point : aval<V3d>) (size : aval<float>) =
             adaptive {
                 let! pos = point
-                let! dist = dist
                 let loc = pos + pos.Normalized * 1.5
                 let! size = size
                 let trafo = (Trafo3d.Scale((float)size)) * (Trafo3d.Translation loc)
-                let text = $"{dist}"
-                //let stableTrafo = viewTrafo |> AVal.map (fun view -> trafo * view) // stable, and a bit slow
-                return AVal.constant trafo, AVal.constant text
-            } |> AVal.force
+                return trafo
+            } 
+
+        let getText (dist : aval<float>)  =
+            adaptive {
+                let! dist = dist
+                let text = $"{dist : F4}"
+                return text
+            } 
 
         let drawTextsFast (refSystem : AdaptiveReferenceSystem) (vp : AdaptiveViewPlan) : ISg<Action> = 
             let contents = 
                 //let viewTrafo = view |> AVal.map CameraView.viewTrafo
                 vp.distancePoints 
-                |> AMap.map (fun _ point -> getTextPosition point.position point.distance vp.textSize.value )
+                |> AMap.map (fun _ point -> let pos = getTextPosition point.position vp.textSize.value
+                                            let txt = getText point.distance
+                                            pos, txt)
                 |> AMap.toASet 
                 |> ASet.map snd 
                         

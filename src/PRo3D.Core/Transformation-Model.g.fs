@@ -1,5 +1,5 @@
-//dc99f82f-aac1-13df-012f-b5767d1fd1ff
-//1118641f-fa43-57df-60db-c4482fadd316
+//81a1940b-7cda-3363-8114-556342979c95
+//9bf718c8-b5ce-fa8e-ec47-173f482a3f40
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -31,8 +31,10 @@ type AdaptiveTransformations(value : Transformations) =
     let _scaling_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.scaling)
     let _trafoChanged_ = FSharp.Data.Adaptive.cval(value.trafoChanged)
     let _usePivot_ = FSharp.Data.Adaptive.cval(value.usePivot)
+    let _pivotMode_ = FSharp.Data.Adaptive.cval(value.pivotMode)
     let _pivotSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.pivotSize)
     let _eulerMode_ = FSharp.Data.Adaptive.cval(value.eulerMode)
+    let _refSysMode_ = FSharp.Data.Adaptive.cval(value.refSysMode)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Transformations) = AdaptiveTransformations(value)
@@ -60,8 +62,10 @@ type AdaptiveTransformations(value : Transformations) =
             _scaling_.Update(value.scaling)
             _trafoChanged_.Value <- value.trafoChanged
             _usePivot_.Value <- value.usePivot
+            _pivotMode_.Value <- value.pivotMode
             _pivotSize_.Update(value.pivotSize)
             _eulerMode_.Value <- value.eulerMode
+            _refSysMode_.Value <- value.refSysMode
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.useTranslationArrows = _useTranslationArrows_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -82,8 +86,10 @@ type AdaptiveTransformations(value : Transformations) =
     member __.scaling = _scaling_
     member __.trafoChanged = _trafoChanged_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.usePivot = _usePivot_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.pivotMode = _pivotMode_ :> FSharp.Data.Adaptive.aval<PivotMode>
     member __.pivotSize = _pivotSize_
     member __.eulerMode = _eulerMode_ :> FSharp.Data.Adaptive.aval<EulerMode>
+    member __.refSysMode = _refSysMode_ :> FSharp.Data.Adaptive.aval<ReferenceSystemMode>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TransformationsLenses = 
     type Transformations with
@@ -106,6 +112,8 @@ module TransformationsLenses =
         static member scaling_ = ((fun (self : Transformations) -> self.scaling), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Transformations) -> { self with scaling = value }))
         static member trafoChanged_ = ((fun (self : Transformations) -> self.trafoChanged), (fun (value : Microsoft.FSharp.Core.bool) (self : Transformations) -> { self with trafoChanged = value }))
         static member usePivot_ = ((fun (self : Transformations) -> self.usePivot), (fun (value : Microsoft.FSharp.Core.bool) (self : Transformations) -> { self with usePivot = value }))
+        static member pivotMode_ = ((fun (self : Transformations) -> self.pivotMode), (fun (value : PivotMode) (self : Transformations) -> { self with pivotMode = value }))
         static member pivotSize_ = ((fun (self : Transformations) -> self.pivotSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Transformations) -> { self with pivotSize = value }))
         static member eulerMode_ = ((fun (self : Transformations) -> self.eulerMode), (fun (value : EulerMode) (self : Transformations) -> { self with eulerMode = value }))
+        static member refSysMode_ = ((fun (self : Transformations) -> self.refSysMode), (fun (value : ReferenceSystemMode) (self : Transformations) -> { self with refSysMode = value }))
 

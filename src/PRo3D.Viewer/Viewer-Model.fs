@@ -48,9 +48,11 @@ type TabMenu =
 
 type BookmarkAction =
     | AddBookmark 
-    | ImportBookmarks of list<string>
-    | ExportBookmarks of string
-    | GroupsMessage   of GroupsAppAction
+    | ImportGroupModel    of list<string>
+    | ExportGroupModel    of string
+    | ImportBookmarks     of list<string>
+    | ExportBookmarks     of string
+    | GroupsMessage       of GroupsAppAction
     | PrintViewParameters of Guid
 
 type PropertyActions =
@@ -80,13 +82,15 @@ type PickPivot =
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
-type ViewerAction =                
+type ViewerAction =     
+| InvertDrawing
 | DrawingMessage                  of DrawingAction
 | AnnotationGroupsMessageViewer   of GroupsAppAction
 | NavigationMessage               of Navigation.Action
 | AnimationMessage                of AnimationAction // SequencedBookmarkId that corresponds to this AnimationAction
 | ReferenceSystemMessage          of ReferenceSystemAction
 | AnnotationMessage               of AnnotationProperties.Action
+| AnnotationBulkMessage           of AnnotationProperties.Action
 | BookmarkMessage                 of BookmarkAction
 | BookmarkUIMessage               of GroupsAppAction
 | SequencedBookmarkMessage        of SequencedBookmarksAction
@@ -101,11 +105,12 @@ type ViewerAction =
 | SetFrustum                      of Frustum
 | SetRenderViewportSize           of V2i
 | ImportSurface                   of list<string>
-| DiscoverAndImportOpcs        of list<string>
+| DiscoverAndImportOpcs           of list<string>
 | ImportDiscoveredSurfacesThreads of list<string>
 | ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
 | ImportPRo3Dv1Annotations        of list<string>
+| ImportSbmtAnnotations           of list<string>
 | ImportSurfaceTrafo              of list<string>
 | ImportRoverPlacement            of list<string>
 | ImportTraverse                  of list<string>
@@ -114,8 +119,12 @@ type ViewerAction =
 | ConfigPropertiesMessage         of ConfigProperties.Action
 | DeleteLast
 | AddSg                           of ISg
+
 | PickSurface                     of SceneHit * string * bool
 | PreviewPickSurface              of SceneHit * string * bool
+| PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d>
+
+
 | PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
@@ -138,10 +147,10 @@ type ViewerAction =
 | SetInteraction                  of Interactions        
 | SetMode                         of TrafoMode
 | TransforAdaptiveSurface         of System.Guid * Trafo3d
-| ImportTrafo                     of list<string>
+| ImportTrafo                     of list<string> 
 | TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
 | RecalculateFarPlane
-| RecalculateNearFarPlane      
+| RecalculateNearFarPlane         of V2d  
 | Translate                       of string * TrafoController.Action
 | Rotate                          of string * TrafoController.Action
 | SurfaceActions                  of SurfaceAppAction
@@ -180,11 +189,13 @@ type ViewerAction =
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera
-| StopGeoJsonAutoExport        
+| StopGeoJsonAutoExport
 | SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
 | GisAppMessage                  of Gis.GisAppAction
+| CrossSectionMessage            of CrossSectionAction
 | SBookmarksToPoseDefinition
+| SetUserPreferences             of UserPreferences
 | Nop
 
 and MailboxState = {
@@ -227,6 +238,7 @@ type Scene = {
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
     gisApp                : PRo3D.Core.Gis.GisApp
+    crossSectionModel     : CrossSectionModel
 }
 
 module Scene =
@@ -273,15 +285,17 @@ module Scene =
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 
                     traverses             = TraverseModel.initial
+
                     sequencedBookmarks    = SequencedBookmarks.initial
 
                     comparisonApp         = ComparisonApp.init
                     screenshotModel       = ScreenshotModel.initial
                     gisApp                = Gis.GisApp.initial None
+                    crossSectionModel     = CrossSectionModel.initial
                 }
         }
 
-    let read1 = 
+    let read1 =
         json {            
             let! cameraView             = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
             let! navigationMode         = Json.read "navigationMode"
@@ -325,15 +339,16 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverses                = TraverseModel.initial
+                    traverses               = TraverseModel.initial
 
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
                     gisApp                  = Gis.GisApp.initial None
+                    crossSectionModel       = CrossSectionModel.initial
                 }
         }
 
-    let read2 = 
+    let read2 =
         json {            
             let! cameraView             = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
             let! navigationMode         = Json.read "navigationMode"
@@ -381,12 +396,13 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverses                = traverse |> Option.defaultValue(TraverseModel.initial)
+                    traverses               = traverse |> Option.defaultValue(TraverseModel.initial)
                     sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
                     gisApp                  = Gis.GisApp.initial None
+                    crossSectionModel       = CrossSectionModel.initial
                 }
         }
 
@@ -413,13 +429,13 @@ module Scene =
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
             let! gisApp                 = Json.tryRead "gisApp"
-            let gisApp = 
+            let gisApp =
                 match gisApp with
                 | Some gisApp -> gisApp
                 | None -> Gis.GisApp.initial None
-            //let! viewplans     = Json.tryRead "viewplans"
+            let! crossSectionModel      = Json.tryRead "crossSectionModel"
 
-            return 
+            return
                 {
                     version                 = current
 
@@ -444,12 +460,13 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverses                = traverse |> Option.defaultValue(TraverseModel.initial)
+                    traverses               = traverse |> Option.defaultValue(TraverseModel.initial)
                     sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
                     gisApp                  = gisApp
+                    crossSectionModel       = crossSectionModel |> Option.defaultValue CrossSectionModel.initial
                 }
         }
 
@@ -492,6 +509,7 @@ type Scene with
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
             do! Json.write "screenshotModel"    x.screenshotModel
             do! Json.write "gisApp"             x.gisApp
+            do! Json.write "crossSectionModel"  x.crossSectionModel
         }
 
 type SceneHandle = {
@@ -532,6 +550,36 @@ type MultiSelectionBox =
         selectionBox: Box3d
     }
 
+type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
+
+type ProjectedEllipse = 
+    {
+        surfaceProjectedPoints : Option<array<V3d>>
+        approximatePoints : array<V3d>
+        ellipse : Ellipse2d
+    }
+
+type EllipseType = 
+    | BoundaryEllipse
+    | ThreePointEllipse
+
+[<ModelType>]
+type EllipseModel = 
+    {
+        firstWorldPick : SurfaceIntersection
+        currentWorldPos : Option<SurfaceIntersection>
+        secondWorldPick : Option<SurfaceIntersection>
+        boundaryVertices : Option<V3d[]>
+        projectionPlane  : Option<Plane3d>
+        projectedEllipse : Option<ProjectedEllipse>
+    }
+
+module EllipseModel = 
+    let initial (p : SurfaceIntersection) = 
+        {   firstWorldPick = p; currentWorldPos = None; secondWorldPick = None; 
+            boundaryVertices = None; projectionPlane = None; projectedEllipse = None 
+        }
+
 [<ModelType>]
 type Model = { 
     viewerVersion        : string
@@ -567,6 +615,7 @@ type Model = {
     picking          : bool
     pivotType        : PickPivot
     ctrlFlag         : bool
+    inverseFlag      : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
@@ -587,8 +636,7 @@ type Model = {
     //viewPlans            : ViewPlanModel
  
     snapshotThreads      : ThreadPool<ViewerAction>
-    showExplorationPoint : bool
-
+    
     heighValidation      : HeightValidatorModel
 
     filterTexture        : bool
@@ -601,10 +649,22 @@ type Model = {
     animator             : Animation.Animator<Model>
 
     provenanceModel      : ProvenanceModel
-} 
+
+    backgroundPicking    : ThreadPool<ViewerAction>
+
+    surfaceIntersection : Option<SurfaceIntersection>
+    ellipseModel        : Option<EllipseModel>
+    pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
+
+    /// Per-computer user preferences (e.g. MapView WASD invert flags).
+    /// Loaded from / saved to `%APPDATA%/Pro3D/userPreferences.json`.
+    /// Outside scene/bookmark serialisation.
+    [<TreatAsValue>]
+    userPreferences      : UserPreferences
+}
 
 type ViewerAnimationAction =
-    | ViewerMessage of ViewerAction
+    | ViewerMessage     of ViewerAction
     | ProvenanceMessage of ProvenanceApp.ProvenanceMessage
     | AnewmationMessage of AnimatorMessage<Model>
 

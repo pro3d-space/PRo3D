@@ -1,5 +1,5 @@
-//7ee60322-ffc9-9bed-080f-d357fa699a22
-//98622bb4-7bf2-1f2e-b011-a4b0e555e5e7
+//02f7b0e2-2f2f-a35e-ea38-b810240cec41
+//20cca9a3-0146-ffe1-59ca-65f794a9c26b
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -140,6 +140,7 @@ type AdaptiveAnnotationResults(value : AnnotationResults) =
     let _slope_ = FSharp.Data.Adaptive.cval(value.slope)
     let _trueThickness_ = FSharp.Data.Adaptive.cval(value.trueThickness)
     let _verticalThickness_ = FSharp.Data.Adaptive.cval(value.verticalThickness)
+    let _area_ = FSharp.Data.Adaptive.cval(value.area)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : AnnotationResults) = AdaptiveAnnotationResults(value)
@@ -158,6 +159,7 @@ type AdaptiveAnnotationResults(value : AnnotationResults) =
             _slope_.Value <- value.slope
             _trueThickness_.Value <- value.trueThickness
             _verticalThickness_.Value <- value.verticalThickness
+            _area_.Value <- value.area
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.height = _height_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
@@ -169,6 +171,7 @@ type AdaptiveAnnotationResults(value : AnnotationResults) =
     member __.slope = _slope_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.trueThickness = _trueThickness_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.verticalThickness = _verticalThickness_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
+    member __.area = _area_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module AnnotationResultsLenses = 
     type AnnotationResults with
@@ -182,6 +185,7 @@ module AnnotationResultsLenses =
         static member slope_ = ((fun (self : AnnotationResults) -> self.slope), (fun (value : Microsoft.FSharp.Core.float) (self : AnnotationResults) -> { self with slope = value }))
         static member trueThickness_ = ((fun (self : AnnotationResults) -> self.trueThickness), (fun (value : Microsoft.FSharp.Core.float) (self : AnnotationResults) -> { self with trueThickness = value }))
         static member verticalThickness_ = ((fun (self : AnnotationResults) -> self.verticalThickness), (fun (value : Microsoft.FSharp.Core.float) (self : AnnotationResults) -> { self with verticalThickness = value }))
+        static member area_ = ((fun (self : AnnotationResults) -> self.area), (fun (value : Microsoft.FSharp.Core.float) (self : AnnotationResults) -> { self with area = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveAnnotation(value : Annotation) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
@@ -215,6 +219,7 @@ type AdaptiveAnnotation(value : Annotation) =
             (unbox<AdaptiveDipAndStrikeResults> o).Update(v)
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Base.Annotation.DipAndStrikeResults, PRo3D.Base.Annotation.AdaptiveDipAndStrikeResults, PRo3D.Base.Annotation.AdaptiveDipAndStrikeResults>(value.dnsResults, (fun (v : DipAndStrikeResults) -> AdaptiveDipAndStrikeResults(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveDipAndStrikeResults> o), (fun (v : DipAndStrikeResults) -> AdaptiveDipAndStrikeResults(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveDipAndStrikeResults> o))
+    let _ellipticResults_ = FSharp.Data.Adaptive.cval(value.ellipticResults)
     let _visible_ = FSharp.Data.Adaptive.cval(value.visible)
     let _showDns_ = FSharp.Data.Adaptive.cval(value.showDns)
     let _text_ = FSharp.Data.Adaptive.cval(value.text)
@@ -226,6 +231,8 @@ type AdaptiveAnnotation(value : Annotation) =
     let _view_ = FSharp.Data.Adaptive.cval(value.view)
     let _semanticId_ = FSharp.Data.Adaptive.cval(value.semanticId)
     let _semanticType_ = FSharp.Data.Adaptive.cval(value.semanticType)
+    let _crossSectionClipping_ = FSharp.Data.Adaptive.cval(value.crossSectionClipping)
+    let _crossSectionRefPoint_ = FSharp.Data.Adaptive.cval(value.crossSectionRefPoint)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Annotation) = AdaptiveAnnotation(value)
@@ -247,6 +254,7 @@ type AdaptiveAnnotation(value : Annotation) =
             _thickness_.Update(value.thickness)
             _results_.Update(value.results)
             _dnsResults_.Update(value.dnsResults)
+            _ellipticResults_.Value <- value.ellipticResults
             _visible_.Value <- value.visible
             _showDns_.Value <- value.showDns
             _text_.Value <- value.text
@@ -258,6 +266,8 @@ type AdaptiveAnnotation(value : Annotation) =
             _view_.Value <- value.view
             _semanticId_.Value <- value.semanticId
             _semanticType_.Value <- value.semanticType
+            _crossSectionClipping_.Value <- value.crossSectionClipping
+            _crossSectionRefPoint_.Value <- value.crossSectionRefPoint
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.key = __value.key
@@ -273,6 +283,7 @@ type AdaptiveAnnotation(value : Annotation) =
     member __.thickness = _thickness_
     member __.results = _results_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<AnnotationResults, AdaptiveAnnotationResults, AdaptiveAnnotationResults>>
     member __.dnsResults = _dnsResults_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<DipAndStrikeResults, AdaptiveDipAndStrikeResults, AdaptiveDipAndStrikeResults>>
+    member __.ellipticResults = _ellipticResults_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<EllipticAnnotationResult>>
     member __.visible = _visible_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showDns = _showDns_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.text = _text_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
@@ -284,6 +295,8 @@ type AdaptiveAnnotation(value : Annotation) =
     member __.view = _view_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
     member __.semanticId = _semanticId_ :> FSharp.Data.Adaptive.aval<SemanticId>
     member __.semanticType = _semanticType_ :> FSharp.Data.Adaptive.aval<SemanticType>
+    member __.crossSectionClipping = _crossSectionClipping_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.crossSectionRefPoint = _crossSectionRefPoint_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Base.V3d>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module AnnotationLenses = 
     type Annotation with
@@ -301,6 +314,7 @@ module AnnotationLenses =
         static member thickness_ = ((fun (self : Annotation) -> self.thickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Annotation) -> { self with thickness = value }))
         static member results_ = ((fun (self : Annotation) -> self.results), (fun (value : Microsoft.FSharp.Core.Option<AnnotationResults>) (self : Annotation) -> { self with results = value }))
         static member dnsResults_ = ((fun (self : Annotation) -> self.dnsResults), (fun (value : Microsoft.FSharp.Core.Option<DipAndStrikeResults>) (self : Annotation) -> { self with dnsResults = value }))
+        static member ellipticResults_ = ((fun (self : Annotation) -> self.ellipticResults), (fun (value : Microsoft.FSharp.Core.Option<EllipticAnnotationResult>) (self : Annotation) -> { self with ellipticResults = value }))
         static member visible_ = ((fun (self : Annotation) -> self.visible), (fun (value : Microsoft.FSharp.Core.bool) (self : Annotation) -> { self with visible = value }))
         static member showDns_ = ((fun (self : Annotation) -> self.showDns), (fun (value : Microsoft.FSharp.Core.bool) (self : Annotation) -> { self with showDns = value }))
         static member text_ = ((fun (self : Annotation) -> self.text), (fun (value : Microsoft.FSharp.Core.string) (self : Annotation) -> { self with text = value }))
@@ -312,4 +326,6 @@ module AnnotationLenses =
         static member view_ = ((fun (self : Annotation) -> self.view), (fun (value : Aardvark.Rendering.CameraView) (self : Annotation) -> { self with view = value }))
         static member semanticId_ = ((fun (self : Annotation) -> self.semanticId), (fun (value : SemanticId) (self : Annotation) -> { self with semanticId = value }))
         static member semanticType_ = ((fun (self : Annotation) -> self.semanticType), (fun (value : SemanticType) (self : Annotation) -> { self with semanticType = value }))
+        static member crossSectionClipping_ = ((fun (self : Annotation) -> self.crossSectionClipping), (fun (value : Microsoft.FSharp.Core.bool) (self : Annotation) -> { self with crossSectionClipping = value }))
+        static member crossSectionRefPoint_ = ((fun (self : Annotation) -> self.crossSectionRefPoint), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Base.V3d>) (self : Annotation) -> { self with crossSectionRefPoint = value }))
 
