@@ -21,6 +21,11 @@ The selected annotations are replaced by their union:
   text and projection are copied from it; the result is always a `Polygon`; measurements are
   recomputed, never copied. The result lands in the active group.
 - **One undo step** restores all originals.
+- **Self-intersection artifacts are dropped.** An outline that folds over itself in projection
+  (a hand-drawn spike) resolves into tiny extra contours; every legitimate union component
+  contains at least one whole operand, so components smaller than the smallest operand — and
+  micro-holes from the same folds — are recognised as artifacts and removed rather than turned
+  into absurd sliver annotations.
 
 ## How the geometry works
 

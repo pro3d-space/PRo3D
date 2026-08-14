@@ -63,6 +63,11 @@ let tests =
                 "inclusion-exclusion: 100 + 100 - 25"
             Expect.isFalse (originalKeys |> List.contains ann.key) "the result is a new annotation"
             Expect.isSome ann.results "measurements are recomputed, not copied"
+
+            // segment-less annotations render as an open polyline between consecutive points, so
+            // the ring must be stored closed like drawn polygons - regression: unionFail.pro3d
+            let pts = ann.points |> IndexList.toArray
+            Expect.equal pts.[0] pts.[pts.Length - 1] "the ring is stored closed (first = last)"
         }
 
         test "TC-20.2 union of disjoint polygons explodes into one annotation per component" {

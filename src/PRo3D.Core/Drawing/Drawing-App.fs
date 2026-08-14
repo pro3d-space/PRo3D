@@ -656,11 +656,17 @@ module DrawingApp =
                         // geometry becomes Polygon - a union of ellipses is no longer analytic -
                         // and every derived result is recomputed rather than copied
                         let makeAnnotation (ring : V3d[]) =
+                            // drawn polygons store their ring *closed* (closePolyline appends the
+                            // first point, Drawing-App.fs:68) and a segment-less annotation
+                            // renders as an open polyline between consecutive points - an open
+                            // ring would lose its closing edge on screen
+                            let closed =
+                                if ring.Length > 2 then Array.append ring [| ring.[0] |] else ring
                             let a =
                                 { first with
                                     key             = Guid.NewGuid()
                                     geometry        = Geometry.Polygon
-                                    points          = IndexList.ofArray ring
+                                    points          = IndexList.ofArray closed
                                     segments        = IndexList.empty
                                     dnsResults      = None
                                     ellipticResults = None }

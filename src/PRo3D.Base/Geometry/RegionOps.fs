@@ -62,6 +62,13 @@ module RegionOps =
         |> List.filter (fun p -> signedArea p.Points > 0.0)
         |> List.map (fun p -> Array.zip p.Points p.Attributes)
 
+    /// Every contour with its signed chart-space area: positive contours are outer rings,
+    /// negative ones holes. For callers that classify contours by size - e.g. separating
+    /// legitimate union components from self-intersection slivers.
+    let signedContours (r : Region) : list<float * (V2d * V3d)[]> =
+        r.Polygons
+        |> List.map (fun p -> signedArea p.Points, Array.zip p.Points p.Attributes)
+
     /// Hole contours, clockwise. Non-empty means the region cannot be stored as a single-ring
     /// annotation - see the viewer-integration note in the plan.
     let holes (r : Region) =

@@ -135,6 +135,63 @@ let tests () =
             }
         ]
 
+        testList "regressions" [
+
+            test "unionFail.pro3d: two Mars-scale terrain polygons union to one ring" {
+                // the pair that produced the first broken union in the viewer (open result ring);
+                // real Jezero coordinates, so this also exercises the chart at planetary
+                // magnitudes with terrain-varying z. Rings stored closed, as drawn polygons are.
+                let ringA =
+                    [ V3d(693752.4845169528, 3140964.4859369597, 1081753.5209588252)
+                      V3d(693826.0200948773, 3140951.3451355053, 1081749.271953337)
+                      V3d(693817.5996431275, 3140969.4912605193, 1081705.7058096773)
+                      V3d(693752.3277482664, 3140984.42677805,   1081682.0624189952)
+                      V3d(693703.1901611687, 3140982.844498966,  1081725.2078957127)
+                      V3d(693717.6165261068, 3140975.9650775343, 1081736.0441335244)
+                      V3d(693752.4845169528, 3140964.4859369597, 1081753.5209588252) ]
+                let ringB =
+                    [ V3d(693836.6654154294, 3140940.082732067,  1081771.9274253566)
+                      V3d(693804.8881684946, 3140963.156423218,  1081731.7674766772)
+                      V3d(693804.145194177,  3140974.8859479995, 1081681.5826886257)
+                      V3d(693873.9332417365, 3140967.6103407787, 1081678.7199219745)
+                      V3d(693926.1712929023, 3140950.532698612,  1081691.1129532459)
+                      V3d(693953.2448963856, 3140943.269000637,  1081694.45588316)
+                      V3d(693940.9927090054, 3140937.732992658,  1081716.1248905866)
+                      V3d(693900.5369081451, 3140939.222663753,  1081737.4637383546)
+                      V3d(693853.2128994344, 3140941.9378085057, 1081757.507136002)
+                      V3d(693833.117173066,  3140939.9575913376, 1081774.6055683242)
+                      V3d(693836.6654154294, 3140940.082732067,  1081771.9274253566) ]
+                // ring B self-intersects in projection (the hand-drawn spike folds over itself),
+                // which EvenOdd resolves into the main contour plus a 0.7 m² sliver. The sliver
+                // must be recognised as an artifact - smaller than any operand - and dropped,
+                // not exploded into an absurd micro-annotation.
+                let a, b = annoOf ringA, annoOf ringB
+                let rings = expectOk (union noProjection [ a; b ])
+                Expect.equal rings.Length 1 "one component; the self-intersection sliver is dropped"
+                match rings with
+                | [ ring ] ->
+                    Expect.isTrue (ring.Length >= 10) "the outline keeps its shape"
+                    // inclusion-exclusion, computed in the union's own chart (the ring is not
+                    // planar in world space, so re-fitting it would measure a different chart)
+                    let ringAnno = annoOf (List.ofArray ring)
+                    let area =
+                        match commonChart [ a; b ] with
+                        | Some chart ->
+                            match toRegion chart ringAnno with
+                            | Some r -> RegionOps.area r
+                            | None -> failtest "result ring did not project"
+                        | None -> failtest "no common chart"
+                    Expect.floatClose { absolute = 5.0; relative = 1e-3 } area 14583.0
+                        "area is a + b - overlap (6122 + 9161 - 700)"
+                    // every surviving vertex is one of the drawn points, bitwise
+                    let inputs = List.append ringA ringB
+                    let survivors =
+                        ring |> Array.filter (fun v -> inputs |> List.exists (fun p -> p = v))
+                    Expect.isTrue (survivors.Length >= 10) "most vertices survive verbatim"
+                | _ -> failtest "unreachable"
+            }
+        ]
+
         testList "cut" [
 
             test "a straight stroke halves the square" {

@@ -202,6 +202,23 @@ selection set is unordered, so this is what makes "first wins" deterministic), c
 hole refusal and the <2-selected case (311 tests green). User docs:
 `docs/AnnotationBooleanOps.md`.
 
+### Checkpoint 3 findings — two defects from the first real-scene union (unionFail.pro3d)
+
+The first union on a real Jezero scene rendered with missing edges. Two independent causes,
+both now fixed and regression-tested with the scene's exact rings:
+
+1. **Result rings were stored open.** Drawn polygons store their ring *closed* (`closePolyline`
+   appends the first point) and a segment-less annotation renders as an open polyline between
+   consecutive points — so the union result lost its closing edge on screen. Result rings are
+   now closed at annotation construction.
+2. **A self-intersection sliver became its own annotation.** One input ring folded over itself
+   in projection (a hand-drawn spike); EvenOdd resolves the fold into a 0.7 m² extra contour,
+   which the union faithfully exploded into a second, absurd annotation. Since every legitimate
+   union component contains at least one whole operand, components smaller than the smallest
+   operand are artifacts by definition — `union` now drops them, and fills micro-holes from the
+   same folds (< smallest operand × 1e-3), keeping the area error orders below the invariant
+   tolerances. Substantial holes still refuse.
+
 ### Checkpoint 3 (manual, viewer)
 
 Union two overlapping polygons on a real OPC scene: outline coincides with the originals where

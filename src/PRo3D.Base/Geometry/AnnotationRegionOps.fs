@@ -81,15 +81,31 @@ module AnnotationRegionOps =
                 match regions |> List.tryPick (fun (a, r) -> if r.IsNone then Some a.key else None) with
                 | Some key -> Result.Error (ChartProjectionFailed key)
                 | None ->
-                    let merged =
-                        regions
-                        |> List.choose snd
-                        |> List.reduce merge
-                    match holes merged with
+                    let operandRegions = regions |> List.choose snd
+                    let merged = operandRegions |> List.reduce merge
+
+                    // Terrain rings routinely self-intersect once projected (a hand-drawn spike
+                    // folding over itself), and EvenOdd faithfully resolves the fold into a tiny
+                    // extra contour. Every *legitimate* union component contains at least one
+                    // whole operand, so a component smaller than the smallest operand is
+                    // definitionally such an artifact - dropped, costing area far below the
+                    // invariant tolerances. Micro-holes from the same folds are filled on the
+                    // same grounds; only substantial holes refuse.
+                    let minOperandArea = operandRegions |> List.map area |> List.min
+                    let contours = RegionOps.signedContours merged
+
+                    let realHoles =
+                        contours
+                        |> List.filter (fun (sa, _) -> sa < 0.0 && abs sa >= minOperandArea * 1e-3)
+                    match realHoles with
                     | [] ->
                         let inputs = annotations |> Seq.collect worldPoints |> Seq.toArray
-                        outerRings merged
-                        |> List.map (reprojectInvented projectToSurface inputs)
+                        contours
+                        |> List.filter (fun (sa, _) -> sa > 0.0 && sa >= minOperandArea * 0.5)
+                        |> List.map (fun (_, contour) ->
+                            contour
+                            |> Array.map snd
+                            |> reprojectInvented projectToSurface inputs)
                         |> Result.Ok
                     | hs -> Result.Error (ResultHasHoles hs.Length)
 
