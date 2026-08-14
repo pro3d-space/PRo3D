@@ -1,4 +1,4 @@
-![Build](https://github.com/vrvis/PRo3D/workflows/Build/badge.svg)
+![Build](https://github.com/pro3d-space/PRo3D/actions/workflows/build.yml/badge.svg?branch=main)
 
 ![](http://www.pro3d.space/images/garden.jpg)
 
