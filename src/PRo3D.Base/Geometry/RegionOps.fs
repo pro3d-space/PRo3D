@@ -108,7 +108,7 @@ module RegionOps =
     let merge (a : Region) (b : Region) : Region =
         PolyRegion<V3d>.Union(a, b, interpolate)
 
-    let private difference (a : Region) (b : Region) : Region =
+    let difference (a : Region) (b : Region) : Region =
         PolyRegion<V3d>.Difference(a, b, interpolate)
 
     /// Intersection as A - (A - B).

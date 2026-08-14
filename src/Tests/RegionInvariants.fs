@@ -43,12 +43,17 @@ let sampledDisagreement (n : int) (a : Region) (b : Region) =
 /// boundary is expected rather than a defect.
 let sampledEquivalent (a : Region) (b : Region) = sampledDisagreement 40 a b <= 0.02
 
-/// Is `inner` wholly inside `outer`? Exactly: containment holds iff area (inner ∩ outer) equals
-/// area inner, and polygon areas are exact - no grid resolution to trade off. This is what the
-/// sampled comparison above cannot give, and it only became usable once RegionOps.intersect
-/// stopped going through the AbsGeqTwo winding rule (docs/dev/polyregion-intersection-bug.md).
-let containedIn (inner : Region) (outer : Region) =
-    relDiff (area (intersect inner outer)) (area inner) <= areaTolerance
+/// How much of `inner` sticks out of `outer`, as a fraction of inner's area. Zero means
+/// contained.
+///
+/// Asked as `inner - outer` rather than `area (inner ∩ outer) = area inner`: both are exact
+/// statements, but the difference is a single tessellation where intersect is two nested ones
+/// (it is itself defined through difference), so this accumulates half the numerical error.
+let escapedFraction (inner : Region) (outer : Region) =
+    let a = area inner
+    if a <= 0.0 then 0.0 else area (difference inner outer) / a
+
+let containedIn (inner : Region) (outer : Region) = escapedFraction inner outer <= areaTolerance
 
 // ---------------------------------------------------------------------------------------------
 // cut
@@ -98,18 +103,39 @@ let cutViolations (stroke : V2d[]) (r : Region) : string list =
 let mergeViolations (a : Region) (b : Region) : string list =
     let m = merge a b
     [
-        // inclusion-exclusion
-        let expected = area a + area b - area (intersect a b)
+        // Area of the union = area a plus the part of b lying outside a. Equivalent to
+        // inclusion-exclusion, but built from a single difference rather than an intersection -
+        // intersect is two nested tessellations, so the old form measured its accuracy as much
+        // as merge's, and reported "merged area X, expected Y" for perfectly good unions.
+        let expected = area a + area (difference b a)
         if relDiff (area m) expected > areaTolerance then
-            yield sprintf "merged area %g, expected %g" (area m) expected
+            // An independent estimate that uses no boolean operation at all: rasterise "in a or
+            // in b" over the pair's bounds. It says which of the two operations drifted.
+            let box = Box2d(bounds a)
+            box.ExtendBy(bounds b)
+            let n = 400
+            let mutable hits = 0
+            for i in 0 .. n - 1 do
+                for j in 0 .. n - 1 do
+                    let p =
+                        V2d(box.Min.X + box.SizeX * (float i + 0.5) / float n,
+                            box.Min.Y + box.SizeY * (float j + 0.5) / float n)
+                    if contains p a || contains p b then hits <- hits + 1
+            let rasterised = box.SizeX * box.SizeY * float hits / float (n * n)
+            yield sprintf "merged area %g, expected %g (rasterised union %g; a %g, b %g, b-a %g)"
+                    (area m) expected rasterised (area a) (area b) (area (difference b a))
 
         // order must not matter
         if not (sampledEquivalent m (merge b a)) then
             yield "merge is not commutative"
 
         // both operands must be contained in the result
-        if not (containedIn a m) then yield "the merge lost part of a"
-        if not (containedIn b m) then yield "the merge lost part of b"
+        let escapedA = escapedFraction a m
+        if escapedA > areaTolerance then
+            yield sprintf "the merge lost %.3f%% of a (area %g)" (escapedA * 100.0) (area a)
+        let escapedB = escapedFraction b m
+        if escapedB > areaTolerance then
+            yield sprintf "the merge lost %.3f%% of b (area %g)" (escapedB * 100.0) (area b)
     ]
 
 let mergeIdempotenceViolations (a : Region) : string list =
