@@ -169,10 +169,11 @@ DrawingAction.UnionSelectedAnnotations
   snapshots — restoring an old bookmark resurrects the pre-union annotations, which is
   *snapshot semantics, not a bug*, but document it), provenance snapshots
   (`ProvenanceModel.fs:50`, same semantics), comparison measurements
-  (`Comparison-Model.fs:36`, `annotationKey` dangles — degrade gracefully: `tryFind`, drop the
-  row), correlation-panel `ContactId`s (latent — the wiring is commented out at
+  (`Comparison-Model.fs:36` — verified harmless: measurements are rebuilt from the *current*
+  annotations via `tryHead`/`Option.bind`, the stored `annotationKey` is write-only output),
+  correlation-panel `ContactId`s (latent — the wiring is commented out at
   `Viewer.fs:611-632`), and `Annotation.bookmarkId` points the *other* way (safe). None block
-  stage 1; comparison needs the `tryFind` check in the same PR.
+  stage 1, and none needs code changes.
 
 ### Checkpoint 2 (sub-app messages, CI, no GL)
 
@@ -274,7 +275,7 @@ so this follows the feature rather than chording it.
 
 1. `AnnotationRegionOps` + checkpoint 1 tests (pure; the union PR's first commits)
 2. `UnionSelectedAnnotations` message + panel button (UX B) + checkpoint 2 tests
-3. manual checkpoint 3 on a real scene; comparison `tryFind` hardening
+3. manual checkpoint 3 on a real scene (comparison hardening turned out unnecessary — verified)
 4. *(optional, follow-up)* click-through union mode (UX A) as selection-driving sugar
 5. `CutAnnotation` mode + `cutStroke` + dry-run feedback + checkpoint 4 tests
 6. manual checkpoint 5; `docs/AnnotationBooleanOps.md` for both stages
