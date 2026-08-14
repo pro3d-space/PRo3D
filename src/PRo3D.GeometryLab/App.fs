@@ -1,9 +1,12 @@
 module PRo3D.GeometryLab.App
 
 open System
+open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI
+open Aardvark.UI.Primitives
+open PRo3D.Base.Geometry
 open PRo3D.Base.Geometry.RegionOps
 open PRo3D.GeometryLab
 
@@ -136,7 +139,7 @@ let update (m : Model) (msg : Message) =
         else
             let dir = Path.Combine(__SOURCE_DIRECTORY__, "..", "Tests", "data", "regions")
             let name = sprintf "lab-%s" (Guid.NewGuid().ToString("N").Substring(0, 8))
-            let path = Fixture.save dir name regions "exported from the geometry lab"
+            let path = RegionFixture.save dir name regions "exported from the geometry lab"
             { m with status = sprintf "wrote %s" (Path.GetFileName path) }
 
     | Undo ->
@@ -241,7 +244,7 @@ let view (m : AdaptiveModel) =
         ]
     )
 
-let app =
+let app : App<Model, AdaptiveModel, Message> =
     {
         initial   = initial
         update    = update

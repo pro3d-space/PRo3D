@@ -57,6 +57,7 @@
     <Compile Include="Geometry\PolyRegion2d.fs" />
     <Compile Include="Annotation\PolygonFill.fs" />
     <Compile Include="Geometry\RegionOps.fs" />
+    <Compile Include="Geometry\RegionFixture.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />
     <Compile Include="FalseColors\FalseColors-Model.g.fs" />
     <Compile Include="FalseColors\FalseColorLegendApp.fs" />

@@ -31,11 +31,10 @@ type Shape =
 [<ModelType>]
 type Model =
     {
-        /// Opaque to Adaptify: a Shape holds a PolyRegion, which is a plain class rather than a
-        /// decomposable domain type. Treating the list as a value keeps the *real* region type in
-        /// the model - the alternative, storing rings and rebuilding regions in the view, would
-        /// drift the lab away from the code it exists to exercise.
-        [<TreatAsValue>]
+        /// Shape is not a [<ModelType>], so Adaptify treats each element as a value and the list
+        /// becomes an alist<Shape> - per-shape change tracking, with the *real* region type kept
+        /// in the model. (An earlier [<TreatAsValue>] here was a workaround for adaptify failing
+        /// on the then-unrestored project; it was never needed.)
         shapes    : IndexList<Shape>
         nextId    : int
 

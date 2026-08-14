@@ -1,20 +1,23 @@
+open System
+
 open Aardvark.Base
 open Aardvark.Application.Slim
 open Aardvark.UI
-open Aardium
-open Suave
+open Aardvark.UI.Giraffe
 
-[<EntryPoint>]
-let main argv =
+open Aardium
+
+[<EntryPoint; STAThread>]
+let main _argv =
     Aardvark.Init()
-    Aardium.init()
+    Aardium.Init()
 
     use app = new OpenGlApplication()
-    let instance = PRo3D.GeometryLab.App.app |> App.start
+    use instance = PRo3D.GeometryLab.App.app |> App.start
 
-    WebPart.startServerLocalhost 4322 [
-        MutableApp.toWebPart' app.Runtime false instance
-        Suave.Files.browseHome
+    Server.startLocalhost 4322 instance.CancellationToken [
+        MutableApp.toWebPart app.Runtime instance
+        WebPart.ofType<Primitives.EmbeddedResources>
     ] |> ignore
 
     Aardium.run {

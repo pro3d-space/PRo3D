@@ -5,7 +5,7 @@ Aardvark.Rendering
 Aardvark.Application.Slim.GL
 Aardvark.SceneGraph
 
-Aardvark.UI
+Aardvark.UI.Giraffe
 Aardvark.UI.Primitives
 Aardium
 
