@@ -260,6 +260,8 @@ module UI =
 
                 staticClickIcon "calculator icon"       "Recalculate selected Polygon Measurements" (RecalculateMeasurements)
 
+                staticClickIcon "object group icon"     "Union selected annotations (2 or more)" (UnionSelectedAnnotations None)
+
                 ColorPicker.view group.defaultColor
                 |> UI.map (fun a -> GroupsMessage(GroupsAppAction.SetGroupDefaultColor(path, a)))
                 |> UI.wrapToolTip DataPosition.Bottom "Default color for new annotations in this group"

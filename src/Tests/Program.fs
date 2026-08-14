@@ -23,6 +23,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section16_CommandLine.tests
         PRo3D.Tests.Section18_KeyboardShortcuts.tests
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
+        PRo3D.Tests.Section20_BooleanOperations.tests
     ]
 
 let allTests () : Test =

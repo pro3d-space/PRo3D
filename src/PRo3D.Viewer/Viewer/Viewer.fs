@@ -631,13 +631,42 @@ module ViewerApp =
                     m
                 | None -> m
                 
-            | _ ->
-                let view = 
-                    match m.viewerMode with 
+            | Drawing.UnionSelectedAnnotations None ->
+                // enrich the UI's payload-less message with the terrain raycast, so vertices the
+                // union invents land on the surface - same sky ray as AddPointAdv reprojection
+                let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+                let onlyActive (_ : Guid) (l : Leaf) (_ : SgSurface) = l.active
+                let planet = m.scene.referenceSystem.planet
+
+                let projectToSurface (p : V3d) =
+                    let up = CooTransformation.getUpVector p planet
+                    let reprojectionDistance =
+                        match planet with
+                        | Planet.Mars -> 1000000.0
+                        | _ -> 100.0
+                    let ray = FastRay3d(p + (up * reprojectionDistance), -up)
+                    match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray onlyActive Picking.cache Config.diagnosticTimings with
+                    | Some hitInfo, c -> Picking.cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
+                    | None, c -> Picking.cache <- c; None
+
+                let view =
+                    match m.viewerMode with
                     | ViewerMode.Standard -> m.navigation.camera.view
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
-                let drawing = 
+                let drawing =
+                    DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (Drawing.UnionSelectedAnnotations (Some projectToSurface))
+
+                { m with drawing = drawing; } |> stash
+
+            | _ ->
+                let view =
+                    match m.viewerMode with
+                    | ViewerMode.Standard -> m.navigation.camera.view
+                    | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+
+                let drawing =
                     DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
                 { m with drawing = drawing; } |> stash

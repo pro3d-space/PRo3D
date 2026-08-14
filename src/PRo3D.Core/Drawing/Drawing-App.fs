@@ -616,7 +616,71 @@ module DrawingApp =
                         ) model.annotations.flat
                 
                 { model with annotations = { model.annotations with flat = annotationsFlat }}
-            | DnsColorLegendMessage msg,_, _ -> 
+            | UnionSelectedAnnotations projectToSurface, _, _ ->
+                let projectToSurface = projectToSurface |> Option.defaultValue (fun _ -> None)
+
+                // the selection is an unordered set; the depth-first tree walk makes the operand
+                // order - and with it the "first wins" metadata policy - deterministic
+                let selectedIds =
+                    model.annotations.selectedLeaves |> HashSet.map (fun ts -> ts.id)
+                let operands =
+                    GroupsApp.collectLeaves model.annotations.rootGroup
+                    |> IndexList.toList
+                    |> List.filter (fun id -> selectedIds |> HashSet.contains id)
+                    |> List.choose (fun id ->
+                        model.annotations.flat
+                        |> HashMap.tryFind id
+                        |> Option.bind (fun leaf ->
+                            match leaf with
+                            | Leaf.Annotations a -> Some a
+                            | _ -> None))
+
+                match operands with
+                | first :: _ :: _ ->
+                    match PRo3D.Base.Geometry.AnnotationRegionOps.union projectToSurface operands with
+                    | Result.Ok rings ->
+                        let up     = smallConfig.up.Get(bigConfig)
+                        let north  = smallConfig.north.Get(bigConfig)
+                        let planet = smallConfig.planet.Get(bigConfig)
+
+                        let consumed = operands |> List.map (fun a -> a.key) |> HashSet.ofList
+                        let before   = model.annotations
+
+                        let removed =
+                            model.annotations.selectedLeaves
+                            |> HashSet.toList
+                            |> List.filter (fun ts -> consumed |> HashSet.contains ts.id)
+                            |> List.fold (fun g ts -> GroupsApp.removeLeaf g ts.id ts.path true) model.annotations
+
+                        // metadata from the first operand in tree order (the decided policy);
+                        // geometry becomes Polygon - a union of ellipses is no longer analytic -
+                        // and every derived result is recomputed rather than copied
+                        let makeAnnotation (ring : V3d[]) =
+                            let a =
+                                { first with
+                                    key             = Guid.NewGuid()
+                                    geometry        = Geometry.Polygon
+                                    points          = IndexList.ofArray ring
+                                    segments        = IndexList.empty
+                                    dnsResults      = None
+                                    ellipticResults = None }
+                            { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+
+                        let after =
+                            rings
+                            |> List.fold (fun g ring ->
+                                GroupsApp.addLeafToActiveGroup (Leaf.Annotations (makeAnnotation ring)) false g) removed
+
+                        { model with annotations = after }
+                        |> pushUndo (SnapshotDelta(before, after))
+                    | Result.Error refusal ->
+                        Log.warn "[Drawing] union refused: %A" refusal
+                        model
+                | _ ->
+                    Log.warn "[Drawing] union needs at least two selected annotations"
+                    model
+
+            | DnsColorLegendMessage msg,_, _ ->
                 { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
             | FlyToAnnotation msg, _, _ ->               
                 model        

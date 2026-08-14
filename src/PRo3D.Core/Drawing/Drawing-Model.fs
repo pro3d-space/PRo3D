@@ -66,6 +66,10 @@ type DrawingAction =
 | NorthVectorChanged     of V3d
 | GroupsMessage          of GroupsAppAction
 | RecalculateMeasurements
+/// Union all selected annotations into one (or one per component). The payload lands vertices
+/// invented by the union on the terrain; the UI sends None and the viewer re-dispatches with
+/// the surface raycast - the same enrichment pattern as AddPointAdv's sample function.
+| UnionSelectedAnnotations of Option<V3d -> Option<V3d>>
 | DnsColorLegendMessage  of FalseColorLegendApp.Action  
 | ExportAsAnnotations    of string
 | AddAnnotations         of list<string>

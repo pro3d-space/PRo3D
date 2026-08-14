@@ -188,6 +188,19 @@ The existing `src/Tests/Features` harness drives the real `ViewerApp.updateViewe
 - refusal case (U + bar shapes) → model unchanged, no undo step pushed
 - comparison module holding a deleted key → no crash
 
+### Checkpoint 2 result — done
+
+`DrawingAction.UnionSelectedAnnotations of Option<V3d -> Option<V3d>>`: the panel button (next
+to the recalculate icon, `Drawing.UI.fs`) sends `None`; the viewer's `DrawingMessage` handler
+enriches it with the sky-direction kd-tree raycast and re-dispatches — the same enrichment
+pattern as `AddPointAdv`. The handler resolves the selection in depth-first tree order (the
+selection set is unordered, so this is what makes "first wins" deterministic), calls
+`AnnotationRegionOps.union`, replaces the operands atomically and pushes one
+`SnapshotDelta(before, after)`. Refusals log and change nothing — no empty undo step.
+`Section20_BooleanOperations.fs` covers union area, component explosion, one-step undo/redo,
+hole refusal and the <2-selected case (311 tests green). User docs:
+`docs/AnnotationBooleanOps.md`.
+
 ### Checkpoint 3 (manual, viewer)
 
 Union two overlapping polygons on a real OPC scene: outline coincides with the originals where
