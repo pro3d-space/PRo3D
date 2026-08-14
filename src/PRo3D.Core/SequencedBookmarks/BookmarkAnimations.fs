@@ -30,24 +30,28 @@ module BookmarkAnimations =
         let frustum_ = SceneStateViewConfig.frustumModel_ >-> FrustumModel.frustum_
         let focal_   = SceneStateViewConfig.frustumModel_ >-> FrustumModel.focal_ >-> NumericInput.value_
 
-        let private viewsCoincide (a : CameraView) (b : CameraView) =
-            Vec.distance a.Location b.Location < 1e-8 &&
-            Vec.distance a.Forward  b.Forward  < 1e-10 &&
-            Vec.distance a.Sky      b.Sky      < 1e-10
-
-        /// Wrapper around Animation.Camera.interpolate that is robust for coincident
-        /// camera views. The stock primitive derives its duration from the camera path,
-        /// so two identical views collapse to a zero-duration animation; Animation.seconds
-        /// then cannot rescale it ("Cannot scale composite animation with zero duration")
-        /// and it samples to Unchecked.defaultof<CameraView> (null), which nulls out
-        /// navigation.camera.view. For coincident endpoints we return a unit-duration
-        /// constant hold instead.
-        /// TODO: fix upstream in aardvark.media and remove this wrapper.
+        /// Interpolates between two camera views over a fixed unit duration.
+        ///
+        /// Deliberately does not use Animation.Camera.interpolate: that primitive composes a
+        /// position and an orientation animation whose durations are derived from how far each
+        /// one travels, and a component that does not move collapses to zero duration and then
+        /// samples to its default value rather than holding still. Two bookmarks that share an
+        /// orientation but not a location - a pure dolly - therefore produced a correct position
+        /// with Unchecked.defaultof<Rot3d>, i.e. CameraView.orient loc (Rot3d()) sky, whose
+        /// forward is +Y: the camera stared off into the sky for the whole segment. Fully
+        /// coincident endpoints degenerated further, to a null CameraView.
+        ///
+        /// Sampling position and orientation together under one explicit duration removes the
+        /// dependency on how far either travels, so identical endpoints simply hold. This
+        /// mirrors what the snapshot path already does in SnapshotAnimation.lerpCamera, which
+        /// is why batch-rendered animations never showed the bug.
         let cameraInterpolateSafe (src : CameraView) (dst : CameraView) : IAnimation<'Model, CameraView> =
-            if viewsCoincide src dst then
-                Animation.create (fun (_ : float) -> dst) |> Animation.seconds 1.0
-            else
-                Animation.Camera.interpolate src dst
+            Animation.create (fun (t : float) ->
+                let location = src.Location + (dst.Location - src.Location) * t
+                let orientation = Rot.SlerpShortest(src.Orientation, dst.Orientation, t)
+                CameraView.orient location orientation dst.Sky
+            )
+            |> Animation.seconds 1.0
 
         // interpolate ViewConfigModel for animation
         let interpVcm (src : SceneStateViewConfig) (dst : SceneStateViewConfig)
@@ -111,7 +115,7 @@ module BookmarkAnimations =
                 else 
                     []
             
-            let toNext = 
+            let toNext =
                 let animCam =
                     cameraInterpolateSafe (src.bookmark.cameraView) (dst.bookmark.cameraView)
                     
