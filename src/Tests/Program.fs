@@ -1,4 +1,4 @@
-﻿open Expecto
+open Expecto
 open NUnit
 
 
@@ -37,6 +37,7 @@ let allTests () : Test =
         SpiceTests.tests()
         TriangleSetTests.tests()
         PolygonFillTests.tests()
+        RegionOpsTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
