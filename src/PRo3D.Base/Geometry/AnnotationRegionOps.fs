@@ -33,7 +33,15 @@ module AnnotationRegionOps =
     /// One chart every operand projects through (decided): a plane fitted over the concatenated
     /// points of all operands. tryOfPlane rejects degenerate fits (collinear points, NaN).
     let commonChart (annotations : seq<Annotation>) : Option<SurfaceChart> =
-        let pts = annotations |> Seq.collect (fun a -> a.points) |> Seq.toArray
+        // The upcast is load-bearing, do not remove it. IndexList<'T> is a struct implementing
+        // IEnumerable<'T>, and under --optimize+ the compiler fuses Seq.collect with a
+        // materializing consumer into an ArrayCollector loop that uses the lambda's result as an
+        // IEnumerable without boxing it - emitting `ldnull; stloc` into a struct-typed local and
+        // an unboxed struct where an interface is expected. The method then fails JIT
+        // verification with InvalidProgramException at run time (Release only; Debug is fine).
+        // Upcasting in the lambda makes the fused code see a reference type and stay valid.
+        // Repro and analysis: docs/dev/fsharp-seq-collect-struct-bug.md
+        let pts = annotations |> Seq.collect (fun a -> a.points :> seq<V3d>) |> Seq.toArray
         if pts.Length < 3 then None
         else OpcViewer.Base.PlaneFitting.planeFit pts |> SurfaceChart.tryOfPlane
 
