@@ -178,6 +178,48 @@ let tests () =
                 Expect.isSome (SurfaceChart.tryOfPlane (Plane3d(V3d.OOI, V3d.Zero)))
                     "a well-formed plane must be accepted"
             }
+
+            // The geographic chart is opt-in and has no production caller yet, but the
+            // antimeridian and pole handling is the fiddly part of it - cover it here rather than
+            // discover it when merge/split starts using it. Self-skips where CooTransformation
+            // cannot convert, like the other conversion-dependent suites.
+            test "geographic chart round-trips, unwraps the antimeridian and refuses poles" {
+                let planet = Planet.Mars
+                let xyzAt (lon : float) (lat : float) =
+                    CooTransformation.tryGetXYZFromLatLonAlt
+                        { longitude = lon; latitude = lat; altitude = 0.0; radian = 0.0 } planet
+
+                match xyzAt 179.0 10.0 with
+                | None -> skiptest "CooTransformation unavailable"
+                | Some basePoint ->
+
+                match SurfaceChart.geographic planet None basePoint with
+                | None -> skiptest "geographic chart unavailable for this body"
+                | Some chart ->
+
+                // round trip
+                let rt = chart.toChart basePoint |> Option.bind chart.toWorld
+                Expect.isSome rt "the base point must convert"
+                Expect.isTrue (Vec.Distance(rt.Value, basePoint) < 1.0)
+                    "a round trip through the geographic chart must land within a metre"
+
+                // antimeridian: a neighbour just across +/-180 must stay adjacent in chart space,
+                // not jump ~360 degrees
+                match xyzAt -179.0 10.0 with
+                | None -> ()
+                | Some across ->
+                    match chart.toChart basePoint, chart.toChart across with
+                    | Some a, Some b ->
+                        Expect.isLessThan (abs (a.X - b.X)) 10.0
+                            "longitudes must be unwrapped about the base point, not split at the seam"
+                    | _ -> failtest "both points must chart"
+
+                // poles are refused rather than silently degenerate
+                match xyzAt 0.0 89.99 with
+                | None -> ()
+                | Some polar ->
+                    Expect.isNone (chart.toChart polar) "a point at the pole must be refused"
+            }
         ]
 
         // -----------------------------------------------------------------------------------
