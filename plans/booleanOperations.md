@@ -11,11 +11,11 @@ Testing approach and its rationale: `plans/testingStrategy.md`.
 |---|---|
 | A. Vendored `PolyRegion<'a>` in `PRo3D.Base` | **done** |
 | B. `RegionOps` — cut, merge, and their properties | **done** |
-| C. `PRo3D.GeometryLab` — SVG lab + fixture export | pending |
-| D. Fixture replay | pending |
+| C. `PRo3D.GeometryLab` — SVG lab + fixture export | **done** — builds, in the sln, `docs/GeometryLab.md` |
+| D. Fixture replay | **done** — `RegionFixtureTests`, one test per `.region` file |
 | Viewer integration | out of scope, design decided below |
 
-287 tests passing, FsCheck properties confirmed running 100 cases each.
+289 tests passing, FsCheck properties confirmed running 100 cases each.
 
 ## A. Vendoring
 
@@ -87,74 +87,50 @@ Generators produce angle-ordered simple rings (so shrinking keeps them simple), 
 guaranteed-cutting and guaranteed-missing strokes so both branches are actually exercised.
 Shrinkers go through `Arb.fromGenShrink`; `Arb.fromGen` has an empty shrinker.
 
-## C. `PRo3D.GeometryLab` — HANDOVER, blocked on a model-representation decision
+## C. `PRo3D.GeometryLab` — done
 
 SVG lab modelled on `aardvark.media/src/Examples (dotnetcore)/07 - Simple2DDrawing`. Tools: draw,
 cut, select; merge selected; undo/redo. Holes rendered dashed red so a merge that produces one is
-obvious rather than silently filled.
+obvious rather than silently filled. Usage: `docs/GeometryLab.md`.
 
 **The update function only sequences and calls `RegionOps`** — no geometry in the lab. That is what
 keeps the logic testable without a GUI. Keep it that way.
 
-`ExportFixture` writes the shapes to `src/Tests/data/regions/` as plain text (one contour per line,
-`x,y x,y …`). Every file there should be replayed through the invariants, one test per file, so
-adding a regression case is dropping in a file. **Fixture replay is not written yet.**
+### The adaptify blocker, resolved
 
-### On-disk state
+The handover left the lab not building: adaptify reported *"no models in Model.fs"* and two
+hypotheses were open. **Hypothesis 2 was the cause — the project had never been restored.** After
+`dotnet tool restore` + a build of the project, `dotnet adaptify --lenses --local --force`
+generates `Model.g.fs` without complaint. No design change was needed; adaptify decomposes the
+model fine.
 
-Branch `features/testing-invariants`, worktree
-`.claude/worktrees/annotation-polygon-fill/`. Everything in A, B and the properties is committed
-and green (287 tests). The lab is **uncommitted and does not build**:
+Worth remembering: **adaptify must typecheck the project, so it only works after a successful
+restore.** On an unrestored project it does not error — it reports "no models" and generates
+nothing, which reads like a modelling problem and cost a whole handover. The lab now has
+`RunAdaptify.fsx` like every other project, and `adapt.cmd` / `adapt.sh` include it.
 
-| File | State |
-|---|---|
-| `src/PRo3D.GeometryLab/Model.fs` | written; carries a `[<TreatAsValue>]` on `shapes` that is **suspect, see below** |
-| `Fixture.fs`, `App.fs`, `Program.fs`, `.fsproj`, `paket.references` | written, unreviewed |
-| `Model.g.fs` | **missing** — the `.fsproj` references it, so the project cannot compile |
+The `[<TreatAsValue>]` on `shapes` was removed — it was a workaround for the misdiagnosis, never
+needed. `Shape` is a plain record (not a `[<ModelType>]`), so adaptify treats elements as values
+and `shapes` becomes an `alist<Shape>`: per-shape change tracking with real `Region` values in the
+model, which is what the view's `AList.map` expects anyway. `past`/`future` keep their
+`[<TreatAsValue>]` (the standard undo/redo pattern; the recursion must stay opaque).
 
-### The blocker, stated honestly
+Other changes on the way to a clean build: the server code moved from the Suave-era API to
+`Aardvark.UI.Giraffe` (`Server.startLocalhost`, the pattern `PRo3D.Lite` uses), and the project
+was added to `src/PRo3D.sln`.
 
-`dotnet adaptify --lenses --local --force` on the lab reports **"no models in Model.fs"** and
-generates nothing, despite `Model` carrying `[<ModelType>]`.
+## D. Fixture replay — done
 
-**The cause was never confirmed.** Two hypotheses, and the first was assumed rather than tested:
-
-1. *Adaptify cannot decompose `Region`* (`PolyRegion<'a>` is a plain class, not an adaptive or
-   equatable domain type), so it skips the file.
-2. *The project had never been restored.* Adaptify has to typecheck the file, and `PRo3D.Base` had
-   not been resolved for this brand-new project at the time. A file that fails to typecheck could
-   plausibly be reported as having no models.
-
-**Diagnose (2) first.** It is cheap — restore or build the project with only `Model.fs` in the
-compile list, then re-run adaptify — and if it is the cause, no design change is needed at all.
-
-### The `[<TreatAsValue>]` currently in `Model.fs` is probably wrong
-
-It was added on the `shapes` field to make the list opaque to Adaptify. Reasons to revisit:
-
-- it was applied to a hypothesis that was never verified
-- it makes the whole shape list a single `aval`, so every edit re-renders every shape — the lab
-  loses incrementality entirely, which is a smell even where the performance does not matter
-- if hypothesis (2) is the real cause, it changes nothing and merely hides the model's structure
-
-Treat it as a marker of where the problem is, not as the fix.
-
-### Options, once the cause is known
-
-1. **Value model, no Adaptify.** Hand-roll `Unpersist` over a `cval<Model>`; the view works from
-   `aval<Model>` with `AVal.map`. Removes Adaptify and `Model.g.fs` from the project entirely, and
-   keeps real `Region` values in the model. Costs a view rewrite and all fine-grained
-   incrementality — irrelevant for a lab holding a handful of shapes. *Was the leading candidate.*
-2. **`[<TreatAsValue>]` on the shapes field**, as currently written — only if hypothesis (1) is
-   confirmed, and knowing it flattens incrementality.
-3. **Store rings, rebuild regions.** Model holds `IndexList<V2d>` per shape; update and view
-   reconstruct `Region` values on demand. Adaptify then works natively, but the model no longer
-   holds the type under test and every operation re-parses — which is precisely the "lab drifts
-   from what ships" failure the whole design was avoiding. *Least preferred.*
+The fixture format moved to `PRo3D.Base.Geometry.RegionFixture` so the lab (writer) and the test
+suite (reader) share one definition. `ExportFixture` in the lab writes
+`src/Tests/data/regions/lab-<id>.region`; `src/Tests/RegionFixtureTests.fs` replays **every**
+`.region` file there through the invariants — cut/round-trip with bounds-derived strokes at four
+angles, merge idempotence, and pairwise merge across the file's regions. One test per file, so
+adding a regression case is dropping in a file. A hand-written `seed-basic.region` is committed so
+the replay mechanism itself runs in CI from day one.
 
 ### Then
 
-- fixture replay in `src/Tests` (one Expecto test per `.region` file)
 - run the lab and report **how often merge produces holes** — that decides refuse-versus-extend for
   the viewer integration below
 
