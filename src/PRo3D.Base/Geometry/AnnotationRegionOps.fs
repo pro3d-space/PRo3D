@@ -40,6 +40,7 @@ module AnnotationRegionOps =
         // an unboxed struct where an interface is expected. The method then fails JIT
         // verification with InvalidProgramException at run time (Release only; Debug is fine).
         // Upcasting in the lambda makes the fused code see a reference type and stay valid.
+        // Upstream: https://github.com/dotnet/fsharp/issues/20203
         // Repro and analysis: docs/dev/fsharp-seq-collect-struct-bug.md
         let pts = annotations |> Seq.collect (fun a -> a.points :> seq<V3d>) |> Seq.toArray
         if pts.Length < 3 then None

@@ -183,6 +183,45 @@ let tests () =
             test "merging with itself changes nothing" {
                 failIfAny (RegionInvariants.mergeIdempotenceViolations square)
             }
+
+            test "a small ring beside a much larger one is not reported as lost" {
+                // From a CI-only FsCheck failure (StdGen (627528932, 297661573)): the pair spans
+                // a bounding box far larger than b, so a grid-sampled containment check counts
+                // b's boundary cells as disagreement and reports "the merge lost part of b".
+                // Containment is an area question, not a sampling question - see RegionInvariants.
+                let a =
+                    regionOf [ 2.,0.;  8.426488874308758,7.070663706551931
+                               1.0418890660015825,5.908846518073248
+                               -4.499999999999998,7.794228634059948
+                               -10.336618828644992,3.7622215765823577
+                               -13.155696691002717,-4.788282006559362
+                               -2.0000000000000018,-3.4641016151377535
+                               3.1256671980047397,-17.726539554219748
+                               15.320888862379556,-12.855752193730792 ]
+                // as in the property: the second ring is shifted +15 in x before merging
+                let b =
+                    [ 6.,0.;  10.606601717798213,10.606601717798211
+                      6.123233995736766e-16,10.
+                      -8.48528137423857,8.485281374238571
+                      -15.,1.83697019872103e-15
+                      -3.5355339059327386,-3.5355339059327373
+                      -1.2858791391047208e-15,-7.
+                      1.4142135623730947,-1.4142135623730954 ]
+                    |> List.map (fun (x, y) -> x + 15.0, y)
+                    |> regionOf
+                failIfAny (RegionInvariants.mergeViolations a b)
+
+                // the shape that exposed it: an operand and the merge containing it share
+                // boundary stretches, which is where PolyRegion.Intersection's AbsGeqTwo winding
+                // rule returns the union instead of the overlap
+                let m = merge a b
+                Expect.floatClose Accuracy.medium (area m) (area a + area b - area (intersect a b))
+                    "the union area obeys inclusion-exclusion"
+                Expect.floatClose Accuracy.medium (area (intersect b m)) (area b)
+                    "b lies in the merge, so intersecting them returns b"
+                Expect.floatClose Accuracy.medium (area (intersect a m)) (area a)
+                    "and likewise for a"
+            }
         ]
 
         testList "round trip" [

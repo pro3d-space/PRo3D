@@ -43,6 +43,13 @@ let sampledDisagreement (n : int) (a : Region) (b : Region) =
 /// boundary is expected rather than a defect.
 let sampledEquivalent (a : Region) (b : Region) = sampledDisagreement 40 a b <= 0.02
 
+/// Is `inner` wholly inside `outer`? Exactly: containment holds iff area (inner ∩ outer) equals
+/// area inner, and polygon areas are exact - no grid resolution to trade off. This is what the
+/// sampled comparison above cannot give, and it only became usable once RegionOps.intersect
+/// stopped going through the AbsGeqTwo winding rule (docs/dev/polyregion-intersection-bug.md).
+let containedIn (inner : Region) (outer : Region) =
+    relDiff (area (intersect inner outer)) (area inner) <= areaTolerance
+
 // ---------------------------------------------------------------------------------------------
 // cut
 // ---------------------------------------------------------------------------------------------
@@ -75,8 +82,7 @@ let cutViolations (stroke : V2d[]) (r : Region) : string list =
 
             // every piece lies inside the original
             for k, piece in List.indexed pieces do
-                let outside = sampledDisagreement 30 piece (intersect piece r)
-                if outside > 0.02 then
+                if not (containedIn piece r) then
                     yield sprintf "piece %d is not contained in the original" k
 
             // re-cutting a piece with the same stroke must do nothing: it lies wholly on one side
@@ -102,8 +108,8 @@ let mergeViolations (a : Region) (b : Region) : string list =
             yield "merge is not commutative"
 
         // both operands must be contained in the result
-        if not (sampledEquivalent (intersect a m) a) then yield "the merge lost part of a"
-        if not (sampledEquivalent (intersect b m) b) then yield "the merge lost part of b"
+        if not (containedIn a m) then yield "the merge lost part of a"
+        if not (containedIn b m) then yield "the merge lost part of b"
     ]
 
 let mergeIdempotenceViolations (a : Region) : string list =

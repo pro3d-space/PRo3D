@@ -102,6 +102,32 @@ module RegionOps =
         inside
 
     // -----------------------------------------------------------------------------------------
+    // boolean operations
+    // -----------------------------------------------------------------------------------------
+
+    let merge (a : Region) (b : Region) : Region =
+        PolyRegion<V3d>.Union(a, b, interpolate)
+
+    let private difference (a : Region) (b : Region) : Region =
+        PolyRegion<V3d>.Difference(a, b, interpolate)
+
+    /// Intersection as A - (A - B).
+    ///
+    /// Not PolyRegion.Intersection: that one tessellates both contours together under the
+    /// AbsGeqTwo winding rule, which needs the overlap to wind twice. Where the two boundaries
+    /// *coincide* - which is exactly what a merge result and one of its operands look like - the
+    /// coincident edges do not contribute the second turn, the whole outer region reads as
+    /// winding >= 2, and the call returns the union instead of the overlap. Difference is
+    /// positive-winding and is unaffected, so expressing the intersection through it is correct
+    /// for both configurations (verified: it agrees on ordinary overlaps and fixes the
+    /// coincident-boundary case).
+    ///
+    /// Found by an FsCheck property on CI; pinned by "a small ring beside a much larger one" in
+    /// RegionOpsTests and written up in docs/dev/polyregion-intersection-bug.md.
+    let intersect (a : Region) (b : Region) : Region =
+        difference a (difference a b)
+
+    // -----------------------------------------------------------------------------------------
     // cutting
     // -----------------------------------------------------------------------------------------
 
@@ -201,10 +227,18 @@ module RegionOps =
         PolyRegion<V3d>(polygon, TessellationRule.EvenOdd, interpolate)
 
     /// The two sides of the (extended) stroke.
+    ///
+    /// The side polygon self-overlaps whenever the stroke bends back on itself (a V-shaped cut),
+    /// and the two operations disagree there: PolyRegion.Intersection's AbsGeqTwo rule pairs
+    /// with positive-winding Difference to partition the region exactly, whereas expressing the
+    /// intersection as r - (r - p) leaves the doubly-wound wedge in *both* sides, so the pieces
+    /// no longer sum to the original. RegionOps.intersect uses the difference formulation because
+    /// its inputs (regions and their merges) have coincident boundaries instead - see the note
+    /// there. Both are pinned by tests: "a V-shaped stroke carves a wedge" and "a small ring
+    /// beside a much larger one".
     let private sides (stroke : V2d[]) (r : Region) =
         let p = sidePolygon stroke r
-        PolyRegion<V3d>.Intersection(r, p, interpolate),
-        PolyRegion<V3d>.Difference(r, p, interpolate)
+        PolyRegion<V3d>.Intersection(r, p, interpolate), difference r p
 
     /// Does the drawn stroke actually reach the region, as opposed to its infinite extension?
     ///
@@ -255,12 +289,3 @@ module RegionOps =
             let a, b = sides stroke r
             [ a; b ] |> List.filter (fun x -> not x.IsEmpty)
 
-    // -----------------------------------------------------------------------------------------
-    // merging
-    // -----------------------------------------------------------------------------------------
-
-    let merge (a : Region) (b : Region) : Region =
-        PolyRegion<V3d>.Union(a, b, interpolate)
-
-    let intersect (a : Region) (b : Region) : Region =
-        PolyRegion<V3d>.Intersection(a, b, interpolate)
