@@ -63,7 +63,9 @@ module AnnotationViewer =
 
         let mv = view |> AVal.map (fun c -> (CameraView.viewTrafo c).Forward)
         let points = points (model.selectedLeaves |> ASet.map (fun x -> x.id)) annoSet config.offset mv
-        let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (picked |> AVal.map Option.toList |> ASet.ofAVal) annoSet mv
+        // the packed object-id space: object id N is index N of this ordering, and of pickIds below
+        let ordered = PackedRendering.orderedAnnotations annoSet
+        let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (picked |> AVal.map Option.toList |> ASet.ofAVal) ordered mv
 
         let pickColors = 
             //let size = AVal.constant (V2i(128,128))

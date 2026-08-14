@@ -56,6 +56,7 @@
     <Compile Include="TransformationApp.fs" />
     <Compile Include="TriangleSet.fs" />
     <Compile Include="Surface.fs" />
+    <Compile Include="VertexAttributes.fs" />
     <Compile Include="ProfileAttributeExtraction.fs" />
     <Compile Include="GroupsApp.fs" />
     <Compile Include="OrientationCube.fs" />
@@ -81,6 +82,7 @@
     <Compile Include="Drawing\EllipseAnnotation.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="InstrumentMetadata.fs" />
+    <Compile Include="OpcMetadata.fs" />
     <Compile Include="ProjectedImageList-Model.fs" />
 	<Compile Include="ProjectedImageList-Model.g.fs" />
     <Compile Include="GisApp-Model.fs" />

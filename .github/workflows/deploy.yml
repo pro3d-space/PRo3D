@@ -27,6 +27,23 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(./build.sh Version | grep -oP 'VERSION=\K.*')
+
+          # The version is *not* the topmost entry of PRODUCT_RELEASE_NOTES.md: FAKE's
+          # ReleaseNotes.load returns the entry with the highest SemVer. Under SemVer 11.4 a
+          # pre-release identifier containing letters compares lexically in ASCII order, so
+          # a counter that reaches two digits sorts below its predecessor -
+          # 6.0.0-prerelease10 < 6.0.0-prerelease9 - and the build silently resolves to the
+          # older version. That release already exists, so skip is set, every downstream job
+          # is skipped, and the workflow reports success having produced nothing.
+          # Fail loudly instead of shipping nothing. See docs/Build-Deploy-System.md.
+          TOP=$(grep -m1 '^## ' PRODUCT_RELEASE_NOTES.md | sed 's/^## *//' | tr -d '\r')
+          if [ "$VERSION" != "$TOP" ]; then
+            echo "::error::Top entry of PRODUCT_RELEASE_NOTES.md is '$TOP' but the build resolved '$VERSION'."
+            echo "::error::The release version is the highest SemVer in that file, not its first entry."
+            echo "::error::Zero-pad prerelease counters (rc001, rc002, ...) - see docs/Build-Deploy-System.md."
+            exit 1
+          fi
+
           TAG_NAME="v$VERSION"
 
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then

@@ -28,6 +28,7 @@ OPC is the patch-based, hierarchical terrain format PRo3D is built around. An OP
 - **Loading**: `Aardvark.Data.Opc` parses the hierarchy and patch files; PRo3D discovers/validates dataset folders in `src/PRo3D.Core/Surface/` (folder discovery, `isOpcFolder`/`isSurfaceFolder`).
 - **LoD rendering**: `Aardvark.GeoSpatial.Opc` provides `Sg.patchLod` (and friends), which builds an adaptive scene-graph node that streams and swaps patch levels based on screen-space error / distance metrics.
 - **`opc-tool`** (`src/opc-tool/`) is the offline companion CLI: validate a dataset, resize/convert patch textures (to `.dds`), and **pre-build KdTrees** for picking.
+- **Attribute layers** (elevation, slope, gravity, …) come in two forms. Every OPC has them as *texture layers* under `Images/<Layer>/`, declared in the dataset's `*.opcx`. Newer exports additionally ship them as *per-vertex* `.aara` grids inside each patch directory, listed in `patch.xml`'s `<Attributes>`. Reading values at a picked point prefers the per-vertex form (three small random-access reads per layer) and falls back to decoding the texture. **Beware two traps**: the per-vertex grid is *smaller* than the position grid (a centred skirt, `off = (posSize − attrSize) / 2`), and texture layers store values *normalised into the layer's `ChannelsDefinedRange`* while per-vertex layers hold physical values. See [docs/VertexAttributes.md](../docs/VertexAttributes.md) and `src/PRo3D.Core/VertexAttributes.fs`.
 
 ---
 

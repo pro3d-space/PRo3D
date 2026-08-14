@@ -46,6 +46,7 @@
     <Compile Include="AnnotationRegionOpsTests.fs" />
     <None Include="data\regions\seed-basic.region" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
+    <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="BaseTests.fs" />
     <Compile Include="Features\TestHelpers.fs" />
     <Compile Include="Features\Section01_StartingPRo3D.fs" />
