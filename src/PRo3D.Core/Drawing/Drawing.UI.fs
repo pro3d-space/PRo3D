@@ -79,8 +79,8 @@ module UI =
         let thicknessTooltip = "Thickness of annotation"
         let samplingAmountTooltip = "Sampling amount used for annotations rendered with viewpoint or sky projection"
         let samplingUnitTooltip = "Sampling unit used for annotations rendered with viewpoint or sky projection"
-        let fillTooltip = "Fill new annotations. Applies to closed geometries only (polygon, ellipses); the fill takes the active group's colour."
-        let fillAlphaTooltip = "Opacity of the fill on new annotations, 0 (invisible) to 1 (opaque)"
+        let fillTooltip = "Fill new annotations. Closed geometries only; uses the group colour"
+        let fillAlphaTooltip = "Fill opacity for new annotations, 0 to 1"
 
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]

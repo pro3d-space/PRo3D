@@ -606,7 +606,7 @@ module Gui =
             let iconAttrs =
                 amap {
                     let! prefs = m.userPreferences
-                    yield clazz (if getter prefs then "check square outline icon" else "square icon")
+                    yield clazz (if getter prefs then "check square outline icon" else "square outline icon")
                 } |> AttributeMap.ofAMap
 
             div [ clazz "ui item"
