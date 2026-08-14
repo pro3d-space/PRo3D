@@ -38,6 +38,7 @@ let allTests () : Test =
         TriangleSetTests.tests()
         PolygonFillTests.tests()
         RegionOpsTests.tests()
+        RegionFixtureTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()

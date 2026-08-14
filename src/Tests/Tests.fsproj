@@ -42,6 +42,8 @@
     <Compile Include="RegionInvariants.fs" />
     <Compile Include="PolygonFillTests.fs" />
     <Compile Include="RegionOpsTests.fs" />
+    <Compile Include="RegionFixtureTests.fs" />
+    <None Include="data\regions\seed-basic.region" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
     <Compile Include="BaseTests.fs" />
     <Compile Include="Features\TestHelpers.fs" />
