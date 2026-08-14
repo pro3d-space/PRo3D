@@ -1,0 +1,13 @@
+Aardvark.Base
+Aardvark.Base.FSharp
+
+Aardvark.Rendering
+Aardvark.Application.Slim.GL
+Aardvark.SceneGraph
+
+Aardvark.UI
+Aardvark.UI.Primitives
+Aardium
+
+Adaptify.Core
+FSharp.Core
