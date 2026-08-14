@@ -12,16 +12,23 @@ open PRo3D.GeometryLab
 
 // Aardvark's onMouseDown reports absolute coordinates; the Simple2DDrawing example works around
 // that with handlers that resolve coordinates relative to the svg element. Same approach here.
+// The coordinates come back as two plain JSON numbers parsed by hand - FsPickler's V2d pickler
+// rejects integral JSON numbers ("not a float"), and a pixel coordinate is often integral.
 module Events =
     let private relative (kind : string) (cb : V2d -> 'msg) =
         onEvent kind
-            [ "{ X: (function(){var r=event.currentTarget.getBoundingClientRect(); return event.clientX - r.left;})(), \
-                 Y: (function(){var r=event.currentTarget.getBoundingClientRect(); return event.clientY - r.top;})() }" ]
+            [ "(function(){var r=event.currentTarget.getBoundingClientRect(); return event.clientX - r.left;})()"
+              "(function(){var r=event.currentTarget.getBoundingClientRect(); return event.clientY - r.top;})()" ]
             (fun args ->
                 match args with
-                | x :: _ ->
-                    let json = Pickler.unpickleOfJson<V2d> x
-                    cb json
+                | x :: y :: _ ->
+                    let parse (s : string) =
+                        match Double.TryParse(s.Trim(), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                        | true, v -> Some v
+                        | _ -> None
+                    match parse x, parse y with
+                    | Some x, Some y -> cb (V2d(x, y))
+                    | _ -> cb V2d.Zero
                 | _ -> cb V2d.Zero)
 
     let onMouseDownRel cb = relative "onmousedown" cb
