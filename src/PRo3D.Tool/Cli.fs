@@ -75,6 +75,9 @@ type SunAnglesOptions =
         [<Option("no-screenshot", HelpText = "Skip the accompanying PNG preview")>]
         noScreenshot : bool
 
+        [<Option("false-color", HelpText = "Also write one false-colour PNG per angle (blue=low to red=high), using the same colour ramp as the projection testbed")>]
+        falseColor : bool
+
         [<Option("width", HelpText = "Output width; 0 (default) uses the source image's native width")>]
         width : int
 

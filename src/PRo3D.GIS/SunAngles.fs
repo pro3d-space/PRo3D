@@ -47,6 +47,21 @@ module SunAngles =
             let p = acos (min 1.0f (max -1.0f (Vec.dot l toCamera)))
             V3f(i, e, p)
 
+        /// Blue -> cyan -> green -> yellow -> red. Hue boundaries give readable iso-angle
+        /// contours, which a luminance ramp does not.
+        ///
+        /// Marked ReflectedDefinition so it can be used in a shader, but it is an ordinary
+        /// function and is also called from the CPU when colour-coding a float readback.
+        /// Keeping one definition is what makes pro3d-tool's false-colour output directly
+        /// comparable with PRo3D.ProjectionTestbed's angle visualisations.
+        [<ReflectedDefinition>]
+        let colormap (t : float32) =
+            let t = min 1.0f (max 0.0f t)
+            if t < 0.25f then    let u = t / 0.25f              in V3f(0.0f, u, 1.0f)
+            elif t < 0.5f then   let u = (t - 0.25f) / 0.25f    in V3f(0.0f, 1.0f, 1.0f - u)
+            elif t < 0.75f then  let u = (t - 0.5f) / 0.25f     in V3f(u, 1.0f, 0.0f)
+            else                 let u = (t - 0.75f) / 0.25f    in V3f(1.0f, 1.0f - u, 0.0f)
+
         /// Packs the three angles into one RGBA32F attachment, with alpha as a coverage
         /// mask: 1 where the surface was rasterised, and whatever the target was cleared to
         /// elsewhere. One attachment rather than three means one render pass and one

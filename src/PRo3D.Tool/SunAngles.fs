@@ -84,13 +84,24 @@ module private FloatTarget =
 
 /// One angle raster to emit.
 type private Band =
-    { name : string; channel : Col.Channel }
+    {
+        name    : string
+        channel : Col.Channel
+        /// Full-scale angle for false-colour mapping: the value that maps to red.
+        range   : float32
+        /// Paint values above 90 degrees magenta instead of colour-mapping them. Meaningful
+        /// for emission, where it flags a facet facing away from the observer that was
+        /// nevertheless rasterised -- expected along the limb, suspicious elsewhere.
+        flagObtuse : bool
+    }
+
+let private halfPi = float32 Math.PI * 0.5f
 
 let private bands =
     [
-        { name = "incidence"; channel = Col.Channel.Red }
-        { name = "emission";  channel = Col.Channel.Green }
-        { name = "phase";     channel = Col.Channel.Blue }
+        { name = "incidence"; channel = Col.Channel.Red;   range = halfPi;             flagObtuse = false }
+        { name = "emission";  channel = Col.Channel.Green; range = halfPi;             flagObtuse = true  }
+        { name = "phase";     channel = Col.Channel.Blue;  range = float32 Math.PI;    flagObtuse = false }
     ]
 
 /// An OPC directory holds its patch hierarchies as immediate subdirectories -- but not
@@ -145,6 +156,33 @@ let private extractBand (img : PixImage<float32>) (band : Band) =
         for x in 0 .. size.X - 1 do
             out.[row + x] <- if alpha.[x, y] > 0.5f then values.[x, y] else Single.NaN
     out
+
+/// False-colour PNG for one angle: blue (0) through green to red (the band's full scale),
+/// using the same ramp as PRo3D.ProjectionTestbed so the two are directly comparable.
+///
+/// Radians in a float TIFF are the data but are not interpretable at a glance; this is what
+/// makes a result reviewable without loading it into a GIS. Nodata stays black, which is
+/// outside the ramp and so cannot be confused with a low angle.
+let private writeFalseColor (path : string) (img : PixImage<float32>) (band : Band) =
+    let size = img.Size
+    let values = img.GetChannel band.channel
+    let alpha = img.GetChannel Col.Channel.Alpha
+    let out = PixImage<byte>(Col.Format.RGB, size)
+    // Matrix<_> is a struct, so the local must be mutable to write through it.
+    let mutable m = out.GetMatrix<C3b>()
+    let toByte (v : float32) = byte (min 1.0f (max 0.0f v) * 255.0f)
+    for y in 0 .. size.Y - 1 do
+        for x in 0 .. size.X - 1 do
+            let v = values.[x, y]
+            m.[int64 x, int64 y] <-
+                if alpha.[x, y] <= 0.5f || Single.IsNaN v then
+                    C3b(0uy, 0uy, 0uy)
+                elif band.flagObtuse && v > halfPi then
+                    C3b(255uy, 0uy, 255uy)
+                else
+                    let c = SunAngles.Shaders.colormap (v / band.range)
+                    C3b(toByte c.X, toByte c.Y, toByte c.Z)
+    out.Save(path)
 
 /// 8-bit RGB preview built from the same readback -- no second render pass. Incidence,
 /// emission and phase become R, G and B, each scaled by its natural range. This is for
@@ -268,7 +306,13 @@ let private processImage (runtime : IRuntime) (o : SunAnglesOptions)
                 let data = extractBand rendered band
                 let path = Path.Combine(outDir, sprintf "%s_%s.tif" stem band.name)
                 match Float32Writer.write path size.X size.Y data with
-                | Ok () -> Log.line "[out] %s" path; Some path
+                | Ok () ->
+                    Log.line "[out] %s" path
+                    if o.falseColor then
+                        let colorPath = Path.Combine(outDir, sprintf "%s_%s_color.png" stem band.name)
+                        writeFalseColor colorPath rendered band
+                        Log.line "[out] %s" colorPath
+                    Some path
                 | Result.Error e -> Log.error "[out] %s: %s" path e; None)
 
         if written.Length <> bands.Length then

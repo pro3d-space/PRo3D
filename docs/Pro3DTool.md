@@ -139,6 +139,7 @@ pro3d-tool sun-angles --opc <body-opc> --images <image-folder> [options]
 | `<image>_phase.tif` | Sun–surface–observer angle |
 | `<image>_preview.png` | 8-bit RGB preview (incidence, emission, phase as R, G, B) |
 | `<image>_angles.json` | provenance: epoch, body, frame, observer, kernel, units, caveats |
+| `<image>_<angle>_color.png` | false-colour per angle, with `--false-color` (see below) |
 
 All rasters are single-band float32 **in radians**, with **NaN as nodata** where no surface
 was rasterised. They are plain TIFFs with no georeferencing tags — the instrument image
@@ -158,7 +159,32 @@ GDAL, QGIS, `tifffile`, PIL and anything else that speaks baseline TIFF.
 | `--kernel-root <dir>` | root of a SPICE kernel tree (see [SPICE kernels](#spice-kernels)) |
 | `--method spice\|mbi` | projection method (default `mbi`) |
 | `--width`, `--height` | output size; `0` (default) uses the source image's native size |
+| `--false-color` | also write one false-colour PNG per angle |
 | `--no-screenshot` | skip the PNG preview |
+
+### Making the result interpretable — `--false-color`
+
+Radians in a float TIFF are the data product, but they are not reviewable at a glance.
+`--false-color` additionally writes one PNG per angle using a **blue → cyan → green →
+yellow → red** ramp, where blue is 0 and red is full scale (90° for incidence and emission,
+180° for phase). Hue boundaries produce readable iso-angle contours in a way a grey ramp
+does not.
+
+This is the **same colour ramp** PRo3D.ProjectionTestbed uses for its angle
+visualisations — the function lives in `PRo3D.GIS` and is shared by both, so a tool output
+and a testbed render of the same scene are directly comparable rather than merely similar.
+
+Two conventions worth knowing when reading these images:
+
+- **Nodata is black**, which sits outside the ramp and so cannot be mistaken for a low
+  angle.
+- On the **emission** image, pixels above 90° are painted **magenta** rather than
+  colour-mapped. Expect a thin magenta rim at the limb where facets are near edge-on;
+  magenta anywhere else points at an inconsistent shape model.
+
+Read together the two images cross-check each other: emission should be roughly radially
+symmetric about the centre of the visible disc, while incidence should be offset towards the
+Sun. If they look alike, something is wrong.
 
 Batch is the normal mode: point `--images` at a folder and every image with a sidecar is
 processed, reusing one SPICE kernel and one render context across the whole run. A single
