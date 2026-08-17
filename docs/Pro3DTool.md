@@ -123,6 +123,71 @@ pro3d-tool kdtree --forcekdtreerebuild --degreesOfParallelism 4 "K:\PRo3D Data\S
 - DDS files are written with DXT1 compression; uncompressed DDS output is not
   currently supported.
 
+## `sun-angles` — per-pixel illumination geometry
+
+For each instrument image, renders the body as seen by that instrument and writes the
+local illumination geometry as float32 rasters, pixel-aligned to the source image.
+
+```
+pro3d-tool sun-angles --opc <body-opc> --images <image-folder> [options]
+```
+
+| Output per image | Contents |
+|---|---|
+| `<image>_incidence.tif` | angle between the surface normal and the direction to the Sun |
+| `<image>_emission.tif` | angle between the surface normal and the direction to the observer |
+| `<image>_phase.tif` | Sun–surface–observer angle |
+| `<image>_preview.png` | 8-bit RGB preview (incidence, emission, phase as R, G, B) |
+| `<image>_angles.json` | provenance: epoch, body, frame, observer, kernel, units, caveats |
+
+All rasters are single-band float32 **in radians**, with **NaN as nodata** where no surface
+was rasterised. They are plain TIFFs with no georeferencing tags — the instrument image
+frame has no map projection to encode — and are read as unreferenced float rasters by
+GDAL, QGIS, `tifffile`, PIL and anything else that speaks baseline TIFF.
+
+| Option | Effect |
+|---|---|
+| `--opc <dir>` | OPC directory of the body (required) |
+| `--images <dir>` | folder of instrument images with `.mbi.json` sidecars (required) |
+| `--image <file>` | process only this image; default is every image in the folder |
+| `--out <dir>` | output directory (default `./sun-angles`) |
+| `--body <name>` | SPICE body of the OPC (default `DIDYMOS`) |
+| `--frame <name>` | body-fixed reference frame (default `DIDYMOS_FIXED`) |
+| `--observer <name>` | observing spacecraft (default `MILANI`) |
+| `--kernel <file>` | explicit metakernel, overriding the sidecar's declaration |
+| `--kernel-root <dir>` | root of a SPICE kernel tree (see [SPICE kernels](#spice-kernels)) |
+| `--method spice\|mbi` | projection method (default `mbi`) |
+| `--width`, `--height` | output size; `0` (default) uses the source image's native size |
+| `--no-screenshot` | skip the PNG preview |
+
+Batch is the normal mode: point `--images` at a folder and every image with a sidecar is
+processed, reusing one SPICE kernel and one render context across the whole run. A single
+image failing is reported and the run continues; the exit code is non-zero if any failed.
+
+### Example
+
+```
+pro3d-tool sun-angles ^
+  --opc         <testdata>\HERA\Didymos_ASPECT ^
+  --images      "<testdata>\HERA\Instrument Data" ^
+  --kernel-root <hera-clone>\kernels ^
+  --out         .\sun-angles
+```
+
+### Important caveat
+
+These are **local** illumination angles, computed from the surface normal and the
+sun/observer directions at each pixel. **Terrain self-shadowing is not evaluated**: a point
+lying in the shadow of nearby relief still reports its geometric incidence angle. Combine
+with a shadow test if you need actual illumination.
+
+Emission angles above 90° are preserved rather than clamped. They indicate a facet facing
+away from the observer was nevertheless rasterised, which is expected along the limb and
+otherwise flags an inconsistent shape model.
+
+Both notes are repeated in every output's JSON sidecar, because a float raster separated
+from its provenance is easy to misread.
+
 ## Migrating from `opc-tool`
 
 `opc-tool` is deprecated. Its functionality is the `kdtree` verb, with the same option

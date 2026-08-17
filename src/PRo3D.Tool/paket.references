@@ -11,3 +11,15 @@ OPCViewer.Base
 Uncodium.Eigensystems
 
 CommandLineParser.FSharp
+
+# sun-angles: offscreen rendering of illumination geometry.
+# kdtree does not need these -- it must keep running on machines with no GPU, which is
+# why the render runtime is created inside the sun-angles verb rather than at startup.
+Aardvark.Rendering
+Aardvark.SceneGraph
+Aardvark.Application.Slim.GL
+Aardvark.Application.Slim.Vulkan
+Aardvark.Rendering.Text
+Aardvark.PixImage.Pfim
+
+BitMiracle.LibTiff.NET

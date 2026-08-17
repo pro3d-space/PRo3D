@@ -31,7 +31,18 @@ echo "=== kdtree: validate an OPC and report its kd-trees ==="
 dotnet run --project "$PROJ" -- kdtree "$OPC"
 
 echo
-echo "=== sun-angles: not implemented yet, skipping ==="
+if [ -z "$2" ]; then
+    echo "=== sun-angles: SKIPPED, no SPICE kernels given ==="
+    echo "  clone them with: git clone https://spiftp.esac.esa.int/git/hera.git"
+    echo "  then re-run: $(basename "$0") \"$TESTDATA\" <clone>/kernels"
+else
+    echo "=== sun-angles: illumination geometry for the ASPECT image ==="
+    dotnet run --project "$PROJ" -- sun-angles \
+        --opc "$TESTDATA/HERA/Didymos_ASPECT" \
+        --images "$TESTDATA/HERA/Instrument Data" \
+        --kernel-root "$2" \
+        --out "$PWD/sun-angles"
+fi
 
 echo
 echo "done."

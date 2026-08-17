@@ -34,3 +34,50 @@ type KdTreeOptions =
         [<Value(0, HelpText = "Surface Directory", Required = true)>]
         surfaceDirectory : string
     }
+
+/// Options for the `sun-angles` verb.
+///
+/// Defaults for the string options are applied in code rather than through the attribute,
+/// because an unsupplied string field arrives as null.
+[<Verb("sun-angles", HelpText = "Render per-pixel illumination geometry (incidence, emission, phase) for instrument images.")>]
+type SunAnglesOptions =
+    {
+        [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
+        opc : string
+
+        [<Option("images", HelpText = "Folder containing instrument images with .mbi.json sidecars", Required = true)>]
+        images : string
+
+        [<Option("image", HelpText = "Process only this image; default: every image in the folder")>]
+        image : string
+
+        [<Option("out", HelpText = "Output directory (default: ./sun-angles)")>]
+        out : string
+
+        [<Option("body", HelpText = "SPICE body name of the OPC (default DIDYMOS)")>]
+        body : string
+
+        [<Option("frame", HelpText = "Body-fixed reference frame (default DIDYMOS_FIXED)")>]
+        frame : string
+
+        [<Option("observer", HelpText = "Observing spacecraft (default MILANI)")>]
+        observer : string
+
+        [<Option("kernel", HelpText = "Explicit SPICE metakernel; overrides the sidecar")>]
+        kernel : string
+
+        [<Option("kernel-root", HelpText = "Root of a SPICE kernel tree (the 'kernels' dir of a clone of https://spiftp.esac.esa.int/git/hera.git)")>]
+        kernelRoot : string
+
+        [<Option("method", HelpText = "Projection method: spice or mbi (default mbi)")>]
+        method : string
+
+        [<Option("no-screenshot", HelpText = "Skip the accompanying PNG preview")>]
+        noScreenshot : bool
+
+        [<Option("width", HelpText = "Output width; 0 (default) uses the source image's native width")>]
+        width : int
+
+        [<Option("height", HelpText = "Output height; 0 (default) uses the source image's native height")>]
+        height : int
+    }

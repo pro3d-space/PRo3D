@@ -14,6 +14,7 @@ let logo = """
 Command line tools for PRo3D data.
 
   kdtree       validate OPC directories and generate KdTrees
+  sun-angles   render per-pixel illumination geometry for instrument images
 
 Run `pro3d-tool <verb> --help` for the options of a verb.
 
@@ -26,11 +27,13 @@ Example: pro3d-tool kdtree --forcekdtreerebuild "K:\PRo3D Data\SAIIL_02_01-v3-op
 let private verbs : Type[] =
     [|
         typeof<KdTreeOptions>
+        typeof<SunAnglesOptions>
     |]
 
 let private dispatch (parsed : obj) : int =
     match parsed with
     | :? KdTreeOptions as o -> KdTree.run o
+    | :? SunAnglesOptions as o -> SunAnglesVerb.run o
     | other ->
         eprintfn "unhandled verb: %s" (other.GetType().Name)
         -1

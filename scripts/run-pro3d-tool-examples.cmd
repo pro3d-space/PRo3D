@@ -31,7 +31,19 @@ dotnet run --project "%PROJ%" -- kdtree "%OPC%"
 if errorlevel 1 exit /b %errorlevel%
 
 echo.
-echo === sun-angles: not implemented yet, skipping ===
+if "%~2"=="" (
+    echo === sun-angles: SKIPPED, no SPICE kernels given ===
+    echo   clone them with: git clone https://spiftp.esac.esa.int/git/hera.git
+    echo   then re-run: %~nx0 "%TESTDATA%" ^<clone^>\kernels
+) else (
+    echo === sun-angles: illumination geometry for the ASPECT image ===
+    dotnet run --project "%PROJ%" -- sun-angles ^
+        --opc "%TESTDATA%\HERA\Didymos_ASPECT" ^
+        --images "%TESTDATA%\HERA\Instrument Data" ^
+        --kernel-root "%~2" ^
+        --out "%CD%\sun-angles"
+    if errorlevel 1 exit /b %errorlevel%
+)
 
 echo.
 echo done.
