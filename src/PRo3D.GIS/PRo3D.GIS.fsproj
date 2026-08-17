@@ -41,6 +41,7 @@
     <Compile Include="Shaders.fs" />
     <Compile Include="CelestialBodies.fs" />
     <Compile Include="ImageProjection.fs" />
+    <Compile Include="SunAngles.fs" />
     <Compile Include="Rendering.fs" />
     <Compile Include="Markers.fs" />
     <Compile Include="OpcProjectionSg.fs" />
