@@ -105,18 +105,23 @@ module AnnotationExportApp =
                         (ToggleAnnotationField field)
         ]
 
-    /// Explains what the chosen granularity does to the geometry. Without this
-    /// it is invisible that "one record per annotation" collapses the whole
-    /// annotation to a single coordinate.
+    /// Explains what the chosen granularity does to the geometry. It is not
+    /// self-evident, and it means something different per file type: a CSV row
+    /// holds one coordinate, whereas a GeoJSON feature carries a whole polyline.
     let private granularityHint (model : AdaptiveAnnotationExportModel) =
         Incremental.div (AttributeMap.ofList [ clazz "ui small message" ]) (
             alist {
+                let! format = model.format
                 let! granularity = model.granularity
-                match granularity with
-                | ExportGranularity.PerAnnotation ->
-                    yield text "One record per annotation. The coordinate is the bounding-box centre of the annotation, not its vertices — switch to \"one record per point\" to export every vertex."
+                match format, granularity with
+                | ExportFormat.GeoJson, ExportGranularity.PerAnnotation ->
+                    yield text "One feature per annotation, carrying its full geometry (LineString / Polygon). The lat/lon/alt attributes hold the bounding-box centre."
+                | ExportFormat.GeoJson, _ ->
+                    yield text "One Point feature per vertex. Note that a GIS evaluates labels and symbology per feature, so this is how per-point values become individually styleable."
+                | _, ExportGranularity.PerAnnotation ->
+                    yield text "One row per annotation. The coordinate columns hold the bounding-box centre; the individual vertices are not in the file — switch to \"one record per point\" to export every vertex."
                 | _ ->
-                    yield text "One record per point of every exported annotation. Annotation attributes are repeated on each of its rows."
+                    yield text "One row per point of every exported annotation. Annotation attributes are repeated on each of its rows."
             })
 
     let private pointAttributeSection (model : AdaptiveAnnotationExportModel) =

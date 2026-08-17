@@ -53,8 +53,25 @@ let private csvSettings granularity fields pointFields =
         annotationFields = fields
         pointFields      = pointFields }
 
+/// An annotation with no `segments` — what a `Projection.Linear` annotation
+/// looks like, where the picked points are the whole geometry.
+let private unsegmentedAnnotation points =
+    { Annotation.initial with
+        key      = Guid.NewGuid()
+        geometry = Geometry.Polyline
+        points   = IndexList.ofList points
+        segments = IndexList.empty }
+
 let private records settings annotation =
     AnnotationExport.buildRecords settings HashMap.empty Planet.None V3d.OOI [ annotation ]
+
+let private recordsOn planet settings annotation =
+    AnnotationExport.buildRecords settings HashMap.empty planet V3d.OOI [ annotation ]
+
+/// Cartesian position of a lat/lon/alt on Mars, or None when the native
+/// coordinate transform is unavailable in this environment.
+let private onMars (lat, lon, alt) =
+    CooTransformation.tryGetXYZFromLatLonAlt' (V3d(lat, lon, alt)) Planet.Mars
 
 let private cell (column : string) (record : ExportRecord) =
     record.fields |> List.tryFind (fst >> (=) column) |> Option.map snd
@@ -266,6 +283,126 @@ let tests () =
             | _ -> failtest "expected exactly one row"
         }
 
+        test "ground distance drops the climb that 3D distance includes" {
+            // the old profile export flattened every point onto the reference
+            // surface before measuring; ground distance reproduces that
+            let points =
+                [ 10.0, 20.00, 0.0
+                  10.0, 20.01, 0.0
+                  10.0, 20.02, 500.0 ]
+                |> List.map onMars
+
+            if points |> List.exists Option.isNone then
+                skiptest "CooTransformation unavailable in this environment"
+            else
+                let annotation = unsegmentedAnnotation (points |> List.choose id)
+                let settings =
+                    { csvSettings ExportGranularity.PerPoint []
+                        [ PointField.CumulativeDistance; PointField.GroundDistance ] with
+                        coordinates = CoordinateMode.Geographic }
+
+                let rows = recordsOn Planet.Mars settings annotation
+
+                match rows |> List.tryLast with
+                | Some last ->
+                    match number "distance" last, number "groundDistance" last with
+                    | Some slanted, Some ground ->
+                        Expect.isGreaterThan slanted ground "the slanted path is longer than the horizontal run"
+                        Expect.isGreaterThan ground 0.0 "ground distance accumulated"
+                    | _ -> failtest "distance or groundDistance missing on the last row"
+                | None -> failtest "no rows"
+
+                // both accumulators only ever grow
+                let monotonic column =
+                    rows
+                    |> List.choose (number column)
+                    |> List.pairwise
+                    |> List.forall (fun (a, b) -> b >= a)
+
+                Expect.isTrue (monotonic "distance") "distance is monotonic"
+                Expect.isTrue (monotonic "groundDistance") "groundDistance is monotonic"
+        }
+
+        test "ground distance equals 3D distance when nothing climbs" {
+            let points =
+                [ 10.0, 20.00, 0.0
+                  10.0, 20.01, 0.0
+                  10.0, 20.02, 0.0 ]
+                |> List.map onMars
+
+            if points |> List.exists Option.isNone then
+                skiptest "CooTransformation unavailable in this environment"
+            else
+                let annotation = unsegmentedAnnotation (points |> List.choose id)
+                let settings =
+                    { csvSettings ExportGranularity.PerPoint []
+                        [ PointField.CumulativeDistance; PointField.GroundDistance ] with
+                        coordinates = CoordinateMode.Geographic }
+
+                match recordsOn Planet.Mars settings annotation |> List.tryLast with
+                | Some last ->
+                    match number "distance" last, number "groundDistance" last with
+                    | Some slanted, Some ground ->
+                        Expect.floatClose Accuracy.medium ground slanted "no height difference, so the two agree"
+                    | _ -> failtest "distance or groundDistance missing"
+                | None -> failtest "no rows"
+        }
+
+        test "ground distance is missing, not zero, without a geographic frame" {
+            // Planet.None has no lat/lon, so the height cannot be removed
+            let settings =
+                csvSettings ExportGranularity.PerPoint [] [ PointField.GroundDistance ]
+
+            let rows = records settings (testAnnotation ())
+            Expect.isNonEmpty rows "rows produced"
+            for row in rows do
+                Expect.equal (cell "groundDistance" row) (Some VMissing) "reported as missing"
+        }
+
+        test "segmentLength falls back to the hop when there are no segments" {
+            // a Projection.Linear annotation has no segments: the stretch between
+            // two picked points *is* the hop, so the column must not be blank
+            let annotation = unsegmentedAnnotation [ V3d.Zero; V3d(3.0, 4.0, 0.0); V3d(3.0, 4.0, 12.0) ]
+            let settings =
+                csvSettings ExportGranularity.PerPoint [] [ PointField.StepLength; PointField.SegmentLength ]
+
+            match records settings annotation with
+            | first :: rest ->
+                Expect.equal (cell "segmentLength" first) (Some VMissing) "the first point has no predecessor"
+                Expect.isNonEmpty rest "more than one point"
+                for row in rest do
+                    match number "stepLength" row, number "segmentLength" row with
+                    | Some step, Some segment ->
+                        Expect.floatClose Accuracy.high segment step "segment length equals the hop"
+                    | _ -> failtestf "blank length column on row %A" row.fields
+            | [] -> failtest "no rows"
+        }
+
+        test "GeoJSON granularity decides the feature geometry" {
+            let geoJson granularity =
+                { csvSettings granularity [ AnnotationField.Key ] [ PointField.Index ] with
+                    format = ExportFormat.GeoJson }
+
+            let annotation = testAnnotation ()
+
+            // per annotation: one feature carrying the whole polyline
+            match records (geoJson ExportGranularity.PerAnnotation) annotation with
+            | [ single ] ->
+                match single.geometry with
+                | Some (GLine positions) -> Expect.hasLength positions 6 "the full polyline"
+                | other -> failtestf "expected a LineString, got %A" other
+            | rows -> failtestf "expected one feature, got %d" rows.Length
+
+            // per point: one Point feature per vertex, which is what makes
+            // per-point values individually styleable in a GIS
+            let perPoint = records (geoJson ExportGranularity.PerPoint) annotation
+            Expect.hasLength perPoint 6 "one feature per vertex"
+            for record in perPoint do
+                match record.geometry with
+                | Some (GPoint _) -> ()
+                | other -> failtestf "expected a Point geometry, got %A" other
+        }
+
         test "longitude conventions and notation are independent" {
             let convert convention signed =
                 AnnotationExport.normalizeLongitude convention signed 77.0
@@ -303,6 +440,8 @@ let tests () =
             Expect.equal profile.format ExportFormat.Csv "profile writes CSV"
             Expect.equal profile.granularity ExportGranularity.PerPoint "profile is per point"
             Expect.equal profile.scope ExportScope.Selected "profile exports the selection"
+            Expect.contains profile.pointFields PointField.GroundDistance
+                "profile uses the horizontal run, as the old profile export did"
 
             let qgis =
                 AnnotationExportSettings.initial

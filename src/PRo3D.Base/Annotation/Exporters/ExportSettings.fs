@@ -163,6 +163,9 @@ module AnnotationExportSettings =
                 format           = ExportFormat.Csv
                 granularity      = ExportGranularity.PerPoint
                 scope            = ExportScope.Selected
+                // geographic so `alt` is present — that column is what the old
+                // profile export called `elevation`, and ground distance is what
+                // it called `distance`
                 coordinates      = CoordinateMode.Both
                 useSampledPoints = true
                 annotationFields = [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName ]

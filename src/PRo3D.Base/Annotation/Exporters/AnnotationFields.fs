@@ -79,8 +79,13 @@ type PointField =
     | StepLength         = 4
     /// length of the whole segment this point belongs to
     | SegmentLength      = 5
-    /// running length from the annotation's first point
+    /// running length from the annotation's first point, through 3D space
     | CumulativeDistance = 6
+    /// running length from the annotation's first point with the height removed
+    /// (every point flattened onto the reference surface first). This is the
+    /// x-axis of a topographic profile, and what the old profile export called
+    /// `distance`.
+    | GroundDistance     = 7
 
 /// Coarse grouping, used only to lay the checkboxes out in sections.
 type AnnotationFieldGroup =
@@ -214,6 +219,7 @@ module AnnotationFields =
         | PointField.StepLength         -> "stepLength"
         | PointField.SegmentLength      -> "segmentLength"
         | PointField.CumulativeDistance -> "distance"
+        | PointField.GroundDistance     -> "groundDistance"
         | PointField.Cartesian          -> "cartesian"
         | PointField.Geographic         -> "geographic"
         | _                             -> sprintf "%A" field
@@ -224,7 +230,8 @@ module AnnotationFields =
         | PointField.SegmentIndex       -> "Segment index"
         | PointField.StepLength         -> "Step length, to previous point (m)"
         | PointField.SegmentLength      -> "Segment length (m)"
-        | PointField.CumulativeDistance -> "Cumulative distance (m)"
+        | PointField.CumulativeDistance -> "Cumulative distance, through 3D (m)"
+        | PointField.GroundDistance     -> "Ground distance, height ignored (m)"
         | PointField.Cartesian          -> "Cartesian x / y / z"
         | PointField.Geographic         -> "Geographic lat / lon / alt"
         | _                             -> sprintf "%A" field

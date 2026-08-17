@@ -89,15 +89,29 @@ module AnnotationExport =
             let segmentLengths =
                 a.segments |> IndexList.toList |> List.map Calculations.getSegmentDistance
 
-            a.points
-            |> IndexList.toList
+            let points = a.points |> IndexList.toList
+
+            points
             |> List.mapi (fun i p ->
                 if i = 0 then
                     { position = p; segmentIndex = None; segmentLength = None }
                 else
+                    let length =
+                        match segmentLengths |> List.tryItem (i - 1) with
+                        | Some draped -> Some draped
+                        | None ->
+                            // No stored segment — an annotation drawn with a linear
+                            // projection has none, so the stretch between two picked
+                            // points *is* the straight hop. Mirrors the fallback
+                            // `Calculations.calcResultsLine` uses for wayLength;
+                            // without it the column would just be blank.
+                            points
+                            |> List.tryItem (i - 1)
+                            |> Option.map (fun previous -> Vec.distance previous p)
+
                     { position      = p
                       segmentIndex  = Some (i - 1)
-                      segmentLength = segmentLengths |> List.tryItem (i - 1) })
+                      segmentLength = length })
 
     // ------------------------------------------------------------ schema ---
 
@@ -129,6 +143,7 @@ module AnnotationExport =
                 if hasPointField PointField.StepLength then yield AnnotationFields.pointColumnName PointField.StepLength
                 if hasPointField PointField.SegmentLength then yield AnnotationFields.pointColumnName PointField.SegmentLength
                 if hasPointField PointField.CumulativeDistance then yield AnnotationFields.pointColumnName PointField.CumulativeDistance
+                if hasPointField PointField.GroundDistance then yield AnnotationFields.pointColumnName PointField.GroundDistance
 
                 // Per-point surface properties (OPC scalar/texture layers sampled
                 // at the point) will add their columns here — see `perPointRecords`.
@@ -215,8 +230,23 @@ module AnnotationExport =
         let annotationPairs = annotationFieldPairs settings groupPath up a
         let hasPointField f = settings.pointFields |> List.contains f
 
+        /// Project a point onto the reference surface, dropping its height. The
+        /// old profile export did this before measuring, which is what made its
+        /// distance column the horizontal run rather than the slanted path.
+        let flatten (p : V3d) =
+            CooTransformation.tryGetLatLonAlt planet p
+            |> Option.bind (fun coo ->
+                CooTransformation.tryGetXYZFromLatLonAlt { coo with altitude = 0.0 } planet)
+
         let mutable cumulative = 0.0
         let mutable previous = None
+
+        // Tracked separately: a point whose height cannot be removed (no
+        // geographic frame, or a failed native call) leaves the ground total
+        // untouched and reports missing, rather than aborting the export as the
+        // old profile handler did.
+        let mutable groundCumulative = 0.0
+        let mutable previousGround = None
 
         resolved
         |> List.mapi (fun index point ->
@@ -226,6 +256,16 @@ module AnnotationExport =
                 | None   -> 0.0
             cumulative <- cumulative + step
             previous <- Some point.position
+
+            let ground =
+                match flatten point.position with
+                | None -> VMissing
+                | Some flattened ->
+                    match previousGround with
+                    | Some p -> groundCumulative <- groundCumulative + Vec.distance p flattened
+                    | None   -> ()
+                    previousGround <- Some flattened
+                    VNum groundCumulative
 
             let geographic =
                 if wantsGeographic settings.coordinates then
@@ -250,7 +290,9 @@ module AnnotationExport =
                       yield AnnotationFields.pointColumnName PointField.SegmentLength,
                             (match point.segmentLength with Some l -> VNum l | None -> VMissing)
                   if hasPointField PointField.CumulativeDistance then
-                      yield AnnotationFields.pointColumnName PointField.CumulativeDistance, VNum cumulative ]
+                      yield AnnotationFields.pointColumnName PointField.CumulativeDistance, VNum cumulative
+                  if hasPointField PointField.GroundDistance then
+                      yield AnnotationFields.pointColumnName PointField.GroundDistance, ground ]
 
             // Placeholder: per-point surface properties (OPC scalar / texture
             // layers at this position) are not sampled yet. They will be

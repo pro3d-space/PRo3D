@@ -31,8 +31,9 @@ File type      CSV table / GeoJSON / Attitude planes
 Preset         Custom / GIS-QGIS / Annotation table / Profile / Attitude planes
 Scope          All / Visible only / Selected only
 ─────────────────────────────────────────────────────────────
-Granularity    one record per annotation  |  one record per point
+Granularity    one record per annotation | one record per point
 Coordinates    Cartesian / Geographic / Both       Longitude convention
+               ☑ write longitude as -180...180
                ☑ include sampled segment points
                ⓘ what the chosen granularity does to the geometry
 Annotation attributes    checkbox per attribute, grouped
@@ -59,9 +60,9 @@ switches the preset back to *Custom*; nothing is locked.
 
 | Preset | Sets |
 |---|---|
-| GIS / QGIS | GeoJSON, per annotation, geographic, identity + the common measurements |
+| GIS / QGIS | GeoJSON, geographic, longitude *Shifted by 180°*, `colorHex` + `groupPath` + the common measurements |
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
-| Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes |
+| Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
 | Attitude planes | file type *Attitude planes* |
 
 ### Scope
@@ -79,16 +80,24 @@ The old exports iterated the flat hash map, so their row order varied between ru
 
 ### Granularity — read this one
 
-This is the setting that decides how much geometry survives.
+This decides how much geometry survives, and it does **not** mean the same thing in both
+file types. It applies to CSV and GeoJSON alike; only *Attitude planes* ignores it.
 
-- **One record per annotation** — one row / feature. It can only carry a *single*
-  coordinate, which is the **bounding-box centre** of the annotation. This is what the old
-  *visible as table* CSV did, without saying so. The GeoJSON writer still emits the full
-  geometry (LineString / Polygon) for the feature; the CSV cannot.
-- **One record per point** — one row / feature per point of every exported annotation. The
-  annotation-level attributes are repeated on each of its rows.
+| | CSV | GeoJSON |
+|---|---|---|
+| **one record per annotation** | one row; the coordinate columns hold the **bounding-box centre** and the individual vertices are not in the file — what the old *visible as table* CSV did, without saying so | one `Feature` per annotation carrying its **full** `LineString` / `Polygon` geometry; only the `lat/lon/alt` *attribute* columns hold the centre |
+| **one record per point** | one row per point of every exported annotation, with the annotation attributes repeated on each row | one **`Point`** feature per vertex |
 
-The window shows this as an inline message that follows the setting.
+In GeoJSON this also decides the layer's geometry type, which matters because a GIS layer
+has one geometry type and one renderer.
+
+Why per-point matters in GeoJSON: a GIS evaluates labels and symbology **once per feature**.
+Per-vertex values *can* be carried on a single line feature as array-valued properties —
+that is legal GeoJSON and GDAL maps homogeneous arrays to list fields — but no GIS can bind
+array element *i* to vertex *i*. So a point-per-vertex layer is the only way to label or
+colour individual sample points.
+
+The window shows the applicable case as an inline message under the settings.
 
 ### Coordinates
 
@@ -177,15 +186,39 @@ Only shown for *one record per point*.
 | Column | Meaning |
 |---|---|
 | `pointIndex` | running index within the annotation |
-| `segmentIndex` | which segment the point belongs to (empty for the first control point when sampled points are off) |
+| `segmentIndex` | which segment the point belongs to (empty on the first point) |
 | `x, y, z` / `lat, lon, alt` | the point's position, per the coordinate setting |
 | `stepLength` | distance to the previously exported point |
 | `segmentLength` | length of the whole segment this point belongs to |
-| `distance` | running length from the annotation's first point |
+| `distance` | running length from the first point, **through 3D space** |
+| `groundDistance` | running length from the first point with the **height removed** |
+
+#### The two distances
+
+Every point is flattened onto the reference surface (altitude 0) before
+`groundDistance` is measured, so it is the horizontal run — the x-axis of a topographic
+profile. `distance` measures between the actual 3D points and therefore includes the
+vertical climb. On a line running 100 m horizontally while climbing 30 m, `groundDistance`
+ends at 100 and `distance` at about 104.4.
+
+**The old *selected as profile* export's `distance` column was the ground distance**, and
+its `elevation` column is now `alt`. The *Profile* preset ticks both, so it reproduces the
+old numbers. `groundDistance` is empty for bodies without a geographic frame
+(`Planet.None`/`JPL`/`ENU`), since there is no height to remove.
+
+#### Segment lengths
 
 `segmentLength` is repeated on every row of that segment, so a pivot on `segmentIndex`
-gives the per-segment table. The segment lengths sum to the annotation's `wayLength`, and
-the last row's `distance` agrees with it.
+gives the per-segment table, and the segment lengths sum to the annotation's `wayLength`.
+
+A "segment" is the stretch between two *picked* points, including the surface-following
+points PRo3D drapes in between. Annotations drawn with `Projection.Linear` have no such
+stretches — the picked points are the whole geometry — so there `segmentLength` falls back
+to the plain hop and equals `stepLength`, mirroring the fallback `wayLength` already uses.
+
+Note that `wayLength` is **not** redundant with the final `distance`: per-*annotation*
+exports have no `distance` column at all, and with *include sampled segment points* off the
+two diverge (chords versus the draped path).
 
 **Surface properties at each point** — sampling the OPC scalar / texture layers at each
 point is not available yet; the window shows a placeholder where those checkboxes will go.
@@ -286,19 +319,39 @@ There is no import path yet, but the export is shaped so one can be added:
 
 ## Migrating from the old menu
 
-| Old command | New settings |
-|---|---|
-| visible as table (*.csv) | CSV · per annotation · Visible · Both |
-| selected as profile (*.csv) | CSV · per point · Selected · Geographic (preset *Profile*) |
-| selected as multi-attribute profile | CSV · per point · Selected — surface columns pending |
-| visible as GeoJSON | GeoJSON · per annotation · Visible · Geographic |
-| visible as GeoJSON xyz | GeoJSON · per annotation · Visible · Cartesian |
-| latlon GeoJSON for QGIS | GeoJSON · per annotation · Geographic (preset *GIS / QGIS*) |
-| xyz GeoJSON for QGIS | GeoJSON · per annotation · Cartesian |
-| latlon for QGIS + xyz metadata | GeoJSON · per annotation · Both |
-| dns as 'Attitude' planes | file type *Attitude planes* |
-| all as 'PRo3D' annotations | unchanged, still on the menu |
-| continuously export as GeoJSON xyz | unchanged, still on the menu |
+Verified against `git show releases/6.0.0:src/PRo3D.Core/Drawing/Drawing-App.fs`. Note the
+**sampled points** column — the old exports disagreed with each other about it, so half of
+them need it switched off to reproduce.
+
+| Old command | New settings | Sampled points |
+|---|---|---|
+| visible as table (*.csv) | CSV · Visible · per annotation · Both · Flipped | **off** |
+| selected as profile (*.csv) | CSV · Selected · per point · Geographic + *ground distance* (preset *Profile*) | on |
+| selected as multi-attribute profile | CSV · Selected · per point — surface columns pending | on |
+| visible as GeoJSON | GeoJSON · Visible · Geographic · Flipped | on |
+| visible as GeoJSON xyz | GeoJSON · Visible · Cartesian | on |
+| latlon GeoJSON for QGIS | GeoJSON · Visible · Geographic · **Native** | **off** |
+| xyz GeoJSON for QGIS | GeoJSON · Visible · Cartesian | **off** |
+| latlon for QGIS + xyz metadata | GeoJSON · Visible · Both · **Native** | **off** |
+| dns as 'Attitude' planes | file type *Attitude planes* · Visible | n/a |
+| all as 'PRo3D' annotations | unchanged, still on the menu | n/a |
+| continuously export as GeoJSON xyz | unchanged, still on the menu | n/a |
+
+Two of these are not exact equivalents:
+
+- ***latlon for QGIS + xyz metadata*** wrote a `cartesian` property containing **every**
+  point; the new export writes `x/y/z` of the bounding-box centre. There is no setting that
+  reproduces the full point array.
+- ***selected as profile*** wrote exactly two columns, `distance` and `elevation`. Those are
+  now `groundDistance` and `alt`, with the same values, alongside whatever else is ticked
+  (and `key`, which is always written).
+
+The three QGIS variants applied **no** longitude transform, i.e. *Native*. The
+*GIS / QGIS* preset instead selects *Shifted by 180°*, which is what actually lined up with
+Mars data in QGIS — use *Native* if you need byte-comparable output against the old files.
+
+Two properties are no longer emitted: **`isSelected`** (no equivalent attribute) and
+**`isEllipse`** (derivable from the `geometry` column).
 
 Beyond the GeoJSON coordinate order, two other behaviours changed on purpose:
 
