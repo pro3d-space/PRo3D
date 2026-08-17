@@ -24,6 +24,8 @@ type AnnotationExportAction =
     | TogglePointField       of PointField
     /// select / deselect every annotation-level attribute at once
     | SetAllAnnotationFields of bool
+    /// select / deselect every point-level attribute at once
+    | SetAllPointFields      of bool
     /// the file path comes from the save dialog; handled at viewer level
     /// because the export needs the surface model
     | Export                 of string

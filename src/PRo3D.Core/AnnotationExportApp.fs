@@ -54,6 +54,12 @@ module AnnotationExportApp =
                          if selected then HashSet.ofList AnnotationFields.all
                          else HashSet.single AnnotationField.Key }
 
+        | SetAllPointFields selected ->
+            custom { model with
+                       pointFields =
+                         if selected then HashSet.ofList AnnotationFields.allPointFields
+                         else HashSet.empty }
+
         // needs the surface model to sample surface attributes, so it is
         // handled at viewer level; see ViewerApp.
         | Export _ -> model
@@ -85,14 +91,48 @@ module AnnotationExportApp =
             (AttributeMap.ofList [ onChange; style "color:black; width:100%" ])
             (values |> List.map (fun v -> Incremental.option (optionAttributes v) (AList.single (text (labelOf v)))) |> AList.ofList)
 
+    /// Tick box and its label on one line. `Html.SemUi.stuffStack` wraps the
+    /// label in a block element, which pushed it onto the next row.
     let private checkBox (label : string) (isSet : aval<bool>) (action : 'msg) =
-        div [ clazz "item"; style "padding: 1px 0px" ] [
+        div [ style "display:flex; align-items:center; gap:6px; padding:2px 0" ] [
             GuiEx.iconCheckBox isSet action
-            Html.SemUi.stuffStack [ text (" " + label) ]
+            span [ style "line-height:1.2" ] [ text label ]
         ]
 
     let private sectionHeader (title : string) =
-        div [ clazz "ui tiny inverted header"; style "margin-top: 8px" ] [ text title ]
+        div [ clazz "ui tiny inverted header"; style "margin:10px 0 4px 0" ] [ text title ]
+
+    /// Accordion for the attribute lists.
+    ///
+    /// Not `GuiEx.accordionWithHeader`: that one reserves the right-hand slot
+    /// for an icon and lets the title row size itself, so a header carrying
+    /// buttons ends up taller than one without. Here the right-hand slot holds
+    /// the buttons and the row has a fixed height, so the two accordions match
+    /// whether or not they have any.
+    let private attributeAccordion (title : string) (headerRight : list<DomNode<'msg>>) (content : list<DomNode<'msg>>) =
+        let stopClick =
+            onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); } );"
+
+        onBoot "$('#__ID__').accordion();" (
+            div [ clazz "ui inverted segment"; style "margin:0 0 8px 0; padding:0" ] [
+                div [ clazz "ui inverted accordion fluid" ] [
+                    div [
+                        clazz "title inverted"
+                        style "background-color:#282828; display:flex; align-items:center; \
+                               height:36px; padding:0 8px; box-sizing:border-box"
+                    ] [
+                        i [ clazz "dropdown icon"; style "margin:0 6px 0 0" ] []
+                        span [ style "flex:1 1 auto" ] [ text title ]
+                        stopClick (div [ style "display:flex; align-items:center; gap:4px" ] headerRight)
+                    ]
+                    div [ clazz "content"; style "padding:6px 10px 10px 10px" ] content
+                ]
+            ]
+        )
+
+    /// Groups settings that belong together, with a little breathing room.
+    let private settingsGroup (content : list<DomNode<'msg>>) =
+        div [ style "margin-bottom:10px" ] content
 
     let private annotationFieldSection (model : AdaptiveAnnotationExportModel) (group : AnnotationFieldGroup) (title : string) =
         let fields = AnnotationFields.all |> List.filter (fun f -> AnnotationFields.groupOf f = group)
@@ -124,26 +164,21 @@ module AnnotationExportApp =
                     yield text "One row per point of every exported annotation. Annotation attributes are repeated on each of its rows."
             })
 
-    let private pointAttributeSection (model : AdaptiveAnnotationExportModel) =
-        Incremental.div AttributeMap.empty (
-            alist {
-                let! granularity = model.granularity
-                if granularity = ExportGranularity.PerPoint then
-                    yield sectionHeader "Point attributes"
+    /// Contents of the point-attribute accordion. The caller decides whether to
+    /// show it at all, so there is no granularity check here.
+    let private pointAttributeFields (model : AdaptiveAnnotationExportModel) =
+        [ for field in AnnotationFields.allPointFields do
+            yield checkBox
+                    (AnnotationFields.pointLabel field)
+                    (model.pointFields |> ASet.contains field)
+                    (TogglePointField field)
 
-                    for field in AnnotationFields.allPointFields do
-                        yield checkBox
-                                (AnnotationFields.pointLabel field)
-                                (model.pointFields |> ASet.contains field)
-                                (TogglePointField field)
-
-                    // Placeholder for the per-point surface properties (OPC
-                    // scalar / texture layers sampled at the point). The
-                    // sampling itself is being implemented separately.
-                    yield sectionHeader "Surface properties at each point"
-                    yield div [ clazz "ui tiny inverted text"; style "opacity: 0.6" ] [
-                        text "Not available yet — sampling the surface layers at each point is still being implemented." ]
-            })
+          // Placeholder for the per-point surface properties (OPC scalar /
+          // texture layers sampled at the point). The sampling itself is being
+          // implemented separately.
+          yield sectionHeader "Surface properties at each point"
+          yield div [ clazz "ui tiny inverted text"; style "opacity: 0.6" ] [
+              text "Not available yet — sampling the surface layers at each point is still being implemented." ] ]
 
     /// The save dialog's filter has to follow the chosen file type, so the
     /// client event string is built adaptively rather than as a constant.
@@ -163,34 +198,42 @@ module AnnotationExportApp =
 
         Incremental.div attributes (AList.single (text "Export..."))
 
-    /// Body of the export window.
-    let view (model : AdaptiveAnnotationExportModel) =
-        require GuiEx.semui (
-            div [ clazz "ui inverted segment"; style "min-width: 420px; max-width: 520px" ] [
-                div [ clazz "ui inverted header" ] [ text "Export annotations" ]
+    /// The scrolling middle of the window. The header and the buttons live
+    /// outside it so they stay put however long this gets.
+    let private settings (model : AdaptiveAnnotationExportModel) =
+        div [ style "flex: 1 1 auto; overflow-y: auto; padding: 10px 12px" ] [
+            // The preset only pre-fills everything below, so it sits on its own.
+            settingsGroup [
+                Html.table [
+                    Html.row "Preset:" [
+                        dropDown ExportPreset.all ExportPreset.label model.preset SetPreset ]
+                ]
+            ]
 
+            settingsGroup [
                 Html.table [
                     Html.row "File type:" [
                         dropDown
                             [ ExportFormat.Csv; ExportFormat.GeoJson; ExportFormat.Attitude ]
                             AnnotationExportSettings.formatLabel model.format SetFormat ]
-                    Html.row "Preset:" [
-                        dropDown ExportPreset.all ExportPreset.label model.preset SetPreset ]
                     Html.row "Scope:" [
                         dropDown
                             [ ExportScope.All; ExportScope.Visible; ExportScope.Selected ]
                             AnnotationExportSettings.scopeLabel model.scope SetScope ]
                 ]
+            ]
 
-                // Everything below only applies to the configurable formats.
-                Incremental.div AttributeMap.empty (
-                    alist {
-                        let! format = model.format
-                        if AnnotationExportSettings.hasFixedSchema format then
-                            yield div [ clazz "ui small message" ] [
-                                text "Attitude planes have a fixed schema defined by the external tool that reads them. Only the scope applies." ]
-                        else
-                            yield Html.table [
+            // Everything below only applies to the configurable formats.
+            Incremental.div AttributeMap.empty (
+                alist {
+                    let! format = model.format
+                    let! granularity = model.granularity
+                    if AnnotationExportSettings.hasFixedSchema format then
+                        yield div [ clazz "ui small message" ] [
+                            text "Attitude planes have a fixed schema defined by the external tool that reads them. Only the scope applies." ]
+                    else
+                        yield settingsGroup [
+                            Html.table [
                                 Html.row "Granularity:" [
                                     dropDown
                                         [ ExportGranularity.PerAnnotation; ExportGranularity.PerPoint ]
@@ -204,37 +247,61 @@ module AnnotationExportApp =
                                         AnnotationExportSettings.allLongitudeConventions
                                         AnnotationExportSettings.longitudeLabel model.longitude SetLongitude ]
                                 Html.row "Longitude range:" [
-                                    GuiEx.iconCheckBox model.signedLongitude ToggleSignedLongitude
-                                    text " write as -180...180 instead of 0...360" ]
+                                    checkBox "write as -180...180 instead of 0...360"
+                                        model.signedLongitude ToggleSignedLongitude ]
                                 Html.row "Sampled points:" [
-                                    GuiEx.iconCheckBox model.useSampledPoints ToggleSampledPoints
-                                    text " include the surface-following points between the picked ones" ]
+                                    checkBox "include the surface-following points between the picked ones"
+                                        model.useSampledPoints ToggleSampledPoints ]
                             ]
+                            granularityHint model
+                        ]
 
-                            yield granularityHint model
+                        // Collapsed by default: the lists are long and most
+                        // exports are driven by a preset, so they only need
+                        // opening when the columns are being tuned.
+                        yield
+                            attributeAccordion
+                                "Annotation attributes"
+                                [ button [ clazz "ui mini button"; style "margin:0"
+                                           onClick (fun _ -> SetAllAnnotationFields true) ] [ text "all" ]
+                                  button [ clazz "ui mini button"; style "margin:0"
+                                           onClick (fun _ -> SetAllAnnotationFields false) ] [ text "none" ] ]
+                                [ annotationFieldSection model Identity "Identity"
+                                  annotationFieldSection model Measurements "Measurements"
+                                  annotationFieldSection model Ellipse "Ellipse"
+                                  annotationFieldSection model DipAndStrike "Dip and strike"
+                                  annotationFieldSection model ErrorMeasures "Planar fit errors" ]
 
-                            yield div [ clazz "ui divider" ] []
-                            yield div [ style "display:flex; gap:6px; align-items:center" ] [
-                                sectionHeader "Annotation attributes"
-                                button [ clazz "ui mini button"; onClick (fun _ -> SetAllAnnotationFields true) ] [ text "all" ]
-                                button [ clazz "ui mini button"; onClick (fun _ -> SetAllAnnotationFields false) ] [ text "none" ]
-                            ]
-                            yield div [ style "max-height: 240px; overflow-y: auto" ] [
-                                annotationFieldSection model Identity "Identity"
-                                annotationFieldSection model Measurements "Measurements"
-                                annotationFieldSection model Ellipse "Ellipse"
-                                annotationFieldSection model DipAndStrike "Dip and strike"
-                                annotationFieldSection model ErrorMeasures "Planar fit errors"
-                            ]
+                        if granularity = ExportGranularity.PerPoint then
+                            yield
+                                attributeAccordion
+                                    "Point attributes"
+                                    [ button [ clazz "ui mini button"; style "margin:0"
+                                               onClick (fun _ -> SetAllPointFields true) ] [ text "all" ]
+                                      button [ clazz "ui mini button"; style "margin:0"
+                                               onClick (fun _ -> SetAllPointFields false) ] [ text "none" ] ]
+                                    (pointAttributeFields model)
+                })
+        ]
 
-                            yield div [ clazz "ui divider" ] []
-                            yield div [ style "max-height: 240px; overflow-y: auto" ] [
-                                pointAttributeSection model
-                            ]
-                    })
+    /// Body of the export window: a fixed header, a scrolling middle and a
+    /// fixed footer, so the title and the buttons never scroll out of reach.
+    let view (model : AdaptiveAnnotationExportModel) =
+        require GuiEx.semui (
+            div [
+                clazz "ui inverted segment"
+                style "display:flex; flex-direction:column; min-width:440px; max-width:540px; max-height:90vh; padding:0; margin:0"
+            ] [
+                div [
+                    clazz "ui inverted header"
+                    style "flex:0 0 auto; margin:0; padding:12px; border-bottom:1px solid rgba(255,255,255,0.15)"
+                ] [ text "Export annotations" ]
 
-                div [ clazz "ui divider" ] []
-                div [ style "display:flex; gap:8px; justify-content:flex-end" ] [
+                settings model
+
+                div [
+                    style "flex:0 0 auto; display:flex; gap:8px; justify-content:flex-end; padding:10px 12px; border-top:1px solid rgba(255,255,255,0.15)"
+                ] [
                     button [ clazz "ui button"; onClick (fun _ -> Close) ] [ text "Cancel" ]
                     exportButton model
                 ]
@@ -254,9 +321,11 @@ module AnnotationExportApp =
                         style "position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:20000; display:flex; align-items:center; justify-content:center"
                         onClick (fun _ -> Close)
                     ] [
-                        // stop the click on the panel itself from closing the window
+                        // stop the click on the panel itself from closing the window.
+                        // No scrolling here — `view` scrolls its own middle so the
+                        // header and buttons stay put.
                         onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); });" (
-                            div [ style "max-height:90vh; overflow-y:auto" ] [
+                            div [ style "display:flex; max-height:90vh" ] [
                                 view model
                             ])
                     ]

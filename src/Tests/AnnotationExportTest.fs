@@ -70,7 +70,7 @@ let private recordsOn planet settings annotation =
 
 /// Cartesian position of a lat/lon/alt on Mars, or None when the native
 /// coordinate transform is unavailable in this environment.
-let private onMars (lat, lon, alt) =
+let private onMars (lat : float, lon : float, alt : float) =
     CooTransformation.tryGetXYZFromLatLonAlt' (V3d(lat, lon, alt)) Planet.Mars
 
 let private cell (column : string) (record : ExportRecord) =
