@@ -45,6 +45,7 @@
     <Compile Include="Rendering.fs" />
     <Compile Include="Markers.fs" />
     <Compile Include="OpcProjectionSg.fs" />
+    <Compile Include="InstrumentObservation.fs" />
 
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
