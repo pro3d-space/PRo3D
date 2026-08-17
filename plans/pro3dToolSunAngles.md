@@ -8,8 +8,8 @@ carrying two verbs:
 - `kdtree` — KdTree generation for OPC hierarchies, migrated from the existing
   `opc-tool` (clean break; see [Migration](#migration-from-opc-tool)).
 - `sun-angles` — for each ASPECT instrument image, emit per-pixel **illumination
-  geometry as float32 rasters** (incidence, emission, phase, slope, azimuth),
-  pixel-aligned to the source image, plus a screenshot for eyeballing.
+  geometry as float32 rasters** (incidence, emission, phase), pixel-aligned to the
+  source image, plus a screenshot for eyeballing.
 
 `PRo3D.ProjectionTestbed` **stays exactly where it is**: a separate, unpublished
 development instrument. Its diagnostic flags (`--flip-sweep`, `--flip-normals`,
@@ -41,8 +41,8 @@ What is missing is precision and packaging, in three concrete places:
    already decodes `SampleFormat.IEEEFP` at 32 bits (`Tiff.fs:159`, `Tiff.fs:210`),
    so the format knowledge is there, but there is no write path.
 
-Slope and azimuth are genuinely net-new — no occurrence anywhere in
-`PRo3D.ProjectionTestbed` or `PRo3D.GIS`.
+All three quantities the tool emits therefore already exist and are already
+exercised; nothing new has to be derived.
 
 ## Phase 1 — `pro3d-tool` skeleton and the `kdtree` verb
 
@@ -89,17 +89,18 @@ Removing it keeps an Electron dependency out of the CLI's closure entirely. Audi
 
 ### Output
 
-Per input image, five single-band float32 rasters plus a screenshot:
+Per input image, three single-band float32 rasters plus a screenshot:
 
 | Raster | Definition | Units |
 |---|---|---|
 | incidence | surface normal ↔ direction to Sun | radians |
 | emission | surface normal ↔ direction to observer | radians |
 | phase | Sun ↔ surface ↔ observer | radians |
-| slope | local surface slope against the body reference (see open question) | radians |
-| azimuth | slope azimuth in the body-fixed frame | radians |
 
 All are **pixel-aligned to the source `.tif`**, so they overlay the ASPECT frame 1:1.
+
+Slope and azimuth are explicitly **out of scope** — they would have needed a local
+reference "up", which is ambiguous on an irregular body, and they are not wanted.
 
 ### Rendering
 
@@ -150,19 +151,29 @@ display, which is why it must stay opt-in and off the batch path.
 
 ## Phase 3 — test script and test data
 
-The tool ships with `scripts/run-pro3d-tool-examples.ps1`, a runnable demonstration
-of every verb against public test data — modelled on the existing
-`scripts/run-projection-testbed.ps1` (same `param()` + `dotnet run --project` shape,
-so it works from a source checkout before anything is published).
+The tool ships with `scripts/run-pro3d-tool-examples.{cmd,sh}`, a runnable
+demonstration of every verb against public test data, in Windows and POSIX variants
+matching the repo's existing `build.cmd`/`build.sh` convention. They invoke
+`dotnet run --project`, so they work from a source checkout before anything is
+published.
+
+**Keep them trivial.** Each is one `dotnet run` per verb plus argument checking; all
+documentation lives in `docs/Pro3DTool.md`. An earlier draft grew to 108 lines
+because the example used `kdtree --forcekdtreerebuild`, which rewrites `.aakd` files
+in the user's checkout, and then needed copy/`-WorkDir`/`-Fresh`/`-InPlace`
+machinery to contain the damage. A plain `kdtree` run is byte-for-byte read-only
+(verified), so **examples use only read-only invocations** and the machinery is
+unnecessary. If an example ever genuinely needs to mutate data, copy it in the
+example rather than reintroducing modes.
 
 Test data lives in a **separate repository** so a plain PRo3D clone stays small:
 
 ```
 git clone https://github.com/pro3d-space/PRo3D.Resources.TestData.git
-.\scripts\run-pro3d-tool-examples.ps1 -TestData <path-to-clone>
+scripts\run-pro3d-tool-examples.cmd <path-to-clone>
 ```
 
-`-TestData` is a plain path, not a submodule — documented that way in
+The test data path is a plain argument, not a submodule — documented that way in
 `docs/Pro3DTool.md` so users clone it wherever they like. (A submodule wiring at
 `src/Tests/data/opc` exists in history for the test suite; the tool examples
 deliberately do not depend on it.)
@@ -172,22 +183,45 @@ deliberately do not depend on it.)
 | Verb | Fixture | Status |
 |---|---|---|
 | `kdtree` | `1087_004779_MSLMST_0011/` — MSL/Stimson OPC | **runs end-to-end** |
-| `sun-angles` | `HERA/Instrument Data/ASP_000000_270323T060000_2B_NIR1_0.tif` + `.mbi.json` | **cannot run end-to-end** |
+| `sun-angles` | `HERA/Instrument Data/…_NIR1_0.tif` + `.mbi.json`, `HERA/Didymos_ASPECT/` | **needs kernels** |
 
-`sun-angles` needs three inputs — instrument image, body OPC, and SPICE kernels —
-and the repository currently holds only the first. There is no Didymos/Dimorphos OPC
-and no kernel of any kind (`.bsp`/`.tm`/`.tf`/`.tpc`) in the clone. So either:
+`sun-angles` needs three inputs: the instrument image, the body OPC, and SPICE
+kernels. The first two are now in `PRo3D.Resources.TestData` — the Didymos OPC
+(`HERA/Didymos_ASPECT/`, 5.4 MB) was added for this purpose and is validated by
+`pro3d-tool kdtree`. Only the kernels remain.
 
-- **add a small Didymos OPC and a minimal metakernel to
-  `PRo3D.Resources.TestData`** (preferred — makes the example self-contained and
-  gives the verb a regression fixture), or
-- have the script skip the `sun-angles` example with an explicit message when
-  `-Opc`/`-KernelRoot` are not supplied, exactly as the test suite skips OPC tests
-  when the submodule is absent.
+### Kernels are cloned by the user, not vendored
 
-Skipping loudly is the fallback, not the goal: an example that cannot be run is not
-an example. Decide before Phase 2 lands, because it determines whether `sun-angles`
-gets an automated regression test at all.
+ESA publishes the Hera SPICE kernel dataset as a git repository, so users clone it
+themselves and pass the path:
+
+```
+git clone https://spiftp.esac.esa.int/git/hera.git
+```
+
+It is anonymous, needs no credentials, and lays out the conventional
+`kernels/{lsk,pck,fk,ik,sclk,spk,ck,dsk}` tree with metakernels in `kernels/mk`
+(`hera_plan.tm`, `hera_ops.tm`, …). The tool takes the kernel root — i.e.
+`<clone>/kernels` — via `--kernel-root`, or an explicit metakernel via `--kernel`.
+
+**Do not vendor or submodule this.** A full clone is ~6.5 GB and a shallow
+single-branch clone of `SKD_V182` is still ~825 MB. Worse, the ESA server does not
+advertise partial-clone support — `--filter=blob:none` is answered with
+`warning: filtering not recognized by server, ignoring` — so neither blobless clone
+nor sparse-checkout can trim the download. There is no way to pull only the kernels a
+scenario needs; it is all or nothing. That removes the main argument for a submodule,
+which would otherwise have been a way to pin a version cheaply.
+
+For reference, `hera_plan.tm` loads **63 kernels totalling 433 MB**, of which most is
+irrelevant to a Didymos/ASPECT run — three DSK shape models account for 320 MB
+(two of them Phobos and Dimorphos), plus a 31 MB Mars ephemeris. A trimmed
+metakernel naming only what this scenario resolves would be well under 100 MB, and is
+worth writing for the regression fixture. But it still has to be *derived from* a
+full clone, so it does not change the user-facing instruction.
+
+Until `sun-angles` exists, the example script skips it and says exactly which input is
+missing. Skipping loudly is the interim state, not the goal: an example that cannot be
+run is not an example.
 
 ## Phase 4 — packaging and release
 
@@ -218,20 +252,15 @@ Clean break, as decided:
 
 ## Open questions
 
-1. **Slope relative to what?** On an irregular small body like Didymos, slope needs a
-   local reference "up", and radial-from-centre and local gravity differ
-   substantially — enough to change the numbers materially. Radial is trivial to
-   compute; a gravity-based reference needs a shape/density model. **This must be
-   decided before implementing slope/azimuth**, and whichever is chosen must be
-   recorded in the sidecar, because the two are not interconvertible after the fact.
-2. **Angle units** — radians or degrees in the raster? Radians proposed above;
+1. **Angle units** — radians or degrees in the raster? Radians proposed above;
    degrees are friendlier to analysts reading pixel values directly.
-3. **Emission beyond 90°** — `Shading.fs:83` notes emission may exceed 90°. Clamp,
+2. **Emission beyond 90°** — `Shading.fs:83` notes emission may exceed 90°. Clamp,
    or preserve and let downstream mask? Preserving is proposed; it is information.
-4. **Does `PRo3D.Resources.TestData` gain a Didymos OPC and a metakernel?** Without
-   them the shipped `sun-angles` example cannot be executed by a user who follows
-   the documentation, and the verb has no regression fixture. See
-   [Phase 3](#phase-3--test-script-and-test-data). Decide before Phase 2 lands.
+3. **Is a trimmed metakernel worth maintaining?** A Didymos/ASPECT-only metakernel
+   would be well under 100 MB against 433 MB for `hera_plan.tm`, which matters if
+   `sun-angles` ever gets a CI regression run. It has to be derived empirically —
+   write it, run the verb, add back only what SPICE reports missing — and it must be
+   re-derived whenever the dataset version moves.
 
 ## Out of scope
 

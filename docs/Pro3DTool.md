@@ -44,15 +44,40 @@ that a plain PRo3D clone stays small. Clone it anywhere you like and pass the pa
 git clone https://github.com/pro3d-space/PRo3D.Resources.TestData.git
 ```
 
-A runnable script demonstrating every verb against that clone ships with the PRo3D
-source tree:
+It contains an MSL/Stimson OPC surface and, under `HERA/`, a Didymos OPC together
+with an ASPECT instrument image and its metadata sidecars.
 
-```powershell
-.\scripts\run-pro3d-tool-examples.ps1 -TestData <path-to-clone>
+A runnable script demonstrating every verb against that clone ships with the PRo3D
+source tree, in Windows and POSIX variants:
+
+```
+scripts\run-pro3d-tool-examples.cmd <path-to-clone>
+scripts/run-pro3d-tool-examples.sh  <path-to-clone>
 ```
 
-The script runs the tool from source via `dotnet run`, so it works in a checkout
-before anything has been published to NuGet.
+They run the tool from source via `dotnet run`, so they work in a checkout before
+anything has been published to NuGet. Every example is read-only, so pointing them at
+a git checkout leaves it clean — `--forcekdtreerebuild` is documented below but
+deliberately not exercised, because it rewrites the `.aakd` files in place.
+
+### SPICE kernels
+
+Anything involving planetary geometry — body positions, orientations, the direction
+to the Sun — needs SPICE kernels. These are **not** part of the PRo3D test data:
+they are published by ESA and are large. Clone them separately:
+
+```
+git clone https://spiftp.esac.esa.int/git/hera.git
+```
+
+No credentials are needed. Expect roughly 6.5 GB; the ESA server does not support
+partial clones, so `--filter` and sparse-checkout will not reduce this.
+
+Point the tool at the `kernels` directory inside that clone:
+
+```
+scripts\run-pro3d-tool-examples.cmd <path-to-testdata> <path-to-hera-clone>\kernels
+```
 
 ## `kdtree` — validate OPC directories and generate KdTrees
 
