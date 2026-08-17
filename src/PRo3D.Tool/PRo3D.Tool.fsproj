@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>preview</LangVersion> <!-- https://github.com/dotnet/fsharp/issues/17501 -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>pro3d-tool</ToolCommandName>
+    <PackageId>PRo3D.Tool</PackageId>
+    <RootNamespace>PRo3D.Tool</RootNamespace>
+    <Description>Command line tools for PRo3D data: OPC validation and KdTree generation.</Description>
+    <PackageOutputPath>..\..\bin\</PackageOutputPath>
+    <Authors>PRo3D.Space contributors</Authors>
+    <Owners>pro3d-space</Owners>
+    <PackageReadmeFile>content/Pro3DTool.md</PackageReadmeFile>
+    <Copyright>PRo3D.Space contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>Github</RepositoryType>
+    <RepositoryUrl>https://github.com/pro3d-space/PRo3D</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/pro3d-space/PRo3D</PackageProjectUrl>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="..\..\docs\Pro3DTool.md" copyToOutput="true">
+      <IncludeInPackage>true</IncludeInPackage>
+      <CopyToOutput>true</CopyToOutput>
+      <BuildAction>Content</BuildAction>
+    </Content>
+    <None Include="paket.references" />
+    <Compile Include="Cli.fs" />
+    <Compile Include="KdTree.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
