@@ -55,6 +55,13 @@ type AnnotationField =
     | SumOfSquares      = 34
     | MinAngularError   = 35
     | MaxAngularError   = 36
+    /// full chain of group names, "/"-separated — keeps the nesting that
+    /// `GroupName` (immediate parent only) loses, and lets an importer rebuild
+    /// the group tree
+    | GroupPath         = 37
+    /// #RRGGBB, for GIS tools that can bind a symbol colour to a field.
+    /// `Color` stays in Aardvark's own format so it reimports exactly.
+    | ColorHex          = 38
 
 /// Per-point attributes, available when the export granularity is "one record
 /// per point". Which of `Cartesian` / `Geographic` actually produce columns is
@@ -98,8 +105,9 @@ module AnnotationFields =
     let groupOf (field : AnnotationField) =
         match field with
         | AnnotationField.Key | AnnotationField.Text | AnnotationField.GroupName
-        | AnnotationField.SurfaceName | AnnotationField.Geometry | AnnotationField.Semantic
-        | AnnotationField.Projection | AnnotationField.Color | AnnotationField.Visible
+        | AnnotationField.GroupPath | AnnotationField.SurfaceName | AnnotationField.Geometry
+        | AnnotationField.Semantic | AnnotationField.Projection | AnnotationField.Color
+        | AnnotationField.ColorHex | AnnotationField.Visible
         | AnnotationField.PointCount -> Identity
         | AnnotationField.MajorDiameter | AnnotationField.MinorDiameter -> Ellipse
         | AnnotationField.DipAngle | AnnotationField.DipAzimuth
@@ -117,11 +125,13 @@ module AnnotationFields =
         | AnnotationField.Key               -> "key"
         | AnnotationField.Text              -> "text"
         | AnnotationField.GroupName         -> "groupName"
+        | AnnotationField.GroupPath         -> "groupPath"
         | AnnotationField.SurfaceName       -> "surfaceName"
         | AnnotationField.Geometry          -> "geometry"
         | AnnotationField.Semantic          -> "semantic"
         | AnnotationField.Projection        -> "projection"
         | AnnotationField.Color             -> "color"
+        | AnnotationField.ColorHex          -> "colorHex"
         | AnnotationField.Visible           -> "visible"
         | AnnotationField.PointCount        -> "points"
         | AnnotationField.Height            -> "height"
@@ -156,14 +166,16 @@ module AnnotationFields =
     /// Human-readable label with unit, shown next to the checkbox.
     let label (field : AnnotationField) =
         match field with
-        | AnnotationField.Key               -> "Id"
+        | AnnotationField.Key               -> "Id (always exported)"
         | AnnotationField.Text              -> "Label"
         | AnnotationField.GroupName         -> "Group"
+        | AnnotationField.GroupPath         -> "Group path (nested)"
         | AnnotationField.SurfaceName       -> "Surface"
         | AnnotationField.Geometry          -> "Annotation type"
         | AnnotationField.Semantic          -> "Semantic"
         | AnnotationField.Projection        -> "Projection"
-        | AnnotationField.Color             -> "Colour"
+        | AnnotationField.Color             -> "Colour (PRo3D format)"
+        | AnnotationField.ColorHex          -> "Colour (#RRGGBB, for GIS styling)"
         | AnnotationField.Visible           -> "Visible"
         | AnnotationField.PointCount        -> "Point count"
         | AnnotationField.Height            -> "Height (m)"
@@ -259,26 +271,40 @@ module AnnotationFields =
             | AnnotationField.MinorDiameter -> ExportValue.ofFloat (2.0 * e.geographicalEllipse.Axis1.Length)
             | _ -> VMissing
 
-    /// `lookUp` maps annotation key -> containing group name (GroupsApp.updateGroupsLookup).
+    /// Separator between the group names of `GroupPath`. Forward slash reads as
+    /// a path and is the character GIS tools are least likely to mangle.
+    [<Literal>]
+    let GroupPathSeparator = "/"
+
+    /// `#RRGGBB`. GIS tools bind a symbol colour to a field in this form; the
+    /// alpha channel is dropped, which is why `Color` keeps the exact format.
+    let private toHex (c : C4b) =
+        sprintf "#%02X%02X%02X" c.R c.G c.B
+
+    /// `groupPath` maps annotation key -> the chain of group names containing it
+    /// (`GroupsApp.groupPathLookup`), outermost first, root excluded.
     /// `up` is the reference system's up vector, needed for the deltas and the rake.
     let valueOf
-        (lookUp : HashMap<Guid, string>)
-        (up     : V3d)
-        (field  : AnnotationField)
-        (a      : Annotation)
+        (groupPath : HashMap<Guid, list<string>>)
+        (up        : V3d)
+        (field     : AnnotationField)
+        (a         : Annotation)
         : ExportValue =
 
         let results = a.results |> Option.defaultValue AnnotationResults.initial
+        let path = groupPath |> HashMap.tryFind a.key |> Option.defaultValue []
 
         match field with
         | AnnotationField.Key         -> VText (a.key.ToString())
         | AnnotationField.Text        -> VText a.text
-        | AnnotationField.GroupName   -> VText (lookUp |> HashMap.tryFind a.key |> Option.defaultValue "")
+        | AnnotationField.GroupName   -> VText (path |> List.tryLast |> Option.defaultValue "")
+        | AnnotationField.GroupPath   -> VText (path |> String.concat GroupPathSeparator)
         | AnnotationField.SurfaceName -> VText a.surfaceName
         | AnnotationField.Geometry    -> VText (string a.geometry)
         | AnnotationField.Semantic    -> VText (string a.semantic)
         | AnnotationField.Projection  -> VText (string a.projection)
         | AnnotationField.Color       -> VText (a.color.c.ToString())
+        | AnnotationField.ColorHex    -> VText (toHex a.color.c)
         | AnnotationField.Visible     -> VBool a.visible
         | AnnotationField.PointCount  -> VInt a.points.Count
 

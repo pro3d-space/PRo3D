@@ -11,22 +11,32 @@ module AnnotationExport =
 
     // ------------------------------------------------------- coordinates ---
 
-    let private normalizeLongitude (convention : LongitudeConvention) (longitude : float) =
-        match convention with
-        | LongitudeConvention.Native -> longitude
-        | _ ->
-            let flipped =
-                let l = (360.0 - longitude) % 360.0
-                if l < 0.0 then l + 360.0 else l
-            if convention = LongitudeConvention.Signed && flipped > 180.0 then flipped - 360.0
-            else flipped
+    let private wrap360 (longitude : float) =
+        let l = longitude % 360.0
+        if l < 0.0 then l + 360.0 else l
+
+    /// Applies the chosen convention, then the chosen notation. The intermediate
+    /// value is always wrapped into [0, 360) so the two settings stay
+    /// independent and the result does not depend on the raw value's range.
+    let normalizeLongitude (convention : LongitudeConvention) (signed : bool) (longitude : float) =
+        let converted =
+            match convention with
+            | LongitudeConvention.Flipped        -> 360.0 - longitude
+            | LongitudeConvention.Shifted        -> longitude + 180.0
+            | LongitudeConvention.FlippedShifted -> 180.0 - longitude
+            | _                                  -> longitude
+            |> wrap360
+
+        if signed && converted > 180.0 then converted - 360.0 else converted
 
     /// Cartesian -> (latitude, longitude, altitude). `None` when the body has no
     /// geographic frame (Planet.None/JPL/ENU) or the native call fails.
-    let tryToGeographic (planet : Planet) (convention : LongitudeConvention) (p : V3d) =
+    let tryToGeographic (planet : Planet) (settings : AnnotationExportSettings) (p : V3d) =
         CooTransformation.tryGetLatLonAlt planet p
         |> Option.map (fun coo ->
-            V3d(coo.latitude, normalizeLongitude convention coo.longitude, coo.altitude))
+            V3d(coo.latitude,
+                normalizeLongitude settings.longitude settings.signedLongitude coo.longitude,
+                coo.altitude))
 
     let private wantsCartesian (mode : CoordinateMode) =
         mode = CoordinateMode.Cartesian || mode = CoordinateMode.Both
@@ -34,13 +44,21 @@ module AnnotationExport =
     let private wantsGeographic (mode : CoordinateMode) =
         mode = CoordinateMode.Geographic || mode = CoordinateMode.Both
 
+    /// Column naming the body the geographic coordinates refer to. GIS tools
+    /// only surface *feature*-level properties as attributes, so the
+    /// collection-level `planet` — which a reader like QGIS never shows in the
+    /// attribute table — is not enough on its own.
+    [<Literal>]
+    let BodyColumn = "body"
+
     let private cartesianFields (p : V3d) =
         [ "x", VNum p.X; "y", VNum p.Y; "z", VNum p.Z ]
 
-    let private geographicFields (latLonAlt : Option<V3d>) =
+    let private geographicFields (planet : Planet) (latLonAlt : Option<V3d>) =
+        let body = BodyColumn, VText (string planet)
         match latLonAlt with
-        | Some g -> [ "lat", VNum g.X; "lon", VNum g.Y; "alt", VNum g.Z ]
-        | None   -> [ "lat", VMissing; "lon", VMissing; "alt", VMissing ]
+        | Some g -> [ "lat", VNum g.X; "lon", VNum g.Y; "alt", VNum g.Z; body ]
+        | None   -> [ "lat", VMissing; "lon", VMissing; "alt", VMissing; body ]
 
     // ------------------------------------------------------------ points ---
 
@@ -85,7 +103,7 @@ module AnnotationExport =
 
     let private coordinateColumns (mode : CoordinateMode) =
         [ if wantsCartesian mode then yield! [ "x"; "y"; "z" ]
-          if wantsGeographic mode then yield! [ "lat"; "lon"; "alt" ] ]
+          if wantsGeographic mode then yield! [ "lat"; "lon"; "alt"; BodyColumn ] ]
 
     /// The exact, ordered column list of the export. The CSV writer uses it as
     /// the header; every record is projected onto it, so a heterogeneous set of
@@ -106,7 +124,7 @@ module AnnotationExport =
                 if hasPointField PointField.Cartesian && wantsCartesian settings.coordinates then
                     yield! [ "x"; "y"; "z" ]
                 if hasPointField PointField.Geographic && wantsGeographic settings.coordinates then
-                    yield! [ "lat"; "lon"; "alt" ]
+                    yield! [ "lat"; "lon"; "alt"; BodyColumn ]
 
                 if hasPointField PointField.StepLength then yield AnnotationFields.pointColumnName PointField.StepLength
                 if hasPointField PointField.SegmentLength then yield AnnotationFields.pointColumnName PointField.SegmentLength
@@ -121,7 +139,7 @@ module AnnotationExport =
     let private toGeoJsonPosition (settings : AnnotationExportSettings) (planet : Planet) (p : V3d) =
         if wantsGeographic settings.coordinates then
             // GeoJSON positions are [longitude, latitude, altitude]
-            tryToGeographic planet settings.longitude p
+            tryToGeographic planet settings p
             |> Option.map (fun g -> V3d(g.Y, g.X, g.Z))
         else
             Some p
@@ -152,17 +170,17 @@ module AnnotationExport =
 
     let private annotationFieldPairs
         (settings : AnnotationExportSettings)
-        (lookUp   : HashMap<Guid, string>)
+        (groupPath : HashMap<Guid, list<string>>)
         (up       : V3d)
         (a        : Annotation) =
 
         settings.annotationFields
         |> List.map (fun field ->
-            AnnotationFields.columnName field, AnnotationFields.valueOf lookUp up field a)
+            AnnotationFields.columnName field, AnnotationFields.valueOf groupPath up field a)
 
     let private perAnnotationRecord
         (settings : AnnotationExportSettings)
-        (lookUp   : HashMap<Guid, string>)
+        (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
         (a        : Annotation)
@@ -178,9 +196,9 @@ module AnnotationExport =
         let coordinates =
             [ if wantsCartesian settings.coordinates then yield! cartesianFields centre
               if wantsGeographic settings.coordinates then
-                  yield! geographicFields (tryToGeographic planet settings.longitude centre) ]
+                  yield! geographicFields planet (tryToGeographic planet settings centre) ]
 
-        { fields   = annotationFieldPairs settings lookUp up a @ coordinates
+        { fields   = annotationFieldPairs settings groupPath up a @ coordinates
           geometry =
             if settings.format = ExportFormat.GeoJson then
                 annotationGeometry settings planet a points
@@ -188,13 +206,13 @@ module AnnotationExport =
 
     let private perPointRecords
         (settings : AnnotationExportSettings)
-        (lookUp   : HashMap<Guid, string>)
+        (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
         (a        : Annotation)
         (resolved : list<ResolvedPoint>) =
 
-        let annotationPairs = annotationFieldPairs settings lookUp up a
+        let annotationPairs = annotationFieldPairs settings groupPath up a
         let hasPointField f = settings.pointFields |> List.contains f
 
         let mutable cumulative = 0.0
@@ -211,7 +229,7 @@ module AnnotationExport =
 
             let geographic =
                 if wantsGeographic settings.coordinates then
-                    tryToGeographic planet settings.longitude point.position
+                    tryToGeographic planet settings point.position
                 else None
 
             let pointPairs =
@@ -224,7 +242,7 @@ module AnnotationExport =
                   if hasPointField PointField.Cartesian && wantsCartesian settings.coordinates then
                       yield! cartesianFields point.position
                   if hasPointField PointField.Geographic && wantsGeographic settings.coordinates then
-                      yield! geographicFields geographic
+                      yield! geographicFields planet geographic
 
                   if hasPointField PointField.StepLength then
                       yield AnnotationFields.pointColumnName PointField.StepLength, VNum step
@@ -250,7 +268,7 @@ module AnnotationExport =
     /// consume.
     let buildRecords
         (settings : AnnotationExportSettings)
-        (lookUp   : HashMap<Guid, string>)
+        (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
         (annotations : list<Annotation>)
@@ -261,14 +279,14 @@ module AnnotationExport =
             let resolved = resolvePoints settings.useSampledPoints a
             match settings.granularity with
             | ExportGranularity.PerAnnotation ->
-                [ perAnnotationRecord settings lookUp planet up a (resolved |> List.map (fun r -> r.position)) ]
+                [ perAnnotationRecord settings groupPath planet up a (resolved |> List.map (fun r -> r.position)) ]
             | _ ->
-                perPointRecords settings lookUp planet up a resolved)
+                perPointRecords settings groupPath planet up a resolved)
 
     /// Writes the export. `Attitude` keeps its own fixed-schema writer.
     let write
         (settings : AnnotationExportSettings)
-        (lookUp   : HashMap<Guid, string>)
+        (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
         (path     : string)
@@ -279,7 +297,7 @@ module AnnotationExport =
         | ExportFormat.Attitude ->
             AttitudeExport.writeAttitudeJson path up annotations
         | format ->
-            let records = buildRecords settings lookUp planet up annotations
+            let records = buildRecords settings groupPath planet up annotations
             match format with
             | ExportFormat.GeoJson ->
                 let body =

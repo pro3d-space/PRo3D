@@ -1,5 +1,5 @@
-//cfc21279-3928-bbf0-46b9-118d8dfdae3f
-//0735d3d4-aa2a-4222-9f1c-df560c485e7f
+//7e3ed94e-d770-4d31-d6aa-6ee9c07a2824
+//a7192677-a9e7-038c-c7e2-e5d64f330d1b
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -19,6 +19,7 @@ type AdaptiveAnnotationExportModel(value : AnnotationExportModel) =
     let _scope_ = FSharp.Data.Adaptive.cval(value.scope)
     let _coordinates_ = FSharp.Data.Adaptive.cval(value.coordinates)
     let _longitude_ = FSharp.Data.Adaptive.cval(value.longitude)
+    let _signedLongitude_ = FSharp.Data.Adaptive.cval(value.signedLongitude)
     let _useSampledPoints_ = FSharp.Data.Adaptive.cval(value.useSampledPoints)
     let _annotationFields_ = FSharp.Data.Adaptive.cset(value.annotationFields)
     let _pointFields_ = FSharp.Data.Adaptive.cset(value.pointFields)
@@ -37,6 +38,7 @@ type AdaptiveAnnotationExportModel(value : AnnotationExportModel) =
             _scope_.Value <- value.scope
             _coordinates_.Value <- value.coordinates
             _longitude_.Value <- value.longitude
+            _signedLongitude_.Value <- value.signedLongitude
             _useSampledPoints_.Value <- value.useSampledPoints
             _annotationFields_.Value <- value.annotationFields
             _pointFields_.Value <- value.pointFields
@@ -48,6 +50,7 @@ type AdaptiveAnnotationExportModel(value : AnnotationExportModel) =
     member __.scope = _scope_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.ExportScope>
     member __.coordinates = _coordinates_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.CoordinateMode>
     member __.longitude = _longitude_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.LongitudeConvention>
+    member __.signedLongitude = _signedLongitude_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.useSampledPoints = _useSampledPoints_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.annotationFields = _annotationFields_ :> FSharp.Data.Adaptive.aset<PRo3D.Base.Annotation.AnnotationField>
     member __.pointFields = _pointFields_ :> FSharp.Data.Adaptive.aset<PRo3D.Base.Annotation.PointField>
@@ -61,6 +64,7 @@ module AnnotationExportModelLenses =
         static member scope_ = ((fun (self : AnnotationExportModel) -> self.scope), (fun (value : PRo3D.Base.Annotation.ExportScope) (self : AnnotationExportModel) -> { self with scope = value }))
         static member coordinates_ = ((fun (self : AnnotationExportModel) -> self.coordinates), (fun (value : PRo3D.Base.Annotation.CoordinateMode) (self : AnnotationExportModel) -> { self with coordinates = value }))
         static member longitude_ = ((fun (self : AnnotationExportModel) -> self.longitude), (fun (value : PRo3D.Base.Annotation.LongitudeConvention) (self : AnnotationExportModel) -> { self with longitude = value }))
+        static member signedLongitude_ = ((fun (self : AnnotationExportModel) -> self.signedLongitude), (fun (value : Microsoft.FSharp.Core.bool) (self : AnnotationExportModel) -> { self with signedLongitude = value }))
         static member useSampledPoints_ = ((fun (self : AnnotationExportModel) -> self.useSampledPoints), (fun (value : Microsoft.FSharp.Core.bool) (self : AnnotationExportModel) -> { self with useSampledPoints = value }))
         static member annotationFields_ = ((fun (self : AnnotationExportModel) -> self.annotationFields), (fun (value : FSharp.Data.Adaptive.HashSet<PRo3D.Base.Annotation.AnnotationField>) (self : AnnotationExportModel) -> { self with annotationFields = value }))
         static member pointFields_ = ((fun (self : AnnotationExportModel) -> self.pointFields), (fun (value : FSharp.Data.Adaptive.HashSet<PRo3D.Base.Annotation.PointField>) (self : AnnotationExportModel) -> { self with pointFields = value }))

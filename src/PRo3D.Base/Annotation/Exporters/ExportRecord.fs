@@ -50,7 +50,10 @@ module ExportValue =
     let ofFloat (v : float) =
         if Double.IsNaN v || Double.IsInfinity v then VMissing else VNum v
 
-    let private invariant (v : float) = v.ToString("G", CultureInfo.InvariantCulture)
+    /// Default (no format specifier) is the shortest round-trippable form on
+    /// modern .NET; "G" caps at 15 significant digits, which silently loses
+    /// sub-millimetre precision on planetary-scale coordinates.
+    let private invariant (v : float) = v.ToString(CultureInfo.InvariantCulture)
 
     /// Plain textual form used by the CSV writer (before quoting).
     let toCsvString (v : ExportValue) =

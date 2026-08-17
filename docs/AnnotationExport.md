@@ -103,14 +103,30 @@ silently produced a *string* `"Error: No / invalid reference frame set"` inside 
 arrays for bodies like Dimorphos. Unconvertible points now yield empty cells (CSV) or a
 `null` geometry with a log warning (GeoJSON).
 
-**Longitude convention** — the bodies PRo3D handles do not agree on one, and the old
-exporters each picked a different one without asking:
+**Longitude convention** — the bodies PRo3D handles do not agree on one. Planetographic
+longitude is west-positive for prograde bodies while most basemaps are east-positive, and
+prime meridians differ; the old exporters each picked something different without saying so.
+Two independent settings:
 
-| Setting | Meaning | Matches the old… |
+| Convention | Formula | Effect |
 |---|---|---|
-| Native | exactly what the transform returns for the body | QGIS exports |
-| Flipped | `360 − lon`, wrapped to `[0, 360)` | CSV and plain GeoJSON exports (the default) |
-| Flipped and signed | as above, wrapped to `(−180, 180]` | — |
+| Native | `lon` | as the transform returns it |
+| **Flipped** (default) | `360 − lon` | mirrors east against west — what the old CSV and plain GeoJSON exports did |
+| Shifted by 180° | `lon + 180` | same direction, prime meridian on the antimeridian |
+| Flipped and shifted | `180 − lon` | both |
+
+plus **Longitude range**, which only changes the notation, never the location: `[0, 360)`
+by default, `(−180, 180]` when ticked.
+
+The result is always wrapped into `[0, 360)` before the range setting applies, so the two
+choices stay independent of each other and of the raw value's range.
+
+*Which one?* Symptoms map directly onto the settings: annotations coming out
+**mirror-inverted** means the mirror is wrong (switch Flipped ↔ Native); annotations at the
+right orientation but **exactly 180° away** means the prime meridian is wrong (add or remove
+*Shifted*). The **GIS / QGIS preset** selects *Shifted by 180°*, which is what matched real
+Mars data in QGIS; the general default stays *Flipped* so CSV output matches the export it
+replaces.
 
 > **GeoJSON coordinate order changed.** Positions are now written in the spec order
 > `[longitude, latitude, altitude]`. All three predecessors wrote latitude first, which no
@@ -131,10 +147,19 @@ exports used the sampled points, the CSV, QGIS and Attitude exports used the con
 
 ### Annotation attributes
 
-37 attributes read straight off the annotation model, in five groups: *Identity*,
+39 attributes read straight off the annotation model, in five groups: *Identity*,
 *Measurements*, *Ellipse*, *Dip and strike*, *Planar fit errors*. Column names match the
 old CSV export's names (`wayLength`, `dipAzimuth`, `manualDip`, …) so existing downstream
 scripts keep working.
+
+Four in the *Identity* group are worth knowing about:
+
+| Attribute | Column | Notes |
+|---|---|---|
+| Id | `key` | the annotation Guid. **Always exported**, ticked or not — see [Preparing for a later reimport](#preparing-for-a-later-reimport). |
+| Group | `groupName` | the innermost containing group only |
+| Group path (nested) | `groupPath` | the full chain, `"Outcrop A/Bedding"`, root excluded |
+| Colour | `color` / `colorHex` | `color` is Aardvark's exact format (reimports losslessly); `colorHex` is `#RRGGBB` for GIS styling |
 
 Values that were never computed (a polyline asked for a diameter, an annotation with no
 planar fit asked for dip) are written as **empty cells** / JSON `null`, not as the text
@@ -164,6 +189,100 @@ the last row's `distance` agrees with it.
 
 **Surface properties at each point** — sampling the OPC scalar / texture layers at each
 point is not available yet; the window shows a placeholder where those checkboxes will go.
+
+## Using the GeoJSON export in QGIS
+
+Everything in a feature's `properties` becomes a column in the layer's **attribute table**.
+Because the writer emits real JSON types — numbers unquoted, missing values as `null` —
+`slope`, `dipAngle`, `area` and `wayLength` arrive as *numeric* fields and unavailable
+values as NULL. That makes them directly usable for graduated (colour-ramp) styling,
+categorized styling, labels, filters, and data-defined symbol properties such as rotating a
+strike-and-dip marker by `dipAzimuth`.
+
+### Colour needs one manual step
+
+**QGIS ignores styling properties in GeoJSON.** It does not honour the *simplestyle*
+convention (`stroke`, `fill`, `marker-color`) that GitHub previews, geojson.io, Leaflet and
+Mapbox use — no matter what the fields are named, QGIS reads them as plain attributes and
+applies its own default symbology. To colour features by the annotation's own colour:
+
+1. Tick **Colour (#RRGGBB, for GIS styling)** in the export window — this writes the
+   `colorHex` column. (The `color` column is Aardvark's own format, kept because it
+   reimports exactly; QGIS cannot interpret it.)
+2. In QGIS: *Layer Properties → Symbology*. In the tree at the top, **select the symbol
+   *layer*, not the parent symbol** — the parent (`Line` / `Linie`) only offers overrides
+   for opacity and width; the child (`Simple line` / `Einfache Linie`, `Simple fill` /
+   `Einfache Füllung`, `Simple marker` / `Einfacher Marker`) is where the colour
+   properties live.
+3. Click the data-defined override button (▤) next to **Stroke colour** / *Strichfarbe*
+   — and **Fill colour** / *Füllfarbe* for polygons and points — then *Field type* /
+   *Feldtyp* → `colorHex`.
+
+To make this stick across sessions, save the styled layer's style (*Layer Properties →
+Style → Save Style → As QGIS QML*) next to the exported file using the same base name —
+QGIS applies a matching `.qml` automatically the next time a layer of that name is loaded.
+
+### Labels
+
+*Layer Properties → Labels* (*Beschriftungen*) → **Single labels** (*Einzelne
+Beschriftungen*) → **Value** (*Wert*) takes any exported field, or an expression built with
+the **ε** button:
+
+```
+concat("text", ' — ', round("dipAngle", 1), '°')
+concat("text", '\n', round("wayLength", 2), ' m')
+concat("groupPath", ' / ', "text")
+```
+
+**Use `concat()`, not `||`.** The `||` operator yields NULL if any operand is NULL, which
+blanks the entire label — and unavailable measurements are deliberately exported as NULL
+(a polyline has no `dipAngle`). `concat()` treats NULL as an empty string.
+
+Every label property — size, colour, rotation, opacity — has a data-defined override too,
+so `dipAzimuth` can rotate label text and `colorHex` can colour it. For line annotations,
+*Placement* → **Curved** / **Parallel** runs the label along the polyline. Note that a
+*one record per point* export labels every vertex; use per-annotation granularity, or a
+filter under *Rendering*, when labelling.
+
+Units are not part of the column names — they are in the export window's labels and in the
+[Annotation attributes](#annotation-attributes) table.
+
+### Group structure
+
+QGIS's Layers-panel groups live in the **project** file, not in the data, so no vector
+format carries the PRo3D group tree directly. Export the **Group path (nested)** attribute
+instead: it holds the full chain, `"Outcrop A/Bedding"`, `/`-separated, root excluded.
+Categorize or filter by it, or run *Vector → Data Management Tools → Split Vector Layer* to
+fan it out into one layer per group. `groupName` remains the innermost group only.
+
+### Coordinate reference system
+
+GeoJSON is WGS84 by spec, so QGIS/GDAL tags the layer EPSG:4326 — an *Earth* ellipsoid.
+Features still land at the right lat/lon over a planetary basemap once the project CRS is
+set, but any length or area **QGIS itself** computes would use Earth's ellipsoid. The
+measurement columns in the export are unaffected: they are computed in PRo3D against the
+correct body. Recent QGIS versions ship IAU_2015 planetary CRS definitions; older ones need
+a custom CRS. The body is written per feature as `body` (a collection-level property would
+not appear in the attribute table).
+
+### One geometry type per layer
+
+A QGIS layer has one geometry type and one renderer. A file mixing points, lines and
+polygons loads as a generic layer that is awkward to style — export one file per geometry
+kind (or narrow the scope) when that matters.
+
+### Preparing for a later reimport
+
+There is no import path yet, but the export is shaped so one can be added:
+
+- **`key` is always written**, whether or not it is ticked. It is the annotation's Guid and
+  the only stable handle for matching a feature back to its annotation.
+- **`groupPath`** carries enough to rebuild the group tree.
+- **Cartesian `x/y/z` is the authoritative geometry.** Numbers are written in their shortest
+  round-trippable form. Treat lat/lon as display-only: at planetary radius, a
+  cartesian → geographic → cartesian trip loses precision.
+- Editing geometry in QGIS invalidates the measurement columns; an importer would re-run
+  PRo3D's `RecalculateMeasurements` rather than trust them.
 
 ## Migrating from the old menu
 

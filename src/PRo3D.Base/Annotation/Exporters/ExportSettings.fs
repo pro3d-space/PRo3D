@@ -32,15 +32,21 @@ type CoordinateMode =
     | Both       = 2
 
 /// Longitude handling. The bodies PRo3D deals with do not agree on a single
-/// convention, and the exporters this replaces each picked a different one
-/// silently, so it is now an explicit choice.
+/// convention — planetographic longitude is west-positive for prograde bodies
+/// while most basemaps are east-positive, and prime meridians differ — and the
+/// exporters this replaces each picked a different one silently. So it is an
+/// explicit choice, and the result is always wrapped into [0, 360) before the
+/// separate range setting decides the notation.
 type LongitudeConvention =
     /// exactly what CooTransformation returns for the body
-    | Native  = 0
-    /// 360 - longitude, wrapped to [0, 360) — what the CSV and GeoJSON exports did
-    | Flipped = 1
-    /// like Flipped, but wrapped to (-180, 180]
-    | Signed  = 2
+    | Native         = 0
+    /// 360 - longitude: mirrors east against west.
+    /// What the CSV and plain GeoJSON exports did.
+    | Flipped        = 1
+    /// longitude + 180: same direction, prime meridian moved to the antimeridian
+    | Shifted        = 2
+    /// 180 - longitude: mirrored *and* shifted
+    | FlippedShifted = 3
 
 type ExportPreset =
     | Custom          = 0
@@ -58,6 +64,8 @@ type AnnotationExportSettings = {
     scope             : ExportScope
     coordinates       : CoordinateMode
     longitude         : LongitudeConvention
+    /// write longitudes as (-180, 180] instead of [0, 360)
+    signedLongitude   : bool
     /// export the densely sampled, surface-following polyline
     /// (Annotation.retrievePoints) instead of only the picked control points
     useSampledPoints  : bool
@@ -111,10 +119,12 @@ module AnnotationExportSettings =
         scope             = ExportScope.Visible
         coordinates       = CoordinateMode.Both
         longitude         = LongitudeConvention.Flipped
+        signedLongitude   = false
         useSampledPoints  = true
         annotationFields  =
             [ AnnotationField.Key; AnnotationField.Text; AnnotationField.GroupName
-              AnnotationField.SurfaceName; AnnotationField.Geometry; AnnotationField.Semantic ]
+              AnnotationField.GroupPath; AnnotationField.SurfaceName
+              AnnotationField.Geometry; AnnotationField.Semantic ]
             @ measurementFields
         pointFields       = AnnotationFields.allPointFields
     }
@@ -128,10 +138,18 @@ module AnnotationExportSettings =
                 format           = ExportFormat.GeoJson
                 granularity      = ExportGranularity.PerAnnotation
                 coordinates      = CoordinateMode.Geographic
+                // Determined against real Mars data in QGIS: the raw longitude
+                // is oriented correctly but its prime meridian sits on the
+                // antimeridian. `Flipped` (the general default, inherited from
+                // the old CSV export) comes out mirror-inverted there.
+                longitude        = LongitudeConvention.Shifted
                 annotationFields =
+                    // colorHex so QGIS can bind it to the symbol colour, groupPath
+                    // so the group tree survives as a categorisable attribute
                     [ AnnotationField.Key; AnnotationField.Text; AnnotationField.GroupName
-                      AnnotationField.SurfaceName; AnnotationField.Geometry; AnnotationField.Semantic
-                      AnnotationField.Color; AnnotationField.Length; AnnotationField.WayLength
+                      AnnotationField.GroupPath; AnnotationField.SurfaceName
+                      AnnotationField.Geometry; AnnotationField.Semantic
+                      AnnotationField.ColorHex; AnnotationField.Length; AnnotationField.WayLength
                       AnnotationField.Area; AnnotationField.DipAngle; AnnotationField.DipAzimuth
                       AnnotationField.StrikeAzimuth ] }
         | ExportPreset.AnnotationTable ->
@@ -184,9 +202,15 @@ module AnnotationExportSettings =
 
     let longitudeLabel (convention : LongitudeConvention) =
         match convention with
-        | LongitudeConvention.Native  -> "Native (as returned for the body)"
-        | LongitudeConvention.Flipped -> "Flipped, 360 - lon, [0, 360)"
-        | _                           -> "Flipped and signed, (-180, 180]"
+        | LongitudeConvention.Native         -> "Native (as returned for the body)"
+        | LongitudeConvention.Flipped        -> "Flipped (360 - lon)"
+        | LongitudeConvention.Shifted        -> "Shifted by 180 deg (lon + 180)"
+        | LongitudeConvention.FlippedShifted -> "Flipped and shifted (180 - lon)"
+        | _                                  -> string convention
+
+    let allLongitudeConventions =
+        [ LongitudeConvention.Native; LongitudeConvention.Flipped
+          LongitudeConvention.Shifted; LongitudeConvention.FlippedShifted ]
 
     /// True when the format ignores every setting below the format dropdown.
     let hasFixedSchema (format : ExportFormat) =

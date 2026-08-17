@@ -64,9 +64,11 @@ module AnnotationExportViewer =
                 Log.warn "[AnnotationExport] nothing to export for scope %A" settings.scope
             else
                 let up = refSys.up.value.Normalized
-                let lookUp = GroupsApp.updateGroupsLookup drawing.annotations
+                // full path, not just the immediate parent: keeps nested groups
+                // exportable and reconstructable on a later reimport
+                let groupPath = GroupsApp.groupPathLookup drawing.annotations
 
                 try
-                    AnnotationExport.write settings lookUp refSys.planet up path annotations
+                    AnnotationExport.write settings groupPath refSys.planet up path annotations
                 with e ->
                     Log.warn "[AnnotationExport] export failed with %A" e

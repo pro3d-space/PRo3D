@@ -37,8 +37,12 @@ module AnnotationExportApp =
         | SetScope scope             -> custom { model with scope = scope }
         | SetCoordinates coordinates -> custom { model with coordinates = coordinates }
         | SetLongitude longitude     -> custom { model with longitude = longitude }
+        | ToggleSignedLongitude      -> custom { model with signedLongitude = not model.signedLongitude }
         | ToggleSampledPoints        -> custom { model with useSampledPoints = not model.useSampledPoints }
 
+        // Key is always exported (see AnnotationExportModel.toSettings), so its
+        // checkbox is inert rather than lying about the output.
+        | ToggleAnnotationField AnnotationField.Key -> model
         | ToggleAnnotationField field ->
             custom { model with annotationFields = model.annotationFields |> toggle field }
         | TogglePointField field ->
@@ -47,7 +51,8 @@ module AnnotationExportApp =
         | SetAllAnnotationFields selected ->
             custom { model with
                        annotationFields =
-                         if selected then HashSet.ofList AnnotationFields.all else HashSet.empty }
+                         if selected then HashSet.ofList AnnotationFields.all
+                         else HashSet.single AnnotationField.Key }
 
         // needs the surface model to sample surface attributes, so it is
         // handled at viewer level; see ViewerApp.
@@ -191,8 +196,11 @@ module AnnotationExportApp =
                                         AnnotationExportSettings.coordinateLabel model.coordinates SetCoordinates ]
                                 Html.row "Longitude:" [
                                     dropDown
-                                        [ LongitudeConvention.Native; LongitudeConvention.Flipped; LongitudeConvention.Signed ]
+                                        AnnotationExportSettings.allLongitudeConventions
                                         AnnotationExportSettings.longitudeLabel model.longitude SetLongitude ]
+                                Html.row "Longitude range:" [
+                                    GuiEx.iconCheckBox model.signedLongitude ToggleSignedLongitude
+                                    text " write as -180...180 instead of 0...360" ]
                                 Html.row "Sampled points:" [
                                     GuiEx.iconCheckBox model.useSampledPoints ToggleSampledPoints
                                     text " include the surface-following points between the picked ones" ]

@@ -12,6 +12,7 @@ open Aardvark.UI
 
 open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Core
 
 /// Builds a Polyline annotation whose points and segments are known, so the
 /// derived length columns can be checked against hand-computed values.
@@ -162,6 +163,71 @@ let tests () =
                 "schema follows the settings, in declaration order"
         }
 
+        test "geographic exports name the body per feature" {
+            // a collection-level property is not an attribute in GIS tools, so
+            // the body has to be a field of its own
+            let settings =
+                { csvSettings ExportGranularity.PerAnnotation [ AnnotationField.Key ] [] with
+                    coordinates = CoordinateMode.Geographic }
+
+            Expect.equal
+                (AnnotationExport.schemaOf settings)
+                [ "key"; "lat"; "lon"; "alt"; "body" ]
+                "body accompanies the geographic coordinates"
+
+            match records settings (testAnnotation ()) with
+            | [ row ] -> Expect.equal (cell "body" row) (Some (VText "None")) "body names the reference body"
+            | _ -> failtest "expected exactly one row"
+        }
+
+        test "the group path keeps nesting that groupName loses" {
+            let annotation = testAnnotation ()
+            let groupPath = HashMap.ofList [ annotation.key, [ "Outcrop A"; "Bedding" ] ]
+            let settings =
+                csvSettings ExportGranularity.PerAnnotation
+                    [ AnnotationField.GroupName; AnnotationField.GroupPath ] []
+
+            match AnnotationExport.buildRecords settings groupPath Planet.None V3d.OOI [ annotation ] with
+            | [ row ] ->
+                Expect.equal (cell "groupPath" row) (Some (VText "Outcrop A/Bedding")) "full path"
+                Expect.equal (cell "groupName" row) (Some (VText "Bedding")) "innermost group only"
+            | _ -> failtest "expected exactly one row"
+        }
+
+        test "colorHex is GIS-usable while color stays exact" {
+            let annotation = { testAnnotation () with color = { c = C4b(18uy, 52uy, 86uy, 255uy) } }
+            let settings =
+                csvSettings ExportGranularity.PerAnnotation
+                    [ AnnotationField.Color; AnnotationField.ColorHex ] []
+
+            match records settings annotation with
+            | [ row ] ->
+                Expect.equal (cell "colorHex" row) (Some (VText "#123456")) "hex form for symbol styling"
+                match cell "color" row with
+                | Some (VText raw) ->
+                    // must survive C4b.Parse so a later reimport is exact
+                    Expect.equal (C4b.Parse raw) annotation.color.c "color round-trips through C4b.Parse"
+                | _ -> failtest "no color cell"
+            | _ -> failtest "expected exactly one row"
+        }
+
+        test "the annotation key is exported even when unticked" {
+            // it is the only stable handle for matching a feature back to its
+            // annotation after a GIS round trip
+            let model =
+                { AnnotationExportModel.initial with
+                    annotationFields = FSharp.Data.Adaptive.HashSet.ofList [ AnnotationField.Text ] }
+
+            let settings = AnnotationExportModel.toSettings model
+            Expect.contains settings.annotationFields AnnotationField.Key "key is forced into the export"
+
+            let cleared = AnnotationExportApp.update model (SetAllAnnotationFields false)
+            Expect.contains
+                (AnnotationExportModel.toSettings cleared).annotationFields
+                AnnotationField.Key
+                "even after deselecting everything"
+        }
+
         test "CSV is culture-invariant and quotes cells containing the separator" {
             let annotation = testAnnotation ()
             let settings =
@@ -200,6 +266,35 @@ let tests () =
             | _ -> failtest "expected exactly one row"
         }
 
+        test "longitude conventions and notation are independent" {
+            let convert convention signed =
+                AnnotationExport.normalizeLongitude convention signed 77.0
+
+            Expect.equal (convert LongitudeConvention.Native false) 77.0 "native passes through"
+            Expect.equal (convert LongitudeConvention.Flipped false) 283.0 "flipped mirrors"
+            Expect.equal (convert LongitudeConvention.Shifted false) 257.0 "shifted moves the prime meridian"
+            Expect.equal (convert LongitudeConvention.FlippedShifted false) 103.0 "mirrored and shifted"
+
+            // the notation is a separate choice and never changes the location
+            Expect.equal (convert LongitudeConvention.Native true) 77.0 "already inside the signed range"
+            Expect.equal (convert LongitudeConvention.Flipped true) -77.0 "283 written as -77"
+            Expect.equal (convert LongitudeConvention.Shifted true) -103.0 "257 written as -103"
+        }
+
+        test "longitude output always lands in a valid range" {
+            for convention in AnnotationExportSettings.allLongitudeConventions do
+                for raw in [ -190.0; -180.0; -0.5; 0.0; 77.0; 180.0; 359.5; 360.0; 540.0 ] do
+                    let unsigned = AnnotationExport.normalizeLongitude convention false raw
+                    Expect.isTrue
+                        (unsigned >= 0.0 && unsigned < 360.0)
+                        (sprintf "%A of %f gave %f, outside [0,360)" convention raw unsigned)
+
+                    let signed = AnnotationExport.normalizeLongitude convention true raw
+                    Expect.isTrue
+                        (signed > -180.0 && signed <= 180.0)
+                        (sprintf "%A of %f gave %f, outside (-180,180]" convention raw signed)
+        }
+
         test "presets change the settings and stay overridable" {
             let profile =
                 AnnotationExportSettings.initial
@@ -215,5 +310,8 @@ let tests () =
 
             Expect.equal qgis.format ExportFormat.GeoJson "QGIS writes GeoJSON"
             Expect.equal qgis.coordinates CoordinateMode.Geographic "QGIS is geographic"
+            Expect.equal qgis.longitude LongitudeConvention.Shifted "QGIS needs the shifted prime meridian"
+            Expect.contains qgis.annotationFields AnnotationField.ColorHex "QGIS gets a styleable colour"
+            Expect.contains qgis.annotationFields AnnotationField.GroupPath "QGIS gets the group tree"
         }
     ]

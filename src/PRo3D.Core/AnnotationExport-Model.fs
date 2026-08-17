@@ -18,6 +18,7 @@ type AnnotationExportAction =
     | SetScope               of ExportScope
     | SetCoordinates         of CoordinateMode
     | SetLongitude           of LongitudeConvention
+    | ToggleSignedLongitude
     | ToggleSampledPoints
     | ToggleAnnotationField  of AnnotationField
     | TogglePointField       of PointField
@@ -39,6 +40,7 @@ type AnnotationExportModel = {
     scope             : ExportScope
     coordinates       : CoordinateMode
     longitude         : LongitudeConvention
+    signedLongitude   : bool
     useSampledPoints  : bool
 
     annotationFields  : HashSet<AnnotationField>
@@ -56,6 +58,7 @@ module AnnotationExportModel =
         scope             = s.scope
         coordinates       = s.coordinates
         longitude         = s.longitude
+        signedLongitude   = s.signedLongitude
         useSampledPoints  = s.useSampledPoints
         annotationFields  = HashSet.ofList s.annotationFields
         pointFields       = HashSet.ofList s.pointFields
@@ -70,8 +73,15 @@ module AnnotationExportModel =
         scope             = m.scope
         coordinates       = m.coordinates
         longitude         = m.longitude
+        signedLongitude   = m.signedLongitude
         useSampledPoints  = m.useSampledPoints
-        annotationFields  = AnnotationFields.all |> List.filter (fun f -> m.annotationFields |> HashSet.contains f)
+        // `Key` is the annotation's Guid and the only stable handle a GIS round
+        // trip has for matching a feature back to its annotation, so it is
+        // exported whether or not it is ticked.
+        annotationFields  =
+            AnnotationFields.all
+            |> List.filter (fun f ->
+                f = AnnotationField.Key || m.annotationFields |> HashSet.contains f)
         pointFields       = AnnotationFields.allPointFields |> List.filter (fun f -> m.pointFields |> HashSet.contains f)
     }
 
