@@ -5,7 +5,14 @@
 independent of the PRo3D viewer application — nothing here requires the viewer to be
 installed.
 
-It supersedes the older `opc-tool` (see [Migrating from opc-tool](#migrating-from-opc-tool)).
+It supersedes the older `opc-tool` (see [Migrating](#migrating-from-opc-tool)).
+
+## Verbs
+
+| Verb | What it does | Documentation |
+|---|---|---|
+| `kdtree` | Validate OPC directories and generate KdTrees | **[Pro3DTool-KdTree.md](./Pro3DTool-KdTree.md)** |
+| `sun-angles` | Per-pixel illumination geometry for instrument images | **[Pro3DTool-SunAngles.md](./Pro3DTool-SunAngles.md)** |
 
 ## Install
 
@@ -25,6 +32,7 @@ dotnet tool install PRo3D.Tool --global
 Command line tools for PRo3D data.
 
   kdtree       validate OPC directories and generate KdTrees
+  sun-angles   render per-pixel illumination geometry for instrument images
 
 Run `pro3d-tool <verb> --help` for the options of a verb.
 ```
@@ -33,186 +41,60 @@ Each verb documents itself:
 
 ```
 pro3d-tool kdtree --help
+pro3d-tool sun-angles --help
 ```
 
 ## Test data
 
-The examples below run against public test data, which lives in its own repository so
-that a plain PRo3D clone stays small. Clone it anywhere you like and pass the path:
+The examples on the verb pages run against public test data, which lives in its own
+repository so that a plain PRo3D clone stays small. Clone it anywhere and pass the path:
 
 ```
 git clone https://github.com/pro3d-space/PRo3D.Resources.TestData.git
 ```
 
-It contains an MSL/Stimson OPC surface and, under `HERA/`, a Didymos OPC together
-with an ASPECT instrument image and its metadata sidecars.
+It contains an MSL/Stimson OPC surface, and under `HERA/` a Didymos OPC together with an
+ASPECT instrument image and its metadata sidecars.
 
-A runnable script demonstrating every verb against that clone ships with the PRo3D
-source tree, in Windows and POSIX variants:
+One runnable script per verb ships in the PRo3D source tree, in Windows and POSIX
+variants. They invoke the tool via `dotnet run`, so they work in a checkout before
+anything is published to NuGet:
 
 ```
-scripts\run-pro3d-tool-examples.cmd <path-to-clone>
-scripts/run-pro3d-tool-examples.sh  <path-to-clone>
+scripts\run-kdtree.cmd      <path-to-clone>
+scripts\run-sun-angles.cmd  <path-to-clone>
 ```
 
-They run the tool from source via `dotnet run`, so they work in a checkout before
-anything has been published to NuGet. Every example is read-only, so pointing them at
-a git checkout leaves it clean — `--forcekdtreerebuild` is documented below but
-deliberately not exercised, because it rewrites the `.aakd` files in place.
+```
+scripts/run-kdtree.sh       <path-to-clone>
+scripts/run-sun-angles.sh   <path-to-clone>
+```
 
-### SPICE kernels
+## SPICE kernels
 
-Anything involving planetary geometry — body positions, orientations, the direction
-to the Sun — needs SPICE kernels. These are **not** part of the PRo3D test data:
-they are published by ESA and are large. Clone them separately:
+Anything involving planetary geometry — body positions, orientations, the direction to the
+Sun — needs SPICE kernels. These are **not** part of the PRo3D test data: ESA publishes
+them separately, as a git repository.
 
 ```
 git clone https://spiftp.esac.esa.int/git/hera.git
 ```
 
-No credentials are needed. Expect roughly 6.5 GB; the ESA server does not support
-partial clones, so `--filter` and sparse-checkout will not reduce this.
+No credentials are needed. Expect roughly 6.5 GB; the ESA server does not support partial
+clones, so `--filter` and sparse-checkout will not reduce this.
 
-Point the tool at the `kernels` directory inside that clone:
-
-```
-scripts\run-pro3d-tool-examples.cmd <path-to-testdata> <path-to-hera-clone>\kernels
-```
-
-## `kdtree` — validate OPC directories and generate KdTrees
-
-KdTrees are the spatial acceleration structures PRo3D uses for picking and
-measurement on OPC surfaces. Generating them ahead of time turns a slow first
-interaction with a surface into an instant one, which matters for large datasets and
-for anything running unattended.
+Then set **`PRO3D_SPICE_KERNELS`** to the clone, or to its `kernels` subdirectory — either
+works:
 
 ```
-pro3d-tool kdtree [options] <surface-directory>
+setx PRO3D_SPICE_KERNELS C:\path\to\hera        REM Windows
+export PRO3D_SPICE_KERNELS=/path/to/hera        #   POSIX
 ```
 
-| Option | Effect |
-|---|---|
-| `--forcekdtreerebuild` | Rebuild and overwrite existing kd-trees |
-| `--ignoreMasterKdTree` | Ignore master kd-trees; load or create per-patch kd-trees and the lazy kd-tree cache |
-| `--generatedds` | Convert patch textures to DDS |
-| `--overwritedds` | Overwrite existing DDS files (only meaningful with `--generatedds`) |
-| `--skipPatchValidation` | Skip patch validation (textures, aara files) |
-| `--degreesOfParallelism <n>` | Process this many hierarchies concurrently; `0` means single threaded |
-| `--verbose` | Print all messages to standard output |
-
-The positional argument is either a single OPC hierarchy or a directory containing
-several. When it is a container, every immediate subdirectory is checked and
-non-OPC folders are reported and skipped rather than failing the run.
-
-### Example
-
-```
-pro3d-tool kdtree <path-to-clone>/1087_004779_MSLMST_0011
-```
-
-Rebuilding from scratch, over four hierarchies at a time:
-
-```
-pro3d-tool kdtree --forcekdtreerebuild --degreesOfParallelism 4 "K:\PRo3D Data\SAIIL_02_01-v3-opc\SAIIL_02_01"
-```
-
-### Notes
-
-- This verb needs no GPU and no display. It is intended to run in data-preparation
-  pipelines and on headless machines.
-- DDS files are written with DXT1 compression; uncompressed DDS output is not
-  currently supported.
-
-## `sun-angles` — per-pixel illumination geometry
-
-For each instrument image, renders the body as seen by that instrument and writes the
-local illumination geometry as float32 rasters, pixel-aligned to the source image.
-
-```
-pro3d-tool sun-angles --opc <body-opc> --images <image-folder> [options]
-```
-
-| Output per image | Contents |
-|---|---|
-| `<image>_incidence.tif` | angle between the surface normal and the direction to the Sun |
-| `<image>_emission.tif` | angle between the surface normal and the direction to the observer |
-| `<image>_phase.tif` | Sun–surface–observer angle |
-| `<image>_preview.png` | 8-bit RGB preview (incidence, emission, phase as R, G, B) |
-| `<image>_angles.json` | provenance: epoch, body, frame, observer, kernel, units, caveats |
-| `<image>_<angle>_color.png` | false-colour per angle, with `--false-color` (see below) |
-
-All rasters are single-band float32 **in radians**, with **NaN as nodata** where no surface
-was rasterised. They are plain TIFFs with no georeferencing tags — the instrument image
-frame has no map projection to encode — and are read as unreferenced float rasters by
-GDAL, QGIS, `tifffile`, PIL and anything else that speaks baseline TIFF.
-
-| Option | Effect |
-|---|---|
-| `--opc <dir>` | OPC directory of the body (required) |
-| `--images <dir>` | folder of instrument images with `.mbi.json` sidecars (required) |
-| `--image <file>` | process only this image; default is every image in the folder |
-| `--out <dir>` | output directory (default `./sun-angles`) |
-| `--body <name>` | SPICE body of the OPC (default `DIDYMOS`) |
-| `--frame <name>` | body-fixed reference frame (default `DIDYMOS_FIXED`) |
-| `--observer <name>` | observing spacecraft (default `MILANI`) |
-| `--kernel <file>` | explicit metakernel, overriding the sidecar's declaration |
-| `--kernel-root <dir>` | root of a SPICE kernel tree (see [SPICE kernels](#spice-kernels)) |
-| `--method spice\|mbi` | projection method (default `mbi`) |
-| `--width`, `--height` | output size; `0` (default) uses the source image's native size |
-| `--false-color` | also write one false-colour PNG per angle |
-| `--no-screenshot` | skip the PNG preview |
-
-### Making the result interpretable — `--false-color`
-
-Radians in a float TIFF are the data product, but they are not reviewable at a glance.
-`--false-color` additionally writes one PNG per angle using a **blue → cyan → green →
-yellow → red** ramp, where blue is 0 and red is full scale (90° for incidence and emission,
-180° for phase). Hue boundaries produce readable iso-angle contours in a way a grey ramp
-does not.
-
-This is the **same colour ramp** PRo3D.ProjectionTestbed uses for its angle
-visualisations — the function lives in `PRo3D.GIS` and is shared by both, so a tool output
-and a testbed render of the same scene are directly comparable rather than merely similar.
-
-Two conventions worth knowing when reading these images:
-
-- **Nodata is black**, which sits outside the ramp and so cannot be mistaken for a low
-  angle.
-- On the **emission** image, pixels above 90° are painted **magenta** rather than
-  colour-mapped. Expect a thin magenta rim at the limb where facets are near edge-on;
-  magenta anywhere else points at an inconsistent shape model.
-
-Read together the two images cross-check each other: emission should be roughly radially
-symmetric about the centre of the visible disc, while incidence should be offset towards the
-Sun. If they look alike, something is wrong.
-
-Batch is the normal mode: point `--images` at a folder and every image with a sidecar is
-processed, reusing one SPICE kernel and one render context across the whole run. A single
-image failing is reported and the run continues; the exit code is non-zero if any failed.
-
-### Example
-
-```
-pro3d-tool sun-angles ^
-  --opc         <testdata>\HERA\Didymos_ASPECT ^
-  --images      "<testdata>\HERA\Instrument Data" ^
-  --kernel-root <hera-clone>\kernels ^
-  --out         .\sun-angles
-```
-
-### Important caveat
-
-These are **local** illumination angles, computed from the surface normal and the
-sun/observer directions at each pixel. **Terrain self-shadowing is not evaluated**: a point
-lying in the shadow of nearby relief still reports its geometric incidence angle. Combine
-with a shadow test if you need actual illumination.
-
-Emission angles above 90° are preserved rather than clamped. They indicate a facet facing
-away from the observer was nevertheless rasterised, which is expected along the limb and
-otherwise flags an inconsistent shape model.
-
-Both notes are repeated in every output's JSON sidecar, because a float raster separated
-from its provenance is easy to misread.
+`--kernel-root <dir>` overrides the variable for a single run. There is deliberately **no
+implicit default**: with neither the flag nor the variable set, a verb that needs kernels
+fails rather than quietly using some other tree, because output computed from unintended
+kernels looks perfectly valid.
 
 ## Migrating from `opc-tool`
 
@@ -220,11 +102,11 @@ from its provenance is easy to misread.
 names, so migrating means prepending the verb:
 
 ```
-opc-tool  --forcekdtreerebuild "F:\pro3d\data\dimorphos"      # old
-pro3d-tool kdtree --forcekdtreerebuild "F:\pro3d\data\dimorphos"   # new
+opc-tool           --forcekdtreerebuild "F:\pro3d\data\dimorphos"   # old
+pro3d-tool kdtree  --forcekdtreerebuild "F:\pro3d\data\dimorphos"   # new
 ```
 
 One behavioural fix came with the move: in `opc-tool`, patch validation ran only when
-`--skipPatchValidation` was passed, and `--generatedds` never actually produced DDS
-files because the conversion was skipped whenever it was requested. Both now behave as
+`--skipPatchValidation` was passed, and `--generatedds` never actually produced DDS files
+because the conversion was skipped whenever it was requested. Both now behave as
 documented. If you previously worked around this, the workaround is no longer needed.

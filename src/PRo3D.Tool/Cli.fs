@@ -66,14 +66,11 @@ type SunAnglesOptions =
         [<Option("kernel", HelpText = "Explicit SPICE metakernel; overrides the sidecar")>]
         kernel : string
 
-        [<Option("kernel-root", HelpText = "Root of a SPICE kernel tree (the 'kernels' dir of a clone of https://spiftp.esac.esa.int/git/hera.git)")>]
+        [<Option("kernel-root", HelpText = "SPICE kernel tree: a clone of https://spiftp.esac.esa.int/git/hera.git or its 'kernels' dir. Defaults to $PRO3D_SPICE_KERNELS.")>]
         kernelRoot : string
 
         [<Option("method", HelpText = "Projection method: spice or mbi (default mbi)")>]
         method : string
-
-        [<Option("no-screenshot", HelpText = "Skip the accompanying PNG preview")>]
-        noScreenshot : bool
 
         [<Option("false-color", HelpText = "Also write one false-colour PNG per angle (blue=low to red=high), using the same colour ramp as the projection testbed")>]
         falseColor : bool

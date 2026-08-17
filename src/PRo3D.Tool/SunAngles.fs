@@ -184,31 +184,6 @@ let private writeFalseColor (path : string) (img : PixImage<float32>) (band : Ba
                     C3b(toByte c.X, toByte c.Y, toByte c.Z)
     out.Save(path)
 
-/// 8-bit RGB preview built from the same readback -- no second render pass. Incidence,
-/// emission and phase become R, G and B, each scaled by its natural range. This is for
-/// eyeballing that the expected body and footprint were rendered; the TIFFs are the data.
-let private writePreview (path : string) (img : PixImage<float32>) =
-    let size = img.Size
-    let inc = img.GetChannel Col.Channel.Red
-    let emi = img.GetChannel Col.Channel.Green
-    let pha = img.GetChannel Col.Channel.Blue
-    let alpha = img.GetChannel Col.Channel.Alpha
-    let half = float32 Math.PI * 0.5f
-    let pi = float32 Math.PI
-    let toByte (v : float32) =
-        if Single.IsNaN v then 0uy else byte (min 1.0f (max 0.0f v) * 255.0f)
-    let out = PixImage<byte>(Col.Format.RGB, size)
-    // Matrix<_> is a struct, so the local must be mutable to write through it.
-    let mutable m = out.GetMatrix<C3b>()
-    for y in 0 .. size.Y - 1 do
-        for x in 0 .. size.X - 1 do
-            m.[int64 x, int64 y] <-
-                if alpha.[x, y] > 0.5f then
-                    C3b(toByte (inc.[x, y] / half), toByte (emi.[x, y] / half), toByte (pha.[x, y] / pi))
-                else
-                    C3b(0uy, 0uy, 0uy)
-    out.Save(path)
-
 let private writeSidecar (path : string) (o : SunAnglesOptions) (img : ResolvedImage)
                          (cam : ProjectorCamera) (kernel : string) (unit : string)
                          (body : string) (frame : string) (observer : string) =
@@ -319,21 +294,56 @@ let private processImage (runtime : IRuntime) (o : SunAnglesOptions)
             Result.Error "one or more rasters could not be written"
         else
 
-        let preview =
-            if o.noScreenshot then []
-            else
-                let path = Path.Combine(outDir, sprintf "%s_preview.png" stem)
-                writePreview path rendered
-                Log.line "[out] %s" path
-                [ path ]
-
         let sidecarPath = Path.Combine(outDir, sprintf "%s_angles.json" stem)
         writeSidecar sidecarPath o img cam kernel "radians" body frame observer
         Log.line "[out] %s" sidecarPath
 
-        Ok (written @ preview @ [ sidecarPath ])
+        Ok (written @ [ sidecarPath ])
     finally
         FloatTarget.dispose target
+
+/// Environment variables naming a SPICE kernel tree, in precedence order.
+///
+/// PRO3D_SPICE_KERNELS matches the repo's existing PRO3D_AARA_OPC / PRO3D_BDS_OPC
+/// convention and says what it holds. Bare SPICE is accepted for compatibility but is a
+/// poor name -- unnamespaced enough to collide with other SPICE-aware software, and not
+/// obviously a path.
+let private kernelRootVar = "PRO3D_SPICE_KERNELS"
+
+/// Where to look for SPICE kernels: `--kernel-root`, else $PRO3D_SPICE_KERNELS.
+///
+/// There is deliberately **no implicit default**. Falling back to some repo-relative tree
+/// means the geometry in the output came from kernels the caller never named, which is
+/// indistinguishable in the result from the kernels they meant -- and the rasters would
+/// look perfectly fine. Better to refuse.
+///
+/// The variable conventionally points at a clone of
+/// https://spiftp.esac.esa.int/git/hera.git, whose kernels sit in a `kernels`
+/// subdirectory -- but a setup may point straight at that subdirectory instead. Accept
+/// either rather than making the caller know which.
+let private resolveKernelRoot (explicit : string) : Result<string, string> =
+    let asKernelRoot (root : string) =
+        if Directory.Exists(Path.Combine(root, "mk")) then Some root
+        elif Directory.Exists(Path.Combine(root, "kernels", "mk")) then Some (Path.Combine(root, "kernels"))
+        else None
+
+    let malformed source value =
+        sprintf "%s=%s contains neither 'mk' nor 'kernels/mk'" source value
+
+    if not (String.IsNullOrWhiteSpace explicit) then
+        match asKernelRoot explicit with
+        | Some root -> Ok root
+        | None -> Result.Error (malformed "--kernel-root" explicit)
+    else
+        let value = Environment.GetEnvironmentVariable kernelRootVar
+        if String.IsNullOrWhiteSpace value then
+            Result.Error (sprintf "no SPICE kernel tree given: pass --kernel-root <dir> or set %s" kernelRootVar)
+        else
+            match asKernelRoot value with
+            | Some root ->
+                Log.line "[spice] %s=%s -> kernel root %s" kernelRootVar value root
+                Ok root
+            | None -> Result.Error (malformed kernelRootVar value)
 
 /// Entry point for the `sun-angles` verb.
 let run (o : SunAnglesOptions) : int =
@@ -355,6 +365,17 @@ let run (o : SunAnglesOptions) : int =
     if not (Directory.Exists o.opc) then Log.error "OPC directory not found: %s" o.opc; 1
     elif not (Directory.Exists o.images) then Log.error "image folder not found: %s" o.images; 1
     else
+
+    // Checked up front: without kernels nothing downstream can succeed, and loading an OPC
+    // first only delays the message by several seconds.
+    match resolveKernelRoot o.kernelRoot with
+    | Result.Error e ->
+        Log.error "%s" e
+        Log.error "SPICE kernels are published separately by ESA and are not part of the PRo3D test data:"
+        Log.error "  git clone https://spiftp.esac.esa.int/git/hera.git"
+        Log.error "then set %s to that clone (or to its 'kernels' subdirectory)." kernelRootVar
+        1
+    | Ok kernelRoot ->
 
     let hierarchies = patchHierarchiesOf o.opc
     if hierarchies.Length = 0 then
@@ -390,9 +411,6 @@ let run (o : SunAnglesOptions) : int =
 
     Log.line "processing %d image(s) from %s" resolved.Length o.images
 
-    let kernelRoot =
-        if String.IsNullOrWhiteSpace o.kernelRoot then SpiceBoot.defaultKernelRoot else o.kernelRoot
-
     // One kernel for the whole batch. SPICE allows only one active metakernel -- layering a
     // second silently corrupts state -- and switching per image would be both slow and a
     // source of hard-to-see inconsistency between outputs of the same run.
@@ -403,12 +421,7 @@ let run (o : SunAnglesOptions) : int =
         | None -> Result.Error "no resolvable image to take a kernel declaration from"
 
     match kernelResult with
-    | Result.Error e ->
-        Log.error "%s" e
-        Log.error "SPICE kernels are published separately by ESA:"
-        Log.error "  git clone https://spiftp.esac.esa.int/git/hera.git"
-        Log.error "then pass --kernel-root <clone>/kernels"
-        1
+    | Result.Error e -> Log.error "%s" e; 1
     | Ok kernel ->
 
     Directory.CreateDirectory outDir |> ignore
