@@ -70,6 +70,30 @@ scripts\run-sun-angles.cmd <testdata>
 scripts/run-sun-angles.sh  <testdata>
 ```
 
+## What it produces
+
+The ASPECT frame that goes in — Didymos, with Dimorphos at the upper left:
+
+![](./images/sunAngles-source.png)
+
+Incidence, false-coloured. Blue is near-perpendicular illumination, red is grazing; the
+low-angle region sits offset towards the Sun:
+
+![](./images/sunAngles-incidence.png)
+
+Emission, false-coloured. Blue where the surface faces the instrument, red at the limb.
+Note it is roughly radially symmetric about the centre of the disc, whereas incidence is
+not — that difference is the quickest check that the two are being computed independently:
+
+![](./images/sunAngles-emission.png)
+
+**Only the body named by `--opc` is rendered.** Dimorphos is visible in the source frame but
+absent from the rasters, since a single OPC was given. This is also why coverage is a third
+of the frame rather than all of it: everything off the body is nodata.
+
+The float32 TIFFs carry the actual radian values; these PNGs exist only to make them
+reviewable.
+
 ## Making the result interpretable — `--false-color`
 
 Radians in a float TIFF are the data product, but they are not reviewable at a glance.
@@ -89,10 +113,6 @@ Two conventions when reading these images:
 - On the **emission** image, pixels above 90° are painted **magenta** rather than
   colour-mapped. Expect a thin magenta rim at the limb where facets are near edge-on;
   magenta anywhere else points at an inconsistent shape model.
-
-Read together the two images cross-check each other: emission should be roughly radially
-symmetric about the centre of the visible disc, while incidence should be offset towards the
-Sun. **If they look alike, something is wrong.**
 
 ## Important caveats
 
