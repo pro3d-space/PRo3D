@@ -100,12 +100,17 @@ the two are directly comparable.
 
 ## Caveats
 
-- **Terrain self-shadowing is not evaluated** — future work, will be added on demand. These
-  are local illumination angles from the surface normal and the sun/observer directions, so
-  a point in the shadow of nearby relief still reports its geometric incidence angle.
 - **Emission above 90° is preserved, not clamped.** It means a facet facing away from the
   observer was rasterised — expected at the limb, otherwise a sign of an inconsistent shape
   model.
 - **A substituted metakernel is logged as a warning.** Sidecars routinely name a kernel
   version that is not on disk; the tool falls back to `hera_plan.tm`, and the geometry may
   differ from the image.
+
+## Future work
+
+- **Terrain self-shadowing.** Not evaluated today — will be added on demand. The angles are
+  local illumination geometry, computed from the surface normal and the sun/observer
+  directions, so a point lying in the shadow of nearby relief still reports its geometric
+  incidence angle. Until this lands, combine the output with a shadow test if you need
+  actual illumination rather than illumination geometry.
