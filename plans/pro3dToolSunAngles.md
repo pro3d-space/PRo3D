@@ -250,6 +250,35 @@ Clean break, as decided:
 - Delete `src/opc-tool` once `kdtree` is verified at parity.
 - Announce in the release notes, since the break is user-visible.
 
+## Testing constraint: SPICE kernels cannot be unloaded
+
+`pro3d-tool`'s tests live in `src/Tests/Pro3DToolTests.fs`, and the `sun-angles` case must
+**not** call `SunAnglesVerb.run`.
+
+`run` owns the SPICE lifetime (`SpiceBoot.init ... Dispose`), and each Init/DeInit pair is a
+kernel *swap*, not a reload. There is no working unload: the native `DeInit()` only resets
+the log file and never calls CSPICE's `kclear_c()`, so kernels accumulate in the process for
+its whole lifetime. `CooTransformation.switchKernel` and `SpiceBoot.switch` are named as
+though they unload; they do not. Repeated swaps leave stale DAF handles and surface as
+`SPICE(DAFNOSUCHHANDLE)` on later SPK/CK reads, which is why the whole suite is
+`testSequenced` (`src/Tests/Program.fs`) and why the kernel-sensitive tests are explicitly
+ordered.
+
+See `plans/archive/spiceKernelUnloadAndDidymosProjection.md`, which documents the
+investigation — including that an earlier claim that DeInit+Init "empirically works" was
+wrong.
+
+The test therefore:
+
+- gates on `HeraSpiceTests.hasHera` and on a GL runtime from `PRo3D.Tests.Render.context`;
+- acquires its kernel through `HeraSpiceTests.ensureKernelAt`, which tracks the active kernel
+  and swaps only when it actually differs — a no-op when the plan kernel is already loaded;
+- calls `SunAnglesVerb.processImage` directly, which takes the metakernel path and does no
+  SPICE lifecycle of its own.
+
+Net cost to the suite: **no additional kernel swaps.** The `kdtree` cases need neither kernels
+nor a GPU and always run.
+
 ## Open questions
 
 1. **Angle units** — radians or degrees in the raster? Radians proposed above;
