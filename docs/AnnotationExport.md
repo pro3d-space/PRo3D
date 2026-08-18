@@ -93,7 +93,7 @@ switches the preset back to *Custom*; nothing is locked.
 
 | Preset | Sets |
 |---|---|
-| GIS / QGIS | GeoJSON, geographic, longitude *Shifted by 180°*, `colorHex` + `groupPath` + the common measurements |
+| GIS / QGIS | GeoJSON, geographic, longitude *Native* in the signed −180…180 range, `colorHex` + `groupPath` + the common measurements |
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
 | Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
 | Attitude planes | file type *Attitude planes* |
@@ -167,8 +167,7 @@ Two independent settings:
 |---|---|---|
 | Native | `lon` | as the transform returns it |
 | **Flipped** (default) | `360 − lon` | mirrors east against west — what the old CSV and plain GeoJSON exports did |
-| Shifted by 180° | `lon + 180` | same direction, prime meridian on the antimeridian |
-| Flipped and shifted | `180 − lon` | both |
+| Flipped and shifted | `180 − lon` | mirrored, with the prime meridian on the antimeridian |
 
 plus **Longitude range**, which only changes the notation, never the location: `[0, 360)`
 by default, `(−180, 180]` when ticked.
@@ -178,10 +177,10 @@ choices stay independent of each other and of the raw value's range.
 
 *Which one?* Symptoms map directly onto the settings: annotations coming out
 **mirror-inverted** means the mirror is wrong (switch Flipped ↔ Native); annotations at the
-right orientation but **exactly 180° away** means the prime meridian is wrong (add or remove
-*Shifted*). The **GIS / QGIS preset** selects *Shifted by 180°*, which is what matched real
-Mars data in QGIS; the general default stays *Flipped* so CSV output matches the export it
-replaces.
+right orientation but **exactly 180° away** means the prime meridian is wrong (switch between
+*Flipped* and *Flipped and shifted*). The **GIS / QGIS preset** selects *Native* with the
+signed range ticked, which is what matched real Mars data in QGIS; the general default stays
+*Flipped* with `[0, 360)` so CSV output matches the export it replaces.
 
 > **GeoJSON coordinate order changed.** Positions are now written in the spec order
 > `[longitude, latitude, altitude]`. All three predecessors wrote latitude first, which no
@@ -394,9 +393,10 @@ Two of these are not exact equivalents:
   now `groundDistance` and `alt`, with the same values, alongside whatever else is ticked
   (and `key`, which is always written).
 
-The three QGIS variants applied **no** longitude transform, i.e. *Native*. The
-*GIS / QGIS* preset instead selects *Shifted by 180°*, which is what actually lined up with
-Mars data in QGIS — use *Native* if you need byte-comparable output against the old files.
+The three QGIS variants applied **no** longitude transform, i.e. *Native*, which is what the
+*GIS / QGIS* preset also selects. The preset additionally ticks the signed −180…180 range, so
+its numbers differ from the old files wherever a longitude exceeded 180° — untick it for
+byte-comparable output.
 
 Two properties are no longer emitted: **`isSelected`** (no equivalent attribute) and
 **`isEllipse`** (derivable from the `geometry` column).

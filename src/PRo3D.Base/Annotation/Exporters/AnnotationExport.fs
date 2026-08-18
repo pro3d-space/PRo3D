@@ -22,7 +22,6 @@ module AnnotationExport =
         let converted =
             match convention with
             | LongitudeConvention.Flipped        -> 360.0 - longitude
-            | LongitudeConvention.Shifted        -> longitude + 180.0
             | LongitudeConvention.FlippedShifted -> 180.0 - longitude
             | _                                  -> longitude
             |> wrap360

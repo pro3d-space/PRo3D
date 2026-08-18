@@ -47,8 +47,9 @@ type LongitudeConvention =
     /// 360 - longitude: mirrors east against west.
     /// What the CSV and plain GeoJSON exports did.
     | Flipped        = 1
-    /// longitude + 180: same direction, prime meridian moved to the antimeridian
-    | Shifted        = 2
+    // 2 was `Shifted` (lon + 180). Removed once the signed range turned out to
+    // be what the QGIS output actually needed; the value is left unused rather
+    // than reassigned, so nothing silently changes meaning.
     /// 180 - longitude: mirrored *and* shifted
     | FlippedShifted = 3
 
@@ -131,10 +132,12 @@ module AnnotationExportSettings =
                 granularity      = ExportGranularity.PerAnnotation
                 coordinates      = CoordinateMode.Geographic
                 // Determined against real Mars data in QGIS: the raw longitude
-                // is oriented correctly but its prime meridian sits on the
-                // antimeridian. `Flipped` (the general default, inherited from
-                // the old CSV export) comes out mirror-inverted there.
-                longitude        = LongitudeConvention.Shifted
+                // is already oriented correctly, so no transform. `Flipped` (the
+                // general default, inherited from the old CSV export) comes out
+                // mirror-inverted there.
+                longitude        = LongitudeConvention.Native
+                // QGIS expects -180...180, not 0...360
+                signedLongitude  = true
                 annotationFields =
                     // colorHex so QGIS can bind it to the symbol colour, groupPath
                     // so the group tree survives as a categorisable attribute
@@ -222,13 +225,12 @@ module AnnotationExportSettings =
         match convention with
         | LongitudeConvention.Native         -> "Native (as returned for the body)"
         | LongitudeConvention.Flipped        -> "Flipped (360 - lon)"
-        | LongitudeConvention.Shifted        -> "Shifted by 180 deg (lon + 180)"
         | LongitudeConvention.FlippedShifted -> "Flipped and shifted (180 - lon)"
         | _                                  -> string convention
 
     let allLongitudeConventions =
         [ LongitudeConvention.Native; LongitudeConvention.Flipped
-          LongitudeConvention.Shifted; LongitudeConvention.FlippedShifted ]
+          LongitudeConvention.FlippedShifted ]
 
     /// True when the format ignores every setting below the format dropdown.
     let hasFixedSchema (format : ExportFormat) =

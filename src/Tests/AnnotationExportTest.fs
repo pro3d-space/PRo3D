@@ -435,13 +435,15 @@ let tests () =
 
             Expect.equal (convert LongitudeConvention.Native false) 77.0 "native passes through"
             Expect.equal (convert LongitudeConvention.Flipped false) 283.0 "flipped mirrors"
-            Expect.equal (convert LongitudeConvention.Shifted false) 257.0 "shifted moves the prime meridian"
             Expect.equal (convert LongitudeConvention.FlippedShifted false) 103.0 "mirrored and shifted"
 
             // the notation is a separate choice and never changes the location
             Expect.equal (convert LongitudeConvention.Native true) 77.0 "already inside the signed range"
             Expect.equal (convert LongitudeConvention.Flipped true) -77.0 "283 written as -77"
-            Expect.equal (convert LongitudeConvention.Shifted true) -103.0 "257 written as -103"
+            Expect.equal
+                (AnnotationExport.normalizeLongitude LongitudeConvention.Native true 257.0)
+                -103.0
+                "beyond 180 it is written as the negative equivalent"
         }
 
         test "longitude output always lands in a valid range" {
@@ -514,7 +516,8 @@ let tests () =
 
             Expect.equal qgis.format ExportFormat.GeoJson "QGIS writes GeoJSON"
             Expect.equal qgis.coordinates CoordinateMode.Geographic "QGIS is geographic"
-            Expect.equal qgis.longitude LongitudeConvention.Shifted "QGIS needs the shifted prime meridian"
+            Expect.equal qgis.longitude LongitudeConvention.Native "QGIS takes the raw longitude"
+            Expect.isTrue qgis.signedLongitude "QGIS expects -180...180"
 
             let continuous =
                 AnnotationExportSettings.initial
