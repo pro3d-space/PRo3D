@@ -165,11 +165,11 @@ module AnnotationExportApp =
                 let! granularity = model.granularity
                 match format, granularity with
                 | ExportFormat.GeoJson, ExportGranularity.PerAnnotation ->
-                    yield text "One feature per annotation, carrying its full geometry (LineString / Polygon). The lat/lon/alt attributes hold the bounding-box centre."
+                    yield text "One feature per annotation, carrying its full geometry (LineString / Polygon). The geometry attribute stores all vertex coordinates and the properties hold the bounding-box centre coordinates."
                 | ExportFormat.GeoJson, _ ->
                     yield text "One Point feature per vertex. Note that a GIS evaluates labels and symbology per feature, so this is how per-point values become individually styleable."
                 | _, ExportGranularity.PerAnnotation ->
-                    yield text "One row per annotation. The coordinate columns hold the bounding-box centre; the individual vertices are not in the file — switch to \"one record per point\" to export every vertex."
+                    yield text "One row per annotation. The coordinate columns hold the bounding-box centre; the individual vertices are not in the file - switch to \"one record per point\" to export every vertex."
                 | _ ->
                     yield text "One row per point of every exported annotation. Annotation attributes are repeated on each of its rows."
             })
@@ -266,7 +266,7 @@ module AnnotationExportApp =
                     if AnnotationExportSettings.isContinuous format then
                         let! target = state.target
                         yield div [ clazz "ui small message" ] [
-                            yield text "Choosing a file arms a background export: PRo3D rewrites it as line-delimited GeoJSON whenever the annotations change. The schema is fixed, so none of the settings below apply."
+                            yield text "Choosing a file arms a background export: PRo3D rewrites it as line-delimited GeoJSON whenever the annotations change. No individual attributes can be selected for this export."
                             match target with
                             | Some path ->
                                 yield div [ style "margin-top:6px" ] [
@@ -275,7 +275,7 @@ module AnnotationExportApp =
                         ]
                     elif AnnotationExportSettings.hasFixedSchema format then
                         yield div [ clazz "ui small message" ] [
-                            text "Attitude planes have a fixed schema defined by the external tool that reads them. Only the scope applies." ]
+                            text "Attitude planes have a fixed schema defined by the external tool that reads them. No individual attributes can be selected for this export." ]
                     else
                         yield settingsGroup [
                             Html.table [
