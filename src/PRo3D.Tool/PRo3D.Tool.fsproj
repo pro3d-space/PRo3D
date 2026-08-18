@@ -12,7 +12,7 @@
     <PackageOutputPath>..\..\bin\</PackageOutputPath>
     <Authors>PRo3D.Space contributors</Authors>
     <Owners>pro3d-space</Owners>
-    <PackageReadmeFile>content/Pro3DTool.md</PackageReadmeFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>PRo3D.Space contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>Github</RepositoryType>
@@ -26,11 +26,7 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="..\..\docs\Pro3DTool.md" copyToOutput="true">
-      <IncludeInPackage>true</IncludeInPackage>
-      <CopyToOutput>true</CopyToOutput>
-      <BuildAction>Content</BuildAction>
-    </Content>
+    <None Include="README.md" Pack="true" PackagePath="" />
     <None Include="paket.references" />
     <Compile Include="Cli.fs" />
     <Compile Include="KdTree.fs" />
