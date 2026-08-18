@@ -59,6 +59,24 @@ module AnnotationExportViewer =
         | _ ->
             "There are no annotations to export."
 
+    /// The file was written, but without a geographic frame every geographic
+    /// value in it is empty. Worth saying out loud: the export looks successful
+    /// and the emptiness only shows up once the file is opened elsewhere.
+    let private noFrameMessage (format : ExportFormat) =
+        let common =
+            "as no reference frame is set. Pick the body in the top menu bar, \
+             or export cartesian coordinates instead."
+        match format with
+        | ExportFormat.GeoJson ->
+            sprintf
+                "The file was written, but the geometry attribute is exported with value \
+                 null and lat, lon and alt are empty, %s"
+                common
+        | _ ->
+            sprintf
+                "The file was written, but the lat, lon and alt columns are empty, %s"
+                common
+
     /// Performs the export described by `settings`. `path` comes from the save
     /// dialog.
     ///
@@ -90,7 +108,13 @@ module AnnotationExportViewer =
 
                 try
                     AnnotationExport.write settings groupPath refSys.planet up path annotations
-                    None
+
+                    // written successfully, but possibly without the geographic
+                    // values the settings asked for
+                    if AnnotationExport.geographicWithoutFrame settings refSys.planet then
+                        Log.warn "[AnnotationExport] %A has no geographic frame; lat/lon/alt are empty" refSys.planet
+                        Some (noFrameMessage settings.format)
+                    else None
                 with e ->
                     // same reasoning as the empty scope: a silently closing window
                     // would look like a successful export

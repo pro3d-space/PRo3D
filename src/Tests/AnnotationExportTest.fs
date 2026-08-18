@@ -348,6 +348,32 @@ let tests () =
                 | None -> failtest "no rows"
         }
 
+        test "a geographic export without a frame is detected, not refused" {
+            // Planet.None/JPL/ENU have no lat/lon: the file is still written, but
+            // every geographic value in it is empty, which the window warns about
+            let geographic =
+                { AnnotationExportSettings.initial with
+                    format = ExportFormat.GeoJson; coordinates = CoordinateMode.Geographic }
+
+            Expect.isTrue
+                (AnnotationExport.geographicWithoutFrame geographic Planet.None)
+                "no frame, so the geographic values cannot be produced"
+            Expect.isTrue
+                (AnnotationExport.geographicWithoutFrame geographic Planet.ENU)
+                "ENU is not a geographic frame either"
+            Expect.isFalse
+                (AnnotationExport.geographicWithoutFrame geographic Planet.Mars)
+                "Mars has a frame, so there is nothing to warn about"
+            Expect.isFalse
+                (AnnotationExport.geographicWithoutFrame
+                    { geographic with coordinates = CoordinateMode.Cartesian } Planet.None)
+                "a cartesian export never needs a frame"
+            Expect.isFalse
+                (AnnotationExport.geographicWithoutFrame
+                    { geographic with format = ExportFormat.Attitude } Planet.None)
+                "attitude planes ignore the coordinate setting entirely"
+        }
+
         test "ground distance is missing, not zero, without a geographic frame" {
             // Planet.None has no lat/lon, so the height cannot be removed
             let settings =

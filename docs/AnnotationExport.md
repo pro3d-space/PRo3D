@@ -113,9 +113,12 @@ The old exports iterated the flat hash map, so their row order varied between ru
 
 If the chosen scope matches **no** annotations, no file is written and the window stays open
 with a warning in its header saying which scope came up empty and what to change. The same
-happens when writing the file fails. Only a successful export closes the window — so the
-window closing is the confirmation that something was written. The warning clears as soon as
-any control is touched.
+happens when writing the file fails, and when the export asked for geographic coordinates
+but the scene has **no reference frame** (`Planet.None`, `JPL` or `ENU`) — there the file
+*is* written, but `lat`/`lon`/`alt` come out empty and GeoJSON features get a `null`
+geometry, so the window stays open to say so. Set the body under *Coordinate System* in the
+config panel, or export cartesian coordinates. The warning clears as soon as any control is
+touched.
 
 ### Granularity — read this one
 

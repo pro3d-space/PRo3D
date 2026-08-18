@@ -44,6 +44,16 @@ module AnnotationExport =
     let private wantsGeographic (mode : CoordinateMode) =
         mode = CoordinateMode.Geographic || mode = CoordinateMode.Both
 
+    /// The export asks for geographic coordinates, but the scene's body has no
+    /// geographic frame (`Planet.None` / `JPL` / `ENU`). The file is still
+    /// written — every lat/lon/alt cell simply comes out empty and GeoJSON
+    /// features get a `null` geometry — so this is for the caller to warn about,
+    /// not a reason to refuse the export.
+    let geographicWithoutFrame (settings : AnnotationExportSettings) (planet : Planet) =
+        not (AnnotationExportSettings.hasFixedSchema settings.format)
+        && wantsGeographic settings.coordinates
+        && CooTransformation.getConvention planet = CooTransformation.NonPlanetary
+
     /// Column naming the body the geographic coordinates refer to. GIS tools
     /// only surface *feature*-level properties as attributes, so the
     /// collection-level `planet` — which a reader like QGIS never shows in the
