@@ -450,6 +450,15 @@ let tests () =
             Expect.equal qgis.format ExportFormat.GeoJson "QGIS writes GeoJSON"
             Expect.equal qgis.coordinates CoordinateMode.Geographic "QGIS is geographic"
             Expect.equal qgis.longitude LongitudeConvention.Shifted "QGIS needs the shifted prime meridian"
+
+            let continuous =
+                AnnotationExportSettings.initial
+                |> AnnotationExportSettings.applyPreset ExportPreset.ContinuousGeoJson
+
+            Expect.equal continuous.format ExportFormat.ContinuousGeoJson "arms the live export"
+            Expect.isTrue (AnnotationExportSettings.isContinuous continuous.format) "recognised as continuous"
+            Expect.isTrue (AnnotationExportSettings.hasFixedSchema continuous.format)
+                "collapses the settings, like Attitude planes"
             Expect.contains qgis.annotationFields AnnotationField.ColorHex "QGIS gets a styleable colour"
             Expect.contains qgis.annotationFields AnnotationField.GroupPath "QGIS gets the group tree"
         }

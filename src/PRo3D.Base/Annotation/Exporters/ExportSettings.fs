@@ -12,6 +12,10 @@ type ExportFormat =
     | GeoJson = 1
     /// fixed schema dictated by the external structural-geology tool
     | Attitude = 2
+    /// Line-delimited GeoJSON, rewritten automatically whenever the annotations
+    /// change. Picking it arms the background export rather than writing once;
+    /// its schema is fixed because downstream tools poll the file.
+    | ContinuousGeoJson = 3
 
 /// How many records one annotation produces.
 type ExportGranularity =
@@ -49,11 +53,12 @@ type LongitudeConvention =
     | FlippedShifted = 3
 
 type ExportPreset =
-    | Custom          = 0
-    | QgisFeatures    = 1
-    | AnnotationTable = 2
-    | Profile         = 3
-    | AttitudePlanes  = 4
+    | Custom            = 0
+    | QgisFeatures      = 1
+    | AnnotationTable   = 2
+    | Profile           = 3
+    | AttitudePlanes    = 4
+    | ContinuousGeoJson = 5
 
 /// Immutable snapshot handed to the record builder and the writers. Contains no
 /// adaptive types and no reference to the surface model, so it can live in
@@ -77,16 +82,17 @@ module ExportPreset =
 
     let all =
         [ ExportPreset.Custom; ExportPreset.QgisFeatures; ExportPreset.AnnotationTable
-          ExportPreset.Profile; ExportPreset.AttitudePlanes ]
+          ExportPreset.Profile; ExportPreset.AttitudePlanes; ExportPreset.ContinuousGeoJson ]
 
     let label (preset : ExportPreset) =
         match preset with
-        | ExportPreset.Custom          -> "Custom"
-        | ExportPreset.QgisFeatures    -> "GIS / QGIS"
-        | ExportPreset.AnnotationTable -> "Annotation table"
-        | ExportPreset.Profile         -> "Profile"
-        | ExportPreset.AttitudePlanes  -> "Attitude planes"
-        | _                            -> string preset
+        | ExportPreset.Custom            -> "Custom"
+        | ExportPreset.QgisFeatures      -> "GIS / QGIS"
+        | ExportPreset.AnnotationTable   -> "Annotation table"
+        | ExportPreset.Profile           -> "Profile"
+        | ExportPreset.AttitudePlanes    -> "Attitude planes"
+        | ExportPreset.ContinuousGeoJson -> "Continuous GeoJSON"
+        | _                              -> string preset
 
     let description (preset : ExportPreset) =
         match preset with
@@ -100,6 +106,8 @@ module ExportPreset =
             "One CSV row per point of the selected annotation, with distances and surface attributes."
         | ExportPreset.AttitudePlanes ->
             "Dip & strike planes for external structural-geology tools. Fixed schema."
+        | ExportPreset.ContinuousGeoJson ->
+            "Keeps a line-delimited GeoJSON file up to date as the annotations change."
         | _ -> ""
 
 module AnnotationExportSettings =
@@ -172,6 +180,8 @@ module AnnotationExportSettings =
                 pointFields      = AnnotationFields.allPointFields }
         | ExportPreset.AttitudePlanes ->
             { settings with format = ExportFormat.Attitude }
+        | ExportPreset.ContinuousGeoJson ->
+            { settings with format = ExportFormat.ContinuousGeoJson }
         | _ -> settings
 
     let fileExtension (format : ExportFormat) =
@@ -181,10 +191,20 @@ module AnnotationExportSettings =
 
     let formatLabel (format : ExportFormat) =
         match format with
-        | ExportFormat.Csv      -> "CSV table (*.csv)"
-        | ExportFormat.GeoJson  -> "GeoJSON (*.json)"
-        | ExportFormat.Attitude -> "Attitude planes (*.json)"
-        | _                     -> string format
+        | ExportFormat.Csv              -> "CSV table (*.csv)"
+        | ExportFormat.GeoJson          -> "GeoJSON (*.json)"
+        | ExportFormat.Attitude         -> "Attitude planes (*.json)"
+        | ExportFormat.ContinuousGeoJson -> "Continuous GeoJSON (*.json)"
+        | _                             -> string format
+
+    let allFormats =
+        [ ExportFormat.Csv; ExportFormat.GeoJson
+          ExportFormat.Attitude; ExportFormat.ContinuousGeoJson ]
+
+    /// True when picking the format arms a background export instead of writing
+    /// a file once.
+    let isContinuous (format : ExportFormat) =
+        format = ExportFormat.ContinuousGeoJson
 
     let granularityLabel (granularity : ExportGranularity) =
         match granularity with
@@ -217,4 +237,4 @@ module AnnotationExportSettings =
 
     /// True when the format ignores every setting below the format dropdown.
     let hasFixedSchema (format : ExportFormat) =
-        format = ExportFormat.Attitude
+        format = ExportFormat.Attitude || format = ExportFormat.ContinuousGeoJson

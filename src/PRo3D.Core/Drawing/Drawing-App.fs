@@ -366,8 +366,18 @@ module DrawingApp =
         | LegacySaveVersioned   -> false
         | _ -> true
 
+    /// Arms the automatic GeoJSON export: remembers the path and switches the
+    /// feature on. Nothing is written here — the file is rewritten at the end of
+    /// every `update` that changed something worth re-exporting.
+    let armAutomaticGeoJsonExport (path : string) (model : DrawingModel) =
+        if path.IsNullOrEmpty() then model
+        else
+            { model with
+                automaticGeoJsonExport =
+                    { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true } }
+
     // exports geojson, optionally using XYZ format
-    let exportGeoJsonStream  
+    let exportGeoJsonStream
         (model       : DrawingModel) 
         (path        : string) =
 
@@ -590,12 +600,7 @@ module DrawingApp =
                 else
                     model
             | ContinuouslyGeoJson path, _, _ ->
-                if path.IsNullOrEmpty() |> not then 
-                    // remember this path in order to drive the automatic export feature.
-                    let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true }
-                    { model with automaticGeoJsonExport = updatedPath }
-                else
-                    model
+                armAutomaticGeoJsonExport path model
 
             | ExportAsAttitude path, _, _ ->
                 if path.IsNullOrEmpty() |> not then

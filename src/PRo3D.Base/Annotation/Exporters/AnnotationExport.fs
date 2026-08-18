@@ -338,6 +338,10 @@ module AnnotationExport =
         match settings.format with
         | ExportFormat.Attitude ->
             AttitudeExport.writeAttitudeJson path up annotations
+        | ExportFormat.ContinuousGeoJson ->
+            // arms a background export instead of writing once, so it is handled
+            // by the caller that owns the drawing model — never here
+            Log.warn "[AnnotationExport] the continuous export is not written through this path"
         | format ->
             let records = buildRecords settings groupPath planet up annotations
             match format with

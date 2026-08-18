@@ -476,12 +476,10 @@ module Gui =
         let jsExportAnnotationsFileDialog = 
             "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
-        let jsExportAnnotationsAsGeoJSONDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-
-        // The data exports (CSV / GeoJSON / Attitude) all live in the export
-        // window now; only the native round-trip format and the automatic
-        // GeoJSON stream stay here, since neither has any settings.
+        // Every data export lives in the export window now; only the native
+        // round-trip format stays here, since it has no settings. The automatic
+        // GeoJSON stream is armed from the window too (its "Continuous GeoJSON"
+        // file type) and switched off again in the config panel.
         let annotationMenu : DomNode<ViewerAction> =
             let drawingItem attributes children =
                 div attributes children |> UI.map DrawingMessage
@@ -514,13 +512,6 @@ module Gui =
                         clientEvent "onclick" jsExportAnnotationsFileDialog
                     ] [
                         text "Save as 'PRo3D' annotations (*.pro3d.ann)"
-                    ]
-                    drawingItem [
-                        clazz "ui inverted item"
-                        Dialogs.onSaveFile ContinuouslyGeoJson
-                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                    ] [
-                        text "Continuously export as GeoJSON xyz (*.json)"
                     ]
                 ]
             ]

@@ -188,15 +188,25 @@ module AnnotationExportApp =
                 let! format = model.format
                 let extension = AnnotationExportSettings.fileExtension format
                 let label = AnnotationExportSettings.formatLabel format
+                let title =
+                    if AnnotationExportSettings.isContinuous format then "Continuously Export Annotations To"
+                    else "Export Annotations"
                 yield clazz "ui primary button"
                 yield Dialogs.onSaveFile Export
                 yield clientEvent "onclick"
                         (sprintf
-                            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations', filters: [{ name: '%s', extensions: ['%s'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-                            label extension)
+                            "top.aardvark.dialog.showSaveDialog({ title: '%s', filters: [{ name: '%s', extensions: ['%s'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+                            title label extension)
             } |> AttributeMap.ofAMap
 
-        Incremental.div attributes (AList.single (text "Export..."))
+        // "Start..." reads better than "Export..." for a background export that
+        // keeps running after the window closes
+        let caption =
+            model.format
+            |> AVal.map (fun format ->
+                if AnnotationExportSettings.isContinuous format then "Start..." else "Export...")
+
+        Incremental.div attributes (AList.single (Incremental.text caption))
 
     /// The scrolling middle of the window. The header and the buttons live
     /// outside it so they stay put however long this gets.
@@ -214,7 +224,7 @@ module AnnotationExportApp =
                 Html.table [
                     Html.row "File type:" [
                         dropDown
-                            [ ExportFormat.Csv; ExportFormat.GeoJson; ExportFormat.Attitude ]
+                            AnnotationExportSettings.allFormats
                             AnnotationExportSettings.formatLabel model.format SetFormat ]
                     Html.row "Scope:" [
                         dropDown
@@ -228,7 +238,10 @@ module AnnotationExportApp =
                 alist {
                     let! format = model.format
                     let! granularity = model.granularity
-                    if AnnotationExportSettings.hasFixedSchema format then
+                    if AnnotationExportSettings.isContinuous format then
+                        yield div [ clazz "ui small message" ] [
+                            text "Choosing a file arms a background export: PRo3D rewrites it as line-delimited GeoJSON whenever the annotations change, until you switch it off again in the Annotations menu. The schema is fixed, so none of the settings below apply." ]
+                    elif AnnotationExportSettings.hasFixedSchema format then
                         yield div [ clazz "ui small message" ] [
                             text "Attitude planes have a fixed schema defined by the external tool that reads them. Only the scope applies." ]
                     else

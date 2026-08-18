@@ -20,15 +20,17 @@ produces, and which container they are written to:
 | continuously export as GeoJSON xyz | NDJSON | annotation | id, colour, text, surface + hashes |
 | dns as 'Attitude' planes | JSON array | annotation | `uid, axes, strike, dip, rake, …` |
 
-Two of those (the native `.pro3d.ann` save and the continuous GeoJSON stream) have no
-settings at all and stayed on the menu. The rest are now one code path: a shared record
-builder plus one writer per container.
+Only the native `.pro3d.ann` save stayed on the menu, since it has no settings. Everything
+else is now one code path: a shared record builder plus one writer per container. The
+continuous GeoJSON stream is a *file type* in the window — picking it arms the background
+export rather than writing a file.
 
 ## The window
 
 ```
-File type      CSV table / GeoJSON / Attitude planes
-Preset         Custom / GIS-QGIS / Annotation table / Profile / Attitude planes
+File type      CSV table / GeoJSON / Attitude planes / Continuous GeoJSON
+Preset         Custom / GIS-QGIS / Annotation table / Profile / Attitude planes /
+               Continuous GeoJSON
 Scope          All / Visible only / Selected only
 ─────────────────────────────────────────────────────────────
 Granularity    one record per annotation | one record per point
@@ -52,6 +54,7 @@ Clicking the dimmed background or *Cancel* closes it.
 | **CSV table** | One header row, then one row per record. Columns come from the settings, always in the same order, so the file is rectangular even when the annotations differ. |
 | **GeoJSON** | A spec-shaped `FeatureCollection`; one `Feature` per record, the selected attributes as `properties`. Geographic exports carry the body name as a collection-level `properties.planet`. |
 | **Attitude planes** | Dip & strike planes for external structural-geology tools. **Fixed schema** — every setting below the file type is ignored, only the scope applies. |
+| **Continuous GeoJSON** | Does not write once: it **arms a background export**. PRo3D then rewrites the chosen file as line-delimited GeoJSON (one `Feature` per line, with `id`, `color`, `geometry`, `text`, `surfaceName` and content hashes) whenever the annotations change. Fixed schema, so no setting applies. Switch it off again in the config panel's *auto export* toggle. |
 
 ### Preset
 
@@ -64,6 +67,7 @@ switches the preset back to *Custom*; nothing is locked.
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
 | Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
 | Attitude planes | file type *Attitude planes* |
+| Continuous GeoJSON | file type *Continuous GeoJSON* — arms the background export |
 
 ### Scope
 
@@ -334,8 +338,8 @@ them need it switched off to reproduce.
 | xyz GeoJSON for QGIS | GeoJSON · Visible · Cartesian | **off** |
 | latlon for QGIS + xyz metadata | GeoJSON · Visible · Both · **Native** | **off** |
 | dns as 'Attitude' planes | file type *Attitude planes* · Visible | n/a |
+| continuously export as GeoJSON xyz | file type *Continuous GeoJSON* (preset of the same name) | n/a |
 | all as 'PRo3D' annotations | unchanged, still on the menu | n/a |
-| continuously export as GeoJSON xyz | unchanged, still on the menu | n/a |
 
 Two of these are not exact equivalents:
 
