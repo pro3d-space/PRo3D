@@ -75,6 +75,11 @@ type AnnotationExportSettings = {
     /// export the densely sampled, surface-following polyline
     /// (Annotation.retrievePoints) instead of only the picked control points
     useSampledPoints  : bool
+    /// sample the surface properties — the OPC scalar / texture layers — under
+    /// every exported point and add one column per layer. Per-point exports
+    /// only. Costly (a ray cast plus a texture lookup per point), which is why
+    /// it is off by default and no preset switches it on.
+    sampleSurfaceProperties : bool
     annotationFields  : list<AnnotationField>
     pointFields       : list<PointField>
 }
@@ -114,6 +119,7 @@ module AnnotationExportSettings =
         longitude         = LongitudeConvention.Flipped
         signedLongitude   = false
         useSampledPoints  = true
+        sampleSurfaceProperties = false
         annotationFields  =
             [ AnnotationField.Key; AnnotationField.Text; AnnotationField.GroupName
               AnnotationField.GroupPath; AnnotationField.SurfaceName

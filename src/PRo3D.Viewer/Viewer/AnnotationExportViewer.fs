@@ -7,13 +7,23 @@ open FSharp.Data.Adaptive
 
 open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Base.Gis
 open PRo3D.Core
 open PRo3D.Core.Drawing
+open PRo3D.Core.Surface
 
 /// Runs the annotation export. Resolving the export scope needs the group tree
 /// and the reference system, which is why this sits at viewer level rather than
 /// in `AnnotationExportApp`.
 module AnnotationExportViewer =
+
+    /// What sampling the surface properties under a point needs. Bundled rather
+    /// than passed as four more positional arguments of similar-looking type.
+    type SurfaceSamplingContext = {
+        surfaces       : SurfaceModel
+        observedSystem : SurfaceId -> Option<SpiceReferenceSystem>
+        observerSystem : Option<ObserverSystem>
+    }
 
     /// Annotations in the order the user sees them in the group tree. The flat
     /// `HashMap` alone would give hash order, which differs between runs.
@@ -77,6 +87,53 @@ module AnnotationExportViewer =
                 "The file was written, but the lat, lon and alt columns are empty, %s"
                 common
 
+    /// The export asked for surface properties but not one point produced any.
+    /// Like the missing frame above, the file looks fine until it is opened
+    /// somewhere else and the surface columns simply are not there.
+    let private noSurfacePropertiesMessage =
+        "The file was written, but no surface properties could be sampled: no visible, \
+         active OPC surface was hit underneath the exported points. Check that the \
+         surface the annotation was drawn on is switched on, and that it has \
+         attribute layers besides its base texture."
+
+    /// Builds the per-point surface sampler, together with a counter of how many
+    /// points it actually got values for — a sampler that silently returns
+    /// nothing for every point is worth telling the user about.
+    let private surfaceSampler
+        (refSys  : ReferenceSystem)
+        (context : SurfaceSamplingContext)
+        : SurfacePropertySampler * (unit -> int) =
+
+        let up = refSys.up.value.Normalized
+        let mutable sampled = 0
+
+        let sample (position : V3d) =
+            let result, cache =
+                ProfileAttributeExtraction.sampleAt
+                    up context.surfaces refSys context.observedSystem context.observerSystem
+                    PRo3D.Picking.cache position
+
+            // shared with interactive picking on purpose: the KdTrees loaded for
+            // the export stay loaded for the next pick, and vice versa
+            PRo3D.Picking.cache <- cache
+
+            match result with
+            | Some (_, attributes) when attributes.Count > 0 ->
+                sampled <- sampled + 1
+                let pairs = Array.zeroCreate attributes.Count
+                let mutable i = 0
+                for layer in attributes do
+                    pairs.[i] <- AnnotationExport.surfaceColumnName layer.Key,
+                                 ExportValue.ofChannels layer.Value
+                    i <- i + 1
+                // by column name, so the order does not depend on which patch
+                // happened to be hit first
+                Array.sortInPlaceBy fst pairs
+                pairs |> List.ofArray
+            | _ -> []
+
+        sample, fun () -> sampled
+
     /// Performs the export described by `settings`. `path` comes from the save
     /// dialog.
     ///
@@ -89,6 +146,7 @@ module AnnotationExportViewer =
         (path     : string)
         (drawing  : DrawingModel)
         (refSys   : ReferenceSystem)
+        (surfaces : SurfaceSamplingContext)
         : Option<string> =
 
         if String.IsNullOrEmpty path then
@@ -106,15 +164,35 @@ module AnnotationExportViewer =
                 // exportable and reconstructable on a later reimport
                 let groupPath = GroupsApp.groupPathLookup drawing.annotations
 
-                try
-                    AnnotationExport.write settings groupPath refSys.planet up path annotations
-
-                    // written successfully, but possibly without the geographic
-                    // values the settings asked for
-                    if AnnotationExport.geographicWithoutFrame settings refSys.planet then
-                        Log.warn "[AnnotationExport] %A has no geographic frame; lat/lon/alt are empty" refSys.planet
-                        Some (noFrameMessage settings.format)
+                // Only per-point exports have a position to sample at, and the
+                // fixed-schema formats ignore every attribute setting — building
+                // a sampler for those would only cost time and then warn about
+                // columns nobody asked for.
+                let sampler =
+                    if settings.sampleSurfaceProperties
+                       && settings.granularity = ExportGranularity.PerPoint
+                       && not (AnnotationExportSettings.hasFixedSchema settings.format) then
+                        Some (surfaceSampler refSys surfaces)
                     else None
+
+                try
+                    AnnotationExport.write
+                        settings (sampler |> Option.map fst) groupPath refSys.planet up path annotations
+
+                    // written successfully, but possibly without values the
+                    // settings asked for
+                    [ if AnnotationExport.geographicWithoutFrame settings refSys.planet then
+                          Log.warn "[AnnotationExport] %A has no geographic frame; lat/lon/alt are empty" refSys.planet
+                          yield noFrameMessage settings.format
+
+                      match sampler with
+                      | Some (_, sampledCount) when sampledCount () = 0 ->
+                          Log.warn "[AnnotationExport] surface properties requested but no point hit a surface"
+                          yield noSurfacePropertiesMessage
+                      | _ -> () ]
+                    |> function
+                       | []       -> None
+                       | messages -> Some (messages |> String.concat " ")
                 with e ->
                     // same reasoning as the empty scope: a silently closing window
                     // would look like a successful export

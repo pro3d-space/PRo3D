@@ -55,6 +55,7 @@ module AnnotationExportApp =
         | SetLongitude longitude     -> custom { model with longitude = longitude }
         | ToggleSignedLongitude      -> custom { model with signedLongitude = not model.signedLongitude }
         | ToggleSampledPoints        -> custom { model with useSampledPoints = not model.useSampledPoints }
+        | ToggleSurfaceProperties    -> custom { model with sampleSurfaceProperties = not model.sampleSurfaceProperties }
 
         // Key is always exported (see AnnotationExportModel.toSettings), so its
         // checkbox is inert rather than lying about the output.
@@ -70,11 +71,15 @@ module AnnotationExportApp =
                          if selected then HashSet.ofList AnnotationFields.all
                          else HashSet.single AnnotationField.Key }
 
+        // The surface properties sit in the same accordion, so "all" / "none"
+        // covers them too — they are simply not part of `pointFields`, since
+        // their columns come from the data rather than from an enum.
         | SetAllPointFields selected ->
             custom { model with
                        pointFields =
                          if selected then HashSet.ofList AnnotationFields.allPointFields
-                         else HashSet.empty }
+                         else HashSet.empty
+                       sampleSurfaceProperties = selected }
 
         // needs the surface model to sample surface attributes, so it is
         // handled at viewer level; see ViewerApp.
@@ -191,12 +196,19 @@ module AnnotationExportApp =
                     (model.pointFields |> ASet.contains field)
                     (TogglePointField field)
 
-          // Placeholder for the per-point surface properties (OPC scalar /
-          // texture layers sampled at the point). The sampling itself is being
-          // implemented separately.
+          // Off by default and never switched on by a preset: it re-picks every
+          // exported point against the surface KdTrees and reads a texture per
+          // layer, so a long sampled annotation takes noticeably longer than
+          // any other export.
           yield sectionHeader "Surface properties at each point"
+          yield checkBox "Surface properties" model.sampleSurfaceProperties ToggleSurfaceProperties
+          // no angle brackets in the hint: the text node is rendered as HTML, so
+          // a "surface_<layer>" placeholder would be swallowed as a tag
           yield div [ clazz "ui tiny inverted text"; style "opacity: 0.6" ] [
-              text "Not available yet — sampling the surface layers at each point is still being implemented." ] ]
+              text "Samples the OPC layers (texture and scalar attributes) of the surface \
+                    under every exported point and adds one column per layer found, named \
+                    \"surface_\" plus the layer name. Needs a ray cast and a texture lookup \
+                    per point, so exporting a long annotation takes a while." ] ]
 
     /// The save dialog's filter has to follow the chosen file type, so the
     /// client event string is built adaptively rather than as a constant.

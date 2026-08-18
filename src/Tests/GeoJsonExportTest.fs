@@ -87,7 +87,7 @@ module Tests =
             let writeToTemp (settings : AnnotationExportSettings) (annotations : list<Annotation>) =
                 let path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json")
                 try
-                    AnnotationExport.write settings HashMap.empty Planet.Mars V3d.OOI path annotations
+                    AnnotationExport.write settings None HashMap.empty Planet.Mars V3d.OOI path annotations
                     File.ReadAllText path
                 finally
                     if File.Exists path then File.Delete path

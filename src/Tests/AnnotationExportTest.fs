@@ -63,10 +63,17 @@ let private unsegmentedAnnotation points =
         segments = IndexList.empty }
 
 let private records settings annotation =
-    AnnotationExport.buildRecords settings HashMap.empty Planet.None V3d.OOI [ annotation ]
+    AnnotationExport.buildRecords settings None HashMap.empty Planet.None V3d.OOI [ annotation ]
 
 let private recordsOn planet settings annotation =
-    AnnotationExport.buildRecords settings HashMap.empty planet V3d.OOI [ annotation ]
+    AnnotationExport.buildRecords settings None HashMap.empty planet V3d.OOI [ annotation ]
+
+/// A stand-in for the viewer's surface sampler: two layers on every point, so
+/// the surface columns can be pinned without an OPC dataset.
+let private stubSampler : SurfacePropertySampler =
+    fun p ->
+        [ AnnotationExport.surfaceColumnName "Gravity", VNum p.X
+          AnnotationExport.surfaceColumnName "Albedo",  VNums [| 0.25; 0.5; 0.75 |] ]
 
 /// Cartesian position of a lat/lon/alt on Mars, or None when the native
 /// coordinate transform is unavailable in this environment.
@@ -180,6 +187,36 @@ let tests () =
                 "schema follows the settings, in declaration order"
         }
 
+        test "sampled surface properties become prefixed columns after the fixed schema" {
+            let annotation = testAnnotation ()
+            let settings =
+                { csvSettings ExportGranularity.PerPoint [] [ PointField.Index ] with
+                    sampleSurfaceProperties = true }
+
+            let rows =
+                AnnotationExport.buildRecords
+                    settings (Some stubSampler) HashMap.empty Planet.None V3d.OOI [ annotation ]
+
+            // the sampler's layers are discovered from the records, so they can
+            // only ever land behind everything the settings named
+            Expect.equal
+                (AnnotationExport.schemaFor settings rows)
+                [ "pointIndex"; "surface_Gravity"; "surface_Albedo" ]
+                "layer columns follow the fixed schema, in first-seen order"
+
+            match rows with
+            | first :: _ ->
+                Expect.equal (cell "surface_Gravity" first) (Some (VNum 0.0)) "single channel stays a number"
+                Expect.equal (cell "surface_Albedo" first)
+                             (Some (VNums [| 0.25; 0.5; 0.75 |]))
+                             "multi-channel layer keeps its channels in one cell"
+            | [] -> failtest "expected one row per point"
+
+            // and nothing at all without a sampler, whatever the setting says
+            let bare = AnnotationExport.buildRecords settings None HashMap.empty Planet.None V3d.OOI [ annotation ]
+            Expect.equal (AnnotationExport.schemaFor settings bare) [ "pointIndex" ] "no sampler, no columns"
+        }
+
         test "geographic exports name the body per feature" {
             // a collection-level property is not an attribute in GIS tools, so
             // the body has to be a field of its own
@@ -204,7 +241,7 @@ let tests () =
                 csvSettings ExportGranularity.PerAnnotation
                     [ AnnotationField.GroupName; AnnotationField.GroupPath ] []
 
-            match AnnotationExport.buildRecords settings groupPath Planet.None V3d.OOI [ annotation ] with
+            match AnnotationExport.buildRecords settings None groupPath Planet.None V3d.OOI [ annotation ] with
             | [ row ] ->
                 Expect.equal (cell "groupPath" row) (Some (VText "Outcrop A/Bedding")) "full path"
                 Expect.equal (cell "groupName" row) (Some (VText "Bedding")) "innermost group only"
@@ -251,13 +288,14 @@ let tests () =
                 csvSettings ExportGranularity.PerAnnotation
                     [ AnnotationField.Text; AnnotationField.WayLength ] []
 
+            let rows = records settings annotation
             let path = IO.Path.Combine(IO.Path.GetTempPath(), IO.Path.GetRandomFileName() + ".csv")
             let previous = Thread.CurrentThread.CurrentCulture
             try
                 // decimal-comma locale: the writer this replaced produced "23,32"
                 // here, silently corrupting a comma-separated file
                 Thread.CurrentThread.CurrentCulture <- CultureInfo.GetCultureInfo "de-AT"
-                ExportWriters.writeCsv path (AnnotationExport.schemaOf settings) (records settings annotation)
+                ExportWriters.writeCsv path (AnnotationExport.schemaFor settings rows) rows
 
                 let lines = IO.File.ReadAllLines path
                 Expect.hasLength lines 2 "header plus one row"

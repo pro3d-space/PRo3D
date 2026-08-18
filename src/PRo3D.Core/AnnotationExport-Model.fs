@@ -20,6 +20,7 @@ type AnnotationExportAction =
     | SetLongitude           of LongitudeConvention
     | ToggleSignedLongitude
     | ToggleSampledPoints
+    | ToggleSurfaceProperties
     | ToggleAnnotationField  of AnnotationField
     | TogglePointField       of PointField
     /// select / deselect every annotation-level attribute at once
@@ -55,6 +56,7 @@ type AnnotationExportModel = {
     longitude         : LongitudeConvention
     signedLongitude   : bool
     useSampledPoints  : bool
+    sampleSurfaceProperties : bool
 
     annotationFields  : HashSet<AnnotationField>
     pointFields       : HashSet<PointField>
@@ -78,6 +80,7 @@ module AnnotationExportModel =
         longitude         = s.longitude
         signedLongitude   = s.signedLongitude
         useSampledPoints  = s.useSampledPoints
+        sampleSurfaceProperties = s.sampleSurfaceProperties
         annotationFields  = HashSet.ofList s.annotationFields
         pointFields       = HashSet.ofList s.pointFields
         warning           = None
@@ -94,6 +97,7 @@ module AnnotationExportModel =
         longitude         = m.longitude
         signedLongitude   = m.signedLongitude
         useSampledPoints  = m.useSampledPoints
+        sampleSurfaceProperties = m.sampleSurfaceProperties
         // `Key` is the annotation's Guid and the only stable handle a GIS round
         // trip has for matching a feature back to its annotation, so it is
         // exported whether or not it is ticked.

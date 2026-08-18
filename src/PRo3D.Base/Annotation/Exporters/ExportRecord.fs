@@ -31,11 +31,19 @@ type ExportGeometry =
 
 /// One output record — one CSV row, or one GeoJSON Feature.
 /// `fields` is ordered and, within a single export, always follows the schema
-/// produced by `AnnotationExport.schemaOf`.
+/// produced by `AnnotationExport.schemaFor`.
 type ExportRecord = {
     fields   : list<string * ExportValue>
     geometry : Option<ExportGeometry>
 }
+
+/// Samples the surface properties — the OPC scalar / texture layers of the patch
+/// underneath a point — at a world position, one (column, value) pair per layer.
+///
+/// Supplied by the viewer: sampling needs the surface model and its KdTrees,
+/// which live above this assembly, so the record builder only ever calls it and
+/// never knows what a surface is.
+type SurfacePropertySampler = V3d -> list<string * ExportValue>
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ExportValue =
@@ -49,6 +57,16 @@ module ExportValue =
     /// leak into the output as the literal text "NaN".
     let ofFloat (v : float) =
         if Double.IsNaN v || Double.IsInfinity v then VMissing else VNum v
+
+    /// One surface-layer sample. A single-channel layer (the scalar case, and
+    /// the common one) becomes a plain number; a multi-channel one stays in a
+    /// single cell rather than fanning out into columns whose *count* would
+    /// depend on which texture a point happened to land on.
+    let ofChannels (channels : float[]) =
+        match channels with
+        | [||]    -> VMissing
+        | [| v |] -> ofFloat v
+        | many    -> VNums many
 
     /// Default (no format specifier) is the shortest round-trippable form on
     /// modern .NET; "G" caps at 15 significant digits, which silently loses

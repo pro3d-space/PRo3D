@@ -746,7 +746,15 @@ module ViewerApp =
                         // the file is rewritten at the end of every DrawingApp.update
                         { m with drawing = DrawingApp.armAutomaticGeoJsonExport path m.drawing }, None
                     else
-                        m, AnnotationExportViewer.export settings path m.drawing m.scene.referenceSystem
+                        // the surface model comes along for the per-point
+                        // surface-property sampling, which re-picks every
+                        // exported point against the KdTrees
+                        let surfaces : AnnotationExportViewer.SurfaceSamplingContext = {
+                            surfaces       = Optic.get _surfacesModel m
+                            observedSystem = fun (v : SurfaceId) -> Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+                            observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                        }
+                        m, AnnotationExportViewer.export settings path m.drawing m.scene.referenceSystem surfaces
                 // nothing exported: keep the window open with the reason, rather
                 // than closing it as if the file had been written
                 { m with

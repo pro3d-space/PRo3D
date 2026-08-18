@@ -41,6 +41,7 @@ Coordinates    Cartesian / Geographic / Both       Longitude convention
                ⓘ what the chosen granularity does to the geometry
 Annotation attributes    checkbox per attribute, grouped
 Point attributes         (only for "one record per point")
+                         ☑ Surface properties — sample the OPC layers per point
 ─────────────────────────────────────────────────────────────
                                          [ Cancel ]  [ Export… ]
 ```
@@ -243,6 +244,7 @@ Only shown for *one record per point*.
 | `segmentLength` | length of the whole segment this point belongs to |
 | `distance` | running length from the first point, **through 3D space** |
 | `groundDistance` | running length from the first point with the **height removed** |
+| `surface_<layer>` | one per OPC layer sampled under the point — see [Surface properties](#surface-properties) |
 
 #### The two distances
 
@@ -271,8 +273,59 @@ Note that `wayLength` is **not** redundant with the final `distance`: per-*annot
 exports have no `distance` column at all, and with *include sampled segment points* off the
 two diverge (chords versus the draped path).
 
-**Surface properties at each point** — sampling the OPC scalar / texture layers at each
-point is not available yet; the window shows a placeholder where those checkboxes will go.
+### Surface properties
+
+The one point attribute that is not read off the annotation. Tick **Surface properties** and
+every exported point is sampled against the **OPC layers** of the surface underneath it — the
+scalar and texture attributes an OPC dataset carries besides its base texture (gravity,
+altitude, slope maps, secondary image layers, whatever the dataset ships). This reproduces
+the old *selected as multi-attribute profile* export, with the rest of the window's columns
+available alongside.
+
+One column per layer found, named `surface_<layer>` after the layer in the patch:
+
+| | |
+|---|---|
+| Prefix | `surface_` — the layer names come from the *data*, so without a namespace of their own a layer called `alt` or `x` would shadow a coordinate column |
+| Order | after every column the settings named, alphabetically among themselves — so the table does not reorder itself depending on which patch was hit first |
+| Multi-channel layers | kept in **one** cell, `0.25;0.5;0.75` (a JSON array in GeoJSON), because the channel *count* would otherwise depend on which texture a point landed on |
+| Points that hit nothing | empty cells; the export still succeeds |
+
+Only offered for **one record per point** — a per-annotation record has no single position to
+sample at — and ignored by the fixed-schema file types. It works for CSV and GeoJSON alike.
+
+#### How a value is found
+
+An annotation point does not remember where it came from, so each point is **re-picked**: a
+ray is shot from 10 m above the point, along the reference system's up axis, into the visible
+and active surfaces' KdTrees. The patch that is hit identifies the textures; barycentric
+coordinates on the hit triangle interpolate the UV, and each layer image is sampled at that
+UV (nearest pixel, no filtering). The value therefore comes from the same patch the renderer
+draws there, and *not* from the annotation's `surfaceName`.
+
+Consequences worth knowing:
+
+- **The surface has to be switched on.** Hidden or inactive surfaces are not picked, so an
+  annotation drawn on a surface that is now off yields no values at all. If not one point
+  produced any, the file is still written and the window stays open to say so.
+- **Only OPC surfaces.** Mesh (`.obj` and friends) data sources have no layers to sample.
+- **KdTrees are required**, as for any picking — build them with `opc-tool` if picking does
+  not work on the surface either.
+- The first layer of a patch (the base texture) is skipped; it is the colour PRo3D renders,
+  not an attribute.
+
+#### It is slow, on purpose off by default
+
+A ray cast plus one texture read per layer per point. With *include sampled segment points*
+on, a drawn polyline easily has thousands of points, and PRo3D is **busy** — the whole export
+runs synchronously — until it finishes. Decoded layer images and per-patch texture
+coordinates are cached (bounded, oldest-first), so consecutive points on the same patch are
+cheap and the cost scales with the number of *patches* crossed rather than points sampled.
+No preset switches it on; the *Profile* preset does not either, so an ordinary profile export
+stays fast. The accordion's **all** / **none** buttons do cover it.
+
+The KdTree cache is shared with interactive picking, so surfaces loaded for the export stay
+loaded for the next pick.
 
 ## Using the GeoJSON export in QGIS
 
@@ -378,7 +431,7 @@ them need it switched off to reproduce.
 |---|---|---|
 | visible as table (*.csv) | CSV · Visible · per annotation · Both · Flipped | **off** |
 | selected as profile (*.csv) | CSV · Selected · per point · Geographic + *ground distance* (preset *Profile*) | on |
-| selected as multi-attribute profile | CSV · Selected · per point — surface columns pending | on |
+| selected as multi-attribute profile | CSV · Selected · per point · Cartesian + **Surface properties** | on |
 | visible as GeoJSON | GeoJSON · Visible · Geographic · Flipped | on |
 | visible as GeoJSON xyz | GeoJSON · Visible · Cartesian | on |
 | latlon GeoJSON for QGIS | GeoJSON · Visible · Geographic · **Native** | **off** |
@@ -388,7 +441,7 @@ them need it switched off to reproduce.
 | continuously export as GeoJSON xyz | file type *Continuous GeoJSON* (preset of the same name) | n/a |
 | all as 'PRo3D' annotations | unchanged, still on the menu | n/a |
 
-Two of these are not exact equivalents:
+Three of these are not exact equivalents:
 
 - ***latlon for QGIS + xyz metadata*** has no equivalent at all. It wrote a `cartesian`
   property containing **every** point, which no setting reproduced even before; and since
@@ -398,6 +451,11 @@ Two of these are not exact equivalents:
 - ***selected as profile*** wrote exactly two columns, `distance` and `elevation`. Those are
   now `groundDistance` and `alt`, with the same values, alongside whatever else is ticked
   (and `key`, which is always written).
+- ***selected as multi-attribute profile*** wrote `distance,x,y,z` plus one bare layer column
+  each. The layer columns are now prefixed `surface_`, `distance` is the ticked `distance`
+  (or `groundDistance`) column, and its rows were the *re-picked* positions whereas the new
+  export writes the annotation's own point and samples the surface at it — a difference of
+  millimetres, but they are no longer literally the same numbers.
 
 The three QGIS variants applied **no** longitude transform, i.e. *Native*, which is what the
 *GIS / QGIS* preset also selects. The preset additionally ticks the signed −180…180 range, so
@@ -422,15 +480,23 @@ Beyond the GeoJSON coordinate order, two other behaviours changed on purpose:
 | `src/PRo3D.Base/Annotation/Exporters/ExportRecord.fs` | `ExportValue` / `ExportRecord`, the CSV writer and the GeoJSON `FeatureCollection` writer |
 | `src/PRo3D.Base/Annotation/Exporters/AnnotationFields.fs` | the attribute enums, their labels, column names and value accessors |
 | `src/PRo3D.Base/Annotation/Exporters/ExportSettings.fs` | the settings snapshot and the presets |
-| `src/PRo3D.Base/Annotation/Exporters/AnnotationExport.fs` | `schemaOf` / `buildRecords` / `write` — the shared record builder |
+| `src/PRo3D.Base/Annotation/Exporters/AnnotationExport.fs` | `schemaOf` / `schemaFor` / `buildRecords` / `write` — the shared record builder |
 | `src/PRo3D.Core/AnnotationExport-Model.fs` | `AnnotationExportModel` + actions (session-only, on the root `Model`, not persisted) |
 | `src/PRo3D.Core/AnnotationExportApp.fs` | `update` and the window `view` |
-| `src/PRo3D.Viewer/Viewer/AnnotationExportViewer.fs` | scope resolution and running the export |
-| `src/Tests/AnnotationExportTest.fs` | schema, lengths, culture-invariance, presets |
+| `src/PRo3D.Core/ProfileAttributeExtraction.fs` | `sampleAt` — the KdTree re-pick, UV interpolation and layer sampling behind *Surface properties* |
+| `src/PRo3D.Viewer/Viewer/AnnotationExportViewer.fs` | scope resolution, the surface sampler, and running the export |
+| `src/Tests/AnnotationExportTest.fs` | schema, lengths, culture-invariance, presets, surface columns |
 
 Adding an annotation-level attribute means adding one enum case in `AnnotationFields.fs`
 plus its `columnName`, `label`, `groupOf` and `valueOf` branch — the window, the schema and
 both writers pick it up automatically.
+
+The surface properties are the one exception to that pattern, because their columns come from
+the data rather than an enum. `AnnotationExport` never sees a surface: it takes a
+`SurfacePropertySampler` (`V3d -> list<string * ExportValue>`) that the viewer supplies, since
+sampling needs the surface model and its KdTrees. That is also why the complete column list
+comes from `schemaFor settings records` rather than `schemaOf settings` — the layer columns
+are only known once the records exist.
 
 ## See also
 

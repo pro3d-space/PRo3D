@@ -1,0 +1,892 @@
+{
+  "bookmarks": {
+    "flat": [
+      
+    ],
+    "groupsLookup": [
+      
+    ],
+    "rootGroup": {
+      "defaultColor": {
+        "color": "[255, 255, 255, 255]"
+      },
+      "expanded": true,
+      "key": "cfbf3b3e-927b-4a15-a2b2-8fec96d45726",
+      "leaves": [
+        
+      ],
+      "name": "root",
+      "subNodes": [
+        
+      ],
+      "version": 1,
+      "visible": true
+    },
+    "version": 0
+  },
+  "cameraView": {
+    "view": [
+      "[0, 0, 1]",
+      "[-2486733.7044215878, 2289119.0130147063, -276188.17162521696]",
+      "[0.5153842704910724, 0.5912134138396736, 0.6203593740941004]",
+      "[-0.7184644870402555, 0.6926819289291197, -0.06324971301924526]",
+      "[-0.46710580663525036, -0.41310827228593827, 0.7817632127291224]"
+    ]
+  },
+  "comparisonApp": {
+    "annotationMeasurements": [
+      
+    ],
+    "areas": [
+      
+    ],
+    "distanceMode": "SurfaceNormal",
+    "nrOfCreatedAreas": 0,
+    "originMode": "ModelOrigin",
+    "surfaceMeasurements": {
+      
+    }
+  },
+  "config": {
+    "arrowLength": {
+      "format": "{0:0.00}",
+      "max": 10,
+      "min": 0,
+      "step": 0.05,
+      "value": 1
+    },
+    "arrowThickness": {
+      "format": "{0:0.0}",
+      "max": 10,
+      "min": 0,
+      "step": 0.5,
+      "value": 3
+    },
+    "depthOffset": {
+      "format": "{0:0.000}",
+      "max": 500,
+      "min": -500,
+      "step": 0.001,
+      "value": 0.001
+    },
+    "dnsPlaneSize": {
+      "format": "{0:0.00}",
+      "max": 10,
+      "min": 0,
+      "step": 0.05,
+      "value": 0.5
+    },
+    "drawOrientationCube": false,
+    "farPlane": {
+      "format": "{0:0.0}",
+      "max": 5906380000000,
+      "min": 1,
+      "step": 10,
+      "value": 500000
+    },
+    "filterTexture": false,
+    "frustumModel": {
+      "focal": 10.25,
+      "frustum": {
+        "bottom": -0.0577560975609756,
+        "far": 10000,
+        "isOrtho": false,
+        "left": -0.0577560975609756,
+        "near": 0.1,
+        "right": 0.0577560975609756,
+        "top": 0.0577560975609756
+      },
+      "frustumOld": {
+        "bottom": -0.0577350269189626,
+        "far": 10000,
+        "isOrtho": false,
+        "left": -0.0577350269189626,
+        "near": 0.1,
+        "right": 0.0577350269189626,
+        "top": 0.0577350269189626
+      },
+      "toggleFocal": true
+    },
+    "importTriangleSize": {
+      "format": "{0:0.000}",
+      "max": 1000,
+      "min": 0,
+      "step": 0.01,
+      "value": 1000
+    },
+    "lodColoring": false,
+    "navigationSensitivity": {
+      "format": "{0:0.00}",
+      "max": 14,
+      "min": -1,
+      "step": 0.25,
+      "value": 2
+    },
+    "nearPlane": {
+      "format": "{0:0.00}",
+      "max": 1000,
+      "min": 0.01,
+      "step": 0.01,
+      "value": 0.1
+    },
+    "offset": {
+      "format": "{0:0.000}",
+      "max": 500,
+      "min": -500,
+      "step": 0.001,
+      "value": 0.001
+    },
+    "pickingTolerance": {
+      "format": "{0:0.00}",
+      "max": 300,
+      "min": 0.01,
+      "step": 0.01,
+      "value": 0.1
+    },
+    "previewIntersectionWorldSize": 10,
+    "showExplorationPointGui": true,
+    "showPreviewIntersection": false,
+    "version": 4
+  },
+  "crossSectionModel": {
+    "clippingEnabled": true,
+    "crossSection": null,
+    "curtainAbsoluteMode": false,
+    "curtainBaseColor": {
+      "color": "[128, 128, 128, 255]"
+    },
+    "curtainEnabled": false,
+    "curtainExtrusionDepth": {
+      "format": "{0:0}",
+      "max": 10000,
+      "min": 1,
+      "step": 10,
+      "value": 100
+    },
+    "curtainTargetAltitude": {
+      "format": "{0:0}",
+      "max": 100000,
+      "min": -10000,
+      "step": 10,
+      "value": 0
+    },
+    "curtainTextureDepth": {
+      "format": "{0:0}",
+      "max": 10000,
+      "min": 1,
+      "step": 10,
+      "value": 50
+    },
+    "curtainTexturePath": null,
+    "curtainTextureStartAltitude": {
+      "format": "{0:0}",
+      "max": 100000,
+      "min": -10000,
+      "step": 10,
+      "value": 0
+    }
+  },
+  "dockConfig": "{\r\n  \"FsPickler\": \"4.0.0\",\r\n  \"type\": \"Aardvark.UI.Primitives.DockConfig\",\r\n  \"value\": {\r\n    \"content\": {\r\n      \"Case\": \"Horizontal\",\r\n      \"weight\": 1.0,\r\n      \"children\": [\r\n        {\r\n          \"Case\": \"Stack\",\r\n          \"weight\": 0.7,\r\n          \"activeId\": null,\r\n          \"children\": [\r\n            {\r\n              \"id\": \"render\",\r\n              \"weight\": 0.6,\r\n              \"title\": {\r\n                \"Some\": \" Main View \"\r\n              },\r\n              \"deleteInvisible\": null,\r\n              \"isCloseable\": null\r\n            }\r\n          ]\r\n        },\r\n        {\r\n          \"Case\": \"Vertical\",\r\n          \"weight\": 0.3,\r\n          \"children\": [\r\n            {\r\n              \"Case\": \"Stack\",\r\n              \"weight\": 0.5,\r\n              \"activeId\": {\r\n                \"Some\": \"surfaces\"\r\n              },\r\n              \"children\": [\r\n                {\r\n                  \"id\": \"surfaces\",\r\n                  \"weight\": 0.4,\r\n                  \"title\": {\r\n                    \"Some\": \" Surfaces \"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                },\r\n                {\r\n                  \"id\": \"annotations\",\r\n                  \"weight\": 0.4,\r\n                  \"title\": {\r\n                    \"Some\": \" Annotations \"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                },\r\n                {\r\n                  \"id\": \"scalebars\",\r\n                  \"weight\": 0.4,\r\n                  \"title\": {\r\n                    \"Some\": \" ScaleBars \"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                },\r\n                {\r\n                  \"id\": \"instrumentview\",\r\n                  \"weight\": 0.6,\r\n                  \"title\": {\r\n                    \"Some\": \" Instrument View \"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                }\r\n              ]\r\n            },\r\n            {\r\n              \"Case\": \"Stack\",\r\n              \"weight\": 0.5,\r\n              \"activeId\": {\r\n                \"Some\": \"config\"\r\n              },\r\n              \"children\": [\r\n                {\r\n                  \"id\": \"config\",\r\n                  \"weight\": 0.4,\r\n                  \"title\": {\r\n                    \"Some\": \" Config \"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                },\r\n                {\r\n                  \"id\": \"bookmarks\",\r\n                  \"weight\": 0.4,\r\n                  \"title\": {\r\n                    \"Some\": \" Bookmarks\"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                },\r\n                {\r\n                  \"id\": \"sequencedBookmarks\",\r\n                  \"weight\": 0.4,\r\n                  \"title\": {\r\n                    \"Some\": \" SequBookmarks \"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                },\r\n                {\r\n                  \"id\": \"viewplanner\",\r\n                  \"weight\": 0.4,\r\n                  \"title\": {\r\n                    \"Some\": \" Viewplans \"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                },\r\n                {\r\n                  \"id\": \"properties\",\r\n                  \"weight\": 0.4,\r\n                  \"title\": {\r\n                    \"Some\": \" Properties \"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                },\r\n                {\r\n                  \"id\": \"traverse\",\r\n                  \"weight\": 0.4,\r\n                  \"title\": {\r\n                    \"Some\": \" Traverses\"\r\n                  },\r\n                  \"deleteInvisible\": null,\r\n                  \"isCloseable\": null\r\n                }\r\n              ]\r\n            }\r\n          ]\r\n        }\r\n      ]\r\n    },\r\n    \"specialDockSize\": null,\r\n    \"appName\": {\r\n      \"Some\": \"PRo3D\"\r\n    },\r\n    \"useCachedConfig\": {\r\n      \"Some\": false\r\n    }\r\n  }\r\n}",
+  "exploreCenter": "[-2486734.231883373, 2289118.4079467985, -276188.80652209197]",
+  "geologicSurfacesModel": {
+    "geologicSurfaces": [
+      
+    ],
+    "selectedGeologicSurface": null,
+    "version": 0
+  },
+  "gisApp": {
+    "defaultObservationInfo": {
+      "observer": null,
+      "referenceFrame": null,
+      "target": null,
+      "time": "2025-03-10T18:08:12.6000000Z"
+    },
+    "entities": [
+      {
+        "color": "[0.721569, 0.52549, 0.043137, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "IAU_PHOBOS"
+        },
+        "draw": false,
+        "label": "Phobos",
+        "radius": 11266.5,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "Phobos"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[0.501961, 0.501961, 0.501961, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "IAU_DEIMOS"
+        },
+        "draw": false,
+        "label": "Deimos",
+        "radius": 6250,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "deimos"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[0.501961, 0.501961, 0.501961, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "J2000"
+        },
+        "draw": false,
+        "label": "Dimorphos",
+        "radius": 75.5,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "Dimorphos"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[0.501961, 0.501961, 0.501961, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "HERA_SPACECRAFT"
+        },
+        "draw": false,
+        "label": "Hera Spacecraft",
+        "radius": 2,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "HERA"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[0, 0, 1, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "IAU_EARTH"
+        },
+        "draw": false,
+        "label": "Earth",
+        "radius": 6356800,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "Earth"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[1, 0, 0, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "IAU_MARS"
+        },
+        "draw": false,
+        "label": "Mars",
+        "radius": 3376200,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "Mars"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[0.501961, 0.501961, 0.501961, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "J2000"
+        },
+        "draw": false,
+        "label": "Didymos",
+        "radius": 382.5,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "Didymos"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      },
+      {
+        "color": "[0.752941, 0.752941, 0.752941, 1]",
+        "defaultFrame": {
+          "FrameSpiceName": "IAU_MOON"
+        },
+        "draw": false,
+        "label": "Moon",
+        "radius": 1736000,
+        "showTrajectory": false,
+        "spiceName": {
+          "EntitySpiceName": "Moon"
+        },
+        "textureName": null,
+        "trajectoryLength": 1,
+        "version": 0
+      }
+    ],
+    "gisSurfaces": [
+      
+    ],
+    "referenceFrames": [
+      {
+        "description": "Ecliptic coordinates based upon the J2000 frame.",
+        "label": "ECLIPJ2000",
+        "spiceName": {
+          "FrameSpiceName": "ECLIPJ2000"
+        },
+        "version": 0
+      },
+      {
+        "description": "Defined with Earth's Mean Equator and Mean Equinox (MEME) at 12:00 Terrestrial Time on 1 January 2000",
+        "label": "J2000",
+        "spiceName": {
+          "FrameSpiceName": "J2000"
+        },
+        "version": 0
+      },
+      {
+        "description": "Dimorphos body-fixed frame",
+        "label": "DIMORPHOS_FIXED",
+        "spiceName": {
+          "FrameSpiceName": "DIMORPHOS_FIXED"
+        },
+        "version": 0
+      },
+      {
+        "description": "Spacecraft body-fixed frame",
+        "label": "HERA_SPACECRAFT",
+        "spiceName": {
+          "FrameSpiceName": "HERA_SPACECRAFT"
+        },
+        "version": 0
+      },
+      {
+        "description": "Phobos body-fixed frame",
+        "label": "IAU_PHOBOS",
+        "spiceName": {
+          "FrameSpiceName": "IAU_PHOBOS"
+        },
+        "version": 0
+      },
+      {
+        "description": "Deimos body-fixed frame",
+        "label": "IAU_DEIMOS",
+        "spiceName": {
+          "FrameSpiceName": "IAU_DEIMOS"
+        },
+        "version": 0
+      },
+      {
+        "description": "Didymos body-fixed frame",
+        "label": "DIDYMOS_FIXED",
+        "spiceName": {
+          "FrameSpiceName": "DIDYMOS_FIXED"
+        },
+        "version": 0
+      },
+      {
+        "description": "Earth body-fixed frame",
+        "label": "IAU_EARTH",
+        "spiceName": {
+          "FrameSpiceName": "IAU_EARTH"
+        },
+        "version": 0
+      },
+      {
+        "description": "Moon body-fixed frame",
+        "label": "IAU_MOON",
+        "spiceName": {
+          "FrameSpiceName": "IAU_MOON"
+        },
+        "version": 0
+      },
+      {
+        "description": "Mars body-fixed frame",
+        "label": "IAU_MARS",
+        "spiceName": {
+          "FrameSpiceName": "IAU_MARS"
+        },
+        "version": 0
+      }
+    ],
+    "showMarkers": false,
+    "spiceKernel": null,
+    "version": 0
+  },
+  "interactionMode": 0,
+  "navigationMode": 0,
+  "referenceSystem": {
+    "isVisible": true,
+    "noffset": {
+      "format": "{0:0.0}",
+      "max": 360,
+      "min": 0,
+      "step": 1,
+      "value": 0
+    },
+    "north": {
+      "value": "{ x = { value = -0.05992051516\n        min = -1.0\n        max = 1.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  y = { value = 0.05515875098\n        min = -1.0\n        max = 1.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  z = { value = 0.9966780042\n        min = -1.0\n        max = 1.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  value = [-0.05992051515632306, 0.05515875098325636, 0.996678004198632] }",
+      "x": {
+        "format": "{0:0.000}",
+        "max": 1,
+        "min": -1,
+        "step": 0.001,
+        "value": -0.0599205151563231
+      },
+      "y": {
+        "format": "{0:0.000}",
+        "max": 1,
+        "min": -1,
+        "step": 0.001,
+        "value": 0.0551587509832564
+      },
+      "z": {
+        "format": "{0:0.000}",
+        "max": 1,
+        "min": -1,
+        "step": 0.001,
+        "value": 0.996678004198632
+      }
+    },
+    "northO": "[-0.05992051515632306, 0.05515875098325636, 0.996678004198632]",
+    "origin": "[-2486734.231883373, 2289118.4079467985, -276188.80652209197]",
+    "planet": 1,
+    "scaleChart": [
+      "100km",
+      "10km",
+      "1km",
+      "100m",
+      "10m",
+      "2m",
+      "1m",
+      "10cm",
+      "1cm",
+      "1mm",
+      "0.1mm"
+    ],
+    "selectedScale": "2m",
+    "size": {
+      "format": "{0:0.000}",
+      "max": 1000,
+      "min": 0,
+      "step": 1,
+      "value": 1
+    },
+    "textcolor": "[255, 255, 255, 255]",
+    "textsize": 0.05,
+    "up": {
+      "value": "{ x = { value = -0.7332918462\n        min = -1.0\n        max = 1.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  y = { value = 0.6750186015\n        min = -1.0\n        max = 1.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  z = { value = -0.08144296131\n        min = -1.0\n        max = 1.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  value = [-0.7332918461870958, 0.6750186014984244, -0.08144296130809602] }",
+      "x": {
+        "format": "{0:0.000}",
+        "max": 1,
+        "min": -1,
+        "step": 0.001,
+        "value": -0.733291846187096
+      },
+      "y": {
+        "format": "{0:0.000}",
+        "max": 1,
+        "min": -1,
+        "step": 0.001,
+        "value": 0.675018601498424
+      },
+      "z": {
+        "format": "{0:0.000}",
+        "max": 1,
+        "min": -1,
+        "step": 0.001,
+        "value": -0.081442961308096
+      }
+    },
+    "version": 0
+  },
+  "scaleBars": {
+    "scaleBars": [
+      
+    ],
+    "selectedScaleBar": null,
+    "version": 0
+  },
+  "sceneObjectsModel": {
+    "sceneObjects": [
+      
+    ],
+    "selectedSceneObject": null,
+    "version": 0
+  },
+  "scenePath": "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\Features\\..\\data\\TestScene_20260813_161435.pro3d",
+  "screenshotModel": {
+    "backgroundColor": {
+      "color": "[255, 255, 255, 255]"
+    },
+    "height": {
+      "format": "{0:0}",
+      "max": 16000,
+      "min": 1,
+      "step": 1,
+      "value": 500
+    },
+    "imageFormat": 1,
+    "version": 0,
+    "width": {
+      "format": "{0:0}",
+      "max": 16000,
+      "min": 1,
+      "step": 1,
+      "value": 500
+    }
+  },
+  "sequencedBookmarks": {
+    "animationSettings": {
+      "applyStateOnSelect": false,
+      "globalDuration": 20,
+      "loopMode": 0,
+      "smoothPath": true,
+      "smoothingFactor": 0.1,
+      "useEasing": true,
+      "useGlobalAnimation": false
+    },
+    "debug": false,
+    "fpsSetting": "Full",
+    "generateOnStop": false,
+    "orderList": [
+      
+    ],
+    "outputPath": "C:\\Program Files\\dotnet\\images",
+    "resolution": "[1024, 1024]",
+    "selectedBookmark": null,
+    "sequencedBookmarks": [
+      
+    ],
+    "updateJsonBeforeRendering": true,
+    "version": 1
+  },
+  "surfaceModel": {
+    "surfaces": {
+      "flat": [
+        {
+          "Surfaces": {
+            "colorCorrection": {
+              "brightness": {
+                "format": "{0:0}",
+                "max": 255,
+                "min": -255,
+                "step": 1,
+                "value": 0
+              },
+              "color": {
+                "color": "[255, 0, 255, 255]"
+              },
+              "contrast": {
+                "format": "{0:0}",
+                "max": 255,
+                "min": -255,
+                "step": 1,
+                "value": 0
+              },
+              "gamma": {
+                "format": "{0:0.00}",
+                "max": 10,
+                "min": 0.01,
+                "step": 0.01,
+                "value": 1
+              },
+              "useBrightn": false,
+              "useColor": false,
+              "useContrast": false,
+              "useGamma": false,
+              "useGrayscale": false,
+              "version": 0
+            },
+            "contourModel": {
+              "border": 0.01,
+              "distance": 0,
+              "enabled": false,
+              "targetLayer": null,
+              "version": 0,
+              "width": 0.01
+            },
+            "cullMode": 0,
+            "fillMode": 0,
+            "filterByDistance": false,
+            "filterByTriangleSize": false,
+            "filterDistance": 10,
+            "guid": "bb121930-88af-43bb-af86-a1f5fdffe1cc",
+            "highlightAlways": false,
+            "highlightSelected": true,
+            "homePosition": [
+              
+            ],
+            "importPath": "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\Features\\..\\data\\opc\\1087_004779_MSLMST_0011",
+            "isActive": true,
+            "isVisible": true,
+            "name": "1087_004779_MSLMST_0011",
+            "opcNames": [
+              "1087_004779_MSLMST_0011_000_000"
+            ],
+            "opcPaths": [
+              "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\Features\\..\\data\\opc\\1087_004779_MSLMST_0011\\1087_004779_MSLMST_0011_000_000"
+            ],
+            "opcxPath": "C:\\Users\\pichler\\Documents\\Code\\PRo3D\\PRo3D\\src\\Tests\\Features\\..\\data\\opc\\1087_004779_MSLMST_0011\\1087_004779_MSLMST_0011.opcx",
+            "preTransform": "[[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]]",
+            "preferredMeshLoader": 0,
+            "priority": {
+              "format": "{0:0}",
+              "max": 10,
+              "min": 0,
+              "step": 1,
+              "value": 0
+            },
+            "quality": {
+              "format": "{0:0.0}",
+              "max": 5,
+              "min": -2,
+              "step": 0.1,
+              "value": 1
+            },
+            "radiometry": {
+              "maxB": {
+                "format": "{0:0}",
+                "max": 255,
+                "min": 0,
+                "step": 1,
+                "value": 255
+              },
+              "maxG": {
+                "format": "{0:0}",
+                "max": 255,
+                "min": 0,
+                "step": 1,
+                "value": 255
+              },
+              "maxR": {
+                "format": "{0:0}",
+                "max": 255,
+                "min": 0,
+                "step": 1,
+                "value": 255
+              },
+              "minB": {
+                "format": "{0:0}",
+                "max": 255,
+                "min": 0,
+                "step": 1,
+                "value": 0
+              },
+              "minG": {
+                "format": "{0:0}",
+                "max": 255,
+                "min": 0,
+                "step": 1,
+                "value": 0
+              },
+              "minR": {
+                "format": "{0:0}",
+                "max": 255,
+                "min": 0,
+                "step": 1,
+                "value": 0
+              },
+              "useRadiometry": false,
+              "version": 0
+            },
+            "relativePaths": false,
+            "scalarLayers": [
+              
+            ],
+            "scaling": {
+              "format": "{0:0.000}",
+              "max": 50,
+              "min": 0.001,
+              "step": 0.001,
+              "value": 1
+            },
+            "secondaryTexture": null,
+            "secondaryTextureLayer": null,
+            "selectedScalar": null,
+            "selectedTexture": {
+              "index": 0,
+              "label": "Texture",
+              "version": 0
+            },
+            "surfaceType": 0,
+            "textureLayers": [
+              {
+                "index": 0,
+                "label": "Texture",
+                "version": 0
+              }
+            ],
+            "transferFunction": {
+              "blendFactor": 1,
+              "textureCombiner": 1,
+              "tf": {
+                "case": "Passthrough"
+              },
+              "version": 0
+            },
+            "transformation": {
+              "flipZ": false,
+              "isSketchFab": false,
+              "pitch": {
+                "format": "{0:0.000}",
+                "max": 180,
+                "min": -180,
+                "step": 0.001,
+                "value": 0
+              },
+              "pivot": {
+                "value": "{ x = { value = 0.0\n        min = -10000000.0\n        max = 10000000.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  y = { value = 0.0\n        min = -10000000.0\n        max = 10000000.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  z = { value = 0.0\n        min = -10000000.0\n        max = 10000000.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  value = [0, 0, 0] }",
+                "x": {
+                  "format": "{0:0.000}",
+                  "max": 10000000,
+                  "min": -10000000,
+                  "step": 0.001,
+                  "value": 0
+                },
+                "y": {
+                  "format": "{0:0.000}",
+                  "max": 10000000,
+                  "min": -10000000,
+                  "step": 0.001,
+                  "value": 0
+                },
+                "z": {
+                  "format": "{0:0.000}",
+                  "max": 10000000,
+                  "min": -10000000,
+                  "step": 0.001,
+                  "value": 0
+                }
+              },
+              "pivotMode": 0,
+              "pivotSize": 0.4,
+              "refSys": {
+                "trafo": "[[[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]]"
+              },
+              "refSysMode": 1,
+              "refSysSize": 50,
+              "roll": {
+                "format": "{0:0.000}",
+                "max": 180,
+                "min": -180,
+                "step": 0.001,
+                "value": 0
+              },
+              "scaling": {
+                "format": "{0:0.000}",
+                "max": 50,
+                "min": 0.001,
+                "step": 0.001,
+                "value": 1
+              },
+              "showPivot": false,
+              "showTrafoRefSys": true,
+              "trafo": {
+                "trafo": "[[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]]"
+              },
+              "translation": {
+                "value": "{ x = { value = 0.0\n        min = -10000000.0\n        max = 10000000.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  y = { value = 0.0\n        min = -10000000.0\n        max = 10000000.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  z = { value = 0.0\n        min = -10000000.0\n        max = 10000000.0\n        step = 0.001\n        format = \"{0:0.000}\" }\n  value = [0, 0, 0] }",
+                "x": {
+                  "format": "{0:0.000}",
+                  "max": 10000000,
+                  "min": -10000000,
+                  "step": 0.001,
+                  "value": 0
+                },
+                "y": {
+                  "format": "{0:0.000}",
+                  "max": 10000000,
+                  "min": -10000000,
+                  "step": 0.001,
+                  "value": 0
+                },
+                "z": {
+                  "format": "{0:0.000}",
+                  "max": 10000000,
+                  "min": -10000000,
+                  "step": 0.001,
+                  "value": 0
+                }
+              },
+              "usePivot": false,
+              "useTranslationArrows": false,
+              "version": 6,
+              "yaw": {
+                "format": "{0:0.000}",
+                "max": 180,
+                "min": -180,
+                "step": 0.001,
+                "value": 0
+              }
+            },
+            "triangleSize": {
+              "format": "{0:0.000}",
+              "max": 10000,
+              "min": 0,
+              "step": 0.01,
+              "value": 1000
+            },
+            "version": 1
+          }
+        }
+      ],
+      "groupsLookup": [
+        
+      ],
+      "rootGroup": {
+        "defaultColor": {
+          "color": "[255, 255, 255, 255]"
+        },
+        "expanded": true,
+        "key": "cfbf3b3e-927b-4a15-a2b2-8fec96d45726",
+        "leaves": [
+          "bb121930-88af-43bb-af86-a1f5fdffe1cc"
+        ],
+        "name": "root",
+        "subNodes": [
+          
+        ],
+        "version": 1,
+        "visible": true
+      },
+      "version": 0
+    },
+    "version": 0
+  },
+  "traverses": {
+    "plannedTargetsTraverses": [
+      
+    ],
+    "rimfaxTraverses": [
+      
+    ],
+    "roverTraverses": [
+      
+    ],
+    "selectedRimfaxSurface": null,
+    "selectedTraverse": null,
+    "strategicAnnotationTraverses": [
+      
+    ],
+    "version": 1,
+    "waypointsTraverses": [
+      
+    ]
+  },
+  "version": 3,
+  "viewPlans": {
+    "version": 1,
+    "viewPlans": [
+      
+    ]
+  }
+}

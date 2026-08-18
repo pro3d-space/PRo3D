@@ -66,10 +66,23 @@ module ProfileAttributeExtraction =
             Log.line "[Extraction] built triangle mapping for %s (%d triangles)" (Path.GetFileName(Path.GetDirectoryName(objectSetPath))) mapping.Length
             mapping
 
+    // Texture coordinates of a patch, V-flipped to match the Patch.load
+    // convention. Cached exactly like the grid mapping above: sampling a profile
+    // hits the same patch over and over, and re-reading the whole .aara file per
+    // point dominated the cost.
+    let private texCoordCache = Dictionary<string, V2f[]>()
+
+    let private texCoordsOf (coordinatesPath: string) =
+        match texCoordCache.TryGetValue(coordinatesPath) with
+        | true, data -> data
+        | _ ->
+            let coords = coordinatesPath |> Aara.fromFile<V2f>
+            let data = coords.Data |> Array.map (fun v -> V2f(v.X, 1.0f - v.Y))
+            texCoordCache.[coordinatesPath] <- data
+            data
+
     let getUVAtHit (coordinatesPath: string) (gridMapping: int[][]) (triIdx: int) (triangle: Triangle3d) (hitPoint: V3d) =
-        let texCoords = coordinatesPath |> Aara.fromFile<V2f>
-        // V-flip to match Patch.load convention
-        let texCoordData = texCoords.Data |> Array.map (fun v -> V2f(v.X, 1.0f - v.Y))
+        let texCoordData = texCoordsOf coordinatesPath
         let gridIndices = gridMapping.[triIdx]
         let uv0 = texCoordData.[gridIndices.[0]]
         let uv1 = texCoordData.[gridIndices.[1]]
@@ -101,42 +114,65 @@ module ProfileAttributeExtraction =
         let py = clamp 0 (h - 1) (int (uv.Y * float32 h))
         readPixelValue img px py
 
+    /// How many decoded layer images to keep. Sampling one point touches every
+    /// layer of one patch and the next point is almost always on the same patch,
+    /// so a handful of entries turns "decode every image per point" into
+    /// "decode every image per patch". Bounded because the images are large.
+    [<Literal>]
+    let private ImageCacheSize = 24
+
+    let private imageCache = Dictionary<string, Option<PixImage>>()
+    /// insertion order of `imageCache`, so the oldest entry can be evicted
+    let private imageCacheOrder = Queue<string>()
+
+    let private loadLayerImage (texturePath: string) : Option<PixImage> =
+        match imageCache.TryGetValue(texturePath) with
+        | true, image -> image
+        | _ ->
+            let extension =
+                match Path.GetExtension(texturePath).ToLower() with
+                | ".dds" -> Some TextureLoading.DDS
+                | ".tiff" | ".tif" -> Some TextureLoading.TIFF
+                | ".exr" -> Some TextureLoading.TextureFormat.OpenEXR
+                | _ -> None
+
+            // an EXR layer carries its scalar in the first channel; the other
+            // formats are read as they come
+            let channel =
+                if Path.GetExtension(texturePath).ToLower() = ".exr"
+                then ChannelReference.ChannelWithIndex 0
+                else ChannelReference.NoChannelSelection
+
+            let image =
+                try
+                    use stream = Prinziple.openRead texturePath
+                    let mipMap = TextureLoading.loadImageFromStream stream channel extension
+                    // fully decoded into memory here, so it outlives the stream
+                    mipMap.ImageArray |> Array.tryHead
+                with e ->
+                    Log.warn "[Extraction] could not read texture %s: %s" texturePath e.Message
+                    None
+
+            if imageCacheOrder.Count >= ImageCacheSize then
+                imageCache.Remove(imageCacheOrder.Dequeue()) |> ignore
+            imageCache.[texturePath] <- image
+            imageCacheOrder.Enqueue texturePath
+            image
+
     let extractAttributesAtUV (uv: V2f) (patchInfo: PatchFileInfo) (opcPaths: OpcPaths) =
         let numTextures = patchInfo.Textures.Length / 2 // first half = textures, second half = weights
         let results = Dictionary<string, float[]>()
         for i in 1 .. numTextures - 1 do
-            let texturePath = Patch.tryExtractTexturePath opcPaths patchInfo i
-            match texturePath with
+            match Patch.tryExtractTexturePath opcPaths patchInfo i with
             | None -> ()
             | Some (texturePath, texName) ->
-                let isExr = Path.GetExtension(texturePath).ToLower() = ".exr"
-                let extension =
-                    match Path.GetExtension(texturePath).ToLower() with
-                    | ".dds" -> Some TextureLoading.DDS
-                    | ".tiff" | ".tif" -> Some TextureLoading.TIFF
-                    | ".exr" -> Some TextureLoading.TextureFormat.OpenEXR
-                    | _ -> None
-
-                if isExr then
-                    use stream = Prinziple.openRead texturePath
-                    let mipMap = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex 0) extension
-                    match mipMap.ImageArray |> Seq.tryHead with
-                    | Some img ->
-                        match sampleImageAtUV uv img with
-                        | Some values -> results.[texName] <- values
-                        | None -> ()
-                    | None ->
-                        Log.warn "[Extraction] no image in EXR mipmap for texture %d" i
-                else
-                    use stream = Prinziple.openRead texturePath
-                    let mipMap = TextureLoading.loadImageFromStream stream ChannelReference.NoChannelSelection extension
-                    match mipMap.ImageArray |> Seq.tryHead with
-                    | Some img ->
-                        match sampleImageAtUV uv img with
-                        | Some values -> results.[texName] <- values
-                        | None -> ()
-                    | None ->
-                        Log.warn "[Extraction] no image in mipmap for texture %d" i
+                match loadLayerImage texturePath with
+                | Some img ->
+                    match sampleImageAtUV uv img with
+                    | Some values -> results.[texName] <- values
+                    | None -> ()
+                | None ->
+                    Log.warn "[Extraction] no image for texture %d (%s)" i texName
 
         results
 
@@ -203,6 +239,33 @@ module ProfileAttributeExtraction =
             Log.warn "[Extraction] surface picking is not KdTree-based"
             None
 
+    /// Sample every surface layer at one world position.
+    ///
+    /// The position has to be re-picked against the surface KdTrees because an
+    /// annotation point does not remember where it came from, and only the patch
+    /// that was hit says which textures the values must be read from. The ray
+    /// starts 10 m above the point along `up` and shoots down, so a point lying
+    /// exactly on the surface still produces a hit.
+    ///
+    /// Returns the hit position (which is the re-picked one, not the input) with
+    /// its layer values, plus the — possibly grown — KdTree cache.
+    let sampleAt
+        (up             : V3d)
+        (surfacesModel  : SurfaceModel)
+        (refSys         : ReferenceSystem)
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
+        (cache          : HashMap<string, ConcreteKdIntersectionTree>)
+        (position       : V3d)
+        : Option<V3d * Dictionary<string, float[]>> * HashMap<string, ConcreteKdIntersectionTree> =
+
+        let surfaceFilter = fun (_id : Guid) (l : Leaf) (_s : SgSurface) -> l.visible && l.active
+        let ray = FastRay3d(Ray3d(position + up * 10.0, -up))
+
+        match SurfaceIntersection.doKdTreeIntersection surfacesModel refSys observedSystem observerSystem ray surfaceFilter cache false with
+        | Some hitInfo, cache -> extractAttributesFromHit hitInfo ray, cache
+        | None, cache         -> None, cache
+
     /// Extract profile samples along annotation points by re-picking into surfaces.
     /// Returns a list of ProfileSamples and the set of all attribute names encountered.
     let extractProfile
@@ -215,10 +278,10 @@ module ProfileAttributeExtraction =
         (cache         : HashMap<string, ConcreteKdIntersectionTree>)
         : ProfileSample list * Set<string> * HashMap<string, ConcreteKdIntersectionTree> =
 
-        let surfaceFilter = fun (_id : Guid) (l : Leaf) (_s : SgSurface) -> l.visible && l.active
+        let points = points |> List.toArray
         let mutable cache = cache
         let mutable allAttributeNames = Set.empty<string>
-        let mutable samples = []
+        let samples = ResizeArray<ProfileSample>()
         let mutable accDistance = 0.0
 
         for i in 0 .. points.Length - 1 do
@@ -226,24 +289,18 @@ module ProfileAttributeExtraction =
             if i > 0 then
                 accDistance <- accDistance + Vec.distance points.[i-1] p
 
-            let rayOrigin = p + up * 10.0
-            let ray = FastRay3d(Ray3d(rayOrigin, -up))
+            let sample, c = sampleAt up surfacesModel refSys observedSystem observerSystem cache p
+            cache <- c
 
-            match SurfaceIntersection.doKdTreeIntersection surfacesModel refSys observedSystem observerSystem ray surfaceFilter cache false with
-            | Some hitInfo, c ->
-                cache <- c
-                match extractAttributesFromHit hitInfo ray with
-                | Some (hitPoint, attributes) ->
-                    for kvp in attributes do
-                        allAttributeNames <- allAttributeNames |> Set.add kvp.Key
-                    samples <- samples @ [{ position = hitPoint; distance = accDistance; attributes = attributes }]
-                | None ->
-                    Log.warn $"[MultiAttrProfile] point {i}: attribute extraction failed"
-            | None, c ->
-                cache <- c
-                Log.warn $"[MultiAttrProfile] point {i}: no surface hit"
+            match sample with
+            | Some (hitPoint, attributes) ->
+                for kvp in attributes do
+                    allAttributeNames <- allAttributeNames |> Set.add kvp.Key
+                samples.Add { position = hitPoint; distance = accDistance; attributes = attributes }
+            | None ->
+                Log.warn $"[MultiAttrProfile] point {i}: no surface hit or attribute extraction failed"
 
-        samples, allAttributeNames, cache
+        samples |> List.ofSeq, allAttributeNames, cache
 
     let private formatFloat (v : float) =
         v.ToString("G", CultureInfo.InvariantCulture)

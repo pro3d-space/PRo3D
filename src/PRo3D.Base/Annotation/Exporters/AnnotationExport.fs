@@ -53,6 +53,17 @@ module AnnotationExport =
         && wantsGeographic settings.coordinates
         && CooTransformation.getConvention planet = CooTransformation.NonPlanetary
 
+    // ------------------------------------------------ surface properties ---
+
+    /// Surface-property columns are named after the OPC layer they were sampled
+    /// from, and which layers exist is only known once a point has actually hit
+    /// a patch. The prefix keeps those data-driven names in a namespace of their
+    /// own, so a layer called `alt` can never shadow the altitude column.
+    [<Literal>]
+    let SurfaceColumnPrefix = "surface_"
+
+    let surfaceColumnName (layer : string) = SurfaceColumnPrefix + layer
+
     /// Column naming the body the geographic coordinates refer to. GIS tools
     /// only surface *feature*-level properties as attributes, so the
     /// collection-level `planet` — which a reader like QGIS never shows in the
@@ -128,9 +139,10 @@ module AnnotationExport =
         [ if wantsCartesian mode then yield! [ "x"; "y"; "z" ]
           if wantsGeographic mode then yield! [ "lat"; "lon"; "alt"; BodyColumn ] ]
 
-    /// The exact, ordered column list of the export. The CSV writer uses it as
-    /// the header; every record is projected onto it, so a heterogeneous set of
-    /// annotations still yields a rectangular table.
+    /// The columns that follow from the settings alone. The surface-property
+    /// columns are *not* in here — their names come from the OPC layers the
+    /// points turned out to hit, so they can only be discovered from the built
+    /// records; use `schemaFor` for the complete list.
     let schemaOf (settings : AnnotationExportSettings) : list<string> =
         [
             yield! settings.annotationFields |> List.map AnnotationFields.columnName
@@ -154,9 +166,30 @@ module AnnotationExport =
                 if hasPointField PointField.CumulativeDistance then yield AnnotationFields.pointColumnName PointField.CumulativeDistance
                 if hasPointField PointField.GroundDistance then yield AnnotationFields.pointColumnName PointField.GroundDistance
 
-                // Per-point surface properties (OPC scalar/texture layers sampled
-                // at the point) will add their columns here — see `perPointRecords`.
+                // The surface-property columns are appended after these by
+                // `schemaFor`, since only the records know which layers exist.
         ]
+
+    /// Columns carried by `records` that `schemaOf` does not name — the
+    /// surface-property ones. Ordered by first appearance, so the same scene
+    /// exported twice produces the same table.
+    let private discoveredColumns (schema : list<string>) (records : list<ExportRecord>) =
+        let known = System.Collections.Generic.HashSet<string>(schema)
+        let extra = ResizeArray<string>()
+        for record in records do
+            for (column, _) in record.fields do
+                // Add returns false for a column already named by the schema or
+                // already discovered on an earlier record.
+                if known.Add column then extra.Add column
+        extra |> List.ofSeq
+
+    /// The exact, ordered column list of the export. The CSV writer uses it as
+    /// the header; every record is projected onto it, so a heterogeneous set of
+    /// annotations — or points that hit patches with different layers — still
+    /// yields a rectangular table.
+    let schemaFor (settings : AnnotationExportSettings) (records : list<ExportRecord>) : list<string> =
+        let schema = schemaOf settings
+        schema @ discoveredColumns schema records
 
     // ---------------------------------------------------------- geometry ---
 
@@ -230,6 +263,7 @@ module AnnotationExport =
 
     let private perPointRecords
         (settings : AnnotationExportSettings)
+        (sampler  : Option<SurfacePropertySampler>)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
@@ -303,11 +337,14 @@ module AnnotationExport =
                   if hasPointField PointField.GroundDistance then
                       yield AnnotationFields.pointColumnName PointField.GroundDistance, ground ]
 
-            // Placeholder: per-point surface properties (OPC scalar / texture
-            // layers at this position) are not sampled yet. They will be
-            // appended here once the .aara reader lands, and their column names
-            // added in `schemaOf`.
-            let surfacePairs : list<string * ExportValue> = []
+            // The OPC scalar / texture layers underneath this position. Which
+            // layers those are depends on the patch that was hit, so a point
+            // that missed every surface simply contributes no pairs and its
+            // cells come out empty.
+            let surfacePairs =
+                match sampler with
+                | Some sample -> sample point.position
+                | None        -> []
 
             { fields   = annotationPairs @ pointPairs @ surfacePairs
               geometry =
@@ -316,9 +353,12 @@ module AnnotationExport =
                 else None })
 
     /// Turns the selected annotations into the flat, ordered records the writers
-    /// consume.
+    /// consume. `sampler` adds the surface-property columns; `None` leaves them
+    /// out, and it is ignored for per-annotation granularity, which has no point
+    /// to sample at.
     let buildRecords
         (settings : AnnotationExportSettings)
+        (sampler  : Option<SurfacePropertySampler>)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
@@ -332,11 +372,12 @@ module AnnotationExport =
             | ExportGranularity.PerAnnotation ->
                 [ perAnnotationRecord settings groupPath planet up a (resolved |> List.map (fun r -> r.position)) ]
             | _ ->
-                perPointRecords settings groupPath planet up a resolved)
+                perPointRecords settings sampler groupPath planet up a resolved)
 
     /// Writes the export. `Attitude` keeps its own fixed-schema writer.
     let write
         (settings : AnnotationExportSettings)
+        (sampler  : Option<SurfacePropertySampler>)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
@@ -352,11 +393,11 @@ module AnnotationExport =
             // by the caller that owns the drawing model — never here
             Log.warn "[AnnotationExport] the continuous export is not written through this path"
         | format ->
-            let records = buildRecords settings groupPath planet up annotations
+            let records = buildRecords settings sampler groupPath planet up annotations
             match format with
             | ExportFormat.GeoJson ->
                 let body =
                     if wantsGeographic settings.coordinates then Some (string planet) else None
                 ExportWriters.writeGeoJson path body records
             | _ ->
-                ExportWriters.writeCsv path (schemaOf settings) records
+                ExportWriters.writeCsv path (schemaFor settings records) records
