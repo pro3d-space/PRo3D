@@ -47,14 +47,11 @@ type AnnotationField =
     | DipAzimuth        = 27
     | StrikeAzimuth     = 28
     | Rake              = 29
-    // planar-fit error measures
-    | ErrorAvg          = 30
-    | ErrorMin          = 31
-    | ErrorMax          = 32
-    | ErrorStd          = 33
-    | SumOfSquares      = 34
-    | MinAngularError   = 35
-    | MaxAngularError   = 36
+    // 30-36 were the planar-fit error measures (errorAvg/Min/Max/Std,
+    // sumOfSquares, min/maxAngularError). They were the residuals of the very
+    // plane the dip & strike values come from — diagnostics rather than
+    // measurements — and are still written by the Attitude planes export. The
+    // numbers stay retired rather than reused, so nothing changes meaning.
     /// full chain of group names, "/"-separated — keeps the nesting that
     /// `GroupName` (immediate parent only) loses, and lets an importer rebuild
     /// the group tree
@@ -93,7 +90,6 @@ type AnnotationFieldGroup =
     | Measurements
     | Ellipse
     | DipAndStrike
-    | ErrorMeasures
 
 module AnnotationFields =
 
@@ -117,9 +113,6 @@ module AnnotationFields =
         | AnnotationField.MajorDiameter | AnnotationField.MinorDiameter -> Ellipse
         | AnnotationField.DipAngle | AnnotationField.DipAzimuth
         | AnnotationField.StrikeAzimuth | AnnotationField.Rake -> DipAndStrike
-        | AnnotationField.ErrorAvg | AnnotationField.ErrorMin | AnnotationField.ErrorMax
-        | AnnotationField.ErrorStd | AnnotationField.SumOfSquares
-        | AnnotationField.MinAngularError | AnnotationField.MaxAngularError -> ErrorMeasures
         | _ -> Measurements
 
     /// Stable machine name — the CSV header cell and the GeoJSON property key.
@@ -159,13 +152,6 @@ module AnnotationFields =
         | AnnotationField.DipAzimuth        -> "dipAzimuth"
         | AnnotationField.StrikeAzimuth     -> "strikeAzimuth"
         | AnnotationField.Rake              -> "rake"
-        | AnnotationField.ErrorAvg          -> "errorAvg"
-        | AnnotationField.ErrorMin          -> "errorMin"
-        | AnnotationField.ErrorMax          -> "errorMax"
-        | AnnotationField.ErrorStd          -> "errorStd"
-        | AnnotationField.SumOfSquares      -> "sumOfSquares"
-        | AnnotationField.MinAngularError   -> "minAngularError"
-        | AnnotationField.MaxAngularError   -> "maxAngularError"
         | _                                 -> sprintf "%A" field
 
     /// Human-readable label with unit, shown next to the checkbox.
@@ -203,13 +189,6 @@ module AnnotationFields =
         | AnnotationField.DipAzimuth        -> "Dip azimuth (deg)"
         | AnnotationField.StrikeAzimuth     -> "Strike azimuth (deg)"
         | AnnotationField.Rake              -> "Rake (rad)"
-        | AnnotationField.ErrorAvg          -> "Error, average"
-        | AnnotationField.ErrorMin          -> "Error, min"
-        | AnnotationField.ErrorMax          -> "Error, max"
-        | AnnotationField.ErrorStd          -> "Error, std deviation"
-        | AnnotationField.SumOfSquares      -> "Sum of squares"
-        | AnnotationField.MinAngularError   -> "Min angular error (deg)"
-        | AnnotationField.MaxAngularError   -> "Max angular error (deg)"
         | _                                 -> sprintf "%A" field
 
     let pointColumnName (field : PointField) =
@@ -240,7 +219,8 @@ module AnnotationFields =
 
     /// Dip & strike values, flattened with an explicit "not available" case.
     /// Mirrors what the CSV exporter used to compute inline; `regressionInfo`
-    /// is optional even when `dnsResults` is present, hence the two levels.
+    /// is optional even when `dnsResults` is present — hence the two levels,
+    /// which `Rake` is the one field to depend on.
     let private dnsValue (up : V3d) (field : AnnotationField) (a : Annotation) =
         match a.dnsResults with
         | None -> VMissing
@@ -249,22 +229,9 @@ module AnnotationFields =
             | AnnotationField.DipAngle      -> ExportValue.ofFloat dns.dipAngle
             | AnnotationField.DipAzimuth    -> ExportValue.ofFloat dns.dipAzimuth
             | AnnotationField.StrikeAzimuth -> ExportValue.ofFloat dns.strikeAzimuth
-            | AnnotationField.ErrorAvg      -> ExportValue.ofFloat dns.error.average
-            | AnnotationField.ErrorMin      -> ExportValue.ofFloat dns.error.min
-            | AnnotationField.ErrorMax      -> ExportValue.ofFloat dns.error.max
-            | AnnotationField.ErrorStd      -> ExportValue.ofFloat dns.error.stdev
-            | AnnotationField.SumOfSquares  -> ExportValue.ofFloat dns.error.sumOfSquares
             | AnnotationField.Rake ->
                 match dns.regressionInfo with
                 | Some regInfo -> ExportValue.ofFloat (Calculations.rake up regInfo)
-                | None         -> VMissing
-            | AnnotationField.MinAngularError ->
-                match dns.regressionInfo with
-                | Some regInfo -> ExportValue.ofFloat (Constant.DegreesPerRadian * regInfo.AngularErrors.X)
-                | None         -> VMissing
-            | AnnotationField.MaxAngularError ->
-                match dns.regressionInfo with
-                | Some regInfo -> ExportValue.ofFloat (Constant.DegreesPerRadian * regInfo.AngularErrors.Y)
                 | None         -> VMissing
             | _ -> VMissing
 
@@ -336,9 +303,7 @@ module AnnotationFields =
         | AnnotationField.MajorDiameter
         | AnnotationField.MinorDiameter -> ellipseValue field a
 
-        | AnnotationField.DipAngle | AnnotationField.DipAzimuth | AnnotationField.StrikeAzimuth
-        | AnnotationField.Rake | AnnotationField.ErrorAvg | AnnotationField.ErrorMin
-        | AnnotationField.ErrorMax | AnnotationField.ErrorStd | AnnotationField.SumOfSquares
-        | AnnotationField.MinAngularError | AnnotationField.MaxAngularError -> dnsValue up field a
+        | AnnotationField.DipAngle | AnnotationField.DipAzimuth
+        | AnnotationField.StrikeAzimuth | AnnotationField.Rake -> dnsValue up field a
 
         | _ -> VMissing

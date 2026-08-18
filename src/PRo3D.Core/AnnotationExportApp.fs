@@ -322,8 +322,7 @@ module AnnotationExportApp =
                                 [ annotationFieldSection model Identity "Identity"
                                   annotationFieldSection model Measurements "Measurements"
                                   annotationFieldSection model Ellipse "Ellipse"
-                                  annotationFieldSection model DipAndStrike "Dip and strike"
-                                  annotationFieldSection model ErrorMeasures "Planar fit errors" ]
+                                  annotationFieldSection model DipAndStrike "Dip and strike" ]
 
                         if granularity = ExportGranularity.PerPoint then
                             yield

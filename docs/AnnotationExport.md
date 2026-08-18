@@ -201,10 +201,16 @@ exports used the sampled points, the CSV, QGIS and Attitude exports used the con
 
 ### Annotation attributes
 
-39 attributes read straight off the annotation model, in five groups: *Identity*,
-*Measurements*, *Ellipse*, *Dip and strike*, *Planar fit errors*. Column names match the
-old CSV export's names (`wayLength`, `dipAzimuth`, `manualDip`, …) so existing downstream
-scripts keep working.
+32 attributes read straight off the annotation model, in four groups: *Identity*,
+*Measurements*, *Ellipse*, *Dip and strike*. Column names match the old CSV export's names
+(`wayLength`, `dipAzimuth`, `manualDip`, …) so existing downstream scripts keep working.
+
+The **planar-fit error measures** (`errorAvg`, `errorMin`, `errorMax`, `errorStd`,
+`sumOfSquares`, `minAngularError`, `maxAngularError`) are deliberately **not** offered here.
+They are the residuals of the very plane the dip and strike values are derived from — fit
+diagnostics rather than measurements of the annotation — and they made the attribute list
+noticeably longer for every export. The angular errors remain available through the
+*Attitude planes* export, which writes them as `min_angular_error` / `max_angular_error`.
 
 Four in the *Identity* group are worth knowing about:
 
