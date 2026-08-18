@@ -98,16 +98,12 @@ the two are directly comparable.
 
 ## Caveats
 
-**Terrain self-shadowing is not evaluated.** These are local illumination angles from the
-surface normal and the sun/observer directions. A point in the shadow of nearby relief still
-reports its geometric incidence angle. Combine with a shadow test for actual illumination.
-
-**Emission above 90° is preserved, not clamped.** It means a facet facing away from the
-observer was rasterised — expected at the limb, otherwise a sign of an inconsistent shape
-model.
-
-Both are repeated in each output's JSON sidecar.
-
-**A substituted metakernel is logged as a warning.** Sidecars routinely name a kernel version
-that is not on disk; the tool then falls back to `hera_plan.tm`, and the geometry may differ
-from the image.
+- **Terrain self-shadowing is not evaluated** — future work, will be added on demand. These
+  are local illumination angles from the surface normal and the sun/observer directions, so
+  a point in the shadow of nearby relief still reports its geometric incidence angle.
+- **Emission above 90° is preserved, not clamped.** It means a facet facing away from the
+  observer was rasterised — expected at the limb, otherwise a sign of an inconsistent shape
+  model.
+- **A substituted metakernel is logged as a warning.** Sidecars routinely name a kernel
+  version that is not on disk; the tool falls back to `hera_plan.tm`, and the geometry may
+  differ from the image.
