@@ -376,6 +376,13 @@ module DrawingApp =
                 automaticGeoJsonExport =
                     { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true } }
 
+    /// Disarms the automatic GeoJSON export. Clears the path as well as the flag
+    /// so a later re-arm cannot silently resume writing to a forgotten file.
+    let disarmAutomaticGeoJsonExport (model : DrawingModel) =
+        { model with
+            automaticGeoJsonExport =
+                { model.automaticGeoJsonExport with enabled = false; lastGeoJsonPathXyz = None } }
+
     // exports geojson, optionally using XYZ format
     let exportGeoJsonStream
         (model       : DrawingModel) 

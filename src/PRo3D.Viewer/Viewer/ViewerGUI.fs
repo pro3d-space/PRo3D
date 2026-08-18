@@ -997,7 +997,13 @@ module Gui =
     module AnnotationExport =
 
         let exportWindow (m : AdaptiveModel) =
-            AnnotationExportApp.viewModal m.annotationExport
+            // the window lives in PRo3D.Core and is compiled before DrawingModel,
+            // so the state of the background export is handed in from here
+            let state : ContinuousExportState = {
+                isRunning = m.drawing.automaticGeoJsonExport.enabled
+                target    = m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz
+            }
+            AnnotationExportApp.viewModal state m.annotationExport
             |> UI.map AnnotationExportMessage
 
     module Config =
@@ -1023,27 +1029,8 @@ module Gui =
                 GuiEx.accordion "Screenshots" "Settings" false [
                     ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage
                 ]
-                GuiEx.accordion "Data Management" "Settings" false [
-                    Html.table [  
-                        Html.row "Automatically GeoJson export: "  [
-                            let attributes = 
-                                amap {
-                                    yield onClick (fun _ -> StopGeoJsonAutoExport) 
-                                    let! enabled = m.drawing.automaticGeoJsonExport.enabled
-                                    if enabled then 
-                                        yield clazz "ui small inverted button"; 
-                                    else 
-                                        yield clazz "ui small disabled inverted button"; 
-                                } |> AttributeMap.ofAMap
-                            Generic.button attributes [text "Stop AutoExport"]
-                        ]
-                        Html.row "Automatically GeoJson export path: "  [
-                            Incremental.text (m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz  |> AVal.map (function None -> "not set" | Some path -> path))
-                        ]
-                    ]
-                ]
-            ] 
-          
+            ]
+
     module ViewPlanner =
         let viewPlanProperties (model : AdaptiveModel) =
               //model.scene.viewPlans |> ViewPlan.UI.viewRoverProperties ViewPlanMessage 

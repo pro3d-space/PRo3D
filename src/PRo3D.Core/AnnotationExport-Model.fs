@@ -29,6 +29,17 @@ type AnnotationExportAction =
     /// the file path comes from the save dialog; handled at viewer level
     /// because the export needs the surface model
     | Export                 of string
+    /// stop the running background export; handled at viewer level because the
+    /// state lives on DrawingModel
+    | StopContinuous
+
+/// Live state of the background GeoJSON export, for the window to display. It
+/// lives on `DrawingModel`, which is compiled after this file, so the viewer
+/// hands it in rather than the window reaching for it.
+type ContinuousExportState = {
+    isRunning : aval<bool>
+    target    : aval<Option<string>>
+}
 
 /// Settings of the annotation export window. Deliberately session-only — it
 /// lives on the root `Model`, not on `Scene`, so nothing here is serialised and

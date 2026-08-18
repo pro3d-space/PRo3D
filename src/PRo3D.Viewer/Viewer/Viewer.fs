@@ -749,6 +749,10 @@ module ViewerApp =
                         AnnotationExportViewer.export settings path m.drawing m.scene.referenceSystem
                         m
                 { m with annotationExport = { m.annotationExport with isOpen = false } }
+            | AnnotationExportAction.StopContinuous ->
+                // the armed state lives on DrawingModel, so it cannot be handled
+                // inside AnnotationExportApp.update either
+                { m with drawing = DrawingApp.disarmAutomaticGeoJsonExport m.drawing }
             | _ ->
                 { m with annotationExport = AnnotationExportApp.update m.annotationExport msg }
         | BookmarkMessage msg,_ ->
@@ -1994,9 +1998,6 @@ module ViewerApp =
                 | _ -> m                                        
                 
             { m with scene = { m.scene with traverses = TraverseApp.update m.scene.traverses msg }; animations = animation }                        
-        | StopGeoJsonAutoExport, _ -> 
-            let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled; lastGeoJsonPathXyz = None; }
-            { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | SetSceneState state, _ ->
             Optic.set _sceneState state m
         | LoadPoseDefinitionFile path, _ -> 

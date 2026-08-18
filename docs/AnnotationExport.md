@@ -44,6 +44,9 @@ Point attributes         (only for "one record per point")
                                          [ Cancel ]  [ Export… ]
 ```
 
+The primary button follows the file type: *Export…* normally, *Start…* for a continuous
+export, and *Stop continuous export* while one is running.
+
 The window is an overlay inside the main window; it is absent from the DOM while closed.
 Clicking the dimmed background or *Cancel* closes it.
 
@@ -54,7 +57,33 @@ Clicking the dimmed background or *Cancel* closes it.
 | **CSV table** | One header row, then one row per record. Columns come from the settings, always in the same order, so the file is rectangular even when the annotations differ. |
 | **GeoJSON** | A spec-shaped `FeatureCollection`; one `Feature` per record, the selected attributes as `properties`. Geographic exports carry the body name as a collection-level `properties.planet`. |
 | **Attitude planes** | Dip & strike planes for external structural-geology tools. **Fixed schema** — every setting below the file type is ignored, only the scope applies. |
-| **Continuous GeoJSON** | Does not write once: it **arms a background export**. PRo3D then rewrites the chosen file as line-delimited GeoJSON (one `Feature` per line, with `id`, `color`, `geometry`, `text`, `surfaceName` and content hashes) whenever the annotations change. Fixed schema, so no setting applies. Switch it off again in the config panel's *auto export* toggle. |
+| **Continuous GeoJSON** | Does not write once: it **arms a background export**. PRo3D then rewrites the chosen file as line-delimited GeoJSON (one `Feature` per line, with `id`, `color`, `geometry`, `text`, `surfaceName` and content hashes) whenever the annotations change. Fixed schema, so no setting applies. See *Starting and stopping* below. |
+
+#### Starting and stopping the continuous export
+
+Select file type **Continuous GeoJSON** and press *Start…*; the file you pick is written
+immediately and rewritten on every change to the annotations from then on. The export keeps
+running after the window is closed.
+
+To stop it, open the window again and select **Continuous GeoJSON** — while an export is
+running, the message box names the file it is writing to and the primary button reads **Stop
+continuous export** instead of *Start…*. Note the export is only visible there: with any
+other file type selected the window shows no sign of it, so re-select *Continuous GeoJSON*
+to check or stop it.
+
+Picking a new file while one is running simply retargets it; the previous file is left as it
+was.
+
+It also stops on its own in two situations:
+
+- **Loading a scene** (including *New scene*). The load replaces all annotations, so an
+  export armed for the previous scene would otherwise overwrite its file with the new
+  scene's contents. Re-arm it after the load if you want the new scene exported.
+- **Closing PRo3D.** The armed state is runtime-only and is never written to the scene or
+  the `.pro3d.ann` file, so it is never resumed on startup.
+
+Importing annotations into the *current* scene (*Annotations → Import*, or the remote API)
+does **not** stop it — the imported annotations are simply picked up by the next rewrite.
 
 ### Preset
 

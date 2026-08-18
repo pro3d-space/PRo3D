@@ -63,6 +63,8 @@ module AnnotationExportApp =
         // needs the surface model to sample surface attributes, so it is
         // handled at viewer level; see ViewerApp.
         | Export _ -> model
+        // the armed state lives on DrawingModel, likewise viewer level
+        | StopContinuous -> model
 
     // -------------------------------------------------------------- view ---
 
@@ -182,7 +184,7 @@ module AnnotationExportApp =
 
     /// The save dialog's filter has to follow the chosen file type, so the
     /// client event string is built adaptively rather than as a constant.
-    let private exportButton (model : AdaptiveAnnotationExportModel) =
+    let private saveButton (model : AdaptiveAnnotationExportModel) =
         let attributes =
             amap {
                 let! format = model.format
@@ -208,9 +210,24 @@ module AnnotationExportApp =
 
         Incremental.div attributes (AList.single (Incremental.text caption))
 
+    /// The primary footer button. While a background export is running and the
+    /// continuous file type is selected it stops that export instead of opening
+    /// a save dialog — this window is the only place it can be switched off.
+    let private exportButton (state : ContinuousExportState) (model : AdaptiveAnnotationExportModel) =
+        Incremental.div AttributeMap.empty (
+            alist {
+                let! format = model.format
+                let! isRunning = state.isRunning
+                if AnnotationExportSettings.isContinuous format && isRunning then
+                    yield button [ clazz "ui red button"; onClick (fun _ -> StopContinuous) ]
+                                 [ text "Stop continuous export" ]
+                else
+                    yield saveButton model
+            })
+
     /// The scrolling middle of the window. The header and the buttons live
     /// outside it so they stay put however long this gets.
-    let private settings (model : AdaptiveAnnotationExportModel) =
+    let private settings (state : ContinuousExportState) (model : AdaptiveAnnotationExportModel) =
         div [ style "flex: 1 1 auto; overflow-y: auto; padding: 10px 12px" ] [
             // The preset only pre-fills everything below, so it sits on its own.
             settingsGroup [
@@ -239,8 +256,15 @@ module AnnotationExportApp =
                     let! format = model.format
                     let! granularity = model.granularity
                     if AnnotationExportSettings.isContinuous format then
+                        let! target = state.target
                         yield div [ clazz "ui small message" ] [
-                            text "Choosing a file arms a background export: PRo3D rewrites it as line-delimited GeoJSON whenever the annotations change, until you switch it off again in the Annotations menu. The schema is fixed, so none of the settings below apply." ]
+                            yield text "Choosing a file arms a background export: PRo3D rewrites it as line-delimited GeoJSON whenever the annotations change. The schema is fixed, so none of the settings below apply."
+                            match target with
+                            | Some path ->
+                                yield div [ style "margin-top:6px" ] [
+                                    text (sprintf "Currently exporting to %s. Use the button below to stop, or pick another file to export there instead." path) ]
+                            | None -> ()
+                        ]
                     elif AnnotationExportSettings.hasFixedSchema format then
                         yield div [ clazz "ui small message" ] [
                             text "Attitude planes have a fixed schema defined by the external tool that reads them. Only the scope applies." ]
@@ -299,7 +323,7 @@ module AnnotationExportApp =
 
     /// Body of the export window: a fixed header, a scrolling middle and a
     /// fixed footer, so the title and the buttons never scroll out of reach.
-    let view (model : AdaptiveAnnotationExportModel) =
+    let view (state : ContinuousExportState) (model : AdaptiveAnnotationExportModel) =
         require GuiEx.semui (
             div [
                 clazz "ui inverted segment"
@@ -310,13 +334,13 @@ module AnnotationExportApp =
                     style "flex:0 0 auto; margin:0; padding:12px; border-bottom:1px solid rgba(255,255,255,0.15)"
                 ] [ text "Export annotations" ]
 
-                settings model
+                settings state model
 
                 div [
                     style "flex:0 0 auto; display:flex; gap:8px; justify-content:flex-end; padding:10px 12px; border-top:1px solid rgba(255,255,255,0.15)"
                 ] [
                     button [ clazz "ui button"; onClick (fun _ -> Close) ] [ text "Cancel" ]
-                    exportButton model
+                    exportButton state model
                 ]
             ]
         )
@@ -324,7 +348,7 @@ module AnnotationExportApp =
     /// Renders `view` as a centred overlay. The panel is simply absent from the
     /// DOM while closed, so there is no JS modal state to keep in sync with the
     /// model.
-    let viewModal (model : AdaptiveAnnotationExportModel) =
+    let viewModal (state : ContinuousExportState) (model : AdaptiveAnnotationExportModel) =
         Incremental.div AttributeMap.empty (
             alist {
                 let! isOpen = model.isOpen
@@ -339,7 +363,7 @@ module AnnotationExportApp =
                         // header and buttons stay put.
                         onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); });" (
                             div [ style "display:flex; max-height:90vh" ] [
-                                view model
+                                view state model
                             ])
                     ]
             })
