@@ -1,5 +1,5 @@
-//0eff4eba-bcb8-e05e-a6b9-68022eabc0fc
-//18c388cc-4715-1d9b-8536-1a58d1968159
+//a44a1abb-c034-946a-713d-274f5491b0c8
+//6d8d77f1-5c67-82f3-2b98-88e1d495cc97
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -13,7 +13,6 @@ open PRo3D.Core.Drawing
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveAutomaticGeoJsonExport(value : AutomaticGeoJsonExport) =
     let _enabled_ = FSharp.Data.Adaptive.cval(value.enabled)
-    let _lastGeoJsonPath_ = FSharp.Data.Adaptive.cval(value.lastGeoJsonPath)
     let _lastGeoJsonPathXyz_ = FSharp.Data.Adaptive.cval(value.lastGeoJsonPathXyz)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
@@ -24,17 +23,14 @@ type AdaptiveAutomaticGeoJsonExport(value : AutomaticGeoJsonExport) =
             __value <- value
             __adaptive.MarkOutdated()
             _enabled_.Value <- value.enabled
-            _lastGeoJsonPath_.Value <- value.lastGeoJsonPath
             _lastGeoJsonPathXyz_.Value <- value.lastGeoJsonPathXyz
     member __.Current = __adaptive
     member __.enabled = _enabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
-    member __.lastGeoJsonPath = _lastGeoJsonPath_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
     member __.lastGeoJsonPathXyz = _lastGeoJsonPathXyz_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module AutomaticGeoJsonExportLenses = 
     type AutomaticGeoJsonExport with
         static member enabled_ = ((fun (self : AutomaticGeoJsonExport) -> self.enabled), (fun (value : Microsoft.FSharp.Core.bool) (self : AutomaticGeoJsonExport) -> { self with enabled = value }))
-        static member lastGeoJsonPath_ = ((fun (self : AutomaticGeoJsonExport) -> self.lastGeoJsonPath), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : AutomaticGeoJsonExport) -> { self with lastGeoJsonPath = value }))
         static member lastGeoJsonPathXyz_ = ((fun (self : AutomaticGeoJsonExport) -> self.lastGeoJsonPathXyz), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : AutomaticGeoJsonExport) -> { self with lastGeoJsonPathXyz = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveDrawingModel(value : DrawingModel) =

@@ -40,7 +40,15 @@ module AnnotationExportApp =
                 |> AnnotationExportSettings.applyPreset preset
             AnnotationExportModel.ofSettings model.isOpen preset settings
 
-        | SetFormat format           -> custom { model with format = format }
+        | SetFormat format ->
+            // keep the model in step with the dropdown: it must never hold a
+            // coordinate mode the chosen format no longer offers, or the select
+            // would show one thing while the export does another
+            let coordinates =
+                if AnnotationExportSettings.coordinateModesFor format |> List.contains model.coordinates
+                then model.coordinates
+                else CoordinateMode.Geographic
+            custom { model with format = format; coordinates = coordinates }
         | SetGranularity granularity -> custom { model with granularity = granularity }
         | SetScope scope             -> custom { model with scope = scope }
         | SetCoordinates coordinates -> custom { model with coordinates = coordinates }
@@ -285,7 +293,7 @@ module AnnotationExportApp =
                                         AnnotationExportSettings.granularityLabel model.granularity SetGranularity ]
                                 Html.row "Coordinates:" [
                                     dropDown
-                                        [ CoordinateMode.Cartesian; CoordinateMode.Geographic; CoordinateMode.Both ]
+                                        (AnnotationExportSettings.coordinateModesFor format)
                                         AnnotationExportSettings.coordinateLabel model.coordinates SetCoordinates ]
                                 Html.row "Longitude:" [
                                     dropDown

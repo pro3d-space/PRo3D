@@ -458,6 +458,45 @@ let tests () =
                         (sprintf "%A of %f gave %f, outside (-180,180]" convention raw signed)
         }
 
+        test "GeoJSON does not offer the Both coordinate mode" {
+            // a Feature's geometry is written in one coordinate system, so the
+            // option would suggest a choice the format cannot express
+            let geoJson = AnnotationExportSettings.coordinateModesFor ExportFormat.GeoJson
+            Expect.isFalse (geoJson |> List.contains CoordinateMode.Both) "Both is not offered"
+            Expect.contains geoJson CoordinateMode.Cartesian "cartesian stays"
+            Expect.contains geoJson CoordinateMode.Geographic "geographic stays"
+
+            Expect.contains
+                (AnnotationExportSettings.coordinateModesFor ExportFormat.Csv)
+                CoordinateMode.Both
+                "a CSV just emits both sets of columns, so it keeps the option"
+        }
+
+        test "switching to GeoJSON moves Both onto a mode the dropdown offers" {
+            let withCoordinates mode =
+                { AnnotationExportModel.initial with format = ExportFormat.Csv; coordinates = mode }
+
+            let switched =
+                AnnotationExportApp.update (withCoordinates CoordinateMode.Both)
+                    (SetFormat ExportFormat.GeoJson)
+            // Geographic, not Cartesian: Both already wrote geographic geometry,
+            // so only the extra x/y/z properties are lost
+            Expect.equal switched.coordinates CoordinateMode.Geographic "coerced away from Both"
+            Expect.equal switched.format ExportFormat.GeoJson "the format still changed"
+
+            let kept =
+                AnnotationExportApp.update (withCoordinates CoordinateMode.Cartesian)
+                    (SetFormat ExportFormat.GeoJson)
+            Expect.equal kept.coordinates CoordinateMode.Cartesian "a mode GeoJSON offers is left alone"
+
+            let toCsv =
+                AnnotationExportApp.update
+                    { AnnotationExportModel.initial with
+                        format = ExportFormat.GeoJson; coordinates = CoordinateMode.Geographic }
+                    (SetFormat ExportFormat.Csv)
+            Expect.equal toCsv.coordinates CoordinateMode.Geographic "widening the choice changes nothing"
+        }
+
         test "presets change the settings and stay overridable" {
             let profile =
                 AnnotationExportSettings.initial

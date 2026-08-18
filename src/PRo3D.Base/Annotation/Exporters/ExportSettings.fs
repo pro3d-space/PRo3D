@@ -94,22 +94,6 @@ module ExportPreset =
         | ExportPreset.ContinuousGeoJson -> "Continuous GeoJSON"
         | _                              -> string preset
 
-    let description (preset : ExportPreset) =
-        match preset with
-        | ExportPreset.Custom ->
-            "Compose the export yourself."
-        | ExportPreset.QgisFeatures ->
-            "Spec-shaped GeoJSON FeatureCollection, one feature per annotation, geographic coordinates."
-        | ExportPreset.AnnotationTable ->
-            "One CSV row per annotation with its measurements and its centre coordinate."
-        | ExportPreset.Profile ->
-            "One CSV row per point of the selected annotation, with distances and surface attributes."
-        | ExportPreset.AttitudePlanes ->
-            "Dip & strike planes for external structural-geology tools. Fixed schema."
-        | ExportPreset.ContinuousGeoJson ->
-            "Keeps a line-delimited GeoJSON file up to date as the annotations change."
-        | _ -> ""
-
 module AnnotationExportSettings =
 
     /// Everything except the identity fields, which would bloat a first-time
@@ -216,6 +200,17 @@ module AnnotationExportSettings =
         | ExportScope.All      -> "All annotations"
         | ExportScope.Visible  -> "Visible annotations only"
         | _                    -> "Selected annotations only"
+
+    /// A GeoJSON geometry is written in one coordinate system, never two, so
+    /// offering "Both" there suggests a choice the format cannot express. CSV
+    /// has no geometry and just emits both sets of columns, so it keeps it.
+    ///
+    /// A UI constraint only: the record builder still honours whatever it is
+    /// given, so a programmatic caller setting `Both` is unaffected.
+    let coordinateModesFor (format : ExportFormat) =
+        match format with
+        | ExportFormat.GeoJson -> [ CoordinateMode.Cartesian; CoordinateMode.Geographic ]
+        | _                    -> [ CoordinateMode.Cartesian; CoordinateMode.Geographic; CoordinateMode.Both ]
 
     let coordinateLabel (mode : CoordinateMode) =
         match mode with

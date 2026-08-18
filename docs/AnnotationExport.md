@@ -35,6 +35,7 @@ Scope          All / Visible only / Selected only
 ─────────────────────────────────────────────────────────────
 Granularity    one record per annotation | one record per point
 Coordinates    Cartesian / Geographic / Both       Longitude convention
+               (Both is CSV only)
                ☑ write longitude as -180...180
                ☑ include sampled segment points
                ⓘ what the chosen granularity does to the geometry
@@ -144,8 +145,11 @@ The window shows the applicable case as an inline message under the settings.
 ### Coordinates
 
 *Cartesian* writes `x, y, z` (body-fixed metres). *Geographic* writes `lat, lon, alt`.
-*Both* writes both sets of columns; in GeoJSON, the geometry then uses the geographic
-positions.
+*Both* writes both sets of columns and is offered for **CSV only**: a GeoJSON `Feature` has
+a geometry, and that geometry is written in one coordinate system or the other, never both —
+so for GeoJSON the choice is binary. Switching the file type to GeoJSON while *Both* is
+selected falls back to *Geographic*, which leaves the geometry exactly as *Both* would have
+written it and only drops the extra `x, y, z` properties.
 
 Conversion always goes through the convention-aware
 `CooTransformation.tryGetLatLonAlt`, which picks planetographic / spherical / ellipsoidal
@@ -374,16 +378,18 @@ them need it switched off to reproduce.
 | visible as GeoJSON xyz | GeoJSON · Visible · Cartesian | on |
 | latlon GeoJSON for QGIS | GeoJSON · Visible · Geographic · **Native** | **off** |
 | xyz GeoJSON for QGIS | GeoJSON · Visible · Cartesian | **off** |
-| latlon for QGIS + xyz metadata | GeoJSON · Visible · Both · **Native** | **off** |
+| latlon for QGIS + xyz metadata | **no equivalent** — closest is GeoJSON · Visible · Geographic · **Native** | **off** |
 | dns as 'Attitude' planes | file type *Attitude planes* · Visible | n/a |
 | continuously export as GeoJSON xyz | file type *Continuous GeoJSON* (preset of the same name) | n/a |
 | all as 'PRo3D' annotations | unchanged, still on the menu | n/a |
 
 Two of these are not exact equivalents:
 
-- ***latlon for QGIS + xyz metadata*** wrote a `cartesian` property containing **every**
-  point; the new export writes `x/y/z` of the bounding-box centre. There is no setting that
-  reproduces the full point array.
+- ***latlon for QGIS + xyz metadata*** has no equivalent at all. It wrote a `cartesian`
+  property containing **every** point, which no setting reproduced even before; and since
+  *Both* is no longer offered for GeoJSON, the cartesian position is not carried alongside
+  geographic geometry either. Export the same annotations twice — once *Geographic*, once
+  *Cartesian* — if both sets of numbers are needed.
 - ***selected as profile*** wrote exactly two columns, `distance` and `elevation`. Those are
   now `groundDistance` and `alt`, with the same values, alongside whatever else is ticked
   (and `key`, which is always written).

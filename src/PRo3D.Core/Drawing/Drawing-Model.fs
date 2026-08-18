@@ -69,14 +69,12 @@ type DrawingAction =
 | AddAnnotations         of list<string>
 | PickAnnotation         of SceneHit * Guid
 | PickDirectly           of Guid
-| ContinuouslyGeoJson    of string
 | ExportAsAttitude       of string
 
 [<ModelType>]
 type AutomaticGeoJsonExport = 
     {
         enabled : bool
-        lastGeoJsonPath    : Option<string>
         lastGeoJsonPathXyz : Option<string>
     }
 
@@ -173,5 +171,5 @@ module DrawingModel =
         // test laura
         haltonPoints = []
 
-        automaticGeoJsonExport = { enabled = false; lastGeoJsonPath = None; lastGeoJsonPathXyz = None }
+        automaticGeoJsonExport = { enabled = false; lastGeoJsonPathXyz = None }
     }

@@ -606,9 +606,6 @@ module DrawingApp =
                     Drawing.IO.saveVersioned model path
                 else
                     model
-            | ContinuouslyGeoJson path, _, _ ->
-                armAutomaticGeoJsonExport path model
-
             | ExportAsAttitude path, _, _ ->
                 if path.IsNullOrEmpty() |> not then
                     let annotations = extractVisibleAnnotations model
