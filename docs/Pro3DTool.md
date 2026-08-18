@@ -12,7 +12,7 @@ It supersedes the older `opc-tool` (see [Migrating](#migrating-from-opc-tool)).
 | Verb | What it does | Documentation |
 |---|---|---|
 | `kdtree` | Validate OPC directories and generate KdTrees | **[Pro3DTool-KdTree.md](./Pro3DTool-KdTree.md)** |
-| `sun-angles` | Per-pixel illumination geometry for instrument images | **[Pro3DTool-SunAngles.md](./Pro3DTool-SunAngles.md)** |
+| `sun-angles` | Per-pixel illumination geometry for instrument images, for photometric work such as image calibration | **[Pro3DTool-SunAngles.md](./Pro3DTool-SunAngles.md)** |
 
 ## Install
 

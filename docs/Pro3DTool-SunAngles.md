@@ -1,6 +1,8 @@
 # `pro3d-tool sun-angles`
 
-Per-pixel illumination geometry for instrument images.
+Per-pixel illumination geometry for instrument images — the backplanes needed for
+photometric work such as instrument image calibration, radiometric correction and
+photometric modelling.
 
 Part of [`pro3d-tool`](./Pro3DTool.md) — see there for installation, test data and
 **[SPICE kernel setup](./Pro3DTool.md#spice-kernels)**, which this verb requires.
