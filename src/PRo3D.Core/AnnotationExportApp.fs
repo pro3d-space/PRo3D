@@ -22,6 +22,14 @@ module AnnotationExportApp =
         { model with preset = ExportPreset.Custom }
 
     let update (model : AnnotationExportModel) (action : AnnotationExportAction) =
+        // Touching any control invalidates a warning about the previous attempt:
+        // it described settings that no longer hold. The two viewer-level actions
+        // are excluded because that is where a new warning is set.
+        let model =
+            match action with
+            | Export _ | StopContinuous -> model
+            | _                         -> { model with warning = None }
+
         match action with
         | Open  -> { model with isOpen = true }
         | Close -> { model with isOpen = false }
@@ -333,6 +341,20 @@ module AnnotationExportApp =
                     clazz "ui inverted header"
                     style "flex:0 0 auto; margin:0; padding:12px; border-bottom:1px solid rgba(255,255,255,0.15)"
                 ] [ text "Export annotations" ]
+
+                // Part of the fixed header rather than the scrolling body, so a
+                // warning cannot be scrolled out of sight.
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! warning = model.warning
+                        match warning with
+                        | Some message ->
+                            yield div [
+                                clazz "ui small warning message"
+                                style "flex:0 0 auto; margin:10px 12px 0 12px"
+                            ] [ text message ]
+                        | None -> ()
+                    })
 
                 settings state model
 

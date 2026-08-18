@@ -740,15 +740,20 @@ module ViewerApp =
                 // needs the group tree and the reference system, so it cannot
                 // be handled inside AnnotationExportApp.update
                 let settings = AnnotationExportModel.toSettings m.annotationExport
-                let m =
+                let m, warning =
                     if AnnotationExportSettings.isContinuous settings.format then
                         // arms the background export rather than writing once;
                         // the file is rewritten at the end of every DrawingApp.update
-                        { m with drawing = DrawingApp.armAutomaticGeoJsonExport path m.drawing }
+                        { m with drawing = DrawingApp.armAutomaticGeoJsonExport path m.drawing }, None
                     else
-                        AnnotationExportViewer.export settings path m.drawing m.scene.referenceSystem
-                        m
-                { m with annotationExport = { m.annotationExport with isOpen = false } }
+                        m, AnnotationExportViewer.export settings path m.drawing m.scene.referenceSystem
+                // nothing exported: keep the window open with the reason, rather
+                // than closing it as if the file had been written
+                { m with
+                    annotationExport =
+                        { m.annotationExport with
+                            isOpen  = warning |> Option.isSome
+                            warning = warning } }
             | AnnotationExportAction.StopContinuous ->
                 // the armed state lives on DrawingModel, so it cannot be handled
                 // inside AnnotationExportApp.update either

@@ -46,22 +46,42 @@ module AnnotationExportViewer =
             ordered |> List.filter (fun a -> keys |> HashSet.contains a.key)
         | _ -> ordered
 
+    /// Why a scope produced no annotations, phrased so the user knows what to
+    /// change. `scopeLabel` alone would not say what to do about it.
+    let private emptyScopeMessage (scope : ExportScope) =
+        match scope with
+        | ExportScope.Selected ->
+            "No annotations are selected, so there is nothing to export. Select them in the \
+             annotation list, or choose a different scope."
+        | ExportScope.Visible ->
+            "No annotations are visible, so there is nothing to export. Make at least one \
+             visible, or choose a different scope."
+        | _ ->
+            "There are no annotations to export."
+
     /// Performs the export described by `settings`. `path` comes from the save
     /// dialog.
+    ///
+    /// Returns a message for the user when the export did not happen and they
+    /// need to know — the window shows it and stays open so the settings can be
+    /// corrected. `None` means the window may close: the file was written, or
+    /// the save dialog was dismissed.
     let export
         (settings : AnnotationExportSettings)
         (path     : string)
         (drawing  : DrawingModel)
         (refSys   : ReferenceSystem)
-        : unit =
+        : Option<string> =
 
         if String.IsNullOrEmpty path then
-            Log.warn "[AnnotationExport] no path specified"
+            // the save dialog was cancelled; nothing went wrong
+            None
         else
             let annotations = annotationsInScope settings.scope drawing.annotations
 
             if List.isEmpty annotations then
                 Log.warn "[AnnotationExport] nothing to export for scope %A" settings.scope
+                Some (emptyScopeMessage settings.scope)
             else
                 let up = refSys.up.value.Normalized
                 // full path, not just the immediate parent: keeps nested groups
@@ -70,5 +90,9 @@ module AnnotationExportViewer =
 
                 try
                     AnnotationExport.write settings groupPath refSys.planet up path annotations
+                    None
                 with e ->
+                    // same reasoning as the empty scope: a silently closing window
+                    // would look like a successful export
                     Log.warn "[AnnotationExport] export failed with %A" e
+                    Some (sprintf "Writing %s failed: %s" path e.Message)

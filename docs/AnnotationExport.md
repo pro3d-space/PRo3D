@@ -111,6 +111,12 @@ Which annotations are exported, independent of everything else.
 Annotations are written in **group-tree order** (the order shown in the annotation list).
 The old exports iterated the flat hash map, so their row order varied between runs.
 
+If the chosen scope matches **no** annotations, no file is written and the window stays open
+with a warning in its header saying which scope came up empty and what to change. The same
+happens when writing the file fails. Only a successful export closes the window — so the
+window closing is the confirmation that something was written. The warning clears as soon as
+any control is touched.
+
 ### Granularity — read this one
 
 This decides how much geometry survives, and it does **not** mean the same thing in both

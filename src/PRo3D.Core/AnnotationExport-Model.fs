@@ -58,6 +58,11 @@ type AnnotationExportModel = {
 
     annotationFields  : HashSet<AnnotationField>
     pointFields       : HashSet<PointField>
+
+    /// Why the last export attempt produced nothing. Shown in the window's
+    /// header, which stays open so the user can correct the settings — a log
+    /// line alone goes unnoticed. Cleared by the next interaction.
+    warning           : Option<string>
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -75,6 +80,7 @@ module AnnotationExportModel =
         useSampledPoints  = s.useSampledPoints
         annotationFields  = HashSet.ofList s.annotationFields
         pointFields       = HashSet.ofList s.pointFields
+        warning           = None
     }
 
     /// Flattens the model into the ordered snapshot the writers consume. Field

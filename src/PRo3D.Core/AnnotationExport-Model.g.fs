@@ -1,5 +1,5 @@
-//97a0f710-da16-c757-3073-bd9ebc53f0af
-//a7192677-a9e7-038c-c7e2-e5d64f330d1b
+//4ce80518-ba90-ce5b-5703-8108b88014fa
+//b6567f14-b992-836e-26b6-158a00cfbcf3
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -23,6 +23,7 @@ type AdaptiveAnnotationExportModel(value : AnnotationExportModel) =
     let _useSampledPoints_ = FSharp.Data.Adaptive.cval(value.useSampledPoints)
     let _annotationFields_ = FSharp.Data.Adaptive.cset(value.annotationFields)
     let _pointFields_ = FSharp.Data.Adaptive.cset(value.pointFields)
+    let _warning_ = FSharp.Data.Adaptive.cval(value.warning)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : AnnotationExportModel) = AdaptiveAnnotationExportModel(value)
@@ -42,6 +43,7 @@ type AdaptiveAnnotationExportModel(value : AnnotationExportModel) =
             _useSampledPoints_.Value <- value.useSampledPoints
             _annotationFields_.Value <- value.annotationFields
             _pointFields_.Value <- value.pointFields
+            _warning_.Value <- value.warning
     member __.Current = __adaptive
     member __.isOpen = _isOpen_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.preset = _preset_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.ExportPreset>
@@ -54,6 +56,7 @@ type AdaptiveAnnotationExportModel(value : AnnotationExportModel) =
     member __.useSampledPoints = _useSampledPoints_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.annotationFields = _annotationFields_ :> FSharp.Data.Adaptive.aset<PRo3D.Base.Annotation.AnnotationField>
     member __.pointFields = _pointFields_ :> FSharp.Data.Adaptive.aset<PRo3D.Base.Annotation.PointField>
+    member __.warning = _warning_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module AnnotationExportModelLenses = 
     type AnnotationExportModel with
@@ -68,4 +71,5 @@ module AnnotationExportModelLenses =
         static member useSampledPoints_ = ((fun (self : AnnotationExportModel) -> self.useSampledPoints), (fun (value : Microsoft.FSharp.Core.bool) (self : AnnotationExportModel) -> { self with useSampledPoints = value }))
         static member annotationFields_ = ((fun (self : AnnotationExportModel) -> self.annotationFields), (fun (value : FSharp.Data.Adaptive.HashSet<PRo3D.Base.Annotation.AnnotationField>) (self : AnnotationExportModel) -> { self with annotationFields = value }))
         static member pointFields_ = ((fun (self : AnnotationExportModel) -> self.pointFields), (fun (value : FSharp.Data.Adaptive.HashSet<PRo3D.Base.Annotation.PointField>) (self : AnnotationExportModel) -> { self with pointFields = value }))
+        static member warning_ = ((fun (self : AnnotationExportModel) -> self.warning), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : AnnotationExportModel) -> { self with warning = value }))
 
