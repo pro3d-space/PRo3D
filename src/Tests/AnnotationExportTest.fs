@@ -498,6 +498,44 @@ let tests () =
                         (sprintf "%A of %f gave %f, outside (-180,180]" convention raw signed)
         }
 
+        test "GeoJSON is signed whether or not the setting says so" {
+            // its positions are WGS84 longitudes, which the spec puts in
+            // (-180, 180], so the notation is not the user's to pick there
+            Expect.isFalse
+                (AnnotationExportSettings.hasLongitudeRangeChoice ExportFormat.GeoJson)
+                "the control is hidden for GeoJSON"
+            Expect.isTrue
+                (AnnotationExportSettings.hasLongitudeRangeChoice ExportFormat.Csv)
+                "a CSV keeps the choice"
+
+            Expect.isTrue
+                (AnnotationExportSettings.signedLongitudeFor ExportFormat.GeoJson false)
+                "GeoJSON signs the longitude even with the setting off"
+            Expect.isFalse
+                (AnnotationExportSettings.signedLongitudeFor ExportFormat.Csv false)
+                "a CSV honours the setting"
+
+            // and it reaches the value that is actually written
+            match onMars (10.0, 257.0, 0.0) with
+            | Some position ->
+                let unsignedSetting format =
+                    { AnnotationExportSettings.initial with
+                        format          = format
+                        longitude       = LongitudeConvention.Native
+                        signedLongitude = false }
+
+                match AnnotationExport.tryToGeographic Planet.Mars (unsignedSetting ExportFormat.GeoJson) position with
+                | Some geographic -> Expect.floatClose Accuracy.medium geographic.Y -103.0 "GeoJSON longitude is signed"
+                | None -> failtest "no geographic conversion"
+
+                match AnnotationExport.tryToGeographic Planet.Mars (unsignedSetting ExportFormat.Csv) position with
+                | Some geographic -> Expect.floatClose Accuracy.medium geographic.Y 257.0 "CSV keeps 0...360"
+                | None -> failtest "no geographic conversion"
+            | None ->
+                // no native coordinate transform in this environment
+                ()
+        }
+
         test "GeoJSON does not offer the Both coordinate mode" {
             // a Feature's geometry is written in one coordinate system, so the
             // option would suggest a choice the format cannot express
@@ -555,7 +593,20 @@ let tests () =
             Expect.equal qgis.format ExportFormat.GeoJson "QGIS writes GeoJSON"
             Expect.equal qgis.coordinates CoordinateMode.Geographic "QGIS is geographic"
             Expect.equal qgis.longitude LongitudeConvention.Native "QGIS takes the raw longitude"
-            Expect.isTrue qgis.signedLongitude "QGIS expects -180...180"
+
+            // the signed range is the default everywhere now, so every preset
+            // arrives at it — including one that starts from it switched off
+            for preset in ExportPreset.all |> List.filter (fun p -> p <> ExportPreset.Custom) do
+                let applied =
+                    { AnnotationExportSettings.initial with signedLongitude = false }
+                    |> AnnotationExportSettings.applyPreset preset
+                Expect.isTrue applied.signedLongitude (sprintf "%A writes -180...180" preset)
+
+            // ... and Custom, which is not a preset, leaves a manual choice alone
+            Expect.isFalse
+                ({ AnnotationExportSettings.initial with signedLongitude = false }
+                 |> AnnotationExportSettings.applyPreset ExportPreset.Custom).signedLongitude
+                "selecting Custom changes nothing"
 
             let continuous =
                 AnnotationExportSettings.initial

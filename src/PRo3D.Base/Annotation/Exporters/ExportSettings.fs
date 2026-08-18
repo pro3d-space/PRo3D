@@ -117,7 +117,7 @@ module AnnotationExportSettings =
         scope             = ExportScope.Visible
         coordinates       = CoordinateMode.Both
         longitude         = LongitudeConvention.Flipped
-        signedLongitude   = false
+        signedLongitude   = true
         useSampledPoints  = true
         sampleSurfaceProperties = false
         annotationFields  =
@@ -131,6 +131,15 @@ module AnnotationExportSettings =
     /// A preset only pre-fills the settings; every individual control stays
     /// editable afterwards (which flips the preset back to `Custom`).
     let applyPreset (preset : ExportPreset) (settings : AnnotationExportSettings) =
+        // Every preset writes the signed (-180, 180] range: GeoJSON requires it
+        // by spec and GIS tools expect it, so the unsigned [0, 360) notation is
+        // only ever a deliberate manual choice. `Custom` is not really a preset —
+        // selecting it must leave the settings exactly as they are.
+        let settings =
+            match preset with
+            | ExportPreset.Custom -> settings
+            | _                   -> { settings with signedLongitude = true }
+
         match preset with
         | ExportPreset.QgisFeatures ->
             { settings with
@@ -142,8 +151,6 @@ module AnnotationExportSettings =
                 // general default, inherited from the old CSV export) comes out
                 // mirror-inverted there.
                 longitude        = LongitudeConvention.Native
-                // QGIS expects -180...180, not 0...360
-                signedLongitude  = true
                 annotationFields =
                     // colorHex so QGIS can bind it to the symbol colour, groupPath
                     // so the group tree survives as a categorisable attribute
@@ -237,6 +244,17 @@ module AnnotationExportSettings =
     let allLongitudeConventions =
         [ LongitudeConvention.Native; LongitudeConvention.Flipped
           LongitudeConvention.FlippedShifted ]
+
+    /// Whether the notation is the user's to pick. GeoJSON positions are WGS84
+    /// longitudes, which the spec puts in (-180, 180], so there it is not: the
+    /// window hides the control and the writer signs the value regardless.
+    let hasLongitudeRangeChoice (format : ExportFormat) =
+        format <> ExportFormat.GeoJson
+
+    /// The notation the writer actually uses — the setting, unless the format
+    /// dictates one.
+    let signedLongitudeFor (format : ExportFormat) (signed : bool) =
+        signed || not (hasLongitudeRangeChoice format)
 
     /// True when the format ignores every setting below the format dropdown.
     let hasFixedSchema (format : ExportFormat) =

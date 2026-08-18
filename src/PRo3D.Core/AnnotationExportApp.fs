@@ -299,22 +299,26 @@ module AnnotationExportApp =
                     else
                         yield settingsGroup [
                             Html.table [
-                                Html.row "Granularity:" [
+                                yield Html.row "Granularity:" [
                                     dropDown
                                         [ ExportGranularity.PerAnnotation; ExportGranularity.PerPoint ]
                                         AnnotationExportSettings.granularityLabel model.granularity SetGranularity ]
-                                Html.row "Coordinates:" [
+                                yield Html.row "Coordinates:" [
                                     dropDown
                                         (AnnotationExportSettings.coordinateModesFor format)
                                         AnnotationExportSettings.coordinateLabel model.coordinates SetCoordinates ]
-                                Html.row "Longitude:" [
+                                yield Html.row "Longitude:" [
                                     dropDown
                                         AnnotationExportSettings.allLongitudeConventions
                                         AnnotationExportSettings.longitudeLabel model.longitude SetLongitude ]
-                                Html.row "Longitude range:" [
-                                    checkBox "write as -180...180 instead of 0...360"
-                                        model.signedLongitude ToggleSignedLongitude ]
-                                Html.row "Sampled points:" [
+                                // Not offered for GeoJSON: its positions are WGS84
+                                // longitudes, which the spec puts in (-180, 180],
+                                // so the writer signs them whatever this says.
+                                if AnnotationExportSettings.hasLongitudeRangeChoice format then
+                                    yield Html.row "Longitude range:" [
+                                        checkBox "write as -180...180 instead of 0...360"
+                                            model.signedLongitude ToggleSignedLongitude ]
+                                yield Html.row "Sampled points:" [
                                     checkBox "include the surface-following points between the picked ones"
                                         model.useSampledPoints ToggleSampledPoints ]
                             ]
