@@ -22,6 +22,7 @@ module AnnotationExport =
         let converted =
             match convention with
             | LongitudeConvention.Flipped        -> 360.0 - longitude
+            | LongitudeConvention.Shifted        -> longitude + 180.0
             | LongitudeConvention.FlippedShifted -> 180.0 - longitude
             | _                                  -> longitude
             |> wrap360
@@ -30,18 +31,11 @@ module AnnotationExport =
 
     /// Cartesian -> (latitude, longitude, altitude). `None` when the body has no
     /// geographic frame (Planet.None/JPL/ENU) or the native call fails.
-    ///
-    /// The notation comes from `signedLongitudeFor` rather than straight off the
-    /// settings, so a GeoJSON export is signed even if the (hidden) checkbox says
-    /// otherwise — its positions are WGS84 longitudes by spec.
     let tryToGeographic (planet : Planet) (settings : AnnotationExportSettings) (p : V3d) =
-        let signed =
-            AnnotationExportSettings.signedLongitudeFor settings.format settings.signedLongitude
-
         CooTransformation.tryGetLatLonAlt planet p
         |> Option.map (fun coo ->
             V3d(coo.latitude,
-                normalizeLongitude settings.longitude signed coo.longitude,
+                normalizeLongitude settings.longitude settings.signedLongitude coo.longitude,
                 coo.altitude))
 
     let private wantsCartesian (mode : CoordinateMode) =

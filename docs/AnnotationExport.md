@@ -36,7 +36,7 @@ Scope          All / Visible only / Selected only
 Granularity    one record per annotation | one record per point
 Coordinates    Cartesian / Geographic / Both       Longitude convention
                (Both is CSV only)
-               ☑ write longitude as -180...180   (CSV only; GeoJSON is always signed)
+               ☑ write longitude as -180...180
                ☑ include sampled segment points
                ⓘ what the chosen granularity does to the geometry
 Annotation attributes    checkbox per attribute, grouped
@@ -94,7 +94,7 @@ switches the preset back to *Custom*; nothing is locked.
 
 | Preset | Sets |
 |---|---|
-| GIS / QGIS | GeoJSON, geographic, longitude *Native*, `colorHex` + `groupPath` + the common measurements |
+| GIS / QGIS | GeoJSON, geographic, longitude *Shifted by 180°*, `colorHex` + `groupPath` + the common measurements |
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
 | Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
 | Attitude planes | file type *Attitude planes* |
@@ -172,6 +172,7 @@ Two independent settings:
 |---|---|---|
 | Native | `lon` | as the transform returns it |
 | **Flipped** (default) | `360 − lon` | mirrors east against west — what the old CSV and plain GeoJSON exports did |
+| Shifted by 180° | `lon + 180` | same direction, prime meridian moved to the antimeridian |
 | Flipped and shifted | `180 − lon` | mirrored, with the prime meridian on the antimeridian |
 
 plus **Longitude range**, which only changes the notation, never the location: `(−180, 180]`
@@ -180,18 +181,27 @@ by default and after every preset, `[0, 360)` when unticked.
 The result is always wrapped into `[0, 360)` before the range setting applies, so the two
 choices stay independent of each other and of the raw value's range.
 
-**GeoJSON is always signed**, and the checkbox is not shown for it. A GeoJSON position is a
-WGS84 longitude, which the spec puts in `(−180, 180]`; readers that clamp or reject anything
-outside that — QGIS among them — would place a 200° annotation wrongly or drop it. The writer
-therefore signs the value whatever the (hidden) setting says, so switching file type back to
-CSV still restores whichever notation was picked there.
+Both settings apply to **every** file type, GeoJSON included. GeoJSON briefly forced the
+signed range on the grounds that its positions are WGS84 by spec — but PRo3D's bodies are not
+Earth, and which notation a downstream product wants is not something the format can decide.
+Be aware that a GIS reading `[0, 360)` values against an Earth CRS may draw them beyond the
+edge of the world, since that CRS defines longitude on `(−180, 180]`.
 
 *Which one?* Symptoms map directly onto the settings: annotations coming out
-**mirror-inverted** means the mirror is wrong (switch Flipped ↔ Native); annotations at the
-right orientation but **exactly 180° away** means the prime meridian is wrong (switch between
-*Flipped* and *Flipped and shifted*). The **GIS / QGIS preset** selects *Native*, which is
-what matched real Mars data in QGIS; the general default stays *Flipped*, which is what the
-CSV export this replaces did.
+**mirror-inverted** means the mirror is wrong (switch *Flipped* ↔ *Native*); annotations at
+the right orientation but **exactly 180° away** means the prime meridian is wrong (switch
+*Native* ↔ *Shifted by 180°*, or *Flipped* ↔ *Flipped and shifted*). A longitude that is
+merely *negative* where you expected it positive is neither — that is the range, not the
+convention, and it names the same point.
+
+There is no universally correct choice, because the convention has to match **whatever you
+are lining the export up against**, not just the body. A worked example: an Earth texture
+draped on the Dimorphos shape model is placed by a UV mapping whose origin sits 180° from the
+body-fixed +X axis that longitude 0 follows, so exports matching that texture need *Shifted by
+180°* — even though PRo3D's own longitude is perfectly self-consistent. The **GIS / QGIS
+preset** selects *Shifted by 180°* for exactly that case; the general default stays *Flipped*,
+which is what the CSV export this replaces did. Override per export when the target says
+otherwise.
 
 > **GeoJSON coordinate order changed.** Positions are now written in the spec order
 > `[longitude, latitude, altitude]`. All three predecessors wrote latitude first, which no
@@ -467,13 +477,14 @@ Three of these are not exact equivalents:
   export writes the annotation's own point and samples the surface at it — a difference of
   millimetres, but they are no longer literally the same numbers.
 
-The three QGIS variants applied **no** longitude transform, i.e. *Native*, which is what the
-*GIS / QGIS* preset also selects.
+The three QGIS variants applied **no** longitude transform, i.e. *Native*. The *GIS / QGIS*
+preset instead selects *Shifted by 180°* — pick *Native* in the dropdown to reproduce the old
+files.
 
-Note the **longitude range** differs from all of the old exports: they wrote `[0, 360)`, and
-the signed `(−180, 180]` range is now the default. Wherever a longitude exceeds 180° the
-numbers therefore differ by 360. For a CSV, untick *Longitude range* to get byte-comparable
-output; for GeoJSON there is no way back, because the spec requires the signed range.
+Note the **longitude range** also differs from all of the old exports: they wrote `[0, 360)`,
+and the signed `(−180, 180]` range is now the default. Wherever a longitude exceeds 180° the
+numbers therefore differ by 360. Untick *Longitude range* to get byte-comparable output — this
+works for every file type, GeoJSON included.
 
 Two properties are no longer emitted: **`isSelected`** (no equivalent attribute) and
 **`isEllipse`** (derivable from the `geometry` column).

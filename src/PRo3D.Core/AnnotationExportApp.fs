@@ -311,13 +311,9 @@ module AnnotationExportApp =
                                     dropDown
                                         AnnotationExportSettings.allLongitudeConventions
                                         AnnotationExportSettings.longitudeLabel model.longitude SetLongitude ]
-                                // Not offered for GeoJSON: its positions are WGS84
-                                // longitudes, which the spec puts in (-180, 180],
-                                // so the writer signs them whatever this says.
-                                if AnnotationExportSettings.hasLongitudeRangeChoice format then
-                                    yield Html.row "Longitude range:" [
-                                        checkBox "write as -180...180 instead of 0...360"
-                                            model.signedLongitude ToggleSignedLongitude ]
+                                yield Html.row "Longitude range:" [
+                                    checkBox "write as -180...180 instead of 0...360"
+                                        model.signedLongitude ToggleSignedLongitude ]
                                 yield Html.row "Sampled points:" [
                                     checkBox "include the surface-following points between the picked ones"
                                         model.useSampledPoints ToggleSampledPoints ]

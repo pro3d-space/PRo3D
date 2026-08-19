@@ -47,9 +47,8 @@ type LongitudeConvention =
     /// 360 - longitude: mirrors east against west.
     /// What the CSV and plain GeoJSON exports did.
     | Flipped        = 1
-    // 2 was `Shifted` (lon + 180). Removed once the signed range turned out to
-    // be what the QGIS output actually needed; the value is left unused rather
-    // than reassigned, so nothing silently changes meaning.
+    /// longitude + 180: same direction, prime meridian moved to the antimeridian
+    | Shifted        = 2
     /// 180 - longitude: mirrored *and* shifted
     | FlippedShifted = 3
 
@@ -146,11 +145,12 @@ module AnnotationExportSettings =
                 format           = ExportFormat.GeoJson
                 granularity      = ExportGranularity.PerAnnotation
                 coordinates      = CoordinateMode.Geographic
-                // Determined against real Mars data in QGIS: the raw longitude
-                // is already oriented correctly, so no transform. `Flipped` (the
-                // general default, inherited from the old CSV export) comes out
-                // mirror-inverted there.
-                longitude        = LongitudeConvention.Native
+                // No convention is right for every scene: the prime meridian of
+                // the *product* being matched need not be the body's. Determined
+                // against a texture draped on a shape model, whose UV origin sat
+                // 180 deg from the body-fixed +X axis that longitude 0 follows.
+                // Override per export when the target says otherwise.
+                longitude        = LongitudeConvention.Shifted
                 annotationFields =
                     // colorHex so QGIS can bind it to the symbol colour, groupPath
                     // so the group tree survives as a categorisable attribute
@@ -238,23 +238,13 @@ module AnnotationExportSettings =
         match convention with
         | LongitudeConvention.Native         -> "Native (as returned for the body)"
         | LongitudeConvention.Flipped        -> "Flipped (360 - lon)"
+        | LongitudeConvention.Shifted        -> "Shifted by 180 deg (lon + 180)"
         | LongitudeConvention.FlippedShifted -> "Flipped and shifted (180 - lon)"
         | _                                  -> string convention
 
     let allLongitudeConventions =
         [ LongitudeConvention.Native; LongitudeConvention.Flipped
-          LongitudeConvention.FlippedShifted ]
-
-    /// Whether the notation is the user's to pick. GeoJSON positions are WGS84
-    /// longitudes, which the spec puts in (-180, 180], so there it is not: the
-    /// window hides the control and the writer signs the value regardless.
-    let hasLongitudeRangeChoice (format : ExportFormat) =
-        format <> ExportFormat.GeoJson
-
-    /// The notation the writer actually uses — the setting, unless the format
-    /// dictates one.
-    let signedLongitudeFor (format : ExportFormat) (signed : bool) =
-        signed || not (hasLongitudeRangeChoice format)
+          LongitudeConvention.Shifted; LongitudeConvention.FlippedShifted ]
 
     /// True when the format ignores every setting below the format dropdown.
     let hasFixedSchema (format : ExportFormat) =

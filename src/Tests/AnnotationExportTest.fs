@@ -473,15 +473,33 @@ let tests () =
 
             Expect.equal (convert LongitudeConvention.Native false) 77.0 "native passes through"
             Expect.equal (convert LongitudeConvention.Flipped false) 283.0 "flipped mirrors"
+            Expect.equal (convert LongitudeConvention.Shifted false) 257.0 "shifted moves the prime meridian"
             Expect.equal (convert LongitudeConvention.FlippedShifted false) 103.0 "mirrored and shifted"
 
             // the notation is a separate choice and never changes the location
             Expect.equal (convert LongitudeConvention.Native true) 77.0 "already inside the signed range"
             Expect.equal (convert LongitudeConvention.Flipped true) -77.0 "283 written as -77"
-            Expect.equal
-                (AnnotationExport.normalizeLongitude LongitudeConvention.Native true 257.0)
-                -103.0
-                "beyond 180 it is written as the negative equivalent"
+            Expect.equal (convert LongitudeConvention.Shifted true) -103.0 "257 written as -103"
+        }
+
+        test "shifted is what lines a body up with a differently oriented product" {
+            // The case this exists for: a texture draped on a shape model whose UV
+            // origin sits 180 deg from the body-fixed +X axis that longitude 0
+            // follows. Real numbers from a Dimorphos export.
+            let raw = -139.0730112041369
+            Expect.floatClose Accuracy.medium
+                (AnnotationExport.normalizeLongitude LongitudeConvention.Shifted true raw)
+                40.9269887958631
+                "the shift lands the annotation where the draped texture shows it"
+
+            // and the notation genuinely is a separate axis: without the shift the
+            // same point is the same place under either range
+            Expect.floatClose Accuracy.medium
+                (AnnotationExport.normalizeLongitude LongitudeConvention.Native true raw)
+                -139.0730112041369 "signed leaves it as it came"
+            Expect.floatClose Accuracy.medium
+                (AnnotationExport.normalizeLongitude LongitudeConvention.Native false raw)
+                220.9269887958631 "unsigned names the same point 360 higher"
         }
 
         test "longitude output always lands in a valid range" {
@@ -498,39 +516,30 @@ let tests () =
                         (sprintf "%A of %f gave %f, outside (-180,180]" convention raw signed)
         }
 
-        test "GeoJSON is signed whether or not the setting says so" {
-            // its positions are WGS84 longitudes, which the spec puts in
-            // (-180, 180], so the notation is not the user's to pick there
-            Expect.isFalse
-                (AnnotationExportSettings.hasLongitudeRangeChoice ExportFormat.GeoJson)
-                "the control is hidden for GeoJSON"
-            Expect.isTrue
-                (AnnotationExportSettings.hasLongitudeRangeChoice ExportFormat.Csv)
-                "a CSV keeps the choice"
-
-            Expect.isTrue
-                (AnnotationExportSettings.signedLongitudeFor ExportFormat.GeoJson false)
-                "GeoJSON signs the longitude even with the setting off"
-            Expect.isFalse
-                (AnnotationExportSettings.signedLongitudeFor ExportFormat.Csv false)
-                "a CSV honours the setting"
-
-            // and it reaches the value that is actually written
+        test "every format honours the longitude range setting" {
+            // GeoJSON briefly forced the signed range on the grounds that its
+            // positions are WGS84 by spec. For planetary bodies that is the wrong
+            // call - the range is the user's to pick, per format, like any other.
             match onMars (10.0, 257.0, 0.0) with
             | Some position ->
-                let unsignedSetting format =
+                let setting format signed =
                     { AnnotationExportSettings.initial with
                         format          = format
                         longitude       = LongitudeConvention.Native
-                        signedLongitude = false }
+                        signedLongitude = signed }
 
-                match AnnotationExport.tryToGeographic Planet.Mars (unsignedSetting ExportFormat.GeoJson) position with
-                | Some geographic -> Expect.floatClose Accuracy.medium geographic.Y -103.0 "GeoJSON longitude is signed"
-                | None -> failtest "no geographic conversion"
+                let longitudeOf format signed =
+                    AnnotationExport.tryToGeographic Planet.Mars (setting format signed) position
+                    |> Option.map (fun geographic -> geographic.Y)
 
-                match AnnotationExport.tryToGeographic Planet.Mars (unsignedSetting ExportFormat.Csv) position with
-                | Some geographic -> Expect.floatClose Accuracy.medium geographic.Y 257.0 "CSV keeps 0...360"
-                | None -> failtest "no geographic conversion"
+                for format in [ ExportFormat.GeoJson; ExportFormat.Csv ] do
+                    match longitudeOf format false, longitudeOf format true with
+                    | Some unsigned, Some signed ->
+                        Expect.floatClose Accuracy.medium unsigned 257.0
+                            (sprintf "%A unticked keeps 0...360" format)
+                        Expect.floatClose Accuracy.medium signed -103.0
+                            (sprintf "%A ticked writes -180...180" format)
+                    | _ -> failtest "no geographic conversion"
             | None ->
                 // no native coordinate transform in this environment
                 ()
@@ -592,7 +601,7 @@ let tests () =
 
             Expect.equal qgis.format ExportFormat.GeoJson "QGIS writes GeoJSON"
             Expect.equal qgis.coordinates CoordinateMode.Geographic "QGIS is geographic"
-            Expect.equal qgis.longitude LongitudeConvention.Native "QGIS takes the raw longitude"
+            Expect.equal qgis.longitude LongitudeConvention.Shifted "QGIS needs the shifted prime meridian"
 
             // the signed range is the default everywhere now, so every preset
             // arrives at it — including one that starts from it switched off
