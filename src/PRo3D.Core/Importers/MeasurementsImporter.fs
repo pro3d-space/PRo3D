@@ -152,6 +152,9 @@ module MeasurementsImporter =
             points           = points
             segments         = segments
             color            = { c = color }
+            showFill         = false
+            fillColor        = { c = color }
+            fillAlpha        = Annotation.initialFillAlpha
             thickness        = style.thickness
             results          = None
             dnsResults       = None
