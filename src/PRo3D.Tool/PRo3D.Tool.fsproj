@@ -29,8 +29,10 @@
     <None Include="README.md" Pack="true" PackagePath="" />
     <None Include="paket.references" />
     <Compile Include="Cli.fs" />
+    <Compile Include="Spice.fs" />
     <Compile Include="KdTree.fs" />
     <Compile Include="SunAngles.fs" />
+    <Compile Include="Unproject.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

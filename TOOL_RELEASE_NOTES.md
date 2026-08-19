@@ -1,3 +1,8 @@
+## 0.2.0
+- `unproject` — converts a table of `image, x, y` rows into body-fixed surface coordinates by unprojecting each pixel through its instrument camera and intersecting the shape model. Output keeps one row per input row, in input order, with the input's own columns carried through, plus x/y/z, lat/lon/alt, range, and one column per per-vertex attribute layer the OPC carries. Needs SPICE kernels and pre-built kd-trees; no GPU
+- `unproject` — the observing spacecraft is derived per image from its instrument, so one input file may mix AFC (Hera) and ASPECT (Milani) images; `--observer` overrides it
+- `unproject` — `--pixel-convention image|fits` declares how the input addresses pixels (0-based top-left, or 1-based bottom-left). It cannot be inferred from the imagery, so it is declared and echoed in the log
+
 ## 0.1.0
 First release of `pro3d-tool`, which supersedes `opc-tool`.
 

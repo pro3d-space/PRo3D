@@ -32,7 +32,13 @@ Patches/0_0_2/
 ```
 
 `patch.xml` lists them in its `<Attributes>` element; the layer name is the file's base
-name. Only layers whose resolution matches the geometry can be exported this way, so an
+name.
+
+Layers hold whatever units the exporter wrote. `LonLatRad` is **not** in degrees: on the HERA
+exports its first two channels are gradians -- longitude x 10/9 (0..400) and (latitude + 90)
+x 10/9 (0..200, from the south pole) -- while the third channel, the radius, is in metres.
+Established by comparing the layer against lat/lon/alt computed from the same intersection
+points via `CooTransformation`; they agree to 1e-4 degrees once converted. Only layers whose resolution matches the geometry can be exported this way, so an
 OPC may well ship a subset — or none at all.
 
 ### The attribute grid is smaller than the position grid
