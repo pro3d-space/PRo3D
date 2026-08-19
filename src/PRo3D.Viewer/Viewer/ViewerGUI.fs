@@ -987,6 +987,20 @@ module Gui =
                             let roseHeader =
                                 h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
                                    [ text "Dip direction rose" ]
+                            // Activation button: the rose (and its type toggles) only exist while
+                            // the feature is switched on, so nothing is binned when it is off.
+                            let roseActivation =
+                                Incremental.div (AttributeMap.ofList [style "padding: 5px 0px"]) (
+                                    alist {
+                                        let! enabled = model.roseEnabled
+                                        yield button [
+                                            clazz (if enabled then "ui tiny blue button" else "ui tiny button")
+                                            onClick (fun _ -> ViewerAction.SetRoseEnabled (not enabled))
+                                        ] [
+                                            i [clazz (if enabled then "toggle on icon" else "toggle off icon")] []
+                                            text (if enabled then "Rose diagram on" else "Rose diagram off")
+                                        ]
+                                    })
                             let toggles =
                                 require GuiEx.semui (
                                     Html.table [
@@ -1014,15 +1028,18 @@ module Gui =
                             let rose =
                                 Incremental.div AttributeMap.empty (
                                     alist {
-                                        let! angs = angles
-                                        if List.isEmpty angs then
-                                            yield div [style "font-style:italic; padding:5px"]
-                                                      [ text "No dip directions in selection (enable a type, or select Polyline / DnS annotations)." ]
-                                        else
-                                            yield RoseDiagram.view angs
+                                        let! enabled = model.roseEnabled
+                                        if enabled then
+                                            yield toggles
+                                            let! angs = angles
+                                            if List.isEmpty angs then
+                                                yield div [style "font-style:italic; padding:5px"]
+                                                          [ text "No dip directions in selection (enable a type, or select Polyline / DnS annotations)." ]
+                                            else
+                                                yield RoseDiagram.view angs
                                     })
 
-                            return div [] [ header; fields; roseHeader; toggles; rose; clear ]
+                            return div [] [ header; fields; roseHeader; roseActivation; rose; clear ]
                         | _ ->
                             return div [style "font-style:italic; padding:5px"] [ text "no annotation selected" ]
             }

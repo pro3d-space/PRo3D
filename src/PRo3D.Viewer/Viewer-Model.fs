@@ -91,6 +91,7 @@ type ViewerAction =
 | ReferenceSystemMessage          of ReferenceSystemAction
 | AnnotationMessage               of AnnotationProperties.Action
 | AnnotationBulkMessage           of AnnotationProperties.Action
+| SetRoseEnabled                  of bool
 | SetRoseUsePolyline              of bool
 | SetRoseUseDnS                   of bool
 | BookmarkMessage                 of BookmarkAction
@@ -658,7 +659,10 @@ type Model = {
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
 
-    // Bulk edit: which annotation geometry types feed the dip-direction rose diagram
+    // Bulk edit: dip-direction rose diagram. `roseEnabled` is the feature toggle that
+    // activates the whole rose section; the other two pick which annotation geometry
+    // types feed it.
+    roseEnabled          : bool
     roseUsePolyline      : bool
     roseUseDnS           : bool
     /// Per-computer user preferences (e.g. MapView WASD invert flags).
