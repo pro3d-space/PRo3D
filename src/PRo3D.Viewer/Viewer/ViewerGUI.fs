@@ -866,6 +866,16 @@ module Gui =
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
 
+        /// As interactionText, but also reflects whether a control point is currently in hand.
+        /// Click-to-grab has no drag affordance to feel out, so the hint line is most of what makes
+        /// the gesture discoverable.
+        let interactionTextWithState (i : Interactions) (grabbed : bool) =
+            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
+            match i with
+            | Interactions.EditAnnotation when grabbed -> sprintf "%s+click to drop the point, ESC to cancel" ctrl
+            | Interactions.EditAnnotation -> sprintf "%s+click a vertex of the selected annotation to move it" ctrl
+            | _ -> interactionText i
+
         let interactionTooltip (i : Interactions) : string =
             match i with 
             | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
@@ -873,6 +883,7 @@ module Gui =
             | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
             | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
+            | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Clicking an annotation selects it."
             | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
             | Interactions.SelectArea            -> ""
             | Interactions.PlaceScaleBar         -> ""
@@ -894,7 +905,9 @@ module Gui =
                 Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Html.Layout.boxH [
                     div [style "font-style:italic"] [
-                        Incremental.text (model.interaction |> AVal.map interactionText)
+                        Incremental.text (
+                            (model.interaction, model.drawing.vertexGrab |> AVal.map Option.isSome)
+                            ||> AVal.map2 interactionTextWithState)
                     ]]
             ]
 

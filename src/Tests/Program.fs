@@ -37,6 +37,8 @@ let allTests () : Test =
         SpiceTests.tests()
         TriangleSetTests.tests()
         PolygonFillTests.tests()
+        AdaptiveNestingTests.tests()
+        VertexEditingTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
