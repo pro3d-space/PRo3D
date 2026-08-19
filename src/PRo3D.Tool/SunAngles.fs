@@ -25,7 +25,10 @@ open PRo3D.InstrumentVisualization   // VisualizationProperties
 /// bound to the Suave server and the snapshot animation model, none of which a one-shot CLI
 /// needs. The testbed has its own 8-bit equivalent; this one differs in format, because
 /// quantising an angle to a byte is exactly what this verb exists to avoid.
-module private FloatTarget =
+///
+/// Not private: the simulate-image verb renders into the same kind of target (float32,
+/// because auto-exposure needs the unquantised values before the PNG tonemap).
+module FloatTarget =
 
     type Target =
         {
@@ -107,8 +110,8 @@ let private bands =
 /// An OPC directory holds its patch hierarchies as immediate subdirectories -- but not
 /// every subdirectory is one. Real data folders sit next to saved scenes and annotation
 /// files, and handing one of those to PatchHierarchy.load throws. A hierarchy is
-/// identified by containing a `Patches` directory.
-let private patchHierarchiesOf (opcPath : string) =
+/// identified by containing a `Patches` directory. Shared with the simulate-image verb.
+let patchHierarchiesOf (opcPath : string) =
     Directory.GetDirectories opcPath
     |> Array.filter (fun d -> Directory.Exists(Path.Combine(d, "Patches")))
 
@@ -129,8 +132,9 @@ let private applyAngleShaders (sg : ISg) =
 /// Attributes the OPC surface shaders inherit whether or not this verb uses them. Without
 /// each of these the Ag lookup throws at CompileRender rather than at graph construction,
 /// so the failure surfaces as an opaque "could not get inh attribute X" deep in a scope
-/// path. Kept as one block so the next added attribute has an obvious home.
-let private withOpcScaffolding (sg : ISg) =
+/// path. Kept as one block so the next added attribute has an obvious home. Shared with
+/// the simulate-image verb, whose graphs inherit the same attributes.
+let withOpcScaffolding (sg : ISg) =
     sg
     // The angle shaders do not sample the instrument image -- they need only geometry and
     // the sun direction -- but the surface shaders still expect the sampler to be bound.
@@ -314,7 +318,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
 /// convention and says what it holds. Bare SPICE is accepted for compatibility but is a
 /// poor name -- unnamespaced enough to collide with other SPICE-aware software, and not
 /// obviously a path.
-let private kernelRootVar = "PRO3D_SPICE_KERNELS"
+let kernelRootVar = "PRO3D_SPICE_KERNELS"
 
 /// Where to look for SPICE kernels: `--kernel-root`, else $PRO3D_SPICE_KERNELS.
 ///
@@ -326,8 +330,8 @@ let private kernelRootVar = "PRO3D_SPICE_KERNELS"
 /// The variable conventionally points at a clone of
 /// https://spiftp.esac.esa.int/git/hera.git, whose kernels sit in a `kernels`
 /// subdirectory -- but a setup may point straight at that subdirectory instead. Accept
-/// either rather than making the caller know which.
-let private resolveKernelRoot (explicit : string) : Result<string, string> =
+/// either rather than making the caller know which. Shared with the simulate-image verb.
+let resolveKernelRoot (explicit : string) : Result<string, string> =
     let asKernelRoot (root : string) =
         if Directory.Exists(Path.Combine(root, "mk")) then Some root
         elif Directory.Exists(Path.Combine(root, "kernels", "mk")) then Some (Path.Combine(root, "kernels"))

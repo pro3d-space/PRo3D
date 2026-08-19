@@ -13,6 +13,7 @@ It supersedes the older `opc-tool` (see [Migrating](#migrating-from-opc-tool)).
 |---|---|---|
 | `kdtree` | Validate OPC directories and generate KdTrees | **[Pro3DTool-KdTree.md](./Pro3DTool-KdTree.md)** |
 | `sun-angles` | Per-pixel illumination geometry for instrument images, for photometric work such as image calibration | **[Pro3DTool-SunAngles.md](./Pro3DTool-SunAngles.md)** |
+| `simulate-image` | Simulated instrument image of a body at a SPICE time: Lommel-Seiliger sun lighting, de-shaded texture albedo, procedural micro-structure, cast shadows | **[Pro3DTool-SimulateImage.md](./Pro3DTool-SimulateImage.md)** |
 
 ## Install
 
@@ -31,8 +32,9 @@ dotnet tool install PRo3D.Tool --global
 
 Command line tools for PRo3D data.
 
-  kdtree       validate OPC directories and generate KdTrees
-  sun-angles   render per-pixel illumination geometry for instrument images
+  kdtree          validate OPC directories and generate KdTrees
+  sun-angles      render per-pixel illumination geometry for instrument images
+  simulate-image  render a simulated instrument image of a body at a SPICE time
 
 Run `pro3d-tool <verb> --help` for the options of a verb.
 ```
@@ -42,6 +44,7 @@ Each verb documents itself:
 ```
 pro3d-tool kdtree --help
 pro3d-tool sun-angles --help
+pro3d-tool simulate-image --help
 ```
 
 ## Test data
@@ -61,13 +64,15 @@ variants. They invoke the tool via `dotnet run`, so they work in a checkout befo
 anything is published to NuGet:
 
 ```
-scripts\run-kdtree.cmd      <path-to-clone>
-scripts\run-sun-angles.cmd  <path-to-clone>
+scripts\run-kdtree.cmd          <path-to-clone>
+scripts\run-sun-angles.cmd      <path-to-clone>
+scripts\run-simulate-image.cmd  <path-to-clone>
 ```
 
 ```
-scripts/run-kdtree.sh       <path-to-clone>
-scripts/run-sun-angles.sh   <path-to-clone>
+scripts/run-kdtree.sh           <path-to-clone>
+scripts/run-sun-angles.sh       <path-to-clone>
+scripts/run-simulate-image.sh   <path-to-clone>
 ```
 
 ## SPICE kernels
