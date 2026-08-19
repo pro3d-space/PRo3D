@@ -1,5 +1,5 @@
-//a44a1abb-c034-946a-713d-274f5491b0c8
-//6d8d77f1-5c67-82f3-2b98-88e1d495cc97
+//dfd57189-bcec-65e1-2c6b-6daf083a376b
+//add52abe-a5bd-dcbe-823a-7c6cd00f1850
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -50,6 +50,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     let _geometry_ = FSharp.Data.Adaptive.cval(value.geometry)
     let _semantic_ = FSharp.Data.Adaptive.cval(value.semantic)
     let _thickness_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.thickness)
+    let _fillNewAnnotations_ = FSharp.Data.Adaptive.cval(value.fillNewAnnotations)
+    let _defaultFillAlpha_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.defaultFillAlpha)
     let _samplingAmount_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.samplingAmount)
     let _samplingUnit_ = FSharp.Data.Adaptive.cval(value.samplingUnit)
     let _samplingDistance_ = FSharp.Data.Adaptive.cval(value.samplingDistance)
@@ -78,6 +80,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
             _geometry_.Value <- value.geometry
             _semantic_.Value <- value.semantic
             _thickness_.Update(value.thickness)
+            _fillNewAnnotations_.Value <- value.fillNewAnnotations
+            _defaultFillAlpha_.Update(value.defaultFillAlpha)
             _samplingAmount_.Update(value.samplingAmount)
             _samplingUnit_.Value <- value.samplingUnit
             _samplingDistance_.Value <- value.samplingDistance
@@ -99,6 +103,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     member __.geometry = _geometry_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.Geometry>
     member __.semantic = _semantic_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.Semantic>
     member __.thickness = _thickness_
+    member __.fillNewAnnotations = _fillNewAnnotations_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.defaultFillAlpha = _defaultFillAlpha_
     member __.samplingAmount = _samplingAmount_
     member __.samplingUnit = _samplingUnit_ :> FSharp.Data.Adaptive.aval<SamplingUnit>
     member __.samplingDistance = _samplingDistance_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
@@ -122,6 +128,8 @@ module DrawingModelLenses =
         static member geometry_ = ((fun (self : DrawingModel) -> self.geometry), (fun (value : PRo3D.Base.Annotation.Geometry) (self : DrawingModel) -> { self with geometry = value }))
         static member semantic_ = ((fun (self : DrawingModel) -> self.semantic), (fun (value : PRo3D.Base.Annotation.Semantic) (self : DrawingModel) -> { self with semantic = value }))
         static member thickness_ = ((fun (self : DrawingModel) -> self.thickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with thickness = value }))
+        static member fillNewAnnotations_ = ((fun (self : DrawingModel) -> self.fillNewAnnotations), (fun (value : Microsoft.FSharp.Core.bool) (self : DrawingModel) -> { self with fillNewAnnotations = value }))
+        static member defaultFillAlpha_ = ((fun (self : DrawingModel) -> self.defaultFillAlpha), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with defaultFillAlpha = value }))
         static member samplingAmount_ = ((fun (self : DrawingModel) -> self.samplingAmount), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : DrawingModel) -> { self with samplingAmount = value }))
         static member samplingUnit_ = ((fun (self : DrawingModel) -> self.samplingUnit), (fun (value : SamplingUnit) (self : DrawingModel) -> { self with samplingUnit = value }))
         static member samplingDistance_ = ((fun (self : DrawingModel) -> self.samplingDistance), (fun (value : Microsoft.FSharp.Core.float) (self : DrawingModel) -> { self with samplingDistance = value }))

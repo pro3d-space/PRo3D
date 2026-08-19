@@ -32,6 +32,8 @@ type AnnotationsDelta =
 type DrawingAction =
 | SetSemantic         of Semantic
 | ChangeThickness     of Numeric.Action
+| SetFillNewAnnotations of bool
+| ChangeDefaultFillAlpha of Numeric.Action
 | ChangeSamplingAmount of Numeric.Action
 | SetSamplingUnit     of SamplingUnit
 | SetGeometry         of Geometry
@@ -96,6 +98,12 @@ type DrawingModel = {
     semantic   : Semantic
     thickness  : NumericInput
 
+    /// defaults applied to the next annotation drawn. Fill colour is deliberately absent - it
+    /// comes from the active group's default colour via Annotation.make, the same single source
+    /// the outline colour uses (see the note in Drawing.UI.fs).
+    fillNewAnnotations : bool
+    defaultFillAlpha   : NumericInput
+
     samplingAmount   : NumericInput
     samplingUnit     : SamplingUnit
     samplingDistance : float
@@ -147,6 +155,9 @@ module DrawingModel =
         pick          = false
         multi         = false
         thickness     = Annotation.Initial.thickness
+
+        fillNewAnnotations = false
+        defaultFillAlpha   = Annotation.initialFillAlpha
 
         working     = None
         projection  = Projection.Linear

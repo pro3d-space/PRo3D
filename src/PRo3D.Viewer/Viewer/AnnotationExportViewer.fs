@@ -118,18 +118,14 @@ module AnnotationExportViewer =
             PRo3D.Picking.cache <- cache
 
             match result with
-            | Some (_, attributes) when attributes.Count > 0 ->
+            | Some hit when not hit.attributes.IsEmpty ->
                 sampled <- sampled + 1
-                let pairs = Array.zeroCreate attributes.Count
-                let mutable i = 0
-                for layer in attributes do
-                    pairs.[i] <- AnnotationExport.surfaceColumnName layer.Key,
-                                 ExportValue.ofChannels layer.Value
-                    i <- i + 1
+                hit.attributes
+                |> List.map (fun a ->
+                    AnnotationExport.surfaceColumnName a.name, ExportValue.ofChannels a.values)
                 // by column name, so the order does not depend on which patch
                 // happened to be hit first
-                Array.sortInPlaceBy fst pairs
-                pairs |> List.ofArray
+                |> List.sortBy fst
             | _ -> []
 
         sample, fun () -> sampled

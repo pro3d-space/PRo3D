@@ -93,8 +93,11 @@ module GuiEx =
 
       Incremental.i attributes AList.empty
 
+    // "square icon" is a *solid* square in Fomantic, so an unchecked box rendered as a filled
+    // block while the checked one is an outline - reading more like "on" than "off". Both states
+    // use the outline variant.
     let iconCheckBox (predicate : aval<bool>) action =
-      iconToggle predicate "check square outline icon" "square icon" action
+      iconToggle predicate "check square outline icon" "square outline icon" action
 
     // Like iconCheckBox, but the click emits an *absolute* target value (the negation of the
     // currently displayed state) rather than a fixed toggle action. Use this for bulk editing,
@@ -102,7 +105,7 @@ module GuiEx =
     // independently (mixed states just invert), whereas `setAction (not isOn)` drives every
     // item to the one uniform value the user just selected.
     let iconCheckBoxSet (predicate : aval<bool>) (setAction : bool -> 'msg) =
-      let toggleIcon = predicate |> AVal.map(fun isOn -> if isOn then "check square outline icon" else "square icon")
+      let toggleIcon = predicate |> AVal.map(fun isOn -> if isOn then "check square outline icon" else "square outline icon")
 
       let attributes =
         amap {

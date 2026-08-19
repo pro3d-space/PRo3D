@@ -1,3 +1,21 @@
+## 6.0.0
+First stable release of the 6.0 line. The individual changes since 5.x are listed in the `6.0.0-prerelease*` and `6.0.0-rc*` entries below.
+
+- Sequenced bookmarks: **playback keeps the camera pointing where the bookmarks point** — moving between two bookmarks that look the same way lost the view direction and swung the camera up into the sky for the whole segment. Stepping to a bookmark, and batch-rendered snapshots, were unaffected
+
+## 6.0.0-rc2
+- Snapshots: **batch-rendered images are no longer black** — sequenced-bookmark animations, panorama collections and command-line snapshot rendering all wrote empty frames, because the offscreen framebuffer the images were rendered into did not match the one the scene was prepared for
+
+## 6.0.0-rc1
+- Screenshots: **screenshots are written again** — this completes the fix started in prerelease9, which got the rendering statistics parsing right but left the image download failing. Taking a screenshot blocked the update thread while the render service was waiting for that very thread to release the scene, so the request timed out after 100 seconds and PRo3D froze meanwhile
+
+## 6.0.0-prerelease9
+- Surfaces: fixed **holes across OPC surfaces on Apple Silicon Macs** — cross-section clipping ran on every scene even with no cross-section defined, discarding fragments based on a per-vertex attribute that was never filled; Windows and Linux were unaffected
+- Reference system: the **coordinate cross no longer vanishes** on click or scroll — refreshing up/north at the camera position also moved the cross's origin onto the camera
+- Screenshots: fixed **screenshots failing** with a deserialization error on the `/rendering/stats.json` body
+- Annotations: **lat/lon/alt columns** in the CSV export, and the annotation list shows the annotation text instead of its geometry type
+- Groups: fixed group activation
+
 ## 6.0.0-prerelease8
 - Groups: the **active group is visible again** in the surface, annotation, bookmark and GIS trees — the filled/outline circle indicator broke with the Aardvark.Media 5.7 icon set, and the active group name is now highlighted; folder icons are no longer black on the dark panels
 - Surfaces: the **DistanceFilter** now explains itself — it only takes effect once a home position is set, so the (previously unlabeled) *Home Position* button moved next to the filter, shows `set`/`not set`, and both rows have tooltips

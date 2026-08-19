@@ -1,5 +1,5 @@
-//cb5b4693-9d01-c067-9b83-1a2bd3b4717c
-//08e3fe32-f5b6-7682-5e12-13b5b8563f29
+//24a304f3-90f0-2a16-322f-33c6edec1cc7
+//e5a732df-f957-b489-52d8-5cf9775fbbd1
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -223,6 +223,7 @@ type AdaptiveModel(value : Model) =
     let _provenanceModel_ = AdaptiveProvenanceModel(value.provenanceModel)
     let _backgroundPicking_ = FSharp.Data.Adaptive.cval(value.backgroundPicking)
     let _surfaceIntersection_ = FSharp.Data.Adaptive.cval(value.surfaceIntersection)
+    let _cursorAttributes_ = FSharp.Data.Adaptive.cval(value.cursorAttributes)
     let _ellipseModel_ =
         let inline __arg2 (o : System.Object) (v : EllipseModel) =
             (unbox<AdaptiveEllipseModel> o).Update(v)
@@ -282,6 +283,7 @@ type AdaptiveModel(value : Model) =
             _provenanceModel_.Update(value.provenanceModel)
             _backgroundPicking_.Value <- value.backgroundPicking
             _surfaceIntersection_.Value <- value.surfaceIntersection
+            _cursorAttributes_.Value <- value.cursorAttributes
             _ellipseModel_.Update(value.ellipseModel)
             _pickPreviewRequested_.Value <- value.pickPreviewRequested
             _userPreferences_.Value <- value.userPreferences
@@ -328,6 +330,7 @@ type AdaptiveModel(value : Model) =
     member __.provenanceModel = _provenanceModel_
     member __.backgroundPicking = _backgroundPicking_ :> FSharp.Data.Adaptive.aval<FSharp.Data.Adaptive.ThreadPool<ViewerAction>>
     member __.surfaceIntersection = _surfaceIntersection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<SurfaceIntersection>>
+    member __.cursorAttributes = _cursorAttributes_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<CursorAttributes>>
     member __.ellipseModel = _ellipseModel_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<EllipseModel, AdaptiveEllipseModel, AdaptiveEllipseModel>>
     member __.pickPreviewRequested = _pickPreviewRequested_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>>
     member __.userPreferences = _userPreferences_ :> FSharp.Data.Adaptive.aval<PRo3D.UserPreferences>
@@ -376,6 +379,7 @@ module ModelLenses =
         static member provenanceModel_ = ((fun (self : Model) -> self.provenanceModel), (fun (value : ProvenanceModel) (self : Model) -> { self with provenanceModel = value }))
         static member backgroundPicking_ = ((fun (self : Model) -> self.backgroundPicking), (fun (value : FSharp.Data.Adaptive.ThreadPool<ViewerAction>) (self : Model) -> { self with backgroundPicking = value }))
         static member surfaceIntersection_ = ((fun (self : Model) -> self.surfaceIntersection), (fun (value : Microsoft.FSharp.Core.Option<SurfaceIntersection>) (self : Model) -> { self with surfaceIntersection = value }))
+        static member cursorAttributes_ = ((fun (self : Model) -> self.cursorAttributes), (fun (value : Microsoft.FSharp.Core.Option<CursorAttributes>) (self : Model) -> { self with cursorAttributes = value }))
         static member ellipseModel_ = ((fun (self : Model) -> self.ellipseModel), (fun (value : Microsoft.FSharp.Core.Option<EllipseModel>) (self : Model) -> { self with ellipseModel = value }))
         static member pickPreviewRequested_ = ((fun (self : Model) -> self.pickPreviewRequested), (fun (value : Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>) (self : Model) -> { self with pickPreviewRequested = value }))
         static member userPreferences_ = ((fun (self : Model) -> self.userPreferences), (fun (value : PRo3D.UserPreferences) (self : Model) -> { self with userPreferences = value }))

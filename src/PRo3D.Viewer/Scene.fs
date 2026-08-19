@@ -119,8 +119,14 @@ module SceneLoader =
            let loadOpcX (path : string) =
                let layers = SurfaceUtils.SurfaceAttributes.read path
                let textures = layers |> SurfaceProperties.getTextures
-               
-               { s with 
+
+               // *.opc.json sidecar: DEM reference model and, for OPCs derived from a
+               // SPICE DSK, the DSKBRIEF summary of the source *.bds shape model.
+               // Not persisted into the scene - logged so the provenance is visible.
+               OpcMetadata.tryReadForOpcx path
+               |> Option.iter (OpcMetadata.log s.name)
+
+               { s with
                    scalarLayers  = layers |> SurfaceProperties.getScalarsHmap //SurfaceProperties.getScalars
                    textureLayers = textures
                    primaryTexture = textures |> IndexList.tryFirst

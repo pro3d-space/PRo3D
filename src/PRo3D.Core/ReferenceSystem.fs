@@ -78,7 +78,12 @@ module ReferenceSystemApp =
         let east = V3d.OOI.Cross(up).Normalized
         up.Cross(east).Normalized
     
-    let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
+    /// Recomputes up/north/northO for the position p. `placeOrigin` decides whether the
+    /// reference system is also *moved* there: placing the coordinate system does, refreshing
+    /// the orientation while navigating must not — `origin` is where the cross is drawn
+    /// (Sg.view), what the reference system panel reports and what gets persisted into scenes
+    /// and bookmarks. See https://github.com/pro3d-space/PRo3D/issues/662
+    let updateCoordSystemAt (placeOrigin:bool) (p:V3d) (planet:Planet) (model : ReferenceSystem) =
         let up = upVector p planet
         let north  = 
             match planet with 
@@ -92,10 +97,13 @@ module ReferenceSystemApp =
             model with 
                 north  = ReferenceSystem.setV3d north
                 up     = ReferenceSystem.setV3d up
-                northO = no 
+                northO = no
                 planet = planet
-                origin = p
+                origin = if placeOrigin then p else model.origin
         }
+
+    let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) =
+        updateCoordSystemAt true p planet model
 
     let update<'a> 
         (bigConfig  : 'a) 
@@ -111,6 +119,8 @@ module ReferenceSystemApp =
             m, bigConfig
         | UpdateUpNorth p ->
             updateCoordSystem p model.planet model, bigConfig
+        | RefreshUpNorth p ->
+            updateCoordSystemAt false p model.planet model, bigConfig
         | SetUp up ->    
             let up = Vector3d.update model.up up
             let up = ReferenceSystem.setV3d up.value.Normalized
