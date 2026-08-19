@@ -88,10 +88,36 @@ scripts\run-simulate-image.cmd <testdata>
 scripts/run-simulate-image.sh  <testdata>
 ```
 
-## What it produces
+## What it produces — layer by layer
 
-Dimorphos through AFC-1 from 2.5 km (2027-03-15T19:00Z, phase 70°, `--distance 2500`),
-with the de-shaded DRACO texture, 3 m micro-structure and cast shadows:
+All renders: Dimorphos through AFC-1 from 2.5 km (2027-03-15T19:00Z, phase 70°,
+`--distance 2500 --micro-scale 3`). This is also the recommended validation procedure for
+a new dataset or a suspicious-looking image: switch the layers off, then re-enable them
+one at a time.
+
+**1. Bare shape, Lommel-Seiliger shading only**
+(`--no-deshade --micro-amplitude 0 --no-shadows`). The ~2 m waffle pattern is the SPC
+model's native resolution showing through — the mesh is oversampled from a ~2 m GSD DTM —
+not a rendering artefact:
+
+![](./images/simulateImage-1-geometry.png)
+
+**2. + procedural micro-structure** (`--no-deshade --no-shadows`). Regolith-scale grain
+masks the DTM waffle:
+
+![](./images/simulateImage-2-micro.png)
+
+**3. + cast shadows** (`--no-deshade`) — the full renderer minus the texture, i.e. the
+**constant-albedo variant**. Concavities near the terminator darken; use this when the
+de-shading residuals are unwanted, or on OPCs whose texture has no usable brightness
+layer:
+
+![](./images/simulateImage-3-shadows.png)
+
+**4. + de-shaded DRACO texture** (no flags — the default). Adds the real surface's
+albedo-like mid-tone variation. At this epoch the difference to (3) is deliberately
+subtle: measured albedo variation on Dimorphos is small, and the de-shaded values are
+compressed and clamped, so the texture modulates rather than dominates:
 
 ![](./images/simulateImage-dimorphos.png)
 
@@ -100,13 +126,6 @@ epochs where the other side is sunlit the texture contributes little and the sur
 carried by the constant albedo plus micro-structure. Since micro-structure below the pixel
 scale (≈ 0.85 m/px at 9 km for AFC) averages out, raise `--micro-scale` when rendering
 from far away — or move closer with `--distance`.
-
-To validate a configuration (or diagnose an odd-looking image), switch the layers off and
-re-enable them one at a time: `--no-deshade --micro-amplitude 0 --no-shadows` renders the
-bare shape with Lommel-Seiliger shading, then add micro-structure, then shadows, then the
-de-shaded texture. At close range the bare shape shows a ~2 m waffle pattern — that is
-the SPC model's native resolution (the mesh is oversampled from a ~2 m GSD DTM), not a
-rendering artefact, and it is what the micro-structure is there to mask.
 
 ## Caveats
 
