@@ -82,7 +82,9 @@ module UI =
 
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
-            Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
+            // Axis4PEllipse is hidden from the selector for now — the geometry itself and its
+            // update/rendering path stay intact, so existing annotations still load and draw.
+            Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse; Geometry.Axis4PEllipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
             Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
             // annotation color now comes from the active group's default color, so the tool-level color picker was removed
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip

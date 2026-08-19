@@ -1,6 +1,7 @@
 ## 6.0.0
 First stable release of the 6.0 line. The individual changes since 5.x are listed in the `6.0.0-prerelease*` and `6.0.0-rc*` entries below.
 
+- Annotations: the **4-point ellipse is drawn as an ellipse again** — the four clicks were kept as raw points and rendered as an open polyline, because the ellipse fit on the dip/strike plane only handled the 3-point case
 - Sequenced bookmarks: **playback keeps the camera pointing where the bookmarks point** — moving between two bookmarks that look the same way lost the view direction and swung the camera up into the sky for the whole segment. Stepping to a bookmark, and batch-rendered snapshots, were unaffected
 
 ## 6.0.0-rc2
