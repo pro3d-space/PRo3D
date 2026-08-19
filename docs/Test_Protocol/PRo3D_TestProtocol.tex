@@ -166,7 +166,8 @@
 		\ref{tc:14} & Draw Polygon Annotation & \checkbox~Pass / \checkbox~Fail & \\
 		\ref{tc:15} & Draw Dip and Strike Annotation & \checkbox~Pass / \checkbox~Fail & \\
 		\ref{tc:60} & Draw AxisEllipse Annotation & \checkbox~Pass / \checkbox~Fail & \\
-		\ref{tc:61} & Draw Axis4PEllipse Annotation & \checkbox~Pass / \checkbox~Fail & \\
+		% re-enable together with the tc:61 block below
+		%\ref{tc:61} & Draw Axis4PEllipse Annotation & \checkbox~Pass / \checkbox~Fail & \\
 		\ref{tc:16} & Annotation Projection Modes & \checkbox~Pass / \checkbox~Fail & \\
 		\ref{tc:17} & Pick Annotation (via UI list) & \checkbox~Pass / \checkbox~Fail & \\
 		\ref{tc:18} & Pick Annotation (via 3D view) & \checkbox~Pass / \checkbox~Fail & \\
@@ -719,39 +720,44 @@
 
 	\vspace{1em}
 
+	% tc:61 (Draw Axis4PEllipse Annotation) is commented out: the Axis4PEllipse geometry is
+	% currently hidden from the annotation mode selector, so the case is not executable.
+	% Re-enable this block (and its row in the summary table above) when the geometry is
+	% offered again.
+	%
 	%--- tc:61 ---
-	\testcase{61}{Draw Axis4PEllipse Annotation}
-
-	\begin{tabularx}{\textwidth}{lX}
-		\toprule
-		\textbf{Prerequisites} & DrawAnnotation mode is active. \\
-		\midrule
-		\textbf{Steps} &
-		\begin{enumerate}[leftmargin=*, nosep]
-			\item In the annotation mode selector, choose \button{Axis4PEllipse}.
-			\item Hold \key{Ctrl} and click \key{LMB} to set the \textbf{first endpoint} of the major axis.
-			\item Hold \key{Ctrl} and click \key{LMB} to set the \textbf{second endpoint} of the major axis.
-			\item Hold \key{Ctrl} and click \key{LMB} to set a \textbf{third point} defining the semi-minor extent on one side.
-			\item Hold \key{Ctrl} and click \key{LMB} to set a \textbf{fourth point} defining the semi-minor extent on the other side (or on the same side for a half-moon).
-			\item Verify a symmetric ellipse, asymmetric ellipse, and a half-moon by varying where points 3 and 4 are placed relative to the major axis.
-		\end{enumerate} \\
-		\midrule
-		\textbf{Expected Result} &
-		\begin{itemize}[leftmargin=*, nosep]
-			\item \textbf{Opposite sides, equal distance}: a symmetric ellipse is drawn.
-			\item \textbf{Opposite sides, different distances}: an asymmetric ellipse is drawn (the two halves have different widths).
-			\item \textbf{Same side}: a half-moon shape is drawn.
-			\item In all cases the annotation appears in the \tab{Annotations} list and remains visible when the camera is moved.
-			\item The properties panel shows the semi-axis values and rotation angle.
-		\end{itemize} \\
-		\midrule
-		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
-		\midrule
-		\textbf{Notes} & \\[1.5cm]
-		\bottomrule
-	\end{tabularx}
-
-	\vspace{1em}
+	%\testcase{61}{Draw Axis4PEllipse Annotation}
+	%
+	%\begin{tabularx}{\textwidth}{lX}
+	%	\toprule
+	%	\textbf{Prerequisites} & DrawAnnotation mode is active. \\
+	%	\midrule
+	%	\textbf{Steps} &
+	%	\begin{enumerate}[leftmargin=*, nosep]
+	%		\item In the annotation mode selector, choose \button{Axis4PEllipse}.
+	%		\item Hold \key{Ctrl} and click \key{LMB} to set the \textbf{first endpoint} of the major axis.
+	%		\item Hold \key{Ctrl} and click \key{LMB} to set the \textbf{second endpoint} of the major axis.
+	%		\item Hold \key{Ctrl} and click \key{LMB} to set a \textbf{third point} defining the semi-minor extent on one side.
+	%		\item Hold \key{Ctrl} and click \key{LMB} to set a \textbf{fourth point} defining the semi-minor extent on the other side (or on the same side for a half-moon).
+	%		\item Verify a symmetric ellipse, asymmetric ellipse, and a half-moon by varying where points 3 and 4 are placed relative to the major axis.
+	%	\end{enumerate} \\
+	%	\midrule
+	%	\textbf{Expected Result} &
+	%	\begin{itemize}[leftmargin=*, nosep]
+	%		\item \textbf{Opposite sides, equal distance}: a symmetric ellipse is drawn.
+	%		\item \textbf{Opposite sides, different distances}: an asymmetric ellipse is drawn (the two halves have different widths).
+	%		\item \textbf{Same side}: a half-moon shape is drawn.
+	%		\item In all cases the annotation appears in the \tab{Annotations} list and remains visible when the camera is moved.
+	%		\item The properties panel shows the semi-axis values and rotation angle.
+	%	\end{itemize} \\
+	%	\midrule
+	%	\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
+	%	\midrule
+	%	\textbf{Notes} & \\[1.5cm]
+	%	\bottomrule
+	%\end{tabularx}
+	%
+	%\vspace{1em}
 
 	%--- tc:16 ---
 	\testcase{16}{Annotation Projection Modes}
