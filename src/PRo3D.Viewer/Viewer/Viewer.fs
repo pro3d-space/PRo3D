@@ -245,16 +245,24 @@ module ViewerApp =
         | DockNodeConfig.Stack (weight,activeId,children) -> Stack(weight, activeId, List.append [de] children)
         | DockNodeConfig.Element element ->  Stack(0.2, None, List.append [de] [element]) 
 
-    let private updateUpNorthForPosition (pos : V3d) (m : Model) = 
-        let (refSystem',_) = 
+    let private updateReferenceSystemAt (action : V3d -> ReferenceSystemAction) (pos : V3d) (m : Model) =
+        let (refSystem',_) =
             pos
-            |> ReferenceSystemAction.UpdateUpNorth //updates position
-            |> ReferenceSystemApp.update 
-                m.scene.config 
-                LenseConfigs.referenceSystemConfig 
+            |> action
+            |> ReferenceSystemApp.update
+                m.scene.config
+                LenseConfigs.referenceSystemConfig
                 m.scene.referenceSystem
-                                                 
-        { m with scene = { m.scene with referenceSystem = refSystem' }} 
+
+        { m with scene = { m.scene with referenceSystem = refSystem' }}
+
+    /// places the reference system at pos - moves the coordinate cross there
+    let private updateUpNorthForPosition (pos : V3d) (m : Model) =
+        updateReferenceSystemAt ReferenceSystemAction.UpdateUpNorth pos m
+
+    /// keeps up/north current for pos while leaving the coordinate cross where the user put it
+    let private refreshUpNorthForPosition (pos : V3d) (m : Model) =
+        updateReferenceSystemAt ReferenceSystemAction.RefreshUpNorth pos m
 
     let private createMultiSelectBox (startPoint: V2i) (viewPortSize: V2i) (currentPoint: V2i) =
         let clippingBox = Box2i.FromSize viewPortSize
@@ -504,7 +512,9 @@ module ViewerApp =
             |> logScreenOption 10000 feedback 
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
-            |> updateUpNorthForPosition nav.camera.view.Location
+            // orientation only - navigating must not drag the reference system origin along,
+            // see https://github.com/pro3d-space/PRo3D/issues/662
+            |> refreshUpNorthForPosition nav.camera.view.Location
         | NavigationMessage msg, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_ -> // belongs to deprecated animation

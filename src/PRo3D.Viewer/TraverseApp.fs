@@ -568,16 +568,12 @@ module TraverseApp =
                     let hfov = horizontalFovInDegrees.GetValue(token)
                     sols 
                     |> Seq.toArray
-                    |> Array.map (fun sol -> 
-                        let scaleTrafo = 
-                            let screenSpaceScaling = true
-                            if screenSpaceScaling then
-                                let distance = Vec.distance sol.location[0] view.Location
-                                let scaling = size * 2.0 * distance * Math.Tan(Conversion.RadiansFromDegrees hfov)
-                                Trafo3d.Scale(scaling)
-                            else
-                                Trafo3d.Scale(size) 
-                                
+                    |> Array.map (fun sol ->
+                        // same screen-constant size convention as the stable path (PRo3D.Base.Sg.text)
+                        let scaleTrafo =
+                            let distance = Vec.distance sol.location[0] view.Location
+                            Trafo3d.Scale(PRo3D.Base.Sg.invariantScale hfov distance size)
+
                         let loc = sol.location[0] + sol.location[0].Normalized * 1.5
                         let trafo = scaleTrafo * (Trafo3d.Translation loc)
 
@@ -597,7 +593,7 @@ module TraverseApp =
                 //|> Sg.viewTrafo' Trafo3d.Identity
             sg 
 
-        let drawSolText view near (model : AdaptiveTraverse) =
+        let drawSolText view (horizontalFovInDegrees : aval<float>) near (model : AdaptiveTraverse) =
             alist {
                 let! sols = model.sols
                 let! showText = model.showText
@@ -607,7 +603,7 @@ module TraverseApp =
                         let loc = ~~(sol.location[0] + sol.location[0].Normalized * 1.5)
                         let trafo = loc |> AVal.map Trafo3d.Translation
                         
-                        yield Sg.text view near (AVal.constant 60.0) loc trafo model.tTextSize.value  (~~sol.solNumber.ToString()) (AVal.constant C4b.White)
+                        yield Sg.text view near horizontalFovInDegrees loc trafo model.tTextSize.value  (~~sol.solNumber.ToString()) (AVal.constant C4b.White)
             } 
             |> ASet.ofAList 
             |> Sg.set
@@ -624,7 +620,7 @@ module TraverseApp =
                         drawSolTextsFast view horiztonalFieldOfViewInDegrees near traverse
                     else
                         // per-label stable-trafo text: slower, numerically stable
-                        drawSolText view near traverse)
+                        drawSolText view horiztonalFieldOfViewInDegrees near traverse)
                 |> Sg.dynamic
                 |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
 

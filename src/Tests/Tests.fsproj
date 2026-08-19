@@ -40,6 +40,23 @@
     <Compile Include="TriangleSetTests.fs" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
     <Compile Include="BaseTests.fs" />
+    <Compile Include="Features\TestHelpers.fs" />
+    <Compile Include="Features\Section01_StartingPRo3D.fs" />
+    <Compile Include="Features\Section02_ViewerActionsNavigation.fs" />
+    <Compile Include="Features\Section03_DrawingAnnotations.fs" />
+    <Compile Include="Features\Section04_SurfaceProperties.fs" />
+    <Compile Include="Features\Section05_AnnotationProperties.fs" />
+    <Compile Include="Features\Section06_Scalebars.fs" />
+    <Compile Include="Features\Section07_Bookmarks.fs" />
+    <Compile Include="Features\Section08_SequencedBookmarks.fs" />
+    <Compile Include="Features\Section09_ViewerConfiguration.fs" />
+    <Compile Include="Features\Section10_Grouping.fs" />
+    <Compile Include="Features\Section12_GisView.fs" />
+    <Compile Include="Features\Section13_ContourMultitexturing.fs" />
+    <Compile Include="Features\Section14_SurfaceComparison.fs" />
+    <Compile Include="Features\Section16_CommandLine.fs" />
+    <Compile Include="Features\Section18_KeyboardShortcuts.fs" />
+    <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>
@@ -47,6 +64,8 @@
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
+    <!-- Scene, SceneLoader and ViewerIO live in the viewer: needed by the TC-1 scene lifecycle tests -->
+    <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Thoth.Json.Net" Version="12.0.0" />

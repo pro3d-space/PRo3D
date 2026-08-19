@@ -26,6 +26,36 @@
   Rippling scope: ~16 caller files currently read `.altitude` directly.
   Defer until we are ready to absorb that breaking change.
 
+## Residue from the untested hera3d merge (commit b8b87a8d, 2026-01-07)
+
+That commit ("First try to merge hera3d into develop - conflicts basically
+resolved but untested", 194 files, single parent a7fc38bc) hand-reconciled
+hera3d onto develop and was never run. The load-breaking regression it
+introduced — `SnapshotAnimation.FromJson` flipped `Json.tryRead "CameraAnimation"`
+→ `Json.read`, breaking bookmark/panorama snapshot loading — is fixed separately.
+The JSON round-trip audit was otherwise clean; these are the remaining still-live
+slips to clean up (none break file loading):
+
+- **Remove the hardcoded HERA debug SPICE call in the viewer entry point.**
+  `src/PRo3D.Viewer/Program.fs:164` runs
+  `getRelState "HERA" "SUN" "MARS" (DateTime.Parse "2025-03-12T11:26:13.011Z") "HERA_AFC-1"`
+  on every launch and discards the result. Debug residue; it sits inside `main`'s
+  `try`, so at best it's noise, at worst it logs/throws on non-HERA setups. Delete it.
+- **Dead `camera` binding in `CooTransformation.transformBody`.**
+  `src/PRo3D.Base/GisModels.fs:440` computes `let camera = CameraView.ofTrafo t.Inverse`
+  and immediately shadows it on line 441 with `CameraView.lookAt rel.pos V3d.Zero V3d.OOI`
+  (so the first `camera` and `t.Inverse` are dead). Classic "kept both sides"
+  merge smell — decide which is intended and drop the other.
+- **Confirm (not clearly a bug): snapshot near/far recalculation was rerouted.**
+  `src/PRo3D.Snapshots/Viewer/SnapshotGenerator.fs` — the old
+  `NearFarRecalculation.Both/FarPlane/NoRecalculation` mode logic was commented out
+  and replaced by the per-snapshot `nearFarPlane` path. Likely intended with the new
+  `nearFarPlane` feature, but it silently drops the previous far-plane-only behavior;
+  confirm no batch flow relied on it.
+- (Already fixed since, no action) The duplicate `defaultDashboard` binding that
+  forced `DashboardModes.gis` was corrected to `DashboardModes.m2020`
+  (`InitialViewerModel.fs:73`).
+
 ## Small-body bearing / pitch overlay
 
 The text overlay (`ViewerGUI.fs:132+`) currently shows `n/a` for bearing

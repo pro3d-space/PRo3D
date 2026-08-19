@@ -839,10 +839,22 @@ module ViewerUtils =
 
         type UniformScope with
             member x.CrossSectionClippingEnabled : bool = x?CrossSectionClippingEnabled
+            member x.CrossSectionDefined : bool = x?CrossSectionDefined
 
+        /// Discards surface fragments outside the cross-section polygon, using the signed
+        /// distance Surface.Sg writes into the per-vertex InsideOutsideV4 attribute.
+        ///
+        /// CrossSectionDefined is not redundant with CrossSectionClippingEnabled: clipping
+        /// is enabled by default and only means "clip if there is something to clip
+        /// against". Without the guard this ran on every scene from the first frame, and
+        /// with no cross-section defined InsideOutsideV4 holds no meaningful data --
+        /// Surface.Sg binds it as a constant attribute (SingleValueBuffer) whose value does
+        /// not arrive on Apple Silicon, so roughly half the surface read negative and was
+        /// discarded, producing a lattice of holes across the terrain.
         let crossSectionClip (v : CrossSectionVertex) =
             fragment {
-                if uniform.CrossSectionClippingEnabled && v.insideOutside.X < 0.0f then
+                if uniform.CrossSectionClippingEnabled && uniform.CrossSectionDefined
+                   && v.insideOutside.X < 0.0f then
                     discard()
                 return v
             }
@@ -1234,6 +1246,8 @@ module ViewerUtils =
                 |> ASet.map snd
                 |> Sg.set
                 |> Sg.uniform "CrossSectionClippingEnabled" m.scene.crossSectionModel.clippingEnabled
+                // Whether there is a cross-section at all. See crossSectionClip.
+                |> Sg.uniform "CrossSectionDefined" (crossSectionData |> AVal.map Option.isSome)
                 |> Sg.applyCrossSection crossSectionData
                 |> Sg.noEvents
 

@@ -17,27 +17,45 @@ open FSharp.Data.Adaptive
 
 module UI =
 
-    let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+    /// Enum dropdown with two independent filters:
+    ///  - `exclude`  : values omitted from the list entirely
+    ///  - `disabled` : values shown but greyed out and unselectable, with
+    ///                 `disabledNote` appended to the label + tooltip explaining why
+    /// (An <option> may only contain text, so browsers ignore strike-through/styling
+    /// inside it; the reliable "not selectable" signal is the `disabled` attribute.)
+    let dropDownDisabled<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (disabled : HashSet<'a>) (disabledNote : string) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
         let names  = Enum.GetNames(typeof<'a>)
-        let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
+        let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]>
         let nv     = Array.zip names values
 
         let attributes (name : string) (value : 'a) =
-            AttributeMap.ofListCond [
-                always (attribute "value" name)
-                onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
-            ]
-       
+            AttributeMap.ofListCond (
+                [
+                    always (attribute "value" name)
+                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
+                ]
+                @ (if HashSet.contains value disabled then [ always (attribute "disabled" "disabled") ] else [])
+            )
+
         select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
             for (name, value) in nv do
                 if exclude |> HashSet.contains value |> not then
+                    let isDisabled = HashSet.contains value disabled
                     let att = attributes name value
-                    let tooltip = getTooltip value
-                    if tooltip != "" then
-                        yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
-                    else 
-                        yield Incremental.option att (AList.ofList [text name])
+                    let label = if isDisabled && disabledNote <> "" then sprintf "%s  (%s)" name disabledNote else name
+                    let tooltip =
+                        let t = getTooltip value
+                        if isDisabled && disabledNote <> "" then
+                            if t <> "" then sprintf "%s — %s" t disabledNote else disabledNote
+                        else t
+                    if tooltip <> "" then
+                        yield Incremental.option att (AList.ofList [text label]) |> UI.wrapToolTip DataPosition.Bottom tooltip
+                    else
+                        yield Incremental.option att (AList.ofList [text label])
         ]
+
+    let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+        dropDownDisabled exclude HashSet.empty "" selected change getTooltip
 
     let viewAnnotationToolsHorizontal (paletteFile : string) (model:AdaptiveDrawingModel) =
         let geometryTooltip (i : Geometry) : string =
@@ -164,11 +182,16 @@ module UI =
                     let! geometry = a.geometry
                     let! semantic = a.semanticId
                     let! semanticType = a.semanticType
+                    let! text = a.text
 
                     return 
                         match semanticType with
-                        | SemanticType.Undefined -> 
-                            geometry  |> sprintf "%A"
+                        | SemanticType.Undefined ->
+                            match text with
+                            | "" ->  
+                                geometry  |> sprintf "%A"
+                            | _ -> 
+                                sprintf "%s (%A)" text geometry
                         | _ -> 
                             let (SemanticId s) = semantic
                             s
@@ -212,9 +235,9 @@ module UI =
                                                   
         let setActiveAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                        
-        let color = sprintf "color: %s" (Html.color C4b.White)
+        let colorAttributes = GroupsApp.activeGroupColorAttributes model group ""
         let desc =
-            div [style color] [       
+            Incremental.div colorAttributes <| AList.ofList [
                 Incremental.text group.name
                 Incremental.i setActiveAttributes AList.empty 
                 |> UI.wrapToolTip DataPosition.Bottom "Set active"
@@ -239,11 +262,14 @@ module UI =
             amap {
                 yield onMouseClick (fun _ -> DrawingAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                 let! expanded = group.expanded
-                if expanded then 
+                if expanded then
                     yield clazz "icon outline open folder"
-                else 
+                else
                     yield clazz "icon outline folder"
-                    yield style "overflow-y : visible"
+                // the icon is a sibling of the (white) description div and would
+                // otherwise inherit semantic ui's default (black) on our dark background
+                let! color = GroupsApp.activeGroupColor model group
+                yield style ("overflow-y : visible; " + color)
             } |> AttributeMap.ofAMap
           
         let childrenAttribs =

@@ -581,6 +581,23 @@ module Traverse =
     let withColor(color: C4b) (t: Traverse) =
         { t with color = { c = color } }
 
+    /// Sol labels used to be scaled with `size * 2 * dist * tan(hfov)` in the batched ("fast")
+    /// text path instead of the common `size * dist * tan(hfov/2)` convention
+    /// (PRo3D.Base.Sg.invariantScale) - a factor of 6 at the 60 deg reference field of view the
+    /// stable path assumed. Values tuned against the old formula are converted on load so labels
+    /// keep the size the user picked.
+    let private legacyFastTextSizeFactor = 6.0
+
+    /// Scenes written with the current convention carry a "tTextSizeConvention" marker. It is an
+    /// *additional* field read with tryRead - no scene file version bump, older PRo3D versions
+    /// simply ignore it (they do render migrated labels 6x too large, though).
+    let private migrateTextSize (convention: Option<int>) (fastText: bool) (textSize: NumericInput) =
+        match convention with
+        | Some _ -> textSize                 // already written with the current convention
+        | None when not fastText -> textSize // the stable path formula did not change
+        | None ->
+            { textSize with value = min textSize.max (textSize.value * legacyFastTextSizeFactor) }
+
     let readV0 =
         json {
             let! sols = Json.read "sols"
@@ -613,6 +630,7 @@ module Traverse =
             let! showLines = Json.read "showLines"
             let! showText = Json.read "showText"
             let! tTextSize = Json.readWith Ext.fromJson<NumericInput, Ext> "tTextSize"
+            let! textSizeConvention = Json.tryRead "tTextSizeConvention"
             let! tLWidth = Json.tryRead "tLineWidth"
             let! showDots = Json.read "showDots"
             let! isVisibleT = Json.read "isVisibleT"
@@ -620,15 +638,15 @@ module Traverse =
             let! heightOffset = Json.tryRead "heightOffset"
             let! priorityEnabled = Json.tryRead "priorityEnabled"
 
-            let tLineWidth = 
+            let tLineWidth =
                 match tLWidth with
                 | Some w -> InitTraverseParams.tLineW w
                 | None -> InitTraverseParams.tLineW 1.5
 
-            let! priority = Json.tryRead "priority" 
+            let! priority = Json.tryRead "priority"
 
             return
-                { ( empty () ) with 
+                { ( empty () ) with
                     version = current
                     guid = guid |> Guid
                     tName = tName
@@ -636,7 +654,8 @@ module Traverse =
                     selectedSol = None
                     showLines = showLines
                     showText = showText
-                    tTextSize = tTextSize
+                    // this version predates the fastText flag, so these labels were drawn by the fast path
+                    tTextSize = migrateTextSize textSizeConvention true tTextSize
                     tLineWidth = tLineWidth
                     showDots = showDots
                     isVisibleT = isVisibleT
@@ -655,6 +674,7 @@ module Traverse =
             let! showLines = Json.read "showLines"
             let! showText = Json.read "showText"
             let! tTextSize = Json.readWith Ext.fromJson<NumericInput, Ext> "tTextSize"
+            let! textSizeConvention = Json.tryRead "tTextSizeConvention"
             let! tLWidth = Json.tryRead "tLineWidth"
             let! showDots = Json.read "showDots"
             let! isVisibleT = Json.read "isVisibleT"
@@ -704,7 +724,7 @@ module Traverse =
                     showLines = showLines
                     showText = showText
                     fastText = fastText |> Option.defaultValue true
-                    tTextSize = tTextSize
+                    tTextSize = migrateTextSize textSizeConvention (fastText |> Option.defaultValue true) tTextSize
                     tLineWidth = tLineWidth
                     showDots = showDots
                     isVisibleT = isVisibleT
@@ -743,6 +763,9 @@ type Traverse with
             do! Json.write "showText" x.showText
             do! Json.write "fastText" x.fastText
             do! Json.writeWith (Ext.toJson<NumericInput, Ext>) "tTextSize" x.tTextSize
+            // marks tTextSize as written with the invariantScale convention (see Traverse.migrateTextSize).
+            // additional field, read with tryRead - deliberately no scene file version bump
+            do! Json.write "tTextSizeConvention" 1
             do! Json.write "showDots" x.showDots
             do! Json.write "isVisibleT" x.isVisibleT
             do! Json.writeWith (Ext.toJson<ColorInput, Ext>) "color" x.color

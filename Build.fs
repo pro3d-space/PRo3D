@@ -411,6 +411,20 @@ Target.create "CopyToElectron" (fun _ ->
                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
             }
         )
+        // snapshots CLI (PRo3D.Snapshots.exe) — same as in the standalone "Publish" target,
+        // published into the same folder so electron-builder ships it via extraFiles.
+        "src/PRo3D.Snapshots/PRo3D.Snapshots.fsproj" |> DotNet.publish (fun o ->
+            { o with
+                Framework = Some framework
+                Runtime = Some "win-x64"
+                Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+                Configuration = DotNet.BuildConfiguration.Release
+                VersionSuffix = Some notes.NugetVersion
+                OutputPath = Some dotnetOutputPath
+                MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+            }
+        )
+
         extractNativeDependenciesInFolder OSPlatform.Windows Architecture.X64 dotnetOutputPath
 
         File.Copy("data/runtime/vcruntime140.dll", Path.Combine(dotnetOutputPath, "vcruntime140.dll"))
@@ -665,13 +679,6 @@ Target.create "GitHubRelease" (fun _ ->
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
-            //let files = System.IO.Directory.EnumerateFiles("bin/publish")
-            //let release = sprintf "bin/PRo3D.Viewer-%s-win-x64-standalone.zip" notes.NugetVersion
-            //let z =
-            //    if File.Exists release then
-            //        File.Delete(release)
-            //    System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
-
             // record where the draft came from: append the commit + tag so the
             // release always states its source (the tag itself anchors the
             // published release to this commit once pushed below).
@@ -681,26 +688,49 @@ Target.create "GitHubRelease" (fun _ ->
                 | _ -> try Information.getCurrentSHA1 "." with _ -> "unknown"
             let body = Seq.append notes.Notes [ ""; sprintf "_release %s — built from commit %s_" tagName commit ]
 
-            // use the v-prefixed tag as the release tag_name so it matches both
-            // the pushed git tag and electron-builder's default (v{version});
-            // this is what makes the standalone zip and the electron artifacts
-            // share one draft instead of two.
+            // Create the canonical draft with the v-prefixed tag_name so
+            // electron-builder (default vPrefixedTagName = v{version}) attaches
+            // its installers to THIS draft. The non-electron standalone zip is
+            // added afterwards by the UploadStandalone target (a deploy job that
+            // runs after the electron jobs): uploading an asset here makes
+            // electron-builder fork a SECOND draft, so it must not happen at
+            // draft-creation time. Keep this draft empty.
             let release =
                 GitHub.createClientWithToken token
                 |> GitHub.draftNewRelease "pro3d-space" "PRo3D" tagName (notes.SemVer.PreRelease <> None) body
-                //|> GitHub.uploadFiles (Seq.singleton release)
                 //|> GitHub.publishDraft
                 |> Async.RunSynchronously
 
             try Branches.pushTag "." "origin" tagName with e -> Trace.logf "could not create tag: %A" e
 
-        with e -> 
+        with e ->
             Trace.logf "failed to create github release: %A" e
             Branches.deleteTag "." tagName
     finally
         ()
-        
+
 )
+
+// Non-electron standalone build: zip the self-contained win-x64 publish and
+// attach it to the EXISTING draft (the one electron-builder created/attached to,
+// keyed by tag v{version}). This runs in its own deploy job AFTER the electron
+// jobs, so the single draft already exists; `gh release upload --clobber` is
+// idempotent and unambiguous because there is exactly one draft for the tag.
+Target.create "UploadStandalone" (fun _ ->
+    let version = notes.NugetVersion
+    let tagName = "v" + version
+    let zip = sprintf "bin/PRo3D.Viewer-%s-win-x64-standalone.zip" version
+    if File.Exists zip then File.Delete zip
+    System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", zip)
+
+    Trace.tracefn "uploading %s to release %s" zip tagName
+    let psi = System.Diagnostics.ProcessStartInfo("gh", sprintf "release upload %s \"%s\" --clobber --repo pro3d-space/PRo3D" tagName zip)
+    psi.UseShellExecute <- false
+    use p = System.Diagnostics.Process.Start(psi)
+    p.WaitForExit()
+    if p.ExitCode <> 0 then failwithf "gh release upload failed with exit code %d" p.ExitCode
+)
+"Publish" ==> "UploadStandalone" |> ignore
 
 
 Target.create "Pack" (fun _ ->
