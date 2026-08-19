@@ -18,6 +18,8 @@ module RoseDiagram =
     let private binAngle = 360.0 / float binCount   // 22.5 deg
     let private binHalf  = binAngle / 2.0           // 11.25 deg
     let private radius   = 50.0                      // outer radius in svg units
+    /// below this mean resultant length the sample has no meaningful preferred direction
+    let private minResultant = 0.05
 
     let private deg2rad (d : float) = d * Math.PI / 180.0
 
@@ -63,26 +65,37 @@ module RoseDiagram =
                 "fill" => "none"; "stroke" => "#888"; "stroke-width" => "0.8"
             ]
 
-        // red circular-mean direction line
+        // Red circular-mean direction, drawn as the *mean resultant vector*: its length is
+        // R = |sum of unit vectors| / n in [0,1], so a scattered sample produces a visibly
+        // short line rather than a confident full-radius one. Below minResultant there is no
+        // preferred direction at all - and since atan2 0 0 returns 0, an unguarded mean would
+        // silently point due north and read as a real measurement - so the line is omitted.
+        let sumSin = angles |> List.sumBy (fun a -> sin (deg2rad a))
+        let sumCos = angles |> List.sumBy (fun a -> cos (deg2rad a))
+        let resultant =
+            if total = 0 then 0.0
+            else sqrt (sumSin * sumSin + sumCos * sumCos) / float total
         let meanLine =
-            let sumSin = angles |> List.sumBy (fun a -> sin (deg2rad a))
-            let sumCos = angles |> List.sumBy (fun a -> cos (deg2rad a))
-            let meanDeg = (atan2 sumSin sumCos) * 180.0 / Math.PI
-            let (mx, my) = pointAt radius meanDeg
-            Svg.line [
-                "x1" => "0"; "y1" => "0"; "x2" => sprintf "%f" mx; "y2" => sprintf "%f" my
-                "stroke" => "#d0021b"; "stroke-width" => "1.4"
-            ]
+            if resultant < minResultant then []
+            else
+                let meanDeg = (atan2 sumSin sumCos) * 180.0 / Math.PI
+                let (mx, my) = pointAt (radius * resultant) meanDeg
+                [ Svg.line [
+                    "x1" => "0"; "y1" => "0"; "x2" => sprintf "%f" mx; "y2" => sprintf "%f" my
+                    "stroke" => "#d0021b"; "stroke-width" => "1.4"
+                  ] ]
 
         // north indicator + sample count
         let northLabel =
             Svg.text [ "x" => "0"; "y" => sprintf "%f" (-(radius + 4.0)); "text-anchor" => "middle";
                        "font-size" => "9"; "fill" => "#cccccc" ] "N"
+        // R is reported alongside n so a weak mean is readable as a number, not just as a
+        // short (or absent) line - the wedges alone are scale-invariant and cannot show it.
         let countLabel =
             Svg.text [ "x" => "0"; "y" => sprintf "%f" (radius + 13.0); "text-anchor" => "middle";
-                       "font-size" => "9"; "fill" => "#ffffff" ] (sprintf "n = %d" total)
+                       "font-size" => "9"; "fill" => "#ffffff" ] (sprintf "n = %d, R = %.2f" total resultant)
 
-        let children = wedges @ [ ring; meanLine; northLabel; countLabel ]
+        let children = wedges @ [ ring ] @ meanLine @ [ northLabel; countLabel ]
 
         let svgAttributes =
             [ "width"               => "160px"
