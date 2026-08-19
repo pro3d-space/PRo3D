@@ -1,4 +1,4 @@
-﻿## 6.1.0-prerelease001
+## 6.1.0-prerelease001
 - Annotations: **boolean operations** — union two or more selected annotations into one, or cut the selected annotation along a polyline stroke drawn on the terrain. The stroke colours green or red as a live answer to "would this cut". A union of disjoint operands explodes into one annotation per component, a union that would enclose a hole is refused rather than silently dropping it, and both operations undo in a single step
 - Annotations: **move control points on the surface** — drag an annotation's vertices to new terrain positions in the new edit mode; Escape puts a grabbed point back, and moving a vertex onto a different surface is reported on screen
 
