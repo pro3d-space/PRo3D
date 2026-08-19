@@ -1,4 +1,4 @@
-namespace PRo3D.Core.Drawing
+﻿namespace PRo3D.Core.Drawing
 
 open System
 open Aardvark.Base
@@ -29,6 +29,31 @@ type AnnotationsDelta =
     | LeafRemoved   of leaf: Leaf * groupPath: list<Index>
     | SnapshotDelta of before: GroupsModel * after: GroupsModel
 
+/// A control point that has been picked up in Interactions.EditAnnotation and is following the
+/// preview cursor until it is dropped.
+///
+/// `original` is kept so cancelling costs nothing: the annotation itself is never touched while a
+/// grab is live. The *live* position is deliberately absent - it is read adaptively from
+/// Model.surfaceIntersection, because writing it here on every mouse move would dirty the drawing
+/// model and rebuild the packed line geometry at cursor rate.
+///
+/// `annotation` is a Guid, not a packed object id: PackedRendering.orderedAnnotations can permute
+/// the int id space whenever the annotation set changes.
+type VertexGrab = {
+    annotation : Guid
+    pointIndex : int
+    original   : V3d
+
+    /// False until the preview cursor has produced a fresh surface hit after the grab.
+    ///
+    /// In EditAnnotation both pick systems are live, so the click that grabs a handle *also*
+    /// reaches the surface and would otherwise be taken for a drop - and which of the two messages
+    /// the mailbox happens to process first would decide the outcome. Requiring a mouse move in
+    /// between makes the sequence order-independent, and "drop only after you have moved it" is
+    /// what the gesture means anyway.
+    movedSinceGrab : bool
+}
+
 type DrawingAction =
 | SetSemantic         of Semantic
 | ChangeThickness     of Numeric.Action
@@ -55,7 +80,12 @@ type DrawingAction =
 | LegacySaveVersioned
 | LegacyLoadVersioned
 | SetSegment             of int * Segment
-| Finish                   
+// vertex editing (Interactions.EditAnnotation)
+| GrabVertex             of Guid * int
+| MoveVertex             of Guid * int * V3d * (V3d -> Option<V3d>)
+| ArmVertexGrab
+| CancelVertexEdit
+| Finish
 | Undo                   
 | Redo                   
 | FlyToAnnotation        of Guid
@@ -119,6 +149,9 @@ type DrawingModel = {
     /// draws it; its colour flips green/red with the dry-run "would this stroke cut" answer.
     /// Cleared on apply and escape; never persisted.
     cutStroke  : Option<Annotation>
+    /// Set while a control point is being moved in Interactions.EditAnnotation. Session state:
+    /// DrawingModel lives on Model, not Scene, so this is never serialized.
+    vertexGrab : Option<VertexGrab>
 
     //TODO refactor ... put this into separate model type and save it with the scene or in user/app data
     projection : Projection
@@ -189,6 +222,7 @@ module DrawingModel =
 
         working     = None
         cutStroke   = None
+        vertexGrab  = None
         projection  = Projection.Linear
         geometry    = Geometry.Line
         semantic    = Semantic.Horizon3

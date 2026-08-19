@@ -66,6 +66,9 @@
     <Compile Include="Features\Section18_KeyboardShortcuts.fs" />
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
     <Compile Include="Features\Section20_BooleanOperations.fs" />
+    <!-- after Features\TestHelpers.fs: these drive the real DrawingApp through the Draw harness -->
+    <Compile Include="AdaptiveNestingTests.fs" />
+    <Compile Include="VertexEditingTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>

@@ -1,4 +1,4 @@
-open Expecto
+﻿open Expecto
 open NUnit
 
 
@@ -41,6 +41,8 @@ let allTests () : Test =
         RegionOpsTests.tests()
         RegionFixtureTests.tests()
         AnnotationRegionOpsTests.tests()
+        AdaptiveNestingTests.tests()
+        VertexEditingTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
