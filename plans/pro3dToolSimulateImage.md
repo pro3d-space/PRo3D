@@ -32,7 +32,7 @@ angle backplanes.
 
 | Topic | Decision |
 |---|---|
-| Photometry | Lommel-Seiliger + fixed 5 % Lambert, normalized so i=e=0 → albedo. Phase function omitted (constant per image, absorbed by exposure). Hapke = future flag. |
+| Photometry | Lommel-Seeliger + fixed 5 % Lambert, normalized so i=e=0 → albedo. Phase function omitted (constant per image, absorbed by exposure). Hapke = future flag. |
 | Albedo | De-shade the OPC texture in-shader: fit the baked light direction from per-vertex `Normal.aara` × brightness layer (linear least squares, two passes), divide by the clamped Lambert term, rescale to `--albedo`, clamp to 0.5–2× (Li et al.: real variation is small), fall back to constant albedo where the mosaic is dark/unobserved. |
 | Micro-structure | Tangent-free normal perturbation from the gradient of 4-octave value noise on body-fixed coordinates. Tessellation displacement deferred. |
 | Shadows | 4096² depth map from an orthographic sun camera over the body bbox, 2×2 PCF. Note: `Frustum.ortho` takes the view-space box Z verbatim — near/far must be negated when the camera sits outside the box. |

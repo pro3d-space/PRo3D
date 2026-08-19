@@ -24,7 +24,7 @@ open PRo3D.InstrumentVisualization   // VisualizationProperties
 // The simulate-image verb: time + SPICE kernels + OPC + instrument name in, one simulated
 // asteroid image out. Sun position, spacecraft position and body orientation come from
 // SPICE; the camera looks at the body centre with the instrument's frustum (no CK needed);
-// shading is Lommel-Seiliger over an albedo obtained by dividing the baked illumination
+// shading is Lommel-Seeliger over an albedo obtained by dividing the baked illumination
 // out of the OPC texture; sub-mesh detail is procedural (SimulateShaders); cast shadows
 // come from a sun-side depth pass.
 

@@ -13,7 +13,7 @@ dotnet tool install PRo3D.Tool --global
 |---|---|
 | `kdtree` | Validates OPC directories and generates KdTrees. No GPU or SPICE kernels needed. |
 | `sun-angles` | Writes per-pixel incidence, emission and phase angles for instrument images as float32 TIFFs in radians. Requires SPICE kernels and a GPU. |
-| `simulate-image` | Renders a simulated instrument image of a body at a SPICE time: Lommel-Seiliger sun lighting, de-shaded texture albedo, procedural micro-structure, cast shadows. Requires SPICE kernels and a GPU. |
+| `simulate-image` | Renders a simulated instrument image of a body at a SPICE time: Lommel-Seeliger sun lighting, de-shaded texture albedo, procedural micro-structure, cast shadows. Requires SPICE kernels and a GPU. |
 
 ```
 pro3d-tool kdtree --help
