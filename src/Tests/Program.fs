@@ -57,6 +57,9 @@ let allTests () : Test =
             DidymosProjectionSpiceTest.tests()
             InstrumentProjectionComparisonTest.tests()
 
+        // pixel addressing for `pro3d-tool unproject`; pure, needs no data
+        UnprojectTest.tests()
+
         // Sections whose OPC-backed lists self-skip when the test-data submodule
         // (src/Tests/data/opc) or a GL context is unavailable.
         featureTests ()
