@@ -1,4 +1,4 @@
-﻿open Expecto
+open Expecto
 open NUnit
 
 
@@ -23,6 +23,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section16_CommandLine.tests
         PRo3D.Tests.Section18_KeyboardShortcuts.tests
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
+        PRo3D.Tests.Section20_BooleanOperations.tests
     ]
 
 let allTests () : Test =
@@ -37,6 +38,9 @@ let allTests () : Test =
         SpiceTests.tests()
         TriangleSetTests.tests()
         PolygonFillTests.tests()
+        RegionOpsTests.tests()
+        RegionFixtureTests.tests()
+        AnnotationRegionOpsTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()

@@ -293,7 +293,18 @@ module ViewerApp =
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
-        | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                   
+        | Interactions.CutAnnotation, _ ->
+            // the cut stroke is a plain picked polyline: no segment sampling, so the hit
+            // function is not needed - straight preview lines suffice and the boolean op
+            // works on the control points alone
+            let view =
+                match m.viewerMode with
+                | ViewerMode.Standard -> m.navigation.camera.view
+                | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+
+            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing (DrawingAction.AddCutStrokePoint p)
+            { m with drawing = drawing } |> stash
+        | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                 
             let m = updateUpNorthForPosition p m
             
             //update camera upvector
@@ -423,11 +434,20 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
-    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (inverseFlag : bool) = 
+    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (inverseFlag : bool) =
         match k with
-        | Aardvark.Application.Keys.Enter    -> DrawingAction.Finish
-        | Aardvark.Application.Keys.Back     -> DrawingAction.RemoveLastPoint
-        | Aardvark.Application.Keys.Escape   -> DrawingAction.ClearWorking
+        | Aardvark.Application.Keys.Enter ->
+            match interaction with
+            | Interactions.CutAnnotation -> DrawingAction.ApplyCutStroke None
+            | _ -> DrawingAction.Finish
+        | Aardvark.Application.Keys.Back ->
+            match interaction with
+            | Interactions.CutAnnotation -> DrawingAction.RemoveLastCutPoint
+            | _ -> DrawingAction.RemoveLastPoint
+        | Aardvark.Application.Keys.Escape ->
+            match interaction with
+            | Interactions.CutAnnotation -> DrawingAction.ClearCutStroke
+            | _ -> DrawingAction.ClearWorking
         | Keyboard.Modifier ->
             match interaction with 
             | Interactions.DrawAnnotation -> (if inverseFlag then DrawingAction.StopDrawing else DrawingAction.StartDrawing)
@@ -631,13 +651,49 @@ module ViewerApp =
                     m
                 | None -> m
                 
-            | _ ->
-                let view = 
-                    match m.viewerMode with 
+            | Drawing.UnionSelectedAnnotations None
+            | Drawing.ApplyCutStroke None ->
+                // enrich the payload-less message with the terrain raycast, so vertices the
+                // boolean op invents land on the surface - same sky ray as AddPointAdv
+                // reprojection
+                let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+                let onlyActive (_ : Guid) (l : Leaf) (_ : SgSurface) = l.active
+                let planet = m.scene.referenceSystem.planet
+
+                let projectToSurface (p : V3d) =
+                    let up = CooTransformation.getUpVector p planet
+                    let reprojectionDistance =
+                        match planet with
+                        | Planet.Mars -> 1000000.0
+                        | _ -> 100.0
+                    let ray = FastRay3d(p + (up * reprojectionDistance), -up)
+                    match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray onlyActive Picking.cache Config.diagnosticTimings with
+                    | Some hitInfo, c -> Picking.cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
+                    | None, c -> Picking.cache <- c; None
+
+                let enriched =
+                    match msg with
+                    | Drawing.ApplyCutStroke None -> Drawing.ApplyCutStroke (Some projectToSurface)
+                    | _ -> Drawing.UnionSelectedAnnotations (Some projectToSurface)
+
+                let view =
+                    match m.viewerMode with
                     | ViewerMode.Standard -> m.navigation.camera.view
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
-                let drawing = 
+                let drawing =
+                    DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing enriched
+
+                { m with drawing = drawing; } |> stash
+
+            | _ ->
+                let view =
+                    match m.viewerMode with
+                    | ViewerMode.Standard -> m.navigation.camera.view
+                    | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+
+                let drawing =
                     DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
                 { m with drawing = drawing; } |> stash
