@@ -14,10 +14,14 @@ open FSharp.Data.Adaptive
 
 // SBMT structure files are tab-separated text catalogs of geological
 // annotations exported from the Small Body Mapping Tool. Each file holds
-// one structure type, declared by a `# type,<kind>` header. See
-// plans/sbmtImport.md for format details and frame discussion.
+// one structure type, declared by a `# type,<kind>` header. They are NOT
+// GIS shapefiles. See docs/SbmtImport.md for the column layouts, the
+// ellipse construction and the known limitations;
+// plans/archive/sbmtImport.md for the original frame investigation.
 //
-// v1: points only. Other kinds dispatch to Unsupported.
+// Points, ellipses and circles are imported. Lines, polylines and polygons
+// are recognised but yield an empty import; unknown kinds dispatch to
+// Unsupported.
 module SbmtImporter =
 
     type StructureType =
@@ -84,7 +88,7 @@ module SbmtImporter =
     //          source frame (DARTSOC / DIMORPHOS_SHM for DART data).
     // _frame : reference-frame label entered by the user (plumbed but not
     //          yet stored on the annotation — see Open TODO in
-    //          plans/sbmtImport.md, "Reference-system field storage").
+    //          plans/archive/sbmtImport.md, "Reference-system field storage").
     let parsePointLine
         (trafo : Trafo3d)
         (_frame : string)
@@ -168,7 +172,7 @@ module SbmtImporter =
     // direction C/|C|, i.e. the body's circumscribing-sphere normal. For
     // boulder catalogs (ellipse size << body curvature scale) this is visually
     // adequate. A future iteration can ray-cast the loaded OBJ at C to get the
-    // real surface normal -- see plans/sbmtImport.md "Precise ellipse 'up'
+    // real surface normal -- see plans/archive/sbmtImport.md "Precise ellipse 'up'
     // via surface intersection".
     let parseEllipseLine
         (trafo : Trafo3d)

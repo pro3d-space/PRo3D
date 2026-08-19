@@ -70,11 +70,11 @@ for the equirect panel.)
 - `bodyCenter = V3d.Zero` in the OPC's world coordinates. This is the
   **barycenter** by construction: SPC OBJs and the OPCs derived from them are
   authored in `*_SHM` body-fixed frames whose origin is the body's centre of
-  mass (per `plans/sbmtImport.md` "Coordinate frame knowledge"). True for
+  mass (per `plans/archive/sbmtImport.md` "Coordinate frame knowledge"). True for
   Dimorphos. Assumed true for the other Hera-mission bodies.
 - The body-fixed axes are taken as-is: `+Z = spin pole`, `lon = 0` along
   `+X`. We do **not** apply a `bodyToCanonical` rotation in v1. For
-  `DIMORPHOS_SHM` the spin pole is `−Z` (see `plans/sbmtImport.md` axis
+  `DIMORPHOS_SHM` the spin pole is `−Z` (see `plans/archive/sbmtImport.md` axis
   cheat-sheet) so the resulting map is **flipped** vertically vs. the
   astronomical convention. Document this; resolve via a per-body rotation
   uniform in v2.
