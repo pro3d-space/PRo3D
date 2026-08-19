@@ -107,6 +107,6 @@ pro3d-tool kdtree  --forcekdtreerebuild "F:\pro3d\data\dimorphos"   # new
 ```
 
 One behavioural fix came with the move: in `opc-tool`, patch validation ran only when
-`--skipPatchValidation` was passed, and `--generatedds` never actually produced DDS files
+`--skippatchvalidation` was passed, and `--generatedds` never actually produced DDS files
 because the conversion was skipped whenever it was requested. Both now behave as
 documented. If you previously worked around this, the workaround is no longer needed.
