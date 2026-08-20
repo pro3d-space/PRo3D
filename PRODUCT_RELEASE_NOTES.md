@@ -1,3 +1,6 @@
+## 6.1.0-prerelease003
+- Surfaces: **numeric controls work again** — Blend Factor, Min, Max and Color Map never appeared in surface properties, and the controls that did render were inert. `NoSemUi` kept its own semantic-ui dependency list pointing at the pre-5.7 resource paths, so all four URLs 404'd; one of them, `essentialstuff.js`, defines the jQuery `numeric` plugin the controls boot with, and its absence aborted the rest of the panel's DOM setup. The GIS entity numerics were broken the same way. Present in shipped 6.0.0
+
 ## 6.1.0-prerelease002
 - Annotations: the **4-point ellipse is drawn as an ellipse again** — the four clicks were kept as raw points and rendered as an open polyline, because the ellipse fit on the dip/strike plane only handled the 3-point case. A four-point ellipse is now built as two half-ellipses that share the major axis and differ only in the semi-minor axis
 - Annotations: the **4-point ellipse is hidden from the geometry selector** for now. The geometry and its update/rendering path are unchanged, so existing annotations still load and draw
