@@ -1,5 +1,5 @@
-//18e40856-8697-56e7-fd1c-01a1189afd87
-//10faf21e-dcfb-20f3-9c2d-a192b53b8ac3
+//3cf71b54-60de-f1a7-9ad5-13601ebb4689
+//1b45e727-bc34-906b-a97c-6d4990eff33b
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -20,6 +20,7 @@ type AdaptiveAnnotationExportModel(value : AnnotationExportModel) =
     let _coordinates_ = FSharp.Data.Adaptive.cval(value.coordinates)
     let _longitude_ = FSharp.Data.Adaptive.cval(value.longitude)
     let _signedLongitude_ = FSharp.Data.Adaptive.cval(value.signedLongitude)
+    let _latLonAltSource_ = FSharp.Data.Adaptive.cval(value.latLonAltSource)
     let _useSampledPoints_ = FSharp.Data.Adaptive.cval(value.useSampledPoints)
     let _sampleSurfaceProperties_ = FSharp.Data.Adaptive.cval(value.sampleSurfaceProperties)
     let _annotationFields_ = FSharp.Data.Adaptive.cset(value.annotationFields)
@@ -41,6 +42,7 @@ type AdaptiveAnnotationExportModel(value : AnnotationExportModel) =
             _coordinates_.Value <- value.coordinates
             _longitude_.Value <- value.longitude
             _signedLongitude_.Value <- value.signedLongitude
+            _latLonAltSource_.Value <- value.latLonAltSource
             _useSampledPoints_.Value <- value.useSampledPoints
             _sampleSurfaceProperties_.Value <- value.sampleSurfaceProperties
             _annotationFields_.Value <- value.annotationFields
@@ -55,6 +57,7 @@ type AdaptiveAnnotationExportModel(value : AnnotationExportModel) =
     member __.coordinates = _coordinates_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.CoordinateMode>
     member __.longitude = _longitude_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.LongitudeConvention>
     member __.signedLongitude = _signedLongitude_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.latLonAltSource = _latLonAltSource_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.LatLonAltSource>
     member __.useSampledPoints = _useSampledPoints_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.sampleSurfaceProperties = _sampleSurfaceProperties_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.annotationFields = _annotationFields_ :> FSharp.Data.Adaptive.aset<PRo3D.Base.Annotation.AnnotationField>
@@ -71,6 +74,7 @@ module AnnotationExportModelLenses =
         static member coordinates_ = ((fun (self : AnnotationExportModel) -> self.coordinates), (fun (value : PRo3D.Base.Annotation.CoordinateMode) (self : AnnotationExportModel) -> { self with coordinates = value }))
         static member longitude_ = ((fun (self : AnnotationExportModel) -> self.longitude), (fun (value : PRo3D.Base.Annotation.LongitudeConvention) (self : AnnotationExportModel) -> { self with longitude = value }))
         static member signedLongitude_ = ((fun (self : AnnotationExportModel) -> self.signedLongitude), (fun (value : Microsoft.FSharp.Core.bool) (self : AnnotationExportModel) -> { self with signedLongitude = value }))
+        static member latLonAltSource_ = ((fun (self : AnnotationExportModel) -> self.latLonAltSource), (fun (value : PRo3D.Base.Annotation.LatLonAltSource) (self : AnnotationExportModel) -> { self with latLonAltSource = value }))
         static member useSampledPoints_ = ((fun (self : AnnotationExportModel) -> self.useSampledPoints), (fun (value : Microsoft.FSharp.Core.bool) (self : AnnotationExportModel) -> { self with useSampledPoints = value }))
         static member sampleSurfaceProperties_ = ((fun (self : AnnotationExportModel) -> self.sampleSurfaceProperties), (fun (value : Microsoft.FSharp.Core.bool) (self : AnnotationExportModel) -> { self with sampleSurfaceProperties = value }))
         static member annotationFields_ = ((fun (self : AnnotationExportModel) -> self.annotationFields), (fun (value : FSharp.Data.Adaptive.HashSet<PRo3D.Base.Annotation.AnnotationField>) (self : AnnotationExportModel) -> { self with annotationFields = value }))

@@ -68,6 +68,35 @@ module AnnotationExport =
 
     let surfaceColumnName (layer : string) = SurfaceColumnPrefix + layer
 
+    // ---------------------------------------------- lat/lon/alt provenance ---
+
+    /// Column recording where a row's lat, lon and alt actually came from.
+    ///
+    /// It is not decoration: the three sources disagree about what the *third*
+    /// value is — a height above the spheroid, or a distance from the body
+    /// centre — so without this a reader cannot interpret the `alt` column at
+    /// all. Written whenever the geographic columns are, and only then.
+    [<Literal>]
+    let LatLonAltSourceColumn = "latLonAltSource"
+
+    /// Token for a row taken from the patch's per-vertex LonLatRad grid.
+    [<Literal>]
+    let AaraSourceToken = "aara_file"
+
+    /// Token for a row SPICE produced, naming the routine that ran rather than
+    /// just "SPICE" — which one it was is exactly what says whether `alt` is a
+    /// height or a radius.
+    let spiceSourceToken (planet : Planet) =
+        match CooTransformation.getConvention planet with
+        | CooTransformation.Planetographic -> VText "spice_recpgr"
+        | CooTransformation.Spherical _    -> VText "spice_reclat"
+        // no body selects this today, but the ConventionKind case exists and its
+        // altitude reference differs from Spherical's, so it must not be
+        // mislabelled as reclat
+        | CooTransformation.Ellipsoidal _  -> VText "spice_ellipsoidal"
+        // no geographic frame: lat/lon/alt are empty, so is this
+        | CooTransformation.NonPlanetary   -> VMissing
+
     /// Column naming the body the geographic coordinates refer to. GIS tools
     /// only surface *feature*-level properties as attributes, so the
     /// collection-level `planet` — which a reader like QGIS never shows in the
@@ -75,67 +104,14 @@ module AnnotationExport =
     [<Literal>]
     let BodyColumn = "body"
 
-    /// Column recording which routine actually produced this record's lat/lon/alt.
-    /// The sources disagree about what the third value is — height above the
-    /// spheroid, radial distance from the body centre — so without this a reader
-    /// cannot tell what `alt` means. Per record, not per file: a single export
-    /// can mix them, because a point the per-vertex data does not cover falls
-    /// back to SPICE.
-    [<Literal>]
-    let LatLonAltSourceColumn = "latLonAltSource"
-
-    /// Which routine `CooTransformation.tryGetLatLonAlt` runs for this body.
-    let private spiceSourceToken (planet : Planet) =
-        match CooTransformation.getConvention planet with
-        | CooTransformation.Planetographic -> VText "spice_recpgr"
-        | CooTransformation.Spherical _    -> VText "spice_reclat"
-        // planetocentric lat/lon like Spherical, but the altitude is referenced
-        // to a tri-axial ellipsoid — a different number, so a different token
-        | CooTransformation.Ellipsoidal _  -> VText "spice_ellipsoidal"
-        // no geographic frame: lat/lon/alt come out empty, so naming a routine
-        // that never ran would be a lie
-        | CooTransformation.NonPlanetary   -> VMissing
-
-    /// A point's geographic coordinates together with the provenance of those
-    /// numbers. Resolved once per record and used for both the lat/lon/alt
-    /// columns and the GeoJSON geometry, so the two can never disagree about
-    /// where a point is.
-    type private ResolvedGeographic = {
-        latLonAlt : Option<V3d>
-        source    : ExportValue
-    }
-
-    /// Nothing was resolved because nothing was asked for (a cartesian export).
-    let private noGeographic = { latLonAlt = None; source = VMissing }
-
     let private cartesianFields (p : V3d) =
         [ "x", VNum p.X; "y", VNum p.Y; "z", VNum p.Z ]
 
-    let private geographicFields (planet : Planet) (resolved : ResolvedGeographic) =
-        [ match resolved.latLonAlt with
-          | Some g -> yield! [ "lat", VNum g.X; "lon", VNum g.Y; "alt", VNum g.Z ]
-          | None   -> yield! [ "lat", VMissing; "lon", VMissing; "alt", VMissing ]
-          yield BodyColumn, VText (string planet)
-          yield LatLonAltSourceColumn, resolved.source ]
-
-    /// Derive the coordinates from the point's cartesian position.
-    let private fromSpice (planet : Planet) (settings : AnnotationExportSettings) (p : V3d) =
-        { latLonAlt = tryToGeographic planet settings p
-          source    = spiceSourceToken planet }
-
-    /// Take the coordinates from the patch's per-vertex LonLatRad grid, whose
-    /// channels are (longitude, latitude, radius-in-metres).
-    ///
-    /// The longitude still goes through the convention and range settings: those
-    /// are notation transforms of a longitude, not part of deriving one, so they
-    /// have to apply whichever source produced it. The radius lands in `alt` —
-    /// which is what makes `LatLonAltSourceColumn` necessary.
-    let private fromAara (settings : AnnotationExportSettings) (lonLatRadius : V3d) =
-        { latLonAlt =
-            Some (V3d(lonLatRadius.Y,
-                      normalizeLongitude settings.longitude settings.signedLongitude lonLatRadius.X,
-                      lonLatRadius.Z))
-          source = VText "aara_file" }
+    let private geographicFields (planet : Planet) (latLonAlt : Option<V3d>) =
+        let body = BodyColumn, VText (string planet)
+        match latLonAlt with
+        | Some g -> [ "lat", VNum g.X; "lon", VNum g.Y; "alt", VNum g.Z; body ]
+        | None   -> [ "lat", VMissing; "lon", VMissing; "alt", VMissing; body ]
 
     // ------------------------------------------------------------ points ---
 
@@ -194,7 +170,7 @@ module AnnotationExport =
 
     let private coordinateColumns (mode : CoordinateMode) =
         [ if wantsCartesian mode then yield! [ "x"; "y"; "z" ]
-          if wantsGeographic mode then yield! [ "lat"; "lon"; "alt"; BodyColumn; LatLonAltSourceColumn ] ]
+          if wantsGeographic mode then yield! [ "lat"; "lon"; "alt"; BodyColumn ] ]
 
     /// The columns that follow from the settings alone. The surface-property
     /// columns are *not* in here — their names come from the OPC layers the
@@ -216,7 +192,7 @@ module AnnotationExport =
                 if hasPointField PointField.Cartesian && wantsCartesian settings.coordinates then
                     yield! [ "x"; "y"; "z" ]
                 if hasPointField PointField.Geographic && wantsGeographic settings.coordinates then
-                    yield! [ "lat"; "lon"; "alt"; BodyColumn; LatLonAltSourceColumn ]
+                    yield! [ "lat"; "lon"; "alt"; BodyColumn ]
 
                 if hasPointField PointField.StepLength then yield AnnotationFields.pointColumnName PointField.StepLength
                 if hasPointField PointField.SegmentLength then yield AnnotationFields.pointColumnName PointField.SegmentLength
@@ -250,29 +226,13 @@ module AnnotationExport =
 
     // ---------------------------------------------------------- geometry ---
 
-    /// `resolved` is the already-resolved geographic value of `p`. Passing it in
-    /// rather than recomputing it is what keeps a feature's geometry and its
-    /// lat/lon/alt properties from disagreeing once there is more than one
-    /// possible source for them.
-    let private toGeoJsonPosition
-        (settings : AnnotationExportSettings)
-        (p        : V3d)
-        (resolved : ResolvedGeographic) =
-
+    let private toGeoJsonPosition (settings : AnnotationExportSettings) (planet : Planet) (p : V3d) =
         if wantsGeographic settings.coordinates then
             // GeoJSON positions are [longitude, latitude, altitude]
-            resolved.latLonAlt |> Option.map (fun g -> V3d(g.Y, g.X, g.Z))
+            tryToGeographic planet settings p
+            |> Option.map (fun g -> V3d(g.Y, g.X, g.Z))
         else
             Some p
-
-    /// A whole-annotation geometry always comes from SPICE: it spans many points,
-    /// so there is no single place to sample a per-vertex layer at.
-    let private toGeoJsonPositionFromSpice
-        (settings : AnnotationExportSettings)
-        (planet   : Planet)
-        (p        : V3d) =
-
-        toGeoJsonPosition settings p (fromSpice planet settings p)
 
     let private annotationGeometry
         (settings : AnnotationExportSettings)
@@ -280,7 +240,7 @@ module AnnotationExport =
         (a        : Annotation)
         (points   : list<V3d>) =
 
-        let positions = points |> List.choose (toGeoJsonPositionFromSpice settings planet)
+        let positions = points |> List.choose (toGeoJsonPosition settings planet)
 
         if positions.Length <> points.Length then
             Log.warn "[AnnotationExport] coordinate conversion failed for annotation %A; geometry omitted" a.key
@@ -326,7 +286,7 @@ module AnnotationExport =
         let coordinates =
             [ if wantsCartesian settings.coordinates then yield! cartesianFields centre
               if wantsGeographic settings.coordinates then
-                  yield! geographicFields planet (fromSpice planet settings centre) ]
+                  yield! geographicFields planet (tryToGeographic planet settings centre) ]
 
         { fields   = annotationFieldPairs settings groupPath up a @ coordinates
           geometry =
@@ -383,23 +343,10 @@ module AnnotationExport =
                     previousGround <- Some flattened
                     VNum groundCumulative
 
-            // One re-pick per point, serving both the geographic coordinates and
-            // the surface-property columns — the KdTree hit is what costs, so
-            // asking for both must not ray-cast twice.
-            let sample =
-                match sampler with
-                | Some sampleAt -> sampleAt point.position
-                | None          -> SurfaceSample.empty
-
             let geographic =
-                if not (wantsGeographic settings.coordinates) then noGeographic
-                else
-                    match settings.latLonAltSource, sample.lonLatRadius with
-                    | LatLonAltSource.AaraFile, Some lonLatRadius -> fromAara settings lonLatRadius
-                    // Either SPICE was asked for, or the per-vertex data does not
-                    // cover this point. Falling back keeps the row rather than
-                    // blanking it, and its source column says which happened.
-                    | _ -> fromSpice planet settings point.position
+                if wantsGeographic settings.coordinates then
+                    tryToGeographic planet settings point.position
+                else None
 
             let pointPairs =
                 [ if hasPointField PointField.Index then
@@ -423,16 +370,19 @@ module AnnotationExport =
                   if hasPointField PointField.GroundDistance then
                       yield AnnotationFields.pointColumnName PointField.GroundDistance, ground ]
 
-            // The OPC scalar / texture layers underneath this position, from the
-            // same sample. Which layers those are depends on the patch that was
-            // hit, so a point that missed every surface simply contributes no
-            // pairs and its cells come out empty.
-            let surfacePairs = sample.properties
+            // The OPC scalar / texture layers underneath this position. Which
+            // layers those are depends on the patch that was hit, so a point
+            // that missed every surface simply contributes no pairs and its
+            // cells come out empty.
+            let surfacePairs =
+                match sampler with
+                | Some sample -> sample point.position
+                | None        -> []
 
             { fields   = annotationPairs @ pointPairs @ surfacePairs
               geometry =
                 if settings.format = ExportFormat.GeoJson then
-                    toGeoJsonPosition settings point.position geographic |> Option.map GPoint
+                    toGeoJsonPosition settings planet point.position |> Option.map GPoint
                 else None })
 
     /// Turns the selected annotations into the flat, ordered records the writers

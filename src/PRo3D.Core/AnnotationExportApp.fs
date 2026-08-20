@@ -49,11 +49,20 @@ module AnnotationExportApp =
                 then model.coordinates
                 else CoordinateMode.Geographic
             custom { model with format = format; coordinates = coordinates }
-        | SetGranularity granularity -> custom { model with granularity = granularity }
+        | SetGranularity granularity ->
+            // A per-annotation record has no single point to sample a per-vertex
+            // layer at, so the file source cannot be honoured there. Coerce it
+            // rather than leave the model holding a source the export ignores —
+            // the same guard `SetFormat` applies to `coordinates` above.
+            let latLonAltSource =
+                if granularity = ExportGranularity.PerAnnotation then LatLonAltSource.Spice
+                else model.latLonAltSource
+            custom { model with granularity = granularity; latLonAltSource = latLonAltSource }
         | SetScope scope             -> custom { model with scope = scope }
         | SetCoordinates coordinates -> custom { model with coordinates = coordinates }
         | SetLongitude longitude     -> custom { model with longitude = longitude }
         | ToggleSignedLongitude      -> custom { model with signedLongitude = not model.signedLongitude }
+        | SetLatLonAltSource source  -> custom { model with latLonAltSource = source }
         | ToggleSampledPoints        -> custom { model with useSampledPoints = not model.useSampledPoints }
         | ToggleSurfaceProperties    -> custom { model with sampleSurfaceProperties = not model.sampleSurfaceProperties }
 
@@ -283,6 +292,7 @@ module AnnotationExportApp =
                 alist {
                     let! format = model.format
                     let! granularity = model.granularity
+                    let! coordinates = model.coordinates
                     if AnnotationExportSettings.isContinuous format then
                         let! target = state.target
                         yield div [ clazz "ui small message" ] [
@@ -317,6 +327,22 @@ module AnnotationExportApp =
                                 yield Html.row "Sampled points:" [
                                     checkBox "include the surface-following points between the picked ones"
                                         model.useSampledPoints ToggleSampledPoints ]
+                                // Irrelevant to a cartesian export, which writes no
+                                // lat/lon at all, and to a per-annotation one, which
+                                // has no single point to sample a per-vertex layer
+                                // at. Hidden rather than disabled in both cases; the
+                                // stored choice is left alone so it comes back when
+                                // the export is geographic and per-point again.
+                                if AnnotationExport.wantsGeographic coordinates
+                                   && granularity = ExportGranularity.PerPoint then
+                                    yield Html.row "Lat/Lon/Alt Source:" [
+                                        dropDown
+                                            AnnotationExportSettings.allLatLonAltSources
+                                            AnnotationExportSettings.latLonAltSourceLabel
+                                            model.latLonAltSource SetLatLonAltSource ]
+                                    |> UI.wrapToolTip DataPosition.Bottom
+                                        "This information is stored in the exported file. \"File (.aara)\" \
+                                         is only available if the OPC data contains an .aara file."
                             ]
                             granularityHint model
                         ]

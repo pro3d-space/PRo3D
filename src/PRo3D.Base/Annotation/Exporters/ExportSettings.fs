@@ -52,6 +52,19 @@ type LongitudeConvention =
     /// 180 - longitude: mirrored *and* shifted
     | FlippedShifted = 3
 
+/// Where the exported lat/lon/alt come from. Note the three of them travel
+/// together: the source decides what the *altitude* means as much as the
+/// latitude and longitude, which is why this is one setting and not two.
+type LatLonAltSource =
+    /// convention-aware SPICE transform of the point's cartesian position.
+    /// `CooTransformation.tryGetLatLonAlt` picks planetographic or planetocentric
+    /// per body, so this covers both routines.
+    | Spice    = 0
+    /// the patch's per-vertex LonLatRad.aara grid, barycentrically interpolated at
+    /// the point. Values produced by the pipeline that built the terrain, rather
+    /// than re-derived from the position.
+    | AaraFile = 1
+
 type ExportPreset =
     | Custom            = 0
     | QgisFeatures      = 1
@@ -71,6 +84,9 @@ type AnnotationExportSettings = {
     longitude         : LongitudeConvention
     /// write longitudes as (-180, 180] instead of [0, 360)
     signedLongitude   : bool
+    /// where lat, lon and alt are taken from. Only applies to a per-point export
+    /// that writes geographic coordinates at all; ignored otherwise.
+    latLonAltSource   : LatLonAltSource
     /// export the densely sampled, surface-following polyline
     /// (Annotation.retrievePoints) instead of only the picked control points
     useSampledPoints  : bool
@@ -117,6 +133,7 @@ module AnnotationExportSettings =
         coordinates       = CoordinateMode.Both
         longitude         = LongitudeConvention.Flipped
         signedLongitude   = true
+        latLonAltSource   = LatLonAltSource.AaraFile
         useSampledPoints  = true
         sampleSurfaceProperties = false
         annotationFields  =
@@ -130,14 +147,23 @@ module AnnotationExportSettings =
     /// A preset only pre-fills the settings; every individual control stays
     /// editable afterwards (which flips the preset back to `Custom`).
     let applyPreset (preset : ExportPreset) (settings : AnnotationExportSettings) =
-        // Every preset writes the signed (-180, 180] range: GeoJSON requires it
-        // by spec and GIS tools expect it, so the unsigned [0, 360) notation is
-        // only ever a deliberate manual choice. `Custom` is not really a preset —
+        // Defaults every preset shares. `Custom` is not really a preset —
         // selecting it must leave the settings exactly as they are.
+        //
+        // - the signed (-180, 180] range: GeoJSON requires it by spec and GIS
+        //   tools expect it, so the unsigned [0, 360) notation is only ever a
+        //   deliberate manual choice.
+        // - the per-vertex lat/lon/alt: where an OPC ships them they are the
+        //   values the terrain was built from, so they win over re-deriving them
+        //   from the position. On an OPC without them the export refuses rather
+        //   than quietly using SPICE — see AnnotationExportViewer.
         let settings =
             match preset with
             | ExportPreset.Custom -> settings
-            | _                   -> { settings with signedLongitude = true }
+            | _                   ->
+                { settings with
+                    signedLongitude = true
+                    latLonAltSource = LatLonAltSource.AaraFile }
 
         match preset with
         | ExportPreset.QgisFeatures ->
@@ -245,6 +271,14 @@ module AnnotationExportSettings =
     let allLongitudeConventions =
         [ LongitudeConvention.Native; LongitudeConvention.Flipped
           LongitudeConvention.Shifted; LongitudeConvention.FlippedShifted ]
+
+    let latLonAltSourceLabel (source : LatLonAltSource) =
+        match source with
+        | LatLonAltSource.AaraFile -> "File (.aara)"
+        | _                        -> "SPICE"
+
+    let allLatLonAltSources =
+        [ LatLonAltSource.Spice; LatLonAltSource.AaraFile ]
 
     /// True when the format ignores every setting below the format dropdown.
     let hasFixedSchema (format : ExportFormat) =

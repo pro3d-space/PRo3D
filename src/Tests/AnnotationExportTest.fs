@@ -70,10 +70,17 @@ let private recordsOn planet settings annotation =
 
 /// A stand-in for the viewer's surface sampler: two layers on every point, so
 /// the surface columns can be pinned without an OPC dataset.
+let private stubProperties (p : V3d) =
+    [ AnnotationExport.surfaceColumnName "Gravity", VNum p.X
+      AnnotationExport.surfaceColumnName "Albedo",  VNums [| 0.25; 0.5; 0.75 |] ]
+
 let private stubSampler : SurfacePropertySampler =
-    fun p ->
-        [ AnnotationExport.surfaceColumnName "Gravity", VNum p.X
-          AnnotationExport.surfaceColumnName "Albedo",  VNums [| 0.25; 0.5; 0.75 |] ]
+    fun p -> { lonLatRadius = None; properties = stubProperties p }
+
+/// A sampler that also carries per-vertex coordinates, as an OPC shipping a
+/// LonLatRad layer would. Channels are (longitude, latitude, radius).
+let private stubSamplerWithCoordinates (lonLatRadius : V3d) : SurfacePropertySampler =
+    fun p -> { lonLatRadius = Some lonLatRadius; properties = stubProperties p }
 
 /// Cartesian position of a lat/lon/alt on Mars, or None when the native
 /// coordinate transform is unavailable in this environment.
@@ -226,7 +233,7 @@ let tests () =
 
             Expect.equal
                 (AnnotationExport.schemaOf settings)
-                [ "key"; "lat"; "lon"; "alt"; "body" ]
+                [ "key"; "lat"; "lon"; "alt"; "body"; "latLonAltSource" ]
                 "body accompanies the geographic coordinates"
 
             match records settings (testAnnotation ()) with
@@ -545,6 +552,108 @@ let tests () =
                 ()
         }
 
+        test "lat/lon/alt can come from the per-vertex layer instead of SPICE" {
+            let annotation = testAnnotation ()
+            let settings =
+                { csvSettings ExportGranularity.PerPoint [] [ PointField.Geographic ] with
+                    coordinates     = CoordinateMode.Geographic
+                    longitude       = LongitudeConvention.Native
+                    signedLongitude = false
+                    latLonAltSource = LatLonAltSource.AaraFile }
+
+            // channels are (longitude, latitude, radius)
+            let sampler = stubSamplerWithCoordinates (V3d(77.0, -14.5, 1823.4))
+
+            match AnnotationExport.buildRecords
+                    settings (Some sampler) HashMap.empty Planet.Mars V3d.OOI [ annotation ] with
+            | row :: _ ->
+                Expect.equal (number "lat" row) (Some -14.5) "latitude is the layer's second channel"
+                Expect.equal (number "lon" row) (Some 77.0) "longitude is the layer's first channel"
+                // the radius, not a height above the spheroid - which is exactly
+                // what the source column exists to disambiguate
+                Expect.equal (number "alt" row) (Some 1823.4) "altitude is the layer's radius"
+                Expect.equal (cell "latLonAltSource" row) (Some (VText "aara_file")) "provenance recorded"
+            | [] -> failtest "expected one row per point"
+
+            // a point the layer does not cover keeps its row, resolved by SPICE
+            match AnnotationExport.buildRecords
+                    settings (Some stubSampler) HashMap.empty Planet.Mars V3d.OOI [ annotation ] with
+            | row :: _ ->
+                Expect.equal (cell "latLonAltSource" row) (Some (VText "spice_recpgr"))
+                             "falls back to SPICE, and says so"
+            | [] -> failtest "expected one row per point"
+        }
+
+        test "the longitude settings still apply to a file-sourced longitude" {
+            // they are notation transforms of a longitude, not part of deriving
+            // one, so they cannot depend on where the longitude came from
+            let annotation = testAnnotation ()
+            let settings =
+                { csvSettings ExportGranularity.PerPoint [] [ PointField.Geographic ] with
+                    coordinates     = CoordinateMode.Geographic
+                    longitude       = LongitudeConvention.Flipped
+                    signedLongitude = true
+                    latLonAltSource = LatLonAltSource.AaraFile }
+
+            let sampler = stubSamplerWithCoordinates (V3d(77.0, -14.5, 1823.4))
+
+            match AnnotationExport.buildRecords
+                    settings (Some sampler) HashMap.empty Planet.Mars V3d.OOI [ annotation ] with
+            | row :: _ -> Expect.equal (number "lon" row) (Some -77.0) "360 - 77 = 283, signed as -77"
+            | [] -> failtest "expected one row per point"
+        }
+
+        test "a cartesian export carries no source column at all" {
+            let settings =
+                { csvSettings ExportGranularity.PerPoint [] [ PointField.Cartesian ] with
+                    latLonAltSource = LatLonAltSource.AaraFile }
+
+            Expect.equal (AnnotationExport.schemaOf settings) [ "x"; "y"; "z" ]
+                         "no geographic columns, so nothing to attribute"
+        }
+
+        test "per-annotation granularity coerces the source back to SPICE" {
+            // there is no single point to sample a per-vertex layer at, so the
+            // model must not keep holding a source the export cannot honour
+            let model =
+                { AnnotationExportModel.initial with latLonAltSource = LatLonAltSource.AaraFile }
+
+            let switched = AnnotationExportApp.update model (SetGranularity ExportGranularity.PerAnnotation)
+            Expect.equal switched.latLonAltSource LatLonAltSource.Spice "coerced"
+
+            let kept = AnnotationExportApp.update model (SetGranularity ExportGranularity.PerPoint)
+            Expect.equal kept.latLonAltSource LatLonAltSource.AaraFile "per-point leaves it alone"
+        }
+
+        test "GeoJSON geometry and properties agree about a file-sourced point" {
+            // the geometry used to be recomputed independently of the columns;
+            // with two possible sources that would let them drift apart
+            let annotation = testAnnotation ()
+            let settings =
+                { AnnotationExportSettings.initial with
+                    format          = ExportFormat.GeoJson
+                    granularity     = ExportGranularity.PerPoint
+                    coordinates     = CoordinateMode.Geographic
+                    longitude       = LongitudeConvention.Native
+                    signedLongitude = false
+                    latLonAltSource = LatLonAltSource.AaraFile
+                    pointFields     = [ PointField.Geographic ] }
+
+            let sampler = stubSamplerWithCoordinates (V3d(77.0, -14.5, 1823.4))
+
+            match AnnotationExport.buildRecords
+                    settings (Some sampler) HashMap.empty Planet.Mars V3d.OOI [ annotation ] with
+            | row :: _ ->
+                match row.geometry with
+                // GeoJSON positions are [longitude, latitude, altitude]
+                | Some (GPoint p) ->
+                    Expect.equal (Some p.X) (number "lon" row) "geometry longitude matches the property"
+                    Expect.equal (Some p.Y) (number "lat" row) "geometry latitude matches the property"
+                    Expect.equal (Some p.Z) (number "alt" row) "geometry altitude matches the property"
+                | other -> failtestf "expected a Point geometry, got %A" other
+            | [] -> failtest "expected one row per point"
+        }
+
         test "GeoJSON does not offer the Both coordinate mode" {
             // a Feature's geometry is written in one coordinate system, so the
             // option would suggest a choice the format cannot express
@@ -603,19 +712,31 @@ let tests () =
             Expect.equal qgis.coordinates CoordinateMode.Geographic "QGIS is geographic"
             Expect.equal qgis.longitude LongitudeConvention.Shifted "QGIS needs the shifted prime meridian"
 
-            // the signed range is the default everywhere now, so every preset
-            // arrives at it — including one that starts from it switched off
+            // the signed range and the per-vertex source are the defaults
+            // everywhere now, so every preset arrives at both — including one that
+            // starts from them switched off
+            Expect.equal AnnotationExportSettings.initial.latLonAltSource LatLonAltSource.AaraFile
+                         "the per-vertex source is the out-of-the-box default"
+
             for preset in ExportPreset.all |> List.filter (fun p -> p <> ExportPreset.Custom) do
                 let applied =
-                    { AnnotationExportSettings.initial with signedLongitude = false }
+                    { AnnotationExportSettings.initial with
+                        signedLongitude = false
+                        latLonAltSource = LatLonAltSource.Spice }
                     |> AnnotationExportSettings.applyPreset preset
+                Expect.equal applied.latLonAltSource LatLonAltSource.AaraFile
+                             (sprintf "%A takes lat/lon/alt from the file" preset)
                 Expect.isTrue applied.signedLongitude (sprintf "%A writes -180...180" preset)
 
             // ... and Custom, which is not a preset, leaves a manual choice alone
-            Expect.isFalse
-                ({ AnnotationExportSettings.initial with signedLongitude = false }
-                 |> AnnotationExportSettings.applyPreset ExportPreset.Custom).signedLongitude
-                "selecting Custom changes nothing"
+            let untouched =
+                { AnnotationExportSettings.initial with
+                    signedLongitude = false
+                    latLonAltSource = LatLonAltSource.Spice }
+                |> AnnotationExportSettings.applyPreset ExportPreset.Custom
+
+            Expect.isFalse untouched.signedLongitude "selecting Custom changes nothing"
+            Expect.equal untouched.latLonAltSource LatLonAltSource.Spice "not the source either"
 
             let continuous =
                 AnnotationExportSettings.initial

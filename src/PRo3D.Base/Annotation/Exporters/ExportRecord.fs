@@ -37,13 +37,32 @@ type ExportRecord = {
     geometry : Option<ExportGeometry>
 }
 
-/// Samples the surface properties — the OPC scalar / texture layers of the patch
-/// underneath a point — at a world position, one (column, value) pair per layer.
+/// What one re-picked point yielded from the surface underneath it.
+///
+/// Both halves come out of a single KdTree hit on purpose: sampling the patch is
+/// what costs, so asking for the geographic coordinates *and* the surface
+/// properties must not ray-cast twice.
+type SurfaceSample = {
+    /// (longitude, latitude, radius) from the patch's per-vertex LonLatRad grid.
+    /// `None` when the surface ships no such layer, or the hit landed on a part
+    /// of the patch the layer does not cover.
+    lonLatRadius : Option<V3d>
+    /// the surface-property columns, already named and ordered
+    properties   : list<string * ExportValue>
+}
+
+/// Samples the surface underneath a world position.
 ///
 /// Supplied by the viewer: sampling needs the surface model and its KdTrees,
 /// which live above this assembly, so the record builder only ever calls it and
 /// never knows what a surface is.
-type SurfacePropertySampler = V3d -> list<string * ExportValue>
+type SurfacePropertySampler = V3d -> SurfaceSample
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module SurfaceSample =
+
+    /// What a point that hit nothing yields: no coordinates, no properties.
+    let empty = { lonLatRadius = None; properties = [] }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ExportValue =

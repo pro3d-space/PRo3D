@@ -38,6 +38,8 @@ Coordinates    Cartesian / Geographic / Both       Longitude convention
                (Both is CSV only)
                ☑ write longitude as -180...180
                ☑ include sampled segment points
+Lat/Lon/Alt    SPICE / File (.aara)
+  Source       (shown only for geographic + per-point exports)
                ⓘ what the chosen granularity does to the geometry
 Annotation attributes    checkbox per attribute, grouped
 Point attributes         (only for "one record per point")
@@ -100,9 +102,10 @@ switches the preset back to *Custom*; nothing is locked.
 | Attitude planes | file type *Attitude planes* |
 | Continuous GeoJSON | file type *Continuous GeoJSON* — arms the background export |
 
-Every preset also sets the **signed −180…180 longitude range**, which is the default anyway;
-only an explicit untick (which switches the preset to *Custom*) goes back to `[0, 360)`.
-Selecting *Custom* is not a preset and changes nothing.
+Every preset also sets the **signed −180…180 longitude range** and the **File (.aara)**
+lat/lon/alt source, both of which are the defaults anyway; only an explicit change (which
+switches the preset to *Custom*) moves off them. Selecting *Custom* is not a preset and
+changes nothing.
 
 ### Scope
 
@@ -207,6 +210,90 @@ otherwise.
 > `[longitude, latitude, altitude]`. All three predecessors wrote latitude first, which no
 > spec-compliant reader — QGIS included — interprets correctly. Downstream scripts that
 > compensated for the old order need updating.
+
+### Lat/Lon/Alt source
+
+Where the geographic coordinates come from. Two options, and the default is **File
+(.aara)**:
+
+| Option | What it does |
+|---|---|
+| **SPICE** | Derives lat/lon/alt from the point's cartesian position, picking the right convention for the body automatically (see below). Works for any body with a geographic frame, whatever the terrain data looks like. |
+| **File (.aara)** (default) | Reads the values out of the patch's own per-vertex `LonLatRad` grid, barycentrically interpolated at the point. These are the numbers the OPC was built from, rather than numbers re-derived from a position. Requires an OPC that ships the layer — see [Per-Vertex Attribute Layers](VertexAttributes.md). |
+
+The row is only shown when it can apply: *Coordinates* must be **Geographic** or **Both**
+(a cartesian export writes no lat/lon at all) and the granularity must be **one record per
+point** (a per-annotation record has no single position to sample a layer at, so those
+exports always use SPICE). Switching to per-annotation resets the setting to *SPICE*; a
+cartesian export merely hides it and keeps your choice for when it becomes relevant again.
+
+#### Which SPICE routine
+
+`SPICE` is one entry, not two, because the right convention is a property of the **body**
+and not something worth choosing per export:
+
+| Body | Routine | and `alt` is |
+|---|---|---|
+| Mars, Earth, Moon, Phobos, Deimos, Didymos | **recpgr** (planetographic) | height above the spheroid |
+| Dimorphos | **reclat** (planetocentric) — it is tri-axial and has no PCK rotation pole, so `recpgr` is not valid for it | radial distance from the body centre |
+| `None` / `JPL` / `ENU` | none — no geographic frame | empty |
+
+#### `alt` changes meaning with the source
+
+This is the reason the setting is called *Lat/Lon/**Alt** Source*. `recpgr` gives a height
+above the spheroid; `reclat` and the `LonLatRad` layer both give a **radial distance from
+the body centre**. The same column therefore holds different quantities depending on the
+body and the source — which is what the provenance column is for.
+
+#### The `latLonAltSource` column
+
+Written into every record whose geographic columns are written, and **only** then, so a
+cartesian export has no such column. It records what actually ran, per row:
+
+| Value | Meaning |
+|---|---|
+| `spice_recpgr` | planetographic, native `Xyz2LatLonAlt` |
+| `spice_reclat` | planetocentric polar coordinates |
+| `spice_ellipsoidal` | planetocentric lat/lon with a tri-axial altitude reference (no body selects this today) |
+| `aara_file` | interpolated from the patch's `LonLatRad` layer |
+| *(empty)* | no geographic frame, so lat/lon/alt are empty too |
+
+Per **row**, not per file: a single export can mix them, because a point the per-vertex data
+does not cover falls back to SPICE (see below).
+
+The *Longitude* convention and *Longitude range* settings apply whichever source produced
+the value — they are notation transforms of a longitude, not part of deriving one.
+
+#### When the data is not there
+
+| Situation | What happens |
+|---|---|
+| **No loaded surface ships the layer** | The export is **refused**: nothing is written and the window says so. Set the source to *SPICE*, or load an OPC with `.aara` attribute layers. |
+| **Some points fall outside it** — the annotation runs off the surface, or onto a patch without the layer | The file *is* written. Those rows are resolved by SPICE and their `latLonAltSource` says so, and the window reports how many. |
+
+The option is never greyed out, so the refusal is what tells you the data is missing. Note
+that `.aara` is also the default for every preset, so on an OPC without per-vertex layers a
+per-point geographic export refuses until you switch the source — and picking a preset arms
+it again. That is deliberate: an export must never quietly use a source other than the one
+selected.
+
+`groundDistance` is unaffected by this setting — it needs the inverse transform to flatten a
+point onto the reference surface, which the file has no equivalent for, so it is always
+computed through SPICE.
+
+#### Cost
+
+Taking the coordinates from the file means **re-picking every exported point** against the
+surface KdTrees — the same work as an interactive pick, and the same machinery *Surface
+properties* uses. Expect seconds rather than milliseconds, dominated by how many **patches**
+the annotation crosses rather than how many points it has: the first hit on a patch loads
+its triangle set and grid mapping, and everything after that is cheap. Those caches are
+shared with interactive picking, so a patch you have already clicked on costs nothing. PRo3D
+is unresponsive while the export runs.
+
+Ticking *Surface properties* as well is free — both read the same sample, so the point is
+only picked once. Leaving it off is what keeps the attribute *textures* out of the picture,
+which is the genuinely expensive part.
 
 ### Sampled segment points
 
@@ -504,10 +591,10 @@ Beyond the GeoJSON coordinate order, two other behaviours changed on purpose:
 | `src/PRo3D.Base/Annotation/Exporters/ExportRecord.fs` | `ExportValue` / `ExportRecord`, the CSV writer and the GeoJSON `FeatureCollection` writer |
 | `src/PRo3D.Base/Annotation/Exporters/AnnotationFields.fs` | the attribute enums, their labels, column names and value accessors |
 | `src/PRo3D.Base/Annotation/Exporters/ExportSettings.fs` | the settings snapshot and the presets |
-| `src/PRo3D.Base/Annotation/Exporters/AnnotationExport.fs` | `schemaOf` / `schemaFor` / `buildRecords` / `write` — the shared record builder |
+| `src/PRo3D.Base/Annotation/Exporters/AnnotationExport.fs` | `schemaOf` / `schemaFor` / `buildRecords` / `write` — the shared record builder, and the lat/lon/alt resolution behind `latLonAltSource` |
 | `src/PRo3D.Core/AnnotationExport-Model.fs` | `AnnotationExportModel` + actions (session-only, on the root `Model`, not persisted) |
 | `src/PRo3D.Core/AnnotationExportApp.fs` | `update` and the window `view` |
-| `src/PRo3D.Core/ProfileAttributeExtraction.fs` | `sampleAt` — the KdTree re-pick, UV interpolation and layer sampling behind *Surface properties* |
+| `src/PRo3D.Core/ProfileAttributeExtraction.fs` | `sampleAt` — the KdTree re-pick, UV interpolation and layer sampling behind *Surface properties*; `tryLonLatRadius` / `hasLonLatRadLayer` behind the *File (.aara)* source |
 | `src/PRo3D.Viewer/Viewer/AnnotationExportViewer.fs` | scope resolution, the surface sampler, and running the export |
 | `src/Tests/AnnotationExportTest.fs` | schema, lengths, culture-invariance, presets, surface columns |
 

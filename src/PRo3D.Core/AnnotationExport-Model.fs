@@ -19,6 +19,7 @@ type AnnotationExportAction =
     | SetCoordinates         of CoordinateMode
     | SetLongitude           of LongitudeConvention
     | ToggleSignedLongitude
+    | SetLatLonAltSource     of LatLonAltSource
     | ToggleSampledPoints
     | ToggleSurfaceProperties
     | ToggleAnnotationField  of AnnotationField
@@ -55,6 +56,7 @@ type AnnotationExportModel = {
     coordinates       : CoordinateMode
     longitude         : LongitudeConvention
     signedLongitude   : bool
+    latLonAltSource   : LatLonAltSource
     useSampledPoints  : bool
     sampleSurfaceProperties : bool
 
@@ -79,6 +81,7 @@ module AnnotationExportModel =
         coordinates       = s.coordinates
         longitude         = s.longitude
         signedLongitude   = s.signedLongitude
+        latLonAltSource   = s.latLonAltSource
         useSampledPoints  = s.useSampledPoints
         sampleSurfaceProperties = s.sampleSurfaceProperties
         annotationFields  = HashSet.ofList s.annotationFields
@@ -96,6 +99,7 @@ module AnnotationExportModel =
         coordinates       = m.coordinates
         longitude         = m.longitude
         signedLongitude   = m.signedLongitude
+        latLonAltSource   = m.latLonAltSource
         useSampledPoints  = m.useSampledPoints
         sampleSurfaceProperties = m.sampleSurfaceProperties
         // `Key` is the annotation's Guid and the only stable handle a GIS round

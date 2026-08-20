@@ -96,39 +96,90 @@ module AnnotationExportViewer =
          surface the annotation was drawn on is switched on, and that it has \
          attribute layers besides its base texture."
 
-    /// Builds the per-point surface sampler, together with a counter of how many
-    /// points it actually got values for — a sampler that silently returns
-    /// nothing for every point is worth telling the user about.
+    /// The export was told to take lat/lon/alt from the OPC, and no loaded
+    /// surface has any. Unlike the warnings above this refuses the export: the
+    /// file would otherwise be full of SPICE values under a setting that says
+    /// they came from the file.
+    let private noAaraDataMessage =
+        "No loaded surface ships per-vertex LonLatRad data, so lat/lon/alt cannot be taken \
+         from the file. Nothing was exported — set Lat/Lon/Alt Source to SPICE, or load a \
+         surface whose OPC contains .aara attribute layers."
+
+    /// Some points were outside the per-vertex data and had to be resolved by
+    /// SPICE instead. The file is written; this only says how much of it is not
+    /// what the setting asked for.
+    let private partialAaraMessage (fallenBack : int) (total : int) =
+        sprintf
+            "The file was written, but %d of %d points had no LonLatRad data underneath them, \
+             so their lat/lon/alt come from SPICE. The latLonAltSource column says which \
+             rows those are."
+            fallenBack total
+
+    /// What the sampler observed, for the warnings above. Counted rather than
+    /// inferred: only the sampler knows how many points actually resolved.
+    type private SampleTally = {
+        /// points that produced at least one surface property
+        withProperties : unit -> int
+        /// points that produced no LonLatRad value
+        withoutLonLatRad : unit -> int
+        /// points sampled in total
+        total : unit -> int
+    }
+
+    /// Builds the per-point surface sampler, together with a tally of what it
+    /// managed to resolve — a sampler that silently returns nothing for every
+    /// point is worth telling the user about.
     let private surfaceSampler
-        (refSys  : ReferenceSystem)
-        (context : SurfaceSamplingContext)
-        : SurfacePropertySampler * (unit -> int) =
+        (refSys            : ReferenceSystem)
+        (context           : SurfaceSamplingContext)
+        (wantsProperties   : bool)
+        : SurfacePropertySampler * SampleTally =
 
         let up = refSys.up.value.Normalized
-        let mutable sampled = 0
+        let mutable withProperties = 0
+        let mutable withoutLonLatRad = 0
+        let mutable total = 0
 
         let sample (position : V3d) =
             let result, cache =
                 ProfileAttributeExtraction.sampleAt
                     up context.surfaces refSys context.observedSystem context.observerSystem
+                    // chasing layers into the attribute textures costs an image
+                    // decode per layer per patch, so only pay for it when the
+                    // surface-property columns were actually asked for
+                    wantsProperties
                     PRo3D.Picking.cache position
 
             // shared with interactive picking on purpose: the KdTrees loaded for
             // the export stay loaded for the next pick, and vice versa
             PRo3D.Picking.cache <- cache
 
-            match result with
-            | Some hit when not hit.attributes.IsEmpty ->
-                sampled <- sampled + 1
-                hit.attributes
-                |> List.map (fun a ->
-                    AnnotationExport.surfaceColumnName a.name, ExportValue.ofChannels a.values)
-                // by column name, so the order does not depend on which patch
-                // happened to be hit first
-                |> List.sortBy fst
-            | _ -> []
+            total <- total + 1
 
-        sample, fun () -> sampled
+            match result with
+            | Some hit ->
+                let lonLatRadius = ProfileAttributeExtraction.tryLonLatRadius hit
+                if lonLatRadius |> Option.isNone then withoutLonLatRad <- withoutLonLatRad + 1
+                if not hit.attributes.IsEmpty then withProperties <- withProperties + 1
+
+                { lonLatRadius = lonLatRadius
+                  properties =
+                    if not wantsProperties then []
+                    else
+                        hit.attributes
+                        |> List.map (fun a ->
+                            AnnotationExport.surfaceColumnName a.name, ExportValue.ofChannels a.values)
+                        // by column name, so the order does not depend on which
+                        // patch happened to be hit first
+                        |> List.sortBy fst }
+            | None ->
+                withoutLonLatRad <- withoutLonLatRad + 1
+                SurfaceSample.empty
+
+        sample,
+        { withProperties   = fun () -> withProperties
+          withoutLonLatRad = fun () -> withoutLonLatRad
+          total            = fun () -> total }
 
     /// Performs the export described by `settings`. `path` comes from the save
     /// dialog.
@@ -161,14 +212,32 @@ module AnnotationExportViewer =
                 let groupPath = GroupsApp.groupPathLookup drawing.annotations
 
                 // Only per-point exports have a position to sample at, and the
-                // fixed-schema formats ignore every attribute setting — building
-                // a sampler for those would only cost time and then warn about
-                // columns nobody asked for.
+                // fixed-schema formats ignore every attribute setting — sampling
+                // for those would only cost time and then warn about columns
+                // nobody asked for.
+                let perPoint =
+                    settings.granularity = ExportGranularity.PerPoint
+                    && not (AnnotationExportSettings.hasFixedSchema settings.format)
+
+                let wantsProperties = settings.sampleSurfaceProperties && perPoint
+
+                // Cartesian exports write no lat/lon at all, so the source is
+                // irrelevant there and must not drag a ray cast — or the refusal
+                // below — into an otherwise ordinary export.
+                let wantsAaraCoordinates =
+                    settings.latLonAltSource = LatLonAltSource.AaraFile
+                    && AnnotationExport.wantsGeographic settings.coordinates
+                    && perPoint
+
+                if wantsAaraCoordinates
+                   && not (ProfileAttributeExtraction.hasLonLatRadLayer surfaces.surfaces) then
+                    Log.warn "[AnnotationExport] lat/lon/alt from file requested, but no surface ships LonLatRad"
+                    Some noAaraDataMessage
+                else
+
                 let sampler =
-                    if settings.sampleSurfaceProperties
-                       && settings.granularity = ExportGranularity.PerPoint
-                       && not (AnnotationExportSettings.hasFixedSchema settings.format) then
-                        Some (surfaceSampler refSys surfaces)
+                    if wantsProperties || wantsAaraCoordinates then
+                        Some (surfaceSampler refSys surfaces wantsProperties)
                     else None
 
                 try
@@ -182,10 +251,20 @@ module AnnotationExportViewer =
                           yield noFrameMessage settings.format
 
                       match sampler with
-                      | Some (_, sampledCount) when sampledCount () = 0 ->
-                          Log.warn "[AnnotationExport] surface properties requested but no point hit a surface"
-                          yield noSurfacePropertiesMessage
-                      | _ -> () ]
+                      | Some (_, tally) ->
+                          if wantsProperties && tally.withProperties () = 0 then
+                              Log.warn "[AnnotationExport] surface properties requested but no point hit a surface"
+                              yield noSurfacePropertiesMessage
+
+                          // The all-missed case is not special-cased: the scene
+                          // *has* the layer (checked above), so this is about
+                          // where the annotation lies, and the row count says it
+                          // better than a separate message would.
+                          if wantsAaraCoordinates && tally.withoutLonLatRad () > 0 then
+                              Log.warn "[AnnotationExport] %d of %d points fell back to SPICE lat/lon/alt"
+                                       (tally.withoutLonLatRad ()) (tally.total ())
+                              yield partialAaraMessage (tally.withoutLonLatRad ()) (tally.total ())
+                      | None -> () ]
                     |> function
                        | []       -> None
                        | messages -> Some (messages |> String.concat " ")
