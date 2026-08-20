@@ -1116,10 +1116,31 @@ module Gui =
                             yield hint "Hold CTRL and move the mouse over a surface."
                         | Some (cursor : CursorAttributes) ->
                             let hit : AttributeHit = cursor.hit
+                            // SPICE lat/lon/alt of the picked point, shown only when available.
+                            // tryGetLatLonAlt is total: None for non-planetary frames
+                            // (Planet.None/JPL/ENU) and when the native PGRREC call reports an
+                            // error. Its out-params are nan-seeded, so a wrapper returning
+                            // success without writing cannot yield silent zeros - the finiteness
+                            // filter turns that into None as well. Either way the rows are just
+                            // omitted; the rest of the read-out is unaffected.
+                            let! planet = m.scene.referenceSystem.planet
+                            let spherical =
+                                CooTransformation.tryGetLatLonAlt planet hit.position
+                                |> Option.filter (fun sc ->
+                                    Double.IsFinite sc.latitude &&
+                                    Double.IsFinite sc.longitude &&
+                                    Double.IsFinite sc.altitude)
                             yield Html.table [
                                 yield Html.row "Surface:"  [text cursor.surfaceName]
                                 yield Html.row "Patch:"    [text hit.patchName]
                                 yield Html.row "Position:" [text (hit.position.ToString("0.000"))]
+                                match spherical with
+                                | Some sc ->
+                                    // raw convention, matching the Coordinate System panel
+                                    yield Html.row "Latitude:"  [text (sprintf "%s deg" (sc.latitude.ToString("0.00000")))]
+                                    yield Html.row "Longitude:" [text (sprintf "%s deg" (sc.longitude.ToString("0.00000")))]
+                                    yield Html.row "Altitude:"  [text (sprintf "%s m"   (sc.altitude.ToString("0.00")))]
+                                | None -> ()
                                 for a : SampledAttribute in hit.attributes do
                                     yield Html.row (a.name + ":") [text (formatValues a.values)]
                             ]

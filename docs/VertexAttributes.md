@@ -106,6 +106,14 @@ gravity magnitude) and can differ substantially for a gradient layer such as slo
 default**. The readout is the *Under Cursor* accordion in the **Config** panel, below
 *Screenshots*, and shows the surface, the patch and every per-vertex layer under the mouse.
 
+Below the cartesian position it also shows the picked point as SPICE **latitude /
+longitude / altitude**, in the same raw convention as the *Coordinate System* panel (see
+[spice.md](spice.md) for which convention applies to which body). These three rows appear
+only when the conversion succeeds: they are omitted for non-planetary reference frames
+(`Planet.None`, `.JPL`, `.ENU`), when the native call reports an error, and when it returns
+a non-finite value. Nothing else in the read-out depends on them, so an unset or
+unsupported planet costs only these rows.
+
 The readout only updates while surface picking is active — hold `CTRL` and move the mouse
 over a surface. Picking and attribute extraction run on the background picking thread, so
 neither blocks the UI.
