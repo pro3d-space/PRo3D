@@ -1,0 +1,7 @@
+# seed corpus, hand-written: a convex square, a concave L, and a square overlapping the first.
+# Committed so the replay mechanism itself runs in CI before the lab has exported anything.
+0.000000,0.000000 10.000000,0.000000 10.000000,10.000000 0.000000,10.000000
+
+0.000000,0.000000 6.000000,0.000000 6.000000,2.000000 2.000000,2.000000 2.000000,6.000000 0.000000,6.000000
+
+5.000000,5.000000 15.000000,5.000000 15.000000,15.000000 5.000000,15.000000

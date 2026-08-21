@@ -1,5 +1,5 @@
-//dfd57189-bcec-65e1-2c6b-6daf083a376b
-//add52abe-a5bd-dcbe-823a-7c6cd00f1850
+//bd8d7700-b9da-c650-e542-94e45ff7890b
+//371e6f48-eef5-8674-0ba1-1ac11d71e97c
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -46,6 +46,15 @@ type AdaptiveDrawingModel(value : DrawingModel) =
             (unbox<PRo3D.Base.Annotation.AdaptiveAnnotation> o).Update(v)
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Base.Annotation.Annotation, PRo3D.Base.Annotation.AdaptiveAnnotation, PRo3D.Base.Annotation.AdaptiveAnnotation>(value.working, (fun (v : PRo3D.Base.Annotation.Annotation) -> PRo3D.Base.Annotation.AdaptiveAnnotation(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<PRo3D.Base.Annotation.AdaptiveAnnotation> o), (fun (v : PRo3D.Base.Annotation.Annotation) -> PRo3D.Base.Annotation.AdaptiveAnnotation(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<PRo3D.Base.Annotation.AdaptiveAnnotation> o))
+    let _cutStroke_ =
+        let inline __arg2 (o : System.Object) (v : PRo3D.Base.Annotation.Annotation) =
+            (unbox<PRo3D.Base.Annotation.AdaptiveAnnotation> o).Update(v)
+            o
+        let inline __arg5 (o : System.Object) (v : PRo3D.Base.Annotation.Annotation) =
+            (unbox<PRo3D.Base.Annotation.AdaptiveAnnotation> o).Update(v)
+            o
+        Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Base.Annotation.Annotation, PRo3D.Base.Annotation.AdaptiveAnnotation, PRo3D.Base.Annotation.AdaptiveAnnotation>(value.cutStroke, (fun (v : PRo3D.Base.Annotation.Annotation) -> PRo3D.Base.Annotation.AdaptiveAnnotation(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<PRo3D.Base.Annotation.AdaptiveAnnotation> o), (fun (v : PRo3D.Base.Annotation.Annotation) -> PRo3D.Base.Annotation.AdaptiveAnnotation(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<PRo3D.Base.Annotation.AdaptiveAnnotation> o))
+    let _vertexGrab_ = FSharp.Data.Adaptive.cval(value.vertexGrab)
     let _projection_ = FSharp.Data.Adaptive.cval(value.projection)
     let _geometry_ = FSharp.Data.Adaptive.cval(value.geometry)
     let _semantic_ = FSharp.Data.Adaptive.cval(value.semantic)
@@ -76,6 +85,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
             _multi_.Value <- value.multi
             _hoverPosition_.Value <- value.hoverPosition
             _working_.Update(value.working)
+            _cutStroke_.Update(value.cutStroke)
+            _vertexGrab_.Value <- value.vertexGrab
             _projection_.Value <- value.projection
             _geometry_.Value <- value.geometry
             _semantic_.Value <- value.semantic
@@ -99,6 +110,8 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     member __.multi = _multi_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.hoverPosition = _hoverPosition_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Aardvark.Base.Trafo3d>>
     member __.working = _working_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<PRo3D.Base.Annotation.Annotation, PRo3D.Base.Annotation.AdaptiveAnnotation, PRo3D.Base.Annotation.AdaptiveAnnotation>>
+    member __.cutStroke = _cutStroke_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<PRo3D.Base.Annotation.Annotation, PRo3D.Base.Annotation.AdaptiveAnnotation, PRo3D.Base.Annotation.AdaptiveAnnotation>>
+    member __.vertexGrab = _vertexGrab_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<VertexGrab>>
     member __.projection = _projection_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.Projection>
     member __.geometry = _geometry_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.Geometry>
     member __.semantic = _semantic_ :> FSharp.Data.Adaptive.aval<PRo3D.Base.Annotation.Semantic>
@@ -124,6 +137,8 @@ module DrawingModelLenses =
         static member multi_ = ((fun (self : DrawingModel) -> self.multi), (fun (value : Microsoft.FSharp.Core.bool) (self : DrawingModel) -> { self with multi = value }))
         static member hoverPosition_ = ((fun (self : DrawingModel) -> self.hoverPosition), (fun (value : Microsoft.FSharp.Core.option<Aardvark.Base.Trafo3d>) (self : DrawingModel) -> { self with hoverPosition = value }))
         static member working_ = ((fun (self : DrawingModel) -> self.working), (fun (value : Microsoft.FSharp.Core.Option<PRo3D.Base.Annotation.Annotation>) (self : DrawingModel) -> { self with working = value }))
+        static member cutStroke_ = ((fun (self : DrawingModel) -> self.cutStroke), (fun (value : Microsoft.FSharp.Core.Option<PRo3D.Base.Annotation.Annotation>) (self : DrawingModel) -> { self with cutStroke = value }))
+        static member vertexGrab_ = ((fun (self : DrawingModel) -> self.vertexGrab), (fun (value : Microsoft.FSharp.Core.Option<VertexGrab>) (self : DrawingModel) -> { self with vertexGrab = value }))
         static member projection_ = ((fun (self : DrawingModel) -> self.projection), (fun (value : PRo3D.Base.Annotation.Projection) (self : DrawingModel) -> { self with projection = value }))
         static member geometry_ = ((fun (self : DrawingModel) -> self.geometry), (fun (value : PRo3D.Base.Annotation.Geometry) (self : DrawingModel) -> { self with geometry = value }))
         static member semantic_ = ((fun (self : DrawingModel) -> self.semantic), (fun (value : PRo3D.Base.Annotation.Semantic) (self : DrawingModel) -> { self with semantic = value }))

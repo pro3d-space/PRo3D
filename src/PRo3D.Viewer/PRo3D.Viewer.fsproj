@@ -86,6 +86,7 @@
     <EmbeddedResource Include="resources\calendar.css" />
     <EmbeddedResource Include="resources\calendar.js" />
     <EmbeddedResource Include="resources\utilities.js" />
+    <EmbeddedResource Include="resources\essentialstuff.js" />
     <Content Include="resources\rotationcubeXYZ\back.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

@@ -237,6 +237,21 @@ module GroupsApp =
         else
             { m with rootGroup = root'; singleSelectLeaf = None } 
 
+    /// Removes a leaf wherever it sits in the tree, by id alone. removeLeaf needs the owning
+    /// group's path and silently leaves the tree untouched on a wrong one - a hazard when the
+    /// selection came from a viewport pick, whose TreeSelection carries the root path regardless
+    /// of the leaf's actual group.
+    let removeLeafById (id : Guid) (model : GroupsModel) =
+        let rec strip (n : Node) =
+            { n with
+                leaves   = n.leaves |> IndexList.filter (fun leafId -> leafId <> id)
+                subNodes = n.subNodes |> IndexList.map strip }
+        { model with
+            rootGroup        = strip model.rootGroup
+            flat             = model.flat |> HashMap.remove id
+            singleSelectLeaf = (match model.singleSelectLeaf with Some s when s = id -> None | s -> s)
+            selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> ts.id <> id) }
+
     let rec removeSelected (selection:list<TreeSelection>) (removeFromFlat:bool) (m:GroupsModel)  =
         match selection with
         | x::rest ->                

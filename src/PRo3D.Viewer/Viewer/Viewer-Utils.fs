@@ -1112,6 +1112,16 @@ module ViewerUtils =
                 | _ -> true
             )
 
+        // Vertex editing is driven entirely by the live surface hit, so it has to keep the preview
+        // picking running even when the scene has it switched off. #669 made `true` the default,
+        // but scenes saved before that carry an explicit `false` and Json.tryRead only defaults a
+        // key that is absent - so without this, opening an older scene makes edit mode inert.
+        // The user's config value is read, never written.
+        let previewPickingEnabled =
+            (m.scene.config.showPreviewIntersection, m.interaction)
+            ||> AVal.map2 (fun showIt interaction ->
+                showIt || interaction = Interactions.EditAnnotation)
+
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
@@ -1192,7 +1202,7 @@ module ViewerUtils =
                             m.frustum 
                             selected 
                             surfacePicking
-                            m.scene.config.showPreviewIntersection
+                            previewPickingEnabled
                             surface.globalBB
                             refSystem 
                             observationSystem

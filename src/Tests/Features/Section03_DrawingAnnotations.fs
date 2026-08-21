@@ -119,16 +119,11 @@ let private drawingE2ETests =
 
         // TC-3.7 Draw Axis4PEllipse
         //
-        // Skipped, not deleted: the four-point ellipse is not fitted at all on the
-        // currently-active path. getFinishedAnnotation takes the plane-based branch
-        // (`let geo = false`, Drawing-App.fs) and EllipseAnnotation.constructAndSampleFromPlane
-        // matches only the three-point case `[| p0; p1; p2 |]`, returning None for four
-        // points — so the annotation keeps its four raw clicks and no outline is sampled.
-        // The disabled geographical path (constructAndSampleGeographical) does handle four
-        // points. Drop the skiptest below once the plane path covers Axis4PEllipse.
+        // The first two clicks are the ends of the major axis, the last two give the
+        // semi-minor length on either side of it, so the outline is stitched together
+        // from two half-ellipses that share the major axis.
 
         test "TC-3.7 four clicks in Axis4PEllipse mode fit an ellipse" {
-            skiptest "Axis4PEllipse is not fitted: constructAndSampleFromPlane handles only 3 points"
             let c  = V3d(693177.21, -3147511.67, 1070879.15)
             let m  = Draw.drawFull Draw.refSystemMars Geometry.Axis4PEllipse true
                         [ c + V3d(60.0, 0.0, 0.0); c - V3d(60.0, 0.0, 0.0)

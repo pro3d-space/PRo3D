@@ -1,3 +1,15 @@
+## 6.1.0-prerelease003
+- Surfaces: **numeric controls work again** — Blend Factor, Min, Max and Color Map never appeared in surface properties, and the controls that did render were inert. `NoSemUi` kept its own semantic-ui dependency list pointing at the pre-5.7 resource paths, so all four URLs 404'd; one of them, `essentialstuff.js`, defines the jQuery `numeric` plugin the controls boot with, and its absence aborted the rest of the panel's DOM setup. The GIS entity numerics were broken the same way. Present in shipped 6.0.0
+
+## 6.1.0-prerelease002
+- Annotations: the **4-point ellipse is drawn as an ellipse again** — the four clicks were kept as raw points and rendered as an open polyline, because the ellipse fit on the dip/strike plane only handled the 3-point case. A four-point ellipse is now built as two half-ellipses that share the major axis and differ only in the semi-minor axis
+- Annotations: the **4-point ellipse is hidden from the geometry selector** for now. The geometry and its update/rendering path are unchanged, so existing annotations still load and draw
+- Under Cursor: the read-out adds the picked point's **latitude, longitude and altitude** next to its cartesian position, in the same convention as the Coordinate System panel. The rows are omitted when the conversion is unavailable — a non-planetary reference frame, or a SPICE call that fails
+
+## 6.1.0-prerelease001
+- Annotations: **boolean operations** — union two or more selected annotations into one, or cut the selected annotation along a polyline stroke drawn on the terrain. The stroke colours green or red as a live answer to "would this cut". A union of disjoint operands explodes into one annotation per component, a union that would enclose a hole is refused rather than silently dropping it, and both operations undo in a single step
+- Annotations: **move control points on the surface** — drag an annotation's vertices to new terrain positions in the new edit mode; Escape puts a grabbed point back, and moving a vertex onto a different surface is reported on screen
+
 ## 6.0.0
 First stable release of the 6.0 line. The individual changes since 5.x are listed in the `6.0.0-prerelease*` and `6.0.0-rc*` entries below.
 
