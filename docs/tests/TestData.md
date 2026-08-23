@@ -8,13 +8,13 @@ git submodule.
 | | |
 |---|---|
 | Repository | https://github.com/pro3d-space/PRo3D.Resources.TestData |
-| Mounted at | `src/Tests/data/opc` |
-| Size | ~167 MB (one OPC surface) |
+| Mounted at | `src/Tests/resources` |
+| Size | ~254 MB |
 
 ## Getting it
 
 ```
-git submodule update --init src/Tests/data/opc
+git submodule update --init src/Tests/resources
 ```
 
 Or clone PRo3D with `--recurse-submodules` in the first place. The submodule is **not**
@@ -27,14 +27,23 @@ other's data.
 
 ## What is in it
 
-`1087_004779_MSLMST_0011` — an MSL Mastcam OPC surface: the `.opcx` surface descriptor plus
-one OPC directory (`1087_004779_MSLMST_0011_000_000`) with `Images/` textures,
-`Patches/` geometry and `patchhierarchy.xml`, and pre-built `.aakd` kd-trees so that picking
-works without running [`opc-tool`](../OpcTool.md) first.
+One top-level directory per fixture:
 
-The fixture is imported exactly as a user would import a folder, via
+- **`1087_004779_MSLMST_0011`** — an MSL Mastcam OPC surface: the `.opcx` surface descriptor
+  plus one OPC directory (`1087_004779_MSLMST_0011_000_000`) with `Images/` textures,
+  `Patches/` geometry and `patchhierarchy.xml`, and pre-built `.aakd` kd-trees so that
+  picking works without running [`opc-tool`](../OpcTool.md) first. This is the surface the
+  feature tests import, and the only one `TestHelpers.fs` currently references.
+- **`Dimorphos_DRACO1`** — the shape model `TriangleSetTests` exercises.
+- **`HERA`** — OPC update products (BDS metadata, AARA textures) for `OpcSidecarTests`.
+
+The OPC fixture is imported exactly as a user would import a folder, via
 `ViewerAction.ImportSurface`, so the surface directory must stay importable as-is: keep each
 fixture in its own top-level directory named after the surface.
+
+Note that `TriangleSetTests` and `OpcSidecarTests` still read their copies from hard-coded
+`C:\pro3ddata\…` paths rather than from here — pointing them at the submodule would remove
+that per-machine setup, but has not been done yet.
 
 ## Running without it
 
@@ -50,8 +59,8 @@ the OPC-backed sections would skip regardless and the download would be wasted.
 ## Adding a fixture
 
 1. Commit it to `PRo3D.Resources.TestData` in a top-level directory named after the surface.
-2. In PRo3D, bump the submodule pointer (`git -C src/Tests/data/opc pull`, then commit the
-   changed `src/Tests/data/opc` entry) so the fixture version is pinned per PRo3D commit.
+2. In PRo3D, bump the submodule pointer (`git -C src/Tests/resources pull`, then commit the
+   changed `src/Tests/resources` entry) so the fixture version is pinned per PRo3D commit.
 3. Reference it from `Render` in `TestHelpers.fs`, and gate the new tests on
    `Render.skipReason` like the existing sections do.
 

@@ -66,7 +66,7 @@ let allTests () : Test =
             InstrumentProjectionComparisonTest.tests()
 
         // Sections whose OPC-backed lists self-skip when the test-data submodule
-        // (src/Tests/data/opc) or a GL context is unavailable.
+        // (src/Tests/resources) or a GL context is unavailable.
         featureTests ()
     ]
 
