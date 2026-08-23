@@ -304,12 +304,12 @@ module ProjectedImageApp =
             img |> extract DefaultTextures.checkerboard (fun img -> 
                 (img.texture, img.selectedChannel) 
                 ||> AVal.map2 (fun (path : string) channel ->
-                        match Path.GetExtension(path).ToLower() with
-                        | ".exr" ->
+                        match PixImage.GetFormatOfExtension path with
+                        | PixFileFormat.Exr ->
                             let stream = File.OpenRead path
-                            let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
+                            let exrTexture = TextureLoading.loadImageFromStream PixFileFormat.Exr (ChannelReference.ChannelWithIndex channel.idx) stream
                             PixTexture2d(exrTexture, true)
-                        | ".tiff" | ".tif" -> 
+                        | PixFileFormat.Tiff ->
                             let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
                             match MultiBandReader.tryReadMultiBandTiff path false with
                             | Result.Ok img -> 
@@ -323,7 +323,7 @@ module ProjectedImageApp =
                             | _ -> 
                                 Log.warn "could not load texture"
                                 DefaultTextures.checkerboard.GetValue()
-                        | ".png" | _ -> whiteTex 
+                        | _ -> whiteTex
                 ) 
             )
 

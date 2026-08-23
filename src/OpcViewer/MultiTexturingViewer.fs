@@ -243,13 +243,8 @@ module MultiTexturingViewer =
                 | None -> ()
                 | Some texturePath -> 
                     let texName = Path.GetFileNameWithoutExtension(texturePath)
-                    let isExr = Path.GetExtension(texturePath).ToLower() = ".exr"
-                    let extension =
-                        match Path.GetExtension(texturePath).ToLower() with
-                        | ".dds" -> Some TextureLoading.DDS
-                        | ".tiff" | ".tif" -> Some TextureLoading.TIFF
-                        | ".exr" -> Some TextureLoading.TextureFormat.OpenEXR
-                        | _ -> None
+                    let format = PixImage.GetFormatOfExtension texturePath
+
                     let readPixelValue (img: PixImage) (px: int) (py: int) =
                         match img with
                         | :? PixImage<byte> as byteImg ->
@@ -265,10 +260,10 @@ module MultiTexturingViewer =
                             Log.warn "[Extraction] unsupported pixel format for %s: %A" texName (img.GetType())
                             None
 
-                    if isExr then
+                    if format = PixFileFormat.Exr then
                         // EXR: load channel 0 (OPC texture layers are typically single-channel scalar data)
                         use stream = Prinziple.openRead texturePath
-                        let mipMap = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex 0) extension
+                        let mipMap = TextureLoading.loadImageFromStream format (ChannelReference.ChannelWithIndex 0) stream
                         match mipMap.ImageArray |> Seq.tryHead with
                         | Some img ->
                             let w = img.Size.X
@@ -283,7 +278,7 @@ module MultiTexturingViewer =
                     else
                         // DDS/TIFF: load all channels at once
                         use stream = Prinziple.openRead texturePath
-                        let mipMap = TextureLoading.loadImageFromStream stream ChannelReference.NoChannelSelection extension
+                        let mipMap = TextureLoading.loadImageFromStream format ChannelReference.NoChannelSelection stream
                         match mipMap.ImageArray |> Seq.tryHead with
                         | Some img ->
                             let w = img.Size.X
