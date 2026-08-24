@@ -612,17 +612,47 @@ let tests () =
                          "no geographic columns, so nothing to attribute"
         }
 
-        test "per-annotation granularity coerces the source back to SPICE" {
-            // there is no single point to sample a per-vertex layer at, so the
-            // model must not keep holding a source the export cannot honour
+        test "a granularity switch leaves the lat/lon/alt source alone" {
+            // both granularities can honour the file source: a per-annotation row
+            // samples once, at the bounding-box centre
             let model =
                 { AnnotationExportModel.initial with latLonAltSource = LatLonAltSource.AaraFile }
 
-            let switched = AnnotationExportApp.update model (SetGranularity ExportGranularity.PerAnnotation)
-            Expect.equal switched.latLonAltSource LatLonAltSource.Spice "coerced"
+            let perAnnotation = AnnotationExportApp.update model (SetGranularity ExportGranularity.PerAnnotation)
+            Expect.equal perAnnotation.latLonAltSource LatLonAltSource.AaraFile "kept for per-annotation"
 
-            let kept = AnnotationExportApp.update model (SetGranularity ExportGranularity.PerPoint)
-            Expect.equal kept.latLonAltSource LatLonAltSource.AaraFile "per-point leaves it alone"
+            let perPoint = AnnotationExportApp.update model (SetGranularity ExportGranularity.PerPoint)
+            Expect.equal perPoint.latLonAltSource LatLonAltSource.AaraFile "kept for per-point"
+        }
+
+        test "a per-annotation export can take lat/lon/alt from the per-vertex layer" {
+            let annotation = testAnnotation ()
+            let settings =
+                { csvSettings ExportGranularity.PerAnnotation [] [] with
+                    coordinates     = CoordinateMode.Geographic
+                    longitude       = LongitudeConvention.Native
+                    signedLongitude = false
+                    latLonAltSource = LatLonAltSource.AaraFile }
+
+            // channels are (longitude, latitude, radius)
+            let sampler = stubSamplerWithCoordinates (V3d(77.0, -14.5, 1823.4))
+
+            match AnnotationExport.buildRecords
+                    settings (Some sampler) HashMap.empty Planet.Mars V3d.OOI [ annotation ] with
+            | [ row ] ->
+                Expect.equal (number "lat" row) (Some -14.5) "latitude is the layer's second channel"
+                Expect.equal (number "lon" row) (Some 77.0) "longitude is the layer's first channel"
+                Expect.equal (cell "latLonAltSource" row) (Some (VText "aara_file")) "provenance recorded"
+            | rows -> failtestf "expected exactly one row per annotation, got %d" (List.length rows)
+
+            // the bounding-box centre usually floats above the terrain, so the
+            // miss is the common case rather than the exceptional one
+            match AnnotationExport.buildRecords
+                    settings (Some stubSampler) HashMap.empty Planet.Mars V3d.OOI [ annotation ] with
+            | [ row ] ->
+                Expect.equal (cell "latLonAltSource" row) (Some (VText "spice_recpgr"))
+                             "falls back to SPICE, and says so"
+            | rows -> failtestf "expected exactly one row per annotation, got %d" (List.length rows)
         }
 
         test "GeoJSON geometry and properties agree about a file-sourced point" {
@@ -710,7 +740,9 @@ let tests () =
 
             Expect.equal qgis.format ExportFormat.GeoJson "QGIS writes GeoJSON"
             Expect.equal qgis.coordinates CoordinateMode.Geographic "QGIS is geographic"
-            Expect.equal qgis.longitude LongitudeConvention.Shifted "QGIS needs the shifted prime meridian"
+            // the body's own convention; a product on a differently oriented
+            // frame needs Shifted, but that is a per-export override now
+            Expect.equal qgis.longitude LongitudeConvention.Native "QGIS uses the body's own prime meridian"
 
             // the signed range and the per-vertex source are the defaults
             // everywhere now, so every preset arrives at both — including one that

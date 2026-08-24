@@ -110,9 +110,10 @@ module AnnotationExportViewer =
     /// what the setting asked for.
     let private partialAaraMessage (fallenBack : int) (total : int) =
         sprintf
-            "The file was written, but %d of %d points had no LonLatRad data underneath them, \
-             so their lat/lon/alt come from SPICE. The latLonAltSource column says which \
-             rows those are."
+            "The file was written, but %d of %d sampled positions had no LonLatRad data \
+             underneath them, so their lat/lon/alt come from SPICE. The latLonAltSource \
+             column says which rows those are. A per-annotation export samples at the \
+             bounding-box centre, which often lies off the surface."
             fallenBack total
 
     /// What the sampler observed, for the warnings above. Counted rather than
@@ -224,10 +225,14 @@ module AnnotationExportViewer =
                 // Cartesian exports write no lat/lon at all, so the source is
                 // irrelevant there and must not drag a ray cast — or the refusal
                 // below — into an otherwise ordinary export.
+                //
+                // Unlike the surface properties above this is *not* limited to
+                // per-point exports: a per-annotation row samples once, at the
+                // bounding-box centre, falling back to SPICE where that misses.
                 let wantsAaraCoordinates =
                     settings.latLonAltSource = LatLonAltSource.AaraFile
                     && AnnotationExport.wantsGeographic settings.coordinates
-                    && perPoint
+                    && not (AnnotationExportSettings.hasFixedSchema settings.format)
 
                 if wantsAaraCoordinates
                    && not (ProfileAttributeExtraction.hasLonLatRadLayer surfaces.surfaces) then

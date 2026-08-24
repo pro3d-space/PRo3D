@@ -171,12 +171,14 @@ module AnnotationExportSettings =
                 format           = ExportFormat.GeoJson
                 granularity      = ExportGranularity.PerAnnotation
                 coordinates      = CoordinateMode.Geographic
-                // No convention is right for every scene: the prime meridian of
-                // the *product* being matched need not be the body's. Determined
-                // against a texture draped on a shape model, whose UV origin sat
-                // 180 deg from the body-fixed +X axis that longitude 0 follows.
-                // Override per export when the target says otherwise.
-                longitude        = LongitudeConvention.Shifted
+                // The body's own convention, as SPICE returns it — the neutral
+                // choice, and the one that matches a product built on the same
+                // body-fixed frame. No convention is right for every scene: the
+                // prime meridian of the *product* being matched need not be the
+                // body's, and a draped texture whose UV origin sits 180 deg from
+                // the body-fixed +X axis needs `Shifted` instead. Override per
+                // export when the target says otherwise.
+                longitude        = LongitudeConvention.Native
                 annotationFields =
                     // colorHex so QGIS can bind it to the symbol colour, groupPath
                     // so the group tree survives as a categorisable attribute

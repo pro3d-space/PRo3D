@@ -96,7 +96,7 @@ switches the preset back to *Custom*; nothing is locked.
 
 | Preset | Sets |
 |---|---|
-| GIS / QGIS | GeoJSON, geographic, longitude *Shifted by 180°*, `colorHex` + `groupPath` + the common measurements |
+| GIS / QGIS | GeoJSON, geographic, longitude *Native*, `colorHex` + `groupPath` + the common measurements |
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
 | Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
 | Attitude planes | file type *Attitude planes* |
@@ -201,10 +201,9 @@ There is no universally correct choice, because the convention has to match **wh
 are lining the export up against**, not just the body. A worked example: an Earth texture
 draped on the Dimorphos shape model is placed by a UV mapping whose origin sits 180° from the
 body-fixed +X axis that longitude 0 follows, so exports matching that texture need *Shifted by
-180°* — even though PRo3D's own longitude is perfectly self-consistent. The **GIS / QGIS
-preset** selects *Shifted by 180°* for exactly that case; the general default stays *Flipped*,
-which is what the CSV export this replaces did. Override per export when the target says
-otherwise.
+180°* — even though PRo3D's own longitude is perfectly self-consistent. That is a per-export
+override, not a preset: the **GIS / QGIS preset** selects *Native*, the body's own convention,
+and the general default stays *Flipped*, which is what the CSV export this replaces did.
 
 > **GeoJSON coordinate order changed.** Positions are now written in the spec order
 > `[longitude, latitude, altitude]`. All three predecessors wrote latitude first, which no
@@ -221,11 +220,17 @@ Where the geographic coordinates come from. Two options, and the default is **Fi
 | **SPICE** | Derives lat/lon/alt from the point's cartesian position, picking the right convention for the body automatically (see below). Works for any body with a geographic frame, whatever the terrain data looks like. |
 | **File (.aara)** (default) | Reads the values out of the patch's own per-vertex `LonLatRad` grid, barycentrically interpolated at the point. These are the numbers the OPC was built from, rather than numbers re-derived from a position. Requires an OPC that ships the layer — see [Per-Vertex Attribute Layers](VertexAttributes.md). |
 
-The row is only shown when it can apply: *Coordinates* must be **Geographic** or **Both**
-(a cartesian export writes no lat/lon at all) and the granularity must be **one record per
-point** (a per-annotation record has no single position to sample a layer at, so those
-exports always use SPICE). Switching to per-annotation resets the setting to *SPICE*; a
-cartesian export merely hides it and keeps your choice for when it becomes relevant again.
+The row is only shown when it can apply: *Coordinates* must be **Geographic** or **Both**, as
+a cartesian export writes no lat/lon at all. Hiding it keeps your choice for when it becomes
+relevant again.
+
+Both granularities can use either source. A per-annotation record has no single picked point,
+so it samples once at the **bounding-box centre** — the same position it already reports as
+`x`/`y`/`z`. That centre is computed rather than picked: for anything but a straight line it
+floats above the terrain, so the sample frequently misses even on a surface that does ship the
+layer. Where it misses, the row falls back to SPICE and `latLonAltSource` records that, so a
+per-annotation export set to *File (.aara)* may legitimately come back entirely SPICE-sourced.
+Per-point exports sample at real picked positions and hit far more reliably.
 
 #### Which SPICE routine
 
@@ -269,13 +274,12 @@ the value — they are notation transforms of a longitude, not part of deriving 
 | Situation | What happens |
 |---|---|
 | **No loaded surface ships the layer** | The export is **refused**: nothing is written and the window says so. Set the source to *SPICE*, or load an OPC with `.aara` attribute layers. |
-| **Some points fall outside it** — the annotation runs off the surface, or onto a patch without the layer | The file *is* written. Those rows are resolved by SPICE and their `latLonAltSource` says so, and the window reports how many. |
+| **Some positions fall outside it** — the annotation runs off the surface, onto a patch without the layer, or (per-annotation) the bounding-box centre floats above the terrain | The file *is* written. Those rows are resolved by SPICE and their `latLonAltSource` says so, and the window reports how many. |
 
 The option is never greyed out, so the refusal is what tells you the data is missing. Note
 that `.aara` is also the default for every preset, so on an OPC without per-vertex layers a
-per-point geographic export refuses until you switch the source — and picking a preset arms
-it again. That is deliberate: an export must never quietly use a source other than the one
-selected.
+geographic export refuses until you switch the source — and picking a preset arms it again.
+That is deliberate: an export must never quietly use a source other than the one selected.
 
 `groundDistance` is unaffected by this setting — it needs the inverse transform to flatten a
 point onto the reference surface, which the file has no equivalent for, so it is always
@@ -398,8 +402,11 @@ One column per layer found, named `surface_<layer>` after the layer in the patch
 | Multi-channel layers | kept in **one** cell, `0.25;0.5;0.75` (a JSON array in GeoJSON), because the channel *count* would otherwise depend on which texture a point landed on |
 | Points that hit nothing | empty cells; the export still succeeds |
 
-Only offered for **one record per point** — a per-annotation record has no single position to
-sample at — and ignored by the fixed-schema file types. It works for CSV and GeoJSON alike.
+Only offered for **one record per point**, and ignored by the fixed-schema file types. It works
+for CSV and GeoJSON alike. Unlike the [lat/lon/alt source](#latlonalt-source), this is not
+extended to per-annotation exports: a fallback that silently substitutes SPICE keeps the row
+meaningful, whereas surface properties sampled at a bounding-box centre that floats above the
+terrain would be attributed to the wrong place with nothing to signal it.
 
 #### How a value is found
 
@@ -564,9 +571,9 @@ Three of these are not exact equivalents:
   export writes the annotation's own point and samples the surface at it — a difference of
   millimetres, but they are no longer literally the same numbers.
 
-The three QGIS variants applied **no** longitude transform, i.e. *Native*. The *GIS / QGIS*
-preset instead selects *Shifted by 180°* — pick *Native* in the dropdown to reproduce the old
-files.
+The three QGIS variants applied **no** longitude transform, i.e. *Native* — which is what the
+*GIS / QGIS* preset selects, so it reproduces the old files. Pick *Shifted by 180°* when the
+product you are lining up against sits on a differently oriented frame.
 
 Note the **longitude range** also differs from all of the old exports: they wrote `[0, 360)`,
 and the signed `(−180, 180]` range is now the default. Wherever a longitude exceeds 180° the

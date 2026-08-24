@@ -137,6 +137,24 @@ module AnnotationExport =
                       lonLatRadius.Z))
           source = VText "aara_file" }
 
+    /// lat/lon/alt for one position, honouring the configured source. Shared by
+    /// both granularities so a per-annotation row resolves exactly as a
+    /// per-point one does, including the fallback and its provenance token.
+    let private resolveGeographic
+        (planet   : Planet)
+        (settings : AnnotationExportSettings)
+        (sample   : SurfaceSample)
+        (position : V3d) =
+
+        if not (wantsGeographic settings.coordinates) then noGeographic
+        else
+            match settings.latLonAltSource, sample.lonLatRadius with
+            | LatLonAltSource.AaraFile, Some lonLatRadius -> fromAara settings lonLatRadius
+            // Either SPICE was asked for, or the per-vertex data does not cover
+            // this position. Falling back keeps the row rather than blanking it,
+            // and its source column says which happened.
+            | _ -> fromSpice planet settings position
+
     // ------------------------------------------------------------ points ---
 
     /// One exported point: its position plus which segment it came from.
@@ -310,6 +328,7 @@ module AnnotationExport =
 
     let private perAnnotationRecord
         (settings : AnnotationExportSettings)
+        (sampler  : Option<SurfacePropertySampler>)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
@@ -323,10 +342,23 @@ module AnnotationExport =
             | [] -> V3d.NaN
             | _  -> Box3d(points).Center
 
+        // The centre is computed, not picked: for anything but a straight line
+        // it floats above the terrain, so the ray cast can miss even where the
+        // surface does ship the layer. `resolveGeographic` then falls back to
+        // SPICE and records that in the source column, so the row still says
+        // where its numbers came from. Only pay for the cast when the file
+        // source was actually asked for.
+        let sample =
+            match sampler with
+            | Some sampleAt when settings.latLonAltSource = LatLonAltSource.AaraFile
+                                 && wantsGeographic settings.coordinates
+                                 && not points.IsEmpty -> sampleAt centre
+            | _ -> SurfaceSample.empty
+
         let coordinates =
             [ if wantsCartesian settings.coordinates then yield! cartesianFields centre
               if wantsGeographic settings.coordinates then
-                  yield! geographicFields planet (fromSpice planet settings centre) ]
+                  yield! geographicFields planet (resolveGeographic planet settings sample centre) ]
 
         { fields   = annotationFieldPairs settings groupPath up a @ coordinates
           geometry =
@@ -391,15 +423,7 @@ module AnnotationExport =
                 | Some sampleAt -> sampleAt point.position
                 | None          -> SurfaceSample.empty
 
-            let geographic =
-                if not (wantsGeographic settings.coordinates) then noGeographic
-                else
-                    match settings.latLonAltSource, sample.lonLatRadius with
-                    | LatLonAltSource.AaraFile, Some lonLatRadius -> fromAara settings lonLatRadius
-                    // Either SPICE was asked for, or the per-vertex data does not
-                    // cover this point. Falling back keeps the row rather than
-                    // blanking it, and its source column says which happened.
-                    | _ -> fromSpice planet settings point.position
+            let geographic = resolveGeographic planet settings sample point.position
 
             let pointPairs =
                 [ if hasPointField PointField.Index then
@@ -453,7 +477,7 @@ module AnnotationExport =
             let resolved = resolvePoints settings.useSampledPoints a
             match settings.granularity with
             | ExportGranularity.PerAnnotation ->
-                [ perAnnotationRecord settings groupPath planet up a (resolved |> List.map (fun r -> r.position)) ]
+                [ perAnnotationRecord settings sampler groupPath planet up a (resolved |> List.map (fun r -> r.position)) ]
             | _ ->
                 perPointRecords settings sampler groupPath planet up a resolved)
 
