@@ -560,12 +560,9 @@ let run (o : SimulateImageOptions) : int =
     if not (Directory.Exists o.opc) then Log.error "OPC directory not found: %s" o.opc; 1
     else
 
-    match SunAnglesVerb.resolveKernelRoot o.kernelRoot with
+    match Spice.resolveKernelRoot o.kernelRoot with
     | Result.Error e ->
-        Log.error "%s" e
-        Log.error "SPICE kernels are published separately by ESA and are not part of the PRo3D test data:"
-        Log.error "  git clone https://spiftp.esac.esa.int/git/hera.git"
-        Log.error "then set %s to that clone (or to its 'kernels' subdirectory)." SunAnglesVerb.kernelRootVar
+        Spice.reportMissingKernelRoot e
         1
     | Ok kernelRoot ->
 

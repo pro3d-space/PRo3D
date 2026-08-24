@@ -171,3 +171,73 @@ module InstrumentObservation =
                     near = near
                     far = far
                 }
+
+    /// Where the image coordinate system's origin sits and which way rows count.
+    type PixelOrigin =
+        | TopLeft
+        | BottomLeft
+
+    /// A complete image addressing convention. Image tools (OpenCV, scipy) are 0-based with
+    /// the origin top-left; FITS tools are 1-based with the origin bottom-left. Deliberately
+    /// not configurable: whether an integer names a pixel's centre or its corner -- every
+    /// source of a centroid puts integers at pixel CENTRES.
+    type PixelConvention =
+        {
+            origin    : PixelOrigin
+            /// Index of the first pixel: 0 for image tools, 1 for FITS.
+            baseIndex : int
+        }
+        /// 0-based, origin top-left, y downwards.
+        static member Image = { origin = TopLeft; baseIndex = 0 }
+        /// 1-based, origin bottom-left, y upwards.
+        static member Fits  = { origin = BottomLeft; baseIndex = 1 }
+
+    /// Pixel coordinate -> normalised device coordinates in [-1,1].
+    ///
+    /// NDC spans the whole image extent [0,w] while the input names a pixel: pixel i covers
+    /// [i, i+1) and its centre is i+0.5, hence the half-pixel shift. Continuous in `pixel`, so
+    /// a sub-pixel centroid needs no special case.
+    let pixelToNdc (size : V2i) (conv : PixelConvention) (pixel : V2d) : V2d =
+        let b = float conv.baseIndex
+        let x = pixel.X - b
+        let y = pixel.Y - b
+        let u = 2.0 * (x + 0.5) / float size.X - 1.0
+        let v =
+            match conv.origin with
+            | TopLeft    -> 1.0 - 2.0 * (y + 0.5) / float size.Y
+            | BottomLeft -> 2.0 * (y + 0.5) / float size.Y - 1.0
+        V2d(u, v)
+
+    /// Inverse of pixelToNdc.
+    let ndcToPixel (size : V2i) (conv : PixelConvention) (ndc : V2d) : V2d =
+        let b = float conv.baseIndex
+        let x = (ndc.X + 1.0) * 0.5 * float size.X - 0.5
+        let y =
+            match conv.origin with
+            | TopLeft    -> (1.0 - ndc.Y) * 0.5 * float size.Y - 0.5
+            | BottomLeft -> (ndc.Y + 1.0) * 0.5 * float size.Y - 0.5
+        V2d(x + b, y + b)
+
+    /// Ray through a pixel, in the reference frame `projectorCamera` was built for.
+    ///
+    /// `full.Forward` is world -> clip (that is how the projection shader uses it), so
+    /// `Backward` unprojects clip back to world. Same technique the viewer's own mouse picking
+    /// uses in `pickRayNdc`.
+    let pixelRay (cam : ProjectorCamera) (size : V2i) (conv : PixelConvention) (pixel : V2d) : Ray3d =
+        let n = pixelToNdc size conv pixel
+        let near = cam.full.Backward.TransformPosProj(V3d(n.X, n.Y, -1.0))
+        let far  = cam.full.Backward.TransformPosProj(V3d(n.X, n.Y,  1.0))
+        Ray3d(near, Vec.normalize (far - near))
+
+    /// World point -> pixel, the inverse of `pixelRay`.
+    ///
+    /// Returns None for a point at or behind the projection centre. The homogeneous divide is
+    /// done explicitly rather than through TransformPosProj so the sign of w can be checked:
+    /// a point behind the camera otherwise comes back as a perfectly plausible pixel.
+    let projectToPixel (cam : ProjectorCamera) (size : V2i) (conv : PixelConvention) (p : V3d) : Option<V2d> =
+        let h = cam.full.Forward.Transform(V4d(p.X, p.Y, p.Z, 1.0))
+        if h.W <= 0.0 || not (Double.IsFinite h.W) then None
+        else
+            let n = V2d(h.X / h.W, h.Y / h.W)
+            if Double.IsFinite n.X && Double.IsFinite n.Y then Some (ndcToPixel size conv n)
+            else None
