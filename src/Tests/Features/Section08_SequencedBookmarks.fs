@@ -9,14 +9,20 @@
 ///   the real AnimationSettings.update.
 module PRo3D.Tests.Section08_SequencedBookmarks
 
+open System
+
 open Aardvark.Base
 open Aardvark.Rendering                  // CameraView
 open Aardvark.UI.Primitives              // Numeric
 open Aardvark.UI.Animation               // IAnimation, Action, LocalTime
 
+open Chiron
 open Expecto
 
-open PRo3D.Core                          // AnimationSettings (module)
+open PRo3D.Base                          // NavigationMode
+open PRo3D.Base.Gis                      // EntitySpiceName, FrameSpiceName
+open PRo3D.Core                          // AnimationSettings (module), Bookmark
+open PRo3D.Core.Gis                      // ObservationInfo
 open PRo3D.Core.BookmarkAnimations       // Primitives.cameraInterpolateSafe
 open PRo3D.Core.SequencedBookmarks       // AnimationSettingsAction, AnimationLoopMode
 open PRo3D.Tests
@@ -169,5 +175,40 @@ let tests =
 
             Expect.isLessThan (Vec.distance atStart.Location a.Location) 1e-6 "t=0 should be the source location"
             Expect.isLessThan (Vec.distance atEnd.Location   b.Location) 1e-6 "t=1 should be the destination location"
+        }
+
+        // TC-8.4 Serialization — a GIS bookmark's SPICE observation info drives the sun
+        // direction of that bookmark; ToJson silently dropped it for a long time (read0
+        // always read it back), so every save lost the time and batch-rendered sequences
+        // could never sweep the sun.
+
+        test "TC-8.4 observationInfo survives a bookmark save/load roundtrip" {
+            let bookmark : Bookmark =
+                {
+                    version        = Bookmark.current
+                    key            = Guid.NewGuid()
+                    name           = "gis bookmark"
+                    cameraView     = jezeroView
+                    exploreCenter  = V3d.Zero
+                    navigationMode = NavigationMode.FreeFly
+                }
+            let info =
+                { ObservationInfo.initial with
+                    target         = Some (EntitySpiceName "DIMORPHOS")
+                    observer       = Some (EntitySpiceName "HERA")
+                    referenceFrame = Some (FrameSpiceName "DIMORPHOS_FIXED") }
+            let bm = { SequencedBookmarkModel.init bookmark with observationInfo = Some info }
+
+            let serialized = bm |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            let restored : SequencedBookmarkModel = serialized |> Json.parse |> Json.deserialize
+
+            match restored.observationInfo with
+            | Some r ->
+                Expect.equal r.target info.target "target should survive"
+                Expect.equal r.observer info.observer "observer should survive"
+                Expect.equal r.referenceFrame info.referenceFrame "reference frame should survive"
+                Expect.equal r.time.date info.time.date "observation time should survive"
+            | None ->
+                failtest "observationInfo was dropped by ToJson (the pre-fix behaviour)"
         }
     ]
