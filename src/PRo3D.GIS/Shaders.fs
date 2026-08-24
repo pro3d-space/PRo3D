@@ -64,18 +64,61 @@ module Shaders =
                  }
         }
 
-    let solarLighting (v : Vertex) = 
+    let solarLighting (v : Vertex) =
         fragment {
             let n = v.n |> Vec.normalize
             let c = v.vldir |> Vec.normalize
 
-            let ambient = 0.01f 
-            let diffuse = Vec.dot c n |> max 0.0f 
+            let ambient = 0.01f
+            let diffuse = Vec.dot c n |> max 0.0f
 
             let l = ambient + (1.0f - ambient) * diffuse
 
             if uniform.SunLightEnabled then
                 return V4f(v.c.XYZ * l, v.c.W)
+            else
+                return v.c
+        }
+
+    type TerrainLitVertex = {
+        [<Position>] pos : V4f
+        [<Color>] c : V4f
+        /// Per-face terrain normal from ImageProjection.Shaders.generateNormal.
+        [<Semantic("LocalNormal")>] localNormal : V3f
+        /// Object-space position, stashed by stableImageProjectionTrafo before the
+        /// stable transform overwrites [<Position>] with clip space.
+        [<Semantic("BodyLocalPos")>] localPos : V4f
+    }
+
+    /// Sun shading for OPC terrain: Lommel-Seeliger with a 5% Lambert admixture over the
+    /// textured colour -- the photometric behaviour measured for dark regolith (Li et
+    /// al. 2024, PSJ, doi:10.3847/PSJ/ad2b60); plain Lambert over-darkens the limb.
+    ///
+    /// Unlike `solarLighting` this uses the per-face TERRAIN normal (generateNormal),
+    /// not the sphere approximation from planetLocalLightingViewSpace, so relief is
+    /// actually visible under the sun. All lighting math is view-space, per the
+    /// precision rules (local -> view, never through float32 world coordinates).
+    ///
+    /// OPC datasets are inconsistently wound and the viewer stack runs no per-dataset
+    /// winding vote (see OpcSg.estimateNormalFlip for the offscreen tools' approach), so
+    /// the face normal is oriented toward the viewer instead -- correct for every facet
+    /// the camera actually sees.
+    let solarShadingLS (v : TerrainLitVertex) =
+        fragment {
+            if uniform.SunLightEnabled then
+                let n0 = uniform.ModelViewTrafo.TransformDir v.localNormal |> Vec.normalize
+                let viewPos = uniform.ModelViewTrafo * v.localPos
+                let toCam = -viewPos.XYZ |> Vec.normalize
+                let n = if Vec.dot n0 toCam < 0.0f then -n0 else n0
+                let l = uniform.ViewTrafo.TransformDir uniform.SunDirectionWorld |> Vec.normalize
+                let mu0 = Vec.dot n l |> max 0.0f
+                // floored at a small grazing value: the LS disk term reaches 2x as
+                // mu -> 0, and single grazing pixels would clip to white speckles
+                let mu = Vec.dot n toCam |> max 0.02f
+                let disk = 0.95f * (2.0f * mu0 / (mu0 + mu)) + 0.05f * mu0
+                let ambient = 0.01f
+                let i = ambient + (1.0f - ambient) * disk
+                return V4f(v.c.XYZ * i, v.c.W)
             else
                 return v.c
         }

@@ -1003,7 +1003,9 @@ module ViewerUtils =
             if not Config.limitedShaderCapabilities then
                 ImageProjection.Shaders.localImageProjections |> toEffect
 
-            PRo3D.SPICE.Shaders.solarLighting |> toEffect
+            // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
+            // sphere-normal predecessor made relief invisible under sun lighting.
+            PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
         ]
         //Effect.compose [
             

@@ -551,6 +551,11 @@ type SequencedBookmarkModel with
                 do! Json.write "frustumParameters" x.frustumParameters
             if x.metadata.IsSome then
                 do! Json.write "metadata" x.metadata
+            // read0 has always read this back; not writing it silently discarded a GIS
+            // bookmark's SPICE observation time on every save -- and with it any
+            // per-bookmark sun geometry in batch-rendered sequences.
+            if x.observationInfo.IsSome then
+                do! Json.write "observationInfo" x.observationInfo
         }
 
 [<ModelType>]
