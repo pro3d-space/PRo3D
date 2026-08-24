@@ -1129,7 +1129,7 @@ module ViewerApp =
             | Some path ->
                 try
                     // v1: identity trafo (no SHM->FIXED reprojection), default
-                    // reference-frame label "DIMORPHOS_SHM". See plans/sbmtImport.md
+                    // reference-frame label "DIMORPHOS_SHM". See plans/archive/sbmtImport.md
                     // "Reference-system field storage" TODO before adding a frame modal.
                     let imported, flat, lookup =
                         AnnotationGroupsImporter.importSbmt

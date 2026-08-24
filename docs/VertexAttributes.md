@@ -215,8 +215,10 @@ dotnet run --project src/Tests -- --filter "all.profile tests.ProfileAttributeEx
 
 The suite-wide `--testdatasource` is still honoured as a fallback root, so
 `run-tests.cmd` keeps working. Two narrower overrides remain for exports kept
-outside the checkout: `PRO3D_AARA_OPC` for an OPC with per-vertex attribute
-layers, and `PRO3D_BDS_OPC` for one with a `*.opc.json` carrying a `DskBrief`.
+outside the checkout. Those live under `PRO3D_PRIVATE_TESTDATA` (default
+`C:\pro3ddata`), and `PRO3D_AARA_OPC` / `PRO3D_BDS_OPC` name an individual OPC
+directly — the first with per-vertex attribute layers, the second with a
+`*.opc.json` carrying a `DskBrief`.
 
 CSV exports the tests produce are written to `outputs/ProfileExtraction/` under the
 same root.

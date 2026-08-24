@@ -22,7 +22,7 @@ shape model in PRo3D.
 - `C:\pro3ddata\shapemodels\testdata\anno.json` — PRo3D-native cartesian
   GeoJSON containing a manually picked Point near the same Pike feature
   (alignment reference for the test).
-- `C:\pro3ddata\shapemodels\testdata\Didy_Boulders_Paj_Tusb_Lucch` — ~170
+- a Didymos boulder catalog under `C:\pro3ddata\shapemodels\testdata` — ~170
   ellipses on **Didymos** (v2 fixture, smaller).
 - `C:\pro3ddata\shapemodels\testdata\Dimo_Bould_Glob_7_Maurizio` — ~4,800
   ellipses on **Dimorphos** (v2 stress fixture).
@@ -88,7 +88,7 @@ about.
 ### Didymos: SBMT ↔ OBJ frames do NOT match (test case)
 
 Observed: loading the v2 Didymos fixture
-(`Didy_Boulders_Paj_Tusb_Lucch`, ~170 ellipses) against the Didymos SPC OBJ
+(a boulder catalog, ~170 ellipses) against the Didymos SPC OBJ
 with the identity trafo + km → m places the boulders **off the body**.
 The Dimorphos pipeline (same code, identity trafo, `DIMORPHOS_SHM`) lands
 on-surface — so the discrepancy is frame-specific to Didymos, not a general
@@ -108,7 +108,7 @@ correct for Dimorphos), and the eventual SPICE-derived rotation gets passed
 in by the caller without changing the importer.
 
 Use this as a **regression test case** when wiring SPICE-based reprojection:
-import `Didy_Boulders_Paj_Tusb_Lucch` with the correct SBMT-frame → OBJ-frame
+import the Didymos boulder catalog with the correct SBMT-frame → OBJ-frame
 trafo and verify the ellipses sit on the loaded Didymos OBJ surface.
 
 ### Units
@@ -280,8 +280,7 @@ batching the results computation if it dominates.
 1. Menu entry in `ViewerGUI.fs` under the existing import menu (next to
    "Import v1 Annotations (\*.xml)"), labeled e.g. "Import SBMT annotations".
 2. Electron `showOpenDialog` with filter for the standard SBMT extensions
-   plus `*.*` (since real fixtures like `Didy_Boulders_Paj_Tusb_Lucch` use no
-   extension).
+   plus `*.*` (since real fixtures often use no extension).
 3. **Modal prompts the user for the reference frame name.**
    - Default text: `DIMORPHOS_SHM`.
    - No validation against loaded SPICE kernels in v1 — just a free-text
@@ -337,7 +336,7 @@ batching the results computation if it dominates.
 2. Manual (v1): load the Dimorphos 0.25 m global OBJ as a PRo3D surface,
    import `pointOnPike.points.txt` via the new menu, accept default frame
    `DIMORPHOS_SHM`, verify the annotation sits on the surface near "Pike".
-3. Manual (v2): import `Didy_Boulders_Paj_Tusb_Lucch` against the Didymos OBJ;
+3. Manual (v2): import the Didymos boulder catalog against the Didymos OBJ;
    spot-check a handful of ellipses for surface contact and orientation.
    Stress-test with `Dimo_Bould_Glob_7_Maurizio` (~4,800 ellipses).
    **Known mismatch:** with identity trafo the Didymos ellipses land off the

@@ -19,22 +19,24 @@ open PRo3D.Core.Surface
 module private Fixtures =
 
     /// Directory holding an OPC with a `*.opc.json` sidecar that includes a DskBrief
-    /// block. Override with PRO3D_BDS_OPC.
+    /// block. Resolved under PRO3D_PRIVATE_TESTDATA; PRO3D_BDS_OPC names it directly.
     let bdsOpcDir =
-        [
+        TestUtils.Roots.firstExisting [
             Environment.GetEnvironmentVariable "PRO3D_BDS_OPC"
-            @"C:\pro3ddata\HERA\OPCUpdate\BDS_Metadata\BDS_Metadata\Deimos"
+            TestUtils.Roots.privateDir
+                [ "HERA"; "OPCUpdate"; "BDS_Metadata"; "BDS_Metadata"; "Deimos" ]
+            |> Option.defaultValue ""
         ]
-        |> List.tryFind (fun p -> not (String.IsNullOrWhiteSpace p) && Directory.Exists p)
 
     /// Directory holding an OPC whose `*.opcx` declares multi-channel attribute layers.
-    /// Override with PRO3D_AARA_OPC.
+    /// Resolved under PRO3D_PRIVATE_TESTDATA; PRO3D_AARA_OPC names it directly.
     let aaraOpcDir =
-        [
+        TestUtils.Roots.firstExisting [
             Environment.GetEnvironmentVariable "PRO3D_AARA_OPC"
-            @"C:\pro3ddata\HERA\OPCUpdate\AARA_Textures\AARA_Textures\Dimorphos"
+            TestUtils.Roots.privateDir
+                [ "HERA"; "OPCUpdate"; "AARA_Textures"; "AARA_Textures"; "Dimorphos" ]
+            |> Option.defaultValue ""
         ]
-        |> List.tryFind (fun p -> not (String.IsNullOrWhiteSpace p) && Directory.Exists p)
 
     let tryOpcx (dir : string) =
         Directory.EnumerateFiles(dir, "*.opcx") |> Seq.tryHead

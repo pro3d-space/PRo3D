@@ -25,7 +25,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
     ]
 
-let allTests () : Test =
+let allTests (parameters : TestUtils.TestParameters) : Test =
     // SPICE kernel state is process-global: exactly one metakernel is active, swapped
     // via DeInit+Init (see HeraSpiceTests.ensureKernelAt). Under parallel execution
     // another test can swap the kernel between a test's ensure and its SPICE calls,
@@ -41,8 +41,8 @@ let allTests () : Test =
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
 
-        // skipped automatically when fixtures under C:\pro3ddata are absent
-        SbmtImportAlignmentTest.tests()
+        // resolves its fixtures from PRO3D_TEST_DATA / --testdatasource; self-skips
+        SbmtImportAlignmentTest.tests parameters
 
         ProjectedImageMetadataTest.tests()
 
@@ -87,7 +87,9 @@ module NunitEntry =
 
     [<Test>]
     let ``[expecto tests]``() =
-        let r = allTests () |> runTests Impl.ExpectoConfig.defaultConfig 
+        // No CLI here, so the data-backed lists fall back to PRO3D_TEST_DATA.
+        let parameters : TestUtils.TestParameters = { testDataSource = None }
+        let r = allTests parameters |> runTests Impl.ExpectoConfig.defaultConfig 
         r |> should equal 0
 
 type TestConfig = {
@@ -122,6 +124,6 @@ let main args =
         printfn "No test data source specified (set PRO3D_TEST_DATA or use --testdatasource <path>)"
     | None, path -> printfn "Test data source (PRO3D_TEST_DATA): %s" path
 
-    let tests = testList "all" [ allTests(); profileTests parameters ]
+    let tests = testList "all" [ allTests parameters; profileTests parameters ]
 
     runTestsWithCLIArgs [] (Array.ofList config.expectoArgs) tests
