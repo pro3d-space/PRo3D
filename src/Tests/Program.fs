@@ -36,6 +36,7 @@ let allTests () : Test =
         GeoJsonRework.Tests.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
+        PolygonFillTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
@@ -56,6 +57,17 @@ let allTests () : Test =
         if HeraSpiceTests.hasHera then
             DidymosProjectionSpiceTest.tests()
             InstrumentProjectionComparisonTest.tests()
+
+        // pro3d-tool verbs. Placed after the kernel-sensitive tests for the same reason
+        // they are ordered above: the sun-angles case needs the plan kernel, and every
+        // swap degrades DAF handles. It reuses HeraSpiceTests' kernel tracking rather
+        // than doing its own Init/DeInit, so it adds no swap of its own. Its kdtree
+        // cases need neither kernels nor a GPU and always run.
+        Pro3DToolTests.tests()
+
+        // unproject: the pixel addressing and table cases need no data; the shape-model
+        // cross-check reuses the same kernel tracking and self-skips without kernels.
+        UnprojectTest.tests()
 
         // Sections whose OPC-backed lists self-skip when the test-data submodule
         // (src/Tests/data/opc) or a GL context is unavailable.
@@ -101,13 +113,15 @@ let main args =
 
     let parameters : TestUtils.TestParameters = { testDataSource = config.testDataSource }
 
-    let tests =
-        match config.testDataSource with
-        | Some path ->
-            printfn "Test data source: %s" path
-            testList "all" [ allTests(); profileTests parameters ]
-        | None ->
-            printfn "No test data source specified (use --testdatasource <path>)"
-            allTests()
+    // The profile tests resolve their fixtures from PRO3D_TEST_DATA first and
+    // --testdatasource second, and skip when neither points at a
+    // PRo3D.Resources.TestData checkout -- so they are always registered.
+    match config.testDataSource, System.Environment.GetEnvironmentVariable "PRO3D_TEST_DATA" with
+    | Some path, _ -> printfn "Test data source: %s" path
+    | None, (null | "") ->
+        printfn "No test data source specified (set PRO3D_TEST_DATA or use --testdatasource <path>)"
+    | None, path -> printfn "Test data source (PRO3D_TEST_DATA): %s" path
+
+    let tests = testList "all" [ allTests(); profileTests parameters ]
 
     runTestsWithCLIArgs [] (Array.ofList config.expectoArgs) tests

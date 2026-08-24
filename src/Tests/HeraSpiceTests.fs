@@ -27,7 +27,9 @@ let private mkDir = Path.Combine(spiceRoot, "spice", "kernels", "mk")
 // those are absent (e.g. in CI), or when --skip-hera is passed (runTests uses
 // this for a deterministic kernel-free run). Kernel-independent SPICE coverage
 // lives in SpiceTests.fs and always runs. (Adopted from releases/6.0.0.)
-let private skipHeraRequested =
+/// Public so other kernel-using tests can honour the flag too: --skip-hera promises a
+/// deterministic kernel-free run even on a machine that has the kernels.
+let skipHeraRequested =
     Environment.GetCommandLineArgs() |> Array.contains "--skip-hera"
 let hasHera = File.Exists spiceFileName && not skipHeraRequested
 

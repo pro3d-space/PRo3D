@@ -122,6 +122,9 @@ module SbmtImporter =
             points           = IndexList.single pos
             segments         = IndexList.empty
             color            = { c = color }
+            showFill         = false
+            fillColor        = { c = color }
+            fillAlpha        = Annotation.initialFillAlpha
             thickness        = Annotation.Initial.thickness
             results          = None
             dnsResults       = None
@@ -239,6 +242,9 @@ module SbmtImporter =
             points           = IndexList.ofArray samples
             segments         = IndexList.empty
             color            = { c = color }
+            showFill         = false
+            fillColor        = { c = color }
+            fillAlpha        = Annotation.initialFillAlpha
             thickness        = Annotation.Initial.thickness
             results          = None
             dnsResults       = None

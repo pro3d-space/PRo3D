@@ -5,13 +5,14 @@
     <TargetFramework>net9.0</TargetFramework>
     <LangVersion>preview</LangVersion> <!-- https://github.com/dotnet/fsharp/issues/17501 -->
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>opc-tool</ToolCommandName>
-    <RootNamespace>opc_tool</RootNamespace>
-    <Copyright>PRo3D contributors.</Copyright>
+    <ToolCommandName>pro3d-tool</ToolCommandName>
+    <PackageId>PRo3D.Tool</PackageId>
+    <RootNamespace>PRo3D.Tool</RootNamespace>
+    <Description>Command line tools for PRo3D data: OPC validation and KdTree generation, per-pixel illumination geometry, and unprojecting image pixel coordinates onto a shape model.</Description>
     <PackageOutputPath>..\..\bin\</PackageOutputPath>
     <Authors>PRo3D.Space contributors</Authors>
     <Owners>pro3d-space</Owners>
-    <PackageReadmeFile>content/OpcTool.md</PackageReadmeFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>PRo3D.Space contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>Github</RepositoryType>
@@ -25,17 +26,19 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="..\..\docs\OpcTool.md" copyToOutput="true">
-      <IncludeInPackage>true</IncludeInPackage>
-      <CopyToOutput>true</CopyToOutput>
-      <BuildAction>Content</BuildAction>
-    </Content>
+    <None Include="README.md" Pack="true" PackagePath="" />
     <None Include="paket.references" />
+    <Compile Include="Cli.fs" />
+    <Compile Include="Spice.fs" />
+    <Compile Include="KdTree.fs" />
+    <Compile Include="SunAngles.fs" />
+    <Compile Include="Unproject.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+    <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -114,5 +114,5 @@ KdTrees are generated offline by `opc-tool`; if a surface has none, picking will
 
 - [DOMAIN.md](DOMAIN.md#surfaces) — the `Surface`/`SgSurface`/`SurfaceModel` data side
 - [ARCHITECTURE.md](ARCHITECTURE.md) — where rendering/picking results flow in the update loop
-- `../docs/KdTrees.md`, `../docs/OpcTool.md`, `../docs/Feature-Multitexture.md`, `../docs/Contour-Lines.md`
+- `../docs/KdTrees.md`, `../docs/Pro3DTool.md`, `../docs/Feature-Multitexture.md`, `../docs/Contour-Lines.md`
 - External: [Aardvark.Data.Opc](https://github.com/aardvark-platform/aardvark.data/tree/master/src/Aardvark.Data.Opc), [Aardvark.GeoSpatial.Opc](https://github.com/aardvark-platform/aardvark.geospatial/tree/master/src/Aardvark.GeoSpatial.Opc), [OPCViewer.Base](https://github.com/aardvark-platform/OPCViewer.Base)

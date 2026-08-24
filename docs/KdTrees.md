@@ -36,7 +36,7 @@ KdTrees can be constructed:
  - directly from within PRo3D. This is now available via the UI
  ![alt text](./images/createKdTree.png)
  - the [library](https://www.nuget.org/packages/OPCViewer.Base) and in [particular](https://github.com/aardvark-platform/OpcViewer/blob/7fdf368e1e59a2c33c0cc7e5ca3e20b8c18a42a0/src/OPCViewer.Base/KdTrees.fs#L307).
- - the OPC command-line tool. see [here](./OpcTool.md).
+ - the command-line tool, `pro3d-tool kdtree`. see [here](./Pro3DTool.md).
 
 ## Behavior as of June 2024 (version 4.24.0)
 
