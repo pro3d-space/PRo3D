@@ -19,7 +19,7 @@ Lines, polylines and polygons are recognised but not yet imported.
 2. Menu → **Import** → **Import SBMT Annotations**.
 3. Pick a structure file. The file dialog's filter is deliberately wide
    (`*.txt` plus `*`) because real catalogs are often shipped with **no file
-   extension** at all (e.g. `Didy_Boulders_Paj_Tusb_Lucch`).
+   extension** at all.
 4. The file arrives as one new annotation group in the Annotations tree, named
    after the file.
 
@@ -154,10 +154,9 @@ demand when a user actually inspects an annotation.
 ## Known limitations
 
 - **Didymos catalogs are placed wrongly.** The SBMT frame and the Didymos OBJ
-  frame differ by an as-yet unidentified rotation. Importing
-  `Didy_Boulders_Paj_Tusb_Lucch` against the Didymos OBJ puts the ellipses off
-  the surface. This is the canonical regression case for the future
-  SPICE-based reprojection path.
+  frame differ by an as-yet unidentified rotation. Importing a Didymos boulder
+  catalog against the Didymos OBJ puts the ellipses off the surface. This is
+  the canonical regression case for the future SPICE-based reprojection path.
 - **The reference-frame label is not stored.** It is threaded all the way
   through the parsers as a parameter but then dropped: `Annotation` has no
   field for a source-frame string, and `referenceSystem` is set to `None`.
