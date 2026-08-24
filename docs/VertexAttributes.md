@@ -195,13 +195,43 @@ Example output for the Deimos BDS export:
 
 ## Tests
 
-`src/Tests/ProfileAttributeExtractionTest.fs` and `src/Tests/OpcSidecarTests.fs`. The
-data-backed cases self-skip; point them at OPCs with:
+`src/Tests/ProfileAttributeExtractionTest.fs` and `src/Tests/OpcSidecarTests.fs`.
 
-* `PRO3D_AARA_OPC` — an OPC with per-vertex attribute layers
-* `PRO3D_BDS_OPC` — an OPC with a `*.opc.json` carrying a `DskBrief`
+All fixtures come from a checkout of
+[PRo3D.Resources.TestData](https://github.com/pro3d-space/PRo3D.Resources.TestData).
+Point **`PRO3D_TEST_DATA`** at it and the data-backed cases run; leave it unset and
+every one of them skips rather than fails. Paths are resolved relative to that root:
+
+| Fixture | Path under the checkout | Used for |
+|---|---|---|
+| Dimorphos DRACO1 OPC | `Dimorphos_DRACO1/Dimorphos_DRACO1` | grid mapping, aara header, kd-tree intersection |
+| test annotation | `Dimorphos_DRACO1/testAnnotatation.pro3d.ann` | end-to-end profile extraction |
+| HERA Dimorphos AARA export | `HERA/Dimorphos` | per-vertex layers, texture fallback, attribute coverage |
 
 ```
-dotnet run --project src/Tests -- --testdatasource C:\pro3ddata \
-    --filter "all.profile tests.ProfileAttributeExtraction"
+set PRO3D_TEST_DATA=C:\Users\<you>\Desktop\pro3d\PRo3D.Resources.TestData
+dotnet run --project src/Tests -- --filter "all.profile tests.ProfileAttributeExtraction"
 ```
+
+The suite-wide `--testdatasource` is still honoured as a fallback root, so
+`run-tests.cmd` keeps working. Two narrower overrides remain for exports kept
+outside the checkout: `PRO3D_AARA_OPC` for an OPC with per-vertex attribute
+layers, and `PRO3D_BDS_OPC` for one with a `*.opc.json` carrying a `DskBrief`.
+
+CSV exports the tests produce are written to `outputs/ProfileExtraction/` under the
+same root.
+
+*profile export covers every declared attribute layer* is the regression test for
+exports that lost attributes. It reads each hit patch's `<Attributes>` and requires
+every layer named there to reach the CSV — with all of its components, and with one
+column per attribute and no empty cells. It also requires the texture fallback to be
+able to reach each layer on its own, which the per-vertex path would otherwise mask.
+Two defects it pins down, both fixed:
+
+* per-vertex `*.aara` layers not being read at all, which left the scalar layers
+  (`Elevation`, `Magnitude`, `Potential`, `Slope`) without a source, and
+* deriving the attribute texture indices from `patchInfo.Textures.Length / 2`, which
+  assumes the list is `[textures; weights]`. `patch.xml` interleaves them
+  (`DiffuseColorNTexture`, `DiffuseColorNWeights`), so that walk landed on the
+  `*.aara` weights entries and reached only `LonLatRad`, `Normal` and `Gravity` —
+  three of seven layers, as raw normalised samples.

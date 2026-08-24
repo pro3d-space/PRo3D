@@ -113,13 +113,15 @@ let main args =
 
     let parameters : TestUtils.TestParameters = { testDataSource = config.testDataSource }
 
-    let tests =
-        match config.testDataSource with
-        | Some path ->
-            printfn "Test data source: %s" path
-            testList "all" [ allTests(); profileTests parameters ]
-        | None ->
-            printfn "No test data source specified (use --testdatasource <path>)"
-            allTests()
+    // The profile tests resolve their fixtures from PRO3D_TEST_DATA first and
+    // --testdatasource second, and skip when neither points at a
+    // PRo3D.Resources.TestData checkout -- so they are always registered.
+    match config.testDataSource, System.Environment.GetEnvironmentVariable "PRO3D_TEST_DATA" with
+    | Some path, _ -> printfn "Test data source: %s" path
+    | None, (null | "") ->
+        printfn "No test data source specified (set PRO3D_TEST_DATA or use --testdatasource <path>)"
+    | None, path -> printfn "Test data source (PRO3D_TEST_DATA): %s" path
+
+    let tests = testList "all" [ allTests(); profileTests parameters ]
 
     runTestsWithCLIArgs [] (Array.ofList config.expectoArgs) tests
