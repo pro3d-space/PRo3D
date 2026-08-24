@@ -1,6 +1,14 @@
-## 0.2.0
+## 0.3.0
+- `unproject` — converts a table of `image, x, y` rows into body-fixed surface coordinates by unprojecting each pixel through its instrument camera and intersecting the shape model. Output keeps one row per input row, in input order, with the input's own columns carried through, plus x/y/z, lat/lon/alt, range, and one column per per-vertex attribute layer the OPC carries. Needs SPICE kernels and pre-built kd-trees; no GPU
+- `unproject` — the observing spacecraft is derived per image from its instrument, so one input file may mix AFC (Hera) and ASPECT (Milani) images; `--observer` overrides it
+- `unproject` — `--pixel-convention image|fits` declares how the input addresses pixels (0-based top-left, or 1-based bottom-left). It cannot be inferred from the imagery, so it is declared and echoed in the log
 - `kdtree` — `--degreesofparallelism` now treats `0` (the default, i.e. the option unspecified) and `-1` as "use all available cores"; `1` is single threaded. Previously `0` meant single threaded, which `1` already covered, and made sequential the accidental default. Reported by a tester
 - docs — corrected the `kdtree` option spellings: the options are lower-case (`--skippatchvalidation`, `--ignoremasterkdtree`, `--degreesofparallelism`), and the camel-case forms the docs previously showed are rejected
+
+## 0.2.0
+Published from the `unproject` branch ahead of the merge, so it is a partial release: it
+contains the `unproject` verb but none of the `kdtree` changes listed under 0.3.0. Prefer
+0.3.0, which is the first release containing both.
 
 ## 0.1.0
 First release of `pro3d-tool`, which supersedes `opc-tool`.

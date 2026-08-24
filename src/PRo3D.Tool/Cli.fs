@@ -81,3 +81,47 @@ type SunAnglesOptions =
         [<Option("height", HelpText = "Output height; 0 (default) uses the source image's native height")>]
         height : int
     }
+
+/// Options for the `unproject` verb.
+///
+/// Same convention as `sun-angles`: string defaults are applied in code, because an unsupplied
+/// string field arrives as null.
+[<Verb("unproject", HelpText = "Convert image pixel coordinates to body-fixed surface coordinates on a shape model.")>]
+type UnprojectOptions =
+    {
+        [<Option("config", HelpText = "JSON file supplying any of the options below; explicit flags win")>]
+        config : string
+
+        [<Option("opc", HelpText = "OPC directory of the body")>]
+        opc : string
+
+        [<Option("images", HelpText = "Folder containing the instrument images with .mbi.json sidecars")>]
+        images : string
+
+        [<Option("input", HelpText = "Table of 'image, x, y' rows; extra columns are carried through")>]
+        input : string
+
+        [<Option("out", HelpText = "Output table (default: ./unproject.csv)")>]
+        out : string
+
+        [<Option("body", HelpText = "SPICE body name of the OPC (default DIDYMOS)")>]
+        body : string
+
+        [<Option("frame", HelpText = "Body-fixed frame the coordinates are reported in (default DIDYMOS_FIXED)")>]
+        frame : string
+
+        [<Option("observer", HelpText = "Observing spacecraft; default is derived per image from the instrument")>]
+        observer : string
+
+        [<Option("kernel", HelpText = "Explicit SPICE metakernel; overrides the sidecar")>]
+        kernel : string
+
+        [<Option("kernel-root", HelpText = "SPICE kernel tree. Defaults to $PRO3D_SPICE_KERNELS.")>]
+        kernelRoot : string
+
+        [<Option("method", HelpText = "Projection method: spice or mbi (default mbi)")>]
+        method : string
+
+        [<Option("pixel-convention", HelpText = "How the input addresses pixels: 'image' (default, 0-based, top-left, y down) or 'fits' (1-based, bottom-left, y up)")>]
+        pixelConvention : string
+    }

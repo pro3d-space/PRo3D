@@ -8,7 +8,7 @@
     <ToolCommandName>pro3d-tool</ToolCommandName>
     <PackageId>PRo3D.Tool</PackageId>
     <RootNamespace>PRo3D.Tool</RootNamespace>
-    <Description>Command line tools for PRo3D data: OPC validation and KdTree generation.</Description>
+    <Description>Command line tools for PRo3D data: OPC validation and KdTree generation, per-pixel illumination geometry, and unprojecting image pixel coordinates onto a shape model.</Description>
     <PackageOutputPath>..\..\bin\</PackageOutputPath>
     <Authors>PRo3D.Space contributors</Authors>
     <Owners>pro3d-space</Owners>
@@ -29,8 +29,10 @@
     <None Include="README.md" Pack="true" PackagePath="" />
     <None Include="paket.references" />
     <Compile Include="Cli.fs" />
+    <Compile Include="Spice.fs" />
     <Compile Include="KdTree.fs" />
     <Compile Include="SunAngles.fs" />
+    <Compile Include="Unproject.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

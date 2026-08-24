@@ -15,6 +15,7 @@ Command line tools for PRo3D data.
 
   kdtree       validate OPC directories and generate KdTrees
   sun-angles   render per-pixel illumination geometry for instrument images
+  unproject    convert image pixel coordinates to body-fixed surface coordinates
 
 Run `pro3d-tool <verb> --help` for the options of a verb.
 
@@ -28,12 +29,14 @@ let private verbs : Type[] =
     [|
         typeof<KdTreeOptions>
         typeof<SunAnglesOptions>
+        typeof<UnprojectOptions>
     |]
 
 let private dispatch (parsed : obj) : int =
     match parsed with
     | :? KdTreeOptions as o -> KdTree.run o
     | :? SunAnglesOptions as o -> SunAnglesVerb.run o
+    | :? UnprojectOptions as o -> UnprojectVerb.run o
     | other ->
         eprintfn "unhandled verb: %s" (other.GetType().Name)
         -1

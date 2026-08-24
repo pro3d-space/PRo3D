@@ -65,6 +65,10 @@ let allTests () : Test =
         // cases need neither kernels nor a GPU and always run.
         Pro3DToolTests.tests()
 
+        // unproject: the pixel addressing and table cases need no data; the shape-model
+        // cross-check reuses the same kernel tracking and self-skips without kernels.
+        UnprojectTest.tests()
+
         // Sections whose OPC-backed lists self-skip when the test-data submodule
         // (src/Tests/data/opc) or a GL context is unavailable.
         featureTests ()
