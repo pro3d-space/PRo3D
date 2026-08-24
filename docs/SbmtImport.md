@@ -223,8 +223,10 @@ the checkout:
 | `Dimo_Bould_Glob_7_Maurizio` | ~4,800 ellipses on Dimorphos |
 
 They are searched under `<root>/imports` first, so dropping them into the
-checkout is enough. Otherwise `PRO3D_SBMT_TESTDATA` (default
-`C:\pro3ddata\shapemodels\testdata`) still resolves them where they are.
+checkout is enough. Otherwise they are looked for at
+`<PRO3D_PRIVATE_TESTDATA>/shapemodels/testdata` — the root for fixtures that
+cannot be committed, defaulting to `C:\pro3ddata` when the variable is unset.
+`PRO3D_SBMT_TESTDATA` names that one directory directly if it sits elsewhere.
 
 ```
 set PRO3D_TEST_DATA=C:\path\to\PRo3D.Resources.TestData
