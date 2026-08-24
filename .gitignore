@@ -93,3 +93,4 @@ src/Tests/logs/
 # because Section01_StartingPRo3D.Scene.cleanupGeneratedFiles is false.
 src/Tests/data/TestScene_*.pro3d
 src/Tests/data/TestScene_*.pro3d.ann
+src/Tests/data/TestScene_*/

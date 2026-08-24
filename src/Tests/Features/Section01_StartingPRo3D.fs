@@ -27,10 +27,11 @@ open PRo3D.Tests
 
 module private Scene =
 
-    /// While this is false the scene files written by the run are left on disk so
-    /// they can be checked by hand. Flip it to true to have the run delete them
-    /// again (see the last test in the list).
-    let cleanupGeneratedFiles = false
+    /// While this is true the run deletes the scene files it wrote once the
+    /// assertions against them are done. Flip it to false to leave them on disk
+    /// so they can be checked by hand (see the last test in the list) — they are
+    /// gitignored either way, but a run then leaves a new set behind every time.
+    let cleanupGeneratedFiles = true
 
     /// PRo3D keeps its recent-scenes list in ./recent, relative to the working
     /// directory — the same file the installed viewer writes. Saving a scene
