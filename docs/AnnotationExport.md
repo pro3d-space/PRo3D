@@ -102,10 +102,9 @@ switches the preset back to *Custom*; nothing is locked.
 | Attitude planes | file type *Attitude planes* |
 | Continuous GeoJSON | file type *Continuous GeoJSON* — arms the background export |
 
-Every preset also sets the **signed −180…180 longitude range** and the **File (.aara)**
-lat/lon/alt source, both of which are the defaults anyway; only an explicit change (which
-switches the preset to *Custom*) moves off them. Selecting *Custom* is not a preset and
-changes nothing.
+Every preset also sets the **signed −180…180 longitude range** and the **SPICE** lat/lon/alt
+source, both of which are the defaults anyway; only an explicit change (which switches the
+preset to *Custom*) moves off them. Selecting *Custom* is not a preset and changes nothing.
 
 ### Scope
 
@@ -212,13 +211,21 @@ and the general default stays *Flipped*, which is what the CSV export this repla
 
 ### Lat/Lon/Alt source
 
-Where the geographic coordinates come from. Two options, and the default is **File
-(.aara)**:
+Where the geographic coordinates come from. Two options, and the default is **SPICE**:
 
 | Option | What it does |
 |---|---|
-| **SPICE** | Derives lat/lon/alt from the point's cartesian position, picking the right convention for the body automatically (see below). Works for any body with a geographic frame, whatever the terrain data looks like. |
-| **File (.aara)** (default) | Reads the values out of the patch's own per-vertex `LonLatRad` grid, barycentrically interpolated at the point. These are the numbers the OPC was built from, rather than numbers re-derived from a position. Requires an OPC that ships the layer — see [Per-Vertex Attribute Layers](VertexAttributes.md). |
+| **SPICE** (default) | Derives lat/lon/alt from the point's cartesian position, picking the right convention for the body automatically (see below). Works for any body with a geographic frame, whatever the terrain data looks like. |
+| **File (.aara)** | Reads the values out of the patch's own per-vertex `LonLatRad` grid, barycentrically interpolated at the point. Requires an OPC that ships the layer — see [Per-Vertex Attribute Layers](VertexAttributes.md). |
+
+**SPICE is the more accurate of the two wherever a kernel is available.** It computes the
+coordinates from the position; the file path interpolates between the layer's per-vertex
+values, so its result is only as good as the vertex spacing. Selecting *File (.aara)* raises
+a warning in the export window that stays up for as long as it is selected, and clears when
+you switch back. It is not a refusal — the file source is genuinely wanted where that layer
+*is* the authoritative data — but it should be a deliberate choice rather than an accident.
+
+Every preset resets the source to **SPICE**, so picking one clears the warning too.
 
 The row is only shown when it can apply: *Coordinates* must be **Geographic** or **Both**, as
 a cartesian export writes no lat/lon at all. Hiding it keeps your choice for when it becomes
@@ -276,10 +283,10 @@ the value — they are notation transforms of a longitude, not part of deriving 
 | **No loaded surface ships the layer** | The export is **refused**: nothing is written and the window says so. Set the source to *SPICE*, or load an OPC with `.aara` attribute layers. |
 | **Some positions fall outside it** — the annotation runs off the surface, onto a patch without the layer, or (per-annotation) the bounding-box centre floats above the terrain | The file *is* written. Those rows are resolved by SPICE and their `latLonAltSource` says so, and the window reports how many. |
 
-The option is never greyed out, so the refusal is what tells you the data is missing. Note
-that `.aara` is also the default for every preset, so on an OPC without per-vertex layers a
-geographic export refuses until you switch the source — and picking a preset arms it again.
-That is deliberate: an export must never quietly use a source other than the one selected.
+The option is never greyed out, so the refusal is what tells you the data is missing. It only
+arises after you have deliberately switched away from the SPICE default, and switching back
+resolves it. That the export refuses rather than falling back is deliberate: an export must
+never quietly use a source other than the one selected.
 
 `groundDistance` is unaffected by this setting — it needs the inverse transform to flatten a
 point onto the reference surface, which the file has no equivalent for, so it is always

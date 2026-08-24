@@ -612,6 +612,27 @@ let tests () =
                          "no geographic columns, so nothing to attribute"
         }
 
+        test "selecting the file source warns, and switching back clears it" {
+            let initial = AnnotationExportModel.initial
+            Expect.equal initial.latLonAltSource LatLonAltSource.Spice "SPICE by default"
+            Expect.isNone initial.warning "nothing to warn about yet"
+
+            let onAara =
+                AnnotationExportApp.update initial (SetLatLonAltSource LatLonAltSource.AaraFile)
+            Expect.equal onAara.warning (Some AnnotationExportApp.aaraAccuracyWarning)
+                         "warns about the less accurate source"
+
+            // the warning is about the selection, not the click, so an unrelated
+            // change must not silently drop it
+            let stillOnAara = AnnotationExportApp.update onAara (ToggleSampledPoints)
+            Expect.equal stillOnAara.warning (Some AnnotationExportApp.aaraAccuracyWarning)
+                         "survives an unrelated setting change"
+
+            let backToSpice =
+                AnnotationExportApp.update stillOnAara (SetLatLonAltSource LatLonAltSource.Spice)
+            Expect.isNone backToSpice.warning "cleared on the way back"
+        }
+
         test "a granularity switch leaves the lat/lon/alt source alone" {
             // both granularities can honour the file source: a per-annotation row
             // samples once, at the bounding-box centre
@@ -747,28 +768,28 @@ let tests () =
             // the signed range and the per-vertex source are the defaults
             // everywhere now, so every preset arrives at both — including one that
             // starts from them switched off
-            Expect.equal AnnotationExportSettings.initial.latLonAltSource LatLonAltSource.AaraFile
-                         "the per-vertex source is the out-of-the-box default"
+            Expect.equal AnnotationExportSettings.initial.latLonAltSource LatLonAltSource.Spice
+                         "SPICE is the out-of-the-box default"
 
             for preset in ExportPreset.all |> List.filter (fun p -> p <> ExportPreset.Custom) do
                 let applied =
                     { AnnotationExportSettings.initial with
                         signedLongitude = false
-                        latLonAltSource = LatLonAltSource.Spice }
+                        latLonAltSource = LatLonAltSource.AaraFile }
                     |> AnnotationExportSettings.applyPreset preset
-                Expect.equal applied.latLonAltSource LatLonAltSource.AaraFile
-                             (sprintf "%A takes lat/lon/alt from the file" preset)
+                Expect.equal applied.latLonAltSource LatLonAltSource.Spice
+                             (sprintf "%A resets lat/lon/alt to SPICE" preset)
                 Expect.isTrue applied.signedLongitude (sprintf "%A writes -180...180" preset)
 
             // ... and Custom, which is not a preset, leaves a manual choice alone
             let untouched =
                 { AnnotationExportSettings.initial with
                     signedLongitude = false
-                    latLonAltSource = LatLonAltSource.Spice }
+                    latLonAltSource = LatLonAltSource.AaraFile }
                 |> AnnotationExportSettings.applyPreset ExportPreset.Custom
 
             Expect.isFalse untouched.signedLongitude "selecting Custom changes nothing"
-            Expect.equal untouched.latLonAltSource LatLonAltSource.Spice "not the source either"
+            Expect.equal untouched.latLonAltSource LatLonAltSource.AaraFile "not the source either"
 
             let continuous =
                 AnnotationExportSettings.initial

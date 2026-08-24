@@ -133,7 +133,7 @@ module AnnotationExportSettings =
         coordinates       = CoordinateMode.Both
         longitude         = LongitudeConvention.Flipped
         signedLongitude   = true
-        latLonAltSource   = LatLonAltSource.AaraFile
+        latLonAltSource   = LatLonAltSource.Spice
         useSampledPoints  = true
         sampleSurfaceProperties = false
         annotationFields  =
@@ -153,17 +153,18 @@ module AnnotationExportSettings =
         // - the signed (-180, 180] range: GeoJSON requires it by spec and GIS
         //   tools expect it, so the unsigned [0, 360) notation is only ever a
         //   deliberate manual choice.
-        // - the per-vertex lat/lon/alt: where an OPC ships them they are the
-        //   values the terrain was built from, so they win over re-deriving them
-        //   from the position. On an OPC without them the export refuses rather
-        //   than quietly using SPICE — see AnnotationExportViewer.
+        // - SPICE lat/lon/alt: it computes the coordinates from the position,
+        //   whereas the per-vertex path interpolates between the layer's values,
+        //   which is the less accurate of the two wherever a kernel is available.
+        //   Selecting `File (.aara)` is a deliberate manual choice, and the
+        //   export window warns when it is made.
         let settings =
             match preset with
             | ExportPreset.Custom -> settings
             | _                   ->
                 { settings with
                     signedLongitude = true
-                    latLonAltSource = LatLonAltSource.AaraFile }
+                    latLonAltSource = LatLonAltSource.Spice }
 
         match preset with
         | ExportPreset.QgisFeatures ->

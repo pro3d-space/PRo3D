@@ -21,7 +21,24 @@ module AnnotationExportApp =
     let private custom (model : AnnotationExportModel) =
         { model with preset = ExportPreset.Custom }
 
-    let update (model : AnnotationExportModel) (action : AnnotationExportAction) =
+    /// Shown while the per-vertex source is selected. Not a refusal: the file
+    /// source is genuinely wanted on OPCs whose layer *is* the authoritative
+    /// data, so this states the trade-off rather than blocking it.
+    let aaraAccuracyWarning =
+        "Use SPICE as source when a kernel is available, since AARA conversion from \
+         cartesian to geographic coordinates is based on interpolation between vertex \
+         geographic data, which is less accurate than the SPICE computation."
+
+    /// The accuracy warning describes the *current selection*, not the last
+    /// click, so it is re-asserted after every action — otherwise ticking any
+    /// unrelated checkbox would clear it while `.aara` was still selected. A
+    /// warning from an actual export attempt is more specific, so it wins.
+    let private withSourceWarning (model : AnnotationExportModel) =
+        match model.warning, model.latLonAltSource with
+        | None, LatLonAltSource.AaraFile -> { model with warning = Some aaraAccuracyWarning }
+        | _                              -> model
+
+    let private updateCore (model : AnnotationExportModel) (action : AnnotationExportAction) =
         // Touching any control invalidates a warning about the previous attempt:
         // it described settings that no longer hold. The two viewer-level actions
         // are excluded because that is where a new warning is set.
@@ -87,6 +104,9 @@ module AnnotationExportApp =
         | Export _ -> model
         // the armed state lives on DrawingModel, likewise viewer level
         | StopContinuous -> model
+
+    let update (model : AnnotationExportModel) (action : AnnotationExportAction) =
+        updateCore model action |> withSourceWarning
 
     // -------------------------------------------------------------- view ---
 
