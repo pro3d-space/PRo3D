@@ -156,6 +156,10 @@ from far away — or move closer with `--distance`.
   is cleaner than a real AFC frame.
 - **No phase function.** `f(α)` is constant across one image and is absorbed by the
   exposure; absolute radiometry across a series needs `--gain` *and* an external `f(α)`.
+- **Designed for small bodies.** The micro-structure noise and the shadow lookup evaluate
+  body-frame coordinates in `float32` in the shader — comfortable for a body a few
+  hundred metres across, but a deliberate deviation from PRo3D's planetary-scale
+  precision rules. Do not point this verb at a Mars-sized OPC and expect clean output.
 
 ## Future work
 

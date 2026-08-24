@@ -92,7 +92,9 @@ let private solveLeastSquares (samples : (V3d * float)[]) : Option<float[]> =
     if x |> Array.forall Double.IsFinite then Some x else None
 
 let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Result<DeshadeFit, string> =
-    let root = rootPatchOf basePath
+    match (try Ok (rootPatchOf basePath) with e -> Result.Error (sprintf "cannot load patch hierarchy: %s" e.Message)) with
+    | Result.Error e -> Result.Error e
+    | Ok root ->
     let patchDir = Path.Combine(basePath, "Patches", root.info.Name)
     let normalPath = Path.Combine(patchDir, "Normal.aara")
     let layerPath = Path.Combine(patchDir, layerName + ".aara")
@@ -102,11 +104,22 @@ let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Re
         Result.Error (sprintf "no per-vertex '%s' layer for the de-shading fit: %s (see --deshade-layer)" layerName layerPath)
     else
 
-    let normals = (Aara.fromFile<V3f> normalPath).Data
-    let values = (Aara.fromFile<V3f> layerPath).Data
+    match
+        (try Ok ((Aara.fromFile<V3f> normalPath).Data, (Aara.fromFile<V3f> layerPath).Data)
+         with e -> Result.Error (sprintf "cannot read fit inputs (%s): %s" layerName e.Message))
+      with
+    | Result.Error e -> Result.Error e
+    | Ok (normals, values) ->
+
     if normals.Length <> values.Length then
         Result.Error (sprintf "grid mismatch: %d normals vs %d '%s' values" normals.Length values.Length layerName)
     else
+
+    // Normals in the .aara are patch-local; the shader compares against the fitted
+    // direction in the BODY frame (it transforms LocalNormal by ModelTrafo). Apply the
+    // same Local2Global rotation here -- for typical OPCs it is a pure translation and
+    // this is a no-op, but a rotated patch frame would otherwise skew the fit silently.
+    let toBody = root.info.Local2Global.Forward
 
     // The root patch is a decimated copy of the whole body -- ~1M vertices -- so a strided
     // subsample is representative and keeps the fit instant.
@@ -121,7 +134,7 @@ let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Re
             // brightness stored as 0..255 (V3f, grey replicated); shader samples 0..1
             let dn = float v.X / 255.0
             if len > 0.5f && len < 1.5f && dn > deshadeShadowFloor then
-                collected.Add (V3d(n).Normalized, dn)
+                collected.Add ((toBody.TransformDir (V3d n)).Normalized, dn)
         i <- i + stride
     let candidates = collected.ToArray()
 
@@ -202,39 +215,10 @@ type private SunShadowMap =
         cleanup : unit -> unit
     }
 
-/// A 1x1 far-plane depth texture for --no-shadows: the comparison sampler still needs a
-/// depth texture bound even though the shader never takes the shadow branch.
-let private dummyShadowMap (runtime : IRuntime) : SunShadowMap =
-    let signature =
-        runtime.CreateFramebufferSignature([
-            DefaultSemantic.Colors, TextureFormat.Rgba8
-            DefaultSemantic.DepthStencil, TextureFormat.DepthComponent32f
-        ], 1)
-    let color = runtime.CreateTexture(V3i(1, 1, 1), TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1)
-    let depth = runtime.CreateTexture(V3i(1, 1, 1), TextureDimension.Texture2D, TextureFormat.DepthComponent32f, 1, 1)
-    let output =
-        runtime.CreateFramebuffer(
-            signature,
-            Map.ofList [
-                DefaultSemantic.Colors, color.GetOutputView()
-                DefaultSemantic.DepthStencil, depth.GetOutputView()
-            ]) |> OutputDescription.ofFramebuffer
-    let clear = runtime.CompileClear(signature, AVal.constant (C4f(0.0f, 0.0f, 0.0f, 0.0f)), AVal.constant 1.0)
-    clear.Run(output)
-    clear.Dispose()
-    {
-        viewProj = Trafo3d.Identity
-        depth = depth :> ITexture
-        cleanup = fun () ->
-            runtime.DeleteTexture color
-            runtime.DeleteTexture depth
-            signature.Dispose()
-    }
-
-let private renderSunShadowMap (runtime : IRuntime) (body : string)
-                               (projectedImages : aval<Option<Sg.ProjectedImages>>)
-                               (hierarchies : string[]) (sunDir : V3d) (bbox : Box3d) : SunShadowMap =
-    let size = V2i(4096, 4096)
+/// Rgba8 + Depth32f target for the shadow passes. The depth texture is the product; the
+/// colour attachment exists only because the pass needs one. Returns the pieces plus a
+/// cleanup closure that releases all of them.
+let private createShadowTarget (runtime : IRuntime) (size : V2i) =
     let signature =
         runtime.CreateFramebufferSignature([
             DefaultSemantic.Colors, TextureFormat.Rgba8
@@ -249,6 +233,29 @@ let private renderSunShadowMap (runtime : IRuntime) (body : string)
                 DefaultSemantic.Colors, color.GetOutputView()
                 DefaultSemantic.DepthStencil, depth.GetOutputView()
             ]) |> OutputDescription.ofFramebuffer
+    let cleanup () =
+        runtime.DeleteTexture color
+        runtime.DeleteTexture depth
+        signature.Dispose()
+    signature, depth, output, cleanup
+
+/// A 1x1 far-plane depth texture for --no-shadows: the comparison sampler still needs a
+/// depth texture bound even though the shader never takes the shadow branch.
+let private dummyShadowMap (runtime : IRuntime) : SunShadowMap =
+    let signature, depth, output, cleanup = createShadowTarget runtime V2i.II
+    let clear = runtime.CompileClear(signature, AVal.constant (C4f(0.0f, 0.0f, 0.0f, 0.0f)), AVal.constant 1.0)
+    clear.Run(output)
+    clear.Dispose()
+    {
+        viewProj = Trafo3d.Identity
+        depth = depth :> ITexture
+        cleanup = cleanup
+    }
+
+let private renderSunShadowMap (runtime : IRuntime) (body : string)
+                               (projectedImages : aval<Option<Sg.ProjectedImages>>)
+                               (hierarchies : string[]) (sunDir : V3d) (bbox : Box3d) : SunShadowMap =
+    let signature, depth, output, cleanup = createShadowTarget runtime (V2i(4096, 4096))
 
     let center = bbox.Center
     let radius = 0.5 * bbox.Size.Length
@@ -294,10 +301,7 @@ let private renderSunShadowMap (runtime : IRuntime) (body : string)
     {
         viewProj = view * proj
         depth = depth :> ITexture
-        cleanup = fun () ->
-            runtime.DeleteTexture color
-            runtime.DeleteTexture depth
-            signature.Dispose()
+        cleanup = cleanup
     }
 
 // ---------------------------------------------------------------------------------
@@ -311,6 +315,9 @@ type SimCamera =
         view : Trafo3d
         proj : Trafo3d
         distance : float
+        /// The instrument frustum's width/height ratio -- rendering into a viewport with
+        /// a different ratio stretches the image.
+        aspect : float
     }
 
 /// `distanceOverride` > 0 moves the camera to that range along the direction SPICE puts
@@ -341,6 +348,7 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
                 view = CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo
                 proj = Frustum.projTrafo frustum
                 distance = distance
+                aspect = (frustum.right - frustum.left) / (frustum.top - frustum.bottom)
             }
 
 // ---------------------------------------------------------------------------------
@@ -394,14 +402,17 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                  (time : DateTime) (outPath : string) (hierarchies : string[]) : Result<string, string> =
 
     let size =
-        match o.width, o.height with
-        | w, h when w > 0 && h > 0 -> V2i(w, h)
-        | _ ->
+        // Each axis independently: --width alone keeps the native height, like sun-angles.
+        let native =
             match Map.tryFind instrument nativeSizes with
             | Some native -> native
             | None ->
-                Log.warn "no native detector size known for %s -- using 1024x1024 (override with --width/--height)" instrument
+                if o.width <= 0 || o.height <= 0 then
+                    Log.warn "no native detector size known for %s -- using 1024x1024 (override with --width/--height)" instrument
                 V2i(1024, 1024)
+        V2i(
+            (if o.width  > 0 then o.width  else native.X),
+            (if o.height > 0 then o.height else native.Y))
 
     match cameraAt observer frame body instrument o.distance time with
     | Result.Error e -> Result.Error e
@@ -410,13 +421,19 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     if o.distance > 0.0 then
         Log.warn "[camera] distance OVERRIDDEN to %.1f m -- the standoff is not the spacecraft's real range" o.distance
 
+    // The frustum's aspect is fixed by the instrument; a differently-shaped viewport
+    // stretches the image. Say so rather than silently emitting a distorted render.
+    if abs (float size.X / float size.Y - cam.aspect) > 1e-3 then
+        Log.warn "output %dx%d (ratio %.3f) does not match %s's frustum aspect %.3f -- the image will be stretched"
+            size.X size.Y (float size.X / float size.Y) instrument cam.aspect
+
     Log.line "[camera] %s at %.1f km from %s, %dx%d px" observer (cam.distance / 1000.0) body size.X size.Y
 
     match InstrumentObservation.sunDirection frame body time with
     | Result.Error e -> Result.Error (sprintf "no sun direction: %s" e)
     | Ok sun ->
 
-    let phase = acos (clamp -1.0 1.0 (Vec.dot sun (cam.view.Backward.TransformPos(V3d.Zero) - V3d.Zero).Normalized))
+    let phase = acos (clamp -1.0 1.0 (Vec.dot sun (cam.view.Backward.TransformPos V3d.Zero).Normalized))
     Log.line "[sun] direction in %s: %.4f %.4f %.4f (phase angle %.1f deg)"
         frame sun.X sun.Y sun.Z (phase * Constant.DegreesPerRadian)
 
@@ -588,6 +605,12 @@ let run (o : SimulateImageOptions) : int =
     use _spice = SpiceBoot.init (Some kernel)
     Log.line "[spice] %s" kernel
 
-    match processImage runtime o body frame observer instrument time outPath hierarchies with
-    | Ok _ -> 0
-    | Result.Error e -> Log.error "%s" e; 1
+    // An unexpected exception (corrupt OPC, driver failure) should surface as a clean
+    // error and exit code, not a raw stack trace.
+    try
+        match processImage runtime o body frame observer instrument time outPath hierarchies with
+        | Ok _ -> 0
+        | Result.Error e -> Log.error "%s" e; 1
+    with e ->
+        Log.error "unhandled: %s" e.Message
+        1

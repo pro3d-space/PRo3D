@@ -14,7 +14,7 @@
 # which overrides the variable.
 #
 # Writes an 8-bit greyscale PNG to ./simulated.png. The epoch below lies inside the
-# planning kernel's coverage; the test-data OPC has no DRACO layer, so the run reports
-# a de-shading fallback to constant albedo -- that is expected.
+# planning kernel's coverage. De-shading is off by default (and the test-data OPC has
+# no DRACO layer to de-shade anyway); the surface is constant albedo + micro-structure.
 
 dotnet run --project "$(dirname "$0")/../src/PRo3D.Tool/PRo3D.Tool.fsproj" -- simulate-image --opc "$1/HERA/Didymos_ASPECT" --time 2027-03-15T19:00:00Z --body DIDYMOS --frame DIDYMOS_FIXED --observer MILANI --instrument MILANI_ASPECT_NIR1 --out "./simulated.png"
