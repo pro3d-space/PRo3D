@@ -86,7 +86,7 @@ type SunAnglesOptions =
 ///
 /// Defaults for the string options are applied in code rather than through the attribute,
 /// because an unsupplied string field arrives as null. Numeric defaults use the attribute.
-[<Verb("simulate-image", HelpText = "Render a simulated instrument image of a body: OPC geometry, Lommel-Seeliger sun lighting, de-shaded texture albedo, procedural micro-structure, cast shadows.")>]
+[<Verb("simulate-image", HelpText = "Render a simulated instrument image of a body: OPC geometry, Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo.")>]
 type SimulateImageOptions =
     {
         [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
@@ -128,8 +128,8 @@ type SimulateImageOptions =
         [<Option("albedo", Default = 0.16, HelpText = "Normal reflectance of the surface (default 0.16, the measured Dimorphos value)")>]
         albedo : float
 
-        [<Option("no-deshade", HelpText = "Do not divide baked-in illumination out of the OPC texture; use the constant --albedo instead")>]
-        noDeshade : bool
+        [<Option("deshade", HelpText = "Fit and divide baked-in illumination out of the OPC texture and use it as albedo; default is the constant --albedo (the de-shading is approximate -- see the docs)")>]
+        deshade : bool
 
         [<Option("deshade-layer", HelpText = "Per-vertex attribute layer carrying the texture brightness, for the de-shading fit (default DRACO)")>]
         deshadeLayer : string

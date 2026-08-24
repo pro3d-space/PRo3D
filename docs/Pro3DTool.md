@@ -13,7 +13,7 @@ It supersedes the older `opc-tool` (see [Migrating](#migrating-from-opc-tool)).
 |---|---|---|
 | `kdtree` | Validate OPC directories and generate KdTrees | **[Pro3DTool-KdTree.md](./Pro3DTool-KdTree.md)** |
 | `sun-angles` | Per-pixel illumination geometry for instrument images, for photometric work such as image calibration | **[Pro3DTool-SunAngles.md](./Pro3DTool-SunAngles.md)** |
-| `simulate-image` | Simulated instrument image of a body at a SPICE time: Lommel-Seeliger sun lighting, de-shaded texture albedo, procedural micro-structure, cast shadows | **[Pro3DTool-SimulateImage.md](./Pro3DTool-SimulateImage.md)** |
+| `simulate-image` | Simulated instrument image of a body at a SPICE time: Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo | **[Pro3DTool-SimulateImage.md](./Pro3DTool-SimulateImage.md)** |
 
 ## Install
 

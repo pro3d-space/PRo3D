@@ -425,7 +425,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     // the constant albedo -- a wrong divisor is worse than none.
     let layerName = if String.IsNullOrWhiteSpace o.deshadeLayer then "DRACO" else o.deshadeLayer
     let deshade =
-        if o.noDeshade then None
+        if not o.deshade then None
         else
             match Array.tryHead hierarchies with
             | None -> None

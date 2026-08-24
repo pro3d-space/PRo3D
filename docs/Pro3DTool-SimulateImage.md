@@ -23,13 +23,15 @@ pro3d-tool simulate-image --opc <body-opc> --time <iso8601-utc> [options]
   PSJ](https://doi.org/10.3847/PSJ/ad2b60): near-lunar scattering, minimal multiple
   scattering, p ≈ 0.16). Plain Lambert shading over-darkens the limb for regolith;
   SPC's own forward model is the closely related lunar-Lambert function.
-- **De-shaded texture albedo.** OPC textures projected from real images (the DRACO
-  mosaic) have illumination baked in — for `Dimorphos_DRACO1` this is measurable:
-  per-vertex brightness follows the surface normal at r ≈ 0.6 with a hard terminator.
-  The verb fits the baked light direction from the OPC's own per-vertex normals and
-  brightness, divides it back out in the shader, and rescales so the mean matches
-  `--albedo`. Where the source mosaic is shadowed, unobserved (DRACO saw only one
-  hemisphere) or near its own terminator, the constant albedo is used instead.
+- **De-shaded texture albedo (opt-in, `--deshade`).** OPC textures projected from real
+  images (the DRACO mosaic) have illumination baked in — for `Dimorphos_DRACO1` this is
+  measurable: per-vertex brightness follows the surface normal at r ≈ 0.6 with a hard
+  terminator. With `--deshade`, the verb fits the baked light direction from the OPC's
+  own per-vertex normals and brightness, divides it back out in the shader, and rescales
+  so the mean matches `--albedo`. Where the source mosaic is shadowed, unobserved (DRACO
+  saw only one hemisphere) or near its own terminator, the constant albedo is used
+  instead. Off by default because the correction is approximate (see Caveats); the
+  default surface is the constant `--albedo` plus micro-structure.
 - **Procedural micro-structure.** The OPC is smooth at ~0.2 m/vertex; sub-mesh roughness
   is added by perturbing the shading normal with multi-octave value noise evaluated in
   body-fixed coordinates (`--micro-scale`, `--micro-amplitude`).
@@ -58,7 +60,7 @@ Output is one 8-bit greyscale PNG at the instrument's native size.
 | `--distance <m>` | camera range override, along the SPICE direction; `0` (default) uses the spacecraft's real distance |
 | `--width`, `--height` | output size; `0` (default) uses the instrument's native size |
 | `--albedo <v>` | normal reflectance (default `0.16`, measured for Dimorphos) |
-| `--no-deshade` | skip the texture de-shading; constant albedo everywhere |
+| `--deshade` | fit + divide the baked illumination out of the OPC texture and use it as albedo; default off (constant albedo) |
 | `--deshade-layer <name>` | per-vertex layer with the texture brightness (default `DRACO`) |
 | `--micro-scale <m>` | micro-structure feature size in metres (default `0.5`) |
 | `--micro-amplitude <v>` | normal perturbation strength; `0` disables (default `0.3`) |
@@ -75,9 +77,10 @@ is the inner one):
 ```
 pro3d-tool simulate-image ^
   --opc  C:\data\Dimorphos_DRACO1\Dimorphos_DRACO1 ^
-  --time 2027-03-15T19:00:00Z ^
+  --time 2027-03-15T16:00:00Z ^
   --distance 2500 ^
   --micro-scale 3 ^
+  --deshade ^
   --out  dimorphos.png
 ```
 
@@ -90,34 +93,34 @@ scripts/run-simulate-image.sh  <testdata>
 
 ## What it produces — layer by layer
 
-All renders: Dimorphos through AFC-1 from 2.5 km (2027-03-15T19:00Z, phase 70°,
-`--distance 2500 --micro-scale 3`). This is also the recommended validation procedure for
-a new dataset or a suspicious-looking image: switch the layers off, then re-enable them
-one at a time.
+All renders: Dimorphos through AFC-1 from 2.5 km (2027-03-15T16:00Z, phase 63°,
+`--distance 2500 --micro-scale 3`, HERA SKD as of 2026-08-20). This is also the
+recommended validation procedure for a new dataset or a suspicious-looking image: switch
+the layers off, then re-enable them one at a time.
 
 **1. Bare shape, Lommel-Seeliger shading only**
-(`--no-deshade --micro-amplitude 0 --no-shadows`). The ~2 m waffle pattern is the SPC
-model's native resolution showing through — the mesh is oversampled from a ~2 m GSD DTM —
-not a rendering artefact:
+(`--micro-amplitude 0 --no-shadows`). The ~2 m waffle pattern is the SPC model's native
+resolution showing through — the mesh is oversampled from a ~2 m GSD DTM — not a
+rendering artefact:
 
 ![](./images/simulateImage/1-geometry.png)
 
-**2. + procedural micro-structure** (`--no-deshade --no-shadows`). Regolith-scale grain
-masks the DTM waffle:
+**2. + procedural micro-structure** (`--no-shadows`). Regolith-scale grain masks the DTM
+waffle:
 
 ![](./images/simulateImage/2-micro.png)
 
-**3. + cast shadows** (`--no-deshade`) — the full renderer minus the texture, i.e. the
-**constant-albedo variant**. Concavities near the terminator darken; use this when the
-de-shading residuals are unwanted, or on OPCs whose texture has no usable brightness
-layer:
+**3. + cast shadows** (no flags — **the default**): constant albedo, micro-structure and
+shadows. Concavities near the terminator darken:
 
 ![](./images/simulateImage/3-shadows.png)
 
-**4. + de-shaded DRACO texture** (no flags — the default). Adds the real surface's
-albedo-like mid-tone variation. At this epoch the difference to (3) is deliberately
-subtle: measured albedo variation on Dimorphos is small, and the de-shaded values are
-compressed and clamped, so the texture modulates rather than dominates:
+**4. + de-shaded DRACO texture** (`--deshade`). Adds the real surface's albedo-like
+mid-tone variation. The difference to (3) is deliberately subtle: measured albedo
+variation on Dimorphos is small, and the de-shaded values are compressed and clamped, so
+the texture modulates rather than dominates. The dark seam crossing the disk is the
+**edge of the DRACO mosaic's footprint** — DART imaged only one hemisphere, and at this
+geometry that boundary is in view (see Caveats):
 
 ![](./images/simulateImage/4-full.png)
 
@@ -138,7 +141,13 @@ from far away — or move closer with `--distance`.
   shading survives; de-shaded albedo is clamped to 0.5–2× of `--albedo` (Li et al. 2024
   found the real albedo variation to be small).
 - **The DRACO texture is hemispheric.** The unobserved side falls back to constant
-  albedo, so the two hemispheres differ in texture character.
+  albedo, so the two hemispheres differ in texture character, and when the mosaic's
+  footprint edge is in view it shows as a seam — its texels ramp through dark values
+  that neither the de-shade division nor the fallback blend can fully hide.
+- **Results follow the kernel set.** The same command with a newer HERA SKD produces a
+  different image — planning kernels are regenerated regularly and move the spacecraft
+  and the body orientation. For reproducibility, record the kernel-set version (its git
+  commit or the `MK_IDENTIFIER` in the metakernel) together with the logged gain.
 - **Micro-structure is shading only.** Noise perturbs the normal; it casts no shadows,
   does not alter the silhouette, and is not real topography — a shape-from-shading
   inversion will happily reconstruct it as relief. That is acceptable for look-and-feel

@@ -87,7 +87,10 @@ module private Fixtures =
             width = 256
             height = 256
             albedo = 0.16
-            noDeshade = false
+            // Opt-in here although the verb default is off: the Didymos fixture has no
+            // DRACO layer, so this exercises the fit's graceful fallback to constant
+            // albedo (a warning, not a failure).
+            deshade = true
             deshadeLayer = "DRACO"
             microScale = 0.5
             microAmplitude = 0.3
