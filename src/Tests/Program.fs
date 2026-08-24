@@ -35,6 +35,7 @@ let allTests () : Test =
     testSequenced <| testList "all tests" [
         // kernel-independent tests (use only the default SPICE kernels)
         GeoJsonRework.Tests.tests()
+        AnnotationExportTest.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
         PolygonFillTests.tests()
@@ -65,7 +66,7 @@ let allTests () : Test =
             InstrumentProjectionComparisonTest.tests()
 
         // Sections whose OPC-backed lists self-skip when the test-data submodule
-        // (src/Tests/data/opc) or a GL context is unavailable.
+        // (src/Tests/resources) or a GL context is unavailable.
         featureTests ()
     ]
 

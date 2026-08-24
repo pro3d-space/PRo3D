@@ -372,6 +372,88 @@ module ProfileAttributeExtraction =
             Log.warn "[Extraction] surface picking is not KdTree-based"
             None
 
+    /// Attributes under a single position, by casting a ray straight down onto the
+    /// visible surfaces. Used by the annotation export, which samples exactly the
+    /// points it is exporting rather than a profile of its own.
+    ///
+    /// `withTextureFallback` decides whether layers the per-vertex data misses are
+    /// chased into the attribute textures. That costs an image decode per layer per
+    /// patch, so it is worth it when the caller wants every layer it can get, and
+    /// pure waste when it only came for the per-vertex LonLatRad grid.
+    let sampleAt
+        (up                  : V3d)
+        (surfacesModel       : SurfaceModel)
+        (refSys              : ReferenceSystem)
+        (observedSystem      : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem      : Option<ObserverSystem>)
+        (withTextureFallback : bool)
+        (cache               : HashMap<string, ConcreteKdIntersectionTree>)
+        (position            : V3d)
+        : Option<AttributeHit> * HashMap<string, ConcreteKdIntersectionTree> =
+
+        let surfaceFilter = fun (_id : Guid) (l : Leaf) (_s : SgSurface) -> l.visible && l.active
+        let ray = FastRay3d(Ray3d(position + up * 10.0, -up))
+
+        match SurfaceIntersection.doKdTreeIntersection surfacesModel refSys observedSystem observerSystem ray surfaceFilter cache false with
+        | Some hitInfo, cache ->
+            // the *.opcx attribute layer ranges of the surface that was hit - needed
+            // to turn normalised texture samples back into physical values
+            let fallback =
+                if not withTextureFallback then TextureFallback.Disabled
+                else
+                    match SurfaceModel.getSurface surfacesModel hitInfo.sgSurface.surface with
+                    | Some leaf -> TextureFallback.Enabled (Leaf.toSurface leaf).scalarLayers
+                    | None      -> TextureFallback.Enabled HashMap.empty
+            extractAttributesFromHit fallback hitInfo ray, cache
+        | None, cache -> None, cache
+
+    /// The per-vertex layer carrying (longitude, latitude, radius-in-metres) at
+    /// every vertex of a patch. Newer OPC exports ship it; older ones do not, which
+    /// is what makes it something an export has to check for rather than assume.
+    [<Literal>]
+    let LonLatRadLayer = "LonLatRad"
+
+    /// The geographic coordinates of a hit, straight out of the patch's own
+    /// LonLatRad grid rather than re-derived from the position.
+    ///
+    /// `None` when the surface ships no such layer, or the hit landed on part of
+    /// the position grid the attribute grid does not cover (its skirt).
+    let tryLonLatRadius (hit : AttributeHit) =
+        hit.attributes
+        |> List.tryFind (fun a -> String.Equals(a.name, LonLatRadLayer, StringComparison.OrdinalIgnoreCase))
+        |> Option.bind (fun a ->
+            if a.values.Length >= 3 then Some (V3d(a.values.[0], a.values.[1], a.values.[2]))
+            else
+                Log.warn "[Extraction] %s has %d channels, expected 3" LonLatRadLayer a.values.Length
+                None)
+
+    /// Whether any loaded OPC surface ships the LonLatRad layer at all — i.e.
+    /// whether an export can take lat/lon/alt from the file for this scene.
+    ///
+    /// One patch per hierarchy is enough: the attribute layers are a property of
+    /// the OPC export as a whole, not of the individual patch. Called once per
+    /// export, never per point.
+    let hasLonLatRadLayer (surfacesModel : SurfaceModel) =
+        let carriesLayer (info : PatchFileInfo) =
+            info.Attributes
+            |> List.exists (fun file ->
+                String.Equals(Path.GetFileNameWithoutExtension file, LonLatRadLayer, StringComparison.OrdinalIgnoreCase))
+
+        surfacesModel.sgSurfaces
+        |> HashMap.toValueList
+        |> List.exists (fun sgSurface ->
+            match sgSurface.dataSource with
+            | DataSource.OpcHierarchy hierarchies ->
+                hierarchies
+                |> Array.exists (fun h ->
+                    // tryHead, not toArray: one leaf answers the question, and a
+                    // deep hierarchy has a lot of them
+                    QTree.getLeaves h.tree
+                    |> Seq.tryHead
+                    |> Option.map (fun leaf -> carriesLayer leaf.info)
+                    |> Option.defaultValue false)
+            | DataSource.Mesh -> false)
+
     /// Extract profile samples along annotation points by re-picking into surfaces.
     /// Returns a list of ProfileSamples and the set of all attribute names encountered.
     let extractProfile

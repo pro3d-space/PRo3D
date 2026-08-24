@@ -18,11 +18,9 @@
     <None Include="Scratch\Playground.fsx" />
     <Compile Include="Scratch\QueriesDSL.fs" />
     <None Include="Annotations\annotation_1.ann" />
-	<None Include="Annotations\annotation_1_latlon.json" />
-	<None Include="Annotations\annotation_1_xyz.json" />
-	<None Include="Annotations\annotation_1_xyz_latlon.json" />
     <Compile Include="TestUtils.fs" />
     <Compile Include="GeoJsonExportTest.fs" />
+    <Compile Include="AnnotationExportTest.fs" />
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />

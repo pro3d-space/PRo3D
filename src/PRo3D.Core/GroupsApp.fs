@@ -120,8 +120,22 @@ module GroupsApp =
 
         (go m.rootGroup)
         |> IndexList.toList
-        |> HashMap.ofList                 
-    
+        |> HashMap.ofList
+
+    /// Leaf -> the full chain of group names containing it, outermost first.
+    /// Unlike `updateGroupsLookup` (which only yields the immediate parent's
+    /// name) this keeps nested structure, so an exporter can write a path and an
+    /// importer can rebuild the tree from it. The root group is not part of the
+    /// path: leaves directly under it map to an empty list.
+    let groupPathLookup (m : GroupsModel) : HashMap<Guid, list<string>> =
+        let rec collect (prefix : list<string>) (n : Node) =
+            [ yield! n.leaves |> IndexList.toList |> List.map (fun leaf -> leaf, prefix)
+              yield! n.subNodes
+                     |> IndexList.toList
+                     |> List.collect (fun child -> collect (prefix @ [ child.name ]) child) ]
+
+        collect [] m.rootGroup |> HashMap.ofList
+
     let updateActiveGroup (f : Node -> Node) (m : GroupsModel) =
         let root = updateNodeAt m.activeGroup.path f m.rootGroup        
 

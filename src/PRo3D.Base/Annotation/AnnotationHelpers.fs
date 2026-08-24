@@ -45,6 +45,14 @@ module Calculations =
         let ground = new Plane3d(up.Normalized, 0.0)
         Math.Asin(ground.Height(dir)).DegreesFromRadians()
 
+    /// Angle between the plane's first principal axis and the horizontal direction
+    /// within the plane. Used by the CSV and the Attitude exporters alike.
+    let rake (up:V3d) (regInfo : RegressionInfo3d) =
+        regInfo.Normal
+        |> Vec.cross up
+        |> Vec.dot regInfo.Axis1
+        |> acos
+
     //computes the distance between the first and the last point projected onto the upvector
     let verticalDelta (points:list<V3d>) (up:V3d) = 
         match points.Length with
