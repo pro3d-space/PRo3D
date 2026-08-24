@@ -191,9 +191,19 @@ let run (o : KdTreeOptions) : int =
         Log.line "arguments: %A" o
         Log.line "directories: %A" directories
 
+        // 0 used to mean "single threaded", but 1 already covers that, so 0 was a wasted
+        // sentinel -- and 0 is what an unspecified option arrives as, which made sequential
+        // the accidental default. Now: 1 is sequential, and 0 or -1 use all available cores
+        // (-1 being what ParallelOptions itself uses for unbounded).
         let degreesOfParallelism =
-            if o.degreesOfParallelism = 0 then None else Some o.degreesOfParallelism
-        Log.line "degrees of parallelism: %A" o.degreesOfParallelism
+            if o.degreesOfParallelism = 1 then None
+            elif o.degreesOfParallelism <= 0 then Some -1
+            else Some o.degreesOfParallelism
+
+        match degreesOfParallelism with
+        | None -> Log.line "degrees of parallelism: 1 (sequential)"
+        | Some -1 -> Log.line "degrees of parallelism: all available cores (%d)" Environment.ProcessorCount
+        | Some n -> Log.line "degrees of parallelism: %d" n
 
         Aardvark.Init()
         PixImageDevil.InitDevil()

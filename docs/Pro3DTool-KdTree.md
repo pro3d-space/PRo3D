@@ -18,16 +18,23 @@ for anything running unattended.
 | Option | Effect |
 |---|---|
 | `--forcekdtreerebuild` | Rebuild and overwrite existing kd-trees |
-| `--ignoreMasterKdTree` | Ignore master kd-trees; load or create per-patch kd-trees and the lazy kd-tree cache |
+| `--ignoremasterkdtree` | Ignore master kd-trees; load or create per-patch kd-trees and the lazy kd-tree cache |
 | `--generatedds` | Convert patch textures to DDS |
 | `--overwritedds` | Overwrite existing DDS files (only meaningful with `--generatedds`) |
-| `--skipPatchValidation` | Skip patch validation (textures, aara files) |
-| `--degreesOfParallelism <n>` | Process this many hierarchies concurrently; `0` means single threaded |
+| `--skippatchvalidation` | Skip patch validation (textures, aara files) |
+| `--degreesofparallelism <n>` | Hierarchies to process concurrently. `1` is sequential; `0` (the default) or `-1` uses all available cores |
 | `--verbose` | Print all messages to standard output |
 
 The positional argument is either a single OPC hierarchy or a directory containing several.
 When it is a container, every immediate subdirectory is checked, and non-OPC folders are
 reported and skipped rather than failing the run.
+
+Parallelism is **per hierarchy**, not per patch, so it only helps when the positional
+argument is a directory containing several OPC hierarchies. A single surface is processed
+the same way regardless of the setting.
+
+Option names are lower-case throughout, exactly as `opc-tool` accepted them
+(`--skippatchvalidation`, not `--skipPatchValidation`).
 
 ## Examples
 
@@ -47,7 +54,7 @@ scripts/run-kdtree.sh  <testdata>
 Rebuilding from scratch, four hierarchies at a time:
 
 ```
-pro3d-tool kdtree --forcekdtreerebuild --degreesOfParallelism 4 "K:\PRo3D Data\SAIIL_02_01-v3-opc\SAIIL_02_01"
+pro3d-tool kdtree --forcekdtreerebuild --degreesofparallelism 4 "K:\PRo3D Data\SAIIL_02_01-v3-opc\SAIIL_02_01"
 ```
 
 ## Notes

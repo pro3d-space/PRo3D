@@ -38,6 +38,7 @@
     <Compile Include="DidymosProjectionSpiceTest.fs" />
     <None Include="RemoteApi.rest" />
     <Compile Include="TriangleSetTests.fs" />
+    <Compile Include="PolygonFillTests.fs" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
     <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="UnprojectTest.fs" />
@@ -59,6 +60,7 @@
     <Compile Include="Features\Section16_CommandLine.fs" />
     <Compile Include="Features\Section18_KeyboardShortcuts.fs" />
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
+    <Compile Include="Pro3DToolTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>
@@ -66,7 +68,6 @@
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
-    <!-- the unproject verb's table parsing and CSV writing are tested directly -->
     <ProjectReference Include="..\PRo3D.Tool\PRo3D.Tool.fsproj" />
     <!-- Scene, SceneLoader and ViewerIO live in the viewer: needed by the TC-1 scene lifecycle tests -->
     <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />

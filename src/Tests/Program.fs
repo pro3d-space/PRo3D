@@ -36,6 +36,7 @@ let allTests () : Test =
         GeoJsonRework.Tests.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
+        PolygonFillTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
@@ -57,7 +58,15 @@ let allTests () : Test =
             DidymosProjectionSpiceTest.tests()
             InstrumentProjectionComparisonTest.tests()
 
-        // pixel addressing for `pro3d-tool unproject`; pure, needs no data
+        // pro3d-tool verbs. Placed after the kernel-sensitive tests for the same reason
+        // they are ordered above: the sun-angles case needs the plan kernel, and every
+        // swap degrades DAF handles. It reuses HeraSpiceTests' kernel tracking rather
+        // than doing its own Init/DeInit, so it adds no swap of its own. Its kdtree
+        // cases need neither kernels nor a GPU and always run.
+        Pro3DToolTests.tests()
+
+        // unproject: the pixel addressing and table cases need no data; the shape-model
+        // cross-check reuses the same kernel tracking and self-skips without kernels.
         UnprojectTest.tests()
 
         // Sections whose OPC-backed lists self-skip when the test-data submodule

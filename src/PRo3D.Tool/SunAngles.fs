@@ -211,7 +211,13 @@ let private writeSidecar (path : string) (o : SunAnglesOptions) (img : ResolvedI
     File.WriteAllText(path, json)
 
 /// Render the angle rasters for one image. Returns the files written, or why it could not.
-let private processImage (runtime : IRuntime) (o : SunAnglesOptions)
+///
+/// Public, and takes the metakernel path rather than loading it: SPICE state is
+/// process-global and there is no working unload (DeInit does not call kclear_c), so
+/// every Init/DeInit cycle costs a kernel swap and swaps degrade DAF handles. `run`
+/// owns that lifetime for CLI use; tests drive this directly against a kernel the test
+/// suite already has active, adding no swaps.
+let processImage (runtime : IRuntime) (o : SunAnglesOptions)
                          (body : string) (frame : string) (observer : string)
                          (methodValue : ProjectionMethod) (outDir : string) (kernel : string)
                          (hierarchies : string[]) (img : ResolvedImage) : Result<string list, string> =

@@ -28,7 +28,7 @@ type KdTreeOptions =
         [<Option(HelpText = "Overwrite DDS")>]
         overwritedds : bool
 
-        [<Option(HelpText = "Degree of paralellism (0 for single threaded)", Required = false)>]
+        [<Option(HelpText = "Hierarchies to process concurrently: 1 is sequential, 0 (default) or -1 uses all available cores", Required = false)>]
         degreesOfParallelism : int
 
         [<Value(0, HelpText = "Surface Directory", Required = true)>]
