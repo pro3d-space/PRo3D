@@ -1006,6 +1006,8 @@ module ViewerUtils =
             // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
             // sphere-normal predecessor made relief invisible under sun lighting.
             PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
+            // Cast shadows (LightingMode.SunShadow); per-patch gated, no-op otherwise.
+            PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
         ]
         //Effect.compose [
             
@@ -1144,7 +1146,7 @@ module ViewerUtils =
                 body 
                 |> AVal.map (function 
                     | Some b -> 
-                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp surfaceId "MARS"
+                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp (AVal.constant None) surfaceId "MARS"
                         r
                     | _ -> None 
                 )
@@ -1371,13 +1373,20 @@ module ViewerUtils =
 
         let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview m
 
+        // The OPC effect stack contains the shadow comparison sampler unconditionally
+        // (terrainSunShadow); it must be backed by a depth texture on every surface even
+        // while shadows are off, so every surface group gets the (for now: dummy) map.
+        let shadowMap = SunShadowMap.texture runtime
+        let withShadowMap (sg : ISg<ViewerAction>) =
+            sg
+            |> Sg.texture "ShadowMap" shadowMap
+            |> Sg.uniform' "ShadowMapBias" -0.0005
 
-
-        alist {                    
+        alist {
             for sg in grouped do
                 yield RenderCommand<_>.ClearDepth 1.0
                 yield RenderCommand<_>.ClearDepth 1.0
-                yield RenderCommand<_>.Render sg
+                yield RenderCommand<_>.Render (withShadowMap sg)
 
             yield RenderCommand<_>.Render depthTested
             yield RenderCommand<_>.ClearDepth 1.0

@@ -277,6 +277,7 @@ module TestViewer =
                             localImageProjectionTrafos = localImageProjectionTrafos
                             sunDirection = sunLight
                             sunLightEnabled = sunLightEnabled
+                            lightViewProj = AVal.constant None
                         })
 
                 let cfg = OpcSg.defaultConfig win.FramebufferSignature runner scene.lodDecider "MARS"

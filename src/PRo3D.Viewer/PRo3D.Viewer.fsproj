@@ -64,6 +64,7 @@
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />
     <Compile Include="Viewer\Shaders.fs" />
+    <Compile Include="Viewer\SunShadowMap.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Scene.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />

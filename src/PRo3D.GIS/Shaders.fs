@@ -267,10 +267,10 @@ module Shaders =
             let p = v.viewProjPos.XYZ / v.viewProjPos.W
             let tc = V3f(0.5f , 0.5f , 0.5f ) + V3f(0.5f , 0.5f , 0.5f ) * p.XYZ
 
-            let sampleRadius = 1.0f / (float32 (Vec.MaxElement shadowSampler.Size)) 
+            let sampleRadius = 1.0f / (float32 (Vec.MaxElement shadowSampler.Size))
             let numSamples = 4
 
-            let mutable shadow = 0.0f 
+            let mutable shadow = 0.0f
             for i in 0 .. offsets.Length - 1 do
                 shadow <- shadow + shadowSampler.Sample(tc.XY + offsets[i] * sampleRadius, tc.Z + bias)
 
@@ -278,4 +278,35 @@ module Shaders =
 
             let d = min 1.0f (max 0.2f shadow)
             return V4f(v.c.XYZ * d, v.c.W)
+        }
+
+    /// Cast-shadow factor from the sun shadow map, gated per patch: HasShadowMap comes
+    /// from projectionUniformMap and is true only when a light matrix was provided --
+    /// i.e. when the lighting mode is SunShadow and the shadow pass is running. In every
+    /// other mode this stage is a no-op, which is what lets it sit permanently in the
+    /// viewer's OPC effect stack (the sampler is then bound to a 1x1 far-plane dummy).
+    ///
+    /// The clip-space position comes from transformShadowVertices, whose
+    /// StableModelViewProjTexture per-patch uniform is composed on the CPU in double
+    /// (patch Local2Global included), keeping the lookup planetary-precision-safe.
+    let terrainSunShadow (v : ShadowVertex) =
+        fragment {
+            if uniform.HasShadowMap then
+                let bias : float32 = uniform?ShadowMapBias
+                let p = v.viewProjPos.XYZ / v.viewProjPos.W
+                let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
+                // outside the map counts as lit; the ortho frustum covers the casters,
+                // so this only happens off the covered volume
+                if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f then
+                    return v.c
+                else
+                    let sampleRadius = 1.0f / (float32 (Vec.MaxElement shadowSampler.Size))
+                    let mutable shadow = 0.0f
+                    for i in 0 .. offsets.Length - 1 do
+                        shadow <- shadow + shadowSampler.Sample(tc.XY + offsets[i] * sampleRadius, tc.Z + bias)
+                    // 0.2 floor: fully-shadowed terrain stays readable instead of black
+                    let d = min 1.0f (max 0.2f (shadow / float32 offsets.Length))
+                    return V4f(v.c.XYZ * d, v.c.W)
+            else
+                return v.c
         }

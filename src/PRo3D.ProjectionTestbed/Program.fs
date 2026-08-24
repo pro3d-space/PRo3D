@@ -245,6 +245,7 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
                 localImageProjectionTrafos = AVal.constant [||]
                 sunDirection = AVal.constant (match sunDir with Ok d -> Some d | Result.Error _ -> None)
                 sunLightEnabled = AVal.constant (match sunDir with Ok _ -> true | Result.Error _ -> false)
+                lightViewProj = AVal.constant None
             })
 
     // Convert a requested image-plane correction (pixels, +x right, +y up) into a world
