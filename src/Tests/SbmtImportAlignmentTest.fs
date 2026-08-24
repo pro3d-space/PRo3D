@@ -1,4 +1,4 @@
-module SbmtImportAlignmentTest
+﻿module SbmtImportAlignmentTest
 
 open System
 open System.IO
@@ -14,36 +14,72 @@ open PRo3D.Core
 open PRo3D.Core.Drawing
 
 // ---------------------------------------------------------------------------
-// Fixture data (external, optional)
+// Fixture data
 // ---------------------------------------------------------------------------
 //
-// Two annotations sit on the same "Pike" feature of the Dimorphos shape model:
-//   - SBMT-exported point in pointOnPike.points.txt (centerXYZ in km, SHM frame)
-//   - PRo3D-native point picked manually and exported as cartesian GeoJSON
-//     (meters, same SHM frame as the loaded OBJ surface)
+// Import fixtures live under `imports/` in a PRo3D.Resources.TestData checkout,
+// resolved the same way every other data-backed list resolves it: PRO3D_TEST_DATA
+// first, the suite-wide --testdatasource second. See docs/SbmtImport.md.
 //
-// The two should agree to within ~10 m given manual-pick precision on a ~170 m
-// asteroid.
+//   imports/basicSBMT-dimorphos-v4/   a complete SBMT v4 export of Dimorphos,
+//                                     one file per structure kind. Committed, so
+//                                     the tests using it run for everyone.
 //
-// These fixtures are large and not redistributable, so they live outside the
-// repository and every test that needs them self-skips when they are absent.
-// Note this root is deliberately NOT the suite-wide --testdatasource root
-// (run-tests.cmd points that at C:\pro3ddata\testdata); the SBMT catalogs were
-// never moved under it. Override with PRO3D_SBMT_TESTDATA.
-// See docs/SbmtImport.md.
+// Two fixtures are not in the checkout and are looked for at an external root:
+//
+//   pointOnPike.points.txt + anno.json    the same "Pike" feature of the Dimorphos
+//     shape model, once as an SBMT point export (centerXYZ in km, SHM frame) and
+//     once as a PRo3D-native point picked by hand and exported as cartesian GeoJSON
+//     (metres, same SHM frame). They should agree to within ~10 m given manual-pick
+//     precision on a ~170 m asteroid.
+//
+//   Dimo_Bould_Glob_7_Maurizio            a ~4,800-ellipse boulder catalog, used for
+//     the bulk import and drawing-model timings. Too large to redistribute.
+//
+// Both are searched under <root>/imports first, so dropping them into the checkout
+// is enough; otherwise PRO3D_SBMT_TESTDATA (default C:\pro3ddata\shapemodels\testdata)
+// still finds them where they are. Every test that needs a missing fixture skips.
 
-let private defaultTestDataDir = @"C:\pro3ddata\shapemodels\testdata"
+module private Data =
 
-let private testDataDir =
-    match Environment.GetEnvironmentVariable "PRO3D_SBMT_TESTDATA" with
-    | null | "" -> defaultTestDataDir
-    | path -> path
+    let private existingDir (path : string) =
+        if String.IsNullOrWhiteSpace path then None
+        elif Directory.Exists path then Some path
+        else None
 
-let private sbmtPointsFile     = Path.Combine(testDataDir, "pointOnPike.points.txt")
-let private annoFile           = Path.Combine(testDataDir, "anno.json")
-let private sbmtEllipseFile    = Path.Combine(testDataDir, "Didy_Boulders_Paj_Tusb_Lucch")
-let private sbmtBigEllipseFile = Path.Combine(testDataDir, "Dimo_Bould_Glob_7_Maurizio")
+    let private existingFile (path : string) =
+        if File.Exists path then Some path else None
 
+    /// Root of a PRo3D.Resources.TestData checkout.
+    let root (testDataSource : Option<string>) =
+        [ Environment.GetEnvironmentVariable "PRO3D_TEST_DATA"
+          testDataSource |> Option.defaultValue "" ]
+        |> List.tryPick existingDir
+
+    /// Where the non-redistributable catalogs live when they are not in the checkout.
+    let private externalRoot =
+        match Environment.GetEnvironmentVariable "PRO3D_SBMT_TESTDATA" with
+        | null | "" -> @"C:\pro3ddata\shapemodels\testdata"
+        | path -> path
+
+    /// One file of the committed SBMT v4 sample export, e.g. "points" or "ellipses".
+    let basicSbmt (root : Option<string>) (kind : string) =
+        root
+        |> Option.map (fun r ->
+            Path.Combine(r, "imports", "basicSBMT-dimorphos-v4", sprintf "sbmtimport.%s.txt" kind))
+        |> Option.bind existingFile
+
+    /// A fixture kept outside the checkout: <root>/imports first, external root second.
+    let external' (root : Option<string>) (fileName : string) =
+        [ root |> Option.map (fun r -> Path.Combine(r, "imports", fileName))
+          Some (Path.Combine(externalRoot, fileName)) ]
+        |> List.choose id
+        |> List.tryPick existingFile
+
+    /// Skip message naming the variable that fixes it.
+    let missing (what : string) =
+        sprintf "missing fixture: %s (set PRO3D_TEST_DATA to a PRo3D.Resources.TestData \
+                 checkout, or PRO3D_SBMT_TESTDATA for the external catalogs)" what
 // ---------------------------------------------------------------------------
 // Synthetic SBMT files
 // ---------------------------------------------------------------------------
@@ -420,13 +456,24 @@ let private groupingTests =
 // Fixture-backed tests -- skipped when the external catalogs are absent
 // ---------------------------------------------------------------------------
 
-let private fixtureTests =
+let private fixtureTests (parameters : TestUtils.TestParameters) =
+    let root = Data.root parameters.testDataSource
+
+    // The committed SBMT v4 sample export - available wherever the checkout is.
+    let basicPointsFile  = Data.basicSbmt root "points"   |> Option.defaultValue ""
+    let basicEllipseFile = Data.basicSbmt root "ellipses" |> Option.defaultValue ""
+
+    // Not redistributable; resolved under <root>/imports or the external root.
+    let sbmtPointsFile     = Data.external' root "pointOnPike.points.txt"     |> Option.defaultValue ""
+    let annoFile           = Data.external' root "anno.json"                  |> Option.defaultValue ""
+    let sbmtBigEllipseFile = Data.external' root "Dimo_Bould_Glob_7_Maurizio" |> Option.defaultValue ""
+
     testList "fixtures" [
         test "SBMT-imported Pike point aligns with PRo3D-native annotation within 10m (identity trafo)" {
             if not (File.Exists sbmtPointsFile) then
-                skiptest (sprintf "missing fixture: %s" sbmtPointsFile)
+                skiptest (Data.missing "pointOnPike.points.txt")
             if not (File.Exists annoFile) then
-                skiptest (sprintf "missing fixture: %s" annoFile)
+                skiptest (Data.missing "anno.json")
 
             let sbmt     = importFirstPoint Trafo3d.Identity sbmtPointsFile
             let pro3d    = parseSelectedGeoJsonPoint annoFile
@@ -444,9 +491,9 @@ let private fixtureTests =
         // analytically -- no SPICE kernels required.
         test "SHM->FIXED 180deg-around-Y trafo preserves SBMT/PRo3D distance" {
             if not (File.Exists sbmtPointsFile) then
-                skiptest (sprintf "missing fixture: %s" sbmtPointsFile)
+                skiptest (Data.missing "pointOnPike.points.txt")
             if not (File.Exists annoFile) then
-                skiptest (sprintf "missing fixture: %s" annoFile)
+                skiptest (Data.missing "anno.json")
 
             let flipShmToFixed = Trafo3d.RotationY(Math.PI)
 
@@ -463,14 +510,45 @@ let private fixtureTests =
                 "frame rotation must preserve relative distance"
         }
 
+        // The synthetic point tests above build their own rows; this one runs the
+        // importer over a real SBMT v4 export, headers and all, so a change in the
+        // file format is caught rather than only a change in our own writer.
+        test "SBMT v4 point export imports with km -> m applied" {
+            if not (File.Exists basicPointsFile) then
+                skiptest (Data.missing "imports/basicSBMT-dimorphos-v4/sbmtimport.points.txt")
+
+            let annotations =
+                SbmtImporter.startImporter Trafo3d.Identity "DIMORPHOS_SHM" basicPointsFile
+
+            Expect.equal annotations.Count 3 "the export holds three points"
+
+            let allPoints =
+                annotations
+                |> IndexList.toList
+                |> List.forall (fun a -> a.geometry = Geometry.Point)
+            Expect.isTrue allPoints "every imported structure is a Point"
+
+            // Row 1 centerXYZ, in kilometres:
+            //   -0.04636082745224429  -0.07230312879082629  0.015186767116164943
+            let first = importFirstPoint Trafo3d.Identity basicPointsFile
+            let expected = V3d(-46.36082745224429, -72.30312879082629, 15.186767116164943)
+            Expect.isLessThan (first - expected).Length 1e-6
+                (sprintf "first point should be centerXYZ scaled to metres, got %A" first)
+
+            // centerLLR's radius column (0.08722216834291732 km) is an independent
+            // statement of the same position, so it pins the unit conversion down.
+            Expect.floatClose Accuracy.medium first.Length 87.22216834291732
+                "distance from the body centre should match the declared radius"
+        }
+
         // Smoke test for the ellipse importer against a real boulder catalog:
         // the sampled boundary of the first ellipse must be planar.
         test "SBMT ellipse import produces a planar boundary" {
-            if not (File.Exists sbmtEllipseFile) then
-                skiptest (sprintf "missing fixture: %s" sbmtEllipseFile)
+            if not (File.Exists basicEllipseFile) then
+                skiptest (Data.missing "imports/basicSBMT-dimorphos-v4/sbmtimport.ellipses.txt")
 
             let annotations =
-                SbmtImporter.startImporter Trafo3d.Identity "DIMORPHOS_SHM" sbmtEllipseFile
+                SbmtImporter.startImporter Trafo3d.Identity "DIMORPHOS_SHM" basicEllipseFile
 
             Expect.isGreaterThan annotations.Count 0 "should parse at least one ellipse"
 
@@ -502,7 +580,7 @@ let private fixtureTests =
         // Viewer handler would graft onto m.drawing.annotations.
         test "SBMT ellipse import: bulk perf + drawing-model integrity" {
             if not (File.Exists sbmtBigEllipseFile) then
-                skiptest (sprintf "missing fixture: %s" sbmtBigEllipseFile)
+                skiptest (Data.missing "Dimo_Bould_Glob_7_Maurizio")
 
             let refSys = PRo3D.Core.ReferenceSystem.initial
 
@@ -563,7 +641,7 @@ let private fixtureTests =
         // Asserts the resulting DrawingModel is internally consistent.
         test "SBMT import end-to-end into a full DrawingModel" {
             if not (File.Exists sbmtBigEllipseFile) then
-                skiptest (sprintf "missing fixture: %s" sbmtBigEllipseFile)
+                skiptest (Data.missing "Dimo_Bould_Glob_7_Maurizio")
 
             let refSys = PRo3D.Core.ReferenceSystem.initial
 
@@ -636,11 +714,11 @@ let private fixtureTests =
         }
     ]
 
-let tests () =
+let tests (parameters : TestUtils.TestParameters) =
     testList "sbmtImport" [
         headerTests
         pointTests
         ellipseTests
         groupingTests
-        fixtureTests
+        fixtureTests parameters
     ]

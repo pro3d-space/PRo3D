@@ -193,29 +193,46 @@ km → m scaling, trafo application, circle-as-ellipse dispatch, ellipse
 planarity and semi-axis lengths, `regularAngle` orientation, and the grouping
 and chunking behaviour of `importSbmt`.
 
-**Fixture-backed tests** need real catalogs and **skip themselves** when the
-data is absent. They cover alignment of an SBMT point against a manually
-picked PRo3D annotation on the same feature, distance preservation under a
-frame rotation, and bulk import performance plus drawing-model integrity on
-the ~4,800-ellipse Dimorphos catalog.
+**Fixture-backed tests** read real SBMT exports and **skip themselves** when the
+data is absent. They cover a v4 point export importing with km → m applied,
+ellipse planarity, alignment of an SBMT point against a manually picked PRo3D
+annotation on the same feature, distance preservation under a frame rotation,
+and bulk import performance plus drawing-model integrity on the ~4,800-ellipse
+Dimorphos catalog.
 
-The fixture root defaults to `C:\pro3ddata\shapemodels\testdata` and can be
-overridden with the `PRO3D_SBMT_TESTDATA` environment variable. Note that this
-is a *separate* root from the suite-wide `--testdatasource` (`run-tests.cmd`
-points that at `C:\pro3ddata\testdata`); the SBMT fixtures were never moved
-under it.
+Fixtures live under `imports/` in a
+[PRo3D.Resources.TestData](https://github.com/pro3d-space/PRo3D.Resources.TestData)
+checkout, resolved the way the rest of the data-backed suite resolves it:
+`PRO3D_TEST_DATA` first, the suite-wide `--testdatasource` second.
 
-Required fixtures:
+| Fixture | Contents |
+|---|---|
+| `imports/basicSBMT-dimorphos-v4/sbmtimport.points.txt` | 3-point SBMT v4 export of Dimorphos |
+| `imports/basicSBMT-dimorphos-v4/sbmtimport.ellipses.txt` | ellipse export of the same body |
+| `imports/basicSBMT-dimorphos-v4/sbmtimport.circles.txt` | circle export — not yet exercised |
+| `imports/basicSBMT-dimorphos-v4/sbmtimport.paths.xml` | path export — the importer does not read lines yet |
+| `imports/basicSBMT-dimorphos-v4/sbmtimport.polygons.xml` | polygon export — likewise |
 
-| File | Contents |
+Two fixtures are too large or not redistributable and are therefore **not** in
+the checkout:
+
+| Fixture | Contents |
 |---|---|
 | `pointOnPike.points.txt` | one SBMT point on the Dimorphos "Pike" feature |
 | `anno.json` | PRo3D-native cartesian GeoJSON with a manually picked point on the same feature |
-| `Didy_Boulders_Paj_Tusb_Lucch` | ~170 ellipses on Didymos |
 | `Dimo_Bould_Glob_7_Maurizio` | ~4,800 ellipses on Dimorphos |
 
-Run with `run-tests.cmd` (Windows) or `run-tests.sh`, optionally filtered:
+They are searched under `<root>/imports` first, so dropping them into the
+checkout is enough. Otherwise `PRO3D_SBMT_TESTDATA` (default
+`C:\pro3ddata\shapemodels\testdata`) still resolves them where they are.
 
 ```
-run-tests.cmd --filter-test-case sbmt
+set PRO3D_TEST_DATA=C:\path\to\PRo3D.Resources.TestData
+dotnet run --project src\Tests -- --filter "all.all tests.sbmtImport"
 ```
+
+With the checkout alone: 22 pass, 4 skip. With the external catalogs as well:
+26 pass, 0 skip. With neither: 20 pass, 6 skip.
+
+`run-tests.cmd` (Windows) and `run-tests.sh` work too; they pass
+`--testdatasource` for you.
