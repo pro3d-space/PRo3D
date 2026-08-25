@@ -1262,7 +1262,7 @@ module ViewerUtils =
                 // unconditionally (terrainSunShadow), so every surface needs a depth
                 // texture behind it even while shadows are off.
                 |> Sg.texture "ShadowMap" sunShadow.texture
-                |> Sg.uniform' "ShadowMapBias" -0.0005
+                |> Sg.uniform "ShadowMapBias" (sunShadow.bias |> AVal.map float32)
                 |> Sg.applyCrossSection crossSectionData
                 |> Sg.noEvents
 

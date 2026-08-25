@@ -43,6 +43,9 @@ module SunShadowMap =
             /// World -> sun-camera clip space; None whenever shadows are off, which
             /// keeps the per-patch HasShadowMap gate false.
             lightViewProj : aval<Option<Trafo3d>>
+            /// Base shadow bias in normalized shadow-map depth (a world-space distance
+            /// divided by the light frustum's depth range); slope-scaled in the shader.
+            bias          : aval<float>
         }
 
     let private shadowMapSize = V2i(4096, 4096)
@@ -172,7 +175,9 @@ module SunShadowMap =
     /// box Z verbatim as near/far, but the camera sits outside the box looking down -Z,
     /// so near/far are the negated maximum/minimum -- same construction (and same trap)
     /// as pro3d-tool's renderSunShadowMap.
-    let private lightCamera (sunDir : aval<Option<V3d>>) (bounds : aval<Box3d>) : aval<Option<Trafo3d * Trafo3d>> =
+    /// (view, proj, depth range in metres) -- the range is what turns a world-space
+    /// shadow bias into normalized shadow-map depth.
+    let private lightCamera (sunDir : aval<Option<V3d>>) (bounds : aval<Box3d>) : aval<Option<Trafo3d * Trafo3d * float>> =
         (sunDir, bounds) ||> AVal.map2 (fun dir bb ->
             match dir with
             | Some dir when bb.IsValid && bb.Size.Length > 0.0 ->
@@ -186,7 +191,7 @@ module SunShadowMap =
                 let proj =
                     { Frustum.ortho vbox with near = -vbox.Max.Z; far = -vbox.Min.Z }
                     |> Frustum.projTrafo
-                Some (view, proj)
+                Some (view, proj, vbox.Size.Z)
             | _ -> None)
 
     /// Everything the active shadow pass needs, created ON FIRST ACTIVATION only --
@@ -208,8 +213,8 @@ module SunShadowMap =
                 do! PRo3D.SPICE.Shaders.stableTrafo
                 do! DefaultSurfaces.constantColor C4f.White
             }
-            |> Sg.viewTrafo (camera |> AVal.map (function Some (v, _) -> v | None -> Trafo3d.Identity))
-            |> Sg.projTrafo (camera |> AVal.map (function Some (_, p) -> p | None -> Trafo3d.Identity))
+            |> Sg.viewTrafo (camera |> AVal.map (function Some (v, _, _) -> v | None -> Trafo3d.Identity))
+            |> Sg.projTrafo (camera |> AVal.map (function Some (_, p, _) -> p | None -> Trafo3d.Identity))
 
         let clearValues =
             clear {
@@ -241,7 +246,7 @@ module SunShadowMap =
                 | false -> AVal.constant None
                 | true ->
                     let (camera, _) = pass.Value
-                    camera |> AVal.map (Option.map (fun (view, proj) -> view * proj)))
+                    camera |> AVal.map (Option.map (fun (view, proj, _) -> view * proj)))
 
         let texture =
             active |> AVal.bind (function
@@ -252,7 +257,18 @@ module SunShadowMap =
                         | Some _ -> depth |> AVal.map (fun t -> t :> ITexture)
                         | None -> AVal.constant dummy))
 
-        { texture = texture; lightViewProj = lightViewProj }
+        // 3 cm of world-space base bias, normalized by the light frustum's actual depth
+        // range; the shader slope-scales it per fragment (terrainSunShadow)
+        let bias =
+            active |> AVal.bind (function
+                | false -> AVal.constant 0.0
+                | true ->
+                    let (camera, _) = pass.Value
+                    camera |> AVal.map (function
+                        | Some (_, _, range) when range > 0.0 -> 0.03 / range
+                        | _ -> 0.0))
+
+        { texture = texture; lightViewProj = lightViewProj; bias = bias }
 
     /// One handle per process: the runtime is a singleton in both the viewer and
     /// PRo3D.Snapshots, and createGroupedSgs may be re-executed on layout changes --
@@ -269,4 +285,5 @@ module SunShadowMap =
             with e ->
                 Log.error "[SunShadowMap] shadow pass disabled, creation failed: %A" e
                 { texture = AVal.constant (createDummyTexture runtime)
-                  lightViewProj = AVal.constant None })
+                  lightViewProj = AVal.constant None
+                  bias = AVal.constant 0.0 })

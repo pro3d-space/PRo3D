@@ -280,6 +280,14 @@ module Shaders =
             return V4f(v.c.XYZ * d, v.c.W)
         }
 
+    type ShadowReceiverVertex = {
+        [<Position>]                       p           : V4f
+        [<Semantic("PosShadowViewProj")>]  viewProjPos : V4f
+        [<Color>]                          c           : V4f
+        /// per-face terrain normal from generateNormal, for the slope-scaled bias
+        [<Semantic("LocalNormal")>]        localNormal : V3f
+    }
+
     /// Cast-shadow factor from the sun shadow map, gated per patch: HasShadowMap comes
     /// from projectionUniformMap and is true only when a light matrix was provided --
     /// i.e. when the lighting mode is SunShadow and the shadow pass is running. In every
@@ -289,10 +297,14 @@ module Shaders =
     /// The clip-space position comes from transformShadowVertices, whose
     /// StableModelViewProjTexture per-patch uniform is composed on the CPU in double
     /// (patch Local2Global included), keeping the lookup planetary-precision-safe.
-    let terrainSunShadow (v : ShadowVertex) =
+    ///
+    /// ShadowMapBias is the BASE bias in normalized shadow depth (the shadow pass
+    /// derives it from a world-space distance and the light frustum's depth range) and
+    /// is slope-scaled here: a constant bias either detaches shadows at contact points
+    /// (too large) or stripes sun-grazing surfaces with acne (too small).
+    let terrainSunShadow (v : ShadowReceiverVertex) =
         fragment {
             if uniform.HasShadowMap then
-                let bias : float32 = uniform?ShadowMapBias
                 let p = v.viewProjPos.XYZ / v.viewProjPos.W
                 let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
                 // outside the map counts as lit; the ortho frustum covers the casters,
@@ -300,10 +312,17 @@ module Shaders =
                 if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f then
                     return v.c
                 else
+                    let baseBias : float32 = uniform?ShadowMapBias
+                    let n = uniform.ModelViewTrafo.TransformDir v.localNormal |> Vec.normalize
+                    let l = uniform.ViewTrafo.TransformDir uniform.SunDirectionWorld |> Vec.normalize
+                    // receiver slope against the light, orientation-independent
+                    let cosTheta = abs (Vec.dot n l) |> max 0.05f
+                    let tanTheta = sqrt (max 0.0f (1.0f - cosTheta * cosTheta)) / cosTheta |> min 10.0f
+                    let bias = baseBias * (1.0f + 2.0f * tanTheta)
                     let sampleRadius = 1.0f / (float32 (Vec.MaxElement shadowSampler.Size))
                     let mutable shadow = 0.0f
                     for i in 0 .. offsets.Length - 1 do
-                        shadow <- shadow + shadowSampler.Sample(tc.XY + offsets[i] * sampleRadius, tc.Z + bias)
+                        shadow <- shadow + shadowSampler.Sample(tc.XY + offsets[i] * sampleRadius, tc.Z - bias)
                     // 0.2 floor: fully-shadowed terrain stays readable instead of black
                     let d = min 1.0f (max 0.2f (shadow / float32 offsets.Length))
                     return V4f(v.c.XYZ * d, v.c.W)
