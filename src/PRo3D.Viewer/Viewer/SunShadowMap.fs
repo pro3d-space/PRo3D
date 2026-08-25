@@ -111,7 +111,16 @@ module SunShadowMap =
     /// acceptable because casters only load while SunShadow is actually on, and the
     /// feature targets small-body scenes.
     let private casterSg (runtime : IRuntime) (signature : IFramebufferSignature) (m : AdaptiveModel) : ISg =
-        let runner = runtime.CreateLoadRunner 1
+        // The one load runner of the process, created at startup (Program.fs) -- the
+        // same one the main surfaces load through. Runners are startup-time singletons:
+        // creating a second one lazily inside the first shadow render meant spinning up
+        // GL worker contexts in the middle of a running task, which corrupted the
+        // thread's context bookkeeping ("cannot release context which is not current",
+        // then a ValueOption.Value crash in the snapshot renderer).
+        let runner =
+            match PRo3D.Core.Surface.Sg.hackRunner with
+            | Some r -> r
+            | None -> failwith "GL runner was not initialized."
         let noImages : aval<Option<Sg.ProjectedImages>> = AVal.constant None
 
         m.scene.surfacesModel.surfaces.flat
