@@ -3,6 +3,7 @@ namespace PRo3D.Viewer
 open System
 open Aardvark.UI
 open Aardvark.UI.Operators
+open PRo3D.Base.Annotation
 
 /// A small, self-contained rose diagram (16-sector polar histogram) for the Bulk Edit tab.
 /// Given a list of azimuths in degrees (0 = north, clockwise), it renders an SVG rose whose
@@ -22,6 +23,18 @@ module RoseDiagram =
     let private minResultant = 0.05
 
     let private deg2rad (d : float) = d * Math.PI / 180.0
+
+    /// Whether one annotation contributes a measurement to the rose.
+    /// This is the single gate the bulk-edit panel applies, kept here rather than inline
+    /// in the ViewerGUI DomNode builder so it can be exercised directly by the tests.
+    /// Calculations.computeAzimuth (AnnotationHelpers.fs) returns NaN outright for a
+    /// degenerate dip direction, and annotations with no dip and strike at all reach this
+    /// as NaN too; a single NaN would poison the circular mean and land in the north bin,
+    /// so it is rejected here rather than inside `view`.
+    let includes (usePolyline : bool) (useDnS : bool) (geometry : Geometry) (dipAzimuth : float) =
+        (not (Double.IsNaN dipAzimuth)) &&
+        ((geometry = Geometry.Polyline && usePolyline) ||
+         (geometry = Geometry.DnS      && useDnS))
 
     /// screen point at compass azimuth (0 = north/up, clockwise) and radius r.
     /// svg y points down, so north (0 deg) maps to (0, -r).

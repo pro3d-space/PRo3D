@@ -956,9 +956,9 @@ module Gui =
                             //    rebuild it.
                             // The selection itself is still whole-value: it is bound by the
                             // enclosing adaptive block, which rebuilds the panel anyway.
-                            // dipAzimuth is NaN whenever dip and strike could not be computed
-                            // (DipAndStrikeResults.initial), and a single NaN would poison the
-                            // circular mean and land in the north bin, so NaN is dropped here.
+                            // Annotations with no dip and strike surface here as NaN (the
+                            // bindAdaptiveOption default), which RoseDiagram.includes rejects
+                            // along with a genuinely NaN dipAzimuth.
                             let angles : aval<list<float>> =
                                 let ids = selected |> HashSet.map (fun ts -> ts.id)
                                 let perAnnotation =
@@ -968,19 +968,20 @@ module Gui =
                                         match leaf with
                                         | AdaptiveAnnotations a ->
                                             AVal.map2
-                                                (fun geo az -> if System.Double.IsNaN az then None else Some(geo, az))
+                                                (fun geo az -> Some(geo, az))
                                                 a.geometry
                                                 (AVal.bindAdaptiveOption a.dnsResults nan (fun d -> d.dipAzimuth))
                                         | _ -> AVal.constant None)
                                     |> AMap.toAVal
-                                // single fold - no intermediate list, one traversal per invalidation
+                                // Single fold - no intermediate list, one traversal per
+                                // invalidation. RoseDiagram.includes is the one place that
+                                // decides whether an annotation counts, shared with the tests.
                                 let selectEnabled
                                     (perAnno : HashMap<System.Guid, PRo3D.Base.Annotation.Geometry * float>)
                                     usePoly useDns =
                                     perAnno
                                     |> HashMap.fold (fun acc _ (geo, az) ->
-                                        if (geo = PRo3D.Base.Annotation.Geometry.Polyline && usePoly) ||
-                                           (geo = PRo3D.Base.Annotation.Geometry.DnS      && useDns)
+                                        if RoseDiagram.includes usePoly useDns geo az
                                         then az :: acc
                                         else acc) []
                                 AVal.map3 selectEnabled perAnnotation model.roseUsePolyline model.roseUseDnS
