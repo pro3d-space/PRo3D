@@ -47,29 +47,13 @@ module SunShadowMap =
 
     let private shadowMapSize = V2i(4096, 4096)
 
-    /// A 1x1 depth texture cleared to the far plane: every comparison passes, i.e.
-    /// "fully lit".
+    /// A 1x1 depth texture backing the shadow comparison sampler whenever no real map
+    /// exists. Its CONTENTS are never read -- the shader's HasShadowMap gate is false in
+    /// exactly the situations this texture is bound -- so it is deliberately left
+    /// uninitialized: this runs during scene-graph construction, where compiling and
+    /// executing a clear pass on the GPU is not safe.
     let private createDummyTexture (runtime : IRuntime) : ITexture =
-        let signature =
-            runtime.CreateFramebufferSignature([
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-                DefaultSemantic.DepthStencil, TextureFormat.DepthComponent32f
-            ], 1)
-        let color = runtime.CreateTexture(V3i(1, 1, 1), TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1)
-        let depth = runtime.CreateTexture(V3i(1, 1, 1), TextureDimension.Texture2D, TextureFormat.DepthComponent32f, 1, 1)
-        let output =
-            runtime.CreateFramebuffer(
-                signature,
-                Map.ofList [
-                    DefaultSemantic.Colors, color.GetOutputView()
-                    DefaultSemantic.DepthStencil, depth.GetOutputView()
-                ]) |> OutputDescription.ofFramebuffer
-        let clear = runtime.CompileClear(signature, AVal.constant (C4f(0.0f, 0.0f, 0.0f, 0.0f)), AVal.constant 1.0)
-        clear.Run(output)
-        clear.Dispose()
-        runtime.DeleteTexture color
-        signature.Dispose()
-        depth :> ITexture
+        runtime.CreateTexture(V3i(1, 1, 1), TextureDimension.Texture2D, TextureFormat.DepthComponent32f, 1, 1) :> ITexture
 
     /// True only in SunShadow mode -- the master switch for both halves.
     let private shadowActive (m : AdaptiveModel) : aval<bool> =
@@ -196,20 +180,12 @@ module SunShadowMap =
                 Some (view, proj)
             | _ -> None)
 
-    let private createHandle (runtime : IRuntime) (m : AdaptiveModel) : Handle =
-        let dummy = createDummyTexture runtime
-
-        let active = shadowActive m
-        let sunDir =
-            // don't even query SPICE unless shadows are on
-            active |> AVal.bind (function
-                | true -> sunDirection m
-                | false -> AVal.constant None)
-
+    /// Everything the active shadow pass needs, created ON FIRST ACTIVATION only --
+    /// handle creation happens during scene-graph construction, where no GPU work and no
+    /// scene evaluation may run.
+    let private createPass (runtime : IRuntime) (m : AdaptiveModel) =
+        let sunDir = sunDirection m
         let camera = lightCamera sunDir (sceneBounds m)
-
-        let lightViewProj =
-            camera |> AVal.map (Option.map (fun (view, proj) -> view * proj))
 
         let signature =
             runtime.CreateFramebufferSignature([
@@ -217,10 +193,6 @@ module SunShadowMap =
                 DefaultSemantic.DepthStencil, TextureFormat.DepthComponent32f
             ], 1)
 
-        // The caster graph and its render task exist from the start but are only
-        // EXECUTED when the main pass actually samples the depth texture, i.e. when the
-        // texture binding below resolves to `depth` -- adaptive laziness keeps
-        // Off/SunDirect free of any caster cost.
         let sg =
             casterSg runtime signature m
             |> Sg.shader {
@@ -244,11 +216,32 @@ module SunShadowMap =
         // keep the adaptive render target alive across frames (see PackedRendering /
         // PRo3D.Lite for the idiom)
         depth.Acquire()
+        camera, depth
+
+    let private createHandle (runtime : IRuntime) (m : AdaptiveModel) : Handle =
+        let dummy = createDummyTexture runtime
+        let active = shadowActive m
+        // built lazily on the first SunShadow activation; never when the mode stays off
+        let pass = lazy (createPass runtime m)
+
+        // Everything below the `active` bind is untouched while the mode is Off or
+        // SunDirect: no SPICE query, no scene-bounds walk, no caster task. That inertness
+        // is what makes it safe to sit in every render path unconditionally.
+        let lightViewProj =
+            active |> AVal.bind (function
+                | false -> AVal.constant None
+                | true ->
+                    let (camera, _) = pass.Value
+                    camera |> AVal.map (Option.map (fun (view, proj) -> view * proj)))
 
         let texture =
-            camera |> AVal.bind (function
-                | Some _ -> depth |> AVal.map (fun t -> t :> ITexture)
-                | None -> AVal.constant dummy)
+            active |> AVal.bind (function
+                | false -> AVal.constant dummy
+                | true ->
+                    let (camera, depth) = pass.Value
+                    camera |> AVal.bind (function
+                        | Some _ -> depth |> AVal.map (fun t -> t :> ITexture)
+                        | None -> AVal.constant dummy))
 
         { texture = texture; lightViewProj = lightViewProj }
 
@@ -257,5 +250,14 @@ module SunShadowMap =
     /// re-creating render tasks there would leak them.
     let private cache = System.Collections.Concurrent.ConcurrentDictionary<IRuntime, Handle>()
 
+    /// Fail-soft: a broken shadow pass must never take the whole render view down with
+    /// it. On any error the feature degrades to "no shadows" (dummy map, no light
+    /// matrix) and says so loudly.
     let get (runtime : IRuntime) (m : AdaptiveModel) : Handle =
-        cache.GetOrAdd(runtime, fun runtime -> createHandle runtime m)
+        cache.GetOrAdd(runtime, fun runtime ->
+            try
+                createHandle runtime m
+            with e ->
+                Log.error "[SunShadowMap] shadow pass disabled, creation failed: %A" e
+                { texture = AVal.constant (createDummyTexture runtime)
+                  lightViewProj = AVal.constant None })
