@@ -38,6 +38,8 @@ let allTests () : Test =
         AnnotationExportTest.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
+        BulkAnnotationRoseTest.tests()
+        BulkAnnotationRoseTest.largeTests()
         PolygonFillTests.tests()
         RegionOpsTests.tests()
         RegionFixtureTests.tests()

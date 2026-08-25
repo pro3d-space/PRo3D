@@ -46,6 +46,8 @@
     <Compile Include="ProfileAttributeExtractionTest.fs" />
     <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="BaseTests.fs" />
+    <None Include="data\bulk-rose-annotations.pro3d.ann" />
+    <Compile Include="BulkAnnotationRoseTest.fs" />
     <Compile Include="Features\TestHelpers.fs" />
     <Compile Include="Features\Section01_StartingPRo3D.fs" />
     <Compile Include="Features\Section02_ViewerActionsNavigation.fs" />
