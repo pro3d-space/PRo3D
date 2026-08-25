@@ -982,8 +982,8 @@ module Gui =
 
                             // Dip-direction rose over the selection, restricted to the geometry
                             // types the user enabled. dipAzimuth is a stored field (read via the
-                            // adaptive dnsResults option), so this recomputes live and cheaply
-                            // whenever the selection, the toggles, or the annotations change.
+                            // adaptive dnsResults option); see `angles` below for the shape of the
+                            // adaptive graph this builds and what invalidates it.
                             let roseHeader =
                                 h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
                                    [ text "Dip direction rose" ]
@@ -1007,24 +1007,49 @@ module Gui =
                                         Html.row "Polyline:" [ GuiEx.iconCheckBoxSet model.roseUsePolyline ViewerAction.SetRoseUsePolyline ]
                                         Html.row "DnS:"      [ GuiEx.iconCheckBoxSet model.roseUseDnS      ViewerAction.SetRoseUseDnS ]
                                     ])
+                            // Dip azimuths of the selected annotations, collected as one
+                            // incremental aggregate rather than one lookup per annotation:
+                            //  * a single AMap.filter reader on `flat` replaces N AMap.tryFind
+                            //    calls. AMap.tryFind is documented as re-evaluating on *every*
+                            //    change of the map, so N of them turned finishing, deleting or
+                            //    importing a single annotation into N invalidated lookups; the
+                            //    filter sees the same event as one incremental add/remove.
+                            //  * AMap.chooseA caches (geometry, azimuth) per annotation, so an
+                            //    edit to one annotation re-reads that one and nothing else.
+                            //  * the type toggles are applied at the *leaf*, filtering the already
+                            //    collected map. Binding them above the per-annotation work would
+                            //    make every checkbox click tear that whole subtree down and
+                            //    rebuild it.
+                            // The selection itself is still whole-value: it is bound by the
+                            // enclosing adaptive block, which rebuilds the panel anyway.
+                            // dipAzimuth is NaN whenever dip and strike could not be computed
+                            // (DipAndStrikeResults.initial), and a single NaN would poison the
+                            // circular mean and land in the north bin, so NaN is dropped here.
                             let angles : aval<list<float>> =
-                                let ids = selectedList |> List.map (fun ts -> ts.id)
-                                alist {
-                                    let! usePoly = model.roseUsePolyline
-                                    let! useDns  = model.roseUseDnS
-                                    for annoId in ids do
-                                        match! AMap.tryFind annoId annotations.flat with
-                                        | Some (AdaptiveAnnotations a) ->
-                                            let! geo = a.geometry
-                                            let included =
-                                                (geo = PRo3D.Base.Annotation.Geometry.Polyline && usePoly) ||
-                                                (geo = PRo3D.Base.Annotation.Geometry.DnS      && useDns)
-                                            if included then
-                                                let! az = AVal.bindAdaptiveOption a.dnsResults nan (fun d -> d.dipAzimuth)
-                                                if not (System.Double.IsNaN az) then yield az
-                                        | _ -> ()
-                                }
-                                |> AList.toAVal |> AVal.map IndexList.toList
+                                let ids = selected |> HashSet.map (fun ts -> ts.id)
+                                let perAnnotation =
+                                    annotations.flat
+                                    |> AMap.filter (fun annoId _ -> ids |> HashSet.contains annoId)
+                                    |> AMap.chooseA (fun _ leaf ->
+                                        match leaf with
+                                        | AdaptiveAnnotations a ->
+                                            AVal.map2
+                                                (fun geo az -> if System.Double.IsNaN az then None else Some(geo, az))
+                                                a.geometry
+                                                (AVal.bindAdaptiveOption a.dnsResults nan (fun d -> d.dipAzimuth))
+                                        | _ -> AVal.constant None)
+                                    |> AMap.toAVal
+                                // single fold - no intermediate list, one traversal per invalidation
+                                let selectEnabled
+                                    (perAnno : HashMap<System.Guid, PRo3D.Base.Annotation.Geometry * float>)
+                                    usePoly useDns =
+                                    perAnno
+                                    |> HashMap.fold (fun acc _ (geo, az) ->
+                                        if (geo = PRo3D.Base.Annotation.Geometry.Polyline && usePoly) ||
+                                           (geo = PRo3D.Base.Annotation.Geometry.DnS      && useDns)
+                                        then az :: acc
+                                        else acc) []
+                                AVal.map3 selectEnabled perAnnotation model.roseUsePolyline model.roseUseDnS
                             let rose =
                                 Incremental.div AttributeMap.empty (
                                     alist {
