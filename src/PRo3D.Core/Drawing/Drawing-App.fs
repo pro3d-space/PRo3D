@@ -46,8 +46,117 @@ module DrawingApp =
     let mutable usePackedAnnotationRendering = true
 
    // open Newtonsoft.Json
-        
-    let closePolyline (a:Annotation) = 
+
+    /// Walks the straight line from `a` to `b` in `samplingDistance` steps and projects each step
+    /// onto the surface with `samplePoint`, dropping the steps that miss.
+    ///
+    /// The resulting Segment carries only the *interior* samples in `points`; `getPolylinePoints`
+    /// puts `startPoint` and `endPoint` around them when it flattens the annotation.
+    ///
+    /// Shared by `addPoint` (a freshly drawn segment) and `MoveVertex` (re-sampling the segments
+    /// either side of a moved control point) so the two cannot drift apart.
+    let resampleSegment (samplingDistance : float) (samplePoint : V3d -> Option<V3d>) (a : V3d) (b : V3d) : Segment =
+        let vec    = b - a
+        let length = vec.Length
+        // A zero-length segment has no direction to walk along, and a non-positive sampling
+        // distance would ask for infinitely many steps. Both collapse to a bare start/end pair.
+        // The first case is reachable from vertex editing: dropping a point onto its neighbour.
+        if length <= 0.0 || samplingDistance <= 0.0 then
+            { startPoint = a; endPoint = b; points = IndexList.empty }
+        else
+            let dir          = vec / length
+            let numOfSamples = (length / samplingDistance) |> floor |> int
+            let points =
+                [ for s in 1 .. numOfSamples do
+                    let p = a + dir * (float s) * samplingDistance // world space
+                    match samplePoint p with
+                    | None -> ()
+                    | Some projectedPoint -> yield projectedPoint ]
+            { startPoint = a; endPoint = b; points = IndexList.ofList points }
+
+    /// Whether an annotation's segments form a closed ring.
+    ///
+    /// `closePolyline` appends one extra segment joining the last point back to the first, so a
+    /// ring has exactly as many segments as points where an open chain has one fewer. Derived from
+    /// the counts rather than from `geometry`, because that is the invariant the segment indices
+    /// actually rest on.
+    let private hasClosingSegment (pointCount : int) (segmentCount : int) =
+        segmentCount >= pointCount
+
+    /// The segments invalidated by moving control point `pointIndex`.
+    ///
+    /// Segment j runs points[j] -> points[j+1], so an interior point sits between segments j-1 and
+    /// j. On a ring the first and last points additionally bound the trailing closing segment.
+    let touchedSegments (pointCount : int) (segmentCount : int) (pointIndex : int) : list<int> =
+        if segmentCount <= 0 || pointIndex < 0 || pointIndex >= pointCount then
+            []
+        else
+            let isClosed = hasClosingSegment pointCount segmentCount
+            let closing  = segmentCount - 1
+            let before =
+                if pointIndex > 0 then Some (pointIndex - 1)
+                elif isClosed then Some closing
+                else None
+            let after =
+                if pointIndex < pointCount - 1 then Some pointIndex
+                elif isClosed then Some closing
+                else None
+            [ before; after ]
+            |> List.choose id
+            |> List.distinct
+            |> List.filter (fun i -> i >= 0 && i < segmentCount)
+
+    /// The two control points segment `segmentIndex` spans, or None if the index is out of range.
+    /// The closing segment of a ring runs first -> last, matching how `closePolyline` builds it.
+    let segmentEndpoints (points : IndexList<V3d>) (segmentCount : int) (segmentIndex : int) : Option<V3d * V3d> =
+        let pointCount = IndexList.count points
+        if hasClosingSegment pointCount segmentCount && segmentIndex = segmentCount - 1 then
+            match IndexList.tryFirst points, IndexList.tryLast points with
+            | Some first, Some last -> Some (first, last)
+            | _ -> None
+        else
+            match IndexList.tryAt segmentIndex points, IndexList.tryAt (segmentIndex + 1) points with
+            | Some a, Some b -> Some (a, b)
+            | _ -> None
+
+    /// Moves control point `pointIndex` to `position` and brings the annotation back into a
+    /// consistent state: the segments either side of the point are re-sampled onto the surface, and
+    /// the derived measurements are recomputed.
+    ///
+    /// Annotations drawn with `Projection.Linear` - which `SetGeometry` selects for every tool
+    /// except the two ellipse ones - carry no segments at all, and none are invented here: the
+    /// annotation keeps the shape it was drawn with.
+    ///
+    /// `modelTrafo` is deliberately left alone. It is the precision anchor the packed renderer
+    /// works in, and re-anchoring it on every edit would be churn for no gain.
+    let moveVertex
+        (up : V3d) (north : V3d) (planet : Planet)
+        (samplingDistance : float) (samplePoint : V3d -> Option<V3d>)
+        (pointIndex : int) (position : V3d)
+        (a : Annotation) : Annotation =
+
+        if pointIndex < 0 || pointIndex >= IndexList.count a.points then
+            a
+        else
+            let points = a.points |> IndexList.setAt pointIndex position
+
+            let segmentCount = IndexList.count a.segments
+            let segments =
+                if segmentCount = 0 then
+                    a.segments
+                else
+                    touchedSegments (IndexList.count points) segmentCount pointIndex
+                    |> List.fold (fun (segs : IndexList<Segment>) i ->
+                        match segmentEndpoints points segmentCount i with
+                        | Some (s, e) -> segs |> IndexList.setAt i (resampleSegment samplingDistance samplePoint s e)
+                        | None        -> segs
+                    ) a.segments
+
+            let a = { a with points = points; segments = segments }
+            let a = { a with dnsResults = points |> DipAndStrike.calculateDipAndStrikeResults up north }
+            { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+
+    let closePolyline (a:Annotation) =
         let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
@@ -156,29 +265,14 @@ module DrawingApp =
                         match IndexList.tryAt (IndexList.count w.points-1) w.points with
                         | None -> 
                             annotation, None
-                        | Some a -> 
+                        | Some a ->
                             let segmentIndex = IndexList.count annotation.segments
-                            let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList [a;p] }
-                            
+
                             if PRo3D.Config.useAsyncIntersections then
+                                let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList [a;p] }
                                 { annotation with segments = IndexList.add newSegment annotation.segments }, Some (newSegment,segmentIndex)
                             else
-                                let vec = newSegment.endPoint - newSegment.startPoint
-                                let dir = vec.Normalized
-                                //let step = vec.Length / float PRo3D.Config.sampleCount
-                                let numOfSamples = (vec.Length / model.samplingDistance) |> floor |> int
-
-                                let points = [ 
-                                    for s in 1 .. numOfSamples do
-                                        let p = newSegment.startPoint + dir * (float s) * model.samplingDistance // world space
-
-                                        Log.line "[Drawing] Spawning p: %A at %A" s ((float s) * model.samplingDistance)
-
-                                        match samplePoint p with
-                                        | None -> ()
-                                        | Some projectedPoint -> yield projectedPoint
-                                ]
-                                let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList points }
+                                let newSegment = resampleSegment model.samplingDistance samplePoint a p
                                 { annotation with segments = IndexList.add newSegment annotation.segments }, None
                     | Projection.Linear ->
                         annotation, None
@@ -196,7 +290,11 @@ module DrawingApp =
                     //(Annotation.make model.projection model.geometry model.semantic surfaceName)
                     //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
                     (Annotation.make model.projection None model.geometry referenceSystem groupColor model.thickness surfaceName)
-                        with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
+                        with points = IndexList.ofList [p]
+                             modelTrafo = Trafo3d.Translation p
+                             // fillColor is left as make set it: the active group's default colour
+                             showFill = model.fillNewAnnotations
+                             fillAlpha = model.defaultFillAlpha
                 }, None
       
         //let text = 
@@ -348,13 +446,15 @@ module DrawingApp =
         |> Leaf.toAnnotations
         |> HashMap.toList 
         |> List.map snd
-        |> List.filter (fun a -> a.visible)
+        |> List.filter (fun (a : Annotation) -> a.visible)
 
-    let isSelected (model : DrawingModel) = 
+    let isSelected (model : DrawingModel) =
+        let multiSelected =
+            model.annotations.selectedLeaves
+            |> HashSet.map (fun s -> s.id)
         match model.annotations.singleSelectLeaf with
-        | None -> fun _ -> false
-        | Some s -> 
-            fun (a : Annotation) -> a.key = s
+        | None -> fun (a : Annotation) -> multiSelected |> HashSet.contains a.key
+        | Some s -> fun (a : Annotation) -> a.key = s || multiSelected |> HashSet.contains a.key
 
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)
@@ -362,49 +462,34 @@ module DrawingApp =
     let automaticallyReExportGeoJson (action : DrawingAction) =
         match action with
         | DrawingAction.Move p  -> false
-        | ExportAsGeoJSON _     -> false
+        // picking a control point up and putting it back down again change no geometry; only the
+        // drop (MoveVertex) does, and that one falls through to true below
+        | GrabVertex _          -> false
+        | ArmVertexGrab         -> false
+        | CancelVertexEdit      -> false
         | ExportAsAnnotations _ -> false
-        | ExportAsCsv _         -> false
-        | ExportAsProfileCsv _  -> false
-        | ExportMultiAttributeProfile _ -> false
-        | ExportAsGeoJSON_xyz _ -> false
-        | ExportAsGeoJSONQGIS_latlon _ -> false
-        | ExportAsGeoJSONQGIS_xyz _ -> false
-        | ExportAsGeoJSONQGIS_both _ -> false
         | LegacySaveVersioned   -> false
         | _ -> true
 
-    // exports geojson, optionally using XYZ format
-    let exportGeoJson 
-        (xyz         : bool)
-        (bigConfig   : 'a)
-        (smallConfig : SmallConfig<'a>)
-        (model       : DrawingModel) 
-        (path        : string) =
+    /// Arms the automatic GeoJSON export: remembers the path and switches the
+    /// feature on. Nothing is written here — the file is rewritten at the end of
+    /// every `update` that changed something worth re-exporting.
+    let armAutomaticGeoJsonExport (path : string) (model : DrawingModel) =
+        if path.IsNullOrEmpty() then model
+        else
+            { model with
+                automaticGeoJsonExport =
+                    { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true } }
 
-        let annotations = extractVisibleAnnotations model
-
-        try
-            if xyz then
-                GeoJSONExport.writeGeoJSON None path (isSelected model) annotations
-            else 
-                let planet = smallConfig.planet.Get(bigConfig)            
-                GeoJSONExport.writeGeoJSON (Some planet) path (isSelected model) annotations
-        with e -> 
-            Log.warn "[Drawing] exportGeoJson failed with %A" e
-
-    let exportGeoJsonQGIS
-        (cooConfig   : GeoJsonQGIS.CoordinateConfiguration)
-        (model       : DrawingModel) 
-        (path        : string) =
-
-        let annotations = extractVisibleAnnotations model
-
-        GeoJSONExport.writeGeoJSONQGIS cooConfig path (isSelected model) annotations
-
+    /// Disarms the automatic GeoJSON export. Clears the path as well as the flag
+    /// so a later re-arm cannot silently resume writing to a forgotten file.
+    let disarmAutomaticGeoJsonExport (model : DrawingModel) =
+        { model with
+            automaticGeoJsonExport =
+                { model.automaticGeoJsonExport with enabled = false; lastGeoJsonPathXyz = None } }
 
     // exports geojson, optionally using XYZ format
-    let exportGeoJsonStream  
+    let exportGeoJsonStream
         (model       : DrawingModel) 
         (path        : string) =
 
@@ -428,23 +513,6 @@ module DrawingApp =
         | Some leaf -> result |> pushUndo (LeafAdded(leaf, groupPath))
         | None      -> result
 
-    type ProfilePoint = {
-        position  : V3d
-        elevation : double
-    }
-
-    let rec accumulateDistance 
-        (input    : list<ProfilePoint * ProfilePoint>)
-        (distance : double) 
-        : list<double * double> =
-        
-        match input with
-        | (a, b) :: [] ->
-            [(distance, a.elevation); (distance + Vec.distance a.position b.position, b.elevation)]
-        | (a, b) :: vs ->
-            (distance, a.elevation) :: (accumulateDistance vs (distance + (Vec.distance a.position b.position)))
-        | _ ->
-            []
 
     let rec update<'a> 
         (bigConfig       : 'a) 
@@ -533,6 +601,10 @@ module DrawingApp =
                 { model with projection = mode }                  
             | ChangeThickness th, _, _ ->
                 { model with thickness = Numeric.update model.thickness th }
+            | SetFillNewAnnotations b, _, _ ->
+                { model with fillNewAnnotations = b }
+            | ChangeDefaultFillAlpha a, _, _ ->
+                { model with defaultFillAlpha = Numeric.update model.defaultFillAlpha a }
             | ChangeSamplingAmount k, _, _ ->
                 let samplingAmount = Numeric.update model.samplingAmount k
                 { model with samplingAmount = samplingAmount ; samplingDistance = DrawingModel.calculateSamplingDistance samplingAmount model.samplingUnit }
@@ -606,7 +678,153 @@ module DrawingApp =
                         ) model.annotations.flat
                 
                 { model with annotations = { model.annotations with flat = annotationsFlat }}
-            | DnsColorLegendMessage msg,_, _ -> 
+            | AddCutStrokePoint p, _, _ ->
+                match GroupsModel.tryGetSelectedAnnotation model.annotations with
+                | None ->
+                    Log.warn "[Drawing] select the annotation to cut before drawing the stroke"
+                    model
+                | Some target ->
+                    let points =
+                        match model.cutStroke with
+                        | Some s -> s.points |> IndexList.add p
+                        | None   -> IndexList.single p
+                    // dry-run feedback: the ends-outside precondition is invisible on terrain,
+                    // so the stroke itself answers "would this cut" by colour
+                    let wouldCut =
+                        points.Count >= 2 &&
+                        (match PRo3D.Base.Geometry.AnnotationRegionOps.cut (fun _ -> None) target (points |> IndexList.toArray) with
+                         | Result.Ok _ -> true
+                         | Result.Error _ -> false)
+                    let color = if wouldCut then C4b(60uy, 200uy, 90uy) else C4b(230uy, 70uy, 60uy)
+                    let stroke =
+                        { Annotation.make Projection.Linear None Geometry.Line None { c = color } model.thickness "" with
+                            points = points }
+                    { model with cutStroke = Some stroke }
+
+            | RemoveLastCutPoint, _, _ ->
+                match model.cutStroke with
+                | Some s when s.points.Count > 1 ->
+                    { model with cutStroke = Some { s with points = s.points |> IndexList.removeAt (s.points.Count - 1) } }
+                | Some _ -> { model with cutStroke = None }
+                | None -> model
+
+            | ClearCutStroke, _, _ ->
+                { model with cutStroke = None }
+
+            | ApplyCutStroke projectToSurface, _, _ ->
+                match model.cutStroke, GroupsModel.tryGetSelectedAnnotation model.annotations with
+                | Some stroke, Some target when stroke.points.Count >= 2 ->
+                    let projectToSurface = projectToSurface |> Option.defaultValue (fun _ -> None)
+                    match PRo3D.Base.Geometry.AnnotationRegionOps.cut projectToSurface target (stroke.points |> IndexList.toArray) with
+                    | Result.Ok rings ->
+                        let up     = smallConfig.up.Get(bigConfig)
+                        let north  = smallConfig.north.Get(bigConfig)
+                        let planet = smallConfig.planet.Get(bigConfig)
+
+                        let before  = model.annotations
+                        let removed = GroupsApp.removeLeafById target.key model.annotations
+
+                        // metadata copied to every piece (the decided design); rings stored
+                        // closed like drawn polygons, results recomputed
+                        let makePiece (ring : V3d[]) =
+                            let closed =
+                                if ring.Length > 2 then Array.append ring [| ring.[0] |] else ring
+                            let a =
+                                { target with
+                                    key             = Guid.NewGuid()
+                                    geometry        = Geometry.Polygon
+                                    points          = IndexList.ofArray closed
+                                    segments        = IndexList.empty
+                                    dnsResults      = None
+                                    ellipticResults = None }
+                            { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+
+                        let after =
+                            rings
+                            |> List.fold (fun g ring ->
+                                GroupsApp.addLeafToActiveGroup (Leaf.Annotations (makePiece ring)) false g) removed
+
+                        { model with annotations = after; cutStroke = None }
+                        |> pushUndo (SnapshotDelta(before, after))
+                    | Result.Error refusal ->
+                        // the stroke stays on screen so it can be corrected
+                        Log.warn "[Drawing] cut refused: %A" refusal
+                        model
+                | _ ->
+                    Log.warn "[Drawing] cutting needs a selected annotation and a stroke of at least two points"
+                    model
+
+            | UnionSelectedAnnotations projectToSurface, _, _ ->
+                let projectToSurface = projectToSurface |> Option.defaultValue (fun _ -> None)
+
+                // the selection is an unordered set; the depth-first tree walk makes the operand
+                // order - and with it the "first wins" metadata policy - deterministic
+                let selectedIds =
+                    model.annotations.selectedLeaves |> HashSet.map (fun ts -> ts.id)
+                let operands =
+                    GroupsApp.collectLeaves model.annotations.rootGroup
+                    |> IndexList.toList
+                    |> List.filter (fun id -> selectedIds |> HashSet.contains id)
+                    |> List.choose (fun id ->
+                        model.annotations.flat
+                        |> HashMap.tryFind id
+                        |> Option.bind (fun leaf ->
+                            match leaf with
+                            | Leaf.Annotations a -> Some a
+                            | _ -> None))
+
+                match operands with
+                | first :: _ :: _ ->
+                    match PRo3D.Base.Geometry.AnnotationRegionOps.union projectToSurface operands with
+                    | Result.Ok rings ->
+                        let up     = smallConfig.up.Get(bigConfig)
+                        let north  = smallConfig.north.Get(bigConfig)
+                        let planet = smallConfig.planet.Get(bigConfig)
+
+                        let consumed = operands |> List.map (fun a -> a.key) |> HashSet.ofList
+                        let before   = model.annotations
+
+                        let removed =
+                            model.annotations.selectedLeaves
+                            |> HashSet.toList
+                            |> List.filter (fun ts -> consumed |> HashSet.contains ts.id)
+                            |> List.fold (fun g ts -> GroupsApp.removeLeaf g ts.id ts.path true) model.annotations
+
+                        // metadata from the first operand in tree order (the decided policy);
+                        // geometry becomes Polygon - a union of ellipses is no longer analytic -
+                        // and every derived result is recomputed rather than copied
+                        let makeAnnotation (ring : V3d[]) =
+                            // drawn polygons store their ring *closed* (closePolyline appends the
+                            // first point, Drawing-App.fs:68) and a segment-less annotation
+                            // renders as an open polyline between consecutive points - an open
+                            // ring would lose its closing edge on screen
+                            let closed =
+                                if ring.Length > 2 then Array.append ring [| ring.[0] |] else ring
+                            let a =
+                                { first with
+                                    key             = Guid.NewGuid()
+                                    geometry        = Geometry.Polygon
+                                    points          = IndexList.ofArray closed
+                                    segments        = IndexList.empty
+                                    dnsResults      = None
+                                    ellipticResults = None }
+                            { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+
+                        let after =
+                            rings
+                            |> List.fold (fun g ring ->
+                                GroupsApp.addLeafToActiveGroup (Leaf.Annotations (makeAnnotation ring)) false g) removed
+
+                        { model with annotations = after }
+                        |> pushUndo (SnapshotDelta(before, after))
+                    | Result.Error refusal ->
+                        Log.warn "[Drawing] union refused: %A" refusal
+                        model
+                | _ ->
+                    Log.warn "[Drawing] union needs at least two selected annotations"
+                    model
+
+            | DnsColorLegendMessage msg,_, _ ->
                 { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
             | FlyToAnnotation msg, _, _ ->               
                 model        
@@ -626,9 +844,63 @@ module DrawingApp =
                             Log.line "[DrawingApp] single select"
                             GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
                     
-                    { model with annotations = annotations }
+                    // selecting a different annotation abandons any control point being moved
+                    { model with annotations = annotations; vertexGrab = None }
 
-                | _ -> model        
+                | _ -> model
+
+            // ---- vertex editing (Interactions.EditAnnotation) ----------------------------------
+            // Same (draw = false, pick = true) gate as annotation selection above: both are picks.
+
+            | GrabVertex (id, pointIndex), false, true ->
+                match model.annotations.flat.TryFind id with
+                | Some (Leaf.Annotations ann) when Geometry.isVertexEditable ann.geometry ->
+                    match IndexList.tryAt pointIndex ann.points with
+                    | Some original ->
+                        { model with
+                            vertexGrab =
+                                Some { annotation = id; pointIndex = pointIndex
+                                       original = original; movedSinceGrab = false } }
+                    | None -> model
+                | _ -> model
+
+            | ArmVertexGrab, _, _ ->
+                // the preview cursor produced a hit after the grab, so the next click is a drop
+                match model.vertexGrab with
+                | Some g when not g.movedSinceGrab ->
+                    { model with vertexGrab = Some { g with movedSinceGrab = true } }
+                | _ -> model
+
+            | CancelVertexEdit, _, _ ->
+                // the annotation was never touched while the grab was live, so forgetting the grab
+                // is the whole of the undo
+                { model with vertexGrab = None }
+
+            | MoveVertex (id, pointIndex, position, samplePoint), false, true ->
+                match model.annotations.flat.TryFind id with
+                | Some (Leaf.Annotations ann) when Geometry.isVertexEditable ann.geometry ->
+                    let up     = smallConfig.up.Get(bigConfig)
+                    let north  = smallConfig.north.Get(bigConfig)
+                    let planet = smallConfig.planet.Get(bigConfig)
+
+                    let before = model.annotations
+                    let after =
+                        before
+                        |> Groups.updateLeaf id (fun leaf ->
+                            match leaf with
+                            | Leaf.Annotations a ->
+                                a
+                                |> moveVertex up north planet model.samplingDistance samplePoint pointIndex position
+                                |> Leaf.Annotations
+                            | other -> other
+                        )
+
+                    // one atomic update, and therefore one undo entry, per drop
+                    { model with annotations = after; vertexGrab = None }
+                    |> pushUndo (SnapshotDelta(before, after))
+                | _ ->
+                    { model with vertexGrab = None }
+
             | AddAnnotations path, _,_ ->
                 match path |> List.tryHead with
                 | Some p -> 
@@ -643,94 +915,6 @@ module DrawingApp =
                     Drawing.IO.saveVersioned model path
                 else
                     model
-            | ExportAsCsv path, _, _ ->
-                if path.IsNullOrEmpty() |> not then 
-                    let up = smallConfig.up.Get(bigConfig)
-                    let planet = smallConfig.planet.Get(bigConfig)
-                    let lookups = GroupsApp.updateGroupsLookup model.annotations
-                    let annotations = extractVisibleAnnotations model
-                    CSVExport.writeCSV lookups planet up path annotations
-               
-                model
-            | ExportAsProfileCsv path, _, _ ->
-                //get selected annotation
-                let selected =  GroupsModel.tryGetSelectedAnnotation model.annotations
-                match selected with
-                | Some a -> 
-                    //convert points to profile
-                    let points = a |> Annotation.retrievePoints
-                        
-                    //transform to distance elevation pairs
-                    let planet = smallConfig.planet.Get(bigConfig)
-                    let convertedOpt =
-                        points
-                        |> List.map(fun x ->
-                            match CooTransformation.tryGetLatLonAlt planet x with
-                            | None -> None
-                            | Some k ->
-                                CooTransformation.tryGetXYZFromLatLonAlt { k with altitude = 0.0 } planet
-                                |> Option.map (fun projected ->
-                                    { position = projected; elevation = k.altitude }))
-
-                    if convertedOpt |> List.exists Option.isNone then
-                        Log.warn "[DrawingApp] profile export aborted: one or more points could not be converted to lat/lon"
-                    else
-                        let transformed = convertedOpt |> List.choose id |> List.pairwise
-                        let profile =
-                            accumulateDistance transformed 0.0
-
-                        let csvTable =
-                            profile
-                            |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
-                            |> CSV.Seq.csv "," true id
-
-                        if path.IsEmptyOrNull() |> not then
-                            csvTable |> CSV.Seq.write path
-
-                        Log.line "[DrawingApp] wrote %A to %s" profile path
-                | None -> 
-                    Log.line "please select annotation to export"
-                //write csv
-
-                model
-            | ExportMultiAttributeProfile _, _, _ ->
-                // handled at viewer level (needs access to SurfaceModel)
-                model
-            | ExportAsGeoJSON path, _, _ ->
-                if path.IsNullOrEmpty() |> not then
-                    exportGeoJson false bigConfig smallConfig model path
-                model
-
-            | ExportAsGeoJSON_xyz path, _, _ ->                       
-                if path.IsNullOrEmpty() |> not then         
-                    exportGeoJson true bigConfig smallConfig model path
-                model
-
-            | ExportAsGeoJSONQGIS_latlon path, _, _ ->     
-                if path.IsNullOrEmpty() |> not then 
-                    let planet = smallConfig.planet.Get(bigConfig).ToString()
-                    exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.GeographicOnly planet) model path
-                model
-
-            | ExportAsGeoJSONQGIS_xyz path, _, _ ->      
-                if path.IsNullOrEmpty() |> not then 
-                    exportGeoJsonQGIS GeoJsonQGIS.CoordinateConfiguration.CartesianOnly model path
-                model
-
-            | ExportAsGeoJSONQGIS_both path, _, _ ->    
-                if path.IsNullOrEmpty() |> not then 
-                    let planet = smallConfig.planet.Get(bigConfig).ToString()
-                    exportGeoJsonQGIS (GeoJsonQGIS.CoordinateConfiguration.Both planet) model path
-                model
-
-            | ContinuouslyGeoJson path, _, _ -> 
-                if path.IsNullOrEmpty() |> not then 
-                    // remember this path in order to drive the automatic export feature.
-                    let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true }
-                    { model with automaticGeoJsonExport = updatedPath }
-                else
-                    model
-
             | ExportAsAttitude path, _, _ ->
                 if path.IsNullOrEmpty() |> not then
                     let annotations = extractVisibleAnnotations model
@@ -830,7 +1014,10 @@ module DrawingApp =
         (frustum          : aval<Frustum>)
         (runtime          : IRuntime)
         (viewport         : aval<V2i>)
-        (pickingAllowed   : aval<bool>)        
+        (pickingAllowed   : aval<bool>)
+        /// true only in Interactions.EditAnnotation - gates the control point handles, which are
+        /// both drawn and pickable only while the user is actually editing.
+        (vertexEditingAllowed : aval<bool>)
         (model            : AdaptiveDrawingModel)
         : ISg<DrawingAction> * ISg<DrawingAction> =
         // order is irrelevant for rendering. change list to set,
@@ -884,9 +1071,26 @@ module DrawingApp =
             Log.stop()
 
             let hoveredAnnotation = cval -1
+            // control point index under the cursor, or -1. Read from the red channel of the same
+            // pixel hoveredAnnotation comes from, so one download serves both.
+            let hoveredVertex = cval -1
+            // VertexGrab is not a ModelType, so adaptify leaves this a plain aval of the option
+            let grabbedVertex = model.vertexGrab |> AVal.map (function Some g -> g.pointIndex | None -> -1)
+
             let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
-            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
-            let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
+            // one cached ordering shared by every packed draw that writes an object id, so the
+            // ids the pick target reads back agree across lines, fills and handles by construction
+            let ordered = PackedRendering.orderedAnnotations (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s)))
+            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) ordered viewMatrix
+            let fillGeometry = PackedRendering.fills config.offset ordered viewMatrix
+
+            // handles exist only for the single selected annotation, and only in edit mode
+            let handleTarget =
+                (vertexEditingAllowed, model.annotations.singleSelectLeaf)
+                ||> AVal.map2 (fun editing selected -> if editing then selected else None)
+            let handleGeometry = PackedRendering.vertexHandles config.offset handleTarget ordered viewMatrix
+
+            let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines fillGeometry handleGeometry view frustum viewport
             pickRenderTarget.Acquire()
             let packedLines = 
                 let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
@@ -905,36 +1109,81 @@ module DrawingApp =
                                 let allowed = pickingAllowed.GetValue()
                                 let p = m.[0,0]
                                 let id : int = floor p.A |> int //BitConverter.SingleToInt32Bits(p.A)
+                                // red carries the control point index for handle fragments and -1
+                                // for everything else, so this one pixel says both what was hit
+                                // and whether it was a handle
+                                let sub : int = floor p.R |> int
                                 let ids = pickIds.GetValue()
                                 if id >= 0 && id < ids.Length  && allowed then
                                     //Log.line "hoverhit %A" (id, ids.[id])
-                                    transact (fun _ -> hoveredAnnotation.Value <- id)
+                                    transact (fun _ ->
+                                        hoveredAnnotation.Value <- id
+                                        hoveredVertex.Value <- sub)
                                     Seq.empty
-                                else 
-                                    transact (fun _ -> hoveredAnnotation.Value <- -1)
+                                else
+                                    transact (fun _ ->
+                                        hoveredAnnotation.Value <- -1
+                                        hoveredVertex.Value <- -1)
                                     Seq.empty
                             with e -> Seq.empty
                        )
-                       Sg.onMouseDown (fun b p -> 
+                       Sg.onMouseDown (fun b p ->
                             let id = hoveredAnnotation.GetValue()
                             let ids = pickIds.GetValue()
-                            if id >= 0 && id < ids.Length then
-                                Log.line "clickhit %A" (id, ids.[id])
-                                DrawingAction.PickDirectly(ids.[id])
-                            else 
+                            let vertex = hoveredVertex.GetValue()
+                            let editing = vertexEditingAllowed.GetValue()
+                            let alreadyGrabbed = grabbedVertex.GetValue() >= 0
+                            if alreadyGrabbed then
+                                // a grab is live: the drop belongs to the viewer's surface-click
+                                // path, which is the only place the live hit point exists
+                                DrawingAction.Nop
+                            elif id >= 0 && id < ids.Length then
+                                if vertex >= 0 && editing then
+                                    Log.line "vertexhit %A" (id, ids.[id], vertex)
+                                    DrawingAction.GrabVertex(ids.[id], vertex)
+                                elif editing && model.annotations.singleSelectLeaf.GetValue() = Some ids.[id] then
+                                    // A body click on the annotation being edited must not reach
+                                    // PickDirectly: addSingleSelectedLeaf *toggles*, so clicking
+                                    // the annotation you are editing would deselect it and take its
+                                    // handles away - which is exactly what a slightly missed handle
+                                    // click looks like.
+                                    DrawingAction.Nop
+                                else
+                                    // a click on the body still re-selects, so you can move
+                                    // between annotations without leaving edit mode
+                                    Log.line "clickhit %A" (id, ids.[id])
+                                    DrawingAction.PickDirectly(ids.[id])
+                            else
                                 DrawingAction.Nop
                        )
                 ]
-            let packedPoints = 
+            let packedPoints =
                 PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
                 |> Sg.noEvents
 
-            let overlay = 
+            // listed before the lines so outlines draw on top of their own fill. The fill writes
+            // no depth, so this ordering is all that separates them.
+            //
+            // NOTE: the spice trafo (t) is dropped here exactly as linesNoIndirect drops it, so
+            // fill and outline stay aligned. The legacy branch below applies it to both for the
+            // same reason. See pro3d-space/PRo3D#672.
+            let packedFills =
+                PackedRendering.packedFillRender fillGeometry
+                |> Sg.noEvents
+
+            // after the lines, so a handle is never hidden by the outline running through it -
+            // matching the pick pass, where handles are drawn last for the same reason
+            let packedVertexHandles =
+                PackedRendering.packedVertexHandleRender hoveredVertex grabbedVertex viewport handleGeometry
+                |> Sg.noEvents
+
+            let overlay =
                 Sg.ofList [
-                    // brush model.hoverPosition; 
+                    // brush model.hoverPosition;
                     annotations
-                    Sg.ofSeq [packedLines; packedPoints]
+                    Sg.ofSeq [packedFills; packedLines; packedPoints; packedVertexHandles]
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+                    Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.cutStroke)
                 ]
 
             //let depthTest = 
@@ -947,24 +1196,37 @@ module DrawingApp =
 
             (overlay, depthTest)
 
-        else 
+        else
             Log.startTimed "[Drawing] creating finished annotation geometry"
-            let annotations =              
-                annoSet 
-                |> ASet.map(fun (_,(a,t)) -> 
+            let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+            let annotations =
+                annoSet
+                |> ASet.map(fun (g,(a,t)) ->
                     let c = UI.mkColor model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
-                    let showPoints = 
-                        a.geometry 
+                    let showPoints =
+                        a.geometry
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
 
-                    let sg = 
-                        Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
+                    // This branch applies the spice trafo per annotation, unlike the packed one
+                    // above which drops it - so the fill has to be built here, under the same
+                    // trafo as its outline, or the two separate. See pro3d-space/PRo3D#672.
+                    // Used by PRo3D.Snapshots, which turns packed rendering off.
+                    let sg =
+                        Sg.ofList [
+                            // fill first, so the outline draws over it
+                            // no pick target in this branch, so the ids are unused - but the
+                            // ordering is how fills takes its input
+                            PackedRendering.fills config.offset (PackedRendering.orderedAnnotations (ASet.single (g, a))) viewMatrix
+                            |> PackedRendering.packedFillRender
+                            |> Sg.noEvents
+                            Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
+                        ]
                         |> Sg.trafo t
 
-                    sg 
+                    sg
                  )
-                |> Sg.set               
+                |> Sg.set
             Log.stop()
                                   
             let overlay = 
@@ -972,6 +1234,7 @@ module DrawingApp =
                     // brush model.hoverPosition; 
                     annotations
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+                    Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.cutStroke)
                 ]
 
             let depthTest = 

@@ -28,6 +28,7 @@ OPC is the patch-based, hierarchical terrain format PRo3D is built around. An OP
 - **Loading**: `Aardvark.Data.Opc` parses the hierarchy and patch files; PRo3D discovers/validates dataset folders in `src/PRo3D.Core/Surface/` (folder discovery, `isOpcFolder`/`isSurfaceFolder`).
 - **LoD rendering**: `Aardvark.GeoSpatial.Opc` provides `Sg.patchLod` (and friends), which builds an adaptive scene-graph node that streams and swaps patch levels based on screen-space error / distance metrics.
 - **`opc-tool`** (`src/opc-tool/`) is the offline companion CLI: validate a dataset, resize/convert patch textures (to `.dds`), and **pre-build KdTrees** for picking.
+- **Attribute layers** (elevation, slope, gravity, …) come in two forms. Every OPC has them as *texture layers* under `Images/<Layer>/`, declared in the dataset's `*.opcx`. Newer exports additionally ship them as *per-vertex* `.aara` grids inside each patch directory, listed in `patch.xml`'s `<Attributes>`. Reading values at a picked point prefers the per-vertex form (three small random-access reads per layer) and falls back to decoding the texture. **Beware two traps**: the per-vertex grid is *smaller* than the position grid (a centred skirt, `off = (posSize − attrSize) / 2`), and texture layers store values *normalised into the layer's `ChannelsDefinedRange`* while per-vertex layers hold physical values. See [docs/VertexAttributes.md](../docs/VertexAttributes.md) and `src/PRo3D.Core/VertexAttributes.fs`.
 
 ---
 
@@ -78,6 +79,24 @@ Flow:
 5. Return the closest hit (`t`, triangle, surface reference).
 
 **Performance note:** picking is only spawned when the current interaction actually needs it (recent change "Only spawn picking when necessary", commit `14583377`) — surface picking message spawning was previously over-eager. Results may be delivered asynchronously (`Model.pickPreviewRequested`, `backgroundPicking` thread pool; see [ARCHITECTURE.md](ARCHITECTURE.md#threads-messaging--async)).
+
+### Annotation picking — a separate, GPU-based system
+
+Annotations are **not** picked with the KdTrees. `PackedRendering.pickRenderTarget` rasterizes them into an offscreen `Rgba32f` buffer and the readback (`Drawing-App.fs`, in the packed branch of `DrawingApp.view`) downloads the single pixel under the cursor on every mouse move.
+
+Channel meanings, cleared to `(0,0,0,-1)`:
+
+| channel | meaning |
+|---|---|
+| **alpha** | packed object id — the index into `PackedRendering.orderedAnnotations`. `-1` = miss. |
+| **red** | sub-index within that object: the control point index for vertex-handle fragments, `-1` for lines and fills. `Picking.pickId` writes `-1`, `Picking.pickVertexId` writes the index. |
+| green, blue | fragment colour; read by nothing but the debug lens overlay in `OpcViewer/AnnotationViewer.fs`. |
+
+`orderedAnnotations` is the single cached ordering — **every packed draw that writes `ObjId` must take its ids from it**, or a click selects a different annotation than the one under the cursor. It is `HashSet.toArray` inside an `AVal.custom`, so the int id space can permute whenever the annotation set changes: capture the `Guid`, never the int, if you need to hold onto a pick.
+
+Draw order inside the pass is significant — fills, then lines, then vertex handles — so an outline wins over its own fill and a handle wins over the outline through it. Each also gets a progressively larger `DepthOffset` (`fillDepthOffsetFactor`, `handleDepthOffsetFactor`).
+
+Gates: `ViewerApp.allowAnnotationPicking` decides whether the readback is honoured at all; `ViewerApp.allowVertexEditing` additionally gates the handles. `Interactions.EditAnnotation` is the one mode where annotation picking *and* KdTree surface picking are both live — see [docs/AnnotationVertexEditing.md](../docs/AnnotationVertexEditing.md) for why that ordering hazard needs `VertexGrab.movedSinceGrab`.
 
 ### KdTrees
 

@@ -22,16 +22,30 @@ type Projection =
 | Sky = 2
 | Bookmark = 3
 
-type Geometry = 
-| Point         = 0 
-| Line          = 1 
-| Polyline      = 2 
-| Polygon       = 3 
+type Geometry =
+| Point         = 0
+| Line          = 1
+| Polyline      = 2
+| Polygon       = 3
 | DnS           = 4
 | TT            = 5
 | Ellipse       = 6
 | AxisEllipse   = 7
 | Axis4PEllipse = 8
+
+module Geometry =
+
+    /// Whether an annotation's `points` are still the control points the user clicked, and so can
+    /// be edited one vertex at a time.
+    ///
+    /// The ellipse tools are excluded: once the ellipse is constructed, `getFinishedAnnotation`
+    /// replaces their `points` with the sampled outline, so there are no control points left to
+    /// move. DnS and TT are excluded because their points carry a fitted plane's meaning rather
+    /// than a free polyline's.
+    let isVertexEditable (geometry : Geometry) =
+        match geometry with
+        | Geometry.Point | Geometry.Line | Geometry.Polyline | Geometry.Polygon -> true
+        | _ -> false
 
 type Semantic = 
 | Horizon0 = 0 
@@ -512,6 +526,11 @@ type Annotation = {
 
     crossSectionClipping : bool
     crossSectionRefPoint : Option<V3d>
+
+    /// fills the interior of closed geometries (polygon, ellipses); ignored for open ones
+    showFill   : bool
+    fillColor  : ColorInput
+    fillAlpha  : NumericInput
 }
 with
     static member current = 5
@@ -529,6 +548,16 @@ with
         max     = 360.0
         step    = 0.1
         format  = "{0:0.0}"
+    }
+
+    // lives on the type rather than in module Annotation.Initial because the version readers
+    // below need it, and the module is defined after the type
+    static member initialFillAlpha = {
+        value   = 0.35
+        min     = 0.0
+        max     = 1.0
+        step    = 0.05
+        format  = "{0:0.00}"
     }
         
     static member private readV0 =
@@ -591,6 +620,9 @@ with
                 ellipticResults  = None
                 crossSectionClipping = false
                 crossSectionRefPoint = None
+                showFill             = false
+                fillColor            = color
+                fillAlpha            = Annotation.initialFillAlpha
             }
         }
 
@@ -655,6 +687,9 @@ with
                 ellipticResults  = None
                 crossSectionClipping = false
                 crossSectionRefPoint = None
+                showFill             = false
+                fillColor            = color
+                fillAlpha            = Annotation.initialFillAlpha
             }
         }
 
@@ -719,6 +754,9 @@ with
                 ellipticResults  = None
                 crossSectionClipping = false
                 crossSectionRefPoint = None
+                showFill             = false
+                fillColor            = color
+                fillAlpha            = Annotation.initialFillAlpha
             }
         }
 
@@ -786,6 +824,9 @@ with
                 ellipticResults  = None
                 crossSectionClipping = false
                 crossSectionRefPoint = None
+                showFill             = false
+                fillColor            = color
+                fillAlpha            = Annotation.initialFillAlpha
             }
         }
 
@@ -854,6 +895,9 @@ with
                 ellipticResults  = None
                 crossSectionClipping = false
                 crossSectionRefPoint = None
+                showFill             = false
+                fillColor            = color
+                fillAlpha            = Annotation.initialFillAlpha
             }
         }
 
@@ -901,6 +945,13 @@ with
             let crossSectionRefPoint : Option<V3d> =
                 crossSectionRefPoint |> Option.map V3d.Parse
 
+            // optional, no version bump - same approach as crossSectionClipping above.
+            // primitives rather than ColorInput/NumericInput, so the input records can be
+            // rebuilt with current min/max/step instead of pinning stale bounds in the file.
+            let! showFill  = Json.tryRead "showFill"
+            let! fillColor = Json.tryRead "fillColor"
+            let! fillAlpha = Json.tryRead "fillAlpha"
+
             return {
                 version          = Annotation.current
                 key              = key           |> Guid.Parse
@@ -930,6 +981,14 @@ with
                 ellipticResults  = ellipseProperties
                 crossSectionClipping = crossSectionClipping |> Option.defaultValue false
                 crossSectionRefPoint = crossSectionRefPoint
+                showFill             = showFill |> Option.defaultValue false
+                fillColor            =
+                    fillColor
+                    |> Option.map (fun (s : string) -> { c = C4b.Parse s })
+                    |> Option.defaultValue color
+                fillAlpha            =
+                    { Annotation.initialFillAlpha with
+                        value = fillAlpha |> Option.defaultValue Annotation.initialFillAlpha.value }
             }
         }
 
@@ -990,6 +1049,12 @@ with
             match x.crossSectionRefPoint with
             | Some rp -> do! Json.write "crossSectionRefPoint" (rp.ToString())
             | None -> ()
+
+            // written unconditionally: gating on showFill would discard a configured fill
+            // colour and alpha as soon as the user switches the fill off and saves
+            do! Json.write "showFill"  x.showFill
+            do! Json.write "fillColor" (x.fillColor.c.ToString())
+            do! Json.write "fillAlpha" x.fillAlpha.value
         }
 
 module Annotation =
@@ -1073,6 +1138,9 @@ module Annotation =
             ellipticResults  = None
             crossSectionClipping = false
             crossSectionRefPoint = None
+            showFill             = false
+            fillColor            = color
+            fillAlpha            = Annotation.initialFillAlpha
         }
 
     let initial =

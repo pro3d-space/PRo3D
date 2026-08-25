@@ -1,4 +1,4 @@
-namespace PRo3D
+﻿namespace PRo3D
 
 open System
 open System.Collections.Concurrent
@@ -293,7 +293,50 @@ module ViewerApp =
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
-        | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                   
+        | Interactions.CutAnnotation, _ ->
+            // the cut stroke is a plain picked polyline: no segment sampling, so the hit
+            // function is not needed - straight preview lines suffice and the boolean op
+            // works on the control points alone
+            let view =
+                match m.viewerMode with
+                | ViewerMode.Standard -> m.navigation.camera.view
+                | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+
+            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing (DrawingAction.AddCutStrokePoint p)
+            { m with drawing = drawing } |> stash
+        | Interactions.EditAnnotation, _ ->
+            // Grabbing a handle is emitted by the annotation scene graph itself, which is the only
+            // place that knows *which* control point is under the cursor. Dropping lands here,
+            // because a vertex is normally dropped away from the annotation, on bare surface.
+            match m.drawing.vertexGrab with
+            | Some grab when grab.movedSinceGrab ->
+                let view =
+                    match m.viewerMode with
+                    | ViewerMode.Standard -> m.navigation.camera.view
+                    | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+
+                let msg = DrawingAction.MoveVertex(grab.annotation, grab.pointIndex, p, hitFunction)
+                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
+
+                // surfaceName is only ever advisory and nothing re-validates it, so a vertex may
+                // legitimately end up on a different surface than the annotation was drawn on -
+                // but silently is not the way to do it
+                let movedAcrossSurfaces =
+                    match m.drawing.annotations.flat.TryFind grab.annotation with
+                    | Some (Leaf.Annotations a) -> a.surfaceName <> surf.name
+                    | _ -> false
+
+                let m = { m with drawing = drawing } |> stash
+                if movedAcrossSurfaces then
+                    // same 3 s transient top-right overlay "Importing OPCs..." and "scene saved" use
+                    m |> logScreen 3000 (sprintf "vertex moved onto surface \"%s\"" surf.name)
+                else
+                    m
+            | _ ->
+                // Either nothing is grabbed, or this is the very click that grabbed and the cursor
+                // has not moved yet. Both mean "not a drop".
+                m
+        | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->
             let m = updateUpNorthForPosition p m
             
             //update camera upvector
@@ -423,15 +466,30 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
-    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (inverseFlag : bool) = 
+    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (inverseFlag : bool) =
         match k with
-        | Aardvark.Application.Keys.Enter    -> DrawingAction.Finish
-        | Aardvark.Application.Keys.Back     -> DrawingAction.RemoveLastPoint
-        | Aardvark.Application.Keys.Escape   -> DrawingAction.ClearWorking
+        | Aardvark.Application.Keys.Enter ->
+            match interaction with
+            | Interactions.CutAnnotation -> DrawingAction.ApplyCutStroke None
+            | _ -> DrawingAction.Finish
+        | Aardvark.Application.Keys.Back ->
+            match interaction with
+            | Interactions.CutAnnotation -> DrawingAction.RemoveLastCutPoint
+            | _ -> DrawingAction.RemoveLastPoint
+        | Aardvark.Application.Keys.Escape ->
+            match interaction with
+            | Interactions.CutAnnotation -> DrawingAction.ClearCutStroke
+            // in edit mode Escape puts a grabbed control point back where it was; there is no
+            // working annotation to clear
+            | Interactions.EditAnnotation -> DrawingAction.CancelVertexEdit
+            | _ -> DrawingAction.ClearWorking
         | Keyboard.Modifier ->
-            match interaction with 
+            match interaction with
             | Interactions.DrawAnnotation -> (if inverseFlag then DrawingAction.StopDrawing else DrawingAction.StartDrawing)
             | Interactions.PickAnnotation -> (if inverseFlag then DrawingAction.StopPicking else DrawingAction.StartPicking)
+            // vertex editing dispatches on (draw = false, pick = true) like annotation selection,
+            // so without this the ctrl press never sets model.pick and nothing reaches the handlers
+            | Interactions.EditAnnotation -> (if inverseFlag then DrawingAction.StopPicking else DrawingAction.StartPicking)
             | _ -> DrawingAction.Nop
         //| Aardvark.Application.Keys.LeftShift -> 
         //    match m.interaction with                     
@@ -582,32 +640,6 @@ module ViewerApp =
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with animations = a'}              
                 | None -> m
-            | Drawing.ExportMultiAttributeProfile path ->
-                if String.IsNullOrEmpty path then
-                    Log.warn "[MultiAttrProfile] no path specified"
-                else
-                    match GroupsModel.tryGetSelectedAnnotation m.drawing.annotations with
-                    | Some a ->
-                        let points = a |> Annotation.retrievePoints
-                        if points.Length < 2 then
-                            Log.warn "[MultiAttrProfile] annotation needs at least 2 points"
-                        else
-                            let surfacesModel = Optic.get _surfacesModel m
-                            let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
-                            let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
-                            let up = m.scene.referenceSystem.up.value.Normalized
-
-                            let samples, attrNames, newCache =
-                                ProfileAttributeExtraction.extractProfile points up surfacesModel m.scene.referenceSystem observedSystem observerSystem Picking.cache
-                            Picking.cache <- newCache
-
-                            if samples.Length > 0 then
-                                ProfileAttributeExtraction.writeCsv path samples attrNames
-                            else
-                                Log.warn "[MultiAttrProfile] no samples extracted"
-                    | None ->
-                        Log.line "[MultiAttrProfile] please select an annotation to export"
-                m
             | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.inverseFlag) ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
@@ -631,13 +663,49 @@ module ViewerApp =
                     m
                 | None -> m
                 
-            | _ ->
-                let view = 
-                    match m.viewerMode with 
+            | Drawing.UnionSelectedAnnotations None
+            | Drawing.ApplyCutStroke None ->
+                // enrich the payload-less message with the terrain raycast, so vertices the
+                // boolean op invents land on the surface - same sky ray as AddPointAdv
+                // reprojection
+                let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+                let onlyActive (_ : Guid) (l : Leaf) (_ : SgSurface) = l.active
+                let planet = m.scene.referenceSystem.planet
+
+                let projectToSurface (p : V3d) =
+                    let up = CooTransformation.getUpVector p planet
+                    let reprojectionDistance =
+                        match planet with
+                        | Planet.Mars -> 1000000.0
+                        | _ -> 100.0
+                    let ray = FastRay3d(p + (up * reprojectionDistance), -up)
+                    match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray onlyActive Picking.cache Config.diagnosticTimings with
+                    | Some hitInfo, c -> Picking.cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
+                    | None, c -> Picking.cache <- c; None
+
+                let enriched =
+                    match msg with
+                    | Drawing.ApplyCutStroke None -> Drawing.ApplyCutStroke (Some projectToSurface)
+                    | _ -> Drawing.UnionSelectedAnnotations (Some projectToSurface)
+
+                let view =
+                    match m.viewerMode with
                     | ViewerMode.Standard -> m.navigation.camera.view
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
-                let drawing = 
+                let drawing =
+                    DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing enriched
+
+                { m with drawing = drawing; } |> stash
+
+            | _ ->
+                let view =
+                    match m.viewerMode with
+                    | ViewerMode.Standard -> m.navigation.camera.view
+                    | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+
+                let drawing =
                     DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
                 { m with drawing = drawing; } |> stash
@@ -773,6 +841,40 @@ module ViewerApp =
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
+        | AnnotationExportMessage msg,_ ->
+            match msg with
+            | AnnotationExportAction.Export path ->
+                // needs the group tree and the reference system, so it cannot
+                // be handled inside AnnotationExportApp.update
+                let settings = AnnotationExportModel.toSettings m.annotationExport
+                let m, warning =
+                    if AnnotationExportSettings.isContinuous settings.format then
+                        // arms the background export rather than writing once;
+                        // the file is rewritten at the end of every DrawingApp.update
+                        { m with drawing = DrawingApp.armAutomaticGeoJsonExport path m.drawing }, None
+                    else
+                        // the surface model comes along for the per-point
+                        // surface-property sampling, which re-picks every
+                        // exported point against the KdTrees
+                        let surfaces : AnnotationExportViewer.SurfaceSamplingContext = {
+                            surfaces       = Optic.get _surfacesModel m
+                            observedSystem = fun (v : SurfaceId) -> Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+                            observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                        }
+                        m, AnnotationExportViewer.export settings path m.drawing m.scene.referenceSystem surfaces
+                // nothing exported: keep the window open with the reason, rather
+                // than closing it as if the file had been written
+                { m with
+                    annotationExport =
+                        { m.annotationExport with
+                            isOpen  = warning |> Option.isSome
+                            warning = warning } }
+            | AnnotationExportAction.StopContinuous ->
+                // the armed state lives on DrawingModel, so it cannot be handled
+                // inside AnnotationExportApp.update either
+                { m with drawing = DrawingApp.disarmAutomaticGeoJsonExport m.drawing }
+            | _ ->
+                { m with annotationExport = AnnotationExportApp.update m.annotationExport msg }
         | BookmarkMessage msg,_ ->
             Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 
@@ -1216,8 +1318,16 @@ module ViewerApp =
                             let ct = Async.DefaultCancellationToken
                             while not ct.IsCancellationRequested do
                                 let! (m, sceneHit, name) = Async.AwaitTask <| m.pickPreviewRequested.WaitAsync()
-                                let pick = Picking.pickRay m sceneHit.globalRay.Ray (Some name)
-                                let previewIntersection = PreviewPickSurfaceFinished(p, name, pick)
+                                let pick = Picking.pickRayInfo m sceneHit.globalRay.Ray (Some name)
+                                // per-vertex attribute layers only - the texture fallback
+                                // decodes one image per layer and cannot run per mouse move
+                                let attributes =
+                                    pick
+                                    |> Option.bind (fun (hitInfo, _) ->
+                                        ProfileAttributeExtraction.extractAttributesFromHit TextureFallback.Disabled hitInfo sceneHit.globalRay.Ray
+                                    )
+                                let hit = pick |> Option.map (fun (hitInfo, hitPosOnRay) -> hitInfo.hit, hitPosOnRay)
+                                let previewIntersection = PreviewPickSurfaceFinished(p, name, hit, attributes)
                                 mailbox.Post(MailboxAction.ViewerAction previewIntersection)
                         }
 
@@ -1227,12 +1337,13 @@ module ViewerApp =
                 }
             { m with backgroundPicking = ThreadPool.add "BackgroundPicking" p ThreadPool.empty; }
 
-        | ViewerAction.PreviewPickSurfaceFinished(_,_, None), _ -> 
-            // preview request lead to no hit. ignore
-            m 
-        | ViewerAction.PreviewPickSurfaceFinished(_, name, hit), _ -> 
+        | ViewerAction.PreviewPickSurfaceFinished(_, _, None, _), _ ->
+            // preview request lead to no hit - drop the read-out rather than leaving the
+            // previous point's values on screen as if they were current
+            { m with cursorAttributes = None }
+        | ViewerAction.PreviewPickSurfaceFinished(_, name, hit, attributes), _ ->
             match hit with
-            | Some (p, hitPosOnRay) -> 
+            | Some (p, hitPosOnRay) ->
                 let info = p.GetIntersectionRayHitInfo()
                 let project p = 
                     let up = m.scene.referenceSystem.up.value
@@ -1245,8 +1356,17 @@ module ViewerApp =
                         p
                 let normal = if info.HasValidNormal then Some info.Normal else None
                 let s = { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }
-                { m with 
+                // A fresh hit after a grab means the cursor has moved, which is what separates the
+                // click that picks a control point up from the click that puts it back down.
+                let drawing =
+                    match m.drawing.vertexGrab with
+                    | Some g when not g.movedSinceGrab ->
+                        DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing DrawingAction.ArmVertexGrab
+                    | _ -> m.drawing
+                { m with
                     surfaceIntersection = Some { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }
+                    cursorAttributes = attributes |> Option.map (fun hit -> { surfaceName = name; hit = hit })
+                    drawing = drawing
                     ellipseModel = EllipseAnnotations.App.update m.scene.referenceSystem.up.value  project (EllipseAnnotations.SetPreviewPoint s) m.ellipseModel
                 }
             | _ -> 
@@ -1573,9 +1693,10 @@ module ViewerApp =
                     let view = m.navigation.camera.view
                     let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.inverseFlag then DrawingAction.StartDrawing else DrawingAction.StopDrawing)
                     { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
-                | Interactions.PickAnnotation -> 
+                | Interactions.PickAnnotation
+                | Interactions.EditAnnotation ->
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.inverseFlag then DrawingAction.StartPicking else DrawingAction.StopPicking) 
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.inverseFlag then DrawingAction.StartPicking else DrawingAction.StopPicking)
                     { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
                 //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
                 |_-> { m with ctrlFlag = false; picking = m.inverseFlag }
@@ -1585,7 +1706,13 @@ module ViewerApp =
             // let feedback = sprintf "pick refrence plane; confirm with ENTER" t |> UserFeedback.create 3000
             //let feedback = "pick refrence plane \n confirm with ENTER" |> UserFeedback.create 3000
 
-            { m with interaction = t } //|> UserFeedback.queueFeedback feedback
+            // leaving edit mode abandons whatever control point was in hand
+            let drawing =
+                match m.drawing.vertexGrab with
+                | Some _ when t <> Interactions.EditAnnotation -> { m.drawing with vertexGrab = None }
+                | _ -> m.drawing
+
+            { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_ ->                                
             let refsystem',_ = 
                 ReferenceSystemApp.update
@@ -2016,9 +2143,6 @@ module ViewerApp =
                 | _ -> m                                        
                 
             { m with scene = { m.scene with traverses = TraverseApp.update m.scene.traverses msg }; animations = animation }                        
-        | StopGeoJsonAutoExport, _ -> 
-            let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled; lastGeoJsonPathXyz = None; }
-            { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | SetSceneState state, _ ->
             Optic.set _sceneState state m
         | LoadPoseDefinitionFile path, _ -> 
@@ -2252,9 +2376,21 @@ module ViewerApp =
         // drawing app needs pickable stuff. however whether annotations are pickable depends on 
         // outer application state. we consider annotations to pickable if they are visible
         // and we are in "pick annotation" mode.
-        m.interaction |> AVal.map (function  
+        m.interaction |> AVal.map (function
             | Interactions.PickAnnotation -> true
             | Interactions.DrawLog -> true
+            // editing needs the same pick target: a click on the body re-selects, and the handles
+            // ride in the same offscreen pass
+            | Interactions.EditAnnotation -> true
+            | _ -> false
+        )
+
+    /// Whether the control point handles are drawn and pickable. Unlike allowAnnotationPicking,
+    /// this is the *only* mode that shows them - handles on every selected annotation everywhere
+    /// would be noise, and would put every annotation's vertices in the pick buffer.
+    let allowVertexEditing (m : AdaptiveModel) =
+        m.interaction |> AVal.map (function
+            | Interactions.EditAnnotation -> true
             | _ -> false
         )
 
@@ -2361,6 +2497,48 @@ module ViewerApp =
             distancePointsText
         ] |> Sg.ofList
                                  
+    /// While a control point is grabbed, shows where it would land: straight lines from the live
+    /// surface hit to the two neighbouring control points.
+    ///
+    /// Straight on purpose. The terrain re-sampling happens on drop, so bending these to the
+    /// surface here would promise a shape that has not been computed yet. The grabbed handle stays
+    /// drawn at its old position, so the pair reads as "from here, to there".
+    ///
+    /// Drawn with PRo3D.Core.Drawing.Sg.lines, which re-bases the polyline on its first point and
+    /// places it with a trafo, so the float32 vertex buffer never sees planetary-scale coordinates.
+    let private vertexEditPreview (m : AdaptiveModel) =
+        // previous -> live hit -> next, as one polyline. An end point of an open chain has only
+        // one neighbour, so this is two points there and three in the middle of a line.
+        let polyline =
+            AVal.custom (fun t ->
+                match m.drawing.vertexGrab.GetValue t, m.surfaceIntersection.GetValue t with
+                | Some grab, Some hit ->
+                    match m.drawing.annotations.flat.Content.GetValue t |> HashMap.tryFind grab.annotation with
+                    | Some (AdaptiveAnnotations ann) ->
+                        let points = ann.points.Content.GetValue t
+                        let count  = IndexList.count points
+                        // a ring has as many segments as points, so its ends are neighbours too
+                        let isClosed = IndexList.count (ann.segments.Content.GetValue t) >= count
+
+                        let previous =
+                            if grab.pointIndex > 0 then IndexList.tryAt (grab.pointIndex - 1) points
+                            elif isClosed then IndexList.tryLast points
+                            else None
+                        let next =
+                            if grab.pointIndex < count - 1 then IndexList.tryAt (grab.pointIndex + 1) points
+                            elif isClosed then IndexList.tryFirst points
+                            else None
+
+                        [| previous; Some hit.hitPoint; next |] |> Array.choose id
+                    | _ -> [||]
+                | _ -> [||])
+
+        polyline
+        |> AVal.map (fun points ->
+            if points.Length < 2 then Sg.empty
+            else PRo3D.Core.Drawing.Sg.lines C4b.VRVisGreen 3.0 points)
+        |> Sg.dynamic
+
     // depthTested that occur in instrumentview + main renderview
     let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
         let annotations, discs = 
@@ -2372,7 +2550,8 @@ module ViewerApp =
                 frustum
                 runtime
                 (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
-                (allowAnnotationPicking m)                 
+                (allowAnnotationPicking m)
+                (allowVertexEditing m)
                 m.drawing
          
         let annotationSg =
@@ -2431,10 +2610,14 @@ module ViewerApp =
                 m.scene.viewPlans 
             |> Sg.map ViewPlanMessage    
 
-        let surfaceIntersection = 
+        let surfaceIntersection =
             Picking.pickVisualization m
-            |> Sg.noEvents     
-            
+            |> Sg.noEvents
+
+        let vertexEdit =
+            vertexEditPreview m
+            |> Sg.noEvents
+
         let ellipseDrawing = 
             m.ellipseModel |> AVal.map (function
                 | AdaptiveNone -> Sg.empty
@@ -2453,6 +2636,7 @@ module ViewerApp =
                 traverses
                 distancePoints
                 surfaceIntersection
+                vertexEdit
                 curtainSg
             ] |> Sg.ofList
 

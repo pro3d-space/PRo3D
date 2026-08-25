@@ -53,6 +53,11 @@
     <Compile Include="InstrumentProjection.fs" />
     <Compile Include="GisModels.fs" />
     <Compile Include="GisModels.g.fs" />
+    <Compile Include="SurfaceChart.fs" />
+    <Compile Include="Geometry\PolyRegion2d.fs" />
+    <Compile Include="Annotation\PolygonFill.fs" />
+    <Compile Include="Geometry\RegionOps.fs" />
+    <Compile Include="Geometry\RegionFixture.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />
     <Compile Include="FalseColors\FalseColors-Model.g.fs" />
     <Compile Include="FalseColors\FalseColorLegendApp.fs" />
@@ -61,12 +66,14 @@
     <Compile Include="Annotation\Annotation-Model.fs" />
     <Compile Include="Annotation\Annotation-Model.g.fs" />
     <Compile Include="Annotation\AnnotationHelpers.fs" />
-    <Compile Include="Annotation\Exporters\GeoJSONQGIS.fs" />
+    <Compile Include="Geometry\AnnotationRegionOps.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.Export.fs" />
-    <Compile Include="Annotation\Exporters\CSV.fs" />
-    <Compile Include="Annotation\Exporters\CSV.Export.fs" />
-    <Compile Include="Annotation\Exporters\Attitude.Export.fs" />    
+    <Compile Include="Annotation\Exporters\Attitude.Export.fs" />
+    <Compile Include="Annotation\Exporters\ExportRecord.fs" />
+    <Compile Include="Annotation\Exporters\AnnotationFields.fs" />
+    <Compile Include="Annotation\Exporters\ExportSettings.fs" />
+    <Compile Include="Annotation\Exporters\AnnotationExport.fs" />
     <None Include="paket.references" />
     <None Include="paket.template" />
   </ItemGroup>

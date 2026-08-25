@@ -122,6 +122,7 @@ module Viewer =
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
+            annotationExport = AnnotationExportModel.initial
             interaction     = Interactions.DrawAnnotation
             multiSelectBox  = None
             shiftFlag       = false
@@ -183,6 +184,7 @@ module Viewer =
 
             provenanceModel = ProvenanceModel.invalid
             surfaceIntersection   = None
+            cursorAttributes      = None
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()

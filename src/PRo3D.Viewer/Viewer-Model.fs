@@ -125,7 +125,7 @@ type ViewerAction =
 
 | PickSurface                     of SceneHit * string * bool
 | PreviewPickSurface              of SceneHit * string * bool
-| PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d>
+| PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d> * Option<AttributeHit>
 
 
 | PickObject                      of V3d*Guid
@@ -192,11 +192,11 @@ type ViewerAction =
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera
-| StopGeoJsonAutoExport
 | SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
 | GisAppMessage                  of Gis.GisAppAction
 | CrossSectionMessage            of CrossSectionAction
+| AnnotationExportMessage        of AnnotationExportAction
 | SBookmarksToPoseDefinition
 | SetUserPreferences             of UserPreferences
 | Nop
@@ -555,6 +555,15 @@ type MultiSelectionBox =
 
 type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
 
+/// Per-vertex attribute values under the 3D cursor, shown in the "Cursor" panel.
+/// Refreshed by the background preview pick, so it only exists while the preview
+/// cursor is enabled and the mouse is over a surface in picking mode.
+type CursorAttributes =
+    {
+        surfaceName : string
+        hit         : AttributeHit
+    }
+
 type ProjectedEllipse = 
     {
         surfaceProjectedPoints : Option<array<V3d>>
@@ -613,6 +622,11 @@ type Model = {
     navigation       : NavigationModel
 
     properties       : Properties
+
+    /// Settings of the annotation export window. Session-only on purpose — it
+    /// lives here rather than on `Scene` so nothing has to be serialised.
+    annotationExport : AnnotationExportModel
+
     multiSelectBox   : Option<MultiSelectionBox>
     shiftFlag        : bool
     picking          : bool
@@ -656,6 +670,7 @@ type Model = {
     backgroundPicking    : ThreadPool<ViewerAction>
 
     surfaceIntersection : Option<SurfaceIntersection>
+    cursorAttributes    : Option<CursorAttributes>
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
 

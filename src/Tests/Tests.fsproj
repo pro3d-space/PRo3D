@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -18,11 +18,9 @@
     <None Include="Scratch\Playground.fsx" />
     <Compile Include="Scratch\QueriesDSL.fs" />
     <None Include="Annotations\annotation_1.ann" />
-	<None Include="Annotations\annotation_1_latlon.json" />
-	<None Include="Annotations\annotation_1_xyz.json" />
-	<None Include="Annotations\annotation_1_xyz_latlon.json" />
     <Compile Include="TestUtils.fs" />
     <Compile Include="GeoJsonExportTest.fs" />
+    <Compile Include="AnnotationExportTest.fs" />
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />
@@ -38,7 +36,15 @@
     <Compile Include="DidymosProjectionSpiceTest.fs" />
     <None Include="RemoteApi.rest" />
     <Compile Include="TriangleSetTests.fs" />
+    <Compile Include="FillInvariants.fs" />
+    <Compile Include="RegionInvariants.fs" />
+    <Compile Include="PolygonFillTests.fs" />
+    <Compile Include="RegionOpsTests.fs" />
+    <Compile Include="RegionFixtureTests.fs" />
+    <Compile Include="AnnotationRegionOpsTests.fs" />
+    <None Include="data\regions\seed-basic.region" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
+    <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="BaseTests.fs" />
     <Compile Include="Features\TestHelpers.fs" />
     <Compile Include="Features\Section01_StartingPRo3D.fs" />
@@ -57,6 +63,10 @@
     <Compile Include="Features\Section16_CommandLine.fs" />
     <Compile Include="Features\Section18_KeyboardShortcuts.fs" />
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
+    <Compile Include="Features\Section20_BooleanOperations.fs" />
+    <!-- after Features\TestHelpers.fs: these drive the real DrawingApp through the Draw harness -->
+    <Compile Include="AdaptiveNestingTests.fs" />
+    <Compile Include="VertexEditingTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>
