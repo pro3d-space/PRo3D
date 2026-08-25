@@ -69,6 +69,11 @@ let allTests () : Test =
         // cross-check reuses the same kernel tracking and self-skips without kernels.
         UnprojectTest.tests()
 
+        // end-to-end batch rendering with sun lighting; self-skips without the
+        // C:\pro3ddata workshop fixture, $PRO3D_SPICE_KERNELS, a GPU, or a built
+        // PRo3D.Snapshots.exe. Uses its own kernel tree (the env var), not the suite's.
+        PRo3D.Tests.SnapshotSunLightingTest.tests()
+
         // Sections whose OPC-backed lists self-skip when the test-data submodule
         // (src/Tests/data/opc) or a GL context is unavailable.
         featureTests ()
