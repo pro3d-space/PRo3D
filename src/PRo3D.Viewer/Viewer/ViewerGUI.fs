@@ -901,8 +901,8 @@ module Gui =
                         match! AMap.tryFind id annotations.flat with
                         | Some (AdaptiveAnnotations ann) ->
                             let header =
-                                div [clazz "ui small header"; style "color:white; padding: 5px 0px"]
-                                    [ text (sprintf "%d annotations selected — edits apply to all" count) ]
+                                h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
+                                   [ text (sprintf "%d annotations selected — edits apply to all" count) ]
                             let clear =
                                 div [style "padding: 5px 0px"] [
                                     button [
@@ -913,7 +913,93 @@ module Gui =
                             let fields =
                                 AnnotationProperties.viewBulk Config.colorPaletteStore ann
                                 |> UI.map ViewerAction.AnnotationBulkMessage
-                            return div [] [ header; fields; clear ]
+
+                            // Dip-direction rose over the selection, restricted to the geometry
+                            // types the user enabled. dipAzimuth is a stored field (read via the
+                            // adaptive dnsResults option); see `angles` below for the shape of the
+                            // adaptive graph this builds and what invalidates it.
+                            let roseHeader =
+                                h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
+                                   [ text "Dip direction rose" ]
+                            // Activation button: the rose (and its type toggles) only exist while
+                            // the feature is switched on, so nothing is binned when it is off.
+                            let roseActivation =
+                                Incremental.div (AttributeMap.ofList [style "padding: 5px 0px"]) (
+                                    alist {
+                                        let! enabled = model.roseEnabled
+                                        yield button [
+                                            clazz (if enabled then "ui tiny blue button" else "ui tiny button")
+                                            onClick (fun _ -> ViewerAction.SetRoseEnabled (not enabled))
+                                        ] [
+                                            i [clazz (if enabled then "toggle on icon" else "toggle off icon")] []
+                                            text (if enabled then "Rose diagram on" else "Rose diagram off")
+                                        ]
+                                    })
+                            let toggles =
+                                require GuiEx.semui (
+                                    Html.table [
+                                        Html.row "Polyline:" [ GuiEx.iconCheckBoxSet model.roseUsePolyline ViewerAction.SetRoseUsePolyline ]
+                                        Html.row "DnS:"      [ GuiEx.iconCheckBoxSet model.roseUseDnS      ViewerAction.SetRoseUseDnS ]
+                                    ])
+                            // Dip azimuths of the selected annotations, collected as one
+                            // incremental aggregate rather than one lookup per annotation:
+                            //  * a single AMap.filter reader on `flat` replaces N AMap.tryFind
+                            //    calls. AMap.tryFind is documented as re-evaluating on *every*
+                            //    change of the map, so N of them turned finishing, deleting or
+                            //    importing a single annotation into N invalidated lookups; the
+                            //    filter sees the same event as one incremental add/remove.
+                            //  * AMap.chooseA caches (geometry, azimuth) per annotation, so an
+                            //    edit to one annotation re-reads that one and nothing else.
+                            //  * the type toggles are applied at the *leaf*, filtering the already
+                            //    collected map. Binding them above the per-annotation work would
+                            //    make every checkbox click tear that whole subtree down and
+                            //    rebuild it.
+                            // The selection itself is still whole-value: it is bound by the
+                            // enclosing adaptive block, which rebuilds the panel anyway.
+                            // Annotations with no dip and strike surface here as NaN (the
+                            // bindAdaptiveOption default), which RoseDiagram.includes rejects
+                            // along with a genuinely NaN dipAzimuth.
+                            let angles : aval<list<float>> =
+                                let ids = selected |> HashSet.map (fun ts -> ts.id)
+                                let perAnnotation =
+                                    annotations.flat
+                                    |> AMap.filter (fun annoId _ -> ids |> HashSet.contains annoId)
+                                    |> AMap.chooseA (fun _ leaf ->
+                                        match leaf with
+                                        | AdaptiveAnnotations a ->
+                                            AVal.map2
+                                                (fun geo az -> Some(geo, az))
+                                                a.geometry
+                                                (AVal.bindAdaptiveOption a.dnsResults nan (fun d -> d.dipAzimuth))
+                                        | _ -> AVal.constant None)
+                                    |> AMap.toAVal
+                                // Single fold - no intermediate list, one traversal per
+                                // invalidation. RoseDiagram.includes is the one place that
+                                // decides whether an annotation counts, shared with the tests.
+                                let selectEnabled
+                                    (perAnno : HashMap<System.Guid, PRo3D.Base.Annotation.Geometry * float>)
+                                    usePoly useDns =
+                                    perAnno
+                                    |> HashMap.fold (fun acc _ (geo, az) ->
+                                        if RoseDiagram.includes usePoly useDns geo az
+                                        then az :: acc
+                                        else acc) []
+                                AVal.map3 selectEnabled perAnnotation model.roseUsePolyline model.roseUseDnS
+                            let rose =
+                                Incremental.div AttributeMap.empty (
+                                    alist {
+                                        let! enabled = model.roseEnabled
+                                        if enabled then
+                                            yield toggles
+                                            let! angs = angles
+                                            if List.isEmpty angs then
+                                                yield div [style "font-style:italic; padding:5px"]
+                                                          [ text "No dip directions in selection (enable a type, or select Polyline / DnS annotations)." ]
+                                            else
+                                                yield RoseDiagram.view angs
+                                    })
+
+                            return div [] [ header; fields; roseHeader; roseActivation; rose; clear ]
                         | _ ->
                             return div [style "font-style:italic; padding:5px"] [ text "no annotation selected" ]
             }

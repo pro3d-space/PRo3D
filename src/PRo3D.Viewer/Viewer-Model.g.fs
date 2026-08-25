@@ -1,5 +1,5 @@
-//24a304f3-90f0-2a16-322f-33c6edec1cc7
-//e5a732df-f957-b489-52d8-5cf9775fbbd1
+//688f9ae3-9807-edbb-fc48-6a25961e19f1
+//faeec3cf-918b-9352-69a7-f6791c961f77
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -233,6 +233,9 @@ type AdaptiveModel(value : Model) =
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Viewer.EllipseModel, PRo3D.Viewer.AdaptiveEllipseModel, PRo3D.Viewer.AdaptiveEllipseModel>(value.ellipseModel, (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o), (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o))
     let _pickPreviewRequested_ = FSharp.Data.Adaptive.cval(value.pickPreviewRequested)
+    let _roseEnabled_ = FSharp.Data.Adaptive.cval(value.roseEnabled)
+    let _roseUsePolyline_ = FSharp.Data.Adaptive.cval(value.roseUsePolyline)
+    let _roseUseDnS_ = FSharp.Data.Adaptive.cval(value.roseUseDnS)
     let _userPreferences_ = FSharp.Data.Adaptive.cval(value.userPreferences)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
@@ -286,6 +289,9 @@ type AdaptiveModel(value : Model) =
             _cursorAttributes_.Value <- value.cursorAttributes
             _ellipseModel_.Update(value.ellipseModel)
             _pickPreviewRequested_.Value <- value.pickPreviewRequested
+            _roseEnabled_.Value <- value.roseEnabled
+            _roseUsePolyline_.Value <- value.roseUsePolyline
+            _roseUseDnS_.Value <- value.roseUseDnS
             _userPreferences_.Value <- value.userPreferences
     member __.Current = __adaptive
     member __.viewerVersion = _viewerVersion_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
@@ -333,6 +339,9 @@ type AdaptiveModel(value : Model) =
     member __.cursorAttributes = _cursorAttributes_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<CursorAttributes>>
     member __.ellipseModel = _ellipseModel_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<EllipseModel, AdaptiveEllipseModel, AdaptiveEllipseModel>>
     member __.pickPreviewRequested = _pickPreviewRequested_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>>
+    member __.roseEnabled = _roseEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.roseUsePolyline = _roseUsePolyline_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.roseUseDnS = _roseUseDnS_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.userPreferences = _userPreferences_ :> FSharp.Data.Adaptive.aval<PRo3D.UserPreferences>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ModelLenses = 
@@ -382,5 +391,8 @@ module ModelLenses =
         static member cursorAttributes_ = ((fun (self : Model) -> self.cursorAttributes), (fun (value : Microsoft.FSharp.Core.Option<CursorAttributes>) (self : Model) -> { self with cursorAttributes = value }))
         static member ellipseModel_ = ((fun (self : Model) -> self.ellipseModel), (fun (value : Microsoft.FSharp.Core.Option<EllipseModel>) (self : Model) -> { self with ellipseModel = value }))
         static member pickPreviewRequested_ = ((fun (self : Model) -> self.pickPreviewRequested), (fun (value : Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>) (self : Model) -> { self with pickPreviewRequested = value }))
+        static member roseEnabled_ = ((fun (self : Model) -> self.roseEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseEnabled = value }))
+        static member roseUsePolyline_ = ((fun (self : Model) -> self.roseUsePolyline), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseUsePolyline = value }))
+        static member roseUseDnS_ = ((fun (self : Model) -> self.roseUseDnS), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseUseDnS = value }))
         static member userPreferences_ = ((fun (self : Model) -> self.userPreferences), (fun (value : PRo3D.UserPreferences) (self : Model) -> { self with userPreferences = value }))
 
