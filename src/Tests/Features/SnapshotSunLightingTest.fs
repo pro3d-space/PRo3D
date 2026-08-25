@@ -8,10 +8,11 @@
 ///  - close-up: the camera is pinned to the scene's saved view (bookmark observation
 ///    info carries no target, and observer = the body itself keeps the GIS surface
 ///    placement at identity), so any difference between the frames is sun-driven.
-///  - approach phase: complete observation info (target Dimorphos, observer HERA), so
-///    the generator's SPICE look-at path positions the camera at HERA's real location
-///    per epoch and the surface at Dimorphos' HERA-relative position -- the same
-///    scenario pro3d-tool's simulate-image verb renders, with an AFC-like 5.5 deg FoV.
+///  - approach phase: complete observation info (observed body Dimorphos, camera
+///    source HERA -- the target field holds the camera-source body, per the UI
+///    labels), so the generator's SPICE look-at path positions the camera at HERA's
+///    real Dimorphos-relative location per epoch -- the same scenario pro3d-tool's
+///    simulate-image verb renders, with an AFC-like 5.5 deg FoV.
 ///
 /// Gated on: the C:\pro3ddata workshop fixture, $PRO3D_SPICE_KERNELS, a GL runtime, and
 /// a built PRo3D.Snapshots.exe next to the test binaries.
@@ -110,6 +111,10 @@ let private prepareScene (dir : string) (kernel : string) : string * Scene =
         { scene with
             // the exploration-point marker would count as lit pixels in the assertions
             config = { scene.config with showExplorationPointGui = false }
+            // the reference-system gizmo sits at the origin and is autoscaled without
+            // regard for the field of view -- in the narrow approach frames it covers
+            // a good part of the body
+            referenceSystem = { scene.referenceSystem with isVisible = false }
             gisApp =
                 { gis with
                     // entity spheres are drawn at the bodies' SPICE positions and would
@@ -136,8 +141,9 @@ let private prepareScene (dir : string) (kernel : string) : string * Scene =
     let scenePath = Path.Combine(dir, "sunlighting.pro3d")
     scene |> Json.serialize |> Json.formatWith JsonFormattingOptions.Pretty
     |> fun s -> File.WriteAllText(scenePath, s)
-    // the annotations sidecar is loaded by scene name; reuse the fixture's
-    File.Copy(fixtureScene + ".ann", scenePath + ".ann")
+    // no annotations sidecar on purpose (the loader tolerates its absence): annotation
+    // markers are sized for the default field of view and would cover the body in the
+    // narrow approach-phase frames
     scenePath, scene
 
 let private mkBookmark (scene : Scene) (info : ObservationInfo) (name : string) =
@@ -263,12 +269,13 @@ let tests () =
             let mkInfo (t : DateTime) =
                 { ObservationInfo.initial with
                     // complete info: the generator's replayed ObservationInfoMessages
-                    // swing the camera to HERA looking at Dimorphos, and the GIS
-                    // placement puts the surface at its HERA-relative SPICE position --
-                    // the bookmark's own cameraView is deliberately overridden
-                    target         = Some (EntitySpiceName "DIMORPHOS")
-                    observer       = Some (EntitySpiceName "HERA")
-                    referenceFrame = Some (FrameSpiceName "J2000")
+                    // swing the camera to the "Camera source Body" (the target field,
+                    // per the UI labels) looking at the observed body at the origin --
+                    // the bookmark's own cameraView is deliberately overridden;
+                    // observer = the observed body keeps the placement at identity
+                    target         = Some (EntitySpiceName "HERA")
+                    observer       = Some (EntitySpiceName "DIMORPHOS")
+                    referenceFrame = Some (FrameSpiceName "DIMORPHOS_FIXED")
                     time           = Calendar.fromDate t }
             // AFC-like FoV: at HERA's ~9-13 km range, 5.5 deg makes the ~180 m body a
             // disk of roughly 60-100 px in the 640-wide frame
