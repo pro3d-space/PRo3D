@@ -69,7 +69,7 @@ interim "better nothing than crap" workaround.
    spin pole / north pole. For Earth/Mars this matches the IAU
    convention. For Dimorphos in `DIMORPHOS_SHM` (= DARTSOC, the frame
    the loaded SPC OBJs live in) the spin pole is **−Z**, so the derived
-   "north" points 180° wrong. See `plans/sbmtImport.md` "Coordinate frame
+   "north" points 180° wrong. See `plans/archive/sbmtImport.md` "Coordinate frame
    knowledge" for the proof.
 2. **`AnnotationHelpers.pitch`** (`AnnotationHelpers.fs:44`) measures
    forward-direction angle against `Plane3d(up.Normalized, 0.0)` — a

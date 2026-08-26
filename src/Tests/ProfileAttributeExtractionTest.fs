@@ -1,4 +1,4 @@
-module ProfileAttributeExtractionTest
+﻿module ProfileAttributeExtractionTest
 
 open System
 open System.IO
@@ -28,23 +28,45 @@ open PRo3D.Core.Drawing
 module Data =
     let boundingBox = Box3d.Parse("[[-89.180763245, -87.157432556, -56.789569855], [87.699211121, 86.719993591, 58.670009613]]")
 
-    let opcBasePath (testDataSource : string) =
-        Path.Combine(testDataSource, "Dimorphos_DRACO1", "Dimorphos_DRACO1")
+    let private existingDir (path : string) =
+        if String.IsNullOrWhiteSpace path then None
+        elif Directory.Exists path then Some path
+        else None
 
-    let annotationPath (testDataSource : string) =
-        Path.Combine(testDataSource, "Dimorphos_DRACO1", "testAnnotatation.pro3d.ann")
+    /// Root of a PRo3D.Resources.TestData checkout. Every fixture below is
+    /// resolved relative to it, and without it every data-backed case skips.
+    /// PRO3D_TEST_DATA is the documented way in; the suite-wide
+    /// --testdatasource is still honoured so run-tests.cmd keeps working.
+    let root (testDataSource : string) =
+        [ Environment.GetEnvironmentVariable "PRO3D_TEST_DATA"
+          testDataSource ]
+        |> List.tryPick existingDir
+
+    /// Any OPC hierarchy is enough for the geometry-level tests. Prefer the DRACO1
+    /// export they were written against; fall back to the HERA Dimorphos export,
+    /// which is the same body with per-vertex attribute layers added.
+    let opcBasePath (root : string) =
+        [ Path.Combine(root, "Dimorphos_DRACO1", "Dimorphos_DRACO1")
+          Path.Combine(root, "HERA", "Dimorphos") ]
+        |> List.tryPick existingDir
+
+    let annotationPath (root : string) =
+        let path = Path.Combine(root, "Dimorphos_DRACO1", "testAnnotatation.pro3d.ann")
+        if File.Exists path then Some path else None
 
     /// Directory holding OPC hierarchies that ship per-vertex attribute layers
-    /// (`*.aara` files listed in each patch's `<Attributes>`). Set PRO3D_AARA_OPC to
-    /// point at one, e.g. the HERA AARA_Textures export's "Dimorphos" folder.
-    let aaraOpcBasePath (testDataSource : string) =
-        let candidates =
-            [
-                Environment.GetEnvironmentVariable "PRO3D_AARA_OPC"
-                Path.Combine(testDataSource, "AARA_Textures", "Dimorphos")
-            ]
-        candidates
-        |> List.tryFind (fun p -> not (String.IsNullOrWhiteSpace p) && Directory.Exists p)
+    /// (`*.aara` files listed in each patch's `<Attributes>`). PRO3D_AARA_OPC
+    /// overrides the location for an export kept outside the test-data checkout.
+    let aaraOpcBasePath (root : string) =
+        [ Environment.GetEnvironmentVariable "PRO3D_AARA_OPC"
+          Path.Combine(root, "HERA", "Dimorphos")
+          Path.Combine(root, "AARA_Textures", "Dimorphos") ]
+        |> List.tryPick existingDir
+
+/// Raised as a skip when the test-data checkout is missing entirely.
+let private noTestData =
+    "no test data: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout \
+     (or pass --testdatasource)"
 
 let private noHitFilter =
     Func<IIntersectableObjectSet,int,int,RayHit3d,bool>(fun _ _ _ _ -> false)
@@ -101,14 +123,26 @@ let init() =
 
 let tests (parameters : TestUtils.TestParameters) =
     do init()
-    let testDataSource = parameters.testDataSource |> Option.defaultValue ""
-    let opcBasePath = Data.opcBasePath testDataSource
-    let annotationPath = Data.annotationPath testDataSource
+
+    let root = Data.root (parameters.testDataSource |> Option.defaultValue "")
+
+    // Resolved once; each test asks for what it needs and skips if it is absent.
+    let opcBasePath'      = root |> Option.bind Data.opcBasePath
+    let annotationPath'   = root |> Option.bind Data.annotationPath
+    let aaraOpcBasePath'  = root |> Option.bind Data.aaraOpcBasePath
+
+    /// Returns the path or skips the running test. `skiptest` raises, so the
+    /// call sites can keep binding a plain string.
+    let require (what : string) (path : Option<string>) =
+        match path, root with
+        | Some p, _  -> p
+        | None, None -> skiptest noTestData
+        | None, Some r -> skiptest (sprintf "%s not found under %s" what r)
+
     testList "ProfileAttributeExtraction" [
 
         test "buildTriangleToGridMapping produces valid mapping" {
-            if not (Directory.Exists opcBasePath) then
-                skiptest "OPC data not available"
+            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
             Expect.isGreaterThan hierarchies.Length 0 "should have at least one hierarchy"
@@ -147,8 +181,7 @@ let tests (parameters : TestUtils.TestParameters) =
         }
 
         test "aara header round trip" {
-            if not (Directory.Exists opcBasePath) then
-                skiptest "OPC data not available"
+            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
             let h = hierarchies.[0]
@@ -166,8 +199,7 @@ let tests (parameters : TestUtils.TestParameters) =
         }
 
         testCase "full kdtree intersection and attribute extraction" <| fun () ->
-            if not (Directory.Exists opcBasePath) then
-                skiptest "OPC data not available"
+            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
             let patchInfoLookup = buildPatchInfoLookup hierarchies
@@ -227,9 +259,7 @@ let tests (parameters : TestUtils.TestParameters) =
 
         testCase "per-vertex layers are physically consistent" <| fun () ->
             // Only OPCs exported with per-vertex attribute layers can be checked here.
-            match Data.aaraOpcBasePath testDataSource with
-            | None -> skiptest "no OPC with per-vertex attribute layers available (set PRO3D_AARA_OPC)"
-            | Some aaraBasePath ->
+            let aaraBasePath = require "OPC with per-vertex attribute layers (HERA/Dimorphos)" aaraOpcBasePath'
 
             let hierarchies = loadHierarchies aaraBasePath
             let patchInfoLookup = buildPatchInfoLookup hierarchies
@@ -319,9 +349,7 @@ let tests (parameters : TestUtils.TestParameters) =
             // The attribute textures store each layer normalised into its *.opcx
             // ChannelsDefinedRange, so the fallback has to map samples back onto that range
             // before they can be compared with the per-vertex values.
-            match Data.aaraOpcBasePath testDataSource with
-            | None -> skiptest "no OPC with per-vertex attribute layers available (set PRO3D_AARA_OPC)"
-            | Some aaraBasePath ->
+            let aaraBasePath = require "OPC with per-vertex attribute layers (HERA/Dimorphos)" aaraOpcBasePath'
 
             match Directory.EnumerateFiles(aaraBasePath, "*.opcx") |> Seq.tryHead with
             | None -> skiptest "no *.opcx next to the OPC"
@@ -413,11 +441,179 @@ let tests (parameters : TestUtils.TestParameters) =
             Expect.isLessThan worst 0.10
                 $"de-normalised texture samples should match per-vertex values (worst: {worstLayer})"
 
+        testCase "profile export covers every declared attribute layer" <| fun () ->
+            // Regression test for a multi-attribute profile export that silently dropped
+            // four of the seven attribute layers of the HERA Dimorphos AARA export.
+            //
+            // The export that showed it carried only Gravity, LonLatRad and Normal, each a
+            // single raw [0,1] sample. Two independent defects produced exactly that:
+            //   - per-vertex `*.aara` layers were not read at all, so the four scalar layers
+            //     (Elevation, Magnitude, Potential, Slope) had no source, and
+            //   - the texture fallback derived its layer indices from
+            //     `patchInfo.Textures.Length / 2`, assuming the list is [textures; weights].
+            //     `patch.xml` interleaves them - DiffuseColorNTexture, DiffuseColorNWeights -
+            //     so that walk hit every second *.aara weights entry and reached only three
+            //     of the seven attribute textures.
+            // Both are fixed; this pins the outcome. Whatever a patch declares has to reach
+            // the CSV, from either source, with all of its components.
+            let aaraBasePath = require "OPC with per-vertex attribute layers (HERA/Dimorphos)" aaraOpcBasePath'
+
+            let rangeOf =
+                match Directory.EnumerateFiles(aaraBasePath, "*.opcx") |> Seq.tryHead with
+                | Some opcx ->
+                    SurfaceUtils.SurfaceAttributes.read opcx
+                    |> SurfaceProperties.getScalarsHmap
+                    |> ProfileAttributeExtraction.rangeLookup
+                | None ->
+                    Log.warn "[Test] no *.opcx found - texture samples stay normalised"
+                    fun _ -> None
+
+            let hierarchies = loadHierarchies aaraBasePath
+            let patchInfoLookup = buildPatchInfoLookup hierarchies
+
+            let serializer = Serialization.binarySerializer
+            let kdTreeMap =
+                hierarchies |> Array.fold (fun acc h ->
+                    let trees =
+                        KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ
+                            serializer false true DebugKdTreesX.loadTriangles' false
+                    HashMap.union acc trees
+                ) HashMap.empty
+
+            let bounds =
+                kdTreeMap |> HashMap.toList |> List.fold (fun (b : Box3d) (bb : Box3d, _) -> b.ExtendedBy bb) Box3d.Invalid
+            let cache = ref (HashMap.empty<string, ConcreteKdIntersectionTree>)
+
+            let samples = ResizeArray<ProfileSample>()
+            let mutable allNames = Set.empty<string>
+            let mutable checkedPatches = 0
+            let mutable textureReached = Set.empty<string>
+            let mutable declaredEverywhere = Set.empty<string>
+            let mutable accDistance = 0.0
+            let mutable previous : Option<V3d> = None
+
+            for dir in [ V3d.OOI; -V3d.OOI; V3d.OIO; -V3d.OIO; V3d.IOO; -V3d.IOO ] do
+                let origin = bounds.Center - dir * (bounds.Size.NormMax * 2.0)
+                let ray = FastRay3d(Ray3d(origin, dir))
+                match intersectAllKdTrees kdTreeMap cache ray with
+                | Some (hit, Level0KdTree.LazyKdTree kd) ->
+                    let hitPoint = ray.Ray.GetPointOnRay(hit.RayHit.T)
+                    let mapping = ProfileAttributeExtraction.buildTriangleToGridMapping kd.affine kd.objectSetPath
+                    let triangleSet = hit.SetObject.Set :?> TriangleSet
+                    let triangle = DebugKdTreesX.getTriangle triangleSet hit.SetObject.Index
+                    let weights = ProfileAttributeExtraction.computeBarycentric triangle hitPoint
+                    let gridIndices = mapping.TryGetTriangleIndices hit.SetObject.Index |> Option.defaultValue [||]
+
+                    match patchInfoLookup.TryGetValue(kd.objectSetPath) with
+                    | true, (patchInfo, opcPaths) ->
+                        // What the patch itself declares - data driven, so a differently
+                        // exported OPC states its own expectation.
+                        let declared =
+                            patchInfo.Attributes
+                            |> List.map Path.GetFileNameWithoutExtension
+                            |> List.filter (fun n -> n <> "Positions2d")
+                            |> Set.ofList
+                        Expect.isGreaterThan declared.Count 0 $"{patchInfo.Name} should declare per-vertex attributes"
+
+                        let patchDir = Path.GetDirectoryName kd.objectSetPath
+                        let layers = VertexAttributes.getLayers patchDir patchInfo
+                        let fromVertices = VertexAttributes.sample layers mapping.gridSize gridIndices weights
+                        let covered =
+                            System.Collections.Generic.HashSet<string>(
+                                fromVertices |> List.map (fun a -> a.name), StringComparer.OrdinalIgnoreCase)
+
+                        let uv = ProfileAttributeExtraction.getUVAtHit kd.coordinatesPath mapping.gridSize gridIndices weights
+
+                        // The texture fallback on its own has to reach every declared layer
+                        // too. That is where the half/half indexing failed, and it stays
+                        // invisible as long as the per-vertex layers cover everything.
+                        // Checked as a union over all hits, not per patch: a layer that is
+                        // nodata at one texel legitimately yields nothing there, but no layer
+                        // may be unreachable everywhere.
+                        match uv with
+                        | Some uv ->
+                            ProfileAttributeExtraction.extractAttributesAtUV uv patchInfo opcPaths rangeOf (fun _ -> false)
+                            |> List.iter (fun a -> textureReached <- textureReached |> Set.add a.name)
+                        | None -> failtest $"{patchInfo.Name}: no texture coordinates at the hit"
+
+                        declaredEverywhere <- Set.union declaredEverywhere declared
+
+                        // ... and then the combined result, which is what the export writes.
+                        let fromTextures =
+                            match uv with
+                            | Some uv -> ProfileAttributeExtraction.extractAttributesAtUV uv patchInfo opcPaths rangeOf covered.Contains
+                            | None    -> []
+
+                        let sampled = fromVertices @ fromTextures
+                        let byName = sampled |> List.map (fun a -> a.name, a) |> Map.ofList
+
+                        for name in declared do
+                            match byName |> Map.tryFind name with
+                            | None ->
+                                failtest $"{patchInfo.Name}: attribute {name} missing from the profile (got: {sampled |> List.map (fun a -> a.name)})"
+                            | Some a ->
+                                Expect.isGreaterThan a.values.Length 0 $"{patchInfo.Name}: {name} has no value"
+                                // A vector layer truncated to its first channel reads as a
+                                // plausible scalar, so the component count is checked against
+                                // the layer's own aara header.
+                                match layers |> Array.tryFind (fun l -> l.name = name) with
+                                | Some layer when a.source = AttributeSource.VertexData ->
+                                    Expect.equal a.values.Length layer.header.components
+                                        $"{patchInfo.Name}: {name} should keep all {layer.header.components} components"
+                                | _ -> ()
+
+                        let attributes = Dictionary<string, float[]>()
+                        for a in sampled do
+                            attributes.[a.name] <- a.values
+                            allNames <- allNames |> Set.add a.name
+
+                        accDistance <-
+                            match previous with
+                            | Some p -> accDistance + Vec.distance p hitPoint
+                            | None   -> 0.0
+                        previous <- Some hitPoint
+                        samples.Add { position = hitPoint; distance = accDistance; attributes = attributes }
+                        checkedPatches <- checkedPatches + 1
+                    | _ -> ()
+                | _ -> ()
+
+            Expect.isGreaterThan checkedPatches 2 "should have checked several patches"
+
+            // Every declared layer must be reachable through the texture path at least once.
+            // The defect this guards against reached only DiffuseColor2/3/4 - LonLatRad,
+            // Normal and Gravity - and never any of the scalar layers, at any patch.
+            for name in declaredEverywhere do
+                Expect.isTrue (textureReached.Contains name)
+                    $"texture fallback never reaches {name} (reached: {textureReached |> Set.toList})"
+
+            // The CSV is the deliverable: one column per attribute and no empty cells -
+            // writeCsv leaves a cell blank for a sample that lacks the attribute.
+            let outputPath =
+                Path.Combine(TestUtils.outputDir parameters "ProfileExtraction", "attribute_coverage.csv")
+            ProfileAttributeExtraction.writeCsv outputPath (samples |> List.ofSeq) allNames
+
+            let lines = File.ReadAllLines outputPath
+            Expect.equal lines.Length (samples.Count + 1) "one header line plus one line per sample"
+
+            let header = lines.[0].Split(',')
+            let fixedColumns = 4        // distance, x, y, z
+            Expect.equal (header.Length - fixedColumns) (Set.count allNames)
+                $"one column per attribute (header: {lines.[0]})"
+            for name in allNames do
+                Expect.contains header name $"{name} should have a CSV column"
+
+            for line in lines |> Array.skip 1 do
+                let cells = line.Split(',')
+                Expect.equal cells.Length header.Length "every row should have as many cells as the header"
+                for i in fixedColumns .. cells.Length - 1 do
+                    Expect.isFalse (String.IsNullOrWhiteSpace cells.[i])
+                        $"column {header.[i]} should carry a value in every row"
+
+            Log.line "[Test] %d patches, attributes: %A" checkedPatches (allNames |> Set.toList)
+
         testCase "end-to-end profile extraction from annotation file" <| fun () ->
-            if not (Directory.Exists opcBasePath) then
-                skiptest "OPC data not available"
-            if not (File.Exists annotationPath) then
-                skiptest "annotation file not available"
+            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
+            let annotationPath = require "Dimorphos_DRACO1/testAnnotatation.pro3d.ann" annotationPath'
 
             let sw = System.Diagnostics.Stopwatch()
             let mb () = float (GC.GetTotalMemory(false)) / (1024.0 * 1024.0)

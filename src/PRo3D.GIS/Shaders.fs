@@ -64,18 +64,61 @@ module Shaders =
                  }
         }
 
-    let solarLighting (v : Vertex) = 
+    let solarLighting (v : Vertex) =
         fragment {
             let n = v.n |> Vec.normalize
             let c = v.vldir |> Vec.normalize
 
-            let ambient = 0.01f 
-            let diffuse = Vec.dot c n |> max 0.0f 
+            let ambient = 0.01f
+            let diffuse = Vec.dot c n |> max 0.0f
 
             let l = ambient + (1.0f - ambient) * diffuse
 
             if uniform.SunLightEnabled then
                 return V4f(v.c.XYZ * l, v.c.W)
+            else
+                return v.c
+        }
+
+    type TerrainLitVertex = {
+        [<Position>] pos : V4f
+        [<Color>] c : V4f
+        /// Per-face terrain normal from ImageProjection.Shaders.generateNormal.
+        [<Semantic("LocalNormal")>] localNormal : V3f
+        /// Object-space position, stashed by stableImageProjectionTrafo before the
+        /// stable transform overwrites [<Position>] with clip space.
+        [<Semantic("BodyLocalPos")>] localPos : V4f
+    }
+
+    /// Sun shading for OPC terrain: Lommel-Seeliger with a 5% Lambert admixture over the
+    /// textured colour -- the photometric behaviour measured for dark regolith (Li et
+    /// al. 2024, PSJ, doi:10.3847/PSJ/ad2b60); plain Lambert over-darkens the limb.
+    ///
+    /// Unlike `solarLighting` this uses the per-face TERRAIN normal (generateNormal),
+    /// not the sphere approximation from planetLocalLightingViewSpace, so relief is
+    /// actually visible under the sun. All lighting math is view-space, per the
+    /// precision rules (local -> view, never through float32 world coordinates).
+    ///
+    /// OPC datasets are inconsistently wound and the viewer stack runs no per-dataset
+    /// winding vote (see OpcSg.estimateNormalFlip for the offscreen tools' approach), so
+    /// the face normal is oriented toward the viewer instead -- correct for every facet
+    /// the camera actually sees.
+    let solarShadingLS (v : TerrainLitVertex) =
+        fragment {
+            if uniform.SunLightEnabled then
+                let n0 = uniform.ModelViewTrafo.TransformDir v.localNormal |> Vec.normalize
+                let viewPos = uniform.ModelViewTrafo * v.localPos
+                let toCam = -viewPos.XYZ |> Vec.normalize
+                let n = if Vec.dot n0 toCam < 0.0f then -n0 else n0
+                let l = uniform.ViewTrafo.TransformDir uniform.SunDirectionWorld |> Vec.normalize
+                let mu0 = Vec.dot n l |> max 0.0f
+                // floored at a small grazing value: the LS disk term reaches 2x as
+                // mu -> 0, and single grazing pixels would clip to white speckles
+                let mu = Vec.dot n toCam |> max 0.02f
+                let disk = 0.95f * (2.0f * mu0 / (mu0 + mu)) + 0.05f * mu0
+                let ambient = 0.01f
+                let i = ambient + (1.0f - ambient) * disk
+                return V4f(v.c.XYZ * i, v.c.W)
             else
                 return v.c
         }
@@ -224,10 +267,10 @@ module Shaders =
             let p = v.viewProjPos.XYZ / v.viewProjPos.W
             let tc = V3f(0.5f , 0.5f , 0.5f ) + V3f(0.5f , 0.5f , 0.5f ) * p.XYZ
 
-            let sampleRadius = 1.0f / (float32 (Vec.MaxElement shadowSampler.Size)) 
+            let sampleRadius = 1.0f / (float32 (Vec.MaxElement shadowSampler.Size))
             let numSamples = 4
 
-            let mutable shadow = 0.0f 
+            let mutable shadow = 0.0f
             for i in 0 .. offsets.Length - 1 do
                 shadow <- shadow + shadowSampler.Sample(tc.XY + offsets[i] * sampleRadius, tc.Z + bias)
 
@@ -235,4 +278,54 @@ module Shaders =
 
             let d = min 1.0f (max 0.2f shadow)
             return V4f(v.c.XYZ * d, v.c.W)
+        }
+
+    type ShadowReceiverVertex = {
+        [<Position>]                       p           : V4f
+        [<Semantic("PosShadowViewProj")>]  viewProjPos : V4f
+        [<Color>]                          c           : V4f
+        /// per-face terrain normal from generateNormal, for the slope-scaled bias
+        [<Semantic("LocalNormal")>]        localNormal : V3f
+    }
+
+    /// Cast-shadow factor from the sun shadow map, gated per patch: HasShadowMap comes
+    /// from projectionUniformMap and is true only when a light matrix was provided --
+    /// i.e. when the lighting mode is SunShadow and the shadow pass is running. In every
+    /// other mode this stage is a no-op, which is what lets it sit permanently in the
+    /// viewer's OPC effect stack (the sampler is then bound to a 1x1 far-plane dummy).
+    ///
+    /// The clip-space position comes from transformShadowVertices, whose
+    /// StableModelViewProjTexture per-patch uniform is composed on the CPU in double
+    /// (patch Local2Global included), keeping the lookup planetary-precision-safe.
+    ///
+    /// ShadowMapBias is the BASE bias in normalized shadow depth (the shadow pass
+    /// derives it from a world-space distance and the light frustum's depth range) and
+    /// is slope-scaled here: a constant bias either detaches shadows at contact points
+    /// (too large) or stripes sun-grazing surfaces with acne (too small).
+    let terrainSunShadow (v : ShadowReceiverVertex) =
+        fragment {
+            if uniform.HasShadowMap then
+                let p = v.viewProjPos.XYZ / v.viewProjPos.W
+                let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
+                // outside the map counts as lit; the ortho frustum covers the casters,
+                // so this only happens off the covered volume
+                if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f then
+                    return v.c
+                else
+                    let baseBias : float32 = uniform?ShadowMapBias
+                    let n = uniform.ModelViewTrafo.TransformDir v.localNormal |> Vec.normalize
+                    let l = uniform.ViewTrafo.TransformDir uniform.SunDirectionWorld |> Vec.normalize
+                    // receiver slope against the light, orientation-independent
+                    let cosTheta = abs (Vec.dot n l) |> max 0.05f
+                    let tanTheta = sqrt (max 0.0f (1.0f - cosTheta * cosTheta)) / cosTheta |> min 10.0f
+                    let bias = baseBias * (1.0f + 2.0f * tanTheta)
+                    let sampleRadius = 1.0f / (float32 (Vec.MaxElement shadowSampler.Size))
+                    let mutable shadow = 0.0f
+                    for i in 0 .. offsets.Length - 1 do
+                        shadow <- shadow + shadowSampler.Sample(tc.XY + offsets[i] * sampleRadius, tc.Z - bias)
+                    // 0.2 floor: fully-shadowed terrain stays readable instead of black
+                    let d = min 1.0f (max 0.2f (shadow / float32 offsets.Length))
+                    return V4f(v.c.XYZ * d, v.c.W)
+            else
+                return v.c
         }

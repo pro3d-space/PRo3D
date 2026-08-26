@@ -61,6 +61,7 @@
     <Compile Include="Surface.fs" />
     <Compile Include="VertexAttributes.fs" />
     <Compile Include="ProfileAttributeExtraction.fs" />
+    <Compile Include="HeadlessPicking.fs" />
     <Compile Include="GroupsApp.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Traverse-Model.fs" />

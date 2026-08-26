@@ -37,7 +37,7 @@ When a model holds many items, there are two representations, and the choice is 
 
 Rule of thumb: per-element rendering / large, incrementally-edited data → adaptive collection; small or wholesale-replaced data, or feeding an all-at-once computation → `aval<collection>`. **When it's not obvious, ask and document the decision.**
 
-### 3. `.Current` / `.Content` can beat chains of operators
+### 3. `.Current` / `.Content` can beat chains of operators — at a cost
 
 A long pipeline of adaptive operators carries per-operator overhead. For a **complex** computation it is sometimes cheaper to grab the whole current value as a single `aval` and run a plain, non-incremental function over it:
 
@@ -52,7 +52,40 @@ adaptive {
 }
 ```
 
-The trade-off mirrors rule 2: you lose per-element incrementality (the whole thing recomputes on any change) but avoid operator overhead. **This is per-case — measure/reason about it; don't apply it blindly.**
+The trade-off mirrors rule 2: you lose per-element incrementality (the whole thing recomputes on any change) but avoid operator overhead. **This is per-case — measure/reason about it; don't apply it blindly.** Reasoning about
+it means knowing how often the underlying record actually changes in a real scene, which
+is a load characteristic, not something to infer from the code — see rule 6.
+
+**What `.Current` costs.** Adaptify does not generate a per-field `.Current`. It generates
+*one* `AVal.custom` over the whole record, marked outdated whenever `Update` is handed a
+shallow-unequal value:
+
+```fsharp
+member __.Update(value : 'T) =
+    if not (ShallowEquals(value, __value)) then
+        __value <- value
+        __adaptive.MarkOutdated()      // ← this is .Current, for every field at once
+member __.Current = __adaptive
+```
+
+So the cost of `.Current` is set by everything *else* in the record, not by the fields you
+read out of it. Reading two fields through it still takes a dependency on all of them. The
+question is therefore not "how much of this record do I need?" but **"how often does the
+busiest field in this record change?"**
+
+That makes `.Current` a good fit for a small record, or one whose fields change together,
+and a poor fit for an **aggregate root** — a record that keeps content, selection state and
+UI state side by side. There it fires on interactions that have nothing to do with the data
+you wanted, and the pipeline you replaced was probably cheaper.
+
+`.Content` on an adaptive collection is the same idea scoped to one collection: narrower
+than `.Current`, but it still collapses per-element tracking.
+
+> *Illustration.* `GroupsModel` is the shared group-tree model behind annotations, surfaces
+> and bookmarks. One record holds the item map, the current selection, and tree UI state, so
+> its `.Current` is marked outdated when a group is expanded or the selection changes — not
+> only when an item's data changes. A computation reading two fields of one item through
+> `.Current` re-runs on all of that. See `Groups-Model.g.fs`.
 
 ### 4. `AVal.force` is fine in imperative callbacks
 
@@ -88,6 +121,109 @@ Two consequences worth internalizing (both visible in `Groups-Model.g.fs`):
 
 So: **don't reach for a plain field or `Option<collection>` when you want incremental UI/scene-graph updates, and don't pay for `alist`/`amap`/`aset` element-tracking on a collection you always replace wholesale.** When the right choice isn't obvious, ask (rule 2). After changing a model type, run `adapt.cmd` and check the regenerated `*.g.fs` is what you intended.
 
+### 6. Deriving an aggregate from an adaptive collection
+
+Shape: reduce **a subset of a large adaptive collection to a single value** — a count, a
+bounding box, a histogram, a min/max. The result is one value, so the computation
+necessarily ends in an `aval`. **That final collapse is not a granularity violation** —
+rules 2 and 5 govern how the *model* stores a collection, not the sink of a derived
+computation. What matters is what sits between the collection and the collapse.
+
+Throughout: `items : amap<Key, AdaptiveItem>` is the model's collection, large; `keys` is
+the subset you care about, small, and fixed for the lifetime of this computation.
+
+#### Method — and what you are not allowed to guess
+
+Two inputs decide the shape, and only one of them is in the code:
+
+1. **The event sets.** Which events *should* re-fire the aggregate (normally: the subset
+   changed, or a member of it changed in a field the aggregate reads), and which events each
+   candidate *does* re-fire on. The gap between them is the metric. Node count is not — a
+   shape with more nodes that fires only when it must beats a three-node shape that fires on
+   everything.
+
+2. **The load characteristics.** How large is the collection in a real scene, how large is a
+   typical subset, how often does each change, and which of those changes a user actually
+   notices. **These are not in the code and must not be invented.** Statements like "the
+   collection is much larger than the subset" or "the selection changes more often than the
+   data" flip the answer between the shapes below, and both have been guessed wrong here
+   before. Ask the people who run the app on real data.
+
+As in rule 2, the resulting trade-off is a **design decision, not an implementation detail:
+put the numbers and the choice to the user or reviewer and get agreement rather than picking
+silently.** Then record the answer in a comment next to the code, so the next reader inherits
+the decision instead of re-deriving it from scratch — and so a later change in scene sizes
+can be recognised as invalidating it.
+
+#### Don't call `AMap.tryFind` once per key
+
+This is the shape that looks obvious and is wrong:
+
+```fsharp
+// ✗ one lookup per key
+keys |> Seq.map (fun k -> AMap.tryFind k items)        // K separate avals
+```
+
+`AMap.tryFind` is not an index into the map. The library implements it as
+
+```fsharp
+let tryFind key map = map.Content |> AVal.map (HashMap.tryFind key)
+```
+
+— so each call is a dependent of the map's **entire content**. K calls hang K dependents off
+that one node, and it is marked outdated by *any* change to the map. Insert an item under a
+key you don't care about and all K lookups re-run, along with everything downstream of each.
+
+The instinct that misleads is "`HashMap.tryFind` is O(1), so K of them is O(K)". That is true
+of the evaluation. The cost is in the dependency graph, not in the lookup. FSharp.Data.Adaptive
+says so in its own doc comment: *"this operation should not be used extensively since its
+resulting aval will be re-evaluated upon every change of the map."*
+
+One or two fixed keys is fine — it is the fan-out that hurts. For a set of keys:
+
+```fsharp
+// ✓ one reader; each change classified once
+items |> AMap.filter (fun k _ -> HashSet.contains k keys)
+```
+
+`AMap.filter` holds a single reader on `items`. Changes arrive as deltas, the predicate
+classifies each once, and deltas for keys outside the subset are dropped without waking
+anything downstream.
+
+#### In-place element edits do not move the map
+
+Adaptify maps a `HashMap<K, SomeModelType>` field to a `ChangeableModelMap`. Its `Update`
+diffs the **keys**; where a key survives carrying new data it calls `elem.Update(v)`, which
+pokes that element's own cvals. **No map delta is produced.**
+
+So a map delta means "an item was added or removed", never "an item changed" — edits travel
+through the element's own adaptive fields instead. That is what makes the filter above stay
+quiet when an item outside the subset is edited: there is no delta to classify, and this
+computation holds no dependency on that element's fields. It is also why the `.Current`
+shape is worse here: it re-fires on every edit in the collection, subset or not.
+
+#### The remaining two trade-offs
+
+- **Precise invalidation over N sources costs N edges.** If the result must react to N
+  independent adaptive values and to nothing else, something has to depend on all N. There is
+  no O(1)-edge formulation with that precision, so the real choice is "N edges" versus "one
+  blunt edge that fires too often".
+
+- **Placement matters as much as size.** A per-element layer built *inside* a block bound to
+  something volatile (a selection, a mode) is torn down and rebuilt whenever that block
+  re-runs. Hoisting it above the block fixes the churn, but it then spans the whole
+  collection and pays edges for elements the subset never contains. Which way that falls
+  depends entirely on input 2 above — confirm the sizes before choosing, because the answer
+  reverses when a typical subset is most of the collection.
+
+> *Illustration.* A dip-direction histogram over a multi-selection of annotations
+> (`ViewerGUI.viewBulkAnnotationProperties`): thousands of items in the map, tens to a few
+> thousand selected. It filters to the selected keys, reads two fields per selected item,
+> collapses, and folds — so editing an unselected item costs nothing, while the per-item
+> layer is rebuilt when the selection changes, inside a block that rebuilds the panel anyway.
+> Fixtures for measuring this shape: `src/Tests/data/bulk-rose-annotations.pro3d.ann` and the
+> larger one in `PRo3D.Resources.TestData`.
+
 ### Quick reference
 
 | Context | Reading an `aval` |
@@ -96,6 +232,8 @@ So: **don't reach for a plain field or `Option<collection>` when you want increm
 | Inside a custom `Sg` / `RenderObject` (has a token `t`) | `x.GetValue(t)` |
 | UI event / imperative callback | `AVal.force x` is OK |
 | Choosing collection representation | ask: adaptive collection vs `aval<collection>` (rules 2–3) |
+| Reducing a collection to one value | one `AMap.filter`, not `AMap.tryFind` per key; sizes and change rates are load characteristics — ask, don't assume (rule 6) |
+| Reaching for `.Current` on a big record | check what else lives in that record first — it fires for all of it (rule 3) |
 
 ---
 

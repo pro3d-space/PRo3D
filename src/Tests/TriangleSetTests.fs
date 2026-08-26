@@ -1,4 +1,4 @@
-module TriangleSetTests
+﻿module TriangleSetTests
 
 open System.IO
 open Expecto
@@ -7,6 +7,22 @@ open Aardvark.Geometry
 open Aardvark.Data.Opc
 open PRo3DCompability
 open PRo3D.Core.Surface
+
+/// The real-world cases below read one patch of the Dimorphos OPC. It comes from a
+/// PRo3D.Resources.TestData checkout (PRO3D_TEST_DATA), and failing that from the
+/// private pile (PRO3D_PRIVATE_TESTDATA) where the path used to be hardcoded.
+let private noOpcData =
+    "OPC test data not available: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout, or PRO3D_PRIVATE_TESTDATA to the private fixture root"
+
+let private dimorphosPatch (patch : string) =
+    let below (root : string) =
+        Path.Combine(root, "Dimorphos_DRACO1", "Dimorphos_DRACO1",
+                     "g_01960mm_spc_dtm_dimo_0000n00000_v003_0_0", "Patches", patch,
+                     "XYZ_Local.aara")
+    [ TestUtils.Roots.testData None
+      TestUtils.Roots.privateDir [ "testdata" ] ]
+    |> List.choose (Option.map below)
+    |> List.tryFind File.Exists
 
 let private triangleCount (ts : TriangleSet) = ts.Position3dList.Count / 3
 
@@ -109,11 +125,9 @@ let tests () =
         // Patch 0_0_1 has ~2M triangles — a meaningful size for correctness and perf comparison.
         test "real-world loadTriangles pipeline matches legacy" {
             let araPath =
-                Path.Combine(
-                    "C:\\pro3ddata\\testdata", "Dimorphos_DRACO1", "Dimorphos_DRACO1",
-                    "g_01960mm_spc_dtm_dimo_0000n00000_v003_0_0", "Patches", "0_0_1", "XYZ_Local.aara")
-            if not (File.Exists araPath) then
-                skiptest "OPC test data not available"
+                match dimorphosPatch "0_0_1" with
+                | Some path -> path
+                | None -> skiptest noOpcData
 
             let positions = araPath |> Aara.fromFile<V3f>
             let size = positions.Size.XY.ToV2i()
@@ -310,11 +324,9 @@ let tests () =
 
         test "real-world computeGridIndices vs legacy pipeline" {
             let araPath =
-                Path.Combine(
-                    "C:\\pro3ddata\\testdata", "Dimorphos_DRACO1", "Dimorphos_DRACO1",
-                    "g_01960mm_spc_dtm_dimo_0000n00000_v003_0_0", "Patches", "0_0_1", "XYZ_Local.aara")
-            if not (File.Exists araPath) then
-                skiptest "OPC test data not available"
+                match dimorphosPatch "0_0_1" with
+                | Some path -> path
+                | None -> skiptest noOpcData
 
             let positions = araPath |> Aara.fromFile<V3f>
             let size = positions.Size.XY.ToV2i()

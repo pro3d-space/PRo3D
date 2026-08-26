@@ -10,92 +10,25 @@ open PRo3D.SPICE
 open PRo3D.Core
 open PRo3D.Core.InstrumentMetadata
 
-/// The instrument's camera for one observation, split into view and projection so the
-/// renderer can use it directly. `full` is what the projection shader consumes.
-type ProjectorCamera =
-    {
-        view     : Trafo3d
-        proj     : Trafo3d
-        /// view * proj, i.e. exactly what projectDirect returns.
-        full     : Trafo3d
-        /// Distance to the target in metres, from the sidecar.
-        distance : float
-        near     : float
-        far      : float
-    }
+/// The instrument's camera for one observation. Moved to PRo3D.Core so that pro3d-tool
+/// shares it; aliased here so testbed code keeps referring to it unqualified.
+type ProjectorCamera = PRo3D.Core.ProjectorCamera
+type ResolvedImage = PRo3D.Core.ResolvedImage
 
-type ResolvedImage =
-    {
-        path      : string
-        metadata  : ParsedMetadata
-        mbi       : Tiff_Mbi_Json.Mbi
-        /// SPICE frame name of the instrument, e.g. "MILANI_ASPECT_NIR1".
-        spiceName : string
-        /// Native pixel dimensions, when the sidecar declares them.
-        size      : Option<V2i>
-    }
-
+/// Scenario-shaped wrappers over PRo3D.Core.InstrumentObservation.
+///
+/// The observation-resolving logic is shared with pro3d-tool and lives in PRo3D.GIS.
+/// These wrappers only unpack a Scenario into its arguments -- keeping the shared code in
+/// one place matters most for `projectorCamera`, which encodes two failure modes (missing
+/// CK coverage producing a non-finite matrix, and a w = 0 perspective divide) that were
+/// found empirically and would be easy to lose in a second copy.
 module Setup =
 
-    /// Pick the image to project: the one named in the scenario, else the first the
-    /// folder yields that actually has an mbi sidecar behind it.
     let resolveImage (s : Scenario) : Result<ResolvedImage, string> =
-        let candidates =
-            match s.imageFile with
-            | Some f ->
-                let p = if Path.IsPathRooted f then f else Path.Combine(s.imageFolder, f)
-                if File.Exists p then [ p, tryParseMetadataForImagePath p ]
-                else []
-            | None ->
-                discoverInstrumentFolder s.imageFolder |> Seq.toList
+        InstrumentObservation.resolveImage s.imageFolder s.imageFile
 
-        let withMbi =
-            candidates |> List.choose (fun (path, meta) ->
-                match meta with
-                | Some mbi, _ -> Some (path, meta, mbi)
-                | _ -> None)
-
-        match withMbi with
-        | [] ->
-            match s.imageFile with
-            | Some f -> Result.Error (sprintf "no mbi sidecar found for image '%s' in %s" f s.imageFolder)
-            | None -> Result.Error (sprintf "no image with an mbi sidecar found in %s" s.imageFolder)
-        | (path, meta, mbi) :: _ ->
-            match InstrumentProjection.instrument2SpiceName mbi.instrument with
-            | None -> Result.Error (sprintf "no SPICE frame known for instrument '%s'" mbi.instrument)
-            | Some spiceName ->
-                let size =
-                    match meta with
-                    | _, Some m -> Some (V2i(m.image_width, m.image_height))
-                    | _ -> None
-                Ok { path = path; metadata = meta; mbi = mbi; spiceName = spiceName; size = size }
-
-    /// Resolve which metakernel to load. Sidecars routinely name a version that is not on
-    /// disk, so falling back is normal -- but say so loudly, because a substituted kernel
-    /// can change the answer this tool exists to measure.
     let resolveKernel (s : Scenario) (img : ResolvedImage) : Result<string, string> =
-        match s.spiceKernel with
-        | Some explicitPath ->
-            if File.Exists explicitPath then Ok explicitPath
-            else Result.Error (sprintf "kernel not found: %s" explicitPath)
-        | None ->
-            let declared = img.mbi.spiceMk
-            let fromSidecar =
-                declared |> Option.bind (SpiceBoot.resolveSidecarKernel s.kernelRoot)
-            match fromSidecar with
-            | Some p ->
-                Log.line "[spice] using sidecar-declared kernel %s" p
-                Ok p
-            | None ->
-                let fallback = Path.Combine(s.kernelRoot, "mk", "hera_plan.tm")
-                if File.Exists fallback then
-                    Log.warn "[spice] sidecar declares metakernel %A which was not found under %s"
-                        declared s.kernelRoot
-                    Log.warn "[spice] SUBSTITUTING %s -- geometry may differ from the image" fallback
-                    Ok fallback
-                else
-                    Result.Error (sprintf "no kernel found: sidecar wants %A, fallback %s missing"
-                              declared fallback)
+        InstrumentObservation.resolveKernel s.spiceKernel s.kernelRoot img
 
     /// Place a secondary body's shape model into the primary body's frame.
     ///
@@ -106,6 +39,8 @@ module Setup =
     /// `scale` converts SPICE's position units to the scene's. SPICE reports km natively
     /// and the OPCs are in metres, but wrappers vary -- the caller logs the magnitude so
     /// the factor is chosen from what the data actually says rather than assumed.
+    ///
+    /// Testbed-only: the tool renders a single body, so this stayed here.
     let secondaryBodyTrafo (renderFrame : string) (primary : string)
                            (bodyName : string) (bodyFrame : string)
                            (time : DateTime) (scale : float) =
@@ -121,71 +56,9 @@ module Setup =
             Result.Error (sprintf "no orientation for frame %s -> %s at %s"
                               bodyFrame renderFrame (time.ToString "o"))
 
-    /// Unit vector from the body towards the sun, in the render reference frame.
-    ///
-    /// Returned as an option rather than defaulting to some arbitrary direction: a wrong
-    /// sun direction produces a plausible-looking but meaningless shaded render, which is
-    /// worse than no shaded render at all when the whole point is to use the shading as
-    /// independent evidence about the topography.
     let sunDirection (renderFrame : string) (primary : string) (time : DateTime) : Result<V3d, string> =
-        match CooTransformation.getRelState "SUN" "EARTH" primary time renderFrame with
-        | Some st when st.pos.Length > 0.0 -> Ok st.pos.Normalized
-        | Some _ -> Result.Error "SPICE returned a zero-length sun vector"
-        | None ->
-            Result.Error (sprintf "no sun ephemeris relative to %s in %s at %s"
-                              primary renderFrame (time.ToString "o"))
+        InstrumentObservation.sunDirection renderFrame primary time
 
-    /// Build the instrument's camera for this observation.
-    ///
-    /// The projector trafo comes back as a single view*proj matrix, but rendering needs
-    /// the two separately (stableTrafo relies on the model-view split for precision). The
-    /// projection half is reconstructible from the instrument's frustum, so view falls
-    /// out as full * proj⁻¹.
     let projectorCamera (s : Scenario) (img : ResolvedImage) : Result<ProjectorCamera, string> =
-        // targetPos is in km
-        let distance = img.mbi.targetPos.Length * 1000.0
-        let near, far =
-            match s.nearFar with
-            | Some (n, f) -> n, f
-            | None -> InstrumentProjection.nearFarForDistance distance
-
-        match Map.tryFind img.spiceName (InstrumentProjection.instruments near far) with
-        | None -> Result.Error (sprintf "no frustum defined for instrument frame '%s'" img.spiceName)
-        | Some frustum ->
-            let full =
-                PRo3D.InstrumentProjection.Visualization.projectDirectWithNearFar
-                    (Some (near, far)) s.observer s.referenceFrame img.metadata
-                    s.body None s.projectionMethod
-            match full with
-            | None ->
-                Result.Error (sprintf
-                    "projection did not resolve for %s at %s (frame %s, observer %s). \
-                     Most likely the loaded kernel has no coverage at this epoch."
-                    img.spiceName (img.mbi.obs_date.ToString("o")) s.referenceFrame s.observer)
-            // Checking the matrix elements alone is not enough: with no CK coverage the
-            // chain came back with finite entries but a camera sitting exactly on the
-            // target, so the body centre projected to w = 0 and only the perspective
-            // divide produced the NaN. Test the thing we actually rely on.
-            | Some full when not (full.Forward.ToArray() |> Array.forall Double.IsFinite)
-                          || not (full.Forward.TransformPosProj V3d.Zero
-                                  |> fun p -> Double.IsFinite p.X && Double.IsFinite p.Y && Double.IsFinite p.Z) ->
-                // A non-finite matrix is worse than no matrix: it renders a blank frame and
-                // scores 0.0 everywhere, which reads as "the geometry is wrong" rather than
-                // "the pointing never resolved". Observed with --method spice at this epoch,
-                // where the frame chain to MILANI_ASPECT_NIR1 has no CK coverage yet
-                // something still returned Some rather than None.
-                Result.Error (sprintf
-                    "projection resolved to a non-finite matrix for %s at %s (frame %s). \
-                     The kernel most likely lacks coverage for this frame chain and the \
-                     failure was not reported as such."
-                    img.spiceName (img.mbi.obs_date.ToString("o")) s.referenceFrame)
-            | Some full ->
-                let proj = Frustum.projTrafo frustum
-                Ok {
-                    view = full * proj.Inverse
-                    proj = proj
-                    full = full
-                    distance = distance
-                    near = near
-                    far = far
-                }
+        InstrumentObservation.projectorCamera
+            s.nearFar s.observer s.referenceFrame s.body s.projectionMethod img

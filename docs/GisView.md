@@ -128,6 +128,131 @@ In the Surfaces pane witin the Gis View, now specifiy reference frame and celest
 Since we have a full surface for mars now, we can switch of the proxy geometry:
 ![](images/molaObservation.png)
 
+## Sun illumination and cast shadows
+
+The **Sun / Lighting Mode** dropdown (in the projected-images section of the GIS tab)
+shades OPC surfaces with the real sun position for the current observation time:
+
+| Mode | Effect |
+|---|---|
+| `Off` (default) | no sun shading, surfaces render as always |
+| `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun |
+| `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map |
+
+Requirements: a loaded SPICE kernel, an observation time inside its coverage, and the
+surface registered in the GIS Surfaces tab (reference frame + body) — the same
+prerequisites the projected-image features have. The sun direction updates with the
+observation time, so scrubbing time moves the terminator and the shadows.
+
+The lighting mode is saved with the scene, which also means **batch rendering
+(sequenced-bookmark image generation) uses it**: `PRo3D.Snapshots.exe` restores the scene
+and renders through the same surface pipeline. GIS bookmarks store their own observation
+time, so a generated sequence sweeps the sun (and shadows) across bookmarks.
+
+Caveats:
+
+- Shadows use **one global shadow map** covering all surfaces; the sun direction comes
+  from the first GIS-registered surface. Multi-body scenes with different reference
+  frames share that one sun, and at planetary extents (a Mars-sized scene) a single
+  4096² map has too little resolution to be useful — the feature targets small-body
+  scenes (asteroids, moons).
+- Only OPC surfaces cast shadows (not OBJ surfaces, annotations or scene objects).
+- Switching `SunDirect` on changes the look compared to older PRo3D versions: shading
+  now uses the terrain normal and Lommel-Seeliger photometry instead of a
+  Lambert-on-sphere-normal approximation.
+
+### Batch rendering with hand-written JSON
+
+`PRo3D.Snapshots.exe --scn <scene.pro3d> --asnap <batch.json> --out <dir> --exitOnFinish`
+renders a bookmark list without the UI. To get sun lighting into such a run, two files
+need the right fields — the easiest way to get valid values is to set things up in the
+viewer once, save, and copy from the saved files; the reference below is for authoring
+or patching them by hand.
+
+**1. The scene file** (`--scn`) carries the global switches, inside `"gisApp"`:
+
+```jsonc
+"gisApp": {
+    "lightingMode": 2,                       // 0 = Off, 1 = SunDirect, 2 = SunShadow
+    "spiceKernel": "C:\\kernels\\mk\\hera_plan.tm",
+    "gisSurfaces": [
+      {
+        "surfaceId": "27e5b2c7-...",          // guid of the surface in this scene
+        "entity":         { "EntitySpiceName": "DIMORPHOS" },
+        "referenceFrame": { "FrameSpiceName":  "DIMORPHOS_FIXED" }
+      }
+    ],
+    "defaultObservationInfo": {
+      "observer":       { "EntitySpiceName": "DIMORPHOS" },
+      "referenceFrame": { "FrameSpiceName":  "DIMORPHOS_FIXED" },
+      "target": null,
+      "time": "2027-03-15T14:00:00.0000000Z"  // fallback for bookmarks without their own info
+    },
+    ...
+}
+```
+
+Without a registered `gisSurfaces` entry, a kernel and a valid time there is no sun
+direction, and the lit modes silently render like `Off`.
+
+**2. The batch file** (`--asnap`): to move the sun per frame, each bookmark carries an
+`"observationInfo"` — a bookmark without one renders with the scene's static default.
+All four keys must be present (`null` for unset; a missing key fails the parse):
+
+```jsonc
+{
+  "BookmarkAnimation": {
+    "fieldOfView": 30.0, "nearplane": 0.1, "farplane": 100000.0,
+    "resolution": "[640, 480]",
+    "snapshots": [
+      {
+        "filename": "frame_a",
+        "transformation": {
+          "Bookmark": {
+            "version": 0,
+            "bookmark": {
+              "version": 0,
+              "key": "dfd6d044-...",           // fresh guid per bookmark
+              "name": "epochA",
+              "navigationMode": 0,
+              "exploreCenter": "[0, 0, 0]",
+              "cameraView": { "view": [ "[sky]", "[position]", "[look]", "[up]", "[right]" ] }
+            },
+            "delay": 0, "duration": 5,
+            "sceneState": null,                 // key must exist, null is fine
+            "observationInfo": {
+              "observer":       { "EntitySpiceName": "DIMORPHOS" },
+              "referenceFrame": { "FrameSpiceName":  "DIMORPHOS_FIXED" },
+              "target": null,
+              "time": "2027-03-15T14:00:00.0000000Z"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+The `observationInfo` fields follow the GIS observation dropdowns:
+
+- `observer` is the **Observed body** — the scene anchor at the origin; using the body
+  the surface belongs to keeps the surface where the bookmark camera expects it.
+- `target` is the **Camera source Body**. With `"target": null` (as above) the
+  bookmark's own `cameraView` is used and only the sun moves between frames — the usual
+  choice for hand-placed cameras. Setting it (e.g.
+  `{ "EntitySpiceName": "HERA" }`) makes the generator **discard the bookmark's
+  camera** and render from that body's real SPICE position at `time`, looking at the
+  observed body — an approach-phase view.
+- `time` (UTC, must lie inside the kernel set's coverage) drives the sun direction — and
+  the camera position, when `target` is set.
+
+The end-to-end test `src/Tests/Features/SnapshotSunLightingTest.fs` generates exactly
+these files through the typed codecs and renders both variants — when in doubt about a
+field, that is the executable reference. Alternatively set everything up in the viewer,
+save the scene and a sequenced bookmark, and copy from the saved `.pro3d` / `.sbm`
+files: they use the same codecs.
+
 ## Extended features
 
 It is possible to add new celestial bodies, new reference frames.
@@ -138,4 +263,6 @@ For story telling, PRo3D also supports to create GIS bookmarks. Similarly to sto
 
 ## Caveats
 
-Currently the GIS settings are not stored to scene files.
+The GIS observation settings, surfaces, entities, reference frames and the sun/lighting
+mode are stored in the scene file; the projected-image list and its per-image settings
+are still session-local.
