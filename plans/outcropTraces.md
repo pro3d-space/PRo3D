@@ -403,28 +403,51 @@ Follows the `CrossSectionModel` shape ([CrossSection-Model.fs](../src/PRo3D.Core
 a `[<ModelType>]` record of `NumericInput` / `ColorInput` fields, an `initial`, and a sibling
 `OutcropTraceApp` with actions and `update`.
 
+Two homes, because the fields have two different lifetimes (section 8 explains where each is
+edited):
+
 ```fsharp
+// Selection-driven working state. Transient, no serialization.
 [<ModelType>]
 type OutcropTraceModel = {
-    enabled       : bool
-    usePolyline   : bool          // mirrors the rose diagram's two source toggles
-    useDnS        : bool
-    traceWidth      : NumericInput  // metres, full width of the drawn band
-    traceSmoothing  : NumericInput  // metres, smoothstep falloff either side
-    bedThickness    : NumericInput  // metres, true thickness between beds; 0 = single plane
-    projectionFactor : NumericInput // multiplier on the selection's own spread (4.4)
-    projectionFloor  : NumericInput // metres, minimum projection radius (single annotation)
-    color         : ColorInput
+    enabled      : bool
+    usePolyline  : bool           // mirrors the rose diagram's two source toggles
+    useDnS       : bool
+    bedThickness : NumericInput   // metres, true thickness between beds; 0 = single plane
+    color        : ColorInput
 }
 ```
 
-Defaults: `enabled = false`, `useDnS = true`, `usePolyline = false`, `traceWidth = 0.25`,
-`traceSmoothing = 0.1`, `projectionFactor = 1.5`, `projectionFloor = 25.0`,
-`color = C4b.Red`.
+```fsharp
+// Appearance / tuning. Set once, rarely touched, persisted per machine.
+// Added to the existing UserPreferences record (src/PRo3D.Core/UserPreferences.fs).
+    traceWidth       : float   // metres, full width of the drawn band
+    traceSmoothing   : float   // metres, smoothstep falloff either side
+    projectionFactor : float   // multiplier on the selection's own spread (4.4)
+    projectionFloor  : float   // metres, minimum projection radius (single annotation)
+```
 
-`bedThickness` has no useful fixed default — see the "derived, not a magic constant" decision in
-section 1. It is initialised to `projectionRadius / 8` the first time a selection produces an
-orientation, giving roughly eight visible traces straight away, and is left alone after that
+Defaults: `enabled = false`, `useDnS = true`, `usePolyline = false`, `color = C4b.Red`;
+`traceWidth = 0.25`, `traceSmoothing = 0.1`, `projectionFactor = 1.5`,
+`projectionFloor = 25.0`.
+
+Plain `float` in `UserPreferences`, not `NumericInput`: that record round-trips through
+`JsonConvert` as a whole value, and the min/max/step/format of a `NumericInput` are UI
+concerns with no business on disk. The viewer model wraps them in `NumericInput` for the
+control, seeded from the prefs and written back on change.
+
+> **Trap: `UserPreferences.load` does not validate.** It returns whatever `JsonConvert`
+> produced ([UserPreferences.fs:42](../src/PRo3D.Core/UserPreferences.fs:42)), and every
+> `userPreferences.json` written before this change has no `traceWidth` key — so Newtonsoft
+> leaves it at the CLR default of **0.0**. A zero trace width draws nothing and a zero
+> projection radius fades everything out: the feature would be silently dead for every user
+> who has ever run PRo3D, on a file the loader considers perfectly valid. Add a `sanitise`
+> step to `load` that replaces any non-positive numeric preference with its `initial` value,
+> before returning. It costs four lines and it protects every field added after this one.
+
+`bedThickness` has no useful fixed default — see the "derived, not a magic constant" decision
+in section 1. It is initialised to `projectionRadius / 8` the first time a selection produces
+an attitude, giving roughly eight visible traces straight away, and is left alone after that
 so the user's own value survives a change of selection. `bedThickness = 0` is the
 single-plane degenerate case, reachable by dragging the control to its minimum; there is no
 separate enable toggle for the sequence.
@@ -545,12 +568,16 @@ Three things to get right:
 1. The uniforms are always bound, zero-filled when `None`. See the Apple Silicon note in
    section 6.
 2. `view` is the parameter of `createGroupedSgs`, not `m.navigation.camera.view` (section 3).
-3. `getSurfacesScenegraphs` ([Viewer-Utils.fs:1038](../src/PRo3D.Viewer/Viewer/Viewer-Utils.fs:1038),
-   marked *"TODO TO refactor screenshot specific"*) is a **second, older** surface path that
-   does not bind the cross-section uniforms either. Check which path snapshots actually take
-   ([Viewer.fs:2751](../src/PRo3D.Viewer/Viewer/Viewer.fs:2751)) before claiming outcrop traces
-   appear in snapshots; if it is the legacy path, either bind there too or say plainly in the
-   docs page that snapshots do not show them yet.
+3. **Snapshots: wanted, deferred.** `getSurfacesScenegraphs`
+   ([Viewer-Utils.fs:1038](../src/PRo3D.Viewer/Viewer/Viewer-Utils.fs:1038), marked *"TODO TO
+   refactor screenshot specific"*) is a **second, older** surface path that does not bind the
+   cross-section uniforms either. Traces *should* appear in snapshots — batch-rendered
+   outcrop patterns are a real use — but that is explicitly **not in this change**. So:
+   establish which path snapshots take ([Viewer.fs:2751](../src/PRo3D.Viewer/Viewer/Viewer.fs:2751)),
+   and if it is the legacy one, **state in the docs page that snapshots do not show traces
+   yet** rather than leaving it to be discovered. Binding the uniforms on that path, or
+   folding the two paths together, is the follow-up in 13. Do not silently ship a feature
+   that vanishes in batch rendering.
 
 ---
 
@@ -568,11 +595,19 @@ GuiEx.accordion "Outcrop Traces" "map outline" false [
 Its own accordion rather than a section inside *Bulk Edit*, because the bulk panel refuses to
 render below two selected annotations and outcrop traces must work for one.
 
-Contents: an on/off button styled like the rose activation button, the Polyline / DnS
-toggles, and then — first, because it is the control the user actually works with — the
-**Bed thickness** row, with a *Fit to selection* button that re-derives it as
-`projectionRadius / 8`. Below that: *Trace width*, *Trace smoothing*, *Projection radius*
-(factor and floor) and the colour picker.
+Contents — only what changes with the selection: an on/off button styled like the rose
+activation button, the Polyline / DnS source toggles, then — first, because it is the control
+the user actually works with — the **Bed thickness** row with a *Fit to selection* button
+that re-derives it as `projectionRadius / 8`, and the colour picker.
+
+**The appearance settings live on the config tab instead.** *Trace width*, *Trace smoothing*,
+*Projection factor* and *Projection floor* are set once for a machine and then left alone, so
+they go in a new `GuiEx.accordion "Outcrop Traces" "Settings" false [...]` on the config page
+([ViewerGUI.fs:1177](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs:1177)), alongside *Frustum*,
+*Screenshots* and *Under Cursor*, which have exactly the same character. Keeping them out of
+the Annotations panel is what lets that panel stay a three-control surface — on, thickness,
+colour — which is all the feature needs in normal use. They persist via `UserPreferences`
+(section 5), so they survive a restart and are not tied to a scene.
 
 **Bed thickness is the user's value throughout.** The derived `projectionRadius / 8` is only the seed
 for the first selection that produces an orientation, and *Fit to selection* re-seeds it on
@@ -699,8 +734,9 @@ Each phase is a commit; the branch is `features/outcrop-traces` off `develop`.
    bed thickness first if that is faster to debug. The sequence is in from the start — it is
    two lines and it is the mode the feature exists for; deferring it would mean tuning trace
    width and projection radius against a picture nobody wants.
-3. **Selection plumbing + UI.** The adaptive aggregate from 4.6, the accordion, the dip /
-   azimuth / `S₁` readout and the four empty states.
+3. **Selection plumbing + UI.** The adaptive aggregate from 4.6, the Annotations accordion,
+   the new config-tab accordion, the `UserPreferences` fields *and their `sanitise` guard*
+   (section 5), the mean-attitude readout and the four empty states.
 4. **Aliasing mitigation** (section 12) once there is something on screen to judge it
    against. Separate commit so the before/after is visible.
 5. **Docs + release notes**, with the screenshots from the manual check.
@@ -756,6 +792,9 @@ Each phase is a commit; the branch is `features/outcrop-traces` off `develop`.
   `Scene.current` bump, so this is cheap when it is wanted.
 - A "refit across all selected points" mode alongside "average the orientations".
 - Exporting a trace as a polyline annotation (the CPU-slicing path).
+- **Outcrop traces in snapshots** (wanted, deliberately deferred — see 7.3): bind the
+  uniforms on the legacy screenshot scene-graph path, or merge it with `createGroupedSgs` so
+  there is only one path to keep in step.
 - **Profile sections through a fold**: in the girdle case, trace the sequence *perpendicular*
   to the π-axis instead of refusing. Same shader, different normal, so the cost is a mode
   switch — but it shows fold cross-sections, not bedding, and overloading one visual with two
@@ -787,8 +826,9 @@ second meaning on the same visual. Recorded in 13.
 
 **Verified during implementation, not decisions:**
 
-- Which render path snapshots take ([Viewer.fs:2751](../src/PRo3D.Viewer/Viewer/Viewer.fs:2751)),
-  which decides whether outcrop traces appear in them (7.3).
+- Which render path snapshots take ([Viewer.fs:2751](../src/PRo3D.Viewer/Viewer/Viewer.fs:2751)).
+  Traces in snapshots are wanted but deferred (7.3); what this verifies is only whether the
+  docs page has to say so.
 - Whether `Config.limitedShaderCapabilities` targets need the effect gated (section 6).
 
 **Noted, belongs to another file:**
