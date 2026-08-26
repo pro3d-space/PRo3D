@@ -33,6 +33,8 @@
     <Compile Include="KdTree.fs" />
     <Compile Include="SunAngles.fs" />
     <Compile Include="Unproject.fs" />
+    <Compile Include="SimulateShaders.fs" />
+    <Compile Include="SimulateImage.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

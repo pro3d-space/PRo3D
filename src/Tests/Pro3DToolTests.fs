@@ -72,6 +72,34 @@ module private Fixtures =
             height = 0
         }
 
+    let simulateImageDefaults : SimulateImageOptions =
+        {
+            opc = ""
+            time = ""
+            out = ""
+            instrument = "MILANI_ASPECT_NIR1"
+            observer = "MILANI"
+            body = "DIDYMOS"
+            frame = "DIDYMOS_FIXED"
+            kernel = null
+            kernelRoot = null
+            distance = 0.0
+            width = 256
+            height = 256
+            albedo = 0.16
+            // Opt-in here although the verb default is off: the Didymos fixture has no
+            // DRACO layer, so this exercises the fit's graceful fallback to constant
+            // albedo (a warning, not a failure).
+            deshade = true
+            deshadeLayer = "DRACO"
+            microScale = 0.5
+            microAmplitude = 0.3
+            ambient = 0.02
+            gain = 0.0
+            noShadows = false
+            shadowBias = 0.002
+        }
+
     /// A scratch copy: --forcekdtreerebuild rewrites .aakd files in place, and the test data
     /// is a git checkout.
     let copyToTemp (source : string) =
@@ -216,8 +244,84 @@ let private sunAngleTests =
         }
     ]
 
+let private simulateImageTests =
+    testList "simulate-image" [
+
+        // The Didymos fixture has no DRACO layer, so this also exercises the de-shading
+        // fit's graceful fallback to constant albedo (a warning, not a failure). The epoch
+        // is taken from the ASPECT image sidecar, which hera_plan.tm is known to cover --
+        // the same trick keeps the sun-angles test independent of kernel versions.
+        test "renders a deterministic simulated image with coverage and detail" {
+            if not HeraSpiceTests.hasHera then
+                skiptest "HERA spice kernels unavailable (or --skip-hera)"
+
+            match Fixtures.didymosOpc, Fixtures.aspectImages with
+            | None, _ | _, None -> skiptest "no Didymos/ASPECT test data (set PRO3D_TESTDATA)"
+            | Some opc, Some images ->
+
+            match PRo3D.Tests.Render.context.Value with
+            | None -> skiptest "no OpenGL runtime in this environment"
+            | Some (runtime, _) ->
+
+            match InstrumentObservation.resolveImage images None with
+            | Result.Error e -> skiptest (sprintf "no resolvable ASPECT image: %s" e)
+            | Result.Ok img ->
+
+            let mkDir = Path.GetDirectoryName HeraSpiceTests.spiceFileName
+            HeraSpiceTests.ensureKernelAt [ Path.Combine(mkDir, "hera_plan.tm"); HeraSpiceTests.spiceFileName ]
+
+            let outDir = Path.Combine(Path.GetTempPath(), "pro3d-tool-tests", Guid.NewGuid().ToString("N"))
+            Directory.CreateDirectory outDir |> ignore
+            try
+                let hierarchies =
+                    Directory.GetDirectories opc
+                    |> Array.filter (fun d -> Directory.Exists(Path.Combine(d, "Patches")))
+                Expect.isNonEmpty hierarchies "the Didymos OPC has a patch hierarchy"
+
+                let o = { Fixtures.simulateImageDefaults with opc = opc }
+                let time = img.mbi.obs_date
+
+                let render (name : string) =
+                    let path = Path.Combine(outDir, name)
+                    match SimulateImageVerb.processImage runtime o "DIDYMOS" "DIDYMOS_FIXED" "MILANI"
+                              "MILANI_ASPECT_NIR1" time path hierarchies with
+                    | Result.Error e -> failtest e
+                    | Result.Ok written ->
+                        Expect.isTrue (File.Exists written) "PNG written"
+                        written
+
+                let first = render "sim1.png"
+
+                let pix = PixImage.Load(first).ToPixImage<byte>(Col.Format.Gray)
+                Expect.equal pix.Size (V2i(256, 256)) "requested output size"
+
+                let data = pix.Volume.Data
+                let dark = data |> Array.filter (fun v -> v < 8uy)
+                let lit = data |> Array.filter (fun v -> v >= 8uy)
+                // Partial coverage: the body does not fill the frame, and space must be
+                // black rather than some plausible grey.
+                Expect.isGreaterThan lit.Length 0 "the body appears in the frame"
+                Expect.isGreaterThan dark.Length 0 "space stays black"
+                // Auto-exposure anchors the 99.5th percentile at DN 245, so a sane render
+                // reaches high DNs...
+                Expect.isGreaterThan (int (Array.max data)) 200 "auto-exposure reaches high DNs"
+                // ...and shading over topography produces many distinct values, which a
+                // flat disk (dead sun direction, dead normals) would not.
+                let distinct = data |> Array.distinct
+                Expect.isGreaterThan distinct.Length 32 "the disk is shaded, not flat"
+
+                // Deterministic: blocking loads, fixed warm-up, deterministic auto-gain.
+                let second = render "sim2.png"
+                Expect.equal (File.ReadAllBytes second) (File.ReadAllBytes first)
+                    "two renders of the same epoch are bit-identical"
+            finally
+                try Directory.Delete(outDir, true) with _ -> ()
+        }
+    ]
+
 let tests () =
     testList "pro3d-tool" [
         kdTreeTests
         sunAngleTests
+        simulateImageTests
     ]
