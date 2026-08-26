@@ -1,5 +1,5 @@
-//02f7b0e2-2f2f-a35e-ea38-b810240cec41
-//20cca9a3-0146-ffe1-59ca-65f794a9c26b
+//aee09fad-a22f-8805-86a1-ebb0c05225dc
+//8b6f74da-c2f2-c74d-f95c-5ec8c214cc27
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -233,6 +233,9 @@ type AdaptiveAnnotation(value : Annotation) =
     let _semanticType_ = FSharp.Data.Adaptive.cval(value.semanticType)
     let _crossSectionClipping_ = FSharp.Data.Adaptive.cval(value.crossSectionClipping)
     let _crossSectionRefPoint_ = FSharp.Data.Adaptive.cval(value.crossSectionRefPoint)
+    let _showFill_ = FSharp.Data.Adaptive.cval(value.showFill)
+    let _fillColor_ = Aardvark.UI.AdaptiveColorInput(value.fillColor)
+    let _fillAlpha_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.fillAlpha)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Annotation) = AdaptiveAnnotation(value)
@@ -268,6 +271,9 @@ type AdaptiveAnnotation(value : Annotation) =
             _semanticType_.Value <- value.semanticType
             _crossSectionClipping_.Value <- value.crossSectionClipping
             _crossSectionRefPoint_.Value <- value.crossSectionRefPoint
+            _showFill_.Value <- value.showFill
+            _fillColor_.Update(value.fillColor)
+            _fillAlpha_.Update(value.fillAlpha)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.key = __value.key
@@ -297,6 +303,9 @@ type AdaptiveAnnotation(value : Annotation) =
     member __.semanticType = _semanticType_ :> FSharp.Data.Adaptive.aval<SemanticType>
     member __.crossSectionClipping = _crossSectionClipping_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.crossSectionRefPoint = _crossSectionRefPoint_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Base.V3d>>
+    member __.showFill = _showFill_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.fillColor = _fillColor_
+    member __.fillAlpha = _fillAlpha_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module AnnotationLenses = 
     type Annotation with
@@ -328,4 +337,7 @@ module AnnotationLenses =
         static member semanticType_ = ((fun (self : Annotation) -> self.semanticType), (fun (value : SemanticType) (self : Annotation) -> { self with semanticType = value }))
         static member crossSectionClipping_ = ((fun (self : Annotation) -> self.crossSectionClipping), (fun (value : Microsoft.FSharp.Core.bool) (self : Annotation) -> { self with crossSectionClipping = value }))
         static member crossSectionRefPoint_ = ((fun (self : Annotation) -> self.crossSectionRefPoint), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Base.V3d>) (self : Annotation) -> { self with crossSectionRefPoint = value }))
+        static member showFill_ = ((fun (self : Annotation) -> self.showFill), (fun (value : Microsoft.FSharp.Core.bool) (self : Annotation) -> { self with showFill = value }))
+        static member fillColor_ = ((fun (self : Annotation) -> self.fillColor), (fun (value : Aardvark.UI.ColorInput) (self : Annotation) -> { self with fillColor = value }))
+        static member fillAlpha_ = ((fun (self : Annotation) -> self.fillAlpha), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Annotation) -> { self with fillAlpha = value }))
 

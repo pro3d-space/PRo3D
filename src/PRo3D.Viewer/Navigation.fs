@@ -57,9 +57,30 @@ module Navigation =
                     
 
             { model with navigationMode = oldNavMode }, Some "could not pick new orbit center with center ray.\n Please center view to surface before changing to ArcBall or select explore center manually"
-        | Some p -> 
+        | Some p ->
             Log.line "new orbit implicitly set to center ray"
             { model with exploreCenter = p; navigationMode = NavigationMode.ArcBall }, Some("New orbit set with center ray")
+
+    /// Distance from the frame origin to the ground beneath the camera.
+    /// MapView stores it in `CameraControllerState.rotationFactor` and scales
+    /// every pan/zoom step by the camera's height above it.
+    ///
+    /// It has to be derived from the body rather than from scene state: MapView
+    /// is also entered by restoring a bookmark or loading a scene, neither of
+    /// which runs `SetNavigationMode`, so a value computed only on the mode
+    /// switch is absent (0.01, the FreeFly default) on exactly those paths -
+    /// which makes pan and zoom wildly oversensitive.
+    ///
+    /// Non-planetary frames (JPL/ENU) have no body, so the only scale available
+    /// is where the data sits relative to the origin.
+    let mapViewRadius (planet : Planet) (model : NavigationModel) =
+        let location = model.camera.view.Location
+        match CooTransformation.tryGetBodyRadius planet location with
+        | Some r -> r
+        | None ->
+            let fromExplore = Vec.Length model.exploreCenter
+            if fromExplore > 0.0 then fromExplore
+            else max (Vec.Length location * 0.5) 1.0
 
     let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (userPrefs : UserPreferences) (switchToArcball : bool) (pickFunction : Option<unit->Option<V3d>>) (model : NavigationModel) (act : Action) (ctrlFlag : bool) =
         match act with            
@@ -105,8 +126,11 @@ module Navigation =
             }, None
         | MapViewControllerAction a ->
             let frustum = smallConfig.frustum.Get(bigConfigA)
+            let planet  = smallConfig.planet.Get(bigConfigB)
 
-            let angle = Math.Tanh(frustum.right / frustum.near) * 2.0
+            // Horizontal field of view: `right` is the half-width at the near
+            // plane, so the half-angle is atan(right / near).
+            let angle = Math.Atan(frustum.right / frustum.near) * 2.0
 
             let windowSize = smallConfig.windowSize.Get(bigConfigA)
 
@@ -129,16 +153,20 @@ module Navigation =
                 model.camera with
                     view = model.camera.view
                     sensitivity    = smallConfig.navigationSensitivity.Get(bigConfigA)
-                    orbitCenter    = Some model.exploreCenter
+                    // MapView always orbits the frame origin. Note this is not
+                    // `exploreCenter` - that belongs to ArcBall and MapView must
+                    // not clobber it.
+                    orbitCenter    = Some V3d.OOO
                     targetPhiTheta = V2d(windowSize.X, windowSize.Y)
                     panFactor      = angle
+                    // Refreshed per message, not just on the mode switch, so
+                    // bookmark restore and scene load get a valid body scale.
+                    rotationFactor = mapViewRadius planet model
                 }
 
-            let cam = MapViewController.update cam a
-                                    
-            let cam = 
-                let planet     = smallConfig.planet.Get(bigConfigB)
+            let cam = MapViewController.update planet cam a
 
+            let cam =
                 if model.updatePerFrame then
                     match a with 
                     | KeyUp _ 
@@ -180,16 +208,15 @@ module Navigation =
 
                 let cam = model.camera |> switchToMapViewController planet
 
-                // Approximate body radius for pan/zoom scaling. Avoids a
-                // synchronous kdtree pick which stalls the UI on large scenes.
-                let radiusEstimate =
-                    let fromExplore = Vec.Length model.exploreCenter
-                    if fromExplore > 0.0 then fromExplore
-                    else Vec.Length cam.view.Location
+                // Body radius for pan/zoom scaling. Avoids a synchronous
+                // kdtree pick which stalls the UI on large scenes.
+                let cam = { cam with rotationFactor = mapViewRadius planet model }
 
-                let cam = { cam with rotationFactor = radiusEstimate }
-
-                { model with camera = cam; exploreCenter = V3d.OOO; navigationMode = NavigationMode.MapView; updatePerFrame = true }, None
+                // `exploreCenter` is deliberately left alone: it is ArcBall's
+                // orbit centre, MapView orbits V3d.OOO regardless, and zeroing
+                // it left the next switch into MapView with no scale at all -
+                // which is what froze the map view on first entry.
+                { model with camera = cam; navigationMode = NavigationMode.MapView; updatePerFrame = true }, None
             | _ ->  { model with navigationMode = mode; updatePerFrame = false }, None
                
     module UI =        

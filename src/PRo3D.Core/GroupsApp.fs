@@ -120,8 +120,22 @@ module GroupsApp =
 
         (go m.rootGroup)
         |> IndexList.toList
-        |> HashMap.ofList                 
-    
+        |> HashMap.ofList
+
+    /// Leaf -> the full chain of group names containing it, outermost first.
+    /// Unlike `updateGroupsLookup` (which only yields the immediate parent's
+    /// name) this keeps nested structure, so an exporter can write a path and an
+    /// importer can rebuild the tree from it. The root group is not part of the
+    /// path: leaves directly under it map to an empty list.
+    let groupPathLookup (m : GroupsModel) : HashMap<Guid, list<string>> =
+        let rec collect (prefix : list<string>) (n : Node) =
+            [ yield! n.leaves |> IndexList.toList |> List.map (fun leaf -> leaf, prefix)
+              yield! n.subNodes
+                     |> IndexList.toList
+                     |> List.collect (fun child -> collect (prefix @ [ child.name ]) child) ]
+
+        collect [] m.rootGroup |> HashMap.ofList
+
     let updateActiveGroup (f : Node -> Node) (m : GroupsModel) =
         let root = updateNodeAt m.activeGroup.path f m.rootGroup        
 
@@ -222,6 +236,21 @@ module GroupsApp =
             { m with rootGroup = root'; flat = flat'; singleSelectLeaf = None }
         else
             { m with rootGroup = root'; singleSelectLeaf = None } 
+
+    /// Removes a leaf wherever it sits in the tree, by id alone. removeLeaf needs the owning
+    /// group's path and silently leaves the tree untouched on a wrong one - a hazard when the
+    /// selection came from a viewport pick, whose TreeSelection carries the root path regardless
+    /// of the leaf's actual group.
+    let removeLeafById (id : Guid) (model : GroupsModel) =
+        let rec strip (n : Node) =
+            { n with
+                leaves   = n.leaves |> IndexList.filter (fun leafId -> leafId <> id)
+                subNodes = n.subNodes |> IndexList.map strip }
+        { model with
+            rootGroup        = strip model.rootGroup
+            flat             = model.flat |> HashMap.remove id
+            singleSelectLeaf = (match model.singleSelectLeaf with Some s when s = id -> None | s -> s)
+            selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> ts.id <> id) }
 
     let rec removeSelected (selection:list<TreeSelection>) (removeFromFlat:bool) (m:GroupsModel)  =
         match selection with
@@ -586,22 +615,46 @@ module GroupsApp =
 
     let activeIcon (model : AdaptiveGroupsModel)
                    (group : AdaptiveNode) =
-        adaptive { 
+        adaptive {
             let! activeGroup = model.activeGroup
             let! group  =  group.key
-            return if (activeGroup.id = group) then "circle icon" else "circle thin icon"
+            // "circle thin" is font-awesome 4; the shipped semantic ui knows only "circle outline",
+            // and silently falls back to the filled circle - making active and inactive indistinguishable
+            return if (activeGroup.id = group) then "circle icon" else "circle outline icon"
         }
+
+    /// css color for a group in the tree view: green if it is the active group, white otherwise.
+    /// (the tree renders on a dark background, hence white rather than the semantic ui default)
+    let activeGroupColor (model : AdaptiveGroupsModel)
+                         (group : AdaptiveNode) : aval<string> =
+        adaptive {
+            let! activeGroup = model.activeGroup
+            let! key = group.key
+            let c = if activeGroup.id = key then C4b.VRVisGreen else C4b.White
+            return sprintf "color: %s" (Html.color c)
+        }
+
+    /// style attributes highlighting the active group; use with Incremental.div/i so that
+    /// switching the active group only updates the style instead of rebuilding the tree node
+    let activeGroupColorAttributes (model : AdaptiveGroupsModel)
+                                   (group : AdaptiveNode)
+                                   (additionalStyle : string) =
+        amap {
+            let! color = activeGroupColor model group
+            yield style (additionalStyle + color)
+        } |> AttributeMap.ofAMap
 
     let setActiveGroupAttributeMap (path : list<Index>)
                                    (model : AdaptiveGroupsModel)
-                                   (group : AdaptiveNode) 
+                                   (group : AdaptiveNode)
                                    (msg : GroupsAppAction -> 'a) =
         amap {
-            let! name = group.name
-            let setActive = GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, name)
             let! icon = activeIcon model group
             yield clazz icon
-            yield onClick (fun _ -> (msg setActive))
+            yield onClick (fun _ ->
+                let setActive =
+                    GroupsAppAction.SetActiveGroup (AVal.force group.key, path, AVal.force group.name)
+                msg setActive)
         } |> AttributeMap.ofAMap
 
     let viewSelectionButtons =

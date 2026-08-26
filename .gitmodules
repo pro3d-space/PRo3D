@@ -4,3 +4,6 @@
 [submodule "aardium"]
 	path = aardium
 	url = https://github.com/pro3d-space/aardium.git
+[submodule "src/Tests/resources"]
+	path = src/Tests/resources
+	url = https://github.com/pro3d-space/PRo3D.Resources.TestData.git

@@ -79,16 +79,25 @@ module UI =
         let thicknessTooltip = "Thickness of annotation"
         let samplingAmountTooltip = "Sampling amount used for annotations rendered with viewpoint or sky projection"
         let samplingUnitTooltip = "Sampling unit used for annotations rendered with viewpoint or sky projection"
+        let fillTooltip = "Fill new annotations. Closed geometries only; uses the group colour"
+        let fillAlphaTooltip = "Fill opacity for new annotations, 0 to 1"
 
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
-            Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
+            // Axis4PEllipse is hidden from the selector for now — the geometry itself and its
+            // update/rendering path stay intact, so existing annotations still load and draw.
+            Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse; Geometry.Axis4PEllipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
             Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
             // annotation color now comes from the active group's default color, so the tool-level color picker was removed
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
             Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
+            // no fill colour here on purpose - it follows the active group's default colour, the
+            // same single source the outline colour uses (see the note above)
+            Html.Layout.boxH [ i [clazz "large tint icon"] [] ]
+            Html.Layout.boxH [ GuiEx.iconCheckBoxSet model.fillNewAnnotations SetFillNewAnnotations ] |> UI.wrapToolTip DataPosition.Bottom fillTooltip
+            Html.Layout.boxH [ Numeric.view' [InputBox] model.defaultFillAlpha |> UI.map ChangeDefaultFillAlpha ] |> UI.wrapToolTip DataPosition.Bottom fillAlphaTooltip
         //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
         ]
                     
@@ -188,11 +197,16 @@ module UI =
                     let! geometry = a.geometry
                     let! semantic = a.semanticId
                     let! semanticType = a.semanticType
+                    let! text = a.text
 
                     return 
                         match semanticType with
-                        | SemanticType.Undefined -> 
-                            geometry  |> sprintf "%A"
+                        | SemanticType.Undefined ->
+                            match text with
+                            | "" ->  
+                                geometry  |> sprintf "%A"
+                            | _ -> 
+                                sprintf "%s (%A)" text geometry
                         | _ -> 
                             let (SemanticId s) = semantic
                             s
@@ -236,9 +250,9 @@ module UI =
                                                   
         let setActiveAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                        
-        let color = sprintf "color: %s" (Html.color C4b.White)
+        let colorAttributes = GroupsApp.activeGroupColorAttributes model group ""
         let desc =
-            div [style color] [       
+            Incremental.div colorAttributes <| AList.ofList [
                 Incremental.text group.name
                 Incremental.i setActiveAttributes AList.empty 
                 |> UI.wrapToolTip DataPosition.Bottom "Set active"
@@ -254,6 +268,8 @@ module UI =
 
                 staticClickIcon "calculator icon"       "Recalculate selected Polygon Measurements" (RecalculateMeasurements)
 
+                staticClickIcon "object group icon"     "Union selected annotations (2 or more)" (UnionSelectedAnnotations None)
+
                 ColorPicker.view group.defaultColor
                 |> UI.map (fun a -> GroupsMessage(GroupsAppAction.SetGroupDefaultColor(path, a)))
                 |> UI.wrapToolTip DataPosition.Bottom "Default color for new annotations in this group"
@@ -263,11 +279,14 @@ module UI =
             amap {
                 yield onMouseClick (fun _ -> DrawingAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                 let! expanded = group.expanded
-                if expanded then 
+                if expanded then
                     yield clazz "icon outline open folder"
-                else 
+                else
                     yield clazz "icon outline folder"
-                    yield style "overflow-y : visible"
+                // the icon is a sibling of the (white) description div and would
+                // otherwise inherit semantic ui's default (black) on our dark background
+                let! color = GroupsApp.activeGroupColor model group
+                yield style ("overflow-y : visible; " + color)
             } |> AttributeMap.ofAMap
           
         let childrenAttribs =

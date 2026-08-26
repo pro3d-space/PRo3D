@@ -24,7 +24,10 @@ module Picking =
 
     let mutable cache = HashMap.Empty
 
-    let pickRay (m : Model) (r : FastRay3d) (surfaceName : Option<string>) =
+    /// Intersects the scene's surfaces and keeps the full hit info (surface, bounding box,
+    /// object ray hit), which callers need to look up per-patch data such as attribute
+    /// layers. `pickRay` is the reduced variant most call sites want.
+    let pickRayInfo (m : Model) (r : FastRay3d) (surfaceName : Option<string>) =
         let ray = r.Ray
         let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
         let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
@@ -70,13 +73,17 @@ module Picking =
                 //let toLocal (v : V3d) = spiceTrafo.Backward.TransformPos(v)
 
                 //hitF >> Option.map toLocal
-                Some (hitInfo.hit, hitPosOnRay)
-            | _ -> 
+                Some (hitInfo, hitPosOnRay)
+            | _ ->
                 None
 
         if endLog then Log.stop()
 
-        hit 
+        hit
+
+    let pickRay (m : Model) (r : FastRay3d) (surfaceName : Option<string>) =
+        pickRayInfo m r surfaceName
+        |> Option.map (fun (hitInfo, hitPosOnRay) -> hitInfo.hit, hitPosOnRay)
 
     let pickVisualization (m : AdaptiveModel) =
         

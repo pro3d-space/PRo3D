@@ -35,9 +35,6 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Remove="Drawing\**" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="ResettableAsyncValue.fs" />
     <None Include="RunAdaptify.fsx" />
     <None Include="paket.references" />
@@ -69,11 +66,13 @@
     <Compile Include="Viewer\Shaders.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Scene.fs" />
+    <Compile Include="Viewer\RoseDiagram.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\ViewerLenses.fs" />
     <Compile Include="Viewer\Picking.fs" />
+    <Compile Include="Viewer\AnnotationExportViewer.fs" />
     <Compile Include="Viewer\EllipseAnnotations.fs" />
     <Compile Include="Viewer\Viewer.fs" />
     <Compile Include="Viewer\SnapshotSg.fs" />
@@ -88,6 +87,7 @@
     <EmbeddedResource Include="resources\calendar.css" />
     <EmbeddedResource Include="resources\calendar.js" />
     <EmbeddedResource Include="resources\utilities.js" />
+    <EmbeddedResource Include="resources\essentialstuff.js" />
     <Content Include="resources\rotationcubeXYZ\back.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

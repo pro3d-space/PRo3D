@@ -82,6 +82,24 @@ The version comes from the top heading of `PRODUCT_RELEASE_NOTES.md` and **must 
 - The git/release tag becomes `v{version}` (e.g. `v6.0.0-funysuperversion`).
 - **macOS:** prerelease labels are fine. electron-builder maps `version` → `CFBundleShortVersionString` and `buildVersion` → `CFBundleVersion`, both written verbatim into `Info.plist`. The "numeric dotted only" rule for those keys is enforced only by **App Store** submission — PRo3D ships via **Developer ID + notarization**, which does not validate the version-string format. Proof: releases already ship as `X.Y.Z-prerelease1` (e.g. `5.9.0-prerelease1`) with working signed/notarized `.dmg`s. So `6.0.0-prerelease1` deploys fine.
 
+### Number prereleases `001`, `002`, `003` — never `1`, `2`, `3`
+
+**Zero-pad the counter in a prerelease label to three digits**, i.e. `6.1.0-rc001`, `6.1.0-rc002`, … and `6.1.0-prerelease001`, … Start a version line that way; it cannot be fixed later.
+
+The build does **not** take the topmost entry of `PRODUCT_RELEASE_NOTES.md` — FAKE's `ReleaseNotes.load` returns the entry with the **highest SemVer**. And per [SemVer §11.4](https://semver.org/#spec-item-11), a prerelease identifier containing letters is compared *lexically in ASCII order*, not numerically. So the counter breaks the moment it reaches two digits:
+
+```
+rc9  vs  rc10   →  'r','c' equal, then '9' (0x39) > '1' (0x31)   →  rc10 < rc9
+```
+
+`6.0.0-prerelease10` therefore sorted *below* `6.0.0-prerelease9`. The failure is silent and expensive: `deploy.yml` resolved the older version, found that release already existed, set `skip=true`, and every downstream job was skipped — **the workflow reported success while building nothing**. That is why the 6.0.0 line jumps from `prerelease9` to `rc1`: `rc` sorts above `prerelease` (`'r' > 'p'`), which was the only way out that kept the same `MAJOR.MINOR.PATCH`.
+
+Zero-padding fixes this because the identifiers stay the same length, so lexical order matches numeric order: `rc001 < rc002 < … < rc009 < rc010 < … < rc999`.
+
+**You cannot retrofit the padding mid-line.** `rc002` sorts *below* `rc1` (`'0' < '1'`), so switching schemes part-way re-creates the exact bug. Once a line has started unpadded, keep counting unpadded and **do not go past `9`**; adopt the padded form at the next `MAJOR.MINOR.PATCH`. (This is why `6.0.0` continues `rc2`, `rc3`, … rather than moving to `rc002`.)
+
+If a line does run out of single digits before it ships, `6.0.0-rc9.1` sorts above `6.0.0-rc9` (more dot-identifiers win when the leading ones are equal) — ugly, but it unblocks a release.
+
 ## Resources
 
 all resources should be embedded using dotnet embedded resources to allow "single file deployment"

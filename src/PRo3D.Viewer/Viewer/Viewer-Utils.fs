@@ -839,10 +839,22 @@ module ViewerUtils =
 
         type UniformScope with
             member x.CrossSectionClippingEnabled : bool = x?CrossSectionClippingEnabled
+            member x.CrossSectionDefined : bool = x?CrossSectionDefined
 
+        /// Discards surface fragments outside the cross-section polygon, using the signed
+        /// distance Surface.Sg writes into the per-vertex InsideOutsideV4 attribute.
+        ///
+        /// CrossSectionDefined is not redundant with CrossSectionClippingEnabled: clipping
+        /// is enabled by default and only means "clip if there is something to clip
+        /// against". Without the guard this ran on every scene from the first frame, and
+        /// with no cross-section defined InsideOutsideV4 holds no meaningful data --
+        /// Surface.Sg binds it as a constant attribute (SingleValueBuffer) whose value does
+        /// not arrive on Apple Silicon, so roughly half the surface read negative and was
+        /// discarded, producing a lattice of holes across the terrain.
         let crossSectionClip (v : CrossSectionVertex) =
             fragment {
-                if uniform.CrossSectionClippingEnabled && v.insideOutside.X < 0.0f then
+                if uniform.CrossSectionClippingEnabled && uniform.CrossSectionDefined
+                   && v.insideOutside.X < 0.0f then
                     discard()
                 return v
             }
@@ -1100,6 +1112,16 @@ module ViewerUtils =
                 | _ -> true
             )
 
+        // Vertex editing is driven entirely by the live surface hit, so it has to keep the preview
+        // picking running even when the scene has it switched off. #669 made `true` the default,
+        // but scenes saved before that carry an explicit `false` and Json.tryRead only defaults a
+        // key that is absent - so without this, opening an older scene makes edit mode inert.
+        // The user's config value is read, never written.
+        let previewPickingEnabled =
+            (m.scene.config.showPreviewIntersection, m.interaction)
+            ||> AVal.map2 (fun showIt interaction ->
+                showIt || interaction = Interactions.EditAnnotation)
+
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
@@ -1180,7 +1202,7 @@ module ViewerUtils =
                             m.frustum 
                             selected 
                             surfacePicking
-                            m.scene.config.showPreviewIntersection
+                            previewPickingEnabled
                             surface.globalBB
                             refSystem 
                             observationSystem
@@ -1234,6 +1256,8 @@ module ViewerUtils =
                 |> ASet.map snd
                 |> Sg.set
                 |> Sg.uniform "CrossSectionClippingEnabled" m.scene.crossSectionModel.clippingEnabled
+                // Whether there is a cross-section at all. See crossSectionClip.
+                |> Sg.uniform "CrossSectionDefined" (crossSectionData |> AVal.map Option.isSome)
                 |> Sg.applyCrossSection crossSectionData
                 |> Sg.noEvents
 

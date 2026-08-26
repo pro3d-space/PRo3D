@@ -78,6 +78,7 @@ testbed-output/
 # test run artifacts
 /Aardvark.log
 /logs/
+/tools/profileDrawing/test_profile_*.svg
 
 # Yarn (Berry) local state / cache
 **/.yarn/*
@@ -87,3 +88,9 @@ testbed-output/
 !**/.yarn/sdks
 !**/.yarn/versions
 src/Tests/logs/
+
+# Scenes written by the TC-1 scene-lifecycle tests; kept on disk for inspection
+# because Section01_StartingPRo3D.Scene.cleanupGeneratedFiles is false.
+src/Tests/data/TestScene_*.pro3d
+src/Tests/data/TestScene_*.pro3d.ann
+src/Tests/data/TestScene_*/

@@ -64,7 +64,9 @@ module AnnotationViewer =
         let mv = view |> AVal.map (fun c -> (CameraView.viewTrafo c).Forward)
         // OpcViewer does not offer the Color by Category panel
         let points = points ColorByCategory.disabled (model.selectedLeaves |> ASet.map (fun x -> x.id)) annoSet config.offset mv
-        let lines, pickIds, bb = PackedRendering.linesNoIndirect ColorByCategory.disabled config.offset hoveredAnnotation (picked |> AVal.map Option.toList |> ASet.ofAVal) annoSet mv
+        // the packed object-id space: object id N is index N of this ordering, and of pickIds below
+        let ordered = PackedRendering.orderedAnnotations annoSet
+        let lines, pickIds, bb = PackedRendering.linesNoIndirect ColorByCategory.disabled config.offset hoveredAnnotation (picked |> AVal.map Option.toList |> ASet.ofAVal) ordered mv
 
         let pickColors = 
             //let size = AVal.constant (V2i(128,128))

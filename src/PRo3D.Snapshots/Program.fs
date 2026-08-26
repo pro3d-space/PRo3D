@@ -97,11 +97,10 @@ let startApplication (startupArgs : CLStartupArgs) =
   
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
   
-        let signature =
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-            ]
+        // must match the offscreen targets the snapshots are rendered into, see
+        // SnapshotFramebuffer - a mismatch makes the runtime reject every prepared
+        // command and all rendered frames come out black
+        let signature = SnapshotFramebuffer.createSignature runtime
 
         use sendQueue = new BlockingCollection<string>()    
       

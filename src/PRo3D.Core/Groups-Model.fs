@@ -333,10 +333,12 @@ module GroupsModel =
             let groupsLookup  = groupsLookup |> HashMap.ofList //TODO TO: check if it is possible to create generic hmap from/to json            
                                     
             return {
-                version             = current         
-                rootGroup           = rootGroup 
-                activeGroup         = Group.initGroupSelection 
-                activeChild         = Group.initChildSelection 
+                version             = current
+                rootGroup           = rootGroup
+                // the selection has to point at the group tree we just read - the default
+                // selection refers to Group.initRoot, which is not part of it
+                activeGroup         = { id = rootGroup.key; path = List.empty; name = rootGroup.name }
+                activeChild         = Group.initChildSelection
                 flat                = flat
                 groupsLookup        = groupsLookup
                 lastSelectedItem    = SelectedItem.Child

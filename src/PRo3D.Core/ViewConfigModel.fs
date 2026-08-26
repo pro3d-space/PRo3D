@@ -189,7 +189,7 @@ module ViewConfigModel =
         //useSurfaceHighlighting = true
         showExplorationPointGui = true
         showLeafLabels = false
-        showPreviewIntersection = false
+        showPreviewIntersection = true
         previewIntersectionWorldSize = previewIntersectionWorldSize
     }
        
@@ -225,7 +225,7 @@ module ViewConfigModel =
                     filterTexture         = false
                     showExplorationPointGui = true
                     showLeafLabels        = false
-                    showPreviewIntersection = false
+                    showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
@@ -262,7 +262,7 @@ module ViewConfigModel =
                     filterTexture         = false
                     showExplorationPointGui = true
                     showLeafLabels        = false
-                    showPreviewIntersection = false
+                    showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
@@ -301,7 +301,7 @@ module ViewConfigModel =
                     filterTexture         = false
                     showExplorationPointGui = true
                     showLeafLabels        = false
-                    showPreviewIntersection = false
+                    showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
@@ -338,7 +338,7 @@ module ViewConfigModel =
                     filterTexture         = filterTexture 
                     showExplorationPointGui = true
                     showLeafLabels        = false
-                    showPreviewIntersection = false
+                    showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
@@ -380,7 +380,7 @@ module ViewConfigModel =
                     filterTexture           = filterTexture 
                     showExplorationPointGui = if showExplorationPointGui.IsSome then showExplorationPointGui.Value else true
                     showLeafLabels          = false
-                    showPreviewIntersection = Option.defaultValue false showPreviewIntersection'
+                    showPreviewIntersection = Option.defaultValue true showPreviewIntersection'
                     previewIntersectionWorldSize = { previewIntersectionWorldSize with value = Option.defaultValue previewIntersectionWorldSize.value previewIntersectionWorldSize' }
                 }
             }

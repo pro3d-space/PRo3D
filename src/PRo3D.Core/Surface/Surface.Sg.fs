@@ -491,6 +491,11 @@ module Sg =
                                     //Log.stop()
                                     AVal.constant (ArrayBuffer(arr) :> IBuffer)
                                 | None ->
+                                    // Placeholder only. This constant attribute does not
+                                    // arrive as the bound zero on Apple Silicon -- whole
+                                    // patches read back garbage. Do not read
+                                    // InsideOutsideV4 unless a cross-section is defined;
+                                    // crossSectionClip guards on CrossSectionDefined.
                                     SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
                             )
 

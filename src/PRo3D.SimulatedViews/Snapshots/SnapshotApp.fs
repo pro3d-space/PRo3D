@@ -21,6 +21,28 @@ open Chiron
 
 
 
+/// The framebuffer the snapshots are rendered into has to have the *same* signature the
+/// scene graph's render objects were prepared against, otherwise the runtime rejects the
+/// prepared command ("Prepared command has framebuffer signature ... but expected ...")
+/// and every frame comes out black. Both the offscreen targets here and the app signature
+/// in PRo3D.Snapshots/Program.fs are built from these values so they cannot drift apart.
+module SnapshotFramebuffer =
+    open Aardvark.Rendering
+
+    [<Literal>]
+    let samples = 8
+
+    let depthStencilFormat = TextureFormat.Depth24Stencil8
+
+    let attachments =
+        [
+            DefaultSemantic.Colors, TextureFormat.Rgba8
+            DefaultSemantic.DepthStencil, depthStencilFormat
+        ]
+
+    let createSignature (runtime : IRuntime) =
+        runtime.CreateFramebufferSignature(attachments, samples)
+
 type NearFarRecalculation =
   | Both
   | FarPlane
@@ -139,14 +161,11 @@ module SnapshotApp =
         if verbose then
             Log.line "calculated near plane as %f and far plane as %f" near far
 
-        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1);
-        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.DepthComponent32f, 1, 1); //Depth24Stencil8 test laura
+        let samples = SnapshotFramebuffer.samples
+        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, samples);
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, SnapshotFramebuffer.depthStencilFormat, 1, samples);
 
-        let signature = 
-             app.runtime.CreateFramebufferSignature ([
-                 DefaultSemantic.Colors, TextureFormat.Rgba8
-                 DefaultSemantic.DepthStencil, TextureFormat.DepthComponent32f 
-             ], 1)
+        let signature = SnapshotFramebuffer.createSignature app.runtime
 
         let fbo = 
             app.runtime.CreateFramebuffer(
@@ -222,14 +241,11 @@ module SnapshotApp =
                                          (app : SnapshotApp<'model,'aModel, 'msg>) =
         let sg = app.sg 
         let resolution = V3i (a.resolution.X, a.resolution.Y, 1)
-        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 8);
-        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 8);
+        let samples = SnapshotFramebuffer.samples
+        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, samples);
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, SnapshotFramebuffer.depthStencilFormat, 1, samples);
 
-        let signature = 
-             app.runtime.CreateFramebufferSignature ([
-                 DefaultSemantic.Colors, TextureFormat.Rgba8
-                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-             ], 8)
+        let signature = SnapshotFramebuffer.createSignature app.runtime
 
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         let task = app.runtime.CompileRender(signature, sg)

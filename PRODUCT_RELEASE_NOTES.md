@@ -1,3 +1,46 @@
+## 6.1.0-prerelease004
+- Annotations: **one *Export…* window replaces the eleven fixed export commands** — file type (CSV table, GeoJSON, attitude planes, continuous GeoJSON), scope, one record per annotation vs. per point, coordinate kind and the exported attributes are composed per export instead of being baked into a menu entry. Presets pre-fill the window for the usual cases (GIS/QGIS, annotation table, profile, attitude planes) and stay editable afterwards; per-point exports can additionally sample the OPC surface layers. Saving as native `.pro3d.ann` is unchanged and stays on the menu
+- Annotations: geographic export now goes through the **convention-aware coordinate transform** — planetographic, spherical or ellipsoidal per body. The QGIS exporter bypassed it and wrote the string `"Error: No / invalid reference frame set"` inside coordinate arrays for bodies such as Dimorphos; points that cannot be converted now come out as empty cells (CSV) or a `null` geometry (GeoJSON)
+- Annotations: each record records **which routine produced its lat/lon/alt** — SPICE, naming the routine, or the surface's per-vertex `.aara` data. The sources disagree about what the third value is (a height above the spheroid, or a distance from the body centre), so `alt` could not be interpreted from the file alone before
+- Annotations: **longitude convention and range are explicit settings** — mirroring, a 180° prime-meridian shift, and `-180…180` vs. `0…360` notation, applied to every file type. The old exporters each picked something different without saying so
+- Annotations: the window **no longer writes silently wrong or empty files** — a scope matching nothing, a failed write, or geographic coordinates in a scene with no reference frame keep it open with a warning naming what to change
+- Annotations: records are written in **group-tree order**, the order shown in the annotation list; the old exports iterated a hash map, so row order varied between runs. *Selected only* now covers the multi-selection as well, which the old profile exports dropped
+
+## 6.1.0-prerelease003
+- Surfaces: **numeric controls work again** — Blend Factor, Min, Max and Color Map never appeared in surface properties, and the controls that did render were inert. `NoSemUi` kept its own semantic-ui dependency list pointing at the pre-5.7 resource paths, so all four URLs 404'd; one of them, `essentialstuff.js`, defines the jQuery `numeric` plugin the controls boot with, and its absence aborted the rest of the panel's DOM setup. The GIS entity numerics were broken the same way. Present in shipped 6.0.0
+
+## 6.1.0-prerelease002
+- Annotations: the **4-point ellipse is drawn as an ellipse again** — the four clicks were kept as raw points and rendered as an open polyline, because the ellipse fit on the dip/strike plane only handled the 3-point case. A four-point ellipse is now built as two half-ellipses that share the major axis and differ only in the semi-minor axis
+- Annotations: the **4-point ellipse is hidden from the geometry selector** for now. The geometry and its update/rendering path are unchanged, so existing annotations still load and draw
+- Under Cursor: the read-out adds the picked point's **latitude, longitude and altitude** next to its cartesian position, in the same convention as the Coordinate System panel. The rows are omitted when the conversion is unavailable — a non-planetary reference frame, or a SPICE call that fails
+
+## 6.1.0-prerelease001
+- Annotations: **boolean operations** — union two or more selected annotations into one, or cut the selected annotation along a polyline stroke drawn on the terrain. The stroke colours green or red as a live answer to "would this cut". A union of disjoint operands explodes into one annotation per component, a union that would enclose a hole is refused rather than silently dropping it, and both operations undo in a single step
+- Annotations: **move control points on the surface** — drag an annotation's vertices to new terrain positions in the new edit mode; Escape puts a grabbed point back, and moving a vertex onto a different surface is reported on screen
+
+## 6.0.0
+First stable release of the 6.0 line. The individual changes since 5.x are listed in the `6.0.0-prerelease*` and `6.0.0-rc*` entries below.
+
+- Sequenced bookmarks: **playback keeps the camera pointing where the bookmarks point** — moving between two bookmarks that look the same way lost the view direction and swung the camera up into the sky for the whole segment. Stepping to a bookmark, and batch-rendered snapshots, were unaffected
+
+## 6.0.0-rc2
+- Snapshots: **batch-rendered images are no longer black** — sequenced-bookmark animations, panorama collections and command-line snapshot rendering all wrote empty frames, because the offscreen framebuffer the images were rendered into did not match the one the scene was prepared for
+
+## 6.0.0-rc1
+- Screenshots: **screenshots are written again** — this completes the fix started in prerelease9, which got the rendering statistics parsing right but left the image download failing. Taking a screenshot blocked the update thread while the render service was waiting for that very thread to release the scene, so the request timed out after 100 seconds and PRo3D froze meanwhile
+
+## 6.0.0-prerelease9
+- Surfaces: fixed **holes across OPC surfaces on Apple Silicon Macs** — cross-section clipping ran on every scene even with no cross-section defined, discarding fragments based on a per-vertex attribute that was never filled; Windows and Linux were unaffected
+- Reference system: the **coordinate cross no longer vanishes** on click or scroll — refreshing up/north at the camera position also moved the cross's origin onto the camera
+- Screenshots: fixed **screenshots failing** with a deserialization error on the `/rendering/stats.json` body
+- Annotations: **lat/lon/alt columns** in the CSV export, and the annotation list shows the annotation text instead of its geometry type
+- Groups: fixed group activation
+
+## 6.0.0-prerelease8
+- Groups: the **active group is visible again** in the surface, annotation, bookmark and GIS trees — the filled/outline circle indicator broke with the Aardvark.Media 5.7 icon set, and the active group name is now highlighted; folder icons are no longer black on the dark panels
+- Surfaces: the **DistanceFilter** now explains itself — it only takes effect once a home position is set, so the (previously unlabeled) *Home Position* button moved next to the filter, shows `set`/`not set`, and both rows have tooltips
+- Traverses: **sol label size** uses the same screen-size convention as annotation and scale-bar labels, in both the fast and the stable text mode; sizes stored in existing scenes are converted on load, so labels keep their size
+
 ## 6.0.0-prerelease7
 - Snapshots: fixed a regression that prevented **bookmark / panorama snapshot animations from loading** in `PRo3D.Snapshots.exe` ("Could not read json File") — a required-vs-optional JSON read introduced by an earlier untested merge
 - Snapshots: `PRo3D.Snapshots.exe` (the sequenced-bookmark / batch renderer) is now **bundled into the installers** alongside `PRo3D.Viewer`, not only in the standalone zip
