@@ -492,6 +492,29 @@ module CooTransformation =
     let tryGetElevation (planet : Planet) (p : V3d) : double option =
         tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
 
+    /// Distance from the body centre to the reference surface beneath `p`, in
+    /// metres. `None` for non-planetary frames (Planet.None/.JPL/.ENU), which
+    /// have no body centre.
+    ///
+    /// Unlike deriving a radius from picked scene geometry this is stateless
+    /// and always available, so callers that need a body scale (MapView's
+    /// pan/zoom speed) get the same answer on a fresh scene, a restored
+    /// bookmark, or a repeated mode switch.
+    let tryGetBodyRadius (planet : Planet) (p : V3d) : double option =
+        match getConvention planet with
+        | NonPlanetary -> None
+        // Spherical stores the radial distance of `p` in `altitude`, not a
+        // height, so the reference sphere is the radius by definition.
+        | Spherical meanRadius -> Some meanRadius
+        // Ellipsoidal/Planetographic store a height above the reference
+        // surface. Planetographic heights are measured along the geodetic
+        // normal rather than radially, so this is exact only on a sphere and
+        // off by O(f^2 * R) elsewhere - metres on Mars, irrelevant as a scale.
+        | Ellipsoidal _ | Planetographic ->
+            tryGetLatLonAlt planet p
+            |> Option.map (fun sc -> p.Length - sc.altitude)
+            |> Option.filter (fun r -> r > 0.0)
+
     /// Body-relative "up" direction at point `p`. Total: when SPICE refuses
     /// (Dimorphos's planetocentric path always succeeds; PGRREC bodies may
     /// fail) the function falls back to `p.Normalized` (radial-from-centre).
