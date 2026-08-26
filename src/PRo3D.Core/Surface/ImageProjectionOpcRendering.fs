@@ -73,11 +73,34 @@ module ImageProjectionOpcExtensions =
             )
             "SunLightEnabled", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
-                context.projectedImages |> AVal.bind (function 
+                context.projectedImages |> AVal.bind (function
                 | None -> false |> AVal.constant
-                | Some p -> 
-                    (p.sunLightEnabled, p.sunDirection) 
-                    ||> AVal.map2 (fun enabled dir -> Option.isSome dir && enabled) 
+                | Some p ->
+                    (p.sunLightEnabled, p.sunDirection)
+                    ||> AVal.map2 (fun enabled dir -> Option.isSome dir && enabled)
+                ) :> IAdaptiveValue
+            )
+            // patch-local -> sun-camera clip, for the shadow-map lookup
+            // (transformShadowVertices). Composed on the CPU in double, like
+            // ProjectedImageModelViewProj above -- the whole point of routing the light
+            // matrix through ProjectedImages instead of an outer float32 uniform.
+            "StableModelViewProjTexture", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant M44d.Identity
+                    | Some p ->
+                        (p.lightViewProj, context.modelTrafo) ||> AVal.map2 (fun vp m ->
+                            match vp with
+                            | Some vp -> vp.Forward * m.Forward * patch.info.Local2Global.Forward
+                            | None -> M44d.Identity
+                        )
+                ) :> IAdaptiveValue
+            )
+            "HasShadowMap", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant false
+                    | Some p -> p.lightViewProj |> AVal.map Option.isSome
                 ) :> IAdaptiveValue
             )
         ]

@@ -264,6 +264,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
                 localImageProjectionTrafos = AVal.constant [||]
                 sunDirection = AVal.constant (Some sun)
                 sunLightEnabled = AVal.constant true
+                lightViewProj = AVal.constant None
             })
 
     let target = FloatTarget.create runtime size

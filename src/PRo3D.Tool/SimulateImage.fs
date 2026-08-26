@@ -470,6 +470,9 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 localImageProjectionTrafos = AVal.constant [||]
                 sunDirection = AVal.constant (Some sun)
                 sunLightEnabled = AVal.constant true
+                // this verb feeds its shadow map through its own shader stack
+                // (simulatedImage), not the viewer's per-patch shadow lookup
+                lightViewProj = AVal.constant None
             })
 
     let bbox =

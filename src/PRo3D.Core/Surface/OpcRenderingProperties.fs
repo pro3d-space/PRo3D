@@ -31,12 +31,17 @@ module SgExtensions =
                 let empty : aval<Option<string>> = AVal.constant None
                 s.Child?Body <- AVal.constant empty
 
-        type ProjectedImages = 
+        type ProjectedImages =
             {
                 imageProjection : aval<Option<Trafo3d>>
                 localImageProjectionTrafos : aval<array<Trafo3d>>
                 sunDirection : aval<Option<V3d>>
                 sunLightEnabled : aval<bool>
+                /// World -> sun-camera clip space for shadow mapping; None disables the
+                /// shadow lookup (HasShadowMap = false). Rides along here -- not as an
+                /// outer uniform -- because the per-patch uniform must compose the
+                /// patch's Local2Global in double precision (see projectionUniformMap).
+                lightViewProj : aval<Option<Trafo3d>>
             }
 
         type ProjectedImageApplicator(child : ISg, images : aval<Option<string>> -> aval<Option<ProjectedImages>>) =

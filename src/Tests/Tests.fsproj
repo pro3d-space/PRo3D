@@ -61,6 +61,7 @@
     <Compile Include="Features\Section18_KeyboardShortcuts.fs" />
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
     <Compile Include="Pro3DToolTests.fs" />
+    <Compile Include="Features\SnapshotSunLightingTest.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>
@@ -71,6 +72,12 @@
     <ProjectReference Include="..\PRo3D.Tool\PRo3D.Tool.fsproj" />
     <!-- Scene, SceneLoader and ViewerIO live in the viewer: needed by the TC-1 scene lifecycle tests -->
     <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />
+    <!-- Scene transitively exposes JR.InstrumentPlatforms types (view plans / rovers);
+         typing a Scene in the tests needs the assembly on the compile path (FS0074 in
+         Release, which Debug happens not to hit) -->
+    <Reference Include="JR.Wrappers">
+      <HintPath>..\..\lib\JR.Wrappers.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Thoth.Json.Net" Version="12.0.0" />

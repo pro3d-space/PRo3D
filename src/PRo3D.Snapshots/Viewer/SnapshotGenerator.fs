@@ -156,15 +156,36 @@ module SnapshotGenerator =
                             [ViewerAction.WriteBookmarkMetadata (path, bookmark)]
                         | None -> []
 
+                    // A GIS bookmark's SPICE observation info drives the sun direction
+                    // (LightingMode) of its frames. Interactive playback applies it
+                    // through ViewerLenses._bookmark; batch rendering bypasses the lens,
+                    // so replay it here as the same ObservationInfoMessages -- whose
+                    // handler also swings the camera to the SPICE look-at when the info
+                    // is complete, matching interactive semantics. Ordered AFTER
+                    // SetCamera so that override wins; with incomplete info the handler
+                    // leaves the camera alone and the bookmark's own view stands.
+                    let observationActions =
+                        match bookmark.observationInfo with
+                        | Some info ->
+                            [
+                                PRo3D.Core.Gis.ObservationInfoAction.SetTarget info.target
+                                PRo3D.Core.Gis.ObservationInfoAction.SetObserver info.observer
+                                PRo3D.Core.Gis.ObservationInfoAction.SetReferenceFrame info.referenceFrame
+                                PRo3D.Core.Gis.ObservationInfoAction.SetTime info.time.date
+                            ]
+                            |> List.map (PRo3D.Core.Gis.GisAppAction.ObservationInfoMessage >> ViewerAction.GisAppMessage)
+                        | None -> []
+
                     sceneStateAction@
                     frustumAction@
                     writeMetadataAction@
                     [
                         ViewerAction.SetCamera bookmark.cameraView
-                    ]
+                    ]@
+                    observationActions
                 actions
                 |> List.map ViewerMessage
-                |> List.toSeq    
+                |> List.toSeq
         | Snapshot.Panorama panorama ->
             let actions = 
                 [
