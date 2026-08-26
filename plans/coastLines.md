@@ -56,6 +56,16 @@ test*.
   plus mean-of-dip. Section 4 works through where the three disagree, with numbers; the
   short version is that the tensor method is the only one that is correct at shallow dips,
   at near-vertical dips, and under the sign ambiguity of a fitted plane.
+- **Tensor only — no pooled-point refit mode.** Fitting one plane through the union of all
+  selected annotations' points answers a different question ("do these sites lie on *one*
+  plane", with an RMS residual) and was considered. It is out: with the equidistant family
+  as the primary mode the visual answer is sufficient — traces that run continuously between
+  two outcrops *are* the correlation — and a second orientation source would double the UI
+  and the explanation for a number most users would not read. Recorded in 13 in case it is
+  wanted later; the machinery (`LinearRegression3d`) is already there.
+- **Equal weighting per annotation**, for now. Weighting by fit quality (`error.stdev`) or by
+  point count is one line in 4.3 and can be added without disturbing anything else; it is
+  left out until there is evidence a knob is needed.
 - **Guard on the eigenvalue spectrum, not on a resultant length.** `S₁ > 0.65` says a
   dominant orientation exists at all; `S₂/S₁ < 0.3` says it is a cluster rather than a
   girdle, i.e. that the selection is one bed family and not a fold with two limbs. Both
@@ -276,9 +286,10 @@ neither new machinery nor a new dependency here.
 `n = 1` is not a special case: `S₁ = 1`, the eigenvector is that annotation's normal, and the
 average plane *is* its plane.
 
-Weighting is a one-line extension if it is ever wanted (`T = Σ wᵢ nᵢnᵢᵀ`) — by fit quality
-(`DipAndStrikeResults.error.stdev`) or by point count. Equal weighting is the default because
-a physically larger annotation is not necessarily a better measurement.
+Weighting stays equal per annotation (decided, section 1): a physically larger or more
+densely sampled annotation is not necessarily a better measurement. If evidence later says
+otherwise it is a one-line change — `T = Σ wᵢ nᵢnᵢᵀ`, with `wᵢ` from
+`DipAndStrikeResults.error.stdev` or the point count — and nothing else in the plan moves.
 
 ### 4.4 Guards, calibrated
 
@@ -536,9 +547,19 @@ toggles, and then — first, because it is the control the user actually works w
 **spacing** row, with a *Fit to selection* button that re-derives it as `extentRadius / 8`.
 Below that: thickness, smoothing, extent factor, extent minimum, and the colour picker.
 
-The spacing row should show the resulting trace count over the extent
+**Spacing is the user's value throughout.** The derived `extentRadius / 8` is only the seed
+for the first selection that produces an orientation, and *Fit to selection* re-seeds it on
+demand; nothing recomputes it behind the user's back, and changing the selection leaves the
+value they set alone. The row shows the resulting trace count over the extent
 (`≈ 2·extentRadius / spacing`) next to the value, so that "1" versus "100" is legible before
 the user looks at the terrain rather than after.
+
+**The *Dip&Strike* panel gets the same numbers.** `Annotations.viewDipAndStrike`
+([ViewerGUI.fs:1523](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs:1523)) reports per-annotation dip
+and strike only; add a *selection average* row there — dip, azimuth, `S₁`, contributor count
+— sharing `CoastLines.average` so there is exactly one implementation of the combination and
+the two panels can never disagree. It is where a geologist looks for the number first, and it
+makes the average useful even with coast lines switched off.
 
 Above the controls, a readout of **what plane is actually being drawn** — this is what makes
 the averaging trustworthy, and it is cheap because the numbers already exist:
@@ -709,6 +730,10 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
   `Scene.current` bump, so this is cheap when it is wanted.
 - A "refit across all selected points" mode alongside "average the orientations".
 - Exporting a trace as a polyline annotation (the CPU-slicing path).
+- **Pooled-point refit as a second orientation mode** (decided out, section 1): one plane
+  through the union of all selected annotations' points, via `LinearRegression3d`, answering
+  "do these sites lie on one plane" with an RMS residual in metres rather than "do they dip
+  the same way".
 - **Per-site offsets.** The signed distance of each contributing annotation along the shared
   normal, `dᵢ = n·(cᵢ - anchor)`: tightly clustered `dᵢ` mean the sites are on one bed, and
   the spread is the stratigraphic separation in metres. Would make the correlation a number
@@ -720,23 +745,31 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 
 ## 14. Open questions
 
-The averaging method is no longer one of them — 4.2 settles it on the numbers. What is left:
+Decided since the first draft and no longer open: the averaging method (4.2), tensor-only
+with no pooled refit, equal weighting, the *Dip&Strike* selection-average row, the centroid
+anchor, and the equidistant family as the primary mode with a user-defined spacing.
 
-1. **Should the girdle case do more than refuse?** The fold axis falls out of the same
-   eigendecomposition for free, and for cross-site correlation "these two sites are limbs of
-   one fold plunging 000/00" is arguably a *more* valuable answer than a trace would have
-   been. Reporting it in the message is in the plan; drawing it (an axis line, or the two
-   limb planes as two traces) would break the one-plane constraint and is deliberately out.
-2. **Weighting.** Equal per annotation today. Weighting by `error.stdev` or point count is
-   one line in 4.3 — worth it, or does it just add a knob?
-3. **The rose's `R > 0.05` guard is sample-size independent** (`RoseDiagram.minResultant`).
-   For uniformly random azimuths E[R] is 0.40 at n = 5, 0.28 at n = 10 and 0.056 at
-   n = 250, so the guard fires on ~2% of random 10-annotation selections and ~46% of random
-   250-annotation ones. It does its actual job — suppressing the due-north line that
-   `atan2 0 0` would otherwise produce — but it is not the "no meaningful preferred
-   direction" test its comment claims. The calibrated version is Rayleigh: reject uniformity
-   at p ≈ 0.05 when `R > sqrt(3/n)`. Out of scope here (it is the rose's file, not this
-   feature's), noted because this plan's §4.4 deliberately did not copy the constant.
-4. **Should the *Dip&Strike* panel reuse this?** It currently reports per-annotation numbers
-   only. A "selection average" row there, sharing `CoastLines.average`, would be nearly free
-   and is where a geologist would look for it first.
+**Still open — one question:**
+
+1. **What should the girdle case do beyond refusing?** See 4.4: when the poles form a girdle
+   rather than a cluster the selection is folded, no single orientation represents it, and
+   the plan currently refuses to draw and reports the fold axis in the message. The options
+   beyond that are (a) leave it there, (b) drop the axis number and just say "folded", or
+   (c) offer a one-click switch to trace the family of planes *perpendicular to the fold
+   axis* — serial profile sections through the fold, which is the same shader with a
+   different normal and therefore costs nothing but a mode switch.
+
+**Verified during implementation, not decisions:**
+
+- Which render path snapshots take ([Viewer.fs:2751](../src/PRo3D.Viewer/Viewer/Viewer.fs:2751)),
+  which decides whether coast lines appear in them (7.3).
+- Whether `Config.limitedShaderCapabilities` targets need the effect gated (section 6).
+
+**Noted, belongs to another file:**
+
+- The rose's `R > 0.05` guard is sample-size independent (`RoseDiagram.minResultant`). For
+  uniformly random azimuths E[R] is 0.40 at n = 5, 0.28 at n = 10 and 0.056 at n = 250, so it
+  fires on ~2% of random 10-annotation selections. It does its actual job — suppressing the
+  due-north line `atan2 0 0` would produce — but it is not the "no meaningful preferred
+  direction" test its comment claims; the calibrated version is Rayleigh, `R > sqrt(3/n)`.
+  Recorded because this plan's 4.4 deliberately did not copy the constant.
