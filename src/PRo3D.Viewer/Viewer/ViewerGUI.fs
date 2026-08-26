@@ -811,7 +811,10 @@ module Gui =
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
             | _ -> ""
-        
+
+        let invertDrawingTooltip =
+            "Invert drawing: swap the Ctrl modifier - pick and draw without Ctrl, hold Ctrl to navigate."
+
         let topMenuItems (model : AdaptiveModel) = [
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
@@ -836,6 +839,15 @@ module Gui =
                 Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ]
+
+            // Inverts the Ctrl convention (picking = ctrlFlag <> inverseFlag). It is a global
+            // interaction-mode switch like the two items above, so it lives on the main row
+            // rather than in the Annotations dock page.
+            Html.Layout.horizontal [
+                Html.Layout.boxH [ GuiEx.iconToggle model.inverseFlag "toggle on icon" "toggle off icon" ViewerAction.InvertDrawing ]
+                Html.Layout.boxH [ text "Invert Drawing" ]
+            ] |> UI.wrapToolTip DataPosition.Bottom invertDrawingTooltip
+
             Html.Layout.horizontal [
                 scenepath model
             ]
@@ -1062,16 +1074,6 @@ module Gui =
                     | _ -> annotationLeafButtonns m 
                 )
 
-            let toggleIcon = 
-                AVal.map( fun toggle -> if toggle then "toggle on icon" else "toggle off icon") m.inverseFlag
-
-            let toggleMap = 
-                amap {
-                    let! toggleIcon = toggleIcon
-                    yield clazz toggleIcon
-                    yield onClick (fun _ -> ViewerAction.InvertDrawing)
-                } |> AttributeMap.ofAMap  
-            
             div [] [
                 GuiEx.accordion "Annotations" "Write" true [
                     GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
@@ -1087,11 +1089,7 @@ module Gui =
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
                 ]
-                div [style "padding: 10px; display: flex; color: white; align-items: center;"] [
-                    Incremental.i toggleMap AList.empty
-                    text "Invert Drawing"
-                ]
-            ]    
+            ]
 
     module AnnotationExport =
 
