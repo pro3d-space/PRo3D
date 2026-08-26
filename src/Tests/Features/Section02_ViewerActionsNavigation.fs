@@ -80,6 +80,30 @@ module private Nav =
         let location = marsSurface * (1.0 + marsAltitude / marsRadius)
         modelLookingAt location (location + V3d.IOO)
 
+    /// Dimorphos, for the assertions that pin down an actual radius value.
+    ///
+    /// Mars is `Planetographic`, so its radius comes from a native SPICE PGRREC
+    /// call that needs `pck00010.tpc`. CI deliberately runs only the
+    /// kernel-independent tests (`runTests.sh --skip-hera`), where that call
+    /// returns None and `mapViewRadius` falls back to a heuristic. Dimorphos is
+    /// `Spherical` (see `CooTransformation.getConvention`), which resolves
+    /// through pure F# LATREC math — same code path, no kernels, same answer on
+    /// every platform.
+    let dimorphosRadius = 77.166666666666667      // must match getConvention
+
+    let dimorphosRefSystem = { ReferenceSystem.initial with planet = Planet.Dimorphos }
+
+    /// The camera 500 m above the reference sphere. As with Mars, the altitude
+    /// has to dwarf the tolerance: the old estimate was |cameraLocation|, i.e.
+    /// radius + altitude, so a low-flying fixture cannot tell it from the
+    /// correct value.
+    let dimorphosAltitude = 500.0
+
+    let aboveDimorphos =
+        let direction = V3d(0.6, -0.5, 0.62).Normalized
+        let location  = direction * (dimorphosRadius + dimorphosAltitude)
+        modelLookingAt location (location + V3d.IOO)
+
 let tests =
     testList "Section 2 — Viewer Actions and Navigation" [
 
@@ -266,14 +290,15 @@ let tests =
             // default, so the *first* switch into MapView got radius + altitude.
             // Switching to ArcBall and back repaired it, because ArcBall's
             // pickOrbitCenter writes a real surface point into exploreCenter.
-            // The tolerance must stay well below Nav.marsAltitude for this to
-            // distinguish the correct radius from the old fallback.
-            let enter m = fst (Nav.run false None false m (Navigation.Action.SetNavigationMode NavigationMode.MapView))
-            let first  = enter Nav.aboveMars
-            let second = enter (fst (Nav.run false None false first (Navigation.Action.SetNavigationMode NavigationMode.FreeFly)))
+            // The tolerance must stay well below Nav.dimorphosAltitude for this
+            // to distinguish the correct radius from the old fallback.
+            let run m act = Nav.runOn Nav.dimorphosRefSystem false None false m act
+            let enter m = fst (run m (Navigation.Action.SetNavigationMode NavigationMode.MapView))
+            let first  = enter Nav.aboveDimorphos
+            let second = enter (fst (run first (Navigation.Action.SetNavigationMode NavigationMode.FreeFly)))
             for nav in [ first; second ] do
-                Expect.isTrue (abs (nav.camera.rotationFactor - Nav.marsRadius) < 5000.0)
-                    "MapView should scale by the Mars radius, not by camera state"
+                Expect.isTrue (abs (nav.camera.rotationFactor - Nav.dimorphosRadius) < 5.0)
+                    "MapView should scale by the body radius, not by camera state"
             Expect.floatClose Accuracy.medium
                 second.camera.rotationFactor first.camera.rotationFactor
                 "re-entering MapView should give the same body scale"
@@ -304,16 +329,33 @@ let tests =
             // SetNavigationMode, so they arrive with the FreeFly default (0.01)
             // as the "body radius" — which made pan and zoom wildly oversensitive.
             let restored =
-                { Nav.aboveMars with
+                { Nav.aboveDimorphos with
                     navigationMode = NavigationMode.MapView
                     updatePerFrame = true }
             Expect.isLessThan restored.camera.rotationFactor 1.0
                 "precondition: a restored camera carries the FreeFly default"
             let nav, _ =
-                Nav.run false None false restored
+                Nav.runOn Nav.dimorphosRefSystem false None false restored
                     (Navigation.Action.MapViewControllerAction MapViewController.Message.StepTime)
-            Expect.isTrue (abs (nav.camera.rotationFactor - Nav.marsRadius) < 50000.0)
+            Expect.isTrue (abs (nav.camera.rotationFactor - Nav.dimorphosRadius) < 5.0)
                 "the first MapView action should recompute the body radius"
+        }
+
+        test "TC-2.5 the planetographic radius path agrees with MapView's scale" {
+            // Keeps coverage of the Mars/PGRREC branch of tryGetBodyRadius, which
+            // the Dimorphos tests above deliberately avoid. It needs SPICE
+            // kernels, so it reports as ignored rather than passing vacuously on
+            // a kernel-less machine (which is what CI is).
+            match CooTransformation.tryGetBodyRadius Planet.Mars Nav.marsSurface with
+            | None -> skiptest "requires SPICE kernels (planetographic path unavailable)"
+            | Some radius ->
+                Expect.isTrue (abs (radius - Nav.marsRadius) < 5000.0)
+                    "the planetographic radius should match the surface point it was taken from"
+                let nav, _ =
+                    Nav.run false None false Nav.aboveMars
+                        (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+                Expect.floatClose Accuracy.medium nav.camera.rotationFactor radius
+                    "MapView should scale by exactly the radius tryGetBodyRadius reports"
         }
 
         test "TC-2.5 entering MapView leaves the ArcBall explore center alone" {
