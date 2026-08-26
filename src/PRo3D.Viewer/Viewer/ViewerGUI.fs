@@ -1016,6 +1016,117 @@ module Gui =
                             return div [style "font-style:italic; padding:5px"] [ text "no annotation selected" ]
             }
 
+        /// Outcrop traces: the mean attitude of the current selection, the bed thickness of
+        /// the modelled sequence, and what is actually being drawn.
+        ///
+        /// Its own accordion rather than a section inside Bulk Edit, because that panel
+        /// refuses to render below two selected annotations and outcrop traces must work for
+        /// one. The appearance settings (trace width, smoothing, projection radius) are on
+        /// the config page instead - they are scene settings, set once and left alone.
+        let viewOutcropTraces (model : AdaptiveModel) =
+            let m = model.outcropTraces
+            let up = model.scene.referenceSystem.up.value
+            let north = model.scene.referenceSystem.northO
+
+            let activation =
+                Incremental.div (AttributeMap.ofList [style "padding: 5px 0px"]) (
+                    alist {
+                        let! enabled = m.enabled
+                        yield button [
+                            clazz (if enabled then "ui tiny blue button" else "ui tiny button")
+                            onClick (fun _ -> ViewerAction.OutcropTraceMessage OutcropTraceAction.ToggleEnabled)
+                        ] [
+                            i [clazz (if enabled then "toggle on icon" else "toggle off icon")] []
+                            text (if enabled then "Outcrop traces on" else "Outcrop traces off")
+                        ]
+                    })
+
+            let toggles =
+                require GuiEx.semui (
+                    Html.table [
+                        Html.row "Polyline:" [ GuiEx.iconCheckBoxSet m.usePolyline (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetUsePolyline) ]
+                        Html.row "DnS:"      [ GuiEx.iconCheckBoxSet m.useDnS      (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetUseDnS) ]
+                    ])
+
+            // The readout is what makes the combination trustworthy: it names the attitude
+            // being drawn, and says plainly why nothing is drawn when nothing is.
+            let readout =
+                Incremental.div (AttributeMap.ofList [style "padding: 5px 0px"]) (
+                    alist {
+                        let! attitude = ViewerUtils.outcropTraceAttitude model
+                        let! up = up
+                        let! north = north
+                        match attitude with
+                        | None ->
+                            yield div [style "font-style:italic"]
+                                      [ text "No planes in the selection (enable a type, or select DnS / Polyline annotations)." ]
+                        | Some a ->
+                            match a.shape with
+                            | Cluster ->
+                                let dip, dipDir = OutcropTrace.dipAndDipDirection up north a
+                                yield div [] [
+                                    text (sprintf "Mean attitude of %d annotations - %.1f° / %.1f° (dip / dip direction), S₁ = %.2f"
+                                                  a.count dip dipDir a.s.X) ]
+                            | NoDominantAttitude ->
+                                yield div [style "font-style:italic"] [
+                                    text (sprintf "The selection has no dominant attitude (S₁ = %.2f) - a mean attitude would be meaningless."
+                                                  a.s.X) ]
+                            | Girdle axis ->
+                                let trend, plunge = OutcropTrace.trendAndPlunge up north axis
+                                yield div [style "font-style:italic"] [
+                                    text (sprintf "The poles form a girdle, not a cluster (S₁ = %.2f, S₂ = %.2f): the selection is folded, so no single attitude represents it. Fold axis (π-axis) ≈ %03.0f/%02.0f."
+                                                  a.s.X a.s.Y trend plunge) ]
+                    })
+
+            // Bed thickness first: it is the control the user actually works with, and a
+            // value far too small paints the terrain a solid colour while far too large
+            // shows one line - both of which read as "the feature is broken".
+            let thickness =
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! attitude = ViewerUtils.outcropTraceAttitude model
+                        let! factor = m.projectionFactor.value
+                        let! floor = m.projectionFloor.value
+                        let! bedThk = m.bedThickness.value
+                        let radius =
+                            match attitude with
+                            | Some a when a.shape = Cluster -> Some (OutcropTrace.projectionRadius factor floor a)
+                            | _ -> None
+                        yield require GuiEx.semui (
+                            Html.table [
+                                Html.row "Bed Thickness (m):" [
+                                    Numeric.view' [InputBox] m.bedThickness
+                                    |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetBedThickness)
+                                ]
+                                Html.row "" [
+                                    match radius with
+                                    | Some r ->
+                                        yield button [
+                                            clazz "ui tiny button"
+                                            onClick (fun _ -> ViewerAction.OutcropTraceMessage (OutcropTraceAction.FitBedThickness r))
+                                        ] [ text "Fit to selection" ]
+                                        let count = if bedThk > 0.0 then 2.0 * r / bedThk else 1.0
+                                        yield text (sprintf " %.0f traces over %.0f m" count (2.0 * r))
+                                    | None ->
+                                        yield text ""
+                                ]
+                                Html.row "Colour:" [
+                                    ColorPicker.view m.color
+                                    |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetColor)
+                                ]
+                            ])
+                    })
+
+            Incremental.div AttributeMap.empty (
+                alist {
+                    let! enabled = m.enabled
+                    yield activation
+                    if enabled then
+                        yield toggles
+                        yield readout
+                        yield thickness
+                })
+
         let viewAnnotationResults (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
@@ -1024,13 +1135,51 @@ module Gui =
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
                        
+        /// Mean attitude of the whole selection, shown under the per-annotation numbers.
+        ///
+        /// Shares `ViewerUtils.outcropTraceAttitude`, so this and the Outcrop Traces panel
+        /// can never report different numbers, and the average stays available with outcrop
+        /// traces switched off - which is where a geologist looks for it first.
+        let viewSelectionAttitude (model : AdaptiveModel) =
+            Incremental.div (AttributeMap.ofList [style "padding-top: 6px"]) (
+                alist {
+                    let! attitude = ViewerUtils.outcropTraceAttitude model
+                    let! up = model.scene.referenceSystem.up.value
+                    let! north = model.scene.referenceSystem.northO
+                    match attitude with
+                    | Some a when a.count > 1 ->
+                        yield h5 [clazz "ui inverted horizontal divider header"] [ text "Selection average" ]
+                        match a.shape with
+                        | Cluster ->
+                            let dip, dipDir = OutcropTrace.dipAndDipDirection up north a
+                            yield require GuiEx.semui (
+                                Html.table [
+                                    Html.row "Annotations:"    [ text (sprintf "%d" a.count) ]
+                                    Html.row "Dipping Angle:"  [ text (sprintf "%.2f deg" dip) ]
+                                    Html.row "Dip Direction:"  [ text (sprintf "%.2f deg" dipDir) ]
+                                    Html.row "Clustering S1:"  [ text (sprintf "%.3f" a.s.X) ]
+                                ])
+                        | NoDominantAttitude ->
+                            yield div [style "font-style:italic"] [
+                                text (sprintf "No dominant attitude in the selection (S1 = %.2f)." a.s.X) ]
+                        | Girdle axis ->
+                            let trend, plunge = OutcropTrace.trendAndPlunge up north axis
+                            yield div [style "font-style:italic"] [
+                                text (sprintf "The selection is folded (S1 = %.2f, S2 = %.2f); fold axis approx %03.0f/%02.0f."
+                                              a.s.X a.s.Y trend plunge) ]
+                    | _ ->
+                        yield div [] []
+                })
+
         let viewDipAndStrike (model : AdaptiveModel) = 
             let view = (fun leaf ->
                 match leaf with
                   | AdaptiveAnnotations ann -> DipAndStrike.viewUI ann
                   | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
         
-            model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties    
+            (model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties)
+            |> AVal.map (fun perAnnotation ->
+                div [] [ perAnnotation; viewSelectionAttitude model ])
             
         let viewDnSColorLegendUI (model : AdaptiveModel) = 
             model.drawing.dnsColorLegend 
@@ -1190,6 +1339,9 @@ module Gui =
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
                     ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage
+                ]
+                GuiEx.accordion "Outcrop Traces" "Settings" false [
+                    OutcropTraceApp.viewSettings m.outcropTraces |> UI.map OutcropTraceMessage
                 ]
                 GuiEx.accordion "Under Cursor" "Crosshairs" true [
                     underCursor m
@@ -1522,6 +1674,10 @@ module Gui =
                         
                         GuiEx.accordion "Dip&Strike" "Calculator" false [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewDipAndStrike m))]
+
+                        GuiEx.accordion "Outcrop Traces" "map outline" false [
+                            Annotations.viewOutcropTraces m
+                        ]
                     ]
 
                 require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))

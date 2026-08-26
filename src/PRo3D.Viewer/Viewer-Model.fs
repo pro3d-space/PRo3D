@@ -91,6 +91,7 @@ type ViewerAction =
 | ReferenceSystemMessage          of ReferenceSystemAction
 | AnnotationMessage               of AnnotationProperties.Action
 | AnnotationBulkMessage           of AnnotationProperties.Action
+| OutcropTraceMessage             of OutcropTraceAction
 | SetRoseEnabled                  of bool
 | SetRoseUsePolyline              of bool
 | SetRoseUseDnS                   of bool
@@ -673,6 +674,13 @@ type Model = {
     cursorAttributes    : Option<CursorAttributes>
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
+
+    /// Outcrop traces: where the selection's mean attitude, repeated at a constant bed
+    /// thickness, would crop out on the terrain. Driven by the annotation selection, which
+    /// is itself not persisted, so this is transient too. The appearance fields on it are
+    /// conceptually *scene* properties and belong on `Scene` when persistence is wanted -
+    /// never in userPreferences.json, which is per computer.
+    outcropTraces        : OutcropTraceModel
 
     // Bulk edit: dip-direction rose diagram. `roseEnabled` is the feature toggle that
     // activates the whole rose section; the other two pick which annotation geometry

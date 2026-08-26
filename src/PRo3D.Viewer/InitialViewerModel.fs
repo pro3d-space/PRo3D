@@ -188,6 +188,7 @@ module Viewer =
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()
+            outcropTraces   = OutcropTraceModel.initial
             roseEnabled     = false
             roseUsePolyline = false
             roseUseDnS      = true
