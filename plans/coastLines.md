@@ -39,14 +39,19 @@ test*.
   if the traces ever need to become annotations or be exported; it replaces section 6 only.
 - **View space, `float32` in the shader, plane composed on the CPU in `double`.**
   Non-negotiable at planetary scale — section 3.
-- **Average by mean unit normal** (Fisher/vector mean), not by separately averaging dip
-  azimuth and dip angle — section 4, including the sign trap that makes a naive
-  implementation cancel planes out.
-- **Report the resultant length `R` next to the average**, and refuse to draw below a
-  threshold. A selection with no preferred orientation averages to a confident, meaningless
-  plane. The rose diagram already established this exact guard (`minResultant = 0.05`,
-  [RoseDiagram.fs](../src/PRo3D.Viewer/Viewer/RoseDiagram.fs)) — reuse the concept and the
-  threshold so the two features agree about when a mean is real.
+- **Average with the orientation tensor** (principal eigenvector of `Σ nᵢnᵢᵀ`), which is the
+  standard method for *axial* orientation data and the one stereonet software uses for
+  poles. Not the mean unit normal, and emphatically not the rose's circular-mean-of-azimuth
+  plus mean-of-dip. Section 4 works through where the three disagree, with numbers; the
+  short version is that the tensor method is the only one that is correct at shallow dips,
+  at near-vertical dips, and under the sign ambiguity of a fitted plane.
+- **Guard on the eigenvalue spectrum, not on a resultant length.** `S₁ > 0.65` says a
+  dominant orientation exists at all; `S₂/S₁ < 0.3` says it is a cluster rather than a
+  girdle, i.e. that the selection is one bed family and not a fold with two limbs. Both
+  thresholds are calibrated in 4.4 rather than guessed. The rose's `minResultant = 0.05`
+  ([RoseDiagram.fs](../src/PRo3D.Viewer/Viewer/RoseDiagram.fs)) is the right guard for the
+  rose and the wrong one here -- 4.2 case 1 is a selection the rose refuses and this feature
+  must accept.
 - **Transient viewer state, not scene state** (section 5). The rose set this precedent, and
   the reason is concrete: the feature is driven by the *selection*, and `selectedLeaves` is
   explicitly not persisted ([Groups-Model.fs:363](../src/PRo3D.Core/Groups-Model.fs:363)).
@@ -135,90 +140,167 @@ instrument view.
 
 ---
 
-## 4. The average plane (the part that can actually be wrong)
+## 4. The average plane — which mean is correct
 
 New module `CoastLines` in `CoastLinesApp.fs`, **pure**, so the tests reach it without a GL
 context — the same split `RoseDiagram.includes` made for the rose, for the same reason.
 
-### 4.1 The sign trap — read this before writing the average
+The numbers in 4.2 are reproduced by
+[tools/analysis/compare_plane_averaging.py](../tools/analysis/compare_plane_averaging.py);
+the thresholds in 4.4 by
+[calibrate_plane_cluster_guard.py](../tools/analysis/calibrate_plane_cluster_guard.py).
 
-`DipAndStrikeResults.plane` is stored **as the regression returned it**. The up-orientation
-correction in `calculateDipAndStrikeResults`
-([AnnotationHelpers.fs:345](../src/PRo3D.Base/Annotation/AnnotationHelpers.fs:345)) is applied
-to a *local* `planeNormal` used to derive dip and strike — it is never written back to
-`plane`. So two annotations on the same bed can perfectly well carry normals pointing in
-**opposite** directions.
+### 4.1 The three candidates
 
-Average those raw normals and they cancel: the mean is near zero, `R` collapses, and the
-feature reports "no preferred orientation" for a selection that is in fact perfectly
-consistent. This is the one bug in this feature that produces a plausible-looking wrong
-answer rather than a visible failure.
+Each measurement is a plane, represented by its unit normal (its **pole**). Write dip angle
+δ and dip azimuth α; the pole is tilted δ from vertical, trending α + 180°.
 
-Every normal must therefore be sign-corrected with the existing helper before it is used:
+- **(A) Mean unit normal** — sum the poles, normalise. Fisher's mean for *directed* vectors,
+  and what the previous draft of this plan proposed.
+- **(B) Circular mean of α + arithmetic mean of δ**, reassembled into a normal the way
+  `calculateManualDipAndStrikeResults`
+  ([AnnotationHelpers.fs:254](../src/PRo3D.Base/Annotation/AnnotationHelpers.fs:254)) already
+  does. This is the arithmetic the rose diagram uses, extended with the dip angle — the
+  "established method" in the sense of *established in this codebase*.
+- **(C) Orientation tensor** — form `T = (1/N) Σ nᵢnᵢᵀ`, take the eigenvector of its largest
+  eigenvalue. Scheidegger/Watson; the standard treatment of *axial* orientation data in
+  structural geology, and what stereonet packages use for poles. The eigenvalues
+  `S₁ ≥ S₂ ≥ S₃` (summing to 1) come out as a free by-product and describe the *shape* of the
+  distribution.
 
-```fsharp
-let orient (up : V3d) (p : Plane3d) =
-    match DipAndStrike.signedOrientation up p with
-    | -1 -> -p.Normal
-    | _  ->  p.Normal
-```
+### 4.2 Where they disagree
 
-`up` comes from `m.scene.referenceSystem.up.value`, the same source
-`AnnotationProperties.viewResults` already uses.
+| case | truth | (A) vector mean | (B) az + dip mean | (C) tensor |
+| --- | --- | --- | --- | --- |
+| 1. two beds, 5°/000 and 5°/180 | horizontal | **0.0°**, R = 0.996 | 5.0°, **Rz = 0.000** | **0.0°**, S₁ = 0.992 |
+| 2. tight cluster, 5 beds ≈30°/120 | ≈30°/120 | 30.38°/120.5 | 30.40°/120.4 | 30.38°/120.5 |
+| 3. 40°/060, 40°/120, 35°/090 | — | 35.66°/090 | **38.33°**/090 | 35.65°/090 |
+| 4. 8 measurements of one **near-vertical** bed | ≈90° | **0.11°, R = 0.009** | **89.5°, Rz = 0.000** | **89.9°, S₁ = 0.9999** |
+| 5. fold, two limbs 40°/090 and 40°/270 | *no single plane* | 0.02°, **R = 0.766** | 40°, **az 022 (arbitrary)** | flagged: S₁ = 0.587, S₂ = 0.413 |
 
-### 4.2 The average itself
+Reading the table:
+
+- **Case 1 kills (B).** Two shallow beds dipping gently away from each other average to a
+  horizontal plane — an answer that is well defined and obviously right. (B) reports a 5°
+  plane, and its azimuth resultant is exactly zero, so under the rose's own guard it would
+  *refuse to draw at all*. Averaging two spherical coordinates independently is not an
+  average on the sphere; near-horizontal beds have wildly unstable azimuths and (B) weights
+  that instability equally with a well-constrained steep measurement.
+- **Case 3 shows (B)'s bias is systematic, not just noisy.** Scattered azimuths at a common
+  dip must average to a *shallower* plane; (A) and (C) give 35.7°, (B) gives 38.3° because
+  the arithmetic mean of the dip angles cannot know that the azimuths disagree. The error
+  grows with azimuthal spread.
+- **Case 4 kills (A).** A pole is only *directed* data if you can reliably orient it, and
+  PRo3D orients it by `signedOrientation up`
+  ([AnnotationHelpers.fs:250](../src/PRo3D.Base/Annotation/AnnotationHelpers.fs:250)) —
+  the sign of the normal's up-component. For a near-vertical bed that component is ≈0, so
+  the orientation is decided by whichever side of vertical each measurement happens to land
+  on: the eight poles in this case are all correctly up-oriented and still point in opposing
+  *horizontal* directions, because half the beds lean a fraction east and half a fraction
+  west. (A) cancels — eight consistent measurements of one bed report R = 0.009, "no
+  preferred orientation" — and adding fit noise to a truly vertical bed does the same thing
+  for the same reason. (C) is sign-invariant by construction (`nnᵀ = (-n)(-n)ᵀ`) and returns
+  89.9° with S₁ = 0.9999.
+- **Case 5 is why a scalar confidence is not enough.** A fold has no mean plane. (A) returns
+  a horizontal plane — perpendicular to both limbs, geologically meaningless — with
+  R = 0.766, comfortably above any reasonable "is this real" threshold, so it would draw a
+  confident wrong trace. Only the *spectrum* distinguishes this: S₁ ≈ S₂ ≫ S₃ is a girdle,
+  and no single number can express that.
+
+**Conclusion: (C).** It is right in every case above, it needs no `up`/`north` frame for the
+computation itself, and — the part that matters for the work — it makes the sign trap the
+previous draft of this plan devoted a whole subsection to **disappear entirely**. Delete the
+`orient` helper; it is not needed.
+
+### 4.3 The computation
 
 ```fsharp
 type AveragePlane = {
-    plane      : Plane3d   // world space
-    anchor     : V3d       // mean centre of mass, world space
-    resultant  : float     // R in [0,1] - 1 = all normals identical
-    spread     : float     // max distance from anchor to a contributing centre of mass
-    count      : int
+    plane   : Plane3d   // world space
+    anchor  : V3d       // mean centre of mass, world space
+    s       : V3d       // S1 >= S2 >= S3, normalised, sum to 1
+    spread  : float     // max distance from anchor to a contributing centre of mass
+    count   : int
 }
 ```
 
-Mean unit normal (vector / Fisher mean), which is the standard structural-geology answer and
-is consistent with the rose's mean resultant vector:
-
 ```fsharp
-let sum       = normals |> Array.fold (+) V3d.Zero      // all already sign-corrected
-let resultant = sum.Length / float normals.Length       // R
-let normal    = sum |> Vec.normalize
-let anchor    = (centres |> Array.fold (+) V3d.Zero) / float centres.Length
-let plane     = Plane3d(normal, anchor)
+// normals as fitted - NO sign correction, that is the point
+let T =
+    normals |> Array.fold (fun (m : M33d) (n : V3d) ->
+        m + M33d(n.X*n.X, n.X*n.Y, n.X*n.Z,
+                 n.Y*n.X, n.Y*n.Y, n.Y*n.Z,
+                 n.Z*n.X, n.Z*n.Y, n.Z*n.Z)) M33d.Zero
+    * (1.0 / float normals.Length)
+
+match SVD.Decompose T with
+| Some (u, s, _) ->
+    let normal = u.C0            // eigenvector of the largest eigenvalue
+    let ev     = s.Diagonal      // descending
+    …
+| None -> None
 ```
 
-Chosen over separately averaging dip azimuth (circularly) and dip angle (arithmetically)
-because it needs no `up`/`north` frame beyond the sign correction, degrades gracefully as
-dips approach vertical, and gives `R` for free. The two methods agree closely for a tight
-cluster and diverge for a scattered one — which is exactly the case where `R` is already
-telling the user not to trust the answer.
+`T` is symmetric positive semi-definite, so its SVD *is* its eigendecomposition: `u.C0` is
+the principal eigenvector and `s.Diagonal` holds the eigenvalues in descending order.
+`SVD.Decompose` on a 3×3 is already the in-repo idiom — `LinearRegression3d.TryGetRegressionInfo`
+does exactly this on a covariance matrix and likewise relies on the descending order
+([RegressionInfo.fs:1602](../src/PRo3D.Base/Annotation/RegressionInfo.fs:1602)), so there is
+neither new machinery nor a new dependency here.
 
-`n = 1` is not a special case: `R = 1`, `anchor` is that annotation's centre of mass, and the
+`n = 1` is not a special case: `S₁ = 1`, the eigenvector is that annotation's normal, and the
 average plane *is* its plane.
 
-### 4.3 Guards
+Weighting is a one-line extension if it is ever wanted (`T = Σ wᵢ nᵢnᵢᵀ`) — by fit quality
+(`DipAndStrikeResults.error.stdev`) or by point count. Equal weighting is the default because
+a physically larger annotation is not necessarily a better measurement.
 
-- `R < 0.05` (`RoseDiagram.minResultant`) → do not draw; the panel says the selection has no
-  preferred orientation. Without this, a scattered selection still yields a unit normal
-  (the sum's direction is arbitrary but non-zero) and would trace a confident wrong plane.
-- No contributing annotation → do not draw; the panel says so explicitly (mirror the rose's
-  empty-state wording), so an empty result is never mistaken for a broken shader.
-- Invalid / NaN normals filtered before the sum, via the same gate the rose uses.
+### 4.4 Guards, calibrated
 
-### 4.4 Default extent radius
+`S₁` ranges from 1/3 (no structure) to 1 (all poles identical). Measured against synthetic
+populations, n = 30:
+
+| population | S₁ | S₂/S₁ |
+| --- | --- | --- |
+| pole scatter σ = 10° | 0.971 | 0.019 |
+| σ = 20° | 0.896 | 0.074 |
+| σ = 30° | 0.792 | 0.158 |
+| σ = 40° | 0.697 | 0.270 |
+| uniformly random poles | 0.432 ± 0.035 (max 0.549 over 200 trials) | — |
+| fold, limbs 60° apart | 0.892 | 0.119 |
+| fold, limbs 90° apart | 0.785 | 0.272 |
+| fold, limbs 120° apart | 0.692 | 0.443 |
+
+So:
+
+- **`S₁ > 0.65`** — "there is a dominant orientation". Random poles top out at 0.55 across
+  200 trials, and a genuinely noisy but usable field set (σ = 30–40°) sits at 0.70–0.79.
+  The gap is real and this threshold sits in it.
+- **`S₂/S₁ < 0.3`** — "it is a cluster, not a girdle". Passes every unimodal case including
+  σ = 40°, and rejects a two-limb fold once the limbs are more than ~90° apart. Below that
+  separation a mean plane is defensible and the guard lets it through.
+
+Failing the first is *"no preferred orientation"*; failing the second is *"the selection
+looks folded"*, which is a different and much more useful message. In the girdle case the
+eigenvector of the **smallest** eigenvalue is the fold axis (verified: for the 40°/090 +
+40°/270 pair it comes out as trend 000, plunge 0, exactly right) — worth offering in the
+message even though drawing it is out of scope.
+
+`S₁` is also the number to show in the UI. It is **not** the rose's `R` and must not be
+labelled as if it were: the rose's `R` measures agreement of *azimuths only*, `S₁` measures
+agreement of full 3D orientations, and case 1 above is precisely a selection where one is 0
+and the other 0.99.
+
+### 4.5 Default extent radius
 
 `spread` (max distance from `anchor` to any contributing centre of mass) is the selection's
-own footprint, so the default extent radius is `max(spread, minimum) * multiplier` with the
-multiplier under user control and defaulting to something modest (1.5). One annotation gives
-`spread = 0`, so the minimum floor is what sizes that case — a few tens of metres.
+own footprint, so the default extent radius is `max(spread, extentMinimum) * extentFactor`.
+One annotation gives `spread = 0`, so the floor is what sizes that case.
 
 This is better than a fixed number: it scales with the outcrop the user actually selected,
-and it makes the extrapolation the user asks for explicit (raise the multiplier) rather than
-accidental.
+and it makes extrapolation explicit (raise the factor) rather than accidental.
 
-### 4.5 Collecting the selection
+### 4.6 Collecting the selection
 
 Use the aggregate shape the rose panel already worked out and documented at
 [ViewerGUI.fs:972](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs:972) — read it before writing this,
@@ -388,8 +470,8 @@ let coastLine = CoastLines.viewSpacePlane view m.coastLines m.drawing.annotation
 ```
 
 `coastLine` returning `None` folds together *disabled*, *nothing selected*, *no valid
-planes* and *`R` below threshold* — one gate, one uniform, and the shader cannot be reached
-with a half-valid plane.
+planes*, *`S₁` below threshold* and *girdle* — one gate, one uniform, and the shader cannot
+be reached with a half-valid plane.
 
 Three things to get right:
 
@@ -423,23 +505,32 @@ Contents: an on/off button styled like the rose activation button, the Polyline 
 toggles, numeric rows for thickness / smoothing / extent factor / extent minimum, a repeat
 checkbox with its spacing, and the colour picker.
 
-Above the controls, a readout of **what plane is actually being drawn** — this is the part
-that makes the averaging trustworthy, and it is cheap because the numbers already exist:
+Above the controls, a readout of **what plane is actually being drawn** — this is what makes
+the averaging trustworthy, and it is cheap because the numbers already exist:
 
 ```
-Average of 7 annotations — dip 34.2°, azimuth 118.7°, R = 0.94
+Average of 7 annotations — dip 34.2°, azimuth 118.7°, S₁ = 0.94
 ```
 
-derived from the averaged normal via the same `up`/`north` construction
-`calculateDipAndStrikeResults` uses, so the numbers are directly comparable to the ones in
-the *Dip&Strike* panel and to the rose's mean direction. The three failure states get
-explicit text instead of a silent blank:
+Dip and azimuth are derived from the principal eigenvector via the same `up`/`north`
+construction `calculateDipAndStrikeResults` uses, so they are directly comparable to the
+*Dip&Strike* panel. `S₁` is labelled `S₁`, never `R` — see the warning at the end of 4.4;
+showing the rose's symbol for a different quantity is how someone ends up comparing two
+numbers that measure different things.
+
+The four failure states get explicit text instead of a silent blank:
 
 - nothing selected → *"Select an annotation, or a group, to trace its plane."*
 - nothing contributes → *"No planes in the selection (enable a type, or select DnS /
   Polyline annotations)."* (the rose's wording)
-- `R` below threshold → *"The selection has no preferred orientation (R = 0.03); the average
-  plane would be meaningless."*
+- `S₁ ≤ 0.65` → *"The selection has no dominant orientation (S₁ = 0.48) — the average plane
+  would be meaningless."*
+- `S₂/S₁ ≥ 0.3` → *"The poles form a girdle, not a cluster (S₁ = 0.59, S₂ = 0.41): the
+  selection looks folded, and no single plane represents it. Fold axis ≈ 000/00."*
+
+The last one is the message that earns its keep. Selecting both limbs of a fold and getting
+a confident horizontal trace is the specific way this feature could quietly mislead someone
+doing cross-site correlation, and it is the case (A) cannot detect at all.
 
 ---
 
@@ -454,25 +545,37 @@ New `src/Tests/Features/Section21_CoastLines.fs`:
 - `ToggleEnabled`, `SetThickness`, `SetExtentFactor`, `SetRepeatSpacing`, colour change each
   land on the model.
 
-New `src/Tests/CoastLinePlaneTest.fs` — the parts that can be silently wrong:
+New `src/Tests/CoastLinePlaneTest.fs` — the parts that can be silently wrong. The first four
+are the table in 4.2 turned into assertions, so the method choice is pinned by tests rather
+than by a paragraph:
 
-- **the sign trap (4.1)**: two planes on the same bed, one constructed with a flipped normal.
-  Averaging must give `R ≈ 1` and the correct normal. Without the `signedOrientation`
-  correction this test yields `R ≈ 0` — it is the whole reason the test file exists;
-- **average of one** is that annotation's plane, `R = 1`, anchor = its centre of mass;
-- **scattered selection** → `R` below `minResultant`, and the result is `None`;
+- **shallow opposing dips** (5°/000 + 5°/180) → dip ≈ 0°, `S₁ ≈ 0.992`. Fails if anyone
+  reintroduces azimuth+dip averaging, which returns 5° here;
+- **near-vertical bed, poles as fitted** (8 measurements about 90°/090, normals *not*
+  sign-corrected) → dip ≈ 89.9°, `S₁ ≈ 0.9999`. Fails if anyone reintroduces the mean unit
+  normal, which returns 0.11° with R ≈ 0.009. This is the axial-invariance test and it is
+  the reason the module takes normals exactly as `DipAndStrikeResults` stores them;
+- **girdle rejection**: two limbs at 40°/090 and 40°/270 → `S₂/S₁ ≈ 0.70`, result is `None`
+  with the folded message, *not* a horizontal plane;
+- **tight cluster** (5 beds ≈30°/120) → 30.4°/120.5, `S₁ > 0.999` — the benign case, pinning
+  that the guards do not fire on ordinary data;
+- **average of one** is that annotation's plane, `S₁ = 1`, anchor = its centre of mass;
 - **view-space round trip**: build a plane and a `CameraView` far from the origin at
   planetary scale, transform, and assert that a point known to lie on the plane maps to a
   signed distance below a tight epsilon while a point 1 m off maps to 1.0 ± epsilon. This is
   what fails if someone reintroduces a world-space transform or drops to `float32` too
-  early — the other bug that looks like "the line is a bit off" rather than like a crash;
+  early — the bug that looks like "the line is a bit off" rather than like a crash;
 - **spread / extent** is the max centre-of-mass distance from the anchor, and `0` for a
-  single annotation (so the floor is what applies);
+  single annotation (so the floor applies);
 - **selection aggregation** over the checked-in 250-annotation fixture
   `src/Tests/data/bulk-rose-annotations.pro3d.ann` (already in the repo for the rose): the
   DnS-only / polyline-only / both-toggles contributor counts must agree with the rose's
   numbers, since both features gate on the same annotation types. Reuse those constants
   rather than recomputing them.
+
+The synthetic orientations for the first four come straight from
+[compare_plane_averaging.py](../tools/analysis/compare_plane_averaging.py), so the script and
+the tests cannot drift apart silently.
 
 Register both in `src/Tests/Tests.fsproj` and `src/Tests/Program.fs`.
 
@@ -506,12 +609,12 @@ the extent factor and watch it extrapolate. Screenshot both for the docs page.
 Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 
 1. **Model + averaging + tests, no rendering.** `CoastLines-Model.fs`, `CoastLinesApp.fs`,
-   the average-plane function with the sign correction, adaptify, both test files. Fully
+   the orientation-tensor average and its two guards, adaptify, both test files. Fully
    testable with nothing on screen, and it is where the real risk is.
 2. **Shader + Sg wiring.** `CoastLineShader`, both effect stacks, uniforms in
    `createGroupedSgs`. Drive it from a hard-coded plane first if that is faster to debug.
-3. **Selection plumbing + UI.** The adaptive aggregate from 4.5, the accordion, the dip /
-   azimuth / `R` readout and the three empty states.
+3. **Selection plumbing + UI.** The adaptive aggregate from 4.6, the accordion, the dip /
+   azimuth / `S₁` readout and the four empty states.
 4. **Repeat spacing.** Small once 1–3 are in; separate so the bisect surface stays honest.
 5. **Docs + release notes**, with the screenshots from the manual check.
 
@@ -523,11 +626,16 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
   a fix; raising the factor far past the selection's own footprint produces a confident line
   with no evidence behind it. This is the most likely way to mislead someone with this
   feature, and the docs must say so next to the control.
-- **A mean plane is not a fitted plane.** Averaging normals answers "what orientation does
-  this selection share"; it does not fit a plane through all the selected points. For
+- **A mean plane is not a fitted plane.** The orientation tensor answers "what orientation
+  does this selection share"; it does not fit a plane through all the selected points. For
   scattered-but-coplanar annotations spread over a large area the two differ, and this
   feature deliberately answers the first question. Refitting across the union of the points
   is a possible later mode, not this one.
+- **For a near-vertical mean plane the reported dip *direction* is arbitrary.** A bed dipping
+  89.9° toward 090 and one dipping 89.9° toward 270 are the same plane, and the tensor
+  method — correctly — does not distinguish them, so the readout may show either. This is
+  harmless for the trace itself, which only needs the plane, but it looks like a bug if it
+  is not documented.
 - **The plane does not follow surface transformations.** It is built from world-space picked
   points; changing a surface's transformation afterwards moves the terrain and leaves the
   plane where it was. Same behaviour as cross sections. Re-picking is the workaround.
@@ -551,11 +659,17 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
   [plans/sceneRenderTestHarness.md](sceneRenderTestHarness.md) lands — a fixed camera and one
   known plane is an ideal case for it.
 
-## 14. Open question
+## 14. Open questions
 
-**Averaging method.** The plan takes the mean unit normal (4.2). The alternative a
-structural geologist might expect is the rose's own arithmetic: circular mean of dip azimuth
-plus arithmetic mean of dip angle, reassembled into a normal the way
-`calculateManualDipAndStrikeResults` does. They agree for a tight cluster and diverge for a
-scattered one. If the second is what you want the panel to report, it is a swap of one
-function in `CoastLines`, and nothing else in the plan changes.
+The averaging method is no longer one of them — 4.2 settles it on the numbers. What is left:
+
+1. **Should the girdle case do more than refuse?** The fold axis falls out of the same
+   eigendecomposition for free, and for cross-site correlation "these two sites are limbs of
+   one fold plunging 000/00" is arguably a *more* valuable answer than a trace would have
+   been. Reporting it in the message is in the plan; drawing it (an axis line, or the two
+   limb planes as two traces) would break the one-plane constraint and is deliberately out.
+2. **Weighting.** Equal per annotation today. Weighting by `error.stdev` or point count is
+   one line in 4.3 — worth it, or does it just add a knob?
+3. **Should the *Dip&Strike* panel reuse this?** It currently reports per-annotation numbers
+   only. A "selection average" row there, sharing `CoastLines.average`, would be nearly free
+   and is where a geologist would look for it first.
