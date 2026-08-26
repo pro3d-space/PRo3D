@@ -1,37 +1,62 @@
-# Coast Lines — one orientation, a family of equidistant planes, traced across the surface
+# Outcrop Traces — one attitude, a modelled bedding sequence, traced across the surface
 
 **Goal.** Derive **one orientation** from an annotation selection, then mark every surface
 fragment lying within a given thickness of **any** plane in an equidistant family with that
-orientation. The result is a set of "shorelines": the traces of a regularly spaced stack of
-parallel planes across the topography, the way a series of water levels would draw a set of
-coasts.
+attitude. The result is the **outcrop pattern** the sequence would make: the traces of a
+regularly spaced stack of parallel planes across the topography, the way a series of water
+levels would each draw a coastline.
 
-- **one annotation selected** → its fitted plane's orientation;
-- **several annotations, or a whole group, selected** → the **combined** orientation of the
-  selection (section 4).
-- **spacing** → the perpendicular distance between successive planes in the family. Setting
-  it to zero collapses the family to the single plane through the anchor.
+- **one annotation selected** → its fitted plane's attitude;
+- **several annotations, or a whole group, selected** → the **mean attitude** of the
+  selection (section 4);
+- **bed thickness** → the perpendicular (true, stratigraphic) distance between successive
+  planes. Zero collapses the sequence to a single plane through the reference point.
 
-Selecting a group of bedding measurements, combining them into one orientation and watching
-where that whole bedding stack outcrops across the scene is the cross-site correlation use
-case that motivates this: if two outcrops belong to the same sequence, the traces run
-continuously between them.
+Selecting a set of bedding measurements, combining them into one attitude and watching where
+that whole sequence would crop out across the scene is the stratigraphic-correlation use case
+that motivates this: if two outcrops belong to the same sequence, the traces run continuously
+between them.
 
-The name is the sketch name. In geology these are *plane traces* / structure contours; the
-docs page should say both so the term is findable.
+## Terminology
 
-**Many planes, one uniform.** The family is *not* N planes uploaded to the GPU. It is one
-orientation plus a modulo in the fragment shader — `d mod spacing` instead of `d`. So there
+This was sketched as *coast lines*, which is a good intuition — a coastline is exactly the
+trace of a horizontal plane on topography, the dip = 0° case of what this draws. The
+established term for the general case is **outcrop trace**: the line where a geological
+plane meets the ground surface, which is what a geological map draws. The plan and the UI
+use the standard vocabulary throughout; keep the "coast line" origin in the docs page so the
+term stays findable for whoever remembers the sketch.
+
+| sketch term | standard term | meaning |
+| --- | --- | --- |
+| coast line | **outcrop trace** | where a plane meets the topographic surface |
+| the whole set of them | **outcrop pattern** | the map-view shape those traces make |
+| the plane's orientation | **attitude** | dip angle + dip direction; PRo3D stores both in `DipAndStrikeResults` |
+| average plane / direction | **mean attitude** | from the orientation tensor (section 4) |
+| spacing between planes | **bed thickness** | perpendicular = *true* / *stratigraphic* thickness, as opposed to apparent thickness in an oblique section |
+| the sequence of planes | **bedding sequence** | modelled: constant attitude, constant thickness |
+| line thickness | **trace width** | a rendering parameter, deliberately *not* a geological term |
+| extent radius | **projection radius** | how far the measured attitude is extrapolated |
+| poles bunched / smeared | **cluster / girdle** | standard fabric-shape vocabulary |
+| fold axis | **fold axis (π-axis)** | from π-analysis: poles to bedding lie on a great circle whose pole is the axis |
+
+One inconsistency this inherits rather than introduces: the existing UI labels dip direction
+as *"Dipping Orientation"* ([AnnotationHelpers.fs:466](../src/PRo3D.Base/Annotation/AnnotationHelpers.fs:466)).
+The standard term is **dip direction**. Not this feature's to change — new UI here says
+"dip direction", and the mismatch is worth a separate cleanup.
+
+**Many planes, one uniform.** The sequence is *not* N planes uploaded to the GPU. It is one
+attitude plus a modulo in the fragment shader — `d mod bedThickness` instead of `d`. So there
 are no uniform arrays, no per-fragment loop, no cap on the selection size, no per-plane
 colours and no fill-rate question to measure. The shader is a single dot product and a
 remainder. Everything expensive or uncertain lives on the CPU, in `double`, once per frame.
 `contourLines` ([Utilities.fs:749](../src/PRo3D.Base/Utilities.fs:749)) already uses the same
 trick against a texture value.
 
-**The anchor is only the family's phase.** With an infinite equidistant stack there is no
-"the" plane to position; the anchor just decides which offsets the planes land on. It is
-fixed at the selection's centroid, so one member of the family passes exactly through the
-middle of the measurements that defined it. Nothing else about it needs deciding.
+**The reference point is only the sequence's phase.** With an infinite equidistant stack
+there is no "the" plane to position; the reference point just decides which offsets the
+planes land on. It is fixed at the selection's centroid, so one bed of the sequence passes
+exactly through the middle of the measurements that defined it. Nothing else about it needs
+deciding.
 
 Every DnS annotation already carries a fitted `Plane3d`
 (`DipAndStrikeResults.plane`, [Annotation-Model.fs:160](../src/PRo3D.Base/Annotation/Annotation-Model.fs:160)),
@@ -83,17 +108,17 @@ test*.
   signed offset along the shared normal, were both considered and dropped -- see 13.
 - **The plane is clipped to a radius around the selection.** A plane fitted to a 2 m
   annotation is meaningless 4 km away; extended globally it paints a confident, wrong line
-  across the whole scene. The trace fades out beyond `extentRadius` of the mean centre of
+  across the whole scene. The trace fades out beyond the **projection radius** of the mean centre of
   mass, and the default radius is *derived from the selection's own spread* (section 4), not
   a fixed number.
 - **The equidistant family is the primary mode, not an add-on.** Spacing defaults to on,
-  and the single plane is the degenerate case (`spacing = 0`). This is a reversal from the
-  first draft, and it changes the priorities below: the spacing control has to be
+  and the single plane is the degenerate case (`bedThickness = 0`). This is a reversal from
+  the first draft, and it changes the priorities below: the bed-thickness control has to be
   discoverable and sensibly initialised (section 8), and screen-space aliasing moves from a
   theoretical footnote to the first thing that will go wrong (section 12).
-- **Initial spacing is derived, not a magic constant.** A family whose spacing is far too
-  small paints the terrain a solid colour; far too large shows one line. Both read as "the
-  feature is broken". The first spacing is therefore set from the selection's own extent so
+- **Initial bed thickness is derived, not a magic constant.** A sequence whose beds are far
+  too thin paints the terrain a solid colour; far too thick shows one line. Both read as "the
+  feature is broken". The first value is therefore set from the selection's own extent so
   that roughly eight traces are visible immediately, and the user dials from there.
 - **Drawn last in the effect stack**, so the trace colour is not modulated by lighting or
   shadows. `contourLines` sits *before* `solarShadingLS` and so gets shaded; that is right
@@ -119,7 +144,7 @@ Out:
 
 - More than one plane at a time, in any form.
 - Exporting traces as annotations or geometry.
-- Per-annotation persistence of a coast-line flag.
+- Per-annotation persistence of an outcrop-trace flag.
 - Any change to how individual planes are fitted.
 
 ---
@@ -170,13 +195,13 @@ instrument view.
 
 ## 4. The average plane — which mean is correct
 
-New module `CoastLines` in `CoastLinesApp.fs`, **pure**, so the tests reach it without a GL
+New module `OutcropTrace` in `OutcropTraceApp.fs`, **pure**, so the tests reach it without a GL
 context — the same split `RoseDiagram.includes` made for the rose, for the same reason.
 
 The numbers in 4.2 are reproduced by
-[tools/analysis/compare_plane_averaging.py](../tools/analysis/compare_plane_averaging.py);
+[tools/analysis/compare_attitude_averaging.py](../tools/analysis/compare_attitude_averaging.py);
 the thresholds in 4.4 by
-[calibrate_plane_cluster_guard.py](../tools/analysis/calibrate_plane_cluster_guard.py).
+[calibrate_attitude_cluster_guard.py](../tools/analysis/calibrate_attitude_cluster_guard.py).
 
 ### 4.1 The three candidates
 
@@ -330,7 +355,7 @@ and the other 0.99.
 ### 4.5 Default extent radius
 
 `spread` (max distance from `anchor` to any contributing centre of mass) is the selection's
-own footprint, so the default extent radius is `max(spread, extentMinimum) * extentFactor`.
+own footprint, so the default extent radius is `max(spread, projectionFloor) * projectionFactor`.
 One annotation gives `spread = 0`, so the floor is what sizes that case.
 
 This is better than a fixed number: it scales with the outcrop the user actually selected,
@@ -372,92 +397,93 @@ All* fills `selectedLeaves`, and clicking one annotation leaves it empty and set
 
 ---
 
-## 5. Model — `src/PRo3D.Core/CoastLines-Model.fs`
+## 5. Model — `src/PRo3D.Core/OutcropTrace-Model.fs`
 
 Follows the `CrossSectionModel` shape ([CrossSection-Model.fs](../src/PRo3D.Core/CrossSection-Model.fs)):
 a `[<ModelType>]` record of `NumericInput` / `ColorInput` fields, an `initial`, and a sibling
-`CoastLinesApp` with actions and `update`.
+`OutcropTraceApp` with actions and `update`.
 
 ```fsharp
 [<ModelType>]
-type CoastLinesModel = {
+type OutcropTraceModel = {
     enabled       : bool
     usePolyline   : bool          // mirrors the rose diagram's two source toggles
     useDnS        : bool
-    thickness     : NumericInput  // metres, full width of the band
-    smoothing     : NumericInput  // metres, smoothstep falloff either side
-    extentFactor  : NumericInput  // multiplier on the selection's own spread (4.4)
-    extentMinimum : NumericInput  // metres, floor for a single annotation
-    spacing       : NumericInput  // metres between successive planes; 0 = single plane
+    traceWidth      : NumericInput  // metres, full width of the drawn band
+    traceSmoothing  : NumericInput  // metres, smoothstep falloff either side
+    bedThickness    : NumericInput  // metres, true thickness between beds; 0 = single plane
+    projectionFactor : NumericInput // multiplier on the selection's own spread (4.4)
+    projectionFloor  : NumericInput // metres, minimum projection radius (single annotation)
     color         : ColorInput
 }
 ```
 
-Defaults: `enabled = false`, `useDnS = true`, `usePolyline = false`, `thickness = 0.25`,
-`smoothing = 0.1`, `extentFactor = 1.5`, `extentMinimum = 25.0`, `color = C4b.Red`.
+Defaults: `enabled = false`, `useDnS = true`, `usePolyline = false`, `traceWidth = 0.25`,
+`traceSmoothing = 0.1`, `projectionFactor = 1.5`, `projectionFloor = 25.0`,
+`color = C4b.Red`.
 
-`spacing` has no useful fixed default — see the "derived, not a magic constant" decision in
-section 1. It is initialised to `extentRadius / 8` the first time a selection produces an
+`bedThickness` has no useful fixed default — see the "derived, not a magic constant" decision in
+section 1. It is initialised to `projectionRadius / 8` the first time a selection produces an
 orientation, giving roughly eight visible traces straight away, and is left alone after that
-so the user's own value survives a change of selection. `spacing = 0` is the single-plane
-degenerate case, reachable by dragging the control to its minimum; there is no separate
-enable toggle for the family.
+so the user's own value survives a change of selection. `bedThickness = 0` is the
+single-plane degenerate case, reachable by dragging the control to its minimum; there is no
+separate enable toggle for the sequence.
 
 Wiring, all mechanical:
 
-- `PRo3D.Core.fsproj` — `CoastLines-Model.fs` then `CoastLinesApp.fs`, next to the
+- `PRo3D.Core.fsproj` — `OutcropTrace-Model.fs` then `OutcropTraceApp.fs`, next to the
   CrossSection pair ([lines 106/108](../src/PRo3D.Core/PRo3D.Core.fsproj:106)).
-- `Viewer-Model.fs` — `coastLines : CoastLinesModel` on `Model`, and
-  `ViewerAction.CoastLinesMessage of CoastLinesAction`.
-- `Viewer.fs` — one `| CoastLinesMessage msg, _ -> { m with coastLines = CoastLinesApp.update m.coastLines msg }` arm.
-- `InitialViewerModel.fs` — `coastLines = CoastLinesModel.initial`.
+- `Viewer-Model.fs` — `outcropTraces : OutcropTraceModel` on `Model`, and
+  `ViewerAction.OutcropTraceMessage of OutcropTraceAction`.
+- `Viewer.fs` — one `| OutcropTraceMessage msg, _ -> { m with outcropTraces = OutcropTraceApp.update m.outcropTraces msg }` arm.
+- `InitialViewerModel.fs` — `outcropTraces = OutcropTraceModel.initial`.
 - Run `adapt.sh` for the `.g.fs`. **Never hand-edit a `.g.fs`.**
 
 No `Scene` field, so no serialization and no `Scene.current` bump.
 
 ---
 
-## 6. Shader — `CoastLineShader` in `Viewer-Utils.fs`
+## 6. Shader — `OutcropTraceShader` in `Viewer-Utils.fs`
 
 Put it directly after `CrossSectionShader`
 ([Viewer-Utils.fs:832](../src/PRo3D.Viewer/Viewer/Viewer-Utils.fs:832)), so the surface effect
 stack and everything it depends on stay in one file.
 
 ```fsharp
-module CoastLineShader =
+module OutcropTraceShader =
     open FShade
 
     type UniformScope with
-        member x.CoastLineEnabled : bool = x?CoastLineEnabled
+        member x.OutcropTraceEnabled : bool = x?OutcropTraceEnabled
         /// xyz = view-space unit normal, w = view-space plane offset d
-        member x.CoastLinePlane   : V4f  = x?CoastLinePlane
+        member x.OutcropTracePlane   : V4f  = x?OutcropTracePlane
         /// xyz = view-space anchor, w = extent radius (metres)
-        member x.CoastLineExtent  : V4f  = x?CoastLineExtent
-        /// x = thickness, y = smoothing, z = repeat spacing (<= 0 disables repeat)
-        member x.CoastLineParams  : V4f  = x?CoastLineParams
-        member x.CoastLineColor   : V4f  = x?CoastLineColor
+        member x.OutcropTraceExtent  : V4f  = x?OutcropTraceExtent
+        /// x = trace width, y = trace smoothing, z = bed thickness (<= 0 = single plane)
+        member x.OutcropTraceParams  : V4f  = x?OutcropTraceParams
+        member x.OutcropTraceColor   : V4f  = x?OutcropTraceColor
 
-    let coastLine (v : Effects.Vertex) =
+    let outcropTrace (v : Effects.Vertex) =
         fragment {
-            if not uniform.CoastLineEnabled then
+            if not uniform.OutcropTraceEnabled then
                 return v.c
             else
                 let p         = v.vp.XYZ
-                let pl        = uniform.CoastLinePlane
-                let ext       = uniform.CoastLineExtent
-                let par       = uniform.CoastLineParams
+                let pl        = uniform.OutcropTracePlane
+                let ext       = uniform.OutcropTraceExtent
+                let par       = uniform.OutcropTraceParams
                 let halfWidth = par.X * 0.5f
                 let smooth    = par.Y
-                let spacing   = par.Z
+                let bedThk    = par.Z
 
                 // signed distance to the plane, view space, metres
                 let signed = Vec.dot pl.XYZ p - pl.W
 
-                // repeat mode folds the distance into one spacing interval
+                // a sequence folds the distance into one bed-thickness interval
                 let d =
-                    if spacing > 0.0f then
-                        let m = signed - spacing * floor (signed / spacing)
-                        min m (spacing - m)              // distance to nearest repeat
+                    if bedThk > 0.0f then
+                        let m = signed - bedThk * floor (signed / bedThk)
+                        min m (bedThk - m)               // distance to the nearest bed
                     else
                         abs signed
 
@@ -469,7 +495,7 @@ module CoastLineShader =
                 let fade = 1.0f - Fun.Smoothstep(r, ext.W, ext.W * 1.15f)
 
                 let a = band * fade
-                return V4f(v.c.XYZ * (1.0f - a) + uniform.CoastLineColor.XYZ * a, v.c.W)
+                return V4f(v.c.XYZ * (1.0f - a) + uniform.OutcropTraceColor.XYZ * a, v.c.W)
         }
 ```
 
@@ -480,7 +506,7 @@ Notes:
   by `textureOrLightingIfPossible` — nothing new to plumb.
 - No loop, no array uniform, so no fill-rate question to measure and nothing to gate on
   `Config.limitedShaderCapabilities`. This is the payoff of the one-plane constraint.
-- **`CoastLineEnabled` must gate the whole thing, and the uniforms must always be
+- **`OutcropTraceEnabled` must gate the whole thing, and the uniforms must always be
   uploaded** — zero-filled when the feature is off, never left unbound. The reason is
   written up at [Viewer-Utils.fs:847](../src/PRo3D.Viewer/Viewer/Viewer-Utils.fs:847) and in
   [docs/CrossSections.md](../docs/CrossSections.md): an unguarded per-fragment test against a
@@ -497,20 +523,20 @@ shadowing. Add the same single line to `objEffect`.
 
 Bind the uniforms where the cross-section uniforms are bound, inside `createGroupedSgs`
 ([Viewer-Utils.fs:1268](../src/PRo3D.Viewer/Viewer/Viewer-Utils.fs:1268)) — one binding for the
-whole surface set, since the coast line is global rather than per-surface:
+whole surface set, since the outcrop trace is global rather than per-surface:
 
 ```fsharp
 // aval<Option<view-space plane * extent>>; recomputed when the camera or the selection moves
-let coastLine = CoastLines.viewSpacePlane view m.coastLines m.drawing.annotations m.scene.referenceSystem
+let outcropTrace = OutcropTrace.viewSpaceAttitude view m.outcropTraces m.drawing.annotations m.scene.referenceSystem
 
-|> Sg.uniform "CoastLineEnabled" (coastLine |> AVal.map Option.isSome)
-|> Sg.uniform "CoastLinePlane"   (coastLine |> AVal.map (function Some (p,_) -> p | None -> V4f.Zero))
-|> Sg.uniform "CoastLineExtent"  (coastLine |> AVal.map (function Some (_,e) -> e | None -> V4f.Zero))
-|> Sg.uniform "CoastLineParams"  (…thickness, smoothing, spacing as V4f…)
-|> Sg.uniform "CoastLineColor"   (m.coastLines.color.c |> AVal.map (fun c -> c.ToV4f()))
+|> Sg.uniform "OutcropTraceEnabled" (outcropTrace |> AVal.map Option.isSome)
+|> Sg.uniform "OutcropTracePlane"   (outcropTrace |> AVal.map (function Some (p,_) -> p | None -> V4f.Zero))
+|> Sg.uniform "OutcropTraceExtent"  (outcropTrace |> AVal.map (function Some (_,e) -> e | None -> V4f.Zero))
+|> Sg.uniform "OutcropTraceParams"  (…traceWidth, traceSmoothing, bedThickness as V4f…)
+|> Sg.uniform "OutcropTraceColor"   (m.outcropTraces.color.c |> AVal.map (fun c -> c.ToV4f()))
 ```
 
-`coastLine` returning `None` folds together *disabled*, *nothing selected*, *no valid
+`outcropTrace` returning `None` folds together *disabled*, *nothing selected*, *no valid
 planes*, *`S₁` below threshold* and *girdle* — one gate, one uniform, and the shader cannot
 be reached with a half-valid plane.
 
@@ -522,7 +548,7 @@ Three things to get right:
 3. `getSurfacesScenegraphs` ([Viewer-Utils.fs:1038](../src/PRo3D.Viewer/Viewer/Viewer-Utils.fs:1038),
    marked *"TODO TO refactor screenshot specific"*) is a **second, older** surface path that
    does not bind the cross-section uniforms either. Check which path snapshots actually take
-   ([Viewer.fs:2751](../src/PRo3D.Viewer/Viewer/Viewer.fs:2751)) before claiming coast lines
+   ([Viewer.fs:2751](../src/PRo3D.Viewer/Viewer/Viewer.fs:2751)) before claiming outcrop traces
    appear in snapshots; if it is the legacy path, either bind there too or say plainly in the
    docs page that snapshots do not show them yet.
 
@@ -534,38 +560,39 @@ One new accordion in the Annotations panel, next to *Bulk Edit* / *Dip&Strike*
 ([ViewerGUI.fs:1516](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs:1516)):
 
 ```fsharp
-GuiEx.accordion "Coast Lines" "map outline" false [
-    Incremental.div AttributeMap.empty (AList.ofAValSingle (Annotations.viewCoastLines m))
+GuiEx.accordion "Outcrop Traces" "map outline" false [
+    Incremental.div AttributeMap.empty (AList.ofAValSingle (Annotations.viewOutcropTraces m))
 ]
 ```
 
 Its own accordion rather than a section inside *Bulk Edit*, because the bulk panel refuses to
-render below two selected annotations and coast lines must work for one.
+render below two selected annotations and outcrop traces must work for one.
 
 Contents: an on/off button styled like the rose activation button, the Polyline / DnS
 toggles, and then — first, because it is the control the user actually works with — the
-**spacing** row, with a *Fit to selection* button that re-derives it as `extentRadius / 8`.
-Below that: thickness, smoothing, extent factor, extent minimum, and the colour picker.
+**Bed thickness** row, with a *Fit to selection* button that re-derives it as
+`projectionRadius / 8`. Below that: *Trace width*, *Trace smoothing*, *Projection radius*
+(factor and floor) and the colour picker.
 
-**Spacing is the user's value throughout.** The derived `extentRadius / 8` is only the seed
+**Bed thickness is the user's value throughout.** The derived `projectionRadius / 8` is only the seed
 for the first selection that produces an orientation, and *Fit to selection* re-seeds it on
 demand; nothing recomputes it behind the user's back, and changing the selection leaves the
-value they set alone. The row shows the resulting trace count over the extent
-(`≈ 2·extentRadius / spacing`) next to the value, so that "1" versus "100" is legible before
+value they set alone. The row shows the resulting trace count across the projection radius
+(`≈ 2·projectionRadius / bedThickness`) next to the value, so that "1" versus "100" is legible before
 the user looks at the terrain rather than after.
 
 **The *Dip&Strike* panel gets the same numbers.** `Annotations.viewDipAndStrike`
 ([ViewerGUI.fs:1523](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs:1523)) reports per-annotation dip
 and strike only; add a *selection average* row there — dip, azimuth, `S₁`, contributor count
-— sharing `CoastLines.average` so there is exactly one implementation of the combination and
+— sharing `OutcropTrace.meanAttitude` so there is exactly one implementation of the combination and
 the two panels can never disagree. It is where a geologist looks for the number first, and it
-makes the average useful even with coast lines switched off.
+makes the average useful even with outcrop traces switched off.
 
 Above the controls, a readout of **what plane is actually being drawn** — this is what makes
 the averaging trustworthy, and it is cheap because the numbers already exist:
 
 ```
-Average of 7 annotations — dip 34.2°, azimuth 118.7°, S₁ = 0.94
+Mean attitude of 7 annotations — 34.2° / 118.7° (dip / dip direction), S₁ = 0.94
 ```
 
 Dip and azimuth are derived from the principal eigenvector via the same `up`/`north`
@@ -579,10 +606,10 @@ The four failure states get explicit text instead of a silent blank:
 - nothing selected → *"Select an annotation, or a group, to trace its plane."*
 - nothing contributes → *"No planes in the selection (enable a type, or select DnS /
   Polyline annotations)."* (the rose's wording)
-- `S₁ ≤ 0.65` → *"The selection has no dominant orientation (S₁ = 0.48) — the average plane
-  would be meaningless."*
+- `S₁ ≤ 0.65` → *"The selection has no dominant attitude (S₁ = 0.48) — a mean attitude would
+  be meaningless."*
 - `S₂/S₁ ≥ 0.3` → *"The poles form a girdle, not a cluster (S₁ = 0.59, S₂ = 0.41): the
-  selection looks folded, and no single plane represents it. Fold axis ≈ 000/00."*
+  selection is folded, so no single attitude represents it. Fold axis (π-axis) ≈ 000/00."*
 
 The last one is the message that earns its keep. Selecting both limbs of a fold and getting
 a confident horizontal trace is the specific way this feature could quietly mislead someone
@@ -595,13 +622,13 @@ doing cross-site correlation, and it is the case (A) cannot detect at all.
 Pure, no GL, in the style of [Section13_ContourMultitexturing.fs](../src/Tests/Features/Section13_ContourMultitexturing.fs)
 and [BulkAnnotationRoseTest.fs](../src/Tests/BulkAnnotationRoseTest.fs).
 
-New `src/Tests/Features/Section21_CoastLines.fs`:
+New `src/Tests/Features/Section21_OutcropTraces.fs`:
 
 - defaults: disabled, DnS on, polyline off;
-- `ToggleEnabled`, `SetThickness`, `SetExtentFactor`, `SetRepeatSpacing`, colour change each
+- `ToggleEnabled`, `SetTraceWidth`, `SetBedThickness`, `SetProjectionFactor`, colour change each
   land on the model.
 
-New `src/Tests/CoastLinePlaneTest.fs` — the parts that can be silently wrong. The first four
+New `src/Tests/OutcropTracePlaneTest.fs` — the parts that can be silently wrong. The first four
 are the table in 4.2 turned into assertions, so the method choice is pinned by tests rather
 than by a paragraph:
 
@@ -630,14 +657,14 @@ than by a paragraph:
   rather than recomputing them.
 
 The synthetic orientations for the first four come straight from
-[compare_plane_averaging.py](../tools/analysis/compare_plane_averaging.py), so the script and
+[compare_attitude_averaging.py](../tools/analysis/compare_attitude_averaging.py), so the script and
 the tests cannot drift apart silently.
 
 Register both in `src/Tests/Tests.fsproj` and `src/Tests/Program.fs`.
 
 **Manual check in the viewer** (there is no image-diff harness for this yet; see
 [plans/sceneRenderTestHarness.md](sceneRenderTestHarness.md)): load an outcrop scene, draw
-two DnS annotations on the same bed a few tens of metres apart, select both, enable coast
+two DnS annotations on the same bed a few tens of metres apart, select both, enable outcrop
 lines, and confirm the trace passes through both and follows the bed between them. Then raise
 the extent factor and watch it extrapolate. Screenshot both for the docs page.
 
@@ -645,16 +672,16 @@ the extent factor and watch it extrapolate. Screenshot both for the docs page.
 
 ## 10. Docs
 
-- **`docs/CoastLines.md`** — required by the house rule (every feature gets a docs page, in
+- **`docs/OutcropTraces.md`** — required by the house rule (every feature gets a docs page, in
   the same change). Synopsis, the UI table, the workflow above, a teaser image, and an
   *Implementation* section covering: view space and why; the averaging method, the sign
   correction and what `R` means; the derived extent radius and why the fade is on by default;
-  and the `CoastLineEnabled` guard with a pointer to the Apple Silicon note in
+  and the `OutcropTraceEnabled` guard with a pointer to the Apple Silicon note in
   [docs/CrossSections.md](../docs/CrossSections.md).
 - Cross-link from `docs/Contour-Lines.md` (the other procedural line shader) and from the
   rose-diagram documentation — the rose shows the selection's orientations as a histogram,
-  coast lines show the *mean* of the same selection in 3D, and `R` is the number both share.
-- `ai/DOMAIN.md` — one row for `CoastLinesModel` / `CoastLinesApp`; `ai/README.md` type table
+  outcrop traces show the *mean* of the same selection in 3D, and `R` is the number both share.
+- `ai/DOMAIN.md` — one row for `OutcropTraceModel` / `OutcropTraceApp`; `ai/README.md` type table
   likewise.
 - `PRODUCT_RELEASE_NOTES.md`.
 
@@ -662,16 +689,16 @@ the extent factor and watch it extrapolate. Screenshot both for the docs page.
 
 ## 11. Phasing
 
-Each phase is a commit; the branch is `features/coast-lines` off `develop`.
+Each phase is a commit; the branch is `features/outcrop-traces` off `develop`.
 
-1. **Model + averaging + tests, no rendering.** `CoastLines-Model.fs`, `CoastLinesApp.fs`,
+1. **Model + averaging + tests, no rendering.** `OutcropTrace-Model.fs`, `OutcropTraceApp.fs`,
    the orientation-tensor average and its two guards, adaptify, both test files. Fully
    testable with nothing on screen, and it is where the real risk is.
-2. **Shader + Sg wiring, including the family.** `CoastLineShader` with the modulo, both
+2. **Shader + Sg wiring, including the sequence.** `OutcropTraceShader` with the modulo, both
    effect stacks, uniforms in `createGroupedSgs`. Drive it from a hard-coded orientation and
-   spacing first if that is faster to debug. The family is in from the start — it is two
-   lines and it is the mode the feature exists for; deferring it would mean tuning thickness
-   and extent against a picture nobody wants.
+   bed thickness first if that is faster to debug. The sequence is in from the start — it is
+   two lines and it is the mode the feature exists for; deferring it would mean tuning trace
+   width and projection radius against a picture nobody wants.
 3. **Selection plumbing + UI.** The adaptive aggregate from 4.6, the accordion, the dip /
    azimuth / `S₁` readout and the four empty states.
 4. **Aliasing mitigation** (section 12) once there is something on screen to judge it
@@ -699,14 +726,14 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 - **The plane does not follow surface transformations.** It is built from world-space picked
   points; changing a surface's transformation afterwards moves the terrain and leaves the
   plane where it was. Same behaviour as cross sections. Re-picking is the workaround.
-- **Band width is measured perpendicular to the plane, not on screen.** Where the family
+- **Band width is measured perpendicular to the plane, not on screen.** Where the sequence
   meets the terrain at a shallow angle the traces are wide and far apart; where it cuts
   steeply they are thin and close. That is geometrically honest and it is what makes them
   read as intersections rather than decals, but it surprises people.
 
-> **Aliasing is the first thing that will go wrong, and the family makes it certain.**
+> **Aliasing is the first thing that will go wrong, and the sequence makes it certain.**
 > With a 60° vertical FOV and a 1080-pixel-tall viewport, one pixel covers ≈0.53 m of
-> terrain at 500 m *face-on*, and several times that at grazing incidence. So a 1 m spacing
+> terrain at 500 m *face-on*, and several times that at grazing incidence. So a 1 m bed thickness
 > is already at the Nyquist limit before the terrain tilts: the traces shimmer, moiré with
 > the LOD, and crawl as the camera moves. A single plane never showed this because there was
 > only ever one line on screen.
@@ -716,7 +743,7 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 > (`ddxFine`/`ddyFine` — FShade exposes both; nothing in PRo3D uses them yet), and use
 > `w = length(V2f(ddx d, ddy d))` as the per-pixel scale. Then (a) clamp the band's
 > half-width to at least ~1.5·w so a trace never falls below a pixel and disappear-flickers,
-> and (b) fade the whole family out as `spacing / w` drops below ~3, so an over-dense stack
+> and (b) fade the whole sequence out as `bedThickness / w` drops below ~3, so an over-dense stack
 > dissolves into a flat tint instead of a shimmering mess.
 >
 > Judge it on a moving camera, not a screenshot — a still frame hides exactly the artifact
@@ -725,11 +752,14 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 
 ## 13. Follow-ups, deliberately not in this plan
 
-- Persisting an explicit annotation-id list on `Scene`, so a saved scene restores its coast
-  line. Adding one `Scene` field read with `Json.tryRead` + a default needs no
+- Persisting an explicit annotation-id list on `Scene`, so a saved scene restores its traces. Adding one `Scene` field read with `Json.tryRead` + a default needs no
   `Scene.current` bump, so this is cheap when it is wanted.
 - A "refit across all selected points" mode alongside "average the orientations".
 - Exporting a trace as a polyline annotation (the CPU-slicing path).
+- **Profile sections through a fold**: in the girdle case, trace the sequence *perpendicular*
+  to the π-axis instead of refusing. Same shader, different normal, so the cost is a mode
+  switch — but it shows fold cross-sections, not bedding, and overloading one visual with two
+  meanings is why it is out.
 - **Pooled-point refit as a second orientation mode** (decided out, section 1): one plane
   through the union of all selected annotations' points, via `LinearRegression3d`, answering
   "do these sites lie on one plane" with an RMS residual in metres rather than "do they dip
@@ -747,22 +777,18 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 
 Decided since the first draft and no longer open: the averaging method (4.2), tensor-only
 with no pooled refit, equal weighting, the *Dip&Strike* selection-average row, the centroid
-anchor, and the equidistant family as the primary mode with a user-defined spacing.
+anchor, and the modelled sequence as the primary mode with a user-defined bed thickness.
 
-**Still open — one question:**
-
-1. **What should the girdle case do beyond refusing?** See 4.4: when the poles form a girdle
-   rather than a cluster the selection is folded, no single orientation represents it, and
-   the plan currently refuses to draw and reports the fold axis in the message. The options
-   beyond that are (a) leave it there, (b) drop the axis number and just say "folded", or
-   (c) offer a one-click switch to trace the family of planes *perpendicular to the fold
-   axis* — serial profile sections through the fold, which is the same shader with a
-   different normal and therefore costs nothing but a mode switch.
+**Nothing is open.** The girdle case is settled too: refuse to draw, and name the fold —
+report the π-axis as trend/plunge in the message (4.4). Tracing planes perpendicular to the
+fold axis (serial profile sections) was considered and rejected: it is nearly free, being the
+same shader with a different normal, but it answers a question nobody asked and would put a
+second meaning on the same visual. Recorded in 13.
 
 **Verified during implementation, not decisions:**
 
 - Which render path snapshots take ([Viewer.fs:2751](../src/PRo3D.Viewer/Viewer/Viewer.fs:2751)),
-  which decides whether coast lines appear in them (7.3).
+  which decides whether outcrop traces appear in them (7.3).
 - Whether `Config.limitedShaderCapabilities` targets need the effect gated (section 6).
 
 **Noted, belongs to another file:**
