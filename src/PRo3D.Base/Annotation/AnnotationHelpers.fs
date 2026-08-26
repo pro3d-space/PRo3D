@@ -251,6 +251,37 @@ module DipAndStrike =
          let horP = new Plane3d(up, V3d.Zero)                
          horP.Height(plane.Normal).Sign()
     
+/// Dip and strike geometry of a plane normal in the (up, north) frame.
+///
+/// The single implementation: `calculateDipAndStrikeResults`,
+/// `reCalculateDipAndStrikeResults` and the outcrop-trace mean attitude all go through
+/// here, so the numbers the Dip&Strike panel and the Outcrop Traces panel report can never
+/// drift apart. The normal is up-oriented first; note that `DipAndStrikeResults.plane` is
+/// stored exactly as the regression returned it, so its normal may point either way.
+    let attitudeFromNormal (up : V3d) (north : V3d) (normal : V3d) =
+        let planeNormal =
+            let horP = Plane3d(up, V3d.Zero)
+            match horP.Height(normal).Sign() with
+            | -1 -> -normal
+            | _  ->  normal
+
+        //strike
+        let strike = up.Cross(planeNormal).Normalized
+
+        //dip vector
+        let dip = strike.Cross(planeNormal).Normalized
+
+        //dip plane incline .. maximum dip angle
+        let v = strike.Cross(up).Normalized
+
+        {|
+            dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
+            dipDirection    = dip
+            strikeDirection = strike
+            dipAzimuth      = Calculations.computeAzimuth v north up
+            strikeAzimuth   = Calculations.computeAzimuth strike north up
+        |}
+    
     let calculateManualDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =        
         
         let up = up |> Vec.normalize
@@ -340,21 +371,8 @@ module DipAndStrike =
     
             Log.line("[dipandStrike]: avg %f; max %f; min %f; std: %f; sols: %f") avg max min std sos
             
-            //correct plane orientation - check if normals point in same direction           
-            let planeNormal = 
-                match signedOrientation up plane with
-                | -1 -> -plane.Normal
-                | _  -> plane.Normal
-            
-            //strike
-            let strike = up.Cross(planeNormal).Normalized
-    
-            //dip vector 
-            let dip = strike.Cross(planeNormal).Normalized
-    
-            //dip plane incline .. maximum dip angle
-            let v = strike.Cross(up).Normalized                       
-    
+            let att = attitudeFromNormal up north plane.Normal
+
             let centerOfMass =
                 let sum = Array.sum points
                 sum / float points.Length
@@ -362,11 +380,11 @@ module DipAndStrike =
             let dns = {
                 version         = DipAndStrikeResults.current
                 plane           = plane
-                dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
-                dipDirection    = dip
-                strikeDirection = strike
-                dipAzimuth      = Calculations.computeAzimuth v north up
-                strikeAzimuth   = Calculations.computeAzimuth strike north up
+                dipAngle        = att.dipAngle
+                dipDirection    = att.dipDirection
+                strikeDirection = att.strikeDirection
+                dipAzimuth      = att.dipAzimuth
+                strikeAzimuth   = att.strikeAzimuth
                 centerOfMass    = centerOfMass //(new Box3d(points)).Center //[@LF] this is not the center of mass (sum over points / no of points)
                 error           = 
                     { 
@@ -389,31 +407,16 @@ module DipAndStrike =
             let up = up |> Vec.normalize
             let north = north |> Vec.normalize
         
-            let plane = dnsResults.plane
-
-            //correct plane orientation - check if normals point in same direction           
-            let planeNormal = 
-                match signedOrientation up plane with
-                | -1 -> -plane.Normal
-                | _  -> plane.Normal
-            
-            //strike
-            let strike = up.Cross(planeNormal).Normalized
-    
-            //dip vector 
-            let dip = strike.Cross(planeNormal).Normalized
-    
-            //dip plane incline .. maximum dip angle
-            let v = strike.Cross(up).Normalized                                       
+            let att = attitudeFromNormal up north dnsResults.plane.Normal
 
             let dns = 
                 {
                     dnsResults with
-                        dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
-                        dipDirection    = dip
-                        strikeDirection = strike
-                        dipAzimuth      = Calculations.computeAzimuth v north up
-                        strikeAzimuth   = Calculations.computeAzimuth strike north up
+                        dipAngle        = att.dipAngle
+                        dipDirection    = att.dipDirection
+                        strikeDirection = att.strikeDirection
+                        dipAzimuth      = att.dipAzimuth
+                        strikeAzimuth   = att.strikeAzimuth
                 }
             
             Some dns 

@@ -343,7 +343,16 @@ So:
   200 trials, and a genuinely noisy but usable field set (σ = 30–40°) sits at 0.70–0.79.
   The gap is real and this threshold sits in it.
 - **`S₂/S₁ < 0.3`** — "it is a cluster, not a girdle". Passes every unimodal case including
-  σ = 40°, and rejects a two-limb fold once the limbs are more than ~90° apart. Below that
+  σ = 40°, and rejects a two-limb fold once the limbs are more than ~90° apart.
+- **`S₃/S₂ < 0.3`** — separates a girdle from plain scatter, and **the girdle test has to run
+  before the `S₁` floor.** Found while implementing: a girdle necessarily has a *low* `S₁`,
+  because its poles are spread around a great circle, so the 180°-apart fold sits at
+  `S₁ = 0.59` and an `S₁`-first ordering reports it as "no dominant attitude" — true, but far
+  less useful than naming the fold. `S₃/S₂` is what tells the two apart: 0.001 for that fold,
+  0.64 for uniformly random poles. Classification is therefore three-way and ordered:
+  cluster, else girdle, else no dominant attitude. Verified across σ = 20…50° unimodal
+  (all cluster), folds at 60/90/180° limb separation, and 300 uniformly random trials
+  (all "no dominant attitude"). Below that
   separation a mean plane is defensible and the guard lets it through.
 
 Failing the first is *"no preferred orientation"*; failing the second is *"the selection
