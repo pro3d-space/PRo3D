@@ -82,6 +82,77 @@ type SunAnglesOptions =
         height : int
     }
 
+/// Options for the `simulate-image` verb.
+///
+/// Defaults for the string options are applied in code rather than through the attribute,
+/// because an unsupplied string field arrives as null. Numeric defaults use the attribute.
+[<Verb("simulate-image", HelpText = "Render a simulated instrument image of a body: OPC geometry, Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo.")>]
+type SimulateImageOptions =
+    {
+        [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
+        opc : string
+
+        [<Option("time", HelpText = "Observation time, ISO-8601 UTC (e.g. 2027-03-15T12:00:00Z)", Required = true)>]
+        time : string
+
+        [<Option("out", HelpText = "Output PNG path (default: ./simulated.png)")>]
+        out : string
+
+        [<Option("instrument", HelpText = "SPICE instrument frame whose frustum to render with (default HERA_AFC-1)")>]
+        instrument : string
+
+        [<Option("observer", HelpText = "Spacecraft carrying the instrument (default HERA)")>]
+        observer : string
+
+        [<Option("body", HelpText = "SPICE body name of the OPC (default DIMORPHOS)")>]
+        body : string
+
+        [<Option("frame", HelpText = "Body-fixed reference frame (default DIMORPHOS_FIXED)")>]
+        frame : string
+
+        [<Option("kernel", HelpText = "Explicit SPICE metakernel; default: <kernel-root>/mk/hera_plan.tm")>]
+        kernel : string
+
+        [<Option("kernel-root", HelpText = "SPICE kernel tree: a clone of https://spiftp.esac.esa.int/git/hera.git or its 'kernels' dir. Defaults to $PRO3D_SPICE_KERNELS.")>]
+        kernelRoot : string
+
+        [<Option("distance", Default = 0.0, HelpText = "Camera distance in metres, along the direction SPICE puts the spacecraft; 0 (default) uses the spacecraft's real distance")>]
+        distance : float
+
+        [<Option("width", HelpText = "Output width; 0 (default) uses the instrument's native width")>]
+        width : int
+
+        [<Option("height", HelpText = "Output height; 0 (default) uses the instrument's native height")>]
+        height : int
+
+        [<Option("albedo", Default = 0.16, HelpText = "Normal reflectance of the surface (default 0.16, the measured Dimorphos value)")>]
+        albedo : float
+
+        [<Option("deshade", HelpText = "Fit and divide baked-in illumination out of the OPC texture and use it as albedo; default is the constant --albedo (the de-shading is approximate -- see the docs)")>]
+        deshade : bool
+
+        [<Option("deshade-layer", HelpText = "Per-vertex attribute layer carrying the texture brightness, for the de-shading fit (default DRACO)")>]
+        deshadeLayer : string
+
+        [<Option("micro-scale", Default = 0.5, HelpText = "Feature size of the procedural micro-structure in metres (default 0.5)")>]
+        microScale : float
+
+        [<Option("micro-amplitude", Default = 0.3, HelpText = "Strength of the procedural normal perturbation, 0 disables (default 0.3)")>]
+        microAmplitude : float
+
+        [<Option("ambient", Default = 0.02, HelpText = "Ambient floor so the night side is distinguishable from space (default 0.02)")>]
+        ambient : float
+
+        [<Option("gain", Default = 0.0, HelpText = "Linear I/F -> DN gain; 0 (default) auto-exposes the 99.5th percentile to DN 245")>]
+        gain : float
+
+        [<Option("no-shadows", HelpText = "Skip the sun shadow map; shading then comes from the local sun angle alone")>]
+        noShadows : bool
+
+        [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002); raise against acne, lower against peter-panning")>]
+        shadowBias : float
+    }
+
 /// Options for the `unproject` verb.
 ///
 /// Same convention as `sun-angles`: string defaults are applied in code, because an unsupplied
