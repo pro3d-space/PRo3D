@@ -25,6 +25,7 @@ open PRo3D.Core
 open PRo3D.Navigation2                   // NavigationModel
 open PRo3D.Viewer
 open PRo3D.Tests
+open MapViewCameraController             // MapViewController
 
 module private Nav =
 
@@ -37,6 +38,16 @@ module private Nav =
     /// axis inversion, and the tests must not depend on the developer's config file.
     let userPrefs  = UserPreferences.initial
 
+    /// Navigation.update against a specific reference system (i.e. a specific
+    /// planet), matching how the NavigationMessage handler calls it (Viewer.fs).
+    let runOn (refSystem       : ReferenceSystem)
+              (switchToArcball : bool)
+              (pick            : option<unit -> option<V3d>>)
+              (ctrlFlag        : bool)
+              (model           : NavigationModel)
+              (act             : Navigation.Action) =
+        Navigation.update viewConfig refSystem navConf userPrefs switchToArcball pick model act ctrlFlag
+
     /// Navigation.update with the viewer's own config, matching how the
     /// NavigationMessage handler calls it (Viewer.fs).
     let run (switchToArcball : bool)
@@ -44,13 +55,30 @@ module private Nav =
             (ctrlFlag        : bool)
             (model           : NavigationModel)
             (act             : Navigation.Action) =
-        Navigation.update viewConfig refSystem navConf userPrefs switchToArcball pick model act ctrlFlag
+        runOn refSystem switchToArcball pick ctrlFlag model act
 
     /// A navigation model with the camera at a known pose.
     let modelLookingAt (location : V3d) (target : V3d) =
         let view = CameraView.lookAt location target V3d.OOI
         { NavigationModel.initial with
             camera = { NavigationModel.initial.camera with view = view } }
+
+    /// A point on the Mars surface (the same one TC-2.4 uses) and the body
+    /// radius beneath it.
+    let marsSurface = V3d(693177.21, -3147511.67, 1070879.15)
+    let marsRadius  = marsSurface.Length
+
+    /// The camera 500 km above that point, looking horizontally — the pose a
+    /// user is typically in when they switch to MapView.
+    ///
+    /// The altitude is deliberately large. MapView's body radius used to be
+    /// estimated as |cameraLocation| — i.e. radius + altitude — so a test flying
+    /// low cannot tell the correct value from the broken one.
+    let marsAltitude = 500000.0
+
+    let aboveMars =
+        let location = marsSurface * (1.0 + marsAltitude / marsRadius)
+        modelLookingAt location (location + V3d.IOO)
 
 let tests =
     testList "Section 2 — Viewer Actions and Navigation" [
@@ -205,5 +233,118 @@ let tests =
             Expect.floatClose Accuracy.low
                 (Vec.dot refSystem'.up.value refSystem'.north.value) 0.0
                 "up and north should be perpendicular"
+        }
+
+        // TC-2.5 MapView Navigation
+        //
+        // MapView pins the camera to "look at the body centre, north up" and
+        // scales every pan/zoom step by the camera's height above the surface.
+        // Both of those had failure modes that only showed up on some paths
+        // into the mode, which is what these lock down.
+
+        test "TC-2.5 entering MapView looks at the body centre with north up" {
+            let nav, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let view = nav.camera.view
+            let radial = Vec.normalize view.Location
+            Expect.floatClose Accuracy.medium (Vec.dot view.Forward radial) -1.0
+                "the camera should look straight down at the body centre"
+            // screen-up is a compass direction: perpendicular to the local up...
+            let up = CooTransformation.getUpVector view.Location Planet.Mars |> Vec.normalize
+            Expect.floatClose Accuracy.low (Vec.dot view.Up up) 0.0
+                "screen-up should be horizontal, i.e. a compass direction"
+            // ...and it is north, not south: the test point is in the northern
+            // hemisphere, where north tilts toward the +Z pole.
+            Expect.isGreaterThan (Vec.dot view.Up V3d.OOI) 0.0
+                "screen-up should point north, not south"
+        }
+
+        test "TC-2.5 MapView scales navigation by the body radius, on every entry" {
+            // Regression: the radius used to be estimated from exploreCenter, and
+            // fell back to |cameraLocation| when that was zero — which is the
+            // default, so the *first* switch into MapView got radius + altitude.
+            // Switching to ArcBall and back repaired it, because ArcBall's
+            // pickOrbitCenter writes a real surface point into exploreCenter.
+            // The tolerance must stay well below Nav.marsAltitude for this to
+            // distinguish the correct radius from the old fallback.
+            let enter m = fst (Nav.run false None false m (Navigation.Action.SetNavigationMode NavigationMode.MapView))
+            let first  = enter Nav.aboveMars
+            let second = enter (fst (Nav.run false None false first (Navigation.Action.SetNavigationMode NavigationMode.FreeFly)))
+            for nav in [ first; second ] do
+                Expect.isTrue (abs (nav.camera.rotationFactor - Nav.marsRadius) < 5000.0)
+                    "MapView should scale by the Mars radius, not by camera state"
+            Expect.floatClose Accuracy.medium
+                second.camera.rotationFactor first.camera.rotationFactor
+                "re-entering MapView should give the same body scale"
+        }
+
+        test "TC-2.5 the very first switch into MapView leaves it navigable" {
+            // The reported symptom, asserted directly: MapView was frozen the
+            // first time it was entered and only came alive after a detour
+            // through ArcBall. The old radius estimate made height above the
+            // surface exactly zero, which collapsed the drag angle to zero.
+            Expect.equal Nav.aboveMars.exploreCenter V3d.Zero
+                "precondition: a fresh FreeFly model has no explore center"
+            let inMapView, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let before = inMapView.camera.view.Location
+            let step m msg = fst (Nav.run false None false m (Navigation.Action.MapViewControllerAction msg))
+            let dragged =
+                [ MapViewController.Message.Down (MouseButtons.Left, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(101, 100)) ]
+                |> List.fold step inMapView
+            Expect.isGreaterThan (Vec.distance dragged.camera.view.Location before) 1000.0
+                "a drag on the first MapView entry should move the camera over the body"
+        }
+
+        test "TC-2.5 a MapView action repairs the body scale on a restored camera" {
+            // Bookmark restore and scene load enter MapView without ever running
+            // SetNavigationMode, so they arrive with the FreeFly default (0.01)
+            // as the "body radius" — which made pan and zoom wildly oversensitive.
+            let restored =
+                { Nav.aboveMars with
+                    navigationMode = NavigationMode.MapView
+                    updatePerFrame = true }
+            Expect.isLessThan restored.camera.rotationFactor 1.0
+                "precondition: a restored camera carries the FreeFly default"
+            let nav, _ =
+                Nav.run false None false restored
+                    (Navigation.Action.MapViewControllerAction MapViewController.Message.StepTime)
+            Expect.isTrue (abs (nav.camera.rotationFactor - Nav.marsRadius) < 50000.0)
+                "the first MapView action should recompute the body radius"
+        }
+
+        test "TC-2.5 entering MapView leaves the ArcBall explore center alone" {
+            // MapView orbits the frame origin regardless, so zeroing exploreCenter
+            // only destroyed ArcBall's state (and the pink dot) for no gain.
+            let centre = V3d(10.0, 0.0, 0.0)
+            let start  = { Nav.aboveMars with exploreCenter = centre }
+            let nav, _ =
+                Nav.run false None false start
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            Expect.equal nav.exploreCenter centre "the explore center must survive a MapView switch"
+            Expect.equal nav.camera.orbitCenter (Some V3d.OOO) "MapView orbits the frame origin"
+        }
+
+        test "TC-2.5 the ENU map frame agrees with the ENU reference system" {
+            // Deriving east/north from the generic "east = pole x up" rule
+            // degenerates when up is a fixed axis, and used to land ENU's north
+            // on its east axis — a map view rotated by 90 degrees.
+            let frame = MapViewController.mapFrame Planet.ENU (V3d(1.0, 2.0, 3.0))
+            Expect.equal frame.up V3d.OOI "ENU up should point along +Z"
+            Expect.equal frame.east V3d.IOO "ENU east should point along +X"
+            Expect.equal frame.north V3d.OIO "ENU north should point along +Y (see TC-2.4)"
+        }
+
+        test "TC-2.5 the Mars map frame is a right-handed east/north/up triple" {
+            let frame = MapViewController.mapFrame Planet.Mars Nav.marsSurface
+            Expect.floatClose Accuracy.low (Vec.dot frame.up frame.north) 0.0 "up and north should be perpendicular"
+            Expect.floatClose Accuracy.low (Vec.dot frame.up frame.east) 0.0 "up and east should be perpendicular"
+            Expect.floatClose Accuracy.low (Vec.dot frame.north frame.east) 0.0 "north and east should be perpendicular"
+            Expect.floatClose Accuracy.low (Vec.distance (Vec.cross frame.east frame.north) frame.up) 0.0
+                "east x north should give up"
+            Expect.isSome frame.polarAxis "a planetary frame has a pole to guard against"
         }
     ]
