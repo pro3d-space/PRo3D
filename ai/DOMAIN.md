@@ -142,6 +142,37 @@ Actions cover assigning bodies/frames to surfaces, observing (positioning at a t
 
 ---
 
+## Outcrop Traces
+
+`OutcropTraceModel` / `OutcropTraceApp` (`src/PRo3D.Core/`). Marks where a modelled bedding
+sequence — one attitude, repeated at a constant bed thickness — would crop out on the terrain.
+User docs: [docs/OutcropTraces.md](../docs/OutcropTraces.md).
+
+Two things here are easy to get wrong and are pinned by tests:
+
+- **Poles are axial data.** `OutcropTrace.meanAttitude` combines the selection's fitted normals
+  with the orientation tensor (principal eigenvector of `Σ nᵢnᵢᵀ`, via `SVD.Decompose`, the same
+  call `LinearRegression3d.TryGetRegressionInfo` makes). Do **not** replace this with a mean of
+  unit normals: `DipAndStrikeResults.plane` is stored exactly as the regression produced it, so
+  its normal may point either way, and a near-vertical bed cancels itself out. `n nᵀ = (-n)(-n)ᵀ`
+  is what makes the tensor immune. Do not replace it with a circular mean of dip azimuth plus a
+  mean of dip angle either — that biases dip high when azimuths scatter, and returns a zero
+  resultant for two shallow beds dipping in opposite directions, whose mean plane is perfectly
+  well defined.
+- **Shape classification is ordered.** Cluster, else girdle, else no dominant attitude. A girdle
+  necessarily has a *low* `S₁`, because its poles spread around a great circle, so testing the
+  `S₁` floor first reports a fold as "no dominant attitude" instead of naming it. `S₃/S₂`
+  separates a girdle from plain scatter.
+
+The attitude aggregate (`ViewerUtils.outcropTraceAttitude`) is deliberately **not** gated on
+`enabled`: the Dip&Strike panel shows the same selection average with traces switched off. The
+draw gate lives in `outcropTraceUniforms`, which folds every "do not draw" case into one `None`.
+
+Rendering notes are in [RENDERING.md](RENDERING.md#shaders--effects) territory: one view-space
+plane uniform plus `d mod bedThickness` in the fragment shader, added last to the effect stacks,
+with screen-space-derivative antialiasing that is load-bearing rather than cosmetic once a whole
+sequence is on screen.
+
 ## Queries
 
 Spatial/attribute extraction from OPC patches, used by the remote API and analysis workflows. File: `src/PRo3D.Core/Queries/` (e.g. `AnnotationQuery.fs`).

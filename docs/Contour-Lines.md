@@ -6,6 +6,11 @@ Synopsis: Contour lines for texture layers
 Status: Work-In-Progress
 Interacts with: [Feature-Multitexturing](./Feature-Multitexture.md)
 
+See also [Outcrop Traces](./OutcropTraces.md), the other procedural line shader on the terrain.
+The two answer different questions and are shaded differently on purpose: contour lines are a
+property of the terrain and run *before* the lighting stages, so they are lit; outcrop traces
+are an interpretive overlay and run last, so their colour survives lighting and shadowing.
+
 # UI
 
 

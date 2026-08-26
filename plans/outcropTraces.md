@@ -576,7 +576,16 @@ Three things to get right:
 1. The uniforms are always bound, zero-filled when `None`. See the Apple Silicon note in
    section 6.
 2. `view` is the parameter of `createGroupedSgs`, not `m.navigation.camera.view` (section 3).
-3. **Snapshots: wanted, deferred.** `getSurfacesScenegraphs`
+3. **Snapshots — resolved during implementation, and the plan's premise was wrong.**
+   `SnapshotSg.createSceneGraph` calls `ViewerUtils.createGroupedSgs`, the *same* path the
+   uniforms are bound on, and `getSurfacesScenegraphs` turns out to have **no callers at
+   all** — it is dead code. So there is no legacy render path to fix. What actually keeps
+   traces out of headless batch rendering is that the state is transient and not part of the
+   scene, which makes it the `Scene` persistence follow-up in 13 rather than a rendering
+   problem. Interactive screenshots include traces today. Original note, kept for the
+   reasoning:
+
+   **Snapshots: wanted, deferred.** `getSurfacesScenegraphs`
    ([Viewer-Utils.fs:1038](../src/PRo3D.Viewer/Viewer/Viewer-Utils.fs:1038), marked *"TODO TO
    refactor screenshot specific"*) is a **second, older** surface path that does not bind the
    cross-section uniforms either. Traces *should* appear in snapshots — batch-rendered
