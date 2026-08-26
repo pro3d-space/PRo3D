@@ -917,14 +917,36 @@ module ViewerUtils =
                         else
                             abs signed
 
+                    // How much the signed distance changes across one pixel. This is what
+                    // makes a *sequence* survivable: trace width and bed thickness are both
+                    // in metres, so once a bed is thinner than a couple of pixels of terrain
+                    // the traces shimmer, moire against the LOD and crawl as the camera
+                    // moves. At 500 m on a 1080-tall viewport with a 60 deg vertical FOV one
+                    // pixel already covers ~0.5 m face-on, and several times that at grazing
+                    // incidence, so a 1 m bed thickness is at the Nyquist limit before the
+                    // terrain tilts at all.
+                    let w = max (V2f(ddxFine signed, ddyFine signed) |> Vec.length) 1e-6f
+
+                    // Never let a trace fall below about a pixel and a half, or it
+                    // disappears and reappears between frames instead of getting fainter.
+                    let halfWidth = max halfWidth (w * 0.75f)
+                    let smooth    = max smooth w
+
                     // band: 1 inside halfWidth, smoothstep out over `smooth`
                     let band = 1.0f - Fun.Smoothstep(d, halfWidth, halfWidth + smooth)
+
+                    // Dissolve an over-dense sequence into a flat tint rather than a
+                    // shimmering mess: below ~3 pixels per bed there is no longer a pattern
+                    // to resolve, so fade the whole thing out instead of aliasing it.
+                    let density =
+                        if bedThk > 0.0f then Fun.Smoothstep(bedThk / w, 2.0f, 4.0f)
+                        else 1.0f
 
                     // fade out away from the selection the attitude was measured on
                     let r    = Vec.distance ext.XYZ p
                     let fade = 1.0f - Fun.Smoothstep(r, ext.W, ext.W * 1.15f)
 
-                    let a = Fun.Clamp(band * fade, 0.0f, 1.0f)
+                    let a = Fun.Clamp(band * fade * density, 0.0f, 1.0f)
                     return V4f(v.c.XYZ * (1.0f - a) + uniform.OutcropTraceColor.XYZ * a, v.c.W)
             }
 

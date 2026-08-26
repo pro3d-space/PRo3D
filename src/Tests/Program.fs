@@ -42,6 +42,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         BulkAnnotationRoseTest.tests()
         BulkAnnotationRoseTest.largeTests()
         OutcropTraceAttitudeTest.tests()
+        OutcropTraceShaderTest.tests()
         PolygonFillTests.tests()
         RegionOpsTests.tests()
         RegionFixtureTests.tests()
