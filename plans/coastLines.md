@@ -1,30 +1,41 @@
-# Coast Lines — one plane, traced across the surface in the shader
+# Coast Lines — one orientation, a family of equidistant planes, traced across the surface
 
-**Goal.** Take **one** plane and mark every surface fragment that lies within a given
-thickness of it. The result is a "shoreline": the trace of that plane across the
-topography, the way a water level draws a coast.
+**Goal.** Derive **one orientation** from an annotation selection, then mark every surface
+fragment lying within a given thickness of **any** plane in an equidistant family with that
+orientation. The result is a set of "shorelines": the traces of a regularly spaced stack of
+parallel planes across the topography, the way a series of water levels would draw a set of
+coasts.
 
-The plane comes from the annotation selection:
-
-- **one annotation selected** → its fitted plane;
-- **several annotations, or a whole group, selected** → the **average** plane of the
+- **one annotation selected** → its fitted plane's orientation;
+- **several annotations, or a whole group, selected** → the **combined** orientation of the
   selection (section 4).
+- **spacing** → the perpendicular distance between successive planes in the family. Setting
+  it to zero collapses the family to the single plane through the anchor.
 
-Selecting a group of bedding measurements, averaging them into one plane and watching where
-that plane outcrops across the scene is the cross-site correlation use case that motivates
-this.
+Selecting a group of bedding measurements, combining them into one orientation and watching
+where that whole bedding stack outcrops across the scene is the cross-site correlation use
+case that motivates this: if two outcrops belong to the same sequence, the traces run
+continuously between them.
 
-The name is the sketch name. In geology this is a *plane trace* / structure contour; the
+The name is the sketch name. In geology these are *plane traces* / structure contours; the
 docs page should say both so the term is findable.
 
-**One plane is the whole design constraint.** No uniform arrays, no per-fragment loop, no
-cap on the selection size, no per-annotation colours, no fill-rate question to measure. The
-shader is a single dot product. Everything expensive or uncertain about this feature lives
-on the CPU, in `double`, once per frame.
+**Many planes, one uniform.** The family is *not* N planes uploaded to the GPU. It is one
+orientation plus a modulo in the fragment shader — `d mod spacing` instead of `d`. So there
+are no uniform arrays, no per-fragment loop, no cap on the selection size, no per-plane
+colours and no fill-rate question to measure. The shader is a single dot product and a
+remainder. Everything expensive or uncertain lives on the CPU, in `double`, once per frame.
+`contourLines` ([Utilities.fs:749](../src/PRo3D.Base/Utilities.fs:749)) already uses the same
+trick against a texture value.
+
+**The anchor is only the family's phase.** With an infinite equidistant stack there is no
+"the" plane to position; the anchor just decides which offsets the planes land on. It is
+fixed at the selection's centroid, so one member of the family passes exactly through the
+middle of the measurements that defined it. Nothing else about it needs deciding.
 
 Every DnS annotation already carries a fitted `Plane3d`
 (`DipAndStrikeResults.plane`, [Annotation-Model.fs:160](../src/PRo3D.Base/Annotation/Annotation-Model.fs:160)),
-so nothing needs fitting either — the feature is *average, transform to view space, upload,
+so nothing needs fitting either — the feature is *combine, transform to view space, upload,
 test*.
 
 ---
@@ -57,20 +68,23 @@ test*.
   explicitly not persisted ([Groups-Model.fs:363](../src/PRo3D.Core/Groups-Model.fs:363)).
   Persisting `enabled` while the selection restores empty would give a scene that says "on"
   and shows nothing.
-- **Anchored at the selection's centroid.** Decided, not open: the plane passes through the
-  mean centre of mass of the contributing annotations. Anchoring on a chosen reference
-  annotation, and reporting each annotation's signed offset along the shared normal, were
-  both considered and dropped -- see 13.
+- **Anchored at the selection's centroid**, which for a family means only its phase. Decided,
+  not open. Anchoring on a chosen reference annotation, and reporting each annotation's
+  signed offset along the shared normal, were both considered and dropped -- see 13.
 - **The plane is clipped to a radius around the selection.** A plane fitted to a 2 m
   annotation is meaningless 4 km away; extended globally it paints a confident, wrong line
   across the whole scene. The trace fades out beyond `extentRadius` of the mean centre of
   mass, and the default radius is *derived from the selection's own spread* (section 4), not
   a fixed number.
-- **Optional repeat spacing.** `distance mod spacing` instead of `distance`, giving a whole
-  parallel family of traces from one plane — a bedding sequence rather than a single bed.
-  Two lines in the shader, and the geologically interesting mode; `contourLines`
-  ([Utilities.fs:749](../src/PRo3D.Base/Utilities.fs:749)) already does the same modulo trick
-  against a texture value.
+- **The equidistant family is the primary mode, not an add-on.** Spacing defaults to on,
+  and the single plane is the degenerate case (`spacing = 0`). This is a reversal from the
+  first draft, and it changes the priorities below: the spacing control has to be
+  discoverable and sensibly initialised (section 8), and screen-space aliasing moves from a
+  theoretical footnote to the first thing that will go wrong (section 12).
+- **Initial spacing is derived, not a magic constant.** A family whose spacing is far too
+  small paints the terrain a solid colour; far too large shows one line. Both read as "the
+  feature is broken". The first spacing is therefore set from the selection's own extent so
+  that roughly eight traces are visible immediately, and the user dials from there.
 - **Drawn last in the effect stack**, so the trace colour is not modulated by lighting or
   shadows. `contourLines` sits *before* `solarShadingLS` and so gets shaded; that is right
   for contours as a terrain property and wrong for this, which is an interpretive overlay.
@@ -363,15 +377,20 @@ type CoastLinesModel = {
     smoothing     : NumericInput  // metres, smoothstep falloff either side
     extentFactor  : NumericInput  // multiplier on the selection's own spread (4.4)
     extentMinimum : NumericInput  // metres, floor for a single annotation
-    repeatEnabled : bool
-    repeatSpacing : NumericInput  // metres between parallel traces
+    spacing       : NumericInput  // metres between successive planes; 0 = single plane
     color         : ColorInput
 }
 ```
 
 Defaults: `enabled = false`, `useDnS = true`, `usePolyline = false`, `thickness = 0.25`,
-`smoothing = 0.1`, `extentFactor = 1.5`, `extentMinimum = 25.0`, `repeatEnabled = false`,
-`repeatSpacing = 1.0`, `color = C4b.Red`.
+`smoothing = 0.1`, `extentFactor = 1.5`, `extentMinimum = 25.0`, `color = C4b.Red`.
+
+`spacing` has no useful fixed default — see the "derived, not a magic constant" decision in
+section 1. It is initialised to `extentRadius / 8` the first time a selection produces an
+orientation, giving roughly eight visible traces straight away, and is left alone after that
+so the user's own value survives a change of selection. `spacing = 0` is the single-plane
+degenerate case, reachable by dragging the control to its minimum; there is no separate
+enable toggle for the family.
 
 Wiring, all mechanical:
 
@@ -513,8 +532,13 @@ Its own accordion rather than a section inside *Bulk Edit*, because the bulk pan
 render below two selected annotations and coast lines must work for one.
 
 Contents: an on/off button styled like the rose activation button, the Polyline / DnS
-toggles, numeric rows for thickness / smoothing / extent factor / extent minimum, a repeat
-checkbox with its spacing, and the colour picker.
+toggles, and then — first, because it is the control the user actually works with — the
+**spacing** row, with a *Fit to selection* button that re-derives it as `extentRadius / 8`.
+Below that: thickness, smoothing, extent factor, extent minimum, and the colour picker.
+
+The spacing row should show the resulting trace count over the extent
+(`≈ 2·extentRadius / spacing`) next to the value, so that "1" versus "100" is legible before
+the user looks at the terrain rather than after.
 
 Above the controls, a readout of **what plane is actually being drawn** — this is what makes
 the averaging trustworthy, and it is cheap because the numbers already exist:
@@ -622,11 +646,15 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 1. **Model + averaging + tests, no rendering.** `CoastLines-Model.fs`, `CoastLinesApp.fs`,
    the orientation-tensor average and its two guards, adaptify, both test files. Fully
    testable with nothing on screen, and it is where the real risk is.
-2. **Shader + Sg wiring.** `CoastLineShader`, both effect stacks, uniforms in
-   `createGroupedSgs`. Drive it from a hard-coded plane first if that is faster to debug.
+2. **Shader + Sg wiring, including the family.** `CoastLineShader` with the modulo, both
+   effect stacks, uniforms in `createGroupedSgs`. Drive it from a hard-coded orientation and
+   spacing first if that is faster to debug. The family is in from the start — it is two
+   lines and it is the mode the feature exists for; deferring it would mean tuning thickness
+   and extent against a picture nobody wants.
 3. **Selection plumbing + UI.** The adaptive aggregate from 4.6, the accordion, the dip /
    azimuth / `S₁` readout and the four empty states.
-4. **Repeat spacing.** Small once 1–3 are in; separate so the bisect surface stays honest.
+4. **Aliasing mitigation** (section 12) once there is something on screen to judge it
+   against. Separate commit so the before/after is visible.
 5. **Docs + release notes**, with the screenshots from the manual check.
 
 ---
@@ -650,12 +678,28 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 - **The plane does not follow surface transformations.** It is built from world-space picked
   points; changing a surface's transformation afterwards moves the terrain and leaves the
   plane where it was. Same behaviour as cross sections. Re-picking is the workaround.
-- **Band width is measured perpendicular to the plane, not on screen.** Where the plane meets
-  the terrain at a shallow angle the trace is wide; where it cuts steeply it is thin. That is
-  geometrically honest and it is what makes the line read as an intersection rather than a
-  decal, but it surprises people. A screen-constant variant is possible with `ddx`/`ddy` of
-  the signed distance (FShade exposes `ddxFine`/`ddyFine`; nothing in PRo3D uses them yet) —
-  out of scope here, noted as the follow-up.
+- **Band width is measured perpendicular to the plane, not on screen.** Where the family
+  meets the terrain at a shallow angle the traces are wide and far apart; where it cuts
+  steeply they are thin and close. That is geometrically honest and it is what makes them
+  read as intersections rather than decals, but it surprises people.
+
+> **Aliasing is the first thing that will go wrong, and the family makes it certain.**
+> With a 60° vertical FOV and a 1080-pixel-tall viewport, one pixel covers ≈0.53 m of
+> terrain at 500 m *face-on*, and several times that at grazing incidence. So a 1 m spacing
+> is already at the Nyquist limit before the terrain tilts: the traces shimmer, moiré with
+> the LOD, and crawl as the camera moves. A single plane never showed this because there was
+> only ever one line on screen.
+>
+> The mitigation is the standard analytic-antialiasing move for a procedural line pattern,
+> and it is what phase 4 is for: take the screen-space derivative of the signed distance
+> (`ddxFine`/`ddyFine` — FShade exposes both; nothing in PRo3D uses them yet), and use
+> `w = length(V2f(ddx d, ddy d))` as the per-pixel scale. Then (a) clamp the band's
+> half-width to at least ~1.5·w so a trace never falls below a pixel and disappear-flickers,
+> and (b) fade the whole family out as `spacing / w` drops below ~3, so an over-dense stack
+> dissolves into a flat tint instead of a shimmering mess.
+>
+> Judge it on a moving camera, not a screenshot — a still frame hides exactly the artifact
+> this fixes.
 - **Traces are not exportable.** See section 1 on CPU slicing.
 
 ## 13. Follow-ups, deliberately not in this plan
@@ -663,7 +707,6 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 - Persisting an explicit annotation-id list on `Scene`, so a saved scene restores its coast
   line. Adding one `Scene` field read with `Json.tryRead` + a default needs no
   `Scene.current` bump, so this is cheap when it is wanted.
-- Screen-constant line width via screen-space derivatives.
 - A "refit across all selected points" mode alongside "average the orientations".
 - Exporting a trace as a polyline annotation (the CPU-slicing path).
 - **Per-site offsets.** The signed distance of each contributing annotation along the shared
