@@ -57,6 +57,10 @@ test*.
   explicitly not persisted ([Groups-Model.fs:363](../src/PRo3D.Core/Groups-Model.fs:363)).
   Persisting `enabled` while the selection restores empty would give a scene that says "on"
   and shows nothing.
+- **Anchored at the selection's centroid.** Decided, not open: the plane passes through the
+  mean centre of mass of the contributing annotations. Anchoring on a chosen reference
+  annotation, and reporting each annotation's signed offset along the shared normal, were
+  both considered and dropped -- see 13.
 - **The plane is clipped to a radius around the selection.** A plane fitted to a 2 m
   annotation is meaningless 4 km away; extended globally it paints a confident, wrong line
   across the whole scene. The trace fades out beyond `extentRadius` of the mean centre of
@@ -662,6 +666,11 @@ Each phase is a commit; the branch is `features/coast-lines` off `develop`.
 - Screen-constant line width via screen-space derivatives.
 - A "refit across all selected points" mode alongside "average the orientations".
 - Exporting a trace as a polyline annotation (the CPU-slicing path).
+- **Per-site offsets.** The signed distance of each contributing annotation along the shared
+  normal, `dᵢ = n·(cᵢ - anchor)`: tightly clustered `dᵢ` mean the sites are on one bed, and
+  the spread is the stratigraphic separation in metres. Would make the correlation a number
+  rather than a visual judgement, and needs no new rendering -- but it is a readout the
+  centroid-only decision above deliberately leaves out of the first version.
 - An image-based regression once the render harness in
   [plans/sceneRenderTestHarness.md](sceneRenderTestHarness.md) lands — a fixed camera and one
   known plane is an ideal case for it.
