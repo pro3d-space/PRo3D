@@ -8,6 +8,7 @@ module PRo3D.Tests.Section12_GisView
 open System
 open System.IO
 
+open Chiron
 open Expecto
 
 open PRo3D.Base.Gis                       // EntitySpiceName, FrameSpiceName
@@ -60,5 +61,29 @@ let tests =
             let t = DateTime(2030, 1, 2, 3, 4, 5)
             let m = ObservationInfo.update ObservationInfo.initial (ObservationInfoAction.SetTime t)
             Expect.equal m.time.date t "the observation time should be set"
+        }
+
+        // TC-12.3 Persistence — the sun/lighting mode is part of the scene: the batch
+        // renderer (PRo3D.Snapshots.exe) restores scenes through this codec, so a mode
+        // that does not survive save/load silently resets to Off in every batch render.
+
+        test "TC-12.3 the lighting mode survives a GisApp save/load roundtrip" {
+            let m = GisApp.initial None
+            let m =
+                { m with
+                    projectedImageList =
+                        { m.projectedImageList with
+                            lightingMode = PRo3D.ImageMapping.LightingMode.SunShadow } }
+
+            let serialized = m |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            let restored : GisApp = serialized |> Json.parse |> Json.deserialize
+            Expect.equal restored.projectedImageList.lightingMode
+                PRo3D.ImageMapping.LightingMode.SunShadow "SunShadow should survive save/load"
+
+            // and the default stays Off, so old scenes without the field load unchanged
+            let off = GisApp.initial None |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            let restoredOff : GisApp = off |> Json.parse |> Json.deserialize
+            Expect.equal restoredOff.projectedImageList.lightingMode
+                PRo3D.ImageMapping.LightingMode.Off "the default lighting mode is Off"
         }
     ]

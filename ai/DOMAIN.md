@@ -52,7 +52,8 @@ Interactive measurement/markup placed on surfaces.
 | `src/PRo3D.Base/Annotation/Annotation-Model.fs` | The `Annotation` data model and result types |
 | `src/PRo3D.Core/Drawing/Drawing-Model.fs` | `DrawingModel` (live drawing + annotation groups) |
 | `src/PRo3D.Core/Drawing/Drawing-App.fs` | Drawing update/view, measurement computation |
-| `src/PRo3D.Core/Importers/AnnotationGroupsImporter.fs` | Import annotations |
+| `src/PRo3D.Core/Importers/AnnotationGroupsImporter.fs` | Import annotations (PRo3D v1 XML groups, plus `importSbmt`) |
+| `src/PRo3D.Core/Importers/SbmtImporter.fs` | Import SBMT (Small Body Mapping Tool) structure files — tab-separated point/ellipse catalogs, **not** GIS shapefiles. See `docs/SbmtImport.md`. |
 
 Key types:
 - **`Geometry`** — `Point` | `Line` | `Polyline` | `Polygon` | `DnS` (dip & strike) | `TT` (true thickness) | `Ellipse` | `AxisEllipse` | `Axis4PEllipse`.
@@ -63,7 +64,7 @@ Key types:
 - **Results**: `AnnotationResults` (height, length, bearing, slope, area, true thickness, …) and `DipAndStrikeResults` (fitted plane, dip/strike angles & directions, azimuth, center of mass, error stats), plus `Statistics`.
 - **`DrawingModel`** — the live working annotation (`Option<Annotation>`), the annotation `GroupsModel`, current color/thickness/projection/geometry/semantic, and sampling settings. Undo/redo lives on the root `Model` (`past`/`future`), not here.
 
-Annotations can be exported to GeoJSON (see [AUTOMATION.md](AUTOMATION.md#remote-api)). See also `docs/AdvancedAnnotations.md`.
+Annotations can be exported to GeoJSON (see [AUTOMATION.md](AUTOMATION.md#remote-api)). See also `docs/AdvancedAnnotations.md` and `docs/SbmtImport.md`.
 
 ---
 

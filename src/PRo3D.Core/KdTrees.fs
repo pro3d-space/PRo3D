@@ -335,7 +335,7 @@ module KdTrees =
                                     Some kdPath
                                 else
                                     // no existing, did not want to rebuild
-                                    Log.warn "[KdTrees] Kdtree not available, please build it manually using opc-tool or pro3d."
+                                    Log.warn "[KdTrees] Kdtree not available, please build it manually using `pro3d-tool kdtree` or pro3d."
                                     None
                         
                         match t with

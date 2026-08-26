@@ -606,7 +606,7 @@ module Gui =
 
                                         // SBMT structure files: real fixtures sometimes have no extension
                                         // (e.g. boulder catalogs) so the filter is wide. Frame is hardcoded
-                                        // to DIMORPHOS_SHM in the handler -- see plans/sbmtImport.md.
+                                        // to DIMORPHOS_SHM in the handler -- see plans/archive/sbmtImport.md.
                                         let jsOpenSbmtFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import SBMT annotations', filters: [{ name: 'SBMT structure files', extensions: ['txt', '*']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
                                         div [ clazz "ui item";

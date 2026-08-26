@@ -45,6 +45,7 @@
     <None Include="data\regions\seed-basic.region" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
     <Compile Include="OpcSidecarTests.fs" />
+    <Compile Include="UnprojectTest.fs" />
     <Compile Include="BaseTests.fs" />
     <None Include="data\bulk-rose-annotations.pro3d.ann" />
     <Compile Include="BulkAnnotationRoseTest.fs" />
@@ -66,6 +67,8 @@
     <Compile Include="Features\Section18_KeyboardShortcuts.fs" />
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
     <Compile Include="Features\Section20_BooleanOperations.fs" />
+    <Compile Include="Pro3DToolTests.fs" />
+    <Compile Include="Features\SnapshotSunLightingTest.fs" />
     <!-- after Features\TestHelpers.fs: these drive the real DrawingApp through the Draw harness -->
     <Compile Include="AdaptiveNestingTests.fs" />
     <Compile Include="VertexEditingTests.fs" />
@@ -76,8 +79,15 @@
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
+    <ProjectReference Include="..\PRo3D.Tool\PRo3D.Tool.fsproj" />
     <!-- Scene, SceneLoader and ViewerIO live in the viewer: needed by the TC-1 scene lifecycle tests -->
     <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />
+    <!-- Scene transitively exposes JR.InstrumentPlatforms types (view plans / rovers);
+         typing a Scene in the tests needs the assembly on the compile path (FS0074 in
+         Release, which Debug happens not to hit) -->
+    <Reference Include="JR.Wrappers">
+      <HintPath>..\..\lib\JR.Wrappers.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Thoth.Json.Net" Version="12.0.0" />

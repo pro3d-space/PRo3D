@@ -166,19 +166,26 @@ module GisAppJson =
             let! cameraInObserver = Json.tryRead "cameraInObserver"
 
             let! showMarkers = Json.tryRead "showMarkers"
-            
+
+            // Additive field (tryRead + default), so scenes from before it existed load
+            // unchanged. Only the mode is persisted, not the whole image list -- the list
+            // staying session-local is existing behaviour.
+            let! (lightingMode : Option<int>) = Json.tryRead "lightingMode"
+            let lightingMode =
+                lightingMode |> Option.map enum<LightingMode> |> Option.defaultValue LightingMode.Off
+
             return {
-                version                = ReferenceFrame.current
+                version                = GisApp.current
                 defaultObservationInfo = defaultObservationInfo
-                referenceFrames        = HashMap.ofList referenceFrames               
-                entities               = HashMap.ofList entities          
+                referenceFrames        = HashMap.ofList referenceFrames
+                entities               = HashMap.ofList entities
                 newEntity              = None
                 newFrame               = None
                 gisSurfaces            = HashMap.ofList gisSurfaces
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
-                projectedImageList        = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = System.IO.Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
+                projectedImageList        = { ProjectedImageListModel.initial with lightingMode = lightingMode }
                 showMarkers            = Option.defaultValue false showMarkers
 
                 selectedMissionTimeRow = None
@@ -196,6 +203,10 @@ type GisApp with
             do! Json.write "gisSurfaces"             (x.gisSurfaces |> HashMap.toList |> List.map snd)
             do! Json.write "spiceKernel"             (Option.map CooTransformation.SPICEKernel.toPath x.spiceKernel)
             do! Json.write "showMarkers"             x.showMarkers
+            // The sun/lighting mode must survive save/load: PRo3D.Snapshots.exe restores
+            // the scene through this codec, so an unserialized mode would silently reset
+            // to Off in every batch render.
+            do! Json.write "lightingMode"            (int x.projectedImageList.lightingMode)
         }
     static member FromJson (_ : GisApp) =
         json {

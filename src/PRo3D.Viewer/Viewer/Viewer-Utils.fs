@@ -1003,7 +1003,11 @@ module ViewerUtils =
             if not Config.limitedShaderCapabilities then
                 ImageProjection.Shaders.localImageProjections |> toEffect
 
-            PRo3D.SPICE.Shaders.solarLighting |> toEffect
+            // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
+            // sphere-normal predecessor made relief invisible under sun lighting.
+            PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
+            // Cast shadows (LightingMode.SunShadow); per-patch gated, no-op otherwise.
+            PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
         ]
         //Effect.compose [
             
@@ -1093,11 +1097,12 @@ module ViewerUtils =
             }                              
         sgs
 
-    let createGroupedSgs 
-        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
+    let createGroupedSgs
+        (runtime        : IRuntime)
+        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>)
         (view           : aval<CameraView>)
-        (allowFootprint : bool) 
-        (allowDepthview : bool) 
+        (allowFootprint : bool)
+        (allowDepthview : bool)
         (m              : AdaptiveModel)  =
 
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
@@ -1141,7 +1146,12 @@ module ViewerUtils =
             AVal.constant true
 
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-                              
+
+        // Sun shadow mapping (LightingMode.SunShadow): the depth map + light matrix,
+        // both inert (dummy texture / None) in every other mode. Shared by the
+        // interactive viewer and PRo3D.Snapshots, which both assemble surfaces here.
+        let sunShadow = SunShadowMap.get runtime m
+
         let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
             let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
             let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
@@ -1152,7 +1162,7 @@ module ViewerUtils =
                 body 
                 |> AVal.map (function 
                     | Some b -> 
-                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp surfaceId "MARS"
+                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
                         r
                     | _ -> None 
                 )
@@ -1258,6 +1268,11 @@ module ViewerUtils =
                 |> Sg.uniform "CrossSectionClippingEnabled" m.scene.crossSectionModel.clippingEnabled
                 // Whether there is a cross-section at all. See crossSectionClip.
                 |> Sg.uniform "CrossSectionDefined" (crossSectionData |> AVal.map Option.isSome)
+                // The OPC effect stack samples the shadow comparison sampler
+                // unconditionally (terrainSunShadow), so every surface needs a depth
+                // texture behind it even while shadows are off.
+                |> Sg.texture "ShadowMap" sunShadow.texture
+                |> Sg.uniform "ShadowMapBias" (sunShadow.bias |> AVal.map float32)
                 |> Sg.applyCrossSection crossSectionData
                 |> Sg.noEvents
 
@@ -1377,11 +1392,9 @@ module ViewerUtils =
         (runtime        : IRuntime) 
         (m              : AdaptiveModel)  =
 
-        let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview m
+        let grouped = createGroupedSgs runtime sgGrouped view allowFootprint allowDepthview m
 
-
-
-        alist {                    
+        alist {
             for sg in grouped do
                 yield RenderCommand<_>.ClearDepth 1.0
                 yield RenderCommand<_>.ClearDepth 1.0

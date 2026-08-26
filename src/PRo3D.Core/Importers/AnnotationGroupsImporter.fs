@@ -160,7 +160,7 @@ module AnnotationGroupsImporter =
     // Imports a single SBMT structure file as one annotation group.
     // trafo : applied to every parsed XYZ after the km->m unit scale. v1
     //         callers pass Trafo3d.Identity. The seam is in place for a
-    //         later SPICE-derived frame transform (see plans/sbmtImport.md).
+    //         later SPICE-derived frame transform (see plans/archive/sbmtImport.md).
     //
     // dnsResults / annotation results are intentionally NOT computed per
     // annotation: SBMT catalogs can contain thousands of ellipses, and the

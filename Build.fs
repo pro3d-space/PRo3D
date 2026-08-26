@@ -29,6 +29,12 @@ let notes =
 
 printfn "%A" notes
 
+/// pro3d-tool versions independently of the viewer: a tool-only fix should not force a
+/// product release, and the tool started at 0.1.0 long after the product reached 6.x.
+let toolNotes = ReleaseNotes.load "TOOL_RELEASE_NOTES.md"
+
+printfn "tool %A" toolNotes
+
 let solutionName = "src/PRo3D.sln"
 let framework = "net9.0"
 let aardiumPath = Path.Combine("aardium", "Aardium")
@@ -734,34 +740,19 @@ Target.create "UploadStandalone" (fun _ ->
 
 
 Target.create "Pack" (fun _ ->
-    let args = 
-        [
-            "paket"
-            "pack"
-            "--version"
-            notes.NugetVersion
-            "--interproject-references"
-            "fix"
-            "--release-notes"
-            sprintf "\"%s\"" (String.concat "\\n" notes.Notes)
-            "--project-url"
-            "\"https://github.com/pro3d-space/PRo3D\""
-            sprintf "\"%s\"" (Path.Combine(__SOURCE_DIRECTORY__, "bin"))
-        ]
-    let ret = 
-        Process.shellExec {
-            ExecParams.Program = "dotnet"
-            WorkingDir = __SOURCE_DIRECTORY__
-            CommandLine = String.concat " " args
-            Args = []
-        }
-    if ret <> 0 then failwithf "paket failed with exit code %d" ret
-
-    "./src/opc-tool/opc-tool.fsproj" |> DotNet.pack (fun o -> 
-        { o with        
+    // pro3d-tool only.
+    //
+    // The libraries used to be packed here too, via `paket pack` (PRo3D.Base carries the
+    // only paket.template). Push then uploaded whatever landed in bin/, so shipping a tool
+    // fix would also publish PRo3D.Base at the product version as a side effect. The
+    // package on nuget.org is stale at 4.22.0 and is not maintained, so packing it was a
+    // liability rather than a feature. Recover the `paket pack` invocation from git history
+    // if library publishing is wanted again.
+    "./src/PRo3D.Tool/PRo3D.Tool.fsproj" |> DotNet.pack (fun o ->
+        { o with
             NoRestore = true
             NoBuild = true
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true; Properties = ["Version", notes.NugetVersion] }
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true; Properties = ["Version", toolNotes.NugetVersion] }
         }
     )
 )
@@ -774,17 +765,19 @@ Target.create "Push" (fun _ ->
     //    failwith "repo not clean"
 
     
+    // Matched by name AND version, not version alone. bin/ accumulates packages across
+    // builds, and publishing to nuget.org cannot be undone -- so anything that happens to
+    // be lying around must not go out as a side effect of shipping the tool.
+    let isPublishable (fileName : string) =
+        let m = packageNameRx.Match fileName
+        m.Success
+        && m.Groups.["name"].Value = "PRo3D.Tool"
+        && m.Groups.["version"].Value = toolNotes.NugetVersion
+
     if File.exists "deploy.targets" then
         let packages =
             !!"bin/*.nupkg"
-            |> Seq.filter (fun path ->
-                let name = Path.GetFileName path
-                let m = packageNameRx.Match name
-                if m.Success then
-                    m.Groups.["version"].Value = notes.NugetVersion
-                else
-                    false
-            )
+            |> Seq.filter (Path.GetFileName >> isPublishable)
             |> Seq.toList
 
         let targetsAndKeys =

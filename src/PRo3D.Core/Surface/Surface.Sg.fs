@@ -405,47 +405,17 @@ module Sg =
             kdTreesPerHierarchy                     
             |> Array.fold HashMap.union HashMap.empty
 
-        let createShadowContext (f : Aardvark.GeoSpatial.Opc.PatchLod.PatchNode) (scope : Scope) =
-             match scope.TryGetInherited "LightViewProj" with
-             | None -> Option<aval<Trafo3d>>.None :> obj
-             | Some v -> Some (v |> unbox<aval<Trafo3d>>) :> obj
-
-        let uniforms = 
-             Map.ofList [    
-                 //"LightViewProj", fun scope (rp : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                 "LightViewProj", fun scope (rp : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                     let vp : Option<aval<Trafo3d>> = unbox scope
-                     match vp with
-                     | Some vp -> 
-                         AVal.map2 (fun (m : Trafo3d) (vp : Trafo3d) -> (m * vp).Forward)                                     
-                                   rp.trafo vp :> IAdaptiveValue
-                     | None -> 
-                         Log.error "did not provide LightViewProj but shader wanted it."
-                         (AVal.constant M44f.Identity) :> IAdaptiveValue
-                 "HasLightViewProj", fun scope _ -> 
-                     let vp : Option<aval<Trafo3d>> = unbox scope
-                     match vp with
-                         | Some _ -> AVal.constant true :> IAdaptiveValue
-                         | _ -> AVal.constant false :> IAdaptiveValue
-             ]
-     
         //let lodDeciderMars = lodDeciderMars scene.preTransform
         //let lodDeciderMars = marsArea scene.preTransform
         //let lodDeciderMars = reworkedLoD scene.preTransform intersect
-        let lodDeciderMars = cleanedOldLegacyLoD  scene.preTransform 
+        let lodDeciderMars = cleanedOldLegacyLoD  scene.preTransform
 
-        let projectedImages = ImageProjectionOpcExtensions.projectionUniformMap
-
-        let footprintUniforms = 
-            Map.ofList [
-                "FootprintModelViewProj", fun scope (patch : RenderPatch) -> 
-                    let context = unbox<OpcRenderingExtensions.Context> scope
-                    let viewTrafo = context.footprintVP
-                    let r = AVal.map2 (fun viewTrafo (model : Trafo3d) -> viewTrafo * model.Forward) viewTrafo patch.trafo 
-                    r :> IAdaptiveValue
-            ]
-
-        let allUniforms = Map.unionMany [Map.empty; projectedImages; ]
+        // Shadow mapping's per-patch light matrix (StableModelViewProjTexture) lives in
+        // projectionUniformMap, fed through the ProjectedImages record. A previous
+        // "LightViewProj"/"HasLightViewProj" uniform map sat here unused (and unsound:
+        // its capture function was never installed, so it would have unboxed the wrong
+        // scope type); removed when the working path landed.
+        let allUniforms = ImageProjectionOpcExtensions.projectionUniformMap
 
         // create level of detail hierarchy (Sg)
         let g = 

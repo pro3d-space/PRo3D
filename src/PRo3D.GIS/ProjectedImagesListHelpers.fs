@@ -85,7 +85,10 @@ module ProjectedImagesListAppHelper =
                     )
         }
 
-    let getProjectedImageData (g : AdaptiveGisApp)  (surfaceId : Guid) (projectionSurfaceBodyName : string) : Option<Sg.ProjectedImages> =
+    /// `lightViewProj`: world -> sun-camera clip space for shadow mapping, produced by
+    /// the viewer's shadow-map pass; None (also whenever the lighting mode is not
+    /// SunShadow) keeps the per-patch shadow lookup disabled.
+    let getProjectedImageData (g : AdaptiveGisApp) (lightViewProj : aval<Option<Trafo3d>>) (surfaceId : Guid) (projectionSurfaceBodyName : string) : Option<Sg.ProjectedImages> =
         let currentProjectedImage =  g.projectedImageList |> getSelectedTexture
         let selectedImage = g.projectedImageList |> getSelectedImage
         let observer = GisApp.getObserverSystemAdaptive g
@@ -141,10 +144,11 @@ module ProjectedImagesListAppHelper =
                     | _ -> [||]
             )
         
-        Some { 
+        Some {
                 imageProjection = imageTrafo
                 localImageProjectionTrafos = trafos
                 sunDirection = sunDirection
-                sunLightEnabled = 
+                sunLightEnabled =
                     (g.projectedImageList.lightingMode, sunDirection) ||> AVal.map2 (fun l hasDir -> l <> PRo3D.ImageMapping.LightingMode.Off && Option.isSome hasDir)
+                lightViewProj = lightViewProj
             }
