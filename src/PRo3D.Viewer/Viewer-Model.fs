@@ -91,6 +91,9 @@ type ViewerAction =
 | ReferenceSystemMessage          of ReferenceSystemAction
 | AnnotationMessage               of AnnotationProperties.Action
 | AnnotationBulkMessage           of AnnotationProperties.Action
+| SetRoseEnabled                  of bool
+| SetRoseUsePolyline              of bool
+| SetRoseUseDnS                   of bool
 | BookmarkMessage                 of BookmarkAction
 | BookmarkUIMessage               of GroupsAppAction
 | SequencedBookmarkMessage        of SequencedBookmarksAction
@@ -189,11 +192,11 @@ type ViewerAction =
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera
-| StopGeoJsonAutoExport
 | SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
 | GisAppMessage                  of Gis.GisAppAction
 | CrossSectionMessage            of CrossSectionAction
+| AnnotationExportMessage        of AnnotationExportAction
 | SBookmarksToPoseDefinition
 | SetUserPreferences             of UserPreferences
 | Nop
@@ -619,6 +622,11 @@ type Model = {
     navigation       : NavigationModel
 
     properties       : Properties
+
+    /// Settings of the annotation export window. Session-only on purpose — it
+    /// lives here rather than on `Scene` so nothing has to be serialised.
+    annotationExport : AnnotationExportModel
+
     multiSelectBox   : Option<MultiSelectionBox>
     shiftFlag        : bool
     picking          : bool
@@ -666,6 +674,12 @@ type Model = {
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
 
+    // Bulk edit: dip-direction rose diagram. `roseEnabled` is the feature toggle that
+    // activates the whole rose section; the other two pick which annotation geometry
+    // types feed it.
+    roseEnabled          : bool
+    roseUsePolyline      : bool
+    roseUseDnS           : bool
     /// Per-computer user preferences (e.g. MapView WASD invert flags).
     /// Loaded from / saved to `%APPDATA%/Pro3D/userPreferences.json`.
     /// Outside scene/bookmark serialisation.

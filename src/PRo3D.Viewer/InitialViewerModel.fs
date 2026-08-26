@@ -122,6 +122,7 @@ module Viewer =
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
+            annotationExport = AnnotationExportModel.initial
             interaction     = Interactions.DrawAnnotation
             multiSelectBox  = None
             shiftFlag       = false
@@ -187,6 +188,9 @@ module Viewer =
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()
+            roseEnabled     = false
+            roseUsePolyline = false
+            roseUseDnS      = true
             userPreferences      = UserPreferences.load ()
         } |> applyProvenaceIfEnabled
 

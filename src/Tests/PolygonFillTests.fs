@@ -2,6 +2,7 @@ module PolygonFillTests
 
 open System
 open Expecto
+open FsCheck
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open PRo3D.Base
@@ -41,6 +42,48 @@ let private ellipseRing (a : float) (b : float) (n : int) =
         V3d(a * cos t, b * sin t, 0.0))
 
 let private isCloseTo (tolerance : float) (a : V3d) (b : V3d) = Vec.Distance(a, b) <= tolerance
+
+// ---------------------------------------------------------------------------------------------
+// generators
+// ---------------------------------------------------------------------------------------------
+
+/// Vertices at strictly increasing angles cannot produce a crossing edge, so this generates
+/// simple (non-self-intersecting) rings only. That matters because the "every mesh vertex is an
+/// input point" invariant is legitimately false once edges cross - the tessellator has to invent
+/// the crossing vertex.
+let private simpleRingGen =
+    gen {
+        let! n = Gen.choose (3, 12)
+        let! radii = Gen.listOfLength n (Gen.choose (1, 20))
+        return
+            radii
+            |> List.mapi (fun i r ->
+                let a = Constant.PiTimesTwo * float i / float n
+                let r = float r
+                V3d(r * cos a, r * sin a, 0.0))
+            |> Array.ofList
+    }
+
+/// Anything at all, including degenerate and self-intersecting input. Only the structural
+/// invariants apply.
+let private arbitraryPointsGen =
+    gen {
+        let! n = Gen.choose (0, 15)
+        let! coords = Gen.listOfLength n (Gen.choose (-10, 10) |> Gen.two)
+        return coords |> List.map (fun (x, y) -> V3d(float x, float y, 0.0)) |> Array.ofList
+    }
+
+/// Drop one vertex at a time. Dropping from an angle-ordered ring keeps the angles increasing,
+/// so a shrunk simple ring stays simple.
+///
+/// Needed because Arb.fromGen builds an Arbitrary with an *empty* shrinker - generation without
+/// shrinking would report failures as whole 12-point rings, which is most of the value gone.
+let private shrinkRing (minPoints : int) (ring : V3d[]) : seq<V3d[]> =
+    if ring.Length <= minPoints then Seq.empty
+    else seq { for i in 0 .. ring.Length - 1 -> Array.append ring.[.. i - 1] ring.[i + 1 ..] }
+
+let private simpleRingArb = Arb.fromGenShrink (simpleRingGen, shrinkRing 3)
+let private arbitraryPointsArb = Arb.fromGenShrink (arbitraryPointsGen, shrinkRing 0)
 
 // ---------------------------------------------------------------------------------------------
 
@@ -331,6 +374,90 @@ let tests () =
                     { name = "nowhere"; toChart = (fun _ -> None); toWorld = (fun _ -> None) }
                 Expect.isNone (PolygonFill.tryComputeFill nowhere square)
                     "an uncovered ring must degrade to no fill, not to garbage"
+            }
+        ]
+
+        // -----------------------------------------------------------------------------------
+        // The same properties, applied to every shape rather than asserted once each. FsCheck
+        // will feed generated rings to these identical functions - see plans/testingStrategy.md.
+        // -----------------------------------------------------------------------------------
+
+        testList "invariants over a corpus" [
+
+            let corpus =
+                [ "square",         square
+                  "concave L",      concaveL
+                  "ellipse ring",   ellipseRing 7.0 3.0 200
+                  "tilted quad",    [| V3d(0,0,0); V3d(10,0,3); V3d(10,10,-2); V3d(0,10,5) |]
+                  "closed square",  Array.append square [| square.[0] |]
+                  "doubled corners",[| for p in square do yield p; yield p |] ]
+
+            // degenerate inputs: normalize must cope, fills need not exist
+            let degenerate =
+                [ "empty",     [||]
+                  "single",    [| V3d.Zero |]
+                  "two",       [| V3d.Zero; V3d(1,0,0) |]
+                  "collinear", [| V3d(0,0,0); V3d(1,0,0); V3d(2,0,0) |]
+                  "identical", Array.create 5 (V3d(3,3,3)) ]
+
+            for name, ring in corpus @ degenerate do
+                test (sprintf "normalize invariants: %s" name) {
+                    match FillInvariants.normalizeViolations ring with
+                    | [] -> ()
+                    | vs -> failtest (String.concat "; " vs)
+                }
+
+            for name, ring in corpus do
+                test (sprintf "fill invariants: %s" name) {
+                    match PolygonFill.tryComputeFill xyChart ring with
+                    | None -> failtest "corpus shapes must all produce a fill"
+                    | Some mesh ->
+                        let vs =
+                            FillInvariants.fillViolations mesh
+                            @ FillInvariants.planarAreaViolations xyChart ring mesh
+                            @ FillInvariants.verticesAreInputPointsViolations ring mesh
+                        match vs with
+                        | [] -> ()
+                        | vs -> failtest (String.concat "; " vs)
+                }
+        ]
+
+        // -----------------------------------------------------------------------------------
+        // The same invariants, on generated input. When one fails FsCheck shrinks the ring to
+        // a minimal counterexample, which is the whole reason for generating rather than
+        // enumerating: a 12-point failure reduced to 3 points is a usable bug report.
+        // -----------------------------------------------------------------------------------
+
+        testList "generated" [
+
+            test "normalize invariants hold for arbitrary points" {
+                Prop.forAll arbitraryPointsArb (fun ring ->
+                    match FillInvariants.normalizeViolations ring with
+                    | [] -> true
+                    | vs -> failwith (String.concat "; " vs))
+                |> Check.QuickThrowOnFailure
+            }
+
+            test "tryComputeFill never throws, whatever the input" {
+                Prop.forAll arbitraryPointsArb (fun ring ->
+                    PolygonFill.tryComputeFill xyChart ring |> ignore
+                    true)
+                |> Check.QuickThrowOnFailure
+            }
+
+            test "fill invariants hold for any simple ring" {
+                Prop.forAll simpleRingArb (fun ring ->
+                    match PolygonFill.tryComputeFill xyChart ring with
+                    | None -> failwith "a simple ring of 3+ distinct points must fill"
+                    | Some mesh ->
+                        let vs =
+                            FillInvariants.fillViolations mesh
+                            @ FillInvariants.planarAreaViolations xyChart ring mesh
+                            @ FillInvariants.verticesAreInputPointsViolations ring mesh
+                        match vs with
+                        | [] -> true
+                        | vs -> failwith (String.concat "; " vs))
+                |> Check.QuickThrowOnFailure
             }
         ]
     ]

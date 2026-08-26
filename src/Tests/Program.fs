@@ -23,6 +23,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section16_CommandLine.tests
         PRo3D.Tests.Section18_KeyboardShortcuts.tests
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
+        PRo3D.Tests.Section20_BooleanOperations.tests
     ]
 
 let allTests (parameters : TestUtils.TestParameters) : Test =
@@ -34,9 +35,17 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
     testSequenced <| testList "all tests" [
         // kernel-independent tests (use only the default SPICE kernels)
         GeoJsonRework.Tests.tests()
+        AnnotationExportTest.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
+        BulkAnnotationRoseTest.tests()
+        BulkAnnotationRoseTest.largeTests()
         PolygonFillTests.tests()
+        RegionOpsTests.tests()
+        RegionFixtureTests.tests()
+        AnnotationRegionOpsTests.tests()
+        AdaptiveNestingTests.tests()
+        VertexEditingTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
@@ -75,7 +84,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         PRo3D.Tests.SnapshotSunLightingTest.tests()
 
         // Sections whose OPC-backed lists self-skip when the test-data submodule
-        // (src/Tests/data/opc) or a GL context is unavailable.
+        // (src/Tests/resources) or a GL context is unavailable.
         featureTests ()
     ]
 

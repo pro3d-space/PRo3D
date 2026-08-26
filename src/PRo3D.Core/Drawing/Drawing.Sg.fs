@@ -187,28 +187,29 @@ module Sg =
     /// vertices, which become zero-length line segments — and the thick-line geometry shader
     /// expands those by normalizing (p1 - p0), i.e. a zero vector. Dropped here rather than at
     /// each of the call sites.
+    /// The flattening itself, evaluated against the caller's token.
+    ///
+    /// Anything already inside an AVal.custom must call this rather than getPolylinePoints.
+    /// Building an adaptive value inside another one's evaluation creates a node that nothing
+    /// holds a strong reference to, and adaptive outputs are weak: once it is collected, the
+    /// invalidation chain from `a.points` to the enclosing computation is gone and the geometry
+    /// silently stops updating until something unrelated marks it dirty. That is what made an
+    /// edited annotation only redraw once the next annotation was drawn.
+    let getPolylinePointsAt (a : AdaptiveAnnotation) (t : AdaptiveToken) : V3d[] =
+        let segments = a.segments.Content.GetValue t
+        if IndexList.isEmpty segments then
+            a.points.Content.GetValue(t) |> IndexList.toArray |> dedupeConsecutive
+        else
+            let points = System.Collections.Generic.List<V3d>()
+            segments |> IndexList.iter(fun (s : AdaptiveSegment) ->
+                points.Add(s.startPoint.GetValue(t))
+                for p in s.points.Content.GetValue(t) do points.Add(p)
+                points.Add(s.endPoint.GetValue(t))
+            )
+            points.ToArray() |> dedupeConsecutive
+
     let getPolylinePoints (a : AdaptiveAnnotation) =
-        //a.segments.Content 
-        //    |> AVal.bind (fun segments -> 
-        //        if IndexList.isEmpty segments then a.points |> AList.toAVal |> AVal.map IndexList.toArray
-        //        else 
-        //            segments |> IndexList.map (fun s -> 
-                        
-        //            )
-        //    )
-        AVal.custom (fun t -> 
-            let segments = a.segments.Content.GetValue t
-            if IndexList.isEmpty segments then  
-                a.points.Content.GetValue(t) |> IndexList.toArray |> dedupeConsecutive 
-            else 
-                let points = System.Collections.Generic.List<V3d>()
-                a.segments.Content.GetValue(t) |> IndexList.iter(fun (s : AdaptiveSegment) -> 
-                    points.Add(s.startPoint.GetValue(t))
-                    for s in s.points.Content.GetValue(t) do points.Add(s)
-                    points.Add(s.endPoint.GetValue(t))
-                )
-                points.ToArray() |> dedupeConsecutive
-        )
+        AVal.custom (getPolylinePointsAt a)
         //alist {                          
         //    let! hasSegments = (a.segments |> AList.count) |> AVal.map(fun x -> x > 0)
         //    if hasSegments |> not then

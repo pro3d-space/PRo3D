@@ -348,15 +348,22 @@ module SceneLoader =
         Optic.set _camera cam' m
 
         
-    let updateGisApp (m : Model) = 
+    let updateGisApp (m : Model) =
         let gisApp = PRo3D.Core.Gis.GisApp.loadSpiceKernelForced m.scene.gisApp
         { m with scene = { m.scene with gisApp = gisApp }}
 
+    /// A scene load replaces the annotations wholesale, so a continuous GeoJSON
+    /// export armed for the previous scene would silently overwrite its file
+    /// with the annotations of the new one. Stop it instead; the user re-arms it
+    /// from the export window if they want the new scene exported.
+    let disarmContinuousExport (m : Model) =
+        { m with drawing = PRo3D.Core.Drawing.DrawingApp.disarmAutomaticGeoJsonExport m.drawing }
 
     let private applyScene (scene : Scene) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature)=
-        let m = 
-            m 
+        let m =
+            m
             |> Model.withScene scene
+            |> disarmContinuousExport
             |> updateGisApp
             |> resetControllerState
             |> updateNavigation
