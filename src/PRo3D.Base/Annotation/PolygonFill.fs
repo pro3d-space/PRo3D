@@ -1,7 +1,9 @@
 namespace PRo3D.Base.Annotation
 
 open Aardvark.Base
-open Aardvark.Geometry
+// the vendored copy rather than Aardvark.Geometry, so PolygonTessellator, Polygon2d<'a> and
+// Triangle2d<'a> come from one place - see src/PRo3D.Base/Geometry/PolyRegion2d.fs
+open PRo3D.Base.Geometry
 open PRo3D.Base
 
 /// Triangulates the interior of a closed annotation ring.
@@ -59,7 +61,9 @@ module PolygonFill =
     /// Only fires where the tessellator splits an edge - self-intersections, and later boolean
     /// ops. Vertices that coincide with an input point arrive with weight 1 on a single source
     /// and so come back bit-identical.
-    let private interpolateWorld (weights : float[]) (values : V3d[]) : V3d =
+    /// Public because the boolean operations need the *same* blend - a second, subtly different
+    /// interpolation would make a merged region's vertices disagree with a filled one's.
+    let interpolateWorld (weights : float[]) (values : V3d[]) : V3d =
         let mutable acc = V3d.Zero
         for i in 0 .. (min weights.Length values.Length) - 1 do
             acc <- acc + values.[i] * weights.[i]

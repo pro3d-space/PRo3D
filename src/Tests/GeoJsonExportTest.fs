@@ -55,38 +55,7 @@ module Tests =
     let private numbersClose (a: float) (b: float) =
         abs (a - b) <= 1e-6 + 1e-7 * max (abs a) (abs b)
 
-    let rec private diffJson (path: string) (a: JsonElement) (b: JsonElement) : string option =
-        match a.ValueKind, b.ValueKind with
-        | JsonValueKind.Object, JsonValueKind.Object ->
-            let keys (e: JsonElement) = e.EnumerateObject() |> Seq.map (fun p -> p.Name) |> Set.ofSeq
-            let ka, kb = keys a, keys b
-            if ka <> kb then Some (sprintf "%s: object keys differ (%A vs %A)" path ka kb)
-            else ka |> Seq.tryPick (fun k -> diffJson (path + "/" + k) (a.GetProperty k) (b.GetProperty k))
-        | JsonValueKind.Array, JsonValueKind.Array ->
-            let aa = a.EnumerateArray() |> Seq.toArray
-            let ba = b.EnumerateArray() |> Seq.toArray
-            if aa.Length <> ba.Length then Some (sprintf "%s: array length %d vs %d" path aa.Length ba.Length)
-            else Seq.init aa.Length id |> Seq.tryPick (fun i -> diffJson (sprintf "%s[%d]" path i) aa.[i] ba.[i])
-        | JsonValueKind.Number, JsonValueKind.Number ->
-            let na, nb = a.GetDouble(), b.GetDouble()
-            if numbersClose na nb then None else Some (sprintf "%s: number %.12g vs %.12g" path na nb)
-        | JsonValueKind.String, JsonValueKind.String ->
-            if a.GetString() = b.GetString() then None
-            else Some (sprintf "%s: string %A vs %A" path (a.GetString()) (b.GetString()))
-        | ka, kb when ka = kb -> None   // True / False / Null
-        | ka, kb -> Some (sprintf "%s: kind %A vs %A" path ka kb)
-
-    /// assert two JSON strings are equal up to a numeric tolerance on values
-    let private expectJsonClose (actual: string) (expected: string) (msg: string) =
-        use da = JsonDocument.Parse actual
-        use de = JsonDocument.Parse expected
-        match diffJson "$" da.RootElement de.RootElement with
-        | None -> ()
-        | Some diff -> failtestf "%s: %s" msg diff
-
     let tests () =
-
-        let isSelected = fun _ -> false
 
         testList "init" [
 
@@ -106,27 +75,97 @@ module Tests =
                 Expect.isSome latlon "could not get lat lon"
             }
 
-            test "SerializeIncome Both" {
-                let annotations = readJson("annotation_1.ann")
-                let groundTruth = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "Annotations", "annotation_1_xyz_latlon.json"))
-                let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
-                let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.Both "Mars") isSelected flattedAnnotations
-                expectJsonClose parsedAnnotation groundTruth "could not serialize annotations"
+            // The QGIS-specific writer these tests used to cover was replaced by
+            // the single parameterised GeoJSON writer (see AnnotationExportTest).
+            // What is still worth pinning here is that a real .ann file round-trips
+            // through the writer against the native coordinate transforms.
+
+            let exportAnnotations () =
+                readJson("annotation_1.ann") |> fun a ->
+                    a.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
+
+            let writeToTemp (settings : AnnotationExportSettings) (annotations : list<Annotation>) =
+                let path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json")
+                try
+                    AnnotationExport.write settings None HashMap.empty Planet.Mars V3d.OOI path annotations
+                    File.ReadAllText path
+                finally
+                    if File.Exists path then File.Delete path
+
+            let geoJsonSettings coordinates =
+                { AnnotationExportSettings.initial with
+                    format      = ExportFormat.GeoJson
+                    granularity = ExportGranularity.PerAnnotation
+                    coordinates = coordinates }
+
+            test "GeoJson export is a FeatureCollection with one feature per annotation" {
+                let annotations = exportAnnotations ()
+                let json = annotations |> writeToTemp (geoJsonSettings CoordinateMode.Cartesian)
+
+                use doc = JsonDocument.Parse json
+                Expect.equal (doc.RootElement.GetProperty("type").GetString()) "FeatureCollection" "collection type"
+                Expect.equal
+                    (doc.RootElement.GetProperty("features").GetArrayLength())
+                    annotations.Length
+                    "one feature per annotation"
             }
 
-            test "SerializeIncome Cartesian" {
-                let annotations = readJson("annotation_1.ann")
-                let groundTruth = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "Annotations", "annotation_1_xyz.json"))
-                let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
-                let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.CartesianOnly) isSelected flattedAnnotations
-                expectJsonClose parsedAnnotation groundTruth "could not serialize annotations"
+            test "Cartesian GeoJson keeps the annotation positions unchanged" {
+                let annotations = exportAnnotations ()
+                let json = annotations |> writeToTemp (geoJsonSettings CoordinateMode.Cartesian)
+
+                use doc = JsonDocument.Parse json
+                let firstCoordinate =
+                    doc.RootElement.GetProperty("features").EnumerateArray()
+                    |> Seq.tryHead
+                    |> Option.map (fun f ->
+                        let coordinates = f.GetProperty("geometry").GetProperty("coordinates")
+                        // Point -> [x,y,z]; everything else -> nested arrays
+                        let rec firstPosition (e : JsonElement) =
+                            match e.EnumerateArray() |> Seq.tryHead with
+                            | Some head when head.ValueKind = JsonValueKind.Array -> firstPosition head
+                            | _ -> e
+                        firstPosition coordinates)
+
+                let expected =
+                    annotations
+                    |> List.tryHead
+                    |> Option.bind (fun a -> a |> Annotation.retrievePoints |> List.tryHead)
+
+                match firstCoordinate, expected with
+                | Some actual, Some expected ->
+                    Expect.isTrue (numbersClose (actual.[0].GetDouble()) expected.X) "x preserved"
+                    Expect.isTrue (numbersClose (actual.[1].GetDouble()) expected.Y) "y preserved"
+                    Expect.isTrue (numbersClose (actual.[2].GetDouble()) expected.Z) "z preserved"
+                | _ -> failtest "no annotation or no coordinates in the export"
             }
 
-            test "SerializeIncome Geographic" {
-                let annotations = readJson("annotation_1.ann")
-                let groundTruth = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "Annotations", "annotation_1_latlon.json"))
-                let flattedAnnotations = annotations.annotations.flat |> HashMap.toList |> List.map snd |> List.map Leaf.toAnnotation
-                let parsedAnnotation = GeoJsonQGIS.encoder (GeoJsonQGIS.CoordinateConfiguration.GeographicOnly "Mars") isSelected flattedAnnotations
-                expectJsonClose parsedAnnotation groundTruth "could not serialize annotations"
+            test "Geographic GeoJson carries the body and plausible lat/lon" {
+                let annotations = exportAnnotations ()
+                let json = annotations |> writeToTemp (geoJsonSettings CoordinateMode.Geographic)
+
+                use doc = JsonDocument.Parse json
+                Expect.equal
+                    (doc.RootElement.GetProperty("properties").GetProperty("planet").GetString())
+                    "Mars" "body is written as a collection property"
+
+                // GeoJSON positions are [longitude, latitude, altitude]
+                let positions =
+                    doc.RootElement.GetProperty("features").EnumerateArray()
+                    |> Seq.collect (fun f ->
+                        let rec positions (e : JsonElement) =
+                            match e.EnumerateArray() |> Seq.tryHead with
+                            | Some head when head.ValueKind = JsonValueKind.Array ->
+                                e.EnumerateArray() |> Seq.collect positions
+                            | _ -> Seq.singleton e
+                        positions (f.GetProperty("geometry").GetProperty("coordinates")))
+                    |> Seq.toList
+
+                Expect.isNonEmpty positions "geographic conversion produced coordinates"
+                for p in positions do
+                    let lon = p.[0].GetDouble()
+                    let lat = p.[1].GetDouble()
+                    Expect.isTrue (lat >= -90.0 && lat <= 90.0) (sprintf "latitude in range, was %f" lat)
+                    Expect.isTrue (lon >= -180.0 && lon <= 360.0) (sprintf "longitude in range, was %f" lon)
             }
         ]

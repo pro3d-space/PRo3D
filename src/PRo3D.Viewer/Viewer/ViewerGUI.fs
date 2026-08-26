@@ -476,125 +476,46 @@ module Gui =
         let jsExportAnnotationsFileDialog = 
             "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
-        let jsExportAnnotationsAsCSVDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+        // Every data export lives in the export window now; only the native
+        // round-trip format stays here, since it has no settings. The automatic
+        // GeoJSON stream is armed from the window too (its "Continuous GeoJSON"
+        // file type) and switched off again in the config panel.
+        let annotationMenu : DomNode<ViewerAction> =
+            let drawingItem attributes children =
+                div attributes children |> UI.map DrawingMessage
 
-        let jsExportProfileAsCSVDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Profile (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-
-        let jsExportMultiAttrProfileDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Multi-Attribute Profile (*.csv)', filters:  [{ name: 'Profile (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-
-        let jsExportAnnotationsAsGeoJSONDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
-
-        let jsExportAnnotationsAsGeoJSONQGISDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
-
-        let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
-                i [clazz "dropdown icon"] [] 
-                div [ clazz "menu"] [                    
-                    div [
+                i [clazz "dropdown icon"] []
+                div [ clazz "menu"] [
+                    drawingItem [
                         clazz "ui inverted item"
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
                     ] [
                         text "Import Directory"
                     ]
-                    div [
+                    drawingItem [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
                     ] [
                         text "Clear"
-                    ]      
-                    div [ clazz "ui dropdown item"] [
-                        text "Export"
-                        i [clazz "dropdown icon"] [] 
-                        div [ clazz "menu"] [
-                    
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsAnnotations
-                                clientEvent "onclick" jsExportAnnotationsFileDialog
-                            ] [
-                                text "all as 'PRo3D' annotations (*.pro3d.ann)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsCsv
-                                clientEvent "onclick" jsExportAnnotationsAsCSVDialog
-                            ] [
-                                text "visible as table (*.csv)"
-                            ]     
-                            div [
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsProfileCsv
-                                clientEvent "onclick" jsExportProfileAsCSVDialog
-                            ]  [
-                                text "selected as profile (*.csv)"
-                            ]
-                            div [
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportMultiAttributeProfile
-                                clientEvent "onclick" jsExportMultiAttrProfileDialog
-                            ] [
-                                text "selected as multi-attribute profile (*.csv)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSON
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ]  [
-                                text "visible as GeoJSON (*.json)"
-                            ]     
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSON_xyz
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ] [
-                                text "visible as GeoJSON xyz (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_latlon
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
-                            ] [
-                                text "export as latlon GeoJSON for QGIS (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_xyz
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
-                            ] [
-                                text "export as xyz GeoJSON for QGIS (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_both
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
-                            ] [
-                                text "export as latlon GeoJSON for QGIS + xyz metadata (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ContinuouslyGeoJson
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ] [
-                                text "continuously export as GeoJSON xyz (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsAttitude
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ] [
-                                text "dns as 'Attitude' planes (*.json)"
-                            ]
-                        ]
+                    ]
+                    div [
+                        clazz "ui inverted item"
+                        onClick (fun _ -> AnnotationExportMessage AnnotationExportAction.Open)
+                    ] [
+                        text "Export..."
+                    ]
+                    drawingItem [
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsAnnotations
+                        clientEvent "onclick" jsExportAnnotationsFileDialog
+                    ] [
+                        text "Save as 'PRo3D' annotations (*.pro3d.ann)"
                     ]
                 ]
-            ]       
-        
+            ]
+
         // Checkbox-style menu item bound to a single bool flag on
         // `m.userPreferences`. Click toggles the flag — the update handler
         // dispatches SetUserPreferences which both updates the model and
@@ -649,7 +570,7 @@ module Gui =
                                 div [ clazz "ui dropdown item"] (scene m)
                             
                                 //annotations menu
-                                annotationMenu |> UI.map DrawingMessage;   
+                                annotationMenu;   
                                 subMenu "Change Mode"
                                         [
                                           menuItem "M2020" (ChangeDashboardMode DashboardModes.m2020)
@@ -866,6 +787,16 @@ module Gui =
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
 
+        /// As interactionText, but also reflects whether a control point is currently in hand.
+        /// Click-to-grab has no drag affordance to feel out, so the hint line is most of what makes
+        /// the gesture discoverable.
+        let interactionTextWithState (i : Interactions) (grabbed : bool) =
+            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
+            match i with
+            | Interactions.EditAnnotation when grabbed -> sprintf "%s+click to drop the point, ESC to cancel" ctrl
+            | Interactions.EditAnnotation -> sprintf "%s+click a vertex of the selected annotation to move it" ctrl
+            | _ -> interactionText i
+
         let interactionTooltip (i : Interactions) : string =
             match i with 
             | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
@@ -873,13 +804,17 @@ module Gui =
             | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
             | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
+            | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Clicking an annotation selects it."
             | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
             | Interactions.SelectArea            -> ""
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
             | _ -> ""
-        
+
+        let invertDrawingTooltip =
+            "Invert drawing: swap the Ctrl modifier - pick and draw without Ctrl, hold Ctrl to navigate."
+
         let topMenuItems (model : AdaptiveModel) = [
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
@@ -894,7 +829,9 @@ module Gui =
                 Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Html.Layout.boxH [
                     div [style "font-style:italic"] [
-                        Incremental.text (model.interaction |> AVal.map interactionText)
+                        Incremental.text (
+                            (model.interaction, model.drawing.vertexGrab |> AVal.map Option.isSome)
+                            ||> AVal.map2 interactionTextWithState)
                     ]]
             ]
 
@@ -902,6 +839,15 @@ module Gui =
                 Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ]
+
+            // Inverts the Ctrl convention (picking = ctrlFlag <> inverseFlag). It is a global
+            // interaction-mode switch like the two items above, so it lives on the main row
+            // rather than in the Annotations dock page.
+            Html.Layout.horizontal [
+                Html.Layout.boxH [ GuiEx.iconToggle model.inverseFlag "toggle on icon" "toggle off icon" ViewerAction.InvertDrawing ]
+                Html.Layout.boxH [ text "Invert Drawing" ]
+            ] |> UI.wrapToolTip DataPosition.Bottom invertDrawingTooltip
+
             Html.Layout.horizontal [
                 scenepath model
             ]
@@ -967,8 +913,8 @@ module Gui =
                         match! AMap.tryFind id annotations.flat with
                         | Some (AdaptiveAnnotations ann) ->
                             let header =
-                                div [clazz "ui small header"; style "color:white; padding: 5px 0px"]
-                                    [ text (sprintf "%d annotations selected — edits apply to all" count) ]
+                                h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
+                                   [ text (sprintf "%d annotations selected — edits apply to all" count) ]
                             let clear =
                                 div [style "padding: 5px 0px"] [
                                     button [
@@ -979,7 +925,93 @@ module Gui =
                             let fields =
                                 AnnotationProperties.viewBulk Config.colorPaletteStore ann
                                 |> UI.map ViewerAction.AnnotationBulkMessage
-                            return div [] [ header; fields; clear ]
+
+                            // Dip-direction rose over the selection, restricted to the geometry
+                            // types the user enabled. dipAzimuth is a stored field (read via the
+                            // adaptive dnsResults option); see `angles` below for the shape of the
+                            // adaptive graph this builds and what invalidates it.
+                            let roseHeader =
+                                h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
+                                   [ text "Dip direction rose" ]
+                            // Activation button: the rose (and its type toggles) only exist while
+                            // the feature is switched on, so nothing is binned when it is off.
+                            let roseActivation =
+                                Incremental.div (AttributeMap.ofList [style "padding: 5px 0px"]) (
+                                    alist {
+                                        let! enabled = model.roseEnabled
+                                        yield button [
+                                            clazz (if enabled then "ui tiny blue button" else "ui tiny button")
+                                            onClick (fun _ -> ViewerAction.SetRoseEnabled (not enabled))
+                                        ] [
+                                            i [clazz (if enabled then "toggle on icon" else "toggle off icon")] []
+                                            text (if enabled then "Rose diagram on" else "Rose diagram off")
+                                        ]
+                                    })
+                            let toggles =
+                                require GuiEx.semui (
+                                    Html.table [
+                                        Html.row "Polyline:" [ GuiEx.iconCheckBoxSet model.roseUsePolyline ViewerAction.SetRoseUsePolyline ]
+                                        Html.row "DnS:"      [ GuiEx.iconCheckBoxSet model.roseUseDnS      ViewerAction.SetRoseUseDnS ]
+                                    ])
+                            // Dip azimuths of the selected annotations, collected as one
+                            // incremental aggregate rather than one lookup per annotation:
+                            //  * a single AMap.filter reader on `flat` replaces N AMap.tryFind
+                            //    calls. AMap.tryFind is documented as re-evaluating on *every*
+                            //    change of the map, so N of them turned finishing, deleting or
+                            //    importing a single annotation into N invalidated lookups; the
+                            //    filter sees the same event as one incremental add/remove.
+                            //  * AMap.chooseA caches (geometry, azimuth) per annotation, so an
+                            //    edit to one annotation re-reads that one and nothing else.
+                            //  * the type toggles are applied at the *leaf*, filtering the already
+                            //    collected map. Binding them above the per-annotation work would
+                            //    make every checkbox click tear that whole subtree down and
+                            //    rebuild it.
+                            // The selection itself is still whole-value: it is bound by the
+                            // enclosing adaptive block, which rebuilds the panel anyway.
+                            // Annotations with no dip and strike surface here as NaN (the
+                            // bindAdaptiveOption default), which RoseDiagram.includes rejects
+                            // along with a genuinely NaN dipAzimuth.
+                            let angles : aval<list<float>> =
+                                let ids = selected |> HashSet.map (fun ts -> ts.id)
+                                let perAnnotation =
+                                    annotations.flat
+                                    |> AMap.filter (fun annoId _ -> ids |> HashSet.contains annoId)
+                                    |> AMap.chooseA (fun _ leaf ->
+                                        match leaf with
+                                        | AdaptiveAnnotations a ->
+                                            AVal.map2
+                                                (fun geo az -> Some(geo, az))
+                                                a.geometry
+                                                (AVal.bindAdaptiveOption a.dnsResults nan (fun d -> d.dipAzimuth))
+                                        | _ -> AVal.constant None)
+                                    |> AMap.toAVal
+                                // Single fold - no intermediate list, one traversal per
+                                // invalidation. RoseDiagram.includes is the one place that
+                                // decides whether an annotation counts, shared with the tests.
+                                let selectEnabled
+                                    (perAnno : HashMap<System.Guid, PRo3D.Base.Annotation.Geometry * float>)
+                                    usePoly useDns =
+                                    perAnno
+                                    |> HashMap.fold (fun acc _ (geo, az) ->
+                                        if RoseDiagram.includes usePoly useDns geo az
+                                        then az :: acc
+                                        else acc) []
+                                AVal.map3 selectEnabled perAnnotation model.roseUsePolyline model.roseUseDnS
+                            let rose =
+                                Incremental.div AttributeMap.empty (
+                                    alist {
+                                        let! enabled = model.roseEnabled
+                                        if enabled then
+                                            yield toggles
+                                            let! angs = angles
+                                            if List.isEmpty angs then
+                                                yield div [style "font-style:italic; padding:5px"]
+                                                          [ text "No dip directions in selection (enable a type, or select Polyline / DnS annotations)." ]
+                                            else
+                                                yield RoseDiagram.view angs
+                                    })
+
+                            return div [] [ header; fields; roseHeader; roseActivation; rose; clear ]
                         | _ ->
                             return div [style "font-style:italic; padding:5px"] [ text "no annotation selected" ]
             }
@@ -1042,16 +1074,6 @@ module Gui =
                     | _ -> annotationLeafButtonns m 
                 )
 
-            let toggleIcon = 
-                AVal.map( fun toggle -> if toggle then "toggle on icon" else "toggle off icon") m.inverseFlag
-
-            let toggleMap = 
-                amap {
-                    let! toggleIcon = toggleIcon
-                    yield clazz toggleIcon
-                    yield onClick (fun _ -> ViewerAction.InvertDrawing)
-                } |> AttributeMap.ofAMap  
-            
             div [] [
                 GuiEx.accordion "Annotations" "Write" true [
                     GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
@@ -1067,11 +1089,19 @@ module Gui =
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
                 ]
-                div [style "padding: 10px; display: flex; color: white; align-items: center;"] [
-                    Incremental.i toggleMap AList.empty
-                    text "Invert Drawing"
-                ]
-            ]    
+            ]
+
+    module AnnotationExport =
+
+        let exportWindow (m : AdaptiveModel) =
+            // the window lives in PRo3D.Core and is compiled before DrawingModel,
+            // so the state of the background export is handed in from here
+            let state : ContinuousExportState = {
+                isRunning = m.drawing.automaticGeoJsonExport.enabled
+                target    = m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz
+            }
+            AnnotationExportApp.viewModal state m.annotationExport
+            |> UI.map AnnotationExportMessage
 
     module Config =
 
@@ -1103,10 +1133,31 @@ module Gui =
                             yield hint "Hold CTRL and move the mouse over a surface."
                         | Some (cursor : CursorAttributes) ->
                             let hit : AttributeHit = cursor.hit
+                            // SPICE lat/lon/alt of the picked point, shown only when available.
+                            // tryGetLatLonAlt is total: None for non-planetary frames
+                            // (Planet.None/JPL/ENU) and when the native PGRREC call reports an
+                            // error. Its out-params are nan-seeded, so a wrapper returning
+                            // success without writing cannot yield silent zeros - the finiteness
+                            // filter turns that into None as well. Either way the rows are just
+                            // omitted; the rest of the read-out is unaffected.
+                            let! planet = m.scene.referenceSystem.planet
+                            let spherical =
+                                CooTransformation.tryGetLatLonAlt planet hit.position
+                                |> Option.filter (fun sc ->
+                                    Double.IsFinite sc.latitude &&
+                                    Double.IsFinite sc.longitude &&
+                                    Double.IsFinite sc.altitude)
                             yield Html.table [
                                 yield Html.row "Surface:"  [text cursor.surfaceName]
                                 yield Html.row "Patch:"    [text hit.patchName]
                                 yield Html.row "Position:" [text (hit.position.ToString("0.000"))]
+                                match spherical with
+                                | Some sc ->
+                                    // raw convention, matching the Coordinate System panel
+                                    yield Html.row "Latitude:"  [text (sprintf "%s deg" (sc.latitude.ToString("0.00000")))]
+                                    yield Html.row "Longitude:" [text (sprintf "%s deg" (sc.longitude.ToString("0.00000")))]
+                                    yield Html.row "Altitude:"  [text (sprintf "%s m"   (sc.altitude.ToString("0.00")))]
+                                | None -> ()
                                 for a : SampledAttribute in hit.attributes do
                                     yield Html.row (a.name + ":") [text (formatValues a.values)]
                             ]
@@ -1143,27 +1194,8 @@ module Gui =
                 GuiEx.accordion "Under Cursor" "Crosshairs" true [
                     underCursor m
                 ]
-                GuiEx.accordion "Data Management" "Settings" false [
-                    Html.table [  
-                        Html.row "Automatically GeoJson export: "  [
-                            let attributes = 
-                                amap {
-                                    yield onClick (fun _ -> StopGeoJsonAutoExport) 
-                                    let! enabled = m.drawing.automaticGeoJsonExport.enabled
-                                    if enabled then 
-                                        yield clazz "ui small inverted button"; 
-                                    else 
-                                        yield clazz "ui small disabled inverted button"; 
-                                } |> AttributeMap.ofAMap
-                            Generic.button attributes [text "Stop AutoExport"]
-                        ]
-                        Html.row "Automatically GeoJson export path: "  [
-                            Incremental.text (m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz  |> AVal.map (function None -> "not set" | Some path -> path))
-                        ]
-                    ]
-                ]
-            ] 
-          
+            ]
+
     module ViewPlanner =
         let viewPlanProperties (model : AdaptiveModel) =
               //model.scene.viewPlans |> ViewPlan.UI.viewRoverProperties ViewPlanMessage 
@@ -1560,6 +1592,10 @@ module Gui =
                                     |> ViewerUtils.mapAttribute ViewerMessage
                                 ]
                             ]
+                            // Overlay window; absent from the DOM while closed,
+                            // so there is no JS modal state to keep in sync.
+                            AnnotationExport.exportWindow m
+                            |> UI.map ViewerMessage
                         ]
                     )
                 )

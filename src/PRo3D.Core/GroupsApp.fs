@@ -120,8 +120,22 @@ module GroupsApp =
 
         (go m.rootGroup)
         |> IndexList.toList
-        |> HashMap.ofList                 
-    
+        |> HashMap.ofList
+
+    /// Leaf -> the full chain of group names containing it, outermost first.
+    /// Unlike `updateGroupsLookup` (which only yields the immediate parent's
+    /// name) this keeps nested structure, so an exporter can write a path and an
+    /// importer can rebuild the tree from it. The root group is not part of the
+    /// path: leaves directly under it map to an empty list.
+    let groupPathLookup (m : GroupsModel) : HashMap<Guid, list<string>> =
+        let rec collect (prefix : list<string>) (n : Node) =
+            [ yield! n.leaves |> IndexList.toList |> List.map (fun leaf -> leaf, prefix)
+              yield! n.subNodes
+                     |> IndexList.toList
+                     |> List.collect (fun child -> collect (prefix @ [ child.name ]) child) ]
+
+        collect [] m.rootGroup |> HashMap.ofList
+
     let updateActiveGroup (f : Node -> Node) (m : GroupsModel) =
         let root = updateNodeAt m.activeGroup.path f m.rootGroup        
 
@@ -222,6 +236,21 @@ module GroupsApp =
             { m with rootGroup = root'; flat = flat'; singleSelectLeaf = None }
         else
             { m with rootGroup = root'; singleSelectLeaf = None } 
+
+    /// Removes a leaf wherever it sits in the tree, by id alone. removeLeaf needs the owning
+    /// group's path and silently leaves the tree untouched on a wrong one - a hazard when the
+    /// selection came from a viewport pick, whose TreeSelection carries the root path regardless
+    /// of the leaf's actual group.
+    let removeLeafById (id : Guid) (model : GroupsModel) =
+        let rec strip (n : Node) =
+            { n with
+                leaves   = n.leaves |> IndexList.filter (fun leafId -> leafId <> id)
+                subNodes = n.subNodes |> IndexList.map strip }
+        { model with
+            rootGroup        = strip model.rootGroup
+            flat             = model.flat |> HashMap.remove id
+            singleSelectLeaf = (match model.singleSelectLeaf with Some s when s = id -> None | s -> s)
+            selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> ts.id <> id) }
 
     let rec removeSelected (selection:list<TreeSelection>) (removeFromFlat:bool) (m:GroupsModel)  =
         match selection with

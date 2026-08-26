@@ -24,7 +24,10 @@ type Interactions =
     | PickPivotPoint        = 18
     | PickSurfaceRefSys     = 19
     | PickDistancePoint     = 20
-    
+    /// draw a polyline stroke on the terrain that cuts the selected annotation
+    | CutAnnotation         = 21
+    | EditAnnotation        = 22 // move the control points of the selected annotation
+
 
 module Interactions =
     // excludes interactions from dropdown in topmenu

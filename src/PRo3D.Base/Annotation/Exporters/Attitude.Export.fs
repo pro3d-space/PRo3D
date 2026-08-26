@@ -29,8 +29,7 @@ module AttitudeExport =
             else
                 Json.Number (decimal v)
 
-        let x1 = regInfo.Normal |> Vec.cross up
-        let rake = x1 |> Vec.dot regInfo.Axis1 |> acos
+        let rake = Calculations.rake up regInfo
 
         //let dip = (regInfo.Normal.Z / regInfo.Normal.Length) |> acos
         //let strike = ((regInfo.Normal.X / regInfo.Normal.Y) - (Math.PI / 2.0)) |> atan

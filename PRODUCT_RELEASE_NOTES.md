@@ -1,3 +1,23 @@
+## 6.1.0-prerelease004
+- Annotations: **one *Export…* window replaces the eleven fixed export commands** — file type (CSV table, GeoJSON, attitude planes, continuous GeoJSON), scope, one record per annotation vs. per point, coordinate kind and the exported attributes are composed per export instead of being baked into a menu entry. Presets pre-fill the window for the usual cases (GIS/QGIS, annotation table, profile, attitude planes) and stay editable afterwards; per-point exports can additionally sample the OPC surface layers. Saving as native `.pro3d.ann` is unchanged and stays on the menu
+- Annotations: geographic export now goes through the **convention-aware coordinate transform** — planetographic, spherical or ellipsoidal per body. The QGIS exporter bypassed it and wrote the string `"Error: No / invalid reference frame set"` inside coordinate arrays for bodies such as Dimorphos; points that cannot be converted now come out as empty cells (CSV) or a `null` geometry (GeoJSON)
+- Annotations: each record records **which routine produced its lat/lon/alt** — SPICE, naming the routine, or the surface's per-vertex `.aara` data. The sources disagree about what the third value is (a height above the spheroid, or a distance from the body centre), so `alt` could not be interpreted from the file alone before
+- Annotations: **longitude convention and range are explicit settings** — mirroring, a 180° prime-meridian shift, and `-180…180` vs. `0…360` notation, applied to every file type. The old exporters each picked something different without saying so
+- Annotations: the window **no longer writes silently wrong or empty files** — a scope matching nothing, a failed write, or geographic coordinates in a scene with no reference frame keep it open with a warning naming what to change
+- Annotations: records are written in **group-tree order**, the order shown in the annotation list; the old exports iterated a hash map, so row order varied between runs. *Selected only* now covers the multi-selection as well, which the old profile exports dropped
+
+## 6.1.0-prerelease003
+- Surfaces: **numeric controls work again** — Blend Factor, Min, Max and Color Map never appeared in surface properties, and the controls that did render were inert. `NoSemUi` kept its own semantic-ui dependency list pointing at the pre-5.7 resource paths, so all four URLs 404'd; one of them, `essentialstuff.js`, defines the jQuery `numeric` plugin the controls boot with, and its absence aborted the rest of the panel's DOM setup. The GIS entity numerics were broken the same way. Present in shipped 6.0.0
+
+## 6.1.0-prerelease002
+- Annotations: the **4-point ellipse is drawn as an ellipse again** — the four clicks were kept as raw points and rendered as an open polyline, because the ellipse fit on the dip/strike plane only handled the 3-point case. A four-point ellipse is now built as two half-ellipses that share the major axis and differ only in the semi-minor axis
+- Annotations: the **4-point ellipse is hidden from the geometry selector** for now. The geometry and its update/rendering path are unchanged, so existing annotations still load and draw
+- Under Cursor: the read-out adds the picked point's **latitude, longitude and altitude** next to its cartesian position, in the same convention as the Coordinate System panel. The rows are omitted when the conversion is unavailable — a non-planetary reference frame, or a SPICE call that fails
+
+## 6.1.0-prerelease001
+- Annotations: **boolean operations** — union two or more selected annotations into one, or cut the selected annotation along a polyline stroke drawn on the terrain. The stroke colours green or red as a live answer to "would this cut". A union of disjoint operands explodes into one annotation per component, a union that would enclose a hole is refused rather than silently dropping it, and both operations undo in a single step
+- Annotations: **move control points on the surface** — drag an annotation's vertices to new terrain positions in the new edit mode; Escape puts a grabbed point back, and moving a vertex onto a different surface is reported on screen
+
 ## 6.0.0
 First stable release of the 6.0 line. The individual changes since 5.x are listed in the `6.0.0-prerelease*` and `6.0.0-rc*` entries below.
 
