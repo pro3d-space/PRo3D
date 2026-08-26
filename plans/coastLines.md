@@ -162,6 +162,13 @@ Each measurement is a plane, represented by its unit normal (its **pole**). Writ
   ([AnnotationHelpers.fs:254](../src/PRo3D.Base/Annotation/AnnotationHelpers.fs:254)) already
   does. This is the arithmetic the rose diagram uses, extended with the dip angle — the
   "established method" in the sense of *established in this codebase*.
+
+  **This is not a criticism of the rose.** For its own question — how are dip *directions*
+  distributed — the rose is textbook-correct: bins centred on the cardinals, equal-area
+  wedges (`r ∝ √count`, so area ∝ count), and a circular mean, which is the right statistic
+  because dip azimuth is genuinely *directional* data. What (B) does is promote that
+  arithmetic to a mean *plane*, which needs the dip angle the rose deliberately discards.
+  The failure below is in the promotion, not in the rose.
 - **(C) Orientation tensor** — form `T = (1/N) Σ nᵢnᵢᵀ`, take the eigenvector of its largest
   eigenvalue. Scheidegger/Watson; the standard treatment of *axial* orientation data in
   structural geology, and what stereonet packages use for poles. The eigenvalues
@@ -670,6 +677,14 @@ The averaging method is no longer one of them — 4.2 settles it on the numbers.
    limb planes as two traces) would break the one-plane constraint and is deliberately out.
 2. **Weighting.** Equal per annotation today. Weighting by `error.stdev` or point count is
    one line in 4.3 — worth it, or does it just add a knob?
-3. **Should the *Dip&Strike* panel reuse this?** It currently reports per-annotation numbers
+3. **The rose's `R > 0.05` guard is sample-size independent** (`RoseDiagram.minResultant`).
+   For uniformly random azimuths E[R] is 0.40 at n = 5, 0.28 at n = 10 and 0.056 at
+   n = 250, so the guard fires on ~2% of random 10-annotation selections and ~46% of random
+   250-annotation ones. It does its actual job — suppressing the due-north line that
+   `atan2 0 0` would otherwise produce — but it is not the "no meaningful preferred
+   direction" test its comment claims. The calibrated version is Rayleigh: reject uniformity
+   at p ≈ 0.05 when `R > sqrt(3/n)`. Out of scope here (it is the rose's file, not this
+   feature's), noted because this plan's §4.4 deliberately did not copy the constant.
+4. **Should the *Dip&Strike* panel reuse this?** It currently reports per-annotation numbers
    only. A "selection average" row there, sharing `CoastLines.average`, would be nearly free
    and is where a geologist would look for it first.
