@@ -275,6 +275,7 @@ module TestViewer =
                         Some {
                             imageProjection = currentProjection
                             localImageProjectionTrafos = localImageProjectionTrafos
+                            stackProjections = AVal.constant [||]
                             sunDirection = sunLight
                             sunLightEnabled = sunLightEnabled
                             lightViewProj = AVal.constant None

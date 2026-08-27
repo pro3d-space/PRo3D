@@ -262,6 +262,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
             Some {
                 imageProjection = AVal.constant (Some cam.full)
                 localImageProjectionTrafos = AVal.constant [||]
+                stackProjections = AVal.constant [||]
                 sunDirection = AVal.constant (Some sun)
                 sunLightEnabled = AVal.constant true
                 lightViewProj = AVal.constant None

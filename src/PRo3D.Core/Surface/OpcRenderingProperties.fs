@@ -35,6 +35,14 @@ module SgExtensions =
             {
                 imageProjection : aval<Option<Trafo3d>>
                 localImageProjectionTrafos : aval<array<Trafo3d>>
+                /// The projection stack (multi-image projection), bottom -> top:
+                /// per layer the projector's view*proj in the surface's frame at
+                /// that image's own observation time, and the layer's display
+                /// min/max. One array, not two: reorders and removals must
+                /// permute both together. Bounded by ProjectedImages.maxCount;
+                /// the stack shader consumes it as fixed-size uniform arrays
+                /// plus a count.
+                stackProjections : aval<array<Trafo3d * V2f>>
                 sunDirection : aval<Option<V3d>>
                 sunLightEnabled : aval<bool>
                 /// World -> sun-camera clip space for shadow mapping; None disables the

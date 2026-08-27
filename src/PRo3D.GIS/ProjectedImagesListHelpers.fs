@@ -111,11 +111,11 @@ module ProjectedImagesListAppHelper =
                         None
             )
 
-        let trafos = 
-            AVal.custom (fun t -> 
+        let trafos =
+            AVal.custom (fun t ->
                 match observer.GetValue(t) with
                 | None -> [||]
-                | Some o -> 
+                | Some o ->
                     let m = g.projectedImageList.instrumentVisibility.GetValue(t)
                     match m with
                     |  PRo3D.ImageMapping.InstrumentVisibilityMode.RelativeCount ->
@@ -135,10 +135,71 @@ module ProjectedImagesListAppHelper =
                         )
                     | _ -> [||]
             )
-        
+
+        // The projection stack, bottom -> top (multi-image projection). Each
+        // layer's projector is computed at that image's own observation time in
+        // the surface's reference frame -- body-fixed, so the projection sticks
+        // to the terrain regardless of the scene's current time.
+        //
+        // SPICE is single-threaded and each call takes a global lock (see
+        // InstrumentProjection.spiceCallLock), so projectors are memoized per
+        // (image, method, boresight, observer, frame) -- reordering or hovering
+        // recomputes nothing, only genuinely new configurations pay for SPICE
+        // (D8 in plans/multiImageProjection.md). Metadata parses are memoized
+        // by texture path (sidecars do not change during a session).
+        let stackProjections =
+            let metadataCache = System.Collections.Generic.Dictionary<string, InstrumentMetadata.ParsedMetadata>()
+            let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string, Option<Trafo3d>>()
+            AVal.custom (fun t ->
+                match observer.GetValue(t) with
+                | None -> [||]
+                | Some o ->
+                    let (EntitySpiceName observer) = o.body
+                    let surfaceReferenceFrame =
+                        (surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)).GetValue(t)
+                    let boresightTrafo = boresightAdjustment.GetValue(t)
+                    let model = g.projectedImageList.Current.GetValue(t)
+                    let projectionMethod = model.projectionMethod
+                    let boresightKey =
+                        (model.boresightAdjustment.roll.value,
+                         model.boresightAdjustment.pitch.value,
+                         model.boresightAdjustment.yaw.value)
+
+                    // a boresight slider drag creates a key per step; keep the
+                    // cache bounded rather than evicting cleverly
+                    if projectorCache.Count > 512 then projectorCache.Clear()
+
+                    ProjectedImageListModel.effectiveStack model
+                    |> IndexList.toArray
+                    |> Array.choose (fun id ->
+                        match ProjectedImageListModel.tryFind id model with
+                        | None -> None
+                        | Some img ->
+                            let metadata =
+                                match metadataCache.TryGetValue img.texture with
+                                | true, md -> md
+                                | _ ->
+                                    let md = InstrumentMetadata.tryParseMetadataForImagePath img.texture
+                                    metadataCache.[img.texture] <- md
+                                    md
+                            let key = (id, projectionMethod, boresightKey, observer, surfaceReferenceFrame)
+                            let projector =
+                                match projectorCache.TryGetValue key with
+                                | true, p -> p
+                                | _ ->
+                                    let p = Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some boresightTrafo) projectionMethod
+                                    projectorCache.[key] <- p
+                                    p
+                            projector |> Option.map (fun trafo ->
+                                let minMax = V2f(img.falseColorModel.lowerBound.value, img.falseColorModel.upperBound.value)
+                                trafo, minMax)
+                    )
+            )
+
         Some {
                 imageProjection = imageTrafo
                 localImageProjectionTrafos = trafos
+                stackProjections = stackProjections
                 sunDirection = sunDirection
                 sunLightEnabled =
                     (g.projectedImageList.lightingMode, sunDirection) ||> AVal.map2 (fun l hasDir -> l <> PRo3D.ImageMapping.LightingMode.Off && Option.isSome hasDir)

@@ -28,12 +28,45 @@ module ImageProjectionOpcExtensions =
                         )
                 ) :> IAdaptiveValue
             )
-            "ProjectedImagesLocalTrafosCount", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
+            "ProjectedImagesLocalTrafosCount", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
                 context.projectedImages |> AVal.bind (function
-                    | None -> AVal.constant 0 
-                    | Some p -> 
+                    | None -> AVal.constant 0
+                    | Some p ->
                         (p.localImageProjectionTrafos |> AVal.map Array.length)
+                ) :> IAdaptiveValue
+            )
+            // The projection stack (multi-image projection), bottom -> top.
+            // Same double-precision composition as ProjectedImageModelViewProj
+            // below; the stack shader binds these as fixed-size uniform arrays
+            // (Arr<N<32>, _>, see ProjectedImages.maxCount) -- a plain array
+            // source binds to a UBO array field, short arrays are zero-filled
+            // (UniformWriters.ArrayWriter), and StackCount bounds the loop.
+            "ProjectedStackTrafos", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant Array.empty<M44f>
+                    | Some p ->
+                        (p.stackProjections, context.modelTrafo)
+                        ||> AVal.map2 (fun layers modelTrafo ->
+                            layers |> Array.map (fun ((vp : Trafo3d), _) ->
+                                vp.Forward * modelTrafo.Forward * patch.info.Local2Global.Forward |> M44f
+                            )
+                        )
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackMinMax", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant Array.empty<V2f>
+                    | Some p -> p.stackProjections |> AVal.map (Array.map snd)
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackCount", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant 0
+                    | Some p -> p.stackProjections |> AVal.map Array.length
                 ) :> IAdaptiveValue
             )
             "ProjectedImageModelViewProjValid", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
