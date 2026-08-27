@@ -30,17 +30,12 @@ impression, and each only meaningful once the one below it holds:
 |---|---|---|
 | **1** | the projection shader itself (`stableImageProjection`, offscreen — what `sun-angles` and `ProjectionTestbed` compose) | **passed**, below |
 | 2 | the stack shader (`stableImageProjectionStack`), offscreen, same image and camera — must equal step 1 | **passed**, below |
-| 3 | the production viewer, same image and camera — must equal step 2 | **partly**, below |
+| 3 | the production viewer, same image and camera — must equal step 2 | **passed**, below |
 
-Step 3 is the awkward one: the viewer looks at the body through its own field of
-view from its own standoff, so it cannot be compared with the source image DN
-for DN the way steps 1 and 2 were. What *can* be compared is the projection
-against **the terrain underneath it** — and that is a sharper test than it
-sounds, provided both show the same thing. Rendering the image with the OPC's
-own DRACO mosaic as its albedo (`--deshade --deshade-layer DRACO_1
---ambient 1.0`, i.e. unlit) and viewing the surface with DRACO as its primary
-texture puts the *same features* in both, so a misregistration shows up as
-doubling rather than as a judgement call.
+All three pass. Step 1 and 2 compare the render against the source image DN for
+DN; step 3 cannot (the viewer has its own field of view and standoff) and
+compares the projection against the terrain underneath it instead, which turns
+out to be the sharpest test of the three.
 
 Both prerequisites for step 3 are now in: a *Transfer Function* toggle (off =
 the image's own RGB, so the render is comparable to the source rather than to a
@@ -136,6 +131,58 @@ body. The single-image path samples a mip-mapped `sampler2d`, the stack an
 un-mipmapped `sampler2dArray`, so the single path blurs slightly where the
 projected texel density falls below 1:1. Nothing here is geometric.
 
+## 3. The viewer reproduces the terrain it projects onto
+
+The viewer looks at the body through its own field of view from its own
+standoff, so it cannot be compared with the source image DN for DN the way
+steps 1 and 2 were. It can be compared with **the terrain underneath it** —
+and that is the sharper test, provided both show the same thing.
+
+They can be made to. Rendering the image with the OPC's own DRACO mosaic as its
+albedo, unlit, and viewing the surface with DRACO as its primary texture puts
+the *same features* on both sides, so a misregistration is feature doubling
+rather than a judgement call:
+
+```
+pro3d-tool simulate-image --opc <Dimorphos_0_Meridian> --time 2027-03-21T14:00:00Z     --deshade --deshade-layer DRACO_1 --ambient 1.0 --no-shadows --write-mbi ...
+```
+
+Camera on that image's own axis at 250 m, *Orientation Source* = MBI,
+*Transfer Function* off:
+
+| terrain (DRACO mosaic) | the image projected onto it |
+|---|---|
+| ![terrain, DRACO](images/projectionValidation/step3-terrain-draco.png) | ![the image projected](images/projectionValidation/step3-projected-draco.png) |
+
+Over the mosaic the two are indistinguishable. Measured by cross-correlating the
+high-pass filtered frames — which finds the shift that best aligns them, so a
+misregistration would show as a non-zero peak:
+
+| | |
+|---|---|
+| region | 600 × 630 px over the mosaic |
+| best correlation | **1.0000** |
+| at shift | **(0, 0) px** |
+| mean \|ΔDN\|, 342,635 lit pixels | **0.000** |
+| bit-identical | **99.99%** |
+
+Zero shift, zero difference. The production viewer's projection is exact.
+
+The grey area on the right of the second frame is not error: it is the image's
+own content painted over the region where the *mosaic* has no data (the DRACO
+coverage is hemispheric), plus a wedge the projector reaches at grazing
+incidence. The first frame shows that region black for the same reason.
+
+### A caution about the coverage number
+
+The probe reports "% of the body repainted", which counts pixels whose colour
+*changed*. This test deliberately makes the projection reproduce the terrain, so
+almost nothing changes and it reports **22.8%** — its lowest reading yet, on its
+best result. Low coverage here is evidence of good registration, not of a
+failure. Coverage answers "did the projection land at all"; correlation answers
+"did it land in the right place", and only the second one is meaningful once the
+first is settled.
+
 ## Supporting evidence: a self-made AFC dataset
 
 `pro3d-tool simulate-image --write-mbi` renders the body from SPICE and writes
@@ -160,34 +207,20 @@ Three independent checks, all on the committed files:
 The residual `(0.00225, 0.00118)` is not error: it is AFC-1's real 0.145°
 offset from the direction the spacecraft tracks.
 
-### In the viewer (step 3, partly)
+### In the viewer
 
-Camera on the image's own axis at 220 m, *Orientation Source* = MBI,
-*Transfer Function* off, one image in the stack:
+The same dataset on an Earth-textured OPC, camera on the image's axis at 220 m
+(this OPC ships no DRACO mosaic, hence the placeholder colouring):
 
 | terrain only | the frame projected onto it |
 |---|---|
 | ![terrain, nothing projected](images/projectionValidation/viewer-closeup-terrain.png) | ![the frame projected, raw RGB](images/projectionValidation/viewer-closeup-rawrgb.png) |
 
-(Same camera in both. The terrain's colouring is the OPC's placeholder *Earth*
-texture — that dataset ships no DRACO mosaic, which is why the uncovered limb at
-the lower right is blue and green.)
-
-The projection registers with the terrain, and it is the image's own greyscale
-rather than a colour map. What is left is the limb at the lower right, where the
-projector grazes the surface and the OPC's placeholder Earth texture shows
-through.
-
 | | body repainted | painted off the body |
 |---|---|---|
 | before the `NormalFlip` fix, 500 m | 17.1% | 0.01% |
 | after, 500 m | 86.2% | 0.08% |
-| after, 220 m (above) | **92.1%** | 0.23% |
-
-This is **not yet the pixel comparison step 1 was**: the viewer sits at 220 m
-while the image was taken from 5,765 m, so the perspective differs and only the
-registration can be judged, not DN for DN. A rigorous step 3 needs the viewer
-camera at the image's own pose and field of view.
+| after, 220 m | 92.1% | 0.23% |
 
 ## Supporting evidence: real data, ASPECT at Didymos
 
@@ -316,9 +349,8 @@ further here.
 
 ## Still open
 
-A rigorous **step 3**: the viewer camera pinned to the image's own pose and
-field of view, so the comparison is DN for DN as in steps 1 and 2 rather than a
-registration check at a different standoff.
+Nothing in the ladder. The projection is correct in the shader (step 1), in the
+stack path (step 2) and in the production viewer (step 3).
 
 ## Reproducing this page
 
