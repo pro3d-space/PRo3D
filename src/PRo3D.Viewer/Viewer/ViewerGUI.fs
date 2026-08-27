@@ -65,8 +65,8 @@ module Gui =
             | AdaptiveAnnotations a -> Some a
             | _ -> None)
 
-    /// falseColorAttributes hardcodes `left: 0%`, so the Color by Category legend needs its
-    /// own map with an offset or the two overlap when both are switched on
+    /// Same placement as falseColorAttributes, only wider: the hue wheel drawn for the
+    /// cyclic attributes captions itself, and the caption does not fit into 55px.
     let colorByCategoryAttributes =
         [
                 "display"               => "block";
@@ -74,14 +74,14 @@ module Gui =
                 "height"                => "75%";
                 "preserveAspectRatio"   => "xMidYMid meet";
                 "viewBox"               => "0 0 5% 100%"
-                "style"                 => "position:absolute; left: 60px; top: 25%"
+                "style"                 => "position:absolute; left: 0%; top: 25%"
                 "pointer-events"        => "None"
         ]
         |> AttributeMap.ofList
 
     let colorByCategoryLegend (m : AdaptiveModel) =
         Incremental.Svg.svg colorByCategoryAttributes
-            (ColorByCategory.Draw.legend (annotationSet m) m.drawing.colorByCategory)
+            (ColorByCategory.Draw.legend m.drawing.colorByCategory)
                             
     let scalarsColorLegend (m : AdaptiveModel) =
         Incremental.Svg.svg falseColorAttributes (SurfaceApp.showColorLegend m.scene.surfacesModel)

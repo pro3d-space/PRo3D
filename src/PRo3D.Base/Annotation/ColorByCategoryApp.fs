@@ -448,28 +448,16 @@ module ColorByCategory =
 
     module Draw =
 
-        let private plate (heightPx : int) =
-            Svg.rect [
-                "fill"         => "#EEEEEE"
-                "width"        => "150px"
-                "height"       => sprintf "%dpx" heightPx
-                "x"            => "8px"
-                "y"            => "4px"
-                "rx"           => "5"
-                "ry"           => "5"
-                "stroke"       => "black"
-                "stroke-width" => "1px"
-                "opacity"      => "0.5"
-            ]
-
         let private caption (attr : ColorCategoryAttribute) =
             let u = unitOf attr
             if u = "" then label attr else sprintf "%s [%s]" (label attr) u
 
-        /// Numeric ramp -> the existing false-color bar; azimuths -> a hue wheel strip;
-        /// categories -> a swatch list. Gated on `enabled` plus the panel's show-legend
-        /// toggle, which is `numericLegend.useFalseColors`.
-        let legend (annotations : aset<AdaptiveAnnotation>) (m : AdaptiveColorByCategoryModel) =
+        /// Continuous values only: numeric ramp -> the existing false-color bar, azimuths
+        /// -> a hue wheel strip. Categorical attributes get no legend — their panel has no
+        /// show-legend toggle to switch one off with, and it already lists every category
+        /// next to its color. Gated on `enabled` plus that toggle, which is
+        /// `numericLegend.useFalseColors`.
+        let legend (m : AdaptiveColorByCategoryModel) =
             alist {
                 let! enabled = m.enabled
                 let! show    = m.numericLegend.useFalseColors
@@ -477,42 +465,7 @@ module ColorByCategory =
                 if enabled && show then
                     let! attr = m.attribute
 
-                    if isCategorical attr then
-                        let! names  = surfaceNamesOf annotations
-                        let! colors = m.categoryColors
-                        let cats = categories attr names
-
-                        yield plate (24 + 16 * cats.Length)
-                        yield Svg.text
-                                [ "x" => "16px"; "y" => "20px"; "font-size" => "11"
-                                  "fill" => "#ffffff"; "pointer-events" => "none" ]
-                                (caption attr)
-
-                        for (i, (lbl, ordinal)) in List.indexed cats do
-                            let c =
-                                colors
-                                |> HashMap.tryFind (categoryKey attr lbl)
-                                |> Option.map (fun (x : ColorInput) -> x.c)
-                                |> Option.defaultValue palette.[paletteIndex ordinal lbl]
-                            let y = 28 + 16 * i
-                            yield Svg.rect [
-                                "fill"         => sprintf "rgb(%i,%i,%i)" c.R c.G c.B
-                                "width"        => "12px"
-                                "height"       => "12px"
-                                "x"            => "16px"
-                                "y"            => sprintf "%dpx" y
-                                "stroke"       => "white"
-                                "stroke-width" => "1px"
-                                "rx"           => "2"
-                                "ry"           => "2"
-                            ]
-                            yield Svg.text
-                                    [ "x" => "34px"; "y" => sprintf "%dpx" (y + 10)
-                                      "font-size" => "10"; "fill" => "#ffffff"
-                                      "pointer-events" => "none" ]
-                                    lbl
-
-                    elif isCyclic attr then
+                    if isCyclic attr then
                         let gradientId = "ColorByCategoryCyclicLegend"
                         let stops =
                             [ 0 .. 12 ]
@@ -570,7 +523,7 @@ module ColorByCategory =
                                       "pointer-events" => "none" ]
                                     (sprintf "%.0f°" deg)
 
-                    else
+                    elif not (isCategorical attr) then
                         yield! FalseColorLegendApp.Draw.createFalseColorLegendBasics
                                     "ColorByCategoryLegend" m.numericLegend
             }
