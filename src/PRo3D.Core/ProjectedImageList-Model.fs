@@ -1,11 +1,16 @@
 ﻿namespace PRo3D.ImageMapping
 
-open FSharp.Data.Adaptive
+open System
 
 open Aardvark.Base
 open Aardvark.UI.Primitives
 open Adaptify
 open PRo3D.Base
+
+// last, so its HashSet/IndexList/Index win: Aardvark.Base carries a HashSet
+// module over System.Collections.Generic.HashSet that otherwise shadows the
+// adaptive one.
+open FSharp.Data.Adaptive
 
 type ColorMap =
     | Magma = 0
@@ -41,6 +46,15 @@ type Channel =
 [<ModelType>]
 type ProjectedImageModel =
     {
+        /// Stable identity. The library list is sorted destructively
+        /// (SortEntriesByDistance/Date rewrite the IndexList), so an Index is
+        /// unusable as a reference; the projection stack, the hover preview and
+        /// the edit-panel selection all key off this instead.
+        /// NonAdaptive because it never changes for a given image -- that keeps
+        /// it a plain Guid on the adaptive type, so lookups and click handlers
+        /// do not have to bind it (same as Bookmark.key).
+        [<NonAdaptive>]
+        id                : Guid
         colorMap          : ColorMap
         selectedChannel   : Channel
         channelOptions    : list<Channel>
@@ -87,12 +101,37 @@ type ProjectionMethod =
     | Spice = 0
     | MbiBased = 1
 
+module ProjectedImages =
+    /// Upper bound on how many images can be projected at once. Sizes the
+    /// shader's uniform matrix/min-max arrays and the projected-texture array:
+    /// 32 * M44f = 2 KB, far under the 16 KB UBO floor guaranteed by GL 4.1 (so
+    /// no storage buffer, so macOS works), and ~128 MB of texture at AFC
+    /// 1024^2 x R32f.
+    ///
+    /// The shader side spells the same bound as a *type* (`Arr<N<32>, M44f>` in
+    /// ImageProjection.fs) and F# has no way to derive one from the other, so
+    /// raising the cap means editing both, together.
+    [<Literal>]
+    let maxCount = 32
+
 [<ModelType>]
 type ProjectedImageListModel =
     {
+        /// The library: every loaded image. Sorted destructively by the
+        /// SortEntries* messages, so positions here are not identities.
         images               : IndexList<ProjectedImageModel>
-        selectedImage        : Option<Index>
-        editImages           : Index list
+        /// Draw order, bottom -> top; the topmost layer covering a fragment
+        /// wins. Holds ids into `images`, so sorting the library leaves it
+        /// alone. Never longer than ProjectedImages.maxCount.
+        stack                : IndexList<Guid>
+        /// Library or stack entry under the mouse. Previewed on top of the
+        /// stack and given a footprint; see ProjectedImageListModel.effectiveStack.
+        hoveredImage         : Option<Guid>
+        /// Target of the edit panel / 2D preview.
+        selectedImage        : Option<Guid>
+        /// Library rows whose inline edit panel is expanded. A set, not a list:
+        /// membership is the only question ever asked of it.
+        editImages           : HashSet<Guid>
         projectionOpacity    : NumericInput
         boresightAdjustment  : BoresightAdjustment
         cameraState          : OrbitState
@@ -102,10 +141,33 @@ type ProjectedImageListModel =
     }
 
 module ProjectedImageListModel =
+
+    let tryFind (id : Guid) (m : ProjectedImageListModel) =
+        m.images |> IndexList.tryFind (fun _ i -> i.id = id)
+
+    let isInStack (id : Guid) (m : ProjectedImageListModel) =
+        m.stack |> IndexList.exists (fun _ i -> i = id)
+
+    /// What actually gets projected: the stack, plus the hovered image on top
+    /// as a preview when it is not already part of the stack (D4). Hovering an
+    /// image that *is* in the stack must not duplicate its layer -- it only
+    /// drives the footprint and the UI badge -- so it is filtered out here.
+    /// Truncated to the cap, dropping from the bottom so the preview is always
+    /// the layer you see.
+    let effectiveStack (m : ProjectedImageListModel) : IndexList<Guid> =
+        let stack =
+            match m.hoveredImage with
+            | Some h when not (isInStack h m) -> m.stack |> IndexList.add h
+            | _ -> m.stack
+        let overflow = stack.Count - ProjectedImages.maxCount
+        if overflow > 0 then stack |> IndexList.skip overflow else stack
+
     let initial : ProjectedImageListModel = {
         images = IndexList.Empty;
+        stack = IndexList.Empty;
+        hoveredImage = None;
         selectedImage = None;
-        editImages = List.Empty;
+        editImages = HashSet.empty;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
@@ -125,12 +187,24 @@ type ImageMessage =
     | Empty
 
 
-type ProjectedImageListMessage = 
+type ProjectedImageListMessage =
     | OrbitCameraMessage of OrbitMessage
-    | SelectImage of Index
-    | EditImage of Index
+    | SelectImage of Guid
+    | EditImage of Guid
     | LoadImagesDir of string
-    | ImageMessage of Index * ImageMessage
+    | ImageMessage of Guid * ImageMessage
+    /// Append to the top of the projection stack. Ignored when the image is
+    /// already in the stack or the stack is at ProjectedImages.maxCount.
+    | AddToStack of Guid
+    | RemoveFromStack of Guid
+    /// Move a stack entry to the given position, 0 = bottom. Clamped.
+    | MoveInStack of Guid * int
+    /// Mouse entered/left a library or stack row; drives the preview layer and
+    /// the footprint. None on leave.
+    | HoverImage of Option<Guid>
+    /// Frame this image's footprint. Handled by the Viewer (it owns the camera
+    /// animation), not by ProjectedImageListApp.update.
+    | FlyToImage of Guid
     | SortEntriesByDistance
     | SortEntriesByDate
     | SetProjectionOpacity of Numeric.Action

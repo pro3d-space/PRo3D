@@ -1,15 +1,16 @@
 namespace PRo3D.ImageMapping
 
 open System
+open System.IO
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open FSharp.Data.Adaptive
 open PRo3D.ImageMapping
 open PRo3D.Extensions.FSharp
 open PRo3D.Base
 
-open System.IO
+// last, so its HashSet/IndexList win over Aardvark.Base's BCL-collection helpers
+open FSharp.Data.Adaptive
 
 type Self = Self
 
@@ -21,8 +22,10 @@ module ProjectedImageListApp =
 
     let initial : ProjectedImageListModel = {
         images = IndexList.Empty;
+        stack = IndexList.Empty;
+        hoveredImage = None;
         selectedImage = None;
-        editImages = List.Empty;
+        editImages = HashSet.empty;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
@@ -54,106 +57,73 @@ module ProjectedImageListApp =
             let imageExts = [".tif";".tiff";".jpg";".exr"]
             let images' = 
                 Directory.EnumerateFiles(directory) 
-                |> Seq.filter (fun p -> 
+                |> Seq.filter (fun p ->
                     let e = Path.GetExtension p
-                    List.contains e imageExts 
+                    List.contains e imageExts
                 )
                 |> Seq.map (fun path -> 
                     ProjectedImageApp.loadFile(path)
                 ) |> IndexList.ofSeq
-            let firstIndex = 
-                if IndexList.isEmpty images' then
-                    None
-                else
-                    Some (IndexList.firstIndex images')
+            let first = images' |> IndexList.tryFirst |> Option.map (fun i -> i.id)
 
-            { m with images = images'; selectedImage = firstIndex }
-        | SelectImage idx -> 
-            { m with selectedImage = Some idx }
-        | EditImage idx ->
-            let editImages' =
-                if List.contains idx m.editImages then
-                    m.editImages |> List.filter ((<>) idx)
-                else
-                    idx :: m.editImages
-            { m with editImages = editImages'} 
-        | ImageMessage (idx, imageMessage) ->
-            let images' = m.images |> IndexList.mapi (fun index img ->
-                    if index = idx then
-                        ProjectedImageApp.update img imageMessage
-                    else
-                        img
+            // a fresh library invalidates every id the old one handed out
+            { m with
+                images = images'
+                stack = IndexList.Empty
+                hoveredImage = None
+                editImages = HashSet.empty
+                selectedImage = first }
+        | SelectImage id ->
+            { m with selectedImage = Some id }
+        | EditImage id ->
+            { m with editImages = m.editImages |> HashSet.alter id not }
+        | ImageMessage (id, imageMessage) ->
+            let images' =
+                m.images |> IndexList.map (fun img ->
+                    if img.id = id then ProjectedImageApp.update img imageMessage else img
                 )
             { m with images = images' }
+        | AddToStack id ->
+            if ProjectedImageListModel.isInStack id m
+               || m.stack.Count >= ProjectedImages.maxCount
+               || (ProjectedImageListModel.tryFind id m |> Option.isNone) then
+                m
+            else
+                { m with stack = m.stack |> IndexList.add id }
+        | RemoveFromStack id ->
+            { m with stack = m.stack |> IndexList.filter ((<>) id) }
+        | MoveInStack (id, position) ->
+            match m.stack |> IndexList.tryFindIndex id with
+            | None -> m
+            | Some idx ->
+                let without = m.stack |> IndexList.remove idx
+                let position = position |> max 0 |> min without.Count
+                { m with stack = without |> IndexList.insertAt position id }
+        | HoverImage id ->
+            { m with hoveredImage = id }
+        | FlyToImage _ ->
+            // handled by the Viewer, which owns the camera animation
+            m
+        // Sorting permutes the library only. selectedImage/editImages/stack are
+        // keyed by Guid, so none of them needs remapping any more -- this used
+        // to be ~30 lines of index bookkeeping per sort, via a partial Seq.head.
         | SortEntriesByDistance ->
-            let images' = 
-                m.images
-                |> IndexList.mapi (fun idx e -> (idx, e))
-                |> IndexList.toList
-                |> List.sortBy (fun (idx, p) -> p.distance)
-                |> IndexList.ofList
-            let newSelectedIdx = 
-                match m.selectedImage with
-                | Some selectedImage ->
-                    let (newIdx, (oldIdx, img) )= 
-                        images'
-                        |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
-                        |> IndexList.filter (fun (newIdx, (idx, p)) -> idx = selectedImage)
-                        |> IndexList.toSeq
-                        |> Seq.head
-                    Some newIdx
-                | None -> None
-            let editImages' = 
-                images'
-                |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
-                |> IndexList.filter (fun (newIdx, (idx, p)) -> List.contains idx m.editImages)
-                |> IndexList.map (fun (newIdx, (idx, p)) -> newIdx)
-                |> IndexList.toList
-            { m with
-                images = images' |> IndexList.map (fun (idx, img) -> img);
-                selectedImage = newSelectedIdx;
-                editImages = editImages'
-            }
+            { m with images = m.images |> IndexList.sortBy (fun p -> p.distance) }
         | SortEntriesByDate ->
-            let images' = 
-                m.images
-                |> IndexList.mapi (fun idx e -> (idx, e))
-                |> IndexList.toList
-                |> List.sortBy (fun (idx, p) -> p.time)
-                |> IndexList.ofList
-            let newSelectedIdx = 
-                match m.selectedImage with
-                | Some selectedImage ->
-                    let (newIdx, (oldIdx, img) )= 
-                        images'
-                        |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
-                        |> IndexList.filter (fun (newIdx, (idx, p)) -> idx = selectedImage)
-                        |> IndexList.toSeq
-                        |> Seq.head
-                    Some newIdx
-                | None -> None
-            let editImages' = 
-                images'
-                |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
-                |> IndexList.filter (fun (newIdx, (idx, p)) -> List.contains idx m.editImages)
-                |> IndexList.map (fun (newIdx, (idx, p)) -> newIdx)
-                |> IndexList.toList
-            { m with 
-                images = images' |> IndexList.map (fun (idx, img) -> img);
-                selectedImage = newSelectedIdx;
-                editImages = editImages'}
+            { m with images = m.images |> IndexList.sortBy (fun p -> p.time) }
 
-    let selectedImage
-        (m : AdaptiveProjectedImageListModel) = 
+    /// Adaptive counterpart of ProjectedImageListModel.tryFind. `id` is
+    /// NonAdaptive, so this is a plain lookup inside a single AVal.map rather
+    /// than a bind over every image's own aval.
+    let tryFindAdaptive (id : Guid) (m : AdaptiveProjectedImageListModel) =
+        m.images.Content
+        |> AVal.map (IndexList.tryFind (fun _ (img : AdaptiveProjectedImageModel) -> img.id = id))
+
+    let selectedImage (m : AdaptiveProjectedImageListModel) =
         adaptive {
-            let! selectedImage = m.selectedImage
-            match selectedImage with
-            | Some sel -> 
-                let! img = AList.tryGet sel m.images
-                match img with
-                | Some img' -> return Some img'
-                | None -> return None
+            match! m.selectedImage with
             | None -> return None
+            | Some id -> return! tryFindAdaptive id m
         }
 
     let view 
@@ -217,26 +187,27 @@ module ProjectedImageListApp =
                     yield div [attribute "style" "max-height: calc(100vh - 300px); overflow: auto;" ] [
                         yield Incremental.div (AttributeMap.ofList [ attribute "style" "overflow-y: visible; " ]) (
                             alist {
-                                let domNodes = 
-                                    m.images 
-                                    |> AList.mapi (fun index img ->
-                                        // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
+                                let domNodes =
+                                    m.images
+                                    |> AList.map (fun img ->
+                                        // img.id is NonAdaptive, so rows can be keyed by it directly
+                                        let id = img.id
                                         div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
                                             div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
-                                            div [attribute "style" "display: flex; font-weight: bold"] 
+                                            div [attribute "style" "display: flex; font-weight: bold"]
                                                 [
-                                                    div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
-                                                    div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
+                                                    div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun sel -> sel = Some id)) (SelectImage id)]
+                                                    div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> ASet.contains id) (EditImage id)]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
                                                     div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
                                                 ]
-                                        
+
                                             Incremental.div AttributeMap.empty (
-                                                alist { 
-                                                    let! isInEditMode = m.editImages |> AVal.map (fun editEntries -> List.contains index editEntries)
+                                                alist {
+                                                    let! isInEditMode = m.editImages |> ASet.contains id
                                                     if isInEditMode then
                                                         div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
-                                                            showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (index, msg))
+                                                            showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (id, msg))
                                                         ]
                                                     else
                                                         div [] []

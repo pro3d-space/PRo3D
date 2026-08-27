@@ -81,7 +81,9 @@ module ProjectedImageApp =
         format  = "{0:0.00}"
     }
 
-    let initial = { 
+    let initial = {
+        // a template, not a loaded image; loadFile mints the real id
+        id = Guid.Empty;
         colorMap = ColorMap.Magma;
         selectedChannel = { idx = 0; name = None }
         channelOptions = [];
@@ -110,19 +112,19 @@ module ProjectedImageApp =
 
         let selectedChannelIdx = 0
 
-        let defaultMinValues = 
+        let defaultMinValues =
             match tiffJson with
             | Some tf -> tf.image_statistics |> Array.toList |> List.map (fun x -> x.minimum)
             | None -> [0.0]
 
-        let defaultMaxValues = 
+        let defaultMaxValues =
             match tiffJson with
             | Some tf -> tf.image_statistics |> Array.toList|> List.map (fun x -> x.maximum)
             | None -> [0.0]
 
-        let dataType = 
+        let dataType =
             match tiffJson with
-            | Some tf -> 
+            | Some tf ->
                 match tf.data_type with
                 | "uint16" -> DataType.UInt16
                 | "uint32" -> DataType.UInt32
@@ -159,8 +161,9 @@ module ProjectedImageApp =
                 //interval   = 
             }
 
-        { 
+        {
             initial with
+                id               = Guid.NewGuid();
                 texture          = Path.GetFullPath(texturePath);
                 defaultMinValues = defaultMinValues;
                 defaultMaxValues = defaultMaxValues;

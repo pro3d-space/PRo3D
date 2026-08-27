@@ -19,32 +19,24 @@ open PRo3D.InstrumentVisualization
 
 module ProjectedImagesListAppHelper =
 
+    /// Look an image up by its stable id. `id` is NonAdaptive on the adaptive
+    /// model, so this stays a single AVal.map over the list content.
+    let tryFindById (id : Guid) (m : AdaptiveProjectedImageListModel) =
+        m.images.Content
+        |> AVal.map (IndexList.tryFind (fun _ (img : AdaptiveProjectedImageModel) -> img.id = id))
+
     let getSelectedImage (m : AdaptiveProjectedImageListModel) =
         adaptive {
-            let! selected = m.selectedImage
-            
-            match selected with
+            match! m.selectedImage with
             | None -> return None
-            | Some idx -> 
-                let! img = AList.tryGet idx m.images
-                match img with
-                | None -> return None
-                | Some img -> 
-                    return Some img
+            | Some id -> return! tryFindById id m
         }
 
     let getSelectedImageChannel (m : AdaptiveProjectedImageListModel) =
-        m.selectedImage |> AVal.bind (fun imgIdx ->
-            match imgIdx with
-            | None -> AVal.constant {idx = 0; name = None}
-            | Some idx -> 
-                m.images
-                |> AList.tryGet idx
-                |> AVal.bind (function
-                    | None ->
-                        AVal.constant { idx = 0; name = None }
-                    | Some img -> img.selectedChannel
-                )
+        getSelectedImage m
+        |> AVal.bind (function
+            | None -> AVal.constant { idx = 0; name = None }
+            | Some img -> img.selectedChannel
         )
 
     let getSelectedTexture (m : AdaptiveProjectedImageListModel) : aval<Option<string * InstrumentMetadata.ParsedMetadata>> = 

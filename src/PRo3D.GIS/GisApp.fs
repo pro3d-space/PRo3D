@@ -278,7 +278,7 @@ module GisApp =
             else
                 let selectedTexturePath =
                     m.projectedImageList.selectedImage
-                    |> Option.bind (fun idx -> IndexList.tryGet idx m.projectedImageList.images)
+                    |> Option.bind (fun id -> ProjectedImageListModel.tryFind id m.projectedImageList)
                     |> Option.map (fun img -> img.texture)
                 match selectedTexturePath with
                 | None ->
