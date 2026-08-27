@@ -54,11 +54,11 @@ module ProjectedImageListApp =
         | SetPitch r -> { m with boresightAdjustment = { m.boresightAdjustment with pitch = Numeric.update m.boresightAdjustment.pitch r } }
         | SetYaw r -> { m with boresightAdjustment = { m.boresightAdjustment with yaw = Numeric.update m.boresightAdjustment.yaw r } }
         | LoadImagesDir directory -> 
-            let imageExts = [".tif";".tiff";".jpg";".exr"]
+            let imageExts = [".tif";".tiff";".jpg";".jpeg";".png";".exr"]
             let images' = 
                 Directory.EnumerateFiles(directory) 
                 |> Seq.filter (fun p ->
-                    let e = Path.GetExtension p
+                    let e = (Path.GetExtension p).ToLowerInvariant()
                     List.contains e imageExts
                 )
                 |> Seq.map (fun path -> 

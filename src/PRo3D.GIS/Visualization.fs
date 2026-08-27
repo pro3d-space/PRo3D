@@ -49,15 +49,28 @@ module Visualization =
             Log.warn "could not load texture"
             DefaultTextures.checkerboard
 
-    let createProjectedTexture (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (channel: aval<Channel>) : aval<ITexture> = 
-        AVal.bind2 (fun img  c -> 
+    /// Plain single-image formats (png/jpg, e.g. the synthetic HERA COP
+    /// renders). No channel concept: PixImage loads the whole image and the
+    /// projection shader samples the red channel, which for the grayscale
+    /// content of instrument simulations is the image.
+    let createProjectedPixTexture (path : string) : aval<ITexture> =
+        try
+            let pi = PixImage.Load path
+            PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture |> AVal.constant
+        with e ->
+            Log.warn "could not load texture %s: %s" path e.Message
+            DefaultTextures.checkerboard
+
+    let createProjectedTexture (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (channel: aval<Channel>) : aval<ITexture> =
+        AVal.bind2 (fun img  c ->
             match img with
-            | Some (img : string, (Some mbi, _)) -> 
+            | Some (img : string, (Some mbi, _)) ->
                 match Path.GetExtension(img).ToLower() with
                 | ".tiff" | ".tif" -> createProjectedTiffTexture img c.idx
                 | ".exr" -> createProjectedExrTexture img c.idx
+                | ".png" | ".jpg" | ".jpeg" -> createProjectedPixTexture img
                 | _ -> DefaultTextures.checkerboard
-            | _ -> 
+            | _ ->
                 DefaultTextures.checkerboard
         ) currentProjectedImage channel
 
@@ -74,6 +87,10 @@ module Visualization =
             let distance = mbi.targetPos.Length * 1000.0
             let near, far = nearFar |> Option.defaultValue (InstrumentProjection.nearFarForDistance distance)
             let instruments = InstrumentProjection.instruments near far
+            // The sidecar knows what it observed (TARGET header, e.g. "Didymos");
+            // the caller's targetBody is only the fallback for older exports
+            // that don't carry the header (legacy Mars data).
+            let targetBody = mbi.target |> Option.defaultValue targetBody
             match InstrumentProjection.instrument2SpiceName mbi.instrument with
             | None ->
                 Log.warn "could not get instrument spice name"

@@ -112,6 +112,15 @@ module ProjectedImageApp =
 
         let selectedChannelIdx = 0
 
+        // Plain image formats (synthetic COP renders) come without the
+        // statistics sidecar and are sampled as normalized [0,1] -- treat them
+        // as float over the unit range, otherwise the defaults (uint16 remap
+        // over an empty 0..0 range) turn the projection into NaNs.
+        let isPlainImage =
+            match (Path.GetExtension texturePath).ToLowerInvariant() with
+            | ".png" | ".jpg" | ".jpeg" -> true
+            | _ -> false
+
         let defaultMinValues =
             match tiffJson with
             | Some tf -> tf.image_statistics |> Array.toList |> List.map (fun x -> x.minimum)
@@ -120,7 +129,7 @@ module ProjectedImageApp =
         let defaultMaxValues =
             match tiffJson with
             | Some tf -> tf.image_statistics |> Array.toList|> List.map (fun x -> x.maximum)
-            | None -> [0.0]
+            | None -> if isPlainImage then [1.0] else [0.0]
 
         let dataType =
             match tiffJson with
@@ -130,7 +139,7 @@ module ProjectedImageApp =
                 | "uint32" -> DataType.UInt32
                 | "float" -> DataType.Float
                 | _ -> DataType.UInt16
-            | None -> DataType.UInt16
+            | None -> if isPlainImage then DataType.Float else DataType.UInt16
 
         let rangeOffset = 0.1 * (defaultMaxValues[selectedChannelIdx] - defaultMinValues[selectedChannelIdx])
 

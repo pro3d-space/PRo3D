@@ -107,6 +107,11 @@ module Tiff_Mbi_Json =
         /// sidecar was generated against, if declared. None for sidecars that
         /// don't carry a SPICE_MK header (e.g. some older exports).
         spiceMk : Option<string>
+        /// The observed body from the TARGET FITS header (e.g. "Didymos") --
+        /// the body the image projection is aimed at. None when the header is
+        /// absent or empty (older Mars exports), in which case callers fall
+        /// back to their own target-body configuration.
+        target : Option<string>
     }
 
     let tryGetFitsHeader (headerName : string) (mbi : JsonValue) (m : JsonValue -> Option<'a>): Option<'a> =
@@ -156,13 +161,32 @@ module Tiff_Mbi_Json =
 
     let (|Float|_|) (s : string) = parseFloat' s
 
+    /// The observation time. DATE-OBS is authoritative; some synthetic exports
+    /// (HERA COP simulation, 2026-08) fill it with a product id ("AFC1-Synthetic")
+    /// instead of a timestamp, so fall back to the DATE header (file creation
+    /// time, which for synthetic data *is* the simulated observation time).
+    /// See docs/COP-sidecar-issues (data-generator report) for the details.
     let tryExtractDateObsFromMbi (mbi: JsonValue) : DateTime option =
-        tryGetFitsHeader "DATE-OBS" mbi parseDate
+        match tryGetFitsHeader "DATE-OBS" mbi parseDate with
+        | Some d -> Some d
+        | None ->
+            match tryGetFitsHeader "DATE" mbi parseDate with
+            | Some d ->
+                Log.warn "[InstrumentMetadata] DATE-OBS is missing or unparseable, falling back to DATE (%A)" d
+                Some d
+            | None -> None
+
+    /// A FITS string header, with "" (observed in synthetic exports where the
+    /// generator left the value blank) treated as absent.
+    let private tryGetNonEmptyString (headerName : string) (mbi : JsonValue) : Option<string> =
+        tryGetFitsHeader headerName mbi (function
+            | JsonValue.String s when not (String.IsNullOrWhiteSpace s) -> Some s
+            | _ -> None)
 
     /// The SPICE meta-kernel name (e.g. "hera_plan_v180_20250616_001") the mbi
     /// sidecar itself declares it was generated against.
     let tryExtractSpiceMk (mbi : JsonValue) : Option<string> =
-        tryGetFitsHeader "SPICE_MK" mbi (function JsonValue.String s -> Some s | _ -> None)
+        tryGetNonEmptyString "SPICE_MK" mbi
 
     let tryExtractXyz (xName : string) (yName : string) (zName : string) (mbi : JsonValue) = 
         match tryGetFitsHeader xName mbi parseFloat, tryGetFitsHeader yName mbi parseFloat, tryGetFitsHeader zName mbi parseFloat with
@@ -196,15 +220,42 @@ module Tiff_Mbi_Json =
         parseQuaternion (fun keyword -> tryGetFitsHeader keyword mbi parseFloat)
 
 
-    let tryParseJson (content : string) = 
+    /// The position headers declare "[km]" but some synthetic exports (HERA COP
+    /// simulation, 2026-08) actually write metres -- confirmed against the
+    /// delivery's own PRo3D.json ground truth (camera at |r| = 14.8e3 m where
+    /// TRG_DIST says "14846 km") and by the sun distance, which read as metres
+    /// is 1.09 AU and read as km would be 1090 AU. The sun distance makes a
+    /// clean unit detector: as km it must land in ~[0.3 AU, 7 AU] for anything
+    /// this app projects (Mars ~1.5 AU, Didymos 1.0-2.3 AU). Returns the factor
+    /// that brings the sidecar's positions to km.
+    /// See docs/COP-sidecar-issues (data-generator report), issue 4.
+    let private detectPositionUnit (sunPos : V3d) : float =
+        let kmPerAu = 1.495978707e8
+        let asKm = sunPos.Length
+        if asKm >= 0.3 * kmPerAu && asKm <= 7.0 * kmPerAu then
+            1.0                             // already km
+        elif asKm / 1000.0 >= 0.3 * kmPerAu && asKm / 1000.0 <= 7.0 * kmPerAu then
+            Log.warn "[InstrumentMetadata] sidecar positions are metres despite the [km] headers (sun at %.0f 'km'); converting to km" asKm
+            1.0e-3                          // metres mislabeled as km
+        else
+            Log.warn "[InstrumentMetadata] sun position %.3e km is implausible in km and in metres; keeping values as declared" asKm
+            1.0
+
+    let tryParseJson (content : string) =
         match JsonValue.TryParse(content) with
         | Some mbi ->
             try
                 let sunPos = tryExtractXyz "SUN_POSX" "SUN_POSY" "SUN_POSZ" mbi
                 let earthPos = tryExtractXyz "EARTPOSX" "EARTPOSY" "EARTPOSZ" mbi
                 let targetPos = tryExtractXyz "TRG_POSX" "TRG_POSY" "TRG_POSZ" mbi
+                // normalize all positions to km (what this record's consumers assume)
+                let unitScale = sunPos |> Option.map detectPositionUnit |> Option.defaultValue 1.0
+                let sunPos = sunPos |> Option.map ((*) unitScale)
+                let earthPos = earthPos |> Option.map ((*) unitScale)
+                let targetPos = targetPos |> Option.map ((*) unitScale)
                 let instrument = tryGetFitsHeader "INSTRUME" mbi (function JsonValue.String s -> Some s | _ -> None)
                 let spiceMk = tryExtractSpiceMk mbi
+                let target = tryGetNonEmptyString "TARGET" mbi
                 match tryExtractDateObsFromMbi mbi, sunPos, earthPos, tryExtractSC_quat mbi, targetPos, instrument  with
                 | Some d, Some sunPos, Some earthPos, Result.Ok quat, Some targetPos, Some instrument ->
                     {
@@ -214,8 +265,9 @@ module Tiff_Mbi_Json =
                         targetPos = targetPos
                         instrument = instrument
                         spiceMk = spiceMk
+                        target = target
                     } |> Result.Ok
-                | _ -> Result.Error (System.Exception("could not find DATE-OBS in mbi json"))
+                | _ -> Result.Error (System.Exception("could not extract a required field (DATE-OBS/DATE, SUN_POS*, EARTPOS*, SC_QUAT*, TRG_POS*, INSTRUME) from mbi json"))
             with e ->
                 Result.Error e
         | _ -> Result.Error (System.Exception("could not parse mbi json"))
@@ -309,8 +361,35 @@ let private tryParseTifJson (imagePath : string) : Option<Tiff_Json.ImageMetadat
         printfn $"could not find json metadata {json} for {imagePath}"
         None
 
+/// Fallback association for sidecars that declare no usable band file paths:
+/// some synthetic exports (HERA COP simulation, 2026-08) leave every
+/// bands[].file_path empty, so the content-based index can never match them.
+/// For those, fall back to the naming convention "<image base>.mbi.json"
+/// (HERA_AFC_..._COP.png <-> HERA_AFC_..._COP.mbi.json) and parse that one
+/// sidecar directly. See docs/COP-sidecar-issues (data-generator report).
+let private tryParseMbiByNamingConvention (imagePath : string) : Option<Tiff_Mbi_Json.Mbi> =
+    let sidecar = Path.ChangeExtension(imagePath, ".mbi.json")
+    if File.Exists sidecar then
+        try
+            match Tiff_Mbi_Json.tryParseJson (File.ReadAllText sidecar) with
+            | Result.Ok mbi ->
+                Log.warn "[InstrumentMetadata] %s declares no band file paths; associated it with %s by naming convention"
+                    (Path.GetFileName sidecar) (Path.GetFileName imagePath)
+                Some mbi
+            | Result.Error e ->
+                printfn $"could not parse mbi json metadata {sidecar}: {e}"
+                None
+        with e ->
+            printfn $"could not read mbi json metadata {sidecar}: {e}"
+            None
+    else
+        None
+
 let tryParseMetadataForImagePath (imagePath : string) : ParsedMetadata =
-    let mbi = buildMbiIndex (Path.GetDirectoryName(imagePath)) |> Map.tryFind (Path.GetFileName imagePath)
+    let mbi =
+        match buildMbiIndex (Path.GetDirectoryName(imagePath)) |> Map.tryFind (Path.GetFileName imagePath) with
+        | Some mbi -> Some mbi
+        | None -> tryParseMbiByNamingConvention imagePath
     let tif = tryParseTifJson imagePath
     mbi, tif
 
@@ -318,6 +397,9 @@ let discoverInstrumentFolder (dir : string) : seq<string * ParsedMetadata> =
     let mbiIndex = buildMbiIndex dir
     Directory.EnumerateFiles(dir, "*.tif", SearchOption.TopDirectoryOnly)
     |> Seq.map (fun tifFilename ->
-        let mbi = mbiIndex |> Map.tryFind (Path.GetFileName tifFilename)
+        let mbi =
+            match mbiIndex |> Map.tryFind (Path.GetFileName tifFilename) with
+            | Some mbi -> Some mbi
+            | None -> tryParseMbiByNamingConvention tifFilename
         let tif = tryParseTifJson tifFilename
         tifFilename, (mbi, tif))
