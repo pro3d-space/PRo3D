@@ -520,15 +520,30 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                  (body : string) (frame : string) (observer : string) (instrument : string)
                  (time : DateTime) (outPath : string) (kernel : string) (hierarchies : string[]) : Result<string, string> =
 
+    // --project renders an existing image projected onto the body rather than a shaded
+    // body. With no --mbi it also supplies the camera, so the render is taken from the
+    // same place the image was: the output then has to reproduce the input, which turns
+    // "does the projection line up?" into a pixel comparison.
+    let cameraSource = if String.IsNullOrWhiteSpace o.mbi then o.project else o.mbi
+
     // --mbi replaces the look-at camera with the observation an existing image declares;
     // the instrument then comes from that sidecar too (see MbiObservation).
     let observation =
-        if String.IsNullOrWhiteSpace o.mbi then Ok None
-        else cameraFromMbi observer frame body o.mbi |> Result.map Some
+        if String.IsNullOrWhiteSpace cameraSource then Ok None
+        else cameraFromMbi observer frame body cameraSource |> Result.map Some
 
-    match observation with
-    | Result.Error e -> Result.Error e
-    | Ok observation ->
+    // the image to project, and its own projector
+    let projected =
+        if String.IsNullOrWhiteSpace o.project then Ok None
+        else
+            imageForMbiArgument o.project
+            |> Result.bind (fun (dir, file) ->
+                cameraFromMbi observer frame body o.project
+                |> Result.map (fun obs -> Some (Path.Combine(dir, file), obs.camera.view * obs.camera.proj)))
+
+    match observation, projected with
+    | Result.Error e, _ | _, Result.Error e -> Result.Error e
+    | Ok observation, Ok projected ->
 
     let instrument = observation |> Option.map (fun x -> x.instrument) |> Option.defaultValue instrument
     // With --mbi the epoch is the observation's, not the command line's: sun direction,
@@ -556,7 +571,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         | Some obs ->
             if o.distance > 0.0 then
                 Log.warn "[camera] --distance is ignored with --mbi: the standoff is the observation's own"
-            Log.line "[camera] from %s (%s at %s)" (Path.GetFileName o.mbi) instrument (obs.time.ToString "o")
+            Log.line "[camera] from %s (%s at %s)" (Path.GetFileName cameraSource) instrument (obs.time.ToString "o")
             Ok obs.camera
         | None -> cameraAt observer frame body instrument o.distance time
 
@@ -612,7 +627,11 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         // the graph it wins over any outer uniform of the same name.
         AVal.constant (
             Some {
-                imageProjection = AVal.constant (Some (cam.view * cam.proj))
+                // --project supplies its own projector (the image's), which is what
+                // stableImageProjection samples through; otherwise the render camera's,
+                // as the angle shaders expect
+                imageProjection =
+                    AVal.constant (Some (projected |> Option.map snd |> Option.defaultValue (cam.view * cam.proj)))
                 stackProjections = AVal.constant [||]
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None
@@ -642,9 +661,10 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 // Blocking loads: reproducible offscreen output, same as sun-angles.
                 asyncLoading = false }
 
-        let sg =
-            OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies
-            |> Sg.ofList
+        let opc = OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies |> Sg.ofList
+
+        let shaded =
+            opc
             |> Sg.shader {
                 // Order is load-bearing (see SunAnglesVerb.applyAngleShaders):
                 // stableImageProjectionTrafo stashes the object-space position while
@@ -657,6 +677,38 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 do! PRo3D.SPICE.Shaders.stableTrafo
                 do! SimulateShaders.simulatedImage
             }
+
+        /// PRo3D's single-image projection, composed exactly as ProjectionTestbed and
+        /// sun-angles compose it -- this verb's own shading is not involved at all, so
+        /// what comes out is the projection shader's answer and nothing else.
+        let projectedSg (imagePath : string) =
+            opc
+            |> Sg.shader {
+                do! ImageProjection.Shaders.stableImageProjectionTrafo
+                do! ImageProjection.Shaders.generateNormal
+                do! ImageProjection.Shaders.applyNormalFlip
+                do! PRo3D.SPICE.Shaders.stableTrafo
+                // black underneath: with opacity 1 the projection replaces it entirely,
+                // so any pixel that stays black is a pixel the projection did NOT cover
+                do! DefaultSurfaces.constantColor C4f.Black
+                do! ImageProjection.Shaders.stableImageProjection
+            }
+            |> Sg.texture "ProjectedTexture" (PRo3D.InstrumentProjection.Visualization.createProjectedPixTexture imagePath)
+            |> Sg.uniform' "ProjectedImageOpacity2" 1.0f
+            // neutralise the transfer function: UseFalseColor off with DataType = Float
+            // and a 0..1 range makes ColorMapping.remap the identity, so the render is
+            // comparable to the source image DN for DN instead of through a colormap
+            |> Sg.uniform' "UseFalseColor" false
+            |> Sg.uniform' "DataType" 2
+            |> Sg.uniform' "MinValue" 0.0f
+            |> Sg.uniform' "MaxValue" 1.0f
+
+        let sg =
+            (match projected with
+             | Some (imagePath, _) ->
+                Log.line "[project] %s through the single-image projection shader" (Path.GetFileName imagePath)
+                projectedSg imagePath
+             | None -> shaded)
             |> SunAnglesVerb.withOpcScaffolding
             |> Sg.uniform' "SunShadowEnabled" (not o.noShadows)
             |> Sg.uniform' "SunShadowViewProj" shadowMap.viewProj.Forward
@@ -679,10 +731,14 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         // spacecraft, needing every level the hierarchy has.
         let rendered = SunAnglesVerb.FloatTarget.render target 8 sg
 
-        match toneMapToPng rendered o.gain with
+        // --project must not auto-expose: the whole point is that the output equals the
+        // input, and a percentile stretch would rescale it into looking like it does not.
+        let gain = if Option.isSome projected && o.gain <= 0.0 then 1.0 else o.gain
+
+        match toneMapToPng rendered gain with
         | Result.Error e -> Result.Error e
         | Ok (png, gain) ->
-            if o.gain <= 0.0 then
+            if o.gain <= 0.0 && Option.isNone projected then
                 Log.line "[expose] auto gain %.3f (pass --gain %.3f to reproduce across a series)" gain gain
             png.Save(outPath)
             Log.line "[out] %s" outPath
@@ -734,8 +790,11 @@ let run (o : SimulateImageOptions) : int =
     let outPath    = if String.IsNullOrWhiteSpace o.out        then Path.Combine(".", "simulated.png") else o.out
 
     // --mbi carries its own epoch (the sidecar's DATE-OBS), so --time is only required
-    // without it; processImage replaces this value once the observation resolves.
-    let usingMbi = not (String.IsNullOrWhiteSpace o.mbi)
+    // without it; processImage replaces this value once the observation resolves. --project
+    // stands in for --mbi when it is the only image given, since it then supplies the
+    // camera too.
+    let cameraSource = if String.IsNullOrWhiteSpace o.mbi then o.project else o.mbi
+    let usingMbi = not (String.IsNullOrWhiteSpace cameraSource)
 
     let time =
         if usingMbi && String.IsNullOrWhiteSpace o.time then Some DateTime.MinValue
@@ -777,10 +836,10 @@ let run (o : SimulateImageOptions) : int =
             else Result.Error (sprintf "kernel not found: %s" explicitPath)
         | None when usingMbi ->
             // resolveImage only parses the sidecar, so this is safe before SPICE is up
-            match imageForMbiArgument o.mbi |> Result.bind (fun (dir, file) -> InstrumentObservation.resolveImage dir (Some file)) with
+            match imageForMbiArgument cameraSource |> Result.bind (fun (dir, file) -> InstrumentObservation.resolveImage dir (Some file)) with
             | Ok img -> InstrumentObservation.resolveKernel None kernelRoot img
             | Result.Error e ->
-                Log.warn "[spice] could not read %s to find its metakernel (%s)" o.mbi e
+                Log.warn "[spice] could not read %s to find its metakernel (%s)" cameraSource e
                 fallback ()
         | None -> fallback ()
 

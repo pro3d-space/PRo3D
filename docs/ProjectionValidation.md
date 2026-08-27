@@ -8,8 +8,10 @@ is something we can construct rather than assume. Everything here is
 reproducible from [`pro3d-tool`](./Pro3DTool-SimulateImage.md) and the
 Playwright harness in `tests-ui/`; the numbers are what those runs printed.
 
-**Short answer.** The projection chain is sound. Two things make images look
-wrong in practice, and neither is the projection maths:
+**Where things stand.** The projection *shader* is proven correct (step 1
+below, to a mean of 0.077 DN). The production viewer is **not** yet validated,
+and currently does not project our own dataset correctly. Two further things
+make images look wrong independently of any of that:
 
 1. **Orientation Source** defaults to *SPICE*, which reads no pointing from the
    image at all — it aims the camera at the body centre with a fixed roll. Real
@@ -19,7 +21,63 @@ wrong in practice, and neither is the projection maths:
 
 ---
 
-## 1. Ground truth we control: a self-made AFC dataset
+## The ladder
+
+The projection is validated in steps, each with a number rather than an
+impression, and each only meaningful once the one below it holds:
+
+| step | what it isolates | status |
+|---|---|---|
+| **1** | the projection shader itself (`stableImageProjection`, offscreen — what `sun-angles` and `ProjectionTestbed` compose) | **passed**, below |
+| 2 | the stack shader (`stableImageProjectionStack`), offscreen, same image and camera — must equal step 1 | not run |
+| 3 | the production viewer, same image and camera — must equal step 2 | not run |
+
+Steps 2 and 3 need two things first: a raw-RGB path (so the comparison is not
+made through a colour map), and the viewer's missing `NormalFlip` binding —
+both noted at the bottom of this page.
+
+## 1. The projection shader reproduces the image it was given
+
+`pro3d-tool simulate-image --write-mbi` renders the body from SPICE and writes
+an `.mbi.json` describing **the camera it actually used**.
+`simulate-image --project` then feeds that image back through PRo3D's own
+single-image projection shader, rendering from the same camera:
+
+```
+pro3d-tool simulate-image --opc <TestData>/HERA/Dimorphos \
+    --project HERA_AFC_0005_20270304_140000_SIM.png \
+    --body DIMORPHOS --frame DIMORPHOS_FIXED --observer DIMORPHOS \
+    --out reprojected.png
+```
+
+The output must *be* the input. The transfer function is switched off for this
+(`UseFalseColor` off, `DataType` float, range 0..1 makes `ColorMapping.remap`
+the identity) and the exposure is pinned to 1, so the comparison is DN for DN
+rather than through a colour map.
+
+| source image | projected back onto the body | \|difference\|, stretched 0–8 DN |
+|---|---|---|
+| ![source](images/projectionValidation/step1-source.png) | ![reprojected](images/projectionValidation/step1-reprojected.png) | ![difference](images/projectionValidation/step1-diff.png) |
+
+| | |
+|---|---|
+| body pixels rendered / source non-zero | 54,662 / 54,707 |
+| mean \|ΔDN\| | **0.077** |
+| median \|ΔDN\| | **0** |
+| bit-identical pixels | **94.24%** |
+| within ±1 DN | **99.49%** |
+| worst | 51 DN |
+
+The residual is the silhouette, not the geometry: of the 75 pixels past 4 DN
+(0.137% of the body), **90.7% lie within 3 px of the limb**, where the source's
+local gradient is **141 DN/px** against 4.5 DN/px over the body as a whole —
+bilinear resampling across a hard edge, which no projection can avoid.
+
+So the projection shader, the sidecar convention and the camera model are
+correct together. Anything that misregisters downstream is introduced after
+this point.
+
+## Supporting evidence: a self-made AFC dataset
 
 `pro3d-tool simulate-image --write-mbi` renders the body from SPICE and writes
 an `.mbi.json` describing **the camera it actually used**. Project that image
@@ -43,18 +101,11 @@ Three independent checks, all on the committed files:
 The residual `(0.00225, 0.00118)` is not error: it is AFC-1's real 0.145°
 offset from the direction the spacecraft tracks.
 
-And in the viewer, importing one of these frames and projecting it onto that
-same OPC with *Orientation Source* = **MBI**:
+In the viewer this dataset does **not** yet project correctly — see the
+open items at the bottom. That is step 3, and it is not claimed here.
 
-| terrain, nothing projected | the frame projected back onto it |
-|---|---|
-| ![terrain only](images/projectionValidation/viewer-terrain.png) | ![self-render projected](images/projectionValidation/viewer-sim-mbi.png) |
-
-The projection repaints the visible body and paints essentially nothing beside
-it. What it does not cover is the limb, where the projector grazes the surface
-and falls off.
-
-`tests-ui/tests/projection-overlap.spec.ts` is this check as an assertion.
+`tests-ui/tests/projection-overlap.spec.ts` is the viewer-side check; it is
+currently red for this dataset, which is the point of step 3.
 
 ## 2. Real data: ASPECT at Didymos
 
@@ -157,6 +208,28 @@ These frames were produced through PRo3D's own sequenced-bookmark rendering
 place to look for how the body orientation was set per snapshot. Not chased
 further here.
 
+## Open, before steps 2 and 3 can run
+
+- **The transfer function is not a property.** `UseFalseColor` is bound in
+  `ColorMapping.fs:54` as `p.colorMapping |> AVal.map Option.isSome`, and
+  `getProjectionVisualizationProperties` always supplies a colour map for the
+  selected image — so it is effectively always on. The per-image
+  `falseColorModel.useFalseColors` exists in the model but does not drive it.
+  A projected image should be displayable as **raw RGB**, which is both what a
+  user wants and what makes step 3 a pixel comparison rather than an
+  impression. (Even with false colour off, the stack shader still runs the
+  min/max remap and emits grey from the red channel.)
+- **The viewer never binds `NormalFlip`.** The offscreen tools estimate each
+  dataset's winding (`OpcSg.estimateNormalFlip`) and bind it; the viewer does
+  not — `Shaders.fs:103` says so, and works around it for *lighting* by
+  orienting the face normal toward the viewer. That cannot work for the
+  projection, whose facing test is relative to the **projector**. On an
+  inward-wound OPC the test is inverted and the projection survives only near
+  the limb. Measured: `Dimorphos_0_Meridian` votes 98 outward (flip 0), the
+  test-repo `HERA/Dimorphos` votes 26 inward (flip 1).
+
+  This governs *coverage*, not alignment — it explains a crescent, not a shift.
+
 ## Reproducing this page
 
 ```
@@ -183,6 +256,9 @@ PRO3D_PROBE_LABEL=cop-mbi npx tsx src/probe-projection-landing.ts
 
 # 4: flat silhouettes for an outline comparison
 pro3d-tool simulate-image ... --no-lighting --no-shadows --out flat.png
+
+# step 1: project an image back through PRo3D's single-image projection shader
+pro3d-tool simulate-image --opc <opc> --project <image>     --body DIMORPHOS --frame DIMORPHOS_FIXED --observer DIMORPHOS     --out reprojected.png
 ```
 
 The Playwright harness is machine-local by design (real GPU, local OPC and
