@@ -2,10 +2,20 @@
 
 Report on the `*.mbi.json` sidecars in the COP simulation delivery
 (`COP/COP/<date>/HERA_AFC_*_COP.png` + `.mbi.json`, seen 2026-08-27, generator
-comment "JR (c) 2026", metakernel note `hera_plan.tm 2026-08-19`). PRo3D now
-tolerates all three issues via fallbacks (with log warnings), so the data works
-as delivered — but the sidecars are out of spec and other MBI consumers will
-reject them. Please forward to whoever generates these.
+comment "JR (c) 2026", metakernel note `hera_plan.tm 2026-08-19`). Please
+forward to whoever generates these.
+
+**Issues 1–4 are tolerated** by PRo3D via fallbacks (with log warnings), so the
+images import and display — but the sidecars are out of spec and other MBI
+consumers will reject them.
+
+**Issues 5–7 are not tolerable and must be fixed in the data.** They are the
+reason the projected images do not sit on the terrain: together they describe a
+camera roughly 100° away from where the picture was taken, so the projection
+lands nowhere near the body. There is no safe fallback — the sidecar's fields
+are self-consistent under the wrong convention, so nothing in the file reveals
+which reading was meant. See "Pointing" below for the evidence and for a
+correctly written reference sidecar.
 
 ## 1. `DATE-OBS` does not contain the observation time
 
@@ -76,6 +86,102 @@ header mis-scale these by 1000×.
 must land near 1 AU) and all positions are normalized to km, with a warning.
 
 *Fix:* write km as declared, or declare the actual unit.
+
+## Pointing — issues 5, 6 and 7
+
+These three are why the projected images do not land on the body. They were
+found by comparing the sidecars against the delivery's **own** ground truth
+(`COP/PRo3D.json`, which carries a per-image `location` / `forward` / `up`) and
+against the three real HERA sidecars in PRo3D's test fixtures (AFC2 and HSH from
+the Mars flyby, ASPECT at Didymos).
+
+The convention PRo3D reads — and which all three real deliveries follow — is:
+
+| field | meaning |
+|---|---|
+| `SC_QUAT0..3` | `(w, x, y, z)` of the quaternion whose rotation matrix takes vectors from the **spacecraft frame to J2000** |
+| `TRG_POSX/Y/Z` | **target minus spacecraft**: a vector *from* the camera *to* the body being observed, in km, J2000 axes, centred on **that body** |
+
+One invariant follows, and it is a good self-check for a generator: transforming
+`TRG_POS` into the spacecraft frame (i.e. multiplying by the transpose of the
+quaternion's matrix) must give roughly `(0, 0, +1)` — the target is what the
+camera is looking at, and the instrument boresight is +Z.
+
+Measured on the real deliveries:
+
+| fixture | `TRG_POS` in the spacecraft frame |
+|---|---|
+| AFC2, Mars flyby | `( 0.00085, -0.00005, 0.9999996)` |
+| HSH, Mars flyby | `( 0.00008, -0.00001, 0.99999999)` |
+| ASPECT, Didymos | `( 0.000005, -0.000004, 0.99999999)` |
+
+The COP delivery gives `(-0.0023, -0.0012, -1.0)` instead — the target on **−Z**.
+That is not a small calibration offset; it is a different convention.
+
+### 5. `SC_QUAT` is the conjugate of the convention
+
+The delivery's quaternion matrix maps **J2000 → spacecraft**, the inverse of what
+the real deliveries and PRo3D use.
+
+*Fix:* write the spacecraft → J2000 quaternion, i.e. conjugate the current value
+(negate `SC_QUAT1/2/3`, keep `SC_QUAT0`).
+
+### 6. `TRG_POS` is the camera location, not target-minus-spacecraft
+
+`TRG_POSX/Y/Z` is **bit-identical** to the `location` of the corresponding
+snapshot in the delivery's own `PRo3D.json` — it is where the camera is, not
+where the target is relative to it. The sign is therefore inverted with respect
+to the header's own description ("Target position vector").
+
+*Fix:* write `target − spacecraft`, i.e. negate the current value.
+
+### 7. `TRG_POS` is centred on Didymos, not on `TARGET`
+
+Even negated, the vector is measured from **Didymos**, while `TARGET` says
+`Dimorphos`. Dimorphos sits ~1.05 km from Didymos, and the COP standoff is
+~8.2 km, so the boresight implied by `TRG_POS` is **7.0° away** from where the
+camera actually points — more than the AFC's whole 5.53° field of view. Fixing
+issues 5 and 6 alone therefore still misses the body.
+
+For image `2027-03-01/HERA_AFC_2317_20270301_040000_COP` the delivery's own
+ground truth gives:
+
+```
+camera location (Didymos-centred)  [ -199.24, -7850.73,  2467.94] m
+Dimorphos position                 [-1050.99,   468.81,    22.64] m
+camera relative to Dimorphos       [  851.75, -8319.54,  2445.29] m   (|r| = 8713 m)
+angle(forward, Dimorphos)          0.15°
+angle(forward, Didymos)            7.01°
+```
+
+*Fix:* measure `TRG_POS` from the body named in `TARGET`.
+
+### Verification
+
+Run against the raw delivery, PRo3D's own unprojection misses the shape model
+outright; with all three corrected it lands on it:
+
+```
+pro3d-tool unproject --opc <Dimorphos OPC> --images <folder> --method mbi
+                     --body DIMORPHOS --frame DIMORPHOS_FIXED --observer HERA
+```
+
+| sidecar | centre pixel (510, 510) |
+|---|---|
+| as delivered | `no-hit` |
+| 5 + 6 corrected | `no-hit` |
+| 5 + 6 + 7 corrected | hit at 8561.9 m range, 0.15° from the ground-truth boresight |
+
+### A reference sidecar
+
+`pro3d-tool simulate-image --write-mbi` writes a sidecar in exactly this
+convention next to the image it renders, and then reads it back through PRo3D's
+own projection path and reports the residual — so it is a working example rather
+than a description. See
+[Pro3DTool-SimulateImage.md](Pro3DTool-SimulateImage.md#writing-an-mbi-sidecar).
+
+The convention itself is pinned by tests in `src/Tests/MbiSidecarTest.fs`, which
+assert the `(0, 0, +1)` invariant above against the three real fixtures.
 
 ## Minor observations (no action strictly needed)
 

@@ -53,6 +53,82 @@ export function streamLive(buf: Buffer): boolean {
     return corners.every((c) => c > 15);
 }
 
+export interface Coverage {
+    /// number of pixels the baseline counts as body
+    bodyPixels: number;
+    /// of those, the fraction whose colour the projection changed
+    coveredFraction: number;
+    /// fraction of the NON-body pixels the projection changed -- a projector
+    /// that lands beside the body paints space, and that must stay ~0
+    spilledFraction: number;
+}
+
+/**
+ * How much of the body the projection actually landed on.
+ *
+ * `baseline` is the render with nothing projected, `projected` the same view
+ * with the image in the stack. Pixels the baseline shows as lit terrain are
+ * "body"; a projection that is geometrically right repaints nearly all of them
+ * and leaves the surrounding space alone. A projector pointing somewhere else
+ * changes almost nothing -- which is the failure this measures, and it is
+ * insensitive to how the projected image happens to be exposed or coloured.
+ *
+ * Deliberately not a pixel-exact comparison against the source image: the
+ * viewer looks at the body from the projector's axis but neither at the
+ * instrument's standoff nor through its frustum, so the two framings differ by
+ * a scale no screenshot comparison should have to model.
+ */
+export function bodyCoverage(
+    baseline: Buffer,
+    projected: Buffer,
+    bodyThreshold = 40,
+    epsilon = 12
+): Coverage {
+    const pa = PNG.sync.read(baseline);
+    const pb = PNG.sync.read(projected);
+    if (pa.width !== pb.width || pa.height !== pb.height)
+        throw new Error(
+            `size mismatch: ${pa.width}x${pa.height} vs ${pb.width}x${pb.height}`
+        );
+
+    // central region only: the false-color legend on the left edge and the HUD
+    // text top-left are neither body nor space, and both change on their own
+    const x0 = Math.floor(pa.width * 0.3),
+        x1 = Math.floor(pa.width * 0.95);
+    const y0 = Math.floor(pa.height * 0.15),
+        y1 = Math.floor(pa.height * 0.95);
+
+    let body = 0,
+        covered = 0,
+        space = 0,
+        spilled = 0;
+    for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+            const o = (y * pa.width + x) * 4;
+            const lum =
+                (pa.data[o] + pa.data[o + 1] + pa.data[o + 2]) / 3;
+            const changed =
+                Math.max(
+                    Math.abs(pa.data[o] - pb.data[o]),
+                    Math.abs(pa.data[o + 1] - pb.data[o + 1]),
+                    Math.abs(pa.data[o + 2] - pb.data[o + 2])
+                ) > epsilon;
+            if (lum > bodyThreshold) {
+                body++;
+                if (changed) covered++;
+            } else {
+                space++;
+                if (changed) spilled++;
+            }
+        }
+    }
+    return {
+        bodyPixels: body,
+        coveredFraction: body === 0 ? 0 : covered / body,
+        spilledFraction: space === 0 ? 0 : spilled / space,
+    };
+}
+
 export function diffPng(a: Buffer, b: Buffer, epsilon = 12): Diff {
     const pa = PNG.sync.read(a);
     const pb = PNG.sync.read(b);

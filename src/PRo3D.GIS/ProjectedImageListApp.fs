@@ -307,7 +307,11 @@ module ProjectedImageListApp =
                 accordion "Projection Settings" "settings" false (style "margin-top: 6px") [
                     div [clazz "ui inverted list"] [
                         div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                            div [] [text "Visualization:"]
+                            // the slider blends the projected stack over the terrain --
+                            // it was labelled "Visualization", which says nothing about
+                            // what it does and reads as a mode selector next to
+                            // "Visibility" below
+                            div [] [text "Image Opacity:"]
                             div [style "margin-left: auto;"] [
                                 Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
                             ]
