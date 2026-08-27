@@ -1064,9 +1064,12 @@ module Gui =
                             match a.shape with
                             | Cluster ->
                                 let dip, dipDir = OutcropTrace.dipAndDipDirection up north a
+                                let source =
+                                    if a.count = 1 then "1 annotation"
+                                    else sprintf "%d annotations" a.count
                                 yield div [] [
-                                    text (sprintf "Mean attitude of %d annotations - %.1f° / %.1f° (dip / dip direction), S₁ = %.2f"
-                                                  a.count dip dipDir a.s.X) ]
+                                    text (sprintf "Mean attitude of %s - %.1f° / %.1f° (dip / dip direction), S₁ = %.2f"
+                                                  source dip dipDir a.s.X) ]
                             | NoDominantAttitude ->
                                 yield div [style "font-style:italic"] [
                                     text (sprintf "The selection has no dominant attitude (S₁ = %.2f) - a mean attitude would be meaningless."
@@ -1138,9 +1141,16 @@ module Gui =
                         match usable with
                         | Some a ->
                             let count = if bedThk > 0.0 then 2.0 * radius / bedThk else 1.0
+                            // The span is the evidence behind the extrapolation, so it sits
+                            // next to it. One annotation spans nothing, and saying "0 m"
+                            // reads as a bug rather than as "everything here rests on a
+                            // single measurement", which is what it actually means.
+                            let evidence =
+                                if a.count = 1 then "from a single measurement"
+                                else sprintf "measurements span %.0f m" (2.0 * a.spread)
                             yield div [style "font-size: 0.9em; opacity: 0.8"] [
-                                text (sprintf "%.0f traces over %.0f m; measurements span %.0f m"
-                                              count (2.0 * radius) (2.0 * a.spread)) ]
+                                text (sprintf "%.0f traces over %.0f m; %s"
+                                              count (2.0 * radius) evidence) ]
                         | None -> ()
                     })
 

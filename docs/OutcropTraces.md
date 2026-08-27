@@ -1,147 +1,184 @@
-# Feature Outcrop Traces
+# Synopsis
 
-Synopsis: where a modelled bedding sequence would crop out on the terrain
-Status: New in 6.2.0
-Interacts with: [Contour Lines](./Contour-Lines.md), [Cross Sections](./CrossSections.md)
+![alt text](images/outcropTracesTeaser.png)
 
-An **outcrop trace** is the line where a geological plane meets the ground surface — what a
-geological map draws. This feature takes **one attitude** (dip + dip direction), measured from
-the current annotation selection, repeats it at a constant **bed thickness**, and marks every
-terrain fragment lying within a given width of any plane of that sequence. What appears on the
-terrain is the **outcrop pattern** that sequence would make.
+Outcrop traces show **where a bedding sequence would crop out on the terrain**. You measure the
+attitude once — with one dip-and-strike annotation, or an average over many — say how thick the
+beds are, and PRo3D draws every place that sequence meets the surface.
 
-The use case is stratigraphic correlation across sites: measure bedding at two outcrops, select
-both, and see whether the traces run continuously between them.
+In the image above the whole red pattern comes from **a single annotation** (the blue ellipse on
+the left, dipping 9.3° toward 134.5°) plus a bed thickness of 0.4 m. Notice that the traces bend
+upstream where they cross the gullies: that is the *rule of Vs*, and it is the visual proof that
+the geometry is right rather than decorative — a plane cutting topography must do that.
 
-> Sketched as *coast lines*, which is a good intuition — a coastline is exactly the trace of a
-> horizontal plane on topography, the dip = 0° case of this. The general term is *outcrop trace*.
+# Why
 
-## Using it
+Two questions this is meant to answer.
 
-The controls live in **Annotations → Outcrop Traces**:
+**Does this bed continue over there?** Measure bedding at one outcrop, extend the traces toward a
+second, and see whether they land on the layering you can see there. If they do, the two sites
+plausibly belong to the same sequence. This is stratigraphic correlation, done by eye, at
+outcrop scale — and it is the reason the feature exists.
 
-| Row | Meaning |
+**Is the layering I think I see actually planar?** Fit the sequence to a bed you trust and the
+traces either follow the rest of the outcrop or they drift off it. Drift means the bedding is
+not a single planar set — it is folded, faulted, or you mis-picked.
+
+The traces are computed per pixel from the plane equation, so they are exact at every zoom level
+and every level of detail. Nothing is baked, nothing is resampled, and there is no geometry to
+regenerate when you change a number.
+
+> The feature was sketched as *coast lines*, which is a good intuition: a coastline is exactly
+> the trace of a horizontal plane on topography — the dip = 0° case of this. The established
+> term for the general case is *outcrop trace*, which is what a geological map draws.
+
+# Approach
+
+## 1. Measure the attitude
+
+Draw a **dip-and-strike** annotation on bedding you can see clearly. One is enough. Draw more, at
+different spots, if you want the sequence to reflect an average rather than a single reading.
+
+## 2. Select the annotations
+
+Select them in the annotation list — individually with the cube icons, or a whole group with
+*Select All*. A single selected annotation works too.
+
+## 3. Enable outcrop traces
+
+**Annotations → Outcrop Traces → *Outcrop traces on***.
+
+The panel immediately reports the attitude it is drawing:
+
+```
+Mean attitude of 1 annotation - 9.3° / 134.5° (dip / dip direction), S₁ = 1.00
+```
+
+That line is the contract: it names the dip and dip direction actually being used, and `S₁` says
+how consistent the selection was. Compare it against the *Dip&Strike* panel — the numbers come
+from the same code, so they cannot disagree.
+
+## 4. Set the two distances
+
+| Control | What it means |
 | --- | --- |
-| `Outcrop traces on/off` | activates the feature |
-| `Polyline` / `DnS` | which annotation types contribute their fitted plane |
-| `Bed Thickness (m)` | true (stratigraphic) thickness between successive beds; **0 = a single plane**. *Fit* seeds it so about eight traces span the projection radius |
-| `Projection Radius (m)` | how far the attitude is extrapolated from the centre of the selection. *Fit* seeds it from the selection's own footprint plus half again |
-| `Phase Offset (m)` | slides the whole sequence along the plane normal. Zero puts one bed exactly through the centre of the selection |
+| `Bed Thickness (m)` | perpendicular (true, stratigraphic) distance between successive beds. `0` collapses the sequence to a single plane |
+| `Projection Radius (m)` | how far from the selection the traces are drawn before fading out |
+| `Phase Offset (m)` | slides the whole sequence along the plane normal |
 
-and, under *Appearance*:
+Each distance has a **Fit** button that proposes a value from the measurements: *Fit* on the
+thickness gives about eight traces across the current extent; *Fit* on the radius gives the
+selection's own footprint plus half again.
 
-| Row | Meaning |
+Underneath, the panel states what the two add up to:
+
+```
+25 traces over 10 m; from a single measurement
+```
+
+The second clause is the point. It puts the **evidence** next to the **extrapolation**, so
+drawing 300 m of traces off 40 m of measurements is a judgement you can see yourself making.
+
+## 5. Line the sequence up
+
+*Phase Offset* slides the whole pattern along the plane normal. Use it to put a modelled bed
+exactly on a marker bed you can see, so the rest of the sequence is predicting rather than
+merely decorating. The pattern repeats every bed thickness, so one bed of travel reaches every
+possible phase — you never need to drag further than that.
+
+## 6. Appearance
+
+Under the *Appearance* divider:
+
+| Control | What it means |
 | --- | --- |
-| `Trace Width (m)` | full width of the drawn band, measured perpendicular to the plane |
-| `Trace Smoothing (m)` | smoothstep falloff either side of the band |
+| `Trace Width (m)` | full width of the drawn band, perpendicular to the plane |
+| `Trace Smoothing (m)` | soft falloff either side of the band |
 | `Colour` | trace colour |
 
-Under the two distances the panel reports what they add up to — `12 traces over 300 m;
-measurements span 40 m` — so the amount of extrapolation is visible next to the control that
-causes it, not inferred.
+All the distance controls take **millimetre** values — the teaser above uses a 10 mm trace width
+with 1 mm smoothing, which is what makes lines this fine legible against the rock.
 
-Workflow:
+# What it refuses to draw, and why
 
-1. Draw dip-and-strike annotations on the bedding you care about, at one or more sites.
-2. Select them — individually via the cube icons, or a whole group with *Select All*. A single
-   selected annotation works too.
-3. Enable outcrop traces. The panel reports the attitude actually being drawn, e.g.
-   `Mean attitude of 7 annotations — 34.2° / 118.7° (dip / dip direction), S₁ = 0.94`.
-4. Set the bed thickness, or press *Fit to selection* to get a legible starting point.
-5. Press *Fit* on the projection radius for a sensible starting extent, then raise it to
-   extrapolate further — carefully, see the warning below.
-6. Slide *Phase Offset* to line the modelled sequence up with a bed you can actually see. The
-   pattern repeats every bed thickness, so one bed of travel reaches every possible phase.
+Each measured plane contributes its **pole** (its normal). Those poles are combined with the
+**orientation tensor**, the standard treatment for this kind of data, and its eigenvalues
+`S₁ ≥ S₂ ≥ S₃` describe what came out:
 
-The same mean attitude appears as a **Selection average** row in the *Dip&Strike* panel, so the
-number is available without switching outcrop traces on.
+| The panel says | Meaning |
+| --- | --- |
+| the attitude, with `S₁` | one dominant attitude; the traces are drawn |
+| *"no dominant attitude"* | the poles are scattered; any average would be arbitrary |
+| *"the poles form a girdle"* | **the selection is folded.** No single attitude represents it, so nothing is drawn — and the message names the fold axis instead |
 
-## What the panel refuses to draw, and why
-
-Each plane contributes its **pole** (unit normal). Those poles are combined with the
-**orientation tensor** — the principal eigenvector of `Σ nᵢnᵢᵀ`, the standard treatment of axial
-orientation data — and its normalised eigenvalues `S₁ ≥ S₂ ≥ S₃` describe the result:
-
-| message | spectrum | meaning |
-| --- | --- | --- |
-| the attitude is drawn | `S₁ > 0.65`, `S₂/S₁ < 0.3` | one dominant attitude; a mean plane is meaningful |
-| *"no dominant attitude"* | `S₁ ≤ 0.65` | the poles are scattered; any mean would be arbitrary |
-| *"the poles form a girdle"* | `S₃/S₂ < 0.3` | the poles lie on a great circle: **the selection is folded**, so no single attitude represents it. The message reports the fold axis (π-axis) as trend/plunge |
-
-The girdle message is the one that earns its keep. Selecting both limbs of a fold and averaging
-them yields a plane perpendicular to both — geologically meaningless — and no single confidence
-number can flag it; only the eigenvalue spectrum can.
+The girdle case is the one that earns its keep. Select both limbs of a fold and a naive average
+returns a plane perpendicular to both — geologically meaningless, and no single confidence number
+can flag it. Only the spread of the eigenvalues can, so refusing is the honest answer, and the
+fold axis is more useful than a trace would have been.
 
 `S₁` is **not** the rose diagram's `R`. The rose measures agreement of dip *directions* only;
-`S₁` measures agreement of full 3D orientations. Two beds dipping 5° in opposite directions have
-`R = 0` and `S₁ = 0.99`, and both numbers are correct about different questions.
+`S₁` measures agreement of full 3D orientations. Two beds dipping 5° in opposite directions give
+`R = 0` and `S₁ = 0.99`, and both numbers are right about different questions.
 
-## Limitations
+# Caveats
 
-> **A measured attitude is a local statement.** The projection radius is a mitigation, not a
-> fix. Raising it far past the selection's own footprint produces a confident line with no
-> evidence behind it. This is the most likely way to mislead yourself with this feature, which
-> is why the panel prints the extrapolation and the measured span side by side.
+> **A measured attitude is a local statement.** The projection radius limits the damage, it does
+> not remove it. Extending far past the measurements produces a confident line with nothing
+> behind it. This is the one way this feature can genuinely mislead you, which is why the panel
+> prints the extrapolation and the evidence on the same line.
 
-- **A mean attitude is not a plane fitted through all the points.** It answers "what orientation
-  do these share", not "do these all lie on one plane". Two parallel beds 50 m apart look
-  identical to it.
+- **An average attitude is not a plane fitted through all the points.** It answers *"what
+  orientation do these share"*, not *"do these lie on one plane"*. Two parallel beds 50 m apart
+  look identical to it.
+- **The projection radius is a sphere around the centre of the selection**, not a distance across
+  the ground. On steep terrain the visible reach is shorter than the number suggests.
 - **The attitude does not follow surface transformations.** It is built from world-space picked
-  points; transforming a surface afterwards moves the terrain and leaves the planes behind. Same
-  behaviour as cross sections. Re-pick the annotations to fix.
-- **Traces are wider where the sequence meets the terrain at a shallow angle** and thinner where
-  it cuts steeply. That is geometrically honest — it is what makes them read as intersections
-  rather than decals — but it surprises people.
-- **The projection radius is a sphere around the centre of the selection, not a distance along
-  the terrain.** Traces fade from the radius to 1.15× it. On steep ground the visible extent is
-  therefore shorter than the number suggests — it is measured through space, not across the
-  surface.
-- **Very thin traces are held at about a pixel and a half on screen.** Trace width goes down to
-  1 mm, but below roughly a pixel of terrain the antialiasing floor takes over, so 0.001 and
-  0.005 look identical from far away and differ only as you zoom in. Without that floor a
-  sub-pixel trace flickers in and out between frames instead of getting fainter.
+  points, so transforming a surface afterwards moves the terrain and leaves the planes behind.
+  Same as cross sections; re-pick to fix.
+- **Very thin traces are held at about a pixel and a half.** Below roughly one pixel of terrain
+  the antialiasing floor takes over, so 1 mm and 5 mm look identical from far away and diverge
+  only as you zoom in. Without that floor a sub-pixel trace flickers between frames instead of
+  fading.
 - **Traces are not exportable** as geometry or annotations.
-- **Headless batch rendering (`PRo3D.Snapshots`) will not show them.** Not a render-path
-  problem: the scene graph is shared (`SnapshotSg.createSceneGraph` → `ViewerUtils.createGroupedSgs`),
-  so interactive screenshots *do* include traces. The state is simply transient and not part of
-  the scene, so a batch job that loads a scene has the feature switched off. Persisting the
-  settings on `Scene` is the fix.
+- **Headless batch rendering (`PRo3D.Snapshots`) does not show them.** Not a rendering problem —
+  the scene graph is shared, so interactive screenshots *do* include traces. The settings are
+  simply not saved with the scene yet.
 
-## Implementation
+# How it is implemented
 
-- Model: `OutcropTraceModel` / `OutcropTraceApp` (`src/PRo3D.Core/OutcropTrace-Model.fs`,
-  `OutcropTraceApp.fs`). All transient. The appearance fields are conceptually *scene*
-  properties — an outcrop with decimetre bedding wants different numbers from one with
-  ten-metre units, and those numbers belong to the outcrop, not to whoever opens it — so they
-  belong on `Scene` when persistence is wanted, never in `userPreferences.json`.
-- Combination: `OutcropTrace.meanAttitude`. The outer product is what makes the tensor correct
-  here: a pole and its antipode describe the same plane, and `n nᵀ = (-n)(-n)ᵀ`, so the sign of
-  `DipAndStrikeResults.plane` — which is stored exactly as the regression produced it,
-  uncorrected — does not matter. Summing the normals instead (a Fisher mean) cancels
-  measurements of one near-vertical bed against each other.
-- Dip and dip direction come from `DipAndStrike.attitudeFromNormal`, shared with the Dip&Strike
-  panel so the two cannot report different numbers.
-- Rendering: `ViewerUtils.OutcropTraceShader.outcropTrace`, added **last** to both the OPC and
-  OBJ effect stacks so the trace colour survives lighting and shadowing. `contourLines` sits
-  earlier and *is* shaded, which is right for a terrain property and wrong for an interpretive
-  overlay.
-- **One plane uniform, however many beds are on screen.** The sequence comes from folding the
-  signed distance into one bed-thickness interval (`d mod bedThickness`), the same trick
-  `contourLines` uses against a texture value. No uniform arrays, no per-fragment loop.
-- **Everything is view space.** The plane is composed on the CPU in `double`
-  (`OutcropTrace.viewSpaceAttitude`) and uploaded camera-relative. A world-space test would be a
-  `float32` dot product against ~3.4e6 m on Mars — about 0.25 m of resolution, noise next to a
-  0.25 m trace width. See [ai/CONVENTIONS.md](../ai/CONVENTIONS.md).
-- **Antialiasing is not optional here.** Trace width and bed thickness are both in metres, so a
-  bed thinner than a couple of pixels of terrain shimmers and crawls. At 500 m on a 1080-tall
-  viewport with a 60° vertical FOV one pixel covers ~0.5 m face-on, so a 1 m bed thickness is at
-  the Nyquist limit before the terrain tilts. The shader takes `ddxFine`/`ddyFine` of the signed
-  distance, clamps the band to at least ~1.5 px, and fades the sequence out below ~3 px per bed.
-- **`OutcropTraceEnabled` gates the whole shader and the uniforms are always bound, zero-filled
-  when off.** Never read an unbound per-fragment value — see the Apple Silicon note in
-  [CrossSections.md](./CrossSections.md).
+**One plane uniform, however many traces are on screen.** The sequence is not N planes uploaded
+to the GPU: the fragment shader folds the signed distance into one bed-thickness interval
+(`d mod bedThickness`) — the same trick [Contour Lines](./Contour-Lines.md) uses against a
+texture value. So there is no uniform array, no per-fragment loop, and no cost to asking for a
+thousand traces.
 
-Tests: `src/Tests/OutcropTraceAttitudeTest.fs` (the combination maths, including the cases that
-distinguish it from the alternatives), `src/Tests/OutcropTraceShaderTest.fs` (FShade GLSL code
-generation for the shader and both effect stacks, no GL context needed) and
-`src/Tests/Features/Section21_OutcropTraces.fs` (the app's update logic).
+**Everything happens in view space.** The plane is composed on the CPU in `double` and uploaded
+camera-relative. The same test in world space would be a `float32` dot product against ~3.4e6 m
+on Mars — about 0.25 m of resolution, which is noise next to a 10 mm trace. See
+[ai/CONVENTIONS.md](../ai/CONVENTIONS.md).
+
+**Antialiasing is load-bearing, not cosmetic.** Trace width and bed thickness are both in metres,
+so a bed thinner than a couple of pixels of terrain shimmers and crawls as the camera moves. The
+shader takes screen-space derivatives of the signed distance, clamps the band to at least ~1.5 px
+and fades the sequence out below ~3 px per bed, so an over-dense stack dissolves into a flat tint
+instead of aliasing. (Use `ddx`/`ddy`, never `ddxFine`/`ddyFine` — the Fine variants need GLSL
+4.50 and macOS caps OpenGL at 4.1, where they take the whole surface shader down with them.)
+
+**The trace shader runs last** in both the OPC and OBJ effect stacks, so trace colour survives
+lighting and shadowing. `contourLines` sits earlier and *is* shaded — right for a property of the
+terrain, wrong for an interpretive overlay.
+
+**Poles are axial data**, which is why the orientation tensor and not a mean of normals:
+`n nᵀ = (-n)(-n)ᵀ`, so the stored sign of a fitted plane — which PRo3D never corrects — does not
+matter. Summing normals instead makes repeated measurements of one near-vertical bed cancel out.
+
+Code: `src/PRo3D.Core/OutcropTrace-Model.fs`, `OutcropTraceApp.fs`,
+`ViewerUtils.OutcropTraceShader`. Tests: `src/Tests/OutcropTraceAttitudeTest.fs` (the combination
+maths), `OutcropTraceShaderTest.fs` (GLSL code generation, no GL context needed),
+`Features/Section21_OutcropTraces.fs`.
+
+# Future work
+
+- Save the settings with the scene, so batch rendering and reopened scenes keep them.
+- Export a trace as a polyline annotation — needs CPU mesh slicing rather than the shader test.
+- Offer the fold axis as something drawable in the girdle case, rather than only naming it.
