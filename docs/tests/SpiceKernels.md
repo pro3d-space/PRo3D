@@ -108,6 +108,34 @@ superseded kernels. That is bounded and cheap — a few hundred MB per bump, and
 entries expire after a week unused — but if the entry ever gets uncomfortably large,
 delete it from the Actions cache and let the next run refetch.
 
+## Loading a kernel, in tests or anywhere else
+
+Go through `PRo3D.Base.CooTransformation.switchKernel`. Two things it gets right that
+a direct `AddSpiceKernel` does not:
+
+- **Never depend on the working directory.** SPICE stores the file names a meta-kernel
+  produces exactly as they read at furnsh time, and DAF re-opens binary kernels lazily,
+  by the stored name, long after the load. ESA's meta-kernels name them relatively
+  (`PATH_VALUES` is `'..'` in `mk/`, `'../..'` in `mk/former_versions/`), so those names
+  only resolve while the process sits where it sat at load time. `switchKernel` calls
+  `materializeMetaKernel`, which rewrites `PATH_VALUES` to the absolute directory it
+  always meant. Nothing has to `chdir`, and nothing may — a process-global directory
+  cannot be saved and restored around a call that races with other loads.
+- **Take `InstrumentProjection.withSpiceLock` around it.** Switching is `DeInit` +
+  `Init` + furnsh: it empties the kernel pool. Doing that while another thread is inside
+  a SPICE call answers that call from two different kernel sets at best, and takes the
+  process down at worst.
+
+Get either wrong and the symptom appears nowhere near the cause: a failed lazy re-open,
+`SPICE(BADSUBSCRIPT)` in `dafah` on the next `DeInit`, and from then on every lookup
+returning `SPICE(DAFNOSUCHHANDLE)` — which reads exactly like a kernel that has no
+coverage at the epoch you asked for.
+
+Only one meta-kernel is loaded at a time (there is no per-kernel unload, and layering
+meta-kernels corrupts state — see `plans/archive/spiceKernelUnloadAndDidymosProjection.md`).
+Anything wanting two of them has to serialise, and anything running work *concurrently*
+has to stay on one.
+
 ## Notes
 
 - `spice/` is gitignored.

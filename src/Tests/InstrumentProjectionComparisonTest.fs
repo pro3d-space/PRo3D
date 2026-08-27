@@ -197,24 +197,39 @@ let tests () =
                 Expect.isSome hit "quaternion-based center ray should hit round Didymos"
         }
 
-        // Reproduces the original race (HSH + ASPECT interleaved across threads) and checks
-        // every concurrent HSH result still matches a fresh sequential baseline.
+        // Reproduces the original race -- projectOntoQuat and projectOnto, which are each
+        // several native calls, running interleaved across threads -- and checks every
+        // concurrent result still matches a fresh sequential baseline.
+        //
+        // All 50 items compute the HSH projection, and deliberately so: they used to be
+        // half HSH and half ASPECT, which is not a scenario that can be given a meaning.
+        // Those two fixtures name different meta-kernels (ops_v172 vs plan_v180), only one
+        // meta-kernel can be loaded at a time, and loading is DeInit + Init + furnsh. Half
+        // the threads were therefore emptying the kernel pool underneath the other half:
+        // the mild outcome was an HSH lookup answered by a kernel with no HERA_HSH frame
+        // (SPICE(UNKNOWNFRAME), dropped by the Array.choose below, so the check quietly
+        // measured almost nothing), and the usual outcome was an access violation inside a
+        // native call whose kernels had just been freed.
+        //
+        // One fixture keeps the pool constant for the whole parallel section -- parseMbi's
+        // ensureKernelAt sees the kernel it wants already active and does nothing -- so
+        // what races is exactly what this test is about, and every result has to resolve.
+        // Cross-kernel behaviour is covered by the sequential tests above, which is the
+        // only place it can be covered.
         test "concurrent projectOntoQuat/projectOnto calls no longer corrupt each other's results" {
             let baseline =
                 match computeHshAngle () with
                 | Some angle -> angle
                 | None -> failtest "baseline HSH computation returned None -- cannot run the concurrency check"
 
-            let work =
-                Array.append
-                    (Array.init 25 (fun _ -> async { return Choice1Of2 (computeHshAngle ()) }))
-                    (Array.init 25 (fun _ -> async { return Choice2Of2 (computeAspectResolves ()) }))
-
+            let work = Array.init 50 (fun _ -> async { return computeHshAngle () })
             let results = work |> Async.Parallel |> Async.RunSynchronously
-            let hshAngles = results |> Array.choose (function Choice1Of2 a -> a | _ -> None)
-            Expect.isGreaterThan hshAngles.Length 0 "expected at least one concurrent HSH result to resolve"
 
-            for angle in hshAngles do
+            let unresolved = results |> Array.filter Option.isNone |> Array.length
+            Expect.equal unresolved 0
+                "every concurrent HSH computation must resolve -- the kernel it needs stays loaded throughout"
+
+            for angle in results |> Array.choose id do
                 Expect.floatClose Accuracy.high angle baseline
                     (sprintf "concurrent HSH result %.6f drifted from baseline %.6f -- SPICE calls are racing again" angle baseline)
         }
