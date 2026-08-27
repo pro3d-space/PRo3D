@@ -9,13 +9,23 @@ forward to whoever generates these.
 images import and display — but the sidecars are out of spec and other MBI
 consumers will reject them.
 
-**Issues 5–7 are not tolerable and must be fixed in the data.** They are the
-reason the projected images do not sit on the terrain: together they describe a
-camera roughly 100° away from where the picture was taken, so the projection
-lands nowhere near the body. There is no safe fallback — the sidecar's fields
-are self-consistent under the wrong convention, so nothing in the file reveals
-which reading was meant. See "Pointing" below for the evidence and for a
-correctly written reference sidecar.
+**Issues 5–7 are not tolerable and must be fixed in the data.** Together they
+describe a camera roughly 100° away from where the picture was taken, so with
+the *Orientation Source* set to **MBI** — the setting that actually uses the
+image's measured pointing — the projection lands nowhere near the body. There
+is no safe fallback: the sidecar's fields are self-consistent under the wrong
+convention, so nothing in the file reveals which reading was meant. See
+"Pointing" below for the evidence and for a correctly written reference sidecar.
+
+Note what this does **not** explain. With the default *Orientation Source*
+(**SPICE**) the images do land on the body — approximately — because that mode
+ignores the sidecar's attitude entirely and points the camera at the body
+centre with a fixed roll (`InstrumentProjection.getLookAt`). That is why the
+COP images currently look *nearly* right rather than absent, and it is a
+separate matter from the defects below. See
+[MultiImageProjection.md](MultiImageProjection.md#if-an-image-does-not-land-on-the-terrain),
+and [ProjectionValidation.md](ProjectionValidation.md) for the same thing with
+pictures.
 
 ## 1. `DATE-OBS` does not contain the observation time
 
@@ -163,7 +173,7 @@ outright; with all three corrected it lands on it:
 
 ```
 pro3d-tool unproject --opc <Dimorphos OPC> --images <folder> --method mbi
-                     --body DIMORPHOS --frame DIMORPHOS_FIXED --observer HERA
+                     --body DIMORPHOS --frame DIMORPHOS_FIXED --observer DIMORPHOS
 ```
 
 | sidecar | centre pixel (510, 510) |
@@ -171,6 +181,9 @@ pro3d-tool unproject --opc <Dimorphos OPC> --images <folder> --method mbi
 | as delivered | `no-hit` |
 | 5 + 6 corrected | `no-hit` |
 | 5 + 6 + 7 corrected | hit at 8561.9 m range, 0.15° from the ground-truth boresight |
+
+The same image with `--method spice` hits at 8557.0 m even as delivered — that
+mode never reads the sidecar's attitude, which is exactly the point above.
 
 ### A reference sidecar
 
