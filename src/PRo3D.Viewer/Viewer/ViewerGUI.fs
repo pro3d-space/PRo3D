@@ -1079,62 +1079,111 @@ module Gui =
                     })
 
             // The two distances the user actually works with, both in metres and both with
-            // a Fit to selection that seeds them from the measurements. Bed thickness first:
-            // a value far too small paints the terrain a solid colour and far too large
-            // shows one line, both of which read as "the feature is broken".
-            let distances =
+            // a Fit that seeds them from the measurements. Bed thickness first: a value far
+            // too small paints the terrain a solid colour and far too large shows one line,
+            // both of which read as "the feature is broken".
+            //
+            // The Numeric controls are built OUTSIDE any adaptive block that reads their
+            // value, and this is not a style point. Putting them inside one makes the
+            // control invalidate its own subtree the moment it is touched, so the input
+            // under the cursor is destroyed and rebuilt mid-edit: buttons still work,
+            // because a click fires once and the rebuild happens after, but typing and
+            // dragging are impossible. Only the Fit buttons and the summary - which have no
+            // editable state to lose - depend on the values.
+            let usableAttitude =
+                ViewerUtils.outcropTraceAttitude model
+                |> AVal.map (function
+                    | Some a when a.shape = Cluster -> Some a
+                    | _ -> None)
+
+            let fitBedThickness =
                 Incremental.div AttributeMap.empty (
                     alist {
-                        let! attitude = ViewerUtils.outcropTraceAttitude model
+                        let! usable = usableAttitude
+                        let! radius = m.projectionRadius.value
+                        match usable with
+                        | Some _ ->
+                            yield button [
+                                clazz "ui tiny compact button"
+                                style "margin-left: 6px"
+                                onClick (fun _ -> ViewerAction.OutcropTraceMessage (OutcropTraceAction.FitBedThickness radius))
+                            ] [ text "Fit" ]
+                        | None -> ()
+                    })
+
+            let fitProjectionRadius =
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! usable = usableAttitude
+                        match usable with
+                        | Some a ->
+                            yield button [
+                                clazz "ui tiny compact button"
+                                style "margin-left: 6px"
+                                onClick (fun _ ->
+                                    ViewerAction.OutcropTraceMessage
+                                        (OutcropTraceAction.FitProjectionRadius (OutcropTrace.fitProjectionRadius a)))
+                            ] [ text "Fit" ]
+                        | None -> ()
+                    })
+
+            // What the two distances add up to, so the extrapolation is visible next to the
+            // control that causes it rather than inferred.
+            let summary =
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! usable = usableAttitude
                         let! radius = m.projectionRadius.value
                         let! bedThk = m.bedThickness.value
-                        let usable =
-                            match attitude with
-                            | Some a when a.shape = Cluster -> Some a
-                            | _ -> None
-                        yield require GuiEx.semui (
-                            Html.table [
-                                Html.row "Bed Thickness (m):" [
-                                    Numeric.view' [InputBox] m.bedThickness
-                                    |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetBedThickness)
-                                    match usable with
-                                    | Some _ ->
-                                        yield button [
-                                            clazz "ui tiny compact button"
-                                            style "margin-left: 6px"
-                                            onClick (fun _ -> ViewerAction.OutcropTraceMessage (OutcropTraceAction.FitBedThickness radius))
-                                        ] [ text "Fit" ]
-                                    | None -> ()
-                                ]
-                                Html.row "Projection Radius (m):" [
-                                    Numeric.view' [InputBox] m.projectionRadius
-                                    |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetProjectionRadius)
-                                    match usable with
-                                    | Some a ->
-                                        yield button [
-                                            clazz "ui tiny compact button"
-                                            style "margin-left: 6px"
-                                            onClick (fun _ ->
-                                                ViewerAction.OutcropTraceMessage
-                                                    (OutcropTraceAction.FitProjectionRadius (OutcropTrace.fitProjectionRadius a)))
-                                        ] [ text "Fit" ]
-                                    | None -> ()
-                                ]
-                                Html.row "" [
-                                    match usable with
-                                    | Some a ->
-                                        let count = if bedThk > 0.0 then 2.0 * radius / bedThk else 1.0
-                                        yield div [style "font-size: 0.9em; opacity: 0.8"] [
-                                            text (sprintf "%.0f traces over %.0f m; measurements span %.0f m"
-                                                          count (2.0 * radius) (2.0 * a.spread)) ]
-                                    | None -> ()
-                                ]
-                                Html.row "Colour:" [
-                                    ColorPicker.view m.color
-                                    |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetColor)
-                                ]
-                            ])
+                        match usable with
+                        | Some a ->
+                            let count = if bedThk > 0.0 then 2.0 * radius / bedThk else 1.0
+                            yield div [style "font-size: 0.9em; opacity: 0.8"] [
+                                text (sprintf "%.0f traces over %.0f m; measurements span %.0f m"
+                                              count (2.0 * radius) (2.0 * a.spread)) ]
+                        | None -> ()
                     })
+
+            let distances =
+                require GuiEx.semui (
+                    Html.table [
+                        Html.row "Bed Thickness (m):" [
+                            Numeric.view' [InputBox] m.bedThickness
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetBedThickness)
+                            fitBedThickness
+                        ]
+                        Html.row "Projection Radius (m):" [
+                            Numeric.view' [InputBox] m.projectionRadius
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetProjectionRadius)
+                            fitProjectionRadius
+                        ]
+                        Html.row "Phase Offset (m):" [
+                            Numeric.view' [InputBox] m.phaseOffset
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetPhaseOffset)
+                        ]
+                        Html.row "" [ summary ]
+                    ])
+
+            // Appearance is one panel down from the distances rather than one panel away, but
+            // still visually subordinate: these are set once and then left alone, while
+            // everything above changes with the selection. Contour lines make the same call -
+            // line distance, width and border sit together in surface properties.
+            let appearance =
+                require GuiEx.semui (
+                    Html.table [
+                        Html.row "Trace Width (m):" [
+                            Numeric.view' [InputBox] m.traceWidth
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetTraceWidth)
+                        ]
+                        Html.row "Trace Smoothing (m):" [
+                            Numeric.view' [InputBox] m.traceSmoothing
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetTraceSmoothing)
+                        ]
+                        Html.row "Colour:" [
+                            ColorPicker.view m.color
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetColor)
+                        ]
+                    ])
 
             Incremental.div AttributeMap.empty (
                 alist {
@@ -1144,6 +1193,8 @@ module Gui =
                         yield toggles
                         yield readout
                         yield distances
+                        yield h5 [clazz "ui inverted horizontal divider header"] [ text "Appearance" ]
+                        yield appearance
                 })
 
         let viewAnnotationResults (model : AdaptiveModel) =
@@ -1358,9 +1409,6 @@ module Gui =
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
                     ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage
-                ]
-                GuiEx.accordion "Outcrop Traces" "Settings" false [
-                    OutcropTraceApp.viewSettings m.outcropTraces |> UI.map OutcropTraceMessage
                 ]
                 GuiEx.accordion "Under Cursor" "Crosshairs" true [
                     underCursor m

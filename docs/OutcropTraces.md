@@ -26,19 +26,19 @@ The controls live in **Annotations → Outcrop Traces**:
 | `Polyline` / `DnS` | which annotation types contribute their fitted plane |
 | `Bed Thickness (m)` | true (stratigraphic) thickness between successive beds; **0 = a single plane**. *Fit* seeds it so about eight traces span the projection radius |
 | `Projection Radius (m)` | how far the attitude is extrapolated from the centre of the selection. *Fit* seeds it from the selection's own footprint plus half again |
-| `Colour` | trace colour |
+| `Phase Offset (m)` | slides the whole sequence along the plane normal. Zero puts one bed exactly through the centre of the selection |
 
-Under the two distances the panel reports what they add up to — `12 traces over 300 m;
-measurements span 40 m` — so the amount of extrapolation is visible next to the control that
-causes it, not inferred.
-
-Appearance settings are on the **config page → Outcrop Traces**, next to *Frustum* and
-*Coordinate System*, because they are scene settings rather than per-user ones:
+and, under *Appearance*:
 
 | Row | Meaning |
 | --- | --- |
 | `Trace Width (m)` | full width of the drawn band, measured perpendicular to the plane |
 | `Trace Smoothing (m)` | smoothstep falloff either side of the band |
+| `Colour` | trace colour |
+
+Under the two distances the panel reports what they add up to — `12 traces over 300 m;
+measurements span 40 m` — so the amount of extrapolation is visible next to the control that
+causes it, not inferred.
 
 Workflow:
 
@@ -50,6 +50,8 @@ Workflow:
 4. Set the bed thickness, or press *Fit to selection* to get a legible starting point.
 5. Press *Fit* on the projection radius for a sensible starting extent, then raise it to
    extrapolate further — carefully, see the warning below.
+6. Slide *Phase Offset* to line the modelled sequence up with a bed you can actually see. The
+   pattern repeats every bed thickness, so one bed of travel reaches every possible phase.
 
 The same mean attitude appears as a **Selection average** row in the *Dip&Strike* panel, so the
 number is available without switching outcrop traces on.
@@ -94,6 +96,10 @@ number can flag it; only the eigenvalue spectrum can.
   the terrain.** Traces fade from the radius to 1.15× it. On steep ground the visible extent is
   therefore shorter than the number suggests — it is measured through space, not across the
   surface.
+- **Very thin traces are held at about a pixel and a half on screen.** Trace width goes down to
+  1 mm, but below roughly a pixel of terrain the antialiasing floor takes over, so 0.001 and
+  0.005 look identical from far away and differ only as you zoom in. Without that floor a
+  sub-pixel trace flickers in and out between frames instead of getting fainter.
 - **Traces are not exportable** as geometry or annotations.
 - **Headless batch rendering (`PRo3D.Snapshots`) will not show them.** Not a render-path
   problem: the scene graph is shared (`SnapshotSg.createSceneGraph` → `ViewerUtils.createGroupedSgs`),

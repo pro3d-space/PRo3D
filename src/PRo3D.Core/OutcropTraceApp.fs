@@ -197,6 +197,7 @@ type OutcropTraceAction =
     | SetUsePolyline      of bool
     | SetUseDnS           of bool
     | SetBedThickness     of Numeric.Action
+    | SetPhaseOffset      of Numeric.Action
     | SetTraceWidth       of Numeric.Action
     | SetTraceSmoothing   of Numeric.Action
     | SetProjectionRadius of Numeric.Action
@@ -222,6 +223,8 @@ module OutcropTraceApp =
             { model with useDnS = v }
         | SetBedThickness a ->
             { model with bedThickness = Numeric.update model.bedThickness a }
+        | SetPhaseOffset a ->
+            { model with phaseOffset = Numeric.update model.phaseOffset a }
         | SetTraceWidth a ->
             { model with traceWidth = Numeric.update model.traceWidth a }
         | SetTraceSmoothing a ->
@@ -236,14 +239,3 @@ module OutcropTraceApp =
         | FitProjectionRadius radius ->
             let v = Fun.Clamp(radius, model.projectionRadius.min, model.projectionRadius.max)
             { model with projectionRadius = { model.projectionRadius with value = v } }
-
-    /// Scene-level appearance settings, shown on the config page next to Frustum and
-    /// Coordinate System - which are scene state too.
-    let viewSettings (model : AdaptiveOutcropTraceModel) =
-        require GuiEx.semui (
-            Html.table [
-                Html.row "Trace Width (m):"     [Numeric.view' [InputBox] model.traceWidth       |> UI.map SetTraceWidth]
-                Html.row "Trace Smoothing (m):" [Numeric.view' [InputBox] model.traceSmoothing   |> UI.map SetTraceSmoothing]
-
-            ]
-        )

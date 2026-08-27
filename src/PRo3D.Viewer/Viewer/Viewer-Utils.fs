@@ -875,7 +875,8 @@ module ViewerUtils =
             member x.OutcropTracePlane   : V4f  = x?OutcropTracePlane
             /// xyz = view-space anchor, w = projection radius (metres)
             member x.OutcropTraceExtent  : V4f  = x?OutcropTraceExtent
-            /// x = trace width, y = trace smoothing, z = bed thickness (<= 0 = single plane)
+            /// x = trace width, y = trace smoothing, z = bed thickness (<= 0 = single
+            /// plane), w = phase offset along the normal
             member x.OutcropTraceParams  : V4f  = x?OutcropTraceParams
             member x.OutcropTraceColor   : V4f  = x?OutcropTraceColor
 
@@ -906,8 +907,12 @@ module ViewerUtils =
                     let smooth    = max par.Y 1e-4f
                     let bedThk    = par.Z
 
-                    // signed distance to the reference plane, view space, metres
-                    let signed = Vec.dot pl.XYZ p - pl.W
+                    // signed distance to the reference plane, view space, metres, shifted
+                    // along the normal by the phase offset. Sliding the whole sequence is
+                    // how you line a modelled bed up with a marker bed you can actually see;
+                    // the pattern repeats every bed thickness, so one bed of travel reaches
+                    // every possible phase.
+                    let signed = Vec.dot pl.XYZ p - pl.W - par.W
 
                     // a sequence folds that distance into one bed-thickness interval
                     let d =
@@ -1452,7 +1457,8 @@ module ViewerUtils =
                     let! width  = m.outcropTraces.traceWidth.value
                     let! smooth = m.outcropTraces.traceSmoothing.value
                     let! bedThk = m.outcropTraces.bedThickness.value
-                    return V4f(float32 width, float32 smooth, float32 bedThk, 0.0f)
+                    let! phase  = m.outcropTraces.phaseOffset.value
+                    return V4f(float32 width, float32 smooth, float32 bedThk, float32 phase)
                 }
 
             let surfaces =

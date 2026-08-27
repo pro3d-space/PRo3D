@@ -35,6 +35,10 @@ type OutcropTraceModel = {
     traceWidth       : NumericInput
     /// Smoothstep falloff either side of the band, in metres.
     traceSmoothing   : NumericInput
+    /// Shifts the whole sequence along the plane normal, in metres. Zero puts one bed
+    /// exactly through the centre of the selection; the pattern repeats every
+    /// `bedThickness`, so this only ever needs a range of one bed to reach any phase.
+    phaseOffset      : NumericInput
     /// How far the measured attitude is extrapolated, in metres, measured from the centre
     /// of the selection. Set directly; `FitProjectionRadius` seeds it from the selection's
     /// own footprint.
@@ -51,9 +55,13 @@ module OutcropTraceModel =
         enabled          = false
         usePolyline      = false
         useDnS           = true
-        bedThickness     = numeric   1.0   0.0 10000.0 0.1  "{0:0.00}"
-        traceWidth       = numeric   0.25  0.01  100.0 0.05 "{0:0.00}"
-        traceSmoothing   = numeric   0.1   0.0   100.0 0.05 "{0:0.00}"
-        projectionRadius = numeric  50.0   1.0 100000.0 5.0 "{0:0}"
+        // Millimetre precision throughout, and the *format* matters as much as the minimum:
+        // a "{0:0.00}" format rounds a typed 0.001 away to nothing however low the minimum
+        // goes. Thin beds and hairline traces are a real case at outcrop scale.
+        bedThickness     = numeric   1.0      0.0   10000.0 0.05  "{0:0.000}"
+        traceWidth       = numeric   0.25     0.001   100.0 0.01  "{0:0.000}"
+        traceSmoothing   = numeric   0.1      0.0     100.0 0.01  "{0:0.000}"
+        phaseOffset      = numeric   0.0 -10000.0   10000.0 0.01  "{0:0.000}"
+        projectionRadius = numeric  50.0      1.0  100000.0 5.0   "{0:0}"
         color            = { c = C4b.Red }
     }

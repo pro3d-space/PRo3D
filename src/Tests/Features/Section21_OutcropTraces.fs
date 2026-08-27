@@ -49,6 +49,21 @@ let tests =
                 "a huge selection must not push the control past its maximum"
         }
 
+        test "TC-21.1 SetPhaseOffset slides the whole sequence along the normal" {
+            let m = OutcropTraceApp.update OutcropTraceModel.initial (OutcropTraceAction.SetPhaseOffset (Numeric.SetValue 0.35))
+            Expect.floatClose Accuracy.high m.phaseOffset.value 0.35 "phase offset should be 0.35 m"
+        }
+
+        test "TC-21.1 millimetre values survive the numeric controls" {
+            // the format matters as much as the minimum: a "{0:0.00}" format rounds a typed
+            // 0.001 away to nothing however low the minimum goes
+            let m = OutcropTraceApp.update OutcropTraceModel.initial (OutcropTraceAction.SetTraceWidth (Numeric.SetValue 0.001))
+            Expect.floatClose Accuracy.high m.traceWidth.value 0.001 "a 1 mm trace width must be reachable"
+            Expect.isLessThanOrEqual OutcropTraceModel.initial.traceWidth.min 0.001 "the minimum must allow it"
+            Expect.stringContains OutcropTraceModel.initial.traceWidth.format "0.000" "the format must display it"
+            Expect.stringContains OutcropTraceModel.initial.bedThickness.format "0.000" "so must bed thickness"
+        }
+
         test "TC-21.1 SetColor changes the trace colour" {
             let m = OutcropTraceApp.update OutcropTraceModel.initial (OutcropTraceAction.SetColor (ColorPicker.SetColor C4b.Green))
             Expect.equal m.color.c C4b.Green "the trace colour should be green"

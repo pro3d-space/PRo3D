@@ -52,6 +52,11 @@ remainder. Everything expensive or uncertain lives on the CPU, in `double`, once
 `contourLines` ([Utilities.fs:749](../src/PRo3D.Base/Utilities.fs:749)) already uses the same
 trick against a texture value.
 
+**The reference point is the sequence's default phase, and the phase is editable.** A
+`phaseOffset` control slides the whole family along the normal, so a modelled bed can be lined
+up with a marker bed on the terrain; the pattern repeats every bed thickness, so one bed of
+travel covers every phase.
+
 **The reference point is only the sequence's phase.** With an infinite equidistant stack
 there is no "the" plane to position; the reference point just decides which offsets the
 planes land on. It is fixed at the selection's centroid, so one bed of the sequence passes
