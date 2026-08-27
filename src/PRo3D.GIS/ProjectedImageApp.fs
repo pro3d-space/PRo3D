@@ -84,6 +84,7 @@ module ProjectedImageApp =
     let initial = {
         // a template, not a loaded image; loadFile mints the real id
         id = Guid.Empty;
+        instrument = "";
         colorMap = ColorMap.Magma;
         selectedChannel = { idx = 0; name = None }
         channelOptions = [];
@@ -156,6 +157,16 @@ module ProjectedImageApp =
             | Some mbi -> mbi.targetPos.Length
             | None -> 0.0
 
+        // curated header: instrument, plus the camera system when the
+        // statistics sidecar declares one and it adds information
+        let instrument =
+            match tiffMbiJson, tiffJson with
+            | Some mbi, Some tf when not (String.IsNullOrWhiteSpace tf.camera_system) && tf.camera_system <> mbi.instrument ->
+                sprintf "%s (%s)" mbi.instrument tf.camera_system
+            | Some mbi, _ -> mbi.instrument
+            | None, Some tf -> tf.camera_system
+            | None, None -> ""
+
         let time =
             match tiffMbiJson with
             | Some mbi -> mbi.obs_date
@@ -173,6 +184,7 @@ module ProjectedImageApp =
         {
             initial with
                 id               = Guid.NewGuid();
+                instrument       = instrument;
                 texture          = Path.GetFullPath(texturePath);
                 defaultMinValues = defaultMinValues;
                 defaultMaxValues = defaultMaxValues;

@@ -1,65 +1,82 @@
-# Multi-Image Projection (GIS tab) — Requirements
+# Multi-Image Projection (GIS tab)
 
-Projecting a single instrument image onto a surface works today (GIS tab →
-*Projected Images*). Users need to project **multiple images at once**. This page
-captures the agreed requirements; the implementation plan lives in
-[plans/multiImageProjection.md](../plans/multiImageProjection.md).
+Project an **ordered stack of up to 32 same-instrument images** onto a surface
+at once — e.g. a flyby sequence over an asteroid. Lives in the GIS tab under
+*Projected Images*. (The original requirements/plan: this page's git history
+and [plans/multiImageProjection.md](../plans/multiImageProjection.md).)
 
-## Scope and scale
+## Workflow
 
-- **Up to a few dozen images projected simultaneously** (e.g. a flyby sequence).
-  All simultaneously projected images come from the **same instrument**, so they
-  share dimensions and intrinsics.
-- Rendering approach: **texture array + bounded uniform array of projector
-  matrices**. Storage buffers are ruled out — macOS is capped at OpenGL 4.1
-  (no SSBOs), and Vulkan/MoltenVK is no alternative because the OPC pipeline
-  needs geometry shaders. A `sampler2DArray` and a fixed-size matrix array are
-  core features well below GL 4.1, so the feature works on all platforms with a
-  compile-time cap on stack size.
+1. **Import Directory** loads every image of a folder into the **library**
+   (`.tif/.tiff/.png/.jpg/.jpeg/.exr`, each with its `.mbi.json` sidecar).
+   The library is browse-oriented: sortable by observation date and distance,
+   with a curated header per image (file name, instrument/camera, distance,
+   observation date). Sorting the library never changes projection order.
+2. **Hovering** a library or stack row live-previews that image in 3D as if it
+   were on top of the stack, and shows its **footprint**: a green outline where
+   the instrument frustum crosses the surface plus a frustum wireframe (cut at
+   the target distance). Hovering an image already in the stack changes nothing
+   in the rendering except the footprint highlight.
+3. **+** in a row adds the image to the top of the **projection stack**
+   (max 32); the panel above the library shows the stack top-first with
+   ↑/↓ reorder, remove, and a count/cap indicator.
+4. Where stacked images overlap, the image **higher in the stack wins
+   outright** (painter's order, opaque). The global opacity slider blends the
+   stack's result with the underlying surface texture.
+5. The **fly-to** button (paper plane) animates the camera onto that image's
+   projector axis — forward along the boresight, standing off far enough to
+   frame the instrument footprint.
+6. *Visibility → RelativeCount* colors the surface by **how many stack layers
+   cover each fragment** (blue = few … red = many).
 
-## Compositing
+Per-image display settings (channel, min/max, false color preview) keep
+working through each row's edit panel; the colormap and false-color toggle
+apply to the whole stack (same instrument, one legend). Settings
+(opacity/visibility/lighting/orientation source/registration) and the selected
+image's 2D preview fold away into collapsible sections to keep import, stack
+and library in view.
 
-- The projected images form an **ordered stack**. Where images overlap, the
-  image **higher in the stack wins outright** (painter's order, opaque
-  overwrite — no inter-image blending).
-- The **global opacity slider stays**, orthogonal to ordering: it blends the
-  *result* of the stack with the underlying surface texture.
-- Per-image display settings (channel, min/max, false color) keep working per
-  image.
+## How it renders
 
-## UI: library + projection stack
+- One `sampler2DArray` (layer *i* = stack entry *i*) plus fixed-size uniform
+  arrays of projector matrices and per-layer min/max, and a count. 32 × M44f =
+  2 KB, far below GL 4.1's guaranteed 16 KB uniform-block minimum — **no
+  storage buffers**, so the same shader runs everywhere including macOS
+  (GL 4.1); the former `limitedShaderCapabilities` platform split is gone.
+- Each layer's projector is computed by SPICE **in the surface's body-fixed
+  reference frame at that image's own observation time**, so projections stick
+  to the terrain regardless of the scene's current time. Projector matrices
+  are memoized per (image, method, boresight, observer, frame) — SPICE is
+  single-threaded, and reordering or hovering recomputes nothing.
+- The fragment loop walks the stack top-down and stops at the first layer that
+  covers the fragment with a projector-facing normal (early-out; back-facing
+  and out-of-frustum fragments stay untouched).
+- The texture array reallocates only when the layer set outgrows its
+  allocation; reordering just re-uploads changed slices. Decoded bands are
+  cached per (path, channel).
 
-- The imported image list becomes a **library**: sortable (date, distance),
-  filterable, browse-oriented. Sorting the library never changes projection
-  order.
-- A separate **projection stack** lists only the projected images in draw
-  order, with reordering and removal. Adding from the library puts the image on
-  top of the stack.
-- **Hovering a library image live-previews it in 3D as if it were on top of the
-  stack** — this is the workflow for finding good images. No 2D thumbnail
-  popup; the preview is the 3D view itself.
-- Hovering an image that is **already in the stack** must react too: highlight
-  its entry/projection and make clear it is already stacked (no duplicate
-  preview entry).
-- Each image gets a **fly-to button** that steers the camera to view that
-  image's projected footprint on the surface.
-- Each image shows **curated header fields** (obs date, instrument, distance to
-  target, sun position, …) — not a raw metadata dump.
-- UI space is constrained: **restructure the GIS tab** to reduce accordion
-  nesting while adding the stack UI.
+## Data expectations
 
-## Footprints
+Images are associated with their `.mbi.json` sidecars by the band file names
+the sidecar declares, with a `<image>.mbi.json` naming fallback. The
+observation time comes from `DATE-OBS`, falling back to the file-name
+timestamp (`_yyyyMMdd_HHmmss_`) and then `DATE`; position vectors declared in
+km are auto-corrected when they are actually metres (detected via the sun
+distance); the projection target body comes from the sidecar's `TARGET`
+header. See [COP-sidecar-issues.md](COP-sidecar-issues.md) for the concrete
+data defects these fallbacks absorb.
 
-- On hover, show the image's footprint **as an outline on the surface** *and*
-  as a **frustum wireframe in 3D** from the spacecraft position.
-- Footprints are hover-only for now; a persistent per-image/global footprint
-  toggle ("footprints showable in general") is a cheap follow-up and stays on
-  the list as future work.
+The projection surface must have a GIS **entity and reference frame assigned**
+(GIS tab → Surfaces), and a SPICE kernel with coverage for the observation
+epochs must be loaded.
 
-## Out of scope (for this effort)
+## Limits and future work
 
-- **Persistence** of the projected-image state in the scene file (today nothing
-  survives save/load). Deliberately deferred to a separate task.
-- Persistent (non-hover) footprint toggles — future work, see above.
-- Occlusion / self-shadowing of projections (terrain between projector and
-  surface) — unchanged from single-image behavior.
+- Stack cap: 32 (`ProjectedImages.maxCount`; the shader's `Arr<N<32>, _>` size
+  must change with it).
+- Stack, hover and per-image settings are **not persisted** in the scene yet.
+- Reordering by drag & drop (the arrows are the minimal interface), persistent
+  footprint toggles, and projector-side occlusion/self-shadowing are future
+  work.
+- First start after a release that changed the surface shaders recompiles the
+  effect once (surfaces can take a minute or more to appear).

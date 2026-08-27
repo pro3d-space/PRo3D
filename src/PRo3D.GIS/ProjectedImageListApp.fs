@@ -207,6 +207,7 @@ module ProjectedImageListApp =
             let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesStack = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesInstrument = attribute "style" $"width: 90px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; display: flex; justify-content: center; align-items: center;"
 
@@ -218,6 +219,7 @@ module ProjectedImageListApp =
                     div [ attributesSelect ] [text "Select"]
                     div [ attributesEdit ] [text "Edit"]
                     div [ attributesStack ] [text "Stack"]
+                    div [ attributesInstrument ] [text "Instrument"]
                     div [ attributesAttr1 ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
                         text "Dist. to Planet"
@@ -260,6 +262,7 @@ module ProjectedImageListApp =
                                                             }
                                                         )
                                                     ]
+                                                    div [attributesInstrument] [ Incremental.text img.instrument ]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
                                                     div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
                                                 ]
@@ -297,56 +300,66 @@ module ProjectedImageListApp =
                                 text "Import Directory"
                         ]
                     ]
-                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                        div [] [text "Visualization:"]
-                        div [style "margin-left: auto;"] [
-                            Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
-                        ]
-                    ]
+                ]
 
-                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                        div [] [text "Visibility:"]
-                        div [style "margin-left: auto;"] [
-                            Html.SemUi.dropDown m.instrumentVisibility SetInstrumentVisbilityMode
+                // settings and the 2D preview fold away (the GIS tab is tight
+                // on space): import, stack and library stay in view
+                accordion "Projection Settings" "settings" false (style "margin-top: 6px") [
+                    div [clazz "ui inverted list"] [
+                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                            div [] [text "Visualization:"]
+                            div [style "margin-left: auto;"] [
+                                Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
+                            ]
                         ]
-                    ]
 
-                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                        div [] [text "Sun / Lighting Mode:"]
-                        div [style "margin-left: auto;"] [
-                            Html.SemUi.dropDown m.lightingMode SetLightingMode
+                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                            div [] [text "Visibility:"]
+                            div [style "margin-left: auto;"] [
+                                Html.SemUi.dropDown m.instrumentVisibility SetInstrumentVisbilityMode
+                            ]
                         ]
-                    ]
 
-                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                        div [] [text "Orientation Source:"]
-                        div [style "margin-left: auto;"] [
-                            Html.SemUi.dropDown m.projectionMethod SetProjectionMethod
+                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                            div [] [text "Sun / Lighting Mode:"]
+                            div [style "margin-left: auto;"] [
+                                Html.SemUi.dropDown m.lightingMode SetLightingMode
+                            ]
                         ]
-                    ]
 
-                    div [clazz "item"; style "border-bottom: solid 1px black; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                        div [] [text "SPICE Kernel:"]
-                        button [clazz "ui button tiny";
-                                style "margin-left: auto;"
-                                Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadSpiceAndTime (chosen) );
-                                clientEvent "onclick" (jsImportDialog) ] [
-                                text "Load Spice and Time"
+                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                            div [] [text "Orientation Source:"]
+                            div [style "margin-left: auto;"] [
+                                Html.SemUi.dropDown m.projectionMethod SetProjectionMethod
+                            ]
                         ]
-                    ]
 
-                    div [clazz "item"; style "margin-top: 10px;"] [
-                        div [style "padding-left: 5px"] [text "Registration:"]
-                        Html.table [  
-                            Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
-                            Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
-                            Html.row "Yaw:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.yaw |> UI.map SetYaw]
+                        div [clazz "item"; style "border-bottom: solid 1px black; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                            div [] [text "SPICE Kernel:"]
+                            button [clazz "ui button tiny";
+                                    style "margin-left: auto;"
+                                    Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadSpiceAndTime (chosen) );
+                                    clientEvent "onclick" (jsImportDialog) ] [
+                                    text "Load Spice and Time"
+                            ]
+                        ]
+
+                        div [clazz "item"; style "margin-top: 10px;"] [
+                            div [style "padding-left: 5px"] [text "Registration:"]
+                            Html.table [
+                                Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
+                                Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
+                                Html.row "Yaw:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.yaw |> UI.map SetYaw]
+                            ]
                         ]
                     ]
                 ]
 
-                div [] [
+                accordion "Selected Image" "image" false (style "margin-top: 6px") [
                     div [style "width: 100%"] [showRelative2DImage (selectedImage m)]
+                ]
+
+                div [] [
                     stackPanel
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages

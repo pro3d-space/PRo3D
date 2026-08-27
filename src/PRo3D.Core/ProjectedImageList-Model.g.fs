@@ -1,5 +1,5 @@
-//175a62ed-eaec-00a8-6d8c-a6234c99f24c
-//bfa704ac-8d2d-9bda-9cbd-ce26f762a2c2
+//7648ac77-29f5-4c17-2c59-1c84fbe36115
+//4174ec9a-128d-be75-a9be-233d2ca4f78b
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -21,6 +21,7 @@ type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
     let _texture_ = FSharp.Data.Adaptive.cval(value.texture)
     let _distance_ = FSharp.Data.Adaptive.cval(value.distance)
     let _time_ = FSharp.Data.Adaptive.cval(value.time)
+    let _instrument_ = FSharp.Data.Adaptive.cval(value.instrument)
     let _falseColorPreview_ = FSharp.Data.Adaptive.cval(value.falseColorPreview)
     let _falseColorModel_ = PRo3D.Base.AdaptiveFalseColorsModel(value.falseColorModel)
     let mutable __value = value
@@ -40,6 +41,7 @@ type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
             _texture_.Value <- value.texture
             _distance_.Value <- value.distance
             _time_.Value <- value.time
+            _instrument_.Value <- value.instrument
             _falseColorPreview_.Value <- value.falseColorPreview
             _falseColorModel_.Update(value.falseColorModel)
     member __.Current = __adaptive
@@ -53,6 +55,7 @@ type AdaptiveProjectedImageModel(value : ProjectedImageModel) =
     member __.texture = _texture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.distance = _distance_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
     member __.time = _time_ :> FSharp.Data.Adaptive.aval<System.DateTime>
+    member __.instrument = _instrument_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.falseColorPreview = _falseColorPreview_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.falseColorModel = _falseColorModel_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
@@ -68,6 +71,7 @@ module ProjectedImageModelLenses =
         static member texture_ = ((fun (self : ProjectedImageModel) -> self.texture), (fun (value : Microsoft.FSharp.Core.string) (self : ProjectedImageModel) -> { self with texture = value }))
         static member distance_ = ((fun (self : ProjectedImageModel) -> self.distance), (fun (value : Microsoft.FSharp.Core.float) (self : ProjectedImageModel) -> { self with distance = value }))
         static member time_ = ((fun (self : ProjectedImageModel) -> self.time), (fun (value : System.DateTime) (self : ProjectedImageModel) -> { self with time = value }))
+        static member instrument_ = ((fun (self : ProjectedImageModel) -> self.instrument), (fun (value : Microsoft.FSharp.Core.string) (self : ProjectedImageModel) -> { self with instrument = value }))
         static member falseColorPreview_ = ((fun (self : ProjectedImageModel) -> self.falseColorPreview), (fun (value : Microsoft.FSharp.Core.bool) (self : ProjectedImageModel) -> { self with falseColorPreview = value }))
         static member falseColorModel_ = ((fun (self : ProjectedImageModel) -> self.falseColorModel), (fun (value : PRo3D.Base.FalseColorsModel) (self : ProjectedImageModel) -> { self with falseColorModel = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]

@@ -168,9 +168,12 @@ module Tiff_Mbi_Json =
     let tryParseTimestampFromFileName (fileName : string) : Option<DateTime> =
         let m = System.Text.RegularExpressions.Regex.Match(fileName, @"_(\d{8})_(\d{6})_")
         if m.Success then
+            // AssumeUniversal WITHOUT AdjustToUniversal, exactly like parseDate
+            // above: obs_date carries the same DateTime kind regardless of
+            // which fallback produced it
             match DateTime.TryParseExact(m.Groups.[1].Value + m.Groups.[2].Value,
                                          "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
-                                         DateTimeStyles.AssumeUniversal ||| DateTimeStyles.AdjustToUniversal) with
+                                         DateTimeStyles.AssumeUniversal) with
             | (true, d) -> Some d
             | _ -> None
         else None

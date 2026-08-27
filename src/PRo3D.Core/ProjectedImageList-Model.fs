@@ -64,6 +64,10 @@ type ProjectedImageModel =
         texture           : string
         distance          : float
         time              : System.DateTime
+        /// Curated header: instrument + camera system, e.g. "AFC1 (AFC)" --
+        /// from the mbi sidecar's INSTRUME and the statistics sidecar's
+        /// camera_system/mission_name when present. Empty when unknown.
+        instrument        : string
         falseColorPreview : bool
         falseColorModel   : FalseColorsModel
     }
