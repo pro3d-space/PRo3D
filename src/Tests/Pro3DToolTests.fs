@@ -101,6 +101,7 @@ module private Fixtures =
             noShadows = false
             noLighting = false
             project = null
+            projectShader = null
             shadowBias = 0.002
         }
 

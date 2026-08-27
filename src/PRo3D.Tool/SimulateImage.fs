@@ -541,6 +541,11 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 cameraFromMbi observer frame body o.project
                 |> Result.map (fun obs -> Some (Path.Combine(dir, file), obs.camera.view * obs.camera.proj)))
 
+    let useStackShader =
+        match (if isNull o.projectShader then "single" else o.projectShader).ToLowerInvariant() with
+        | "stack" -> true
+        | _ -> false
+
     match observation, projected with
     | Result.Error e, _ | _, Result.Error e -> Result.Error e
     | Ok observation, Ok projected ->
@@ -632,7 +637,18 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 // as the angle shaders expect
                 imageProjection =
                     AVal.constant (Some (projected |> Option.map snd |> Option.defaultValue (cam.view * cam.proj)))
-                stackProjections = AVal.constant [||]
+                // --project-shader stack drives the SAME projector through the viewer's
+                // stack path as a one-layer stack; empty otherwise, as the angle shaders
+                // and the single-image path expect
+                stackProjections =
+                    AVal.constant (
+                        match projected, useStackShader with
+                        | Some (imagePath, projector), true ->
+                            [| { Sg.ProjectedStackLayer.trafo = Some projector
+                                 minMax = V2f(0.0f, 1.0f)
+                                 texturePath = imagePath
+                                 channel = 0 } |]
+                        | _ -> [||])
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None
                 sunDirection = AVal.constant (Some sun)
@@ -703,11 +719,36 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             |> Sg.uniform' "MinValue" 0.0f
             |> Sg.uniform' "MaxValue" 1.0f
 
+        /// The same projector through the viewer's stack path, as a one-layer stack. The
+        /// per-patch matrices come from projectionUniformMap (fed by stackProjections
+        /// above), exactly as in the viewer -- only the render camera and the texture are
+        /// this verb's.
+        let projectedStackSg (imagePath : string) =
+            opc
+            |> Sg.shader {
+                do! ImageProjection.Shaders.stableImageProjectionTrafo
+                do! ImageProjection.Shaders.generateNormal
+                do! ImageProjection.Shaders.applyNormalFlip
+                do! PRo3D.SPICE.Shaders.stableTrafo
+                do! DefaultSurfaces.constantColor C4f.Black
+                do! ImageProjection.Shaders.stableImageProjectionStack
+            }
+            |> Sg.texture "ProjectedStackTextures"
+                (PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
+                    runtime (AVal.constant [| imagePath, 0 |]))
+            |> Sg.uniform' "ProjectedImageOpacity2" 1.0f
+            // same neutralisation as the single-image path, so the two are comparable
+            |> Sg.uniform' "ProjectedUseTransferFunction" false
+            |> Sg.uniform' "UseFalseColor" false
+            |> Sg.uniform' "DataType" 2
+
         let sg =
             (match projected with
              | Some (imagePath, _) ->
-                Log.line "[project] %s through the single-image projection shader" (Path.GetFileName imagePath)
-                projectedSg imagePath
+                Log.line "[project] %s through the %s projection shader"
+                    (Path.GetFileName imagePath)
+                    (if useStackShader then "STACK" else "single-image")
+                if useStackShader then projectedStackSg imagePath else projectedSg imagePath
              | None -> shaded)
             |> SunAnglesVerb.withOpcScaffolding
             |> Sg.uniform' "SunShadowEnabled" (not o.noShadows)

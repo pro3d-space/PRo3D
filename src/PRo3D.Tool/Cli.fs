@@ -158,8 +158,11 @@ type SimulateImageOptions =
         [<Option("no-lighting", HelpText = "Render a flat white disk instead of a shaded body: the image is then the silhouette, for comparing pointing and shape against a real frame without shading in the way")>]
         noLighting : bool
 
-        [<Option("project", HelpText = "Project this image onto the body instead of shading it, through PRo3D's single-image projection shader, and render the result. With no --mbi the camera is that image's own, so the output must reproduce the input image -- which is what makes the projection checkable rather than merely plausible.")>]
+        [<Option("project", HelpText = "Project this image onto the body instead of shading it, through PRo3D's projection shader, and render the result. With no --mbi the camera is that image's own, so the output must reproduce the input image -- which is what makes the projection checkable rather than merely plausible.")>]
         project : string
+
+        [<Option("project-shader", HelpText = "Which projection shader --project goes through: 'single' (default, stableImageProjection -- what sun-angles and the testbeds use) or 'stack' (stableImageProjectionStack, a one-layer stack -- what the viewer renders). Rendering the same image both ways isolates the stack path.")>]
+        projectShader : string
 
         [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002); raise against acne, lower against peter-panning")>]
         shadowBias : float

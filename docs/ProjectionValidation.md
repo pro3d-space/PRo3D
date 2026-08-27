@@ -29,7 +29,7 @@ impression, and each only meaningful once the one below it holds:
 | step | what it isolates | status |
 |---|---|---|
 | **1** | the projection shader itself (`stableImageProjection`, offscreen — what `sun-angles` and `ProjectionTestbed` compose) | **passed**, below |
-| 2 | the stack shader (`stableImageProjectionStack`), offscreen, same image and camera — must equal step 1 | not run |
+| 2 | the stack shader (`stableImageProjectionStack`), offscreen, same image and camera — must equal step 1 | **passed**, below |
 | 3 | the production viewer, same image and camera — must equal step 2 | **partly**, below |
 
 Both prerequisites for step 3 are now in: a *Transfer Function* toggle (off =
@@ -89,6 +89,43 @@ error covers, and nowhere near the 90° a wrong `specialTrafos` entry would give
 An independent absolute-roll check for AFC would need a real AFC frame with
 trustworthy metadata, which we do not have.
 
+## 2. The stack shader agrees with it
+
+The viewer does not render through `stableImageProjection`; it renders the
+projection **stack**. `--project-shader stack` sends the same image, the same
+projector and the same camera through `stableImageProjectionStack` as a
+one-layer stack — the per-patch matrices coming from `projectionUniformMap`
+exactly as in the viewer:
+
+```
+pro3d-tool simulate-image --opc <TestData>/HERA/Dimorphos     --project HERA_AFC_0005_20270304_140000_SIM.png --project-shader stack ...
+```
+
+| | |
+|---|---|
+| body pixels drawn, single / stack | 54,662 / **54,662** |
+| drawn by one shader only | **0** |
+| mean \|ΔDN\| between the two | 0.072 |
+| identical pixels | 94.75% |
+
+**Coverage is bit-for-bit the same** — not one pixel differs in which fragments
+the two shaders accept — so the geometry, the projector composition and the
+facing test agree exactly. The two paths are the same projection.
+
+Where they differ in *value*, it is filtering, and the stack is the better of
+the two. Against the source image:
+
+| shader | mean \|ΔDN\| | identical | within ±1 DN |
+|---|---|---|---|
+| single-image | 0.0771 | 94.24% | 99.49% |
+| **stack** | **0.0054** | **99.46%** | **100.00%** |
+
+The 75 differing pixels (0.137%) sit exactly where step 1's residual sat: 90.7%
+within 3 px of the limb, median source gradient 141 DN/px against 4.5 over the
+body. The single-image path samples a mip-mapped `sampler2d`, the stack an
+un-mipmapped `sampler2dArray`, so the single path blurs slightly where the
+projected texel density falls below 1:1. Nothing here is geometric.
+
 ## Supporting evidence: a self-made AFC dataset
 
 `pro3d-tool simulate-image --write-mbi` renders the body from SPICE and writes
@@ -142,7 +179,7 @@ while the image was taken from 5,765 m, so the perspective differs and only the
 registration can be judged, not DN for DN. A rigorous step 3 needs the viewer
 camera at the image's own pose and field of view.
 
-## 2. Real data: ASPECT at Didymos
+## Supporting evidence: real data, ASPECT at Didymos
 
 The self-made set proves the chain is self-consistent. A *real* observation
 proves the convention is the one real deliveries use.
@@ -167,7 +204,7 @@ only because that OPC contains Didymos alone.) Both files are in the test data
 repository under `HERA/Instrument Data`; the sidecar is used exactly as it
 ships.
 
-## 3. The setting that decides whether any of this is used
+## The setting that decides whether any of this is used
 
 *Projection Settings → Orientation Source*:
 
@@ -190,7 +227,7 @@ throughout:
 `pro3d-tool unproject` says the same without a GPU: that frame's centre pixel
 finds no surface with `--method mbi`, and hits at 8557 m with `--method spice`.
 
-## 4. The HERA COP delivery
+## The HERA COP delivery
 
 Its sidecars state the pointing three ways wrong at once — each documented with
 its evidence and its fix in
@@ -243,27 +280,35 @@ These frames were produced through PRo3D's own sequenced-bookmark rendering
 place to look for how the body orientation was set per snapshot. Not chased
 further here.
 
-## Open, before steps 2 and 3 can run
+## What was fixed along the way
 
-- **The transfer function is not a property.** `UseFalseColor` is bound in
-  `ColorMapping.fs:54` as `p.colorMapping |> AVal.map Option.isSome`, and
+- **The transfer function was not a property.** `UseFalseColor` was bound in
+  `ColorMapping.fs` as `p.colorMapping |> AVal.map Option.isSome`, and
   `getProjectionVisualizationProperties` always supplies a colour map for the
-  selected image — so it is effectively always on. The per-image
-  `falseColorModel.useFalseColors` exists in the model but does not drive it.
-  A projected image should be displayable as **raw RGB**, which is both what a
-  user wants and what makes step 3 a pixel comparison rather than an
-  impression. (Even with false colour off, the stack shader still runs the
-  min/max remap and emits grey from the red channel.)
-- **The viewer never binds `NormalFlip`.** The offscreen tools estimate each
-  dataset's winding (`OpcSg.estimateNormalFlip`) and bind it; the viewer does
-  not — `Shaders.fs:103` says so, and works around it for *lighting* by
-  orienting the face normal toward the viewer. That cannot work for the
-  projection, whose facing test is relative to the **projector**. On an
-  inward-wound OPC the test is inverted and the projection survives only near
-  the limb. Measured: `Dimorphos_0_Meridian` votes 98 outward (flip 0), the
-  test-repo `HERA/Dimorphos` votes 26 inward (flip 1).
+  selected image — so it was effectively always on. Now a real
+  `useTransferFunction` flag on `ProjectedImageListModel`, with a checkbox in
+  *Projection Settings*; off paints the layer's own RGB, skipping both the
+  min/max remap and the colour map. Instrument data still defaults to the
+  transfer function; an RGB image does not need it, and a projection cannot be
+  *checked* against its source through a colour map.
+- **The viewer never bound `NormalFlip`.** The offscreen tools estimate each
+  dataset's winding and bind it; the viewer did not, and worked around it for
+  *lighting* by orienting the face normal toward the viewer. That cannot work
+  for the projection, whose facing test is relative to the **projector**. On an
+  inward-wound OPC the test was inverted and the projection survived only near
+  the limb. The heuristic now lives in `PRo3D.Core.NormalWinding.estimate` (one
+  implementation for the tools and the viewer), `Surface.Sg` binds it per
+  hierarchy, and the surface effect composes `applyNormalFlip`. Measured:
+  `Dimorphos_0_Meridian` votes 98 outward (flip 0), the test-repo
+  `HERA/Dimorphos` 26 inward (flip 1).
 
-  This governs *coverage*, not alignment — it explains a crescent, not a shift.
+  This governed *coverage*, not alignment — it explained a crescent, not a shift.
+
+## Still open
+
+A rigorous **step 3**: the viewer camera pinned to the image's own pose and
+field of view, so the comparison is DN for DN as in steps 1 and 2 rather than a
+registration check at a different standoff.
 
 ## Reproducing this page
 
@@ -288,6 +333,9 @@ cd tests-ui && PRO3D_SIM_IMAGE_DIR=<dataset> npx playwright test projection-over
 # 3: look at one case, including the ones that fail (asserts nothing)
 PRO3D_PROBE_IMAGE_DIR=<folder> PRO3D_PROBE_METHOD=MbiBased \
 PRO3D_PROBE_LABEL=cop-mbi npx tsx src/probe-projection-landing.ts
+
+# step 2: the same image and camera through the stack shader
+pro3d-tool simulate-image --opc <opc> --project <image> --project-shader stack ...
 
 # 4: flat silhouettes for an outline comparison
 pro3d-tool simulate-image ... --no-lighting --no-shadows --out flat.png
