@@ -1759,10 +1759,24 @@ module ViewerApp =
                     |> Leaf.Annotations
                 )
             Log.stop()
-            
+
+            // Every derived value just moved — bearing, slope, dip and strike, altitudes — so
+            // a Color by Category ramp fitted to the old numbers no longer matches the data,
+            // and neither does the legend drawn from it. Refit, exactly as switching the
+            // attribute does. fitRange leaves categorical and cyclic attributes alone (a hue
+            // wheel has no bounds to fit), and a switched-off panel is not touched at all.
+            let colorByCategory =
+                if m.drawing.colorByCategory.enabled then
+                    let annotations = flat |> HashMap.toValueList |> List.map Leaf.toAnnotation
+                    ColorByCategory.update
+                        annotations m.drawing.colorByCategory ColorByCategoryAction.FitRangeToData
+                else
+                    m.drawing.colorByCategory
+
             m
-            |> Optic.set _flat flat            
-            
+            |> Optic.set _flat flat
+            |> Optic.set _colorByCategory colorByCategory
+
 
             //match a with 
             //| ReferenceSystemAction.SetUp _ | ReferenceSystemAction.SetPlanet _ ->
