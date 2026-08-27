@@ -24,9 +24,13 @@ The controls live in **Annotations → Outcrop Traces**:
 | --- | --- |
 | `Outcrop traces on/off` | activates the feature |
 | `Polyline` / `DnS` | which annotation types contribute their fitted plane |
-| `Bed Thickness (m)` | true (stratigraphic) thickness between successive beds; **0 = a single plane** |
-| `Fit to selection` | re-seeds the thickness so about eight traces span the projection radius |
+| `Bed Thickness (m)` | true (stratigraphic) thickness between successive beds; **0 = a single plane**. *Fit* seeds it so about eight traces span the projection radius |
+| `Projection Radius (m)` | how far the attitude is extrapolated from the centre of the selection. *Fit* seeds it from the selection's own footprint plus half again |
 | `Colour` | trace colour |
+
+Under the two distances the panel reports what they add up to — `12 traces over 300 m;
+measurements span 40 m` — so the amount of extrapolation is visible next to the control that
+causes it, not inferred.
 
 Appearance settings are on the **config page → Outcrop Traces**, next to *Frustum* and
 *Coordinate System*, because they are scene settings rather than per-user ones:
@@ -35,8 +39,6 @@ Appearance settings are on the **config page → Outcrop Traces**, next to *Frus
 | --- | --- |
 | `Trace Width (m)` | full width of the drawn band, measured perpendicular to the plane |
 | `Trace Smoothing (m)` | smoothstep falloff either side of the band |
-| `Projection Factor` | multiplier on the selection's own footprint, giving the projection radius |
-| `Projection Floor (m)` | minimum projection radius; what sizes a single-annotation selection |
 
 Workflow:
 
@@ -46,7 +48,8 @@ Workflow:
 3. Enable outcrop traces. The panel reports the attitude actually being drawn, e.g.
    `Mean attitude of 7 annotations — 34.2° / 118.7° (dip / dip direction), S₁ = 0.94`.
 4. Set the bed thickness, or press *Fit to selection* to get a legible starting point.
-5. Raise *Projection Factor* to extrapolate further — carefully, see the warning below.
+5. Press *Fit* on the projection radius for a sensible starting extent, then raise it to
+   extrapolate further — carefully, see the warning below.
 
 The same mean attitude appears as a **Selection average** row in the *Dip&Strike* panel, so the
 number is available without switching outcrop traces on.
@@ -74,9 +77,9 @@ number can flag it; only the eigenvalue spectrum can.
 ## Limitations
 
 > **A measured attitude is a local statement.** The projection radius is a mitigation, not a
-> fix. Raising *Projection Factor* far past the selection's own footprint produces a confident
-> line with no evidence behind it. This is the most likely way to mislead yourself with this
-> feature.
+> fix. Raising it far past the selection's own footprint produces a confident line with no
+> evidence behind it. This is the most likely way to mislead yourself with this feature, which
+> is why the panel prints the extrapolation and the measured span side by side.
 
 - **A mean attitude is not a plane fitted through all the points.** It answers "what orientation
   do these share", not "do these all lie on one plane". Two parallel beds 50 m apart look
@@ -87,6 +90,10 @@ number can flag it; only the eigenvalue spectrum can.
 - **Traces are wider where the sequence meets the terrain at a shallow angle** and thinner where
   it cuts steeply. That is geometrically honest — it is what makes them read as intersections
   rather than decals — but it surprises people.
+- **The projection radius is a sphere around the centre of the selection, not a distance along
+  the terrain.** Traces fade from the radius to 1.15× it. On steep ground the visible extent is
+  therefore shorter than the number suggests — it is measured through space, not across the
+  surface.
 - **Traces are not exportable** as geometry or annotations.
 - **Headless batch rendering (`PRo3D.Snapshots`) will not show them.** Not a render-path
   problem: the scene graph is shared (`SnapshotSg.createSceneGraph` → `ViewerUtils.createGroupedSgs`),

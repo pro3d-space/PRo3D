@@ -143,10 +143,21 @@ module OutcropTrace =
                     shape  = shape
                 }
 
-    /// How far the measured attitude is extrapolated, in metres: the selection's own
-    /// footprint, floored so that a single annotation (spread = 0) still shows something.
-    let projectionRadius (projectionFactor : float) (projectionFloor : float) (attitude : MeanAttitude) =
-        (max attitude.spread projectionFloor) * projectionFactor
+    /// Minimum radius a *Fit to selection* will produce, in metres. What sizes a single
+    /// annotation, whose spread is zero.
+    [<Literal>]
+    let fitMinimumRadius = 25.0
+
+    /// Headroom a *Fit to selection* leaves beyond the selection's own footprint, so the
+    /// traces reach a little past the outermost measurement rather than stopping on it.
+    [<Literal>]
+    let fitHeadroom = 1.5
+
+    /// The radius a *Fit to selection* proposes for this attitude. The user then owns the
+    /// value: extrapolating further than the measurements support is a judgement call, and
+    /// making it explicit is the point (see docs/OutcropTraces.md).
+    let fitProjectionRadius (attitude : MeanAttitude) =
+        (max attitude.spread fitMinimumRadius) * fitHeadroom
 
     /// Plane and extent in *view space*, ready to upload as `float32` uniforms.
     ///
@@ -188,11 +199,12 @@ type OutcropTraceAction =
     | SetBedThickness     of Numeric.Action
     | SetTraceWidth       of Numeric.Action
     | SetTraceSmoothing   of Numeric.Action
-    | SetProjectionFactor of Numeric.Action
-    | SetProjectionFloor  of Numeric.Action
+    | SetProjectionRadius of Numeric.Action
     | SetColor            of ColorPicker.Action
-    /// Re-seed the bed thickness from the current selection's projection radius.
+    /// Re-seed the bed thickness from the current projection radius.
     | FitBedThickness     of float
+    /// Re-seed the projection radius from the current selection's footprint.
+    | FitProjectionRadius of float
 
 module OutcropTraceApp =
 
@@ -214,15 +226,16 @@ module OutcropTraceApp =
             { model with traceWidth = Numeric.update model.traceWidth a }
         | SetTraceSmoothing a ->
             { model with traceSmoothing = Numeric.update model.traceSmoothing a }
-        | SetProjectionFactor a ->
-            { model with projectionFactor = Numeric.update model.projectionFactor a }
-        | SetProjectionFloor a ->
-            { model with projectionFloor = Numeric.update model.projectionFloor a }
+        | SetProjectionRadius a ->
+            { model with projectionRadius = Numeric.update model.projectionRadius a }
         | SetColor a ->
             { model with color = ColorPicker.update model.color a }
         | FitBedThickness radius ->
             let v = Fun.Clamp(radius * 2.0 / tracesWhenFitted, model.bedThickness.min, model.bedThickness.max)
             { model with bedThickness = { model.bedThickness with value = v } }
+        | FitProjectionRadius radius ->
+            let v = Fun.Clamp(radius, model.projectionRadius.min, model.projectionRadius.max)
+            { model with projectionRadius = { model.projectionRadius with value = v } }
 
     /// Scene-level appearance settings, shown on the config page next to Frustum and
     /// Coordinate System - which are scene state too.
@@ -231,7 +244,6 @@ module OutcropTraceApp =
             Html.table [
                 Html.row "Trace Width (m):"     [Numeric.view' [InputBox] model.traceWidth       |> UI.map SetTraceWidth]
                 Html.row "Trace Smoothing (m):" [Numeric.view' [InputBox] model.traceSmoothing   |> UI.map SetTraceSmoothing]
-                Html.row "Projection Factor:"   [Numeric.view' [InputBox] model.projectionFactor |> UI.map SetProjectionFactor]
-                Html.row "Projection Floor (m):"[Numeric.view' [InputBox] model.projectionFloor  |> UI.map SetProjectionFloor]
+
             ]
         )

@@ -1,5 +1,5 @@
-//438cbe0b-8ce9-4ce0-6b9c-d8b13600e7f1
-//78c23b15-628d-c828-1fb9-72818ace421b
+//2c320175-2076-5d4a-4ca1-0ef8c5cbae4a
+//7726ca63-ee14-b1d9-1b38-d05498f27cd8
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -18,8 +18,7 @@ type AdaptiveOutcropTraceModel(value : OutcropTraceModel) =
     let _bedThickness_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.bedThickness)
     let _traceWidth_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.traceWidth)
     let _traceSmoothing_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.traceSmoothing)
-    let _projectionFactor_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.projectionFactor)
-    let _projectionFloor_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.projectionFloor)
+    let _projectionRadius_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.projectionRadius)
     let _color_ = Aardvark.UI.AdaptiveColorInput(value.color)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
@@ -35,8 +34,7 @@ type AdaptiveOutcropTraceModel(value : OutcropTraceModel) =
             _bedThickness_.Update(value.bedThickness)
             _traceWidth_.Update(value.traceWidth)
             _traceSmoothing_.Update(value.traceSmoothing)
-            _projectionFactor_.Update(value.projectionFactor)
-            _projectionFloor_.Update(value.projectionFloor)
+            _projectionRadius_.Update(value.projectionRadius)
             _color_.Update(value.color)
     member __.Current = __adaptive
     member __.enabled = _enabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -45,8 +43,7 @@ type AdaptiveOutcropTraceModel(value : OutcropTraceModel) =
     member __.bedThickness = _bedThickness_
     member __.traceWidth = _traceWidth_
     member __.traceSmoothing = _traceSmoothing_
-    member __.projectionFactor = _projectionFactor_
-    member __.projectionFloor = _projectionFloor_
+    member __.projectionRadius = _projectionRadius_
     member __.color = _color_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module OutcropTraceModelLenses = 
@@ -57,7 +54,6 @@ module OutcropTraceModelLenses =
         static member bedThickness_ = ((fun (self : OutcropTraceModel) -> self.bedThickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : OutcropTraceModel) -> { self with bedThickness = value }))
         static member traceWidth_ = ((fun (self : OutcropTraceModel) -> self.traceWidth), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : OutcropTraceModel) -> { self with traceWidth = value }))
         static member traceSmoothing_ = ((fun (self : OutcropTraceModel) -> self.traceSmoothing), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : OutcropTraceModel) -> { self with traceSmoothing = value }))
-        static member projectionFactor_ = ((fun (self : OutcropTraceModel) -> self.projectionFactor), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : OutcropTraceModel) -> { self with projectionFactor = value }))
-        static member projectionFloor_ = ((fun (self : OutcropTraceModel) -> self.projectionFloor), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : OutcropTraceModel) -> { self with projectionFloor = value }))
+        static member projectionRadius_ = ((fun (self : OutcropTraceModel) -> self.projectionRadius), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : OutcropTraceModel) -> { self with projectionRadius = value }))
         static member color_ = ((fun (self : OutcropTraceModel) -> self.color), (fun (value : Aardvark.UI.ColorInput) (self : OutcropTraceModel) -> { self with color = value }))
 

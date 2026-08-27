@@ -143,12 +143,14 @@ let tests () =
             Expect.floatClose Accuracy.high a.spread 10.0 "spread should be the half-extent here"
         }
 
-        test "projection radius floors on a single annotation and scales with the factor" {
+        test "a fitted projection radius floors on one annotation and follows the spread otherwise" {
             let a = attitudeOf [| contribution 30.0 120.0 V3d.Zero |]
-            Expect.floatClose Accuracy.high (OutcropTrace.projectionRadius 1.5 25.0 a) 37.5 "floor times factor"
+            Expect.floatClose Accuracy.high (OutcropTrace.fitProjectionRadius a) 37.5
+                "a single annotation has no spread, so the minimum sizes it"
             let b = attitudeOf [| contribution 30.0 120.0 (V3d(-100.0, 0.0, 0.0))
                                   contribution 30.0 120.0 (V3d( 100.0, 0.0, 0.0)) |]
-            Expect.floatClose Accuracy.high (OutcropTrace.projectionRadius 1.5 25.0 b) 150.0 "spread times factor"
+            Expect.floatClose Accuracy.high (OutcropTrace.fitProjectionRadius b) 150.0
+                "otherwise the selection's own footprint plus headroom"
         }
 
         // --- the precision case -------------------------------------------------------

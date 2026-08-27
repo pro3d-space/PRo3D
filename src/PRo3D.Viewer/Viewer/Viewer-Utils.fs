@@ -925,7 +925,12 @@ module ViewerUtils =
                     // pixel already covers ~0.5 m face-on, and several times that at grazing
                     // incidence, so a 1 m bed thickness is at the Nyquist limit before the
                     // terrain tilts at all.
-                    let w = max (V2f(ddxFine signed, ddyFine signed) |> Vec.length) 1e-6f
+                    // ddx/ddy, NOT ddxFine/ddyFine: the Fine variants emit dFdxFine/dFdyFine,
+                    // which need GLSL 4.50 or GL_ARB_derivative_control. macOS caps OpenGL at
+                    // 4.1, so they fail to compile there and take the whole surface shader
+                    // down with them. Plain dFdx/dFdy have been core since GLSL 1.10 and the
+                    // coarse/fine distinction is invisible at this scale anyway.
+                    let w = max (V2f(ddx signed, ddy signed) |> Vec.length) 1e-6f
 
                     // Never let a trace fall below about a pixel and a half, or it
                     // disappears and reappears between frames instead of getting fainter.
@@ -1271,10 +1276,8 @@ module ViewerUtils =
             if not enabled then return None else
             match! outcropTraceAttitude m with
             | Some attitude when attitude.shape = Cluster ->
-                let! factor = m.outcropTraces.projectionFactor.value
-                let! floor  = m.outcropTraces.projectionFloor.value
+                let! radius = m.outcropTraces.projectionRadius.value
                 let! view' = view
-                let radius = OutcropTrace.projectionRadius factor floor attitude
                 return Some (OutcropTrace.viewSpaceAttitude (CameraView.viewTrafo view') radius attitude)
             | _ ->
                 return None

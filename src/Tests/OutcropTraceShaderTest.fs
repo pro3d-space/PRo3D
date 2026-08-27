@@ -53,6 +53,14 @@ let tests () =
             let code = compile "outcropTrace" (Effect.ofFunction ViewerUtils.OutcropTraceShader.outcropTrace)
             // the screen-space derivatives are the part most likely to fail codegen
             Expect.stringContains code "dFdx" "the antialiasing derivative should reach the GLSL"
+
+            // ddxFine/ddyFine emit dFdxFine/dFdyFine, which need GLSL 4.50 or
+            // GL_ARB_derivative_control. macOS caps OpenGL at 4.1, so those fail to link at
+            // runtime and take the entire surface shader down - a blank viewer, far from
+            // here. The first version of this test asserted only that "dFdx" appeared, which
+            // "dFdxFine" satisfies as a substring; it passed while the viewer would not start.
+            Expect.isFalse (code.Contains "dFdxFine" || code.Contains "dFdyFine")
+                "the Fine derivative variants are not available on GL 4.1 (macOS)"
         }
 
         test "the full surface effect stack generates GLSL" {

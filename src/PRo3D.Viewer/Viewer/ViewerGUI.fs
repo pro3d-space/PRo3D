@@ -1078,37 +1078,56 @@ module Gui =
                                                   a.s.X a.s.Y trend plunge) ]
                     })
 
-            // Bed thickness first: it is the control the user actually works with, and a
-            // value far too small paints the terrain a solid colour while far too large
-            // shows one line - both of which read as "the feature is broken".
-            let thickness =
+            // The two distances the user actually works with, both in metres and both with
+            // a Fit to selection that seeds them from the measurements. Bed thickness first:
+            // a value far too small paints the terrain a solid colour and far too large
+            // shows one line, both of which read as "the feature is broken".
+            let distances =
                 Incremental.div AttributeMap.empty (
                     alist {
                         let! attitude = ViewerUtils.outcropTraceAttitude model
-                        let! factor = m.projectionFactor.value
-                        let! floor = m.projectionFloor.value
+                        let! radius = m.projectionRadius.value
                         let! bedThk = m.bedThickness.value
-                        let radius =
+                        let usable =
                             match attitude with
-                            | Some a when a.shape = Cluster -> Some (OutcropTrace.projectionRadius factor floor a)
+                            | Some a when a.shape = Cluster -> Some a
                             | _ -> None
                         yield require GuiEx.semui (
                             Html.table [
                                 Html.row "Bed Thickness (m):" [
                                     Numeric.view' [InputBox] m.bedThickness
                                     |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetBedThickness)
+                                    match usable with
+                                    | Some _ ->
+                                        yield button [
+                                            clazz "ui tiny compact button"
+                                            style "margin-left: 6px"
+                                            onClick (fun _ -> ViewerAction.OutcropTraceMessage (OutcropTraceAction.FitBedThickness radius))
+                                        ] [ text "Fit" ]
+                                    | None -> ()
+                                ]
+                                Html.row "Projection Radius (m):" [
+                                    Numeric.view' [InputBox] m.projectionRadius
+                                    |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetProjectionRadius)
+                                    match usable with
+                                    | Some a ->
+                                        yield button [
+                                            clazz "ui tiny compact button"
+                                            style "margin-left: 6px"
+                                            onClick (fun _ ->
+                                                ViewerAction.OutcropTraceMessage
+                                                    (OutcropTraceAction.FitProjectionRadius (OutcropTrace.fitProjectionRadius a)))
+                                        ] [ text "Fit" ]
+                                    | None -> ()
                                 ]
                                 Html.row "" [
-                                    match radius with
-                                    | Some r ->
-                                        yield button [
-                                            clazz "ui tiny button"
-                                            onClick (fun _ -> ViewerAction.OutcropTraceMessage (OutcropTraceAction.FitBedThickness r))
-                                        ] [ text "Fit to selection" ]
-                                        let count = if bedThk > 0.0 then 2.0 * r / bedThk else 1.0
-                                        yield text (sprintf " %.0f traces over %.0f m" count (2.0 * r))
-                                    | None ->
-                                        yield text ""
+                                    match usable with
+                                    | Some a ->
+                                        let count = if bedThk > 0.0 then 2.0 * radius / bedThk else 1.0
+                                        yield div [style "font-size: 0.9em; opacity: 0.8"] [
+                                            text (sprintf "%.0f traces over %.0f m; measurements span %.0f m"
+                                                          count (2.0 * radius) (2.0 * a.spread)) ]
+                                    | None -> ()
                                 ]
                                 Html.row "Colour:" [
                                     ColorPicker.view m.color
@@ -1124,7 +1143,7 @@ module Gui =
                     if enabled then
                         yield toggles
                         yield readout
-                        yield thickness
+                        yield distances
                 })
 
         let viewAnnotationResults (model : AdaptiveModel) =

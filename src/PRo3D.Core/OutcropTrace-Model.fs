@@ -13,7 +13,7 @@ open Adaptify
 /// fragment lying within `traceWidth` of any plane of that sequence, so what appears on the
 /// terrain is the outcrop pattern the sequence would make.
 ///
-/// `traceWidth`, `traceSmoothing`, `projectionFactor` and `projectionFloor` are conceptually
+/// `traceWidth`, `traceSmoothing` and `projectionRadius` are conceptually
 /// *scene* properties - how a particular outcrop should be read - and belong on `Scene` when
 /// persistence is wanted. They are deliberately NOT user preferences: an outcrop with
 /// decimetre bedding wants different numbers from one with ten-metre units, and those numbers
@@ -35,11 +35,10 @@ type OutcropTraceModel = {
     traceWidth       : NumericInput
     /// Smoothstep falloff either side of the band, in metres.
     traceSmoothing   : NumericInput
-    /// Multiplier on the selection's own spread, giving the projection radius.
-    projectionFactor : NumericInput
-    /// Minimum projection radius in metres; what sizes a single-annotation selection,
-    /// whose spread is zero.
-    projectionFloor  : NumericInput
+    /// How far the measured attitude is extrapolated, in metres, measured from the centre
+    /// of the selection. Set directly; `FitProjectionRadius` seeds it from the selection's
+    /// own footprint.
+    projectionRadius : NumericInput
     color            : ColorInput
 }
 
@@ -55,7 +54,6 @@ module OutcropTraceModel =
         bedThickness     = numeric   1.0   0.0 10000.0 0.1  "{0:0.00}"
         traceWidth       = numeric   0.25  0.01  100.0 0.05 "{0:0.00}"
         traceSmoothing   = numeric   0.1   0.0   100.0 0.05 "{0:0.00}"
-        projectionFactor = numeric   1.5   0.1    50.0 0.1  "{0:0.0}"
-        projectionFloor  = numeric  25.0   1.0 10000.0 5.0  "{0:0}"
+        projectionRadius = numeric  50.0   1.0 100000.0 5.0 "{0:0}"
         color            = { c = C4b.Red }
     }

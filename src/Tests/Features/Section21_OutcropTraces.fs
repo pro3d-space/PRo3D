@@ -38,13 +38,15 @@ let tests =
             Expect.floatClose Accuracy.high m.traceWidth.value 0.5 "trace width should be 0.5"
         }
 
-        test "TC-21.1 SetProjectionFactor and SetProjectionFloor change the extrapolation" {
-            let m =
-                OutcropTraceModel.initial
-                |> fun x -> OutcropTraceApp.update x (OutcropTraceAction.SetProjectionFactor (Numeric.SetValue 3.0))
-                |> fun x -> OutcropTraceApp.update x (OutcropTraceAction.SetProjectionFloor (Numeric.SetValue 50.0))
-            Expect.floatClose Accuracy.high m.projectionFactor.value 3.0 "projection factor should be 3"
-            Expect.floatClose Accuracy.high m.projectionFloor.value 50.0 "projection floor should be 50"
+        test "TC-21.1 SetProjectionRadius sets the extrapolation distance directly, in metres" {
+            let m = OutcropTraceApp.update OutcropTraceModel.initial (OutcropTraceAction.SetProjectionRadius (Numeric.SetValue 250.0))
+            Expect.floatClose Accuracy.high m.projectionRadius.value 250.0 "projection radius should be 250 m"
+        }
+
+        test "TC-21.2 FitProjectionRadius stays inside the control's range" {
+            let m = OutcropTraceApp.update OutcropTraceModel.initial (OutcropTraceAction.FitProjectionRadius 1e9)
+            Expect.isLessThanOrEqual m.projectionRadius.value OutcropTraceModel.initial.projectionRadius.max
+                "a huge selection must not push the control past its maximum"
         }
 
         test "TC-21.1 SetColor changes the trace colour" {
