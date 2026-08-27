@@ -1,0 +1,32 @@
+# HERA SPICE meta-kernels the test suite loads, pinned to exact ESA SKD releases.
+#
+# scripts/fetch-spice-kernels.sh downloads each meta-kernel listed here plus every
+# kernel it names in KERNELS_TO_LOAD - nothing else. That closure is ~1.3 GB across
+# ~120 files; the full ESA dataset is ~11 GB, so do not be tempted to mirror the tree.
+#
+# Format, one entry per line:
+#   <versioned meta-kernel file name>[ -> <name to also write into mk/>]
+#
+# Only the file name: ESA keeps the newest release in kernels/mk/ and moves it to
+# kernels/mk/former_versions/ the moment the next one is published (which happens
+# every few weeks), so the fetch script looks in both. A pin that named a directory
+# would break on ESA's release schedule rather than on ours.
+#
+# The alias exists because the unversioned names the tests use (hera_ops.tm,
+# hera_plan.tm) are, on the server, copies of whatever release is newest today. That
+# is fine for a workstation mirror and useless for CI. Pinning the versioned file and
+# writing it into place under the plain name is what makes a run reproducible: the
+# kernels a build used are named here, and they change when someone edits this file,
+# not when ESA ships. Bumping a pin is a one-line, reviewable change - and a new
+# cache key, so CI refetches.
+#
+# The former_versions entries are pinned by the fixtures themselves: an mbi sidecar's
+# SPICE_MK field names the exact meta-kernel its geometry was generated against
+# (src/Tests/data/ASP_*.mbi.json says hera_plan_v180_20250616_001), and
+# HeraSpiceTests.loadKernelForMbiContent honours that. Those names only change when
+# the fixtures are regenerated.
+
+hera_ops_v182_20260527_001.tm -> hera_ops.tm
+hera_plan_v182_20260527_001.tm -> hera_plan.tm
+hera_ops_v172_20250312_001.tm
+hera_plan_v180_20250616_001.tm

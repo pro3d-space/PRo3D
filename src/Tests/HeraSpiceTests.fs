@@ -19,14 +19,41 @@ open PRo3D.Extensions.FSharp
 module Coo = PRo3D.Base.CooTransformation
 
 let logDir = Path.Combine(".", "logs")
-let spiceRoot = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..")
-let spiceFileName = Path.Combine(spiceRoot, "spice", "kernels", "mk", "hera_ops.tm")
-let private mkDir = Path.Combine(spiceRoot, "spice", "kernels", "mk")
 
-// HERA tests need the (non-public) HERA mission kernels. They self-skip when
-// those are absent (e.g. in CI), or when --skip-hera is passed (runTests uses
-// this for a deterministic kernel-free run). Kernel-independent SPICE coverage
-// lives in SpiceTests.fs and always runs. (Adopted from releases/6.0.0.)
+/// The `kernels` directory of a HERA SPICE dataset, i.e. the directory holding
+/// `mk`, `ck`, `spk`, ... .
+///
+/// PRO3D_SPICE_KERNELS is the documented way in - the same variable PRo3D.Tool reads,
+/// with the same tolerance: point it either at the dataset root (which has `kernels/mk`)
+/// or straight at the `kernels` directory. CI sets it to whatever
+/// scripts/fetch-spice-kernels.sh downloaded.
+///
+/// Without the variable, fall back to a `spice` mirror checked out next to the PRo3D
+/// clone, which is how the developer machines these tests were written on are laid out.
+/// The fallback is also what a missing/misspelled path degrades to - the point of
+/// resolution here is only to find the kernels, not to diagnose; `hasHera` below turns
+/// "not found" into skipped tests either way.
+let kernelsDir =
+    let sibling = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", "spice", "kernels")
+    let fromEnv =
+        match Environment.GetEnvironmentVariable "PRO3D_SPICE_KERNELS" with
+        | null | "" -> []
+        | value -> [ value; Path.Combine(value, "kernels") ]
+    fromEnv @ [ sibling ]
+    |> List.tryFind (fun dir -> Directory.Exists(Path.Combine(dir, "mk")))
+    |> Option.defaultValue sibling
+
+/// Directory holding the meta-kernels (`hera_ops.tm`, `hera_plan.tm`, `former_versions/...`).
+let mkDir = Path.Combine(kernelsDir, "mk")
+
+let spiceFileName = Path.Combine(mkDir, "hera_ops.tm")
+
+// HERA tests need the HERA mission kernels, which are far too large to commit
+// (the meta-kernels these tests load close over ~1.3 GB). They self-skip when the
+// kernels are absent, or when --skip-hera is passed (runTests uses this for a
+// deterministic kernel-free run). Kernel-independent SPICE coverage lives in
+// SpiceTests.fs and always runs. (Adopted from releases/6.0.0.)
+// CI gets the kernels via scripts/fetch-spice-kernels.sh - see docs/SpiceKernels.md.
 /// Public so other kernel-using tests can honour the flag too: --skip-hera promises a
 /// deterministic kernel-free run even on a machine that has the kernels.
 let skipHeraRequested =
