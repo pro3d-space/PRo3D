@@ -16,6 +16,9 @@ type VisualizationProperties =
         instrumentImage : aval<ITexture>
         colorMapping : aval<Option<ITexture>>
         projectionOpacity : aval<float>
+        /// Run projected samples through the colour map and the min/max remap
+        /// (true), or paint the image's own RGB untouched (false).
+        useTransferFunction : aval<bool>
     }
 
 module VisualizationProperties =
@@ -26,6 +29,7 @@ module VisualizationProperties =
             instrumentImage = DefaultTextures.checkerboard
             colorMapping = AVal.constant None
             projectionOpacity = AVal.constant 1.0
+            useTransferFunction = AVal.constant true
         }
 
 [<AutoOpen>]
@@ -55,6 +59,7 @@ module InstrumentImageVisualization =
         |> Sg.texture "InstrumentImage" p.instrumentImage
         |> Sg.uniform "DataType" (p.dataType |> AVal.map int)
         |> Sg.uniform "ProjectedImageOpacity2" (p.projectionOpacity |> AVal.map (fun v -> v))
+        |> Sg.uniform "ProjectedUseTransferFunction" p.useTransferFunction
         |> Sg.texture "ColormapTexture" (
             p.colorMapping |> AVal.bind (function
                 | None -> DefaultTextures.blackTex 

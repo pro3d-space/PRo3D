@@ -75,6 +75,7 @@ module ProjectedImagesListAppHelper =
                         | None -> AVal.constant DataType.Float
                         | Some img -> img.dataType
                     )
+                useTransferFunction = g.projectedImageList.useTransferFunction
         }
 
     /// The (image file, channel) feeding each slice of the stack texture array,

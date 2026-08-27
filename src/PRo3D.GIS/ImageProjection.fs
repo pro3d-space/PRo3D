@@ -115,6 +115,12 @@ module ImageProjection =
         type UniformScope with
             member x.StackUseFalseColor : bool = uniform?UseFalseColor
             member x.StackDataType : int = uniform?DataType
+            /// false = paint the layer's own RGB untouched, skipping both the
+            /// per-layer min/max remap and the colour map. Instrument data needs
+            /// the transfer function to be readable; an ordinary RGB image does
+            /// not, and a projection can only be CHECKED against its source
+            /// image when nothing has been applied to it.
+            member x.ProjectedUseTransferFunction : bool = uniform?ProjectedUseTransferFunction
 
         /// The projection stack: layers bottom -> top, painter's order -- the
         /// TOPMOST layer that covers a fragment with a projector-facing normal
@@ -141,7 +147,8 @@ module ImageProjection =
                         let inRange = Vec.allGreaterOrEqual tc V3f.OOO && Vec.allSmallerOrEqual tc V3f.III
                         let normal = uniform.ProjectedStackTrafos.[i].TransformDir(v.localNormalNumericallyUnstable) |> Vec.normalize
                         if inRange && normal.Z < 0.0f then
-                            let value = projectedStackTexture.Sample(V2f(tc.X, tc.Y), i).X
+                            let sample = projectedStackTexture.Sample(V2f(tc.X, tc.Y), i)
+                            let value = sample.X
                             let minMax = uniform.ProjectedStackMinMax.[i]
                             // per-layer remap, inlined rather than shared with
                             // ColorMapping.remap: reworking that function would
@@ -155,7 +162,9 @@ module ImageProjection =
                             let normalized =
                                 if uniform.StackDataType = 2 then normalizedFloat else normalizedInt16
                             let mapped =
-                                if uniform.StackUseFalseColor then
+                                if not uniform.ProjectedUseTransferFunction then
+                                    V4f(sample.XYZ, 1.0f)
+                                elif uniform.StackUseFalseColor then
                                     stackColormapSampler.Sample(V2f(normalized, 0.0f))
                                 else
                                     V4f(normalized, normalized, normalized, 1.0f)

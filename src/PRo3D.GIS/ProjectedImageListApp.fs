@@ -32,6 +32,7 @@ module ProjectedImageListApp =
         instrumentVisibility = InstrumentVisibilityMode.Off
         lightingMode = LightingMode.Off
         projectionMethod = ProjectionMethod.Spice
+        useTransferFunction = true
     }
 
     let update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) =
@@ -43,6 +44,8 @@ module ProjectedImageListApp =
             { m with instrumentVisibility = mode }
         | SetProjectionMethod method ->
             { m with projectionMethod = method }
+        | ToggleTransferFunction ->
+            { m with useTransferFunction = not m.useTransferFunction }
         | LoadSpiceAndTime _ ->
             // handled by GisApp.update, which owns the spice kernel + observation time state
             m
@@ -328,6 +331,17 @@ module ProjectedImageListApp =
                             div [] [text "Sun / Lighting Mode:"]
                             div [style "margin-left: auto;"] [
                                 Html.SemUi.dropDown m.lightingMode SetLightingMode
+                            ]
+                        ]
+
+                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                            // off = the image's own RGB, untouched. Instrument data needs
+                            // the colour map to be readable at all, but an ordinary RGB
+                            // image does not -- and only untransformed pixels can be
+                            // compared against the source to check a projection.
+                            div [] [text "Transfer Function:"]
+                            div [style "margin-left: auto;"] [
+                                GuiEx.iconCheckBox m.useTransferFunction ToggleTransferFunction
                             ]
                         ]
 

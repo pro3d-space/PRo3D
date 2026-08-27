@@ -490,7 +490,19 @@ module Sg =
                         Aardvark.Data.PixImagePfim.Loader
                     )
                 //plainPatchLod
-                patchLodWithTextures
+                (patchLodWithTextures :> ISg)
+                // Per hierarchy, and OUTER rather than in allUniforms: a per-patch uniform
+                // of this name would shadow it. Without it the projection shaders' "is
+                // this fragment facing the projector" test reads an unflipped normal, and
+                // on an inward-wound dataset the projection survives only near the limb.
+                // The offscreen tools (OpcSg.build) have always bound this; the viewer did
+                // not, and its lighting workaround -- orienting the face normal toward the
+                // VIEWER (see PRo3D.GIS.Shaders.solarShadingLS) -- cannot stand in, because
+                // the projector is not the camera.
+                |> Aardvark.SceneGraph.SgFSharp.Sg.uniform' "NormalFlip"
+                    (match h.tree with
+                     | QTree.Node (p, _) | QTree.Leaf p ->
+                        NormalWinding.estimate h.opcPaths.Opc_DirAbsPath p)
             )
             |> Aardvark.SceneGraph.SgFSharp.Sg.ofArray
                                                                       

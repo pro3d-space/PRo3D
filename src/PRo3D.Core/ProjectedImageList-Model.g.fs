@@ -1,5 +1,5 @@
-//7648ac77-29f5-4c17-2c59-1c84fbe36115
-//4174ec9a-128d-be75-a9be-233d2ca4f78b
+//7997e7af-d3e8-cc4a-1d0f-a83cde68fadb
+//044fba81-83f9-2fab-16c6-5d3d98e7c7ae
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -117,6 +117,7 @@ type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
     let _instrumentVisibility_ = FSharp.Data.Adaptive.cval(value.instrumentVisibility)
     let _lightingMode_ = FSharp.Data.Adaptive.cval(value.lightingMode)
     let _projectionMethod_ = FSharp.Data.Adaptive.cval(value.projectionMethod)
+    let _useTransferFunction_ = FSharp.Data.Adaptive.cval(value.useTransferFunction)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ProjectedImageListModel) = AdaptiveProjectedImageListModel(value)
@@ -136,6 +137,7 @@ type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
             _instrumentVisibility_.Value <- value.instrumentVisibility
             _lightingMode_.Value <- value.lightingMode
             _projectionMethod_.Value <- value.projectionMethod
+            _useTransferFunction_.Value <- value.useTransferFunction
     member __.Current = __adaptive
     member __.images = _images_ :> FSharp.Data.Adaptive.alist<AdaptiveProjectedImageModel>
     member __.stack = _stack_ :> FSharp.Data.Adaptive.alist<System.Guid>
@@ -148,6 +150,7 @@ type AdaptiveProjectedImageListModel(value : ProjectedImageListModel) =
     member __.instrumentVisibility = _instrumentVisibility_ :> FSharp.Data.Adaptive.aval<InstrumentVisibilityMode>
     member __.lightingMode = _lightingMode_ :> FSharp.Data.Adaptive.aval<LightingMode>
     member __.projectionMethod = _projectionMethod_ :> FSharp.Data.Adaptive.aval<ProjectionMethod>
+    member __.useTransferFunction = _useTransferFunction_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ProjectedImageListModelLenses = 
     type ProjectedImageListModel with
@@ -162,4 +165,5 @@ module ProjectedImageListModelLenses =
         static member instrumentVisibility_ = ((fun (self : ProjectedImageListModel) -> self.instrumentVisibility), (fun (value : InstrumentVisibilityMode) (self : ProjectedImageListModel) -> { self with instrumentVisibility = value }))
         static member lightingMode_ = ((fun (self : ProjectedImageListModel) -> self.lightingMode), (fun (value : LightingMode) (self : ProjectedImageListModel) -> { self with lightingMode = value }))
         static member projectionMethod_ = ((fun (self : ProjectedImageListModel) -> self.projectionMethod), (fun (value : ProjectionMethod) (self : ProjectedImageListModel) -> { self with projectionMethod = value }))
+        static member useTransferFunction_ = ((fun (self : ProjectedImageListModel) -> self.useTransferFunction), (fun (value : Microsoft.FSharp.Core.bool) (self : ProjectedImageListModel) -> { self with useTransferFunction = value }))
 

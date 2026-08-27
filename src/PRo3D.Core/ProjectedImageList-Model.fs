@@ -142,6 +142,15 @@ type ProjectedImageListModel =
         instrumentVisibility : InstrumentVisibilityMode
         lightingMode         : LightingMode
         projectionMethod     : ProjectionMethod
+        /// Send the projected samples through the colour map and the per-image
+        /// min/max remap (true), or paint the image's own RGB untouched (false).
+        ///
+        /// Instrument data is usually single-band with a range that means
+        /// nothing on screen, so the transfer function is the default. It is in
+        /// the way for an ordinary RGB image, and it is in the way for checking
+        /// a projection at all: only untransformed pixels can be compared with
+        /// the source image.
+        useTransferFunction  : bool
     }
 
 module ProjectedImageListModel =
@@ -178,6 +187,7 @@ module ProjectedImageListModel =
         instrumentVisibility = InstrumentVisibilityMode.Off
         lightingMode = LightingMode.Off
         projectionMethod = ProjectionMethod.Spice
+        useTransferFunction = true
     }
 
 type ImageMessage =
@@ -218,6 +228,7 @@ type ProjectedImageListMessage =
     | SetInstrumentVisbilityMode of InstrumentVisibilityMode
     | SetLightingMode of LightingMode
     | SetProjectionMethod of ProjectionMethod
+    | ToggleTransferFunction
     /// User picked a SPICE kernel root folder to load the kernel (and
     /// observation time) the selected image's mbi sidecar was generated
     /// against. Handled by GisApp.update (needs the mbi + spice state that

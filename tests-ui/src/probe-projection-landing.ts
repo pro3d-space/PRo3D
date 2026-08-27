@@ -100,6 +100,24 @@ async function settled(page: Page, name: string): Promise<Buffer> {
         await render.waitForTimeout(3000);
     }
 
+    // PRO3D_PROBE_TRANSFER=off unticks "Transfer Function", so the projected
+    // image is painted as its own RGB. That is the only way the render can be
+    // compared with the source image rather than with a colour-mapped version
+    // of it.
+    if ((process.env.PRO3D_PROBE_TRANSFER ?? "").toLowerCase() === "off") {
+        const r = await gis.evaluate(() => {
+            const label = Array.from(document.querySelectorAll("*")).find(
+                (e) => (e.textContent ?? "").trim() === "Transfer Function:"
+            );
+            const box = label?.parentElement?.querySelector("i");
+            if (!box) return "checkbox not found";
+            (box as HTMLElement).click();
+            return "clicked";
+        });
+        console.log(`transfer function -> off: ${r}`);
+        await render.waitForTimeout(3000);
+    }
+
     const wanted =
         process.env.PRO3D_PROBE_IMAGE ??
         fs

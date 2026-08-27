@@ -8,7 +8,61 @@ open Aardvark.SceneGraph.Semantics
 
         
 
-module ImageProjectionOpcExtensions = 
+/// Which way `ImageProjection.Shaders.generateNormal`'s face normal points for a given
+/// dataset.
+///
+/// OPC datasets are inconsistently wound, so `cross edge1 edge2` points outward on one and
+/// inward on another. Anything that tests a normal against a direction OTHER than the
+/// render camera therefore needs to know: the projection shaders' "is this fragment facing
+/// the projector" test is exactly that, and gets the answer backwards on an inward-wound
+/// dataset -- the projection then survives only near the limb.
+///
+/// Lives here rather than next to the offscreen tools' scene graph because both the tools
+/// (PRo3D.GIS.OpcSg) and the viewer (Surface.Sg) must bind the same value, and PRo3D.Core
+/// is what they share.
+module NormalWinding =
+
+    open Aardvark.Rendering
+    open Aardvark.Data.Opc
+    open Aardvark.SceneGraph.Opc
+
+    /// Sample up to ~100 faces of the coarse root patch and vote whether they point away
+    /// from the body-fixed origin. Majority inward -> the shader must flip (1.0), else 0.0.
+    /// Valid for star-shaped bodies, which is what this projection is for.
+    let estimate (basePath : string) (rootPatch : Patch) : float =
+        try
+            let ig, _ = Patch.load (OpcPaths.OpcPaths basePath) ViewerModality.XYZ rootPatch.info
+            let l2g = rootPatch.info.Local2Global.Forward
+            match ig.IndexedAttributes.[DefaultSemantic.Positions], ig.IndexArray with
+            | (:? array<V3f> as pos), (:? array<int> as idx) ->
+                let triCount = idx.Length / 3
+                let stride = max 1 (triCount / 100)   // ~100 samples spread across the patch
+                let mutable outward = 0
+                let mutable inward = 0
+                let mutable t = 0
+                while t < triCount do
+                    let i = t * 3
+                    let a = pos.[idx.[i]]
+                    let b = pos.[idx.[i + 1]]
+                    let c = pos.[idx.[i + 2]]
+                    if not (a.IsNaN || b.IsNaN || c.IsNaN) then
+                        let n = l2g.TransformDir (V3d (Vec.cross (b - a) (c - a)))
+                        let centroid = l2g.TransformPos (V3d ((a + b + c) / 3.0f))
+                        if Vec.dot n centroid > 0.0 then outward <- outward + 1
+                        else inward <- inward + 1
+                    t <- t + stride
+                if outward + inward = 0 then 0.0
+                else
+                    let flip = if inward > outward then 1.0 else 0.0
+                    Log.line "[opc]   winding: %d outward / %d inward -> NormalFlip %.0f"
+                        outward inward flip
+                    flip
+            | _ -> 0.0
+        with e ->
+            Log.warn "[opc]   could not estimate winding (%s); NormalFlip 0" e.Message
+            0.0
+
+module ImageProjectionOpcExtensions =
 
     let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
