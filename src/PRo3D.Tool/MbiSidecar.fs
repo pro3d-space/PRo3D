@@ -210,6 +210,13 @@ let write (ctx : Context) (imagePath : string) (view : Trafo3d) : Result<string,
 /// The statistics sidecar (`<image>.json`). Optional for the projection itself, but it is
 /// the only place the image's pixel dimensions are declared in a form the readers use, so
 /// without it `unproject` cannot turn a pixel into a ray.
+///
+/// The statistics describe the values a CONSUMER sees, not the bytes on disk: an 8-bit
+/// image is sampled as normalized [0,1] by the projection shader, and the viewer seeds an
+/// image's display range straight from `image_statistics` — declaring 0..255 there would
+/// stretch the colour map over a range a hundred times wider than the data and paint the
+/// projection as one flat saturated blob. (Without this sidecar the viewer already treats
+/// plain images as float over [0,1]; writing it must not change that.)
 let writeStatistics (ctx : Context) (imagePath : string) (image : PixImage<byte>) : Result<string, string> =
     let channel = image.GetChannel Col.Channel.Gray
     let mutable mn = Double.MaxValue
@@ -217,7 +224,7 @@ let writeStatistics (ctx : Context) (imagePath : string) (image : PixImage<byte>
     let mutable sum = 0.0
     for y in 0 .. image.Size.Y - 1 do
         for x in 0 .. image.Size.X - 1 do
-            let v = float channel.[x, y]
+            let v = float channel.[x, y] / 255.0
             if v < mn then mn <- v
             if v > mx then mx <- v
             sum <- sum + v
@@ -246,7 +253,9 @@ let writeStatistics (ctx : Context) (imagePath : string) (image : PixImage<byte>
     root.["image_width"] <- JsonValue.Create image.Size.X
     root.["image_height"] <- JsonValue.Create image.Size.Y
     root.["channels"] <- JsonValue.Create 1
-    root.["data_type"] <- str "byte"
+    // "float" for the same reason the statistics are normalized: it names how the value
+    // is consumed, and it is what the viewer assumes for a plain image without a sidecar
+    root.["data_type"] <- str "float"
     root.["file_md5"] <- str ""
     root.["image_statistics"] <- statsArray
     root.["mission_name"] <- str "HERA"

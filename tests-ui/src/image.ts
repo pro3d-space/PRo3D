@@ -67,11 +67,12 @@ export interface Coverage {
  * How much of the body the projection actually landed on.
  *
  * `baseline` is the render with nothing projected, `projected` the same view
- * with the image in the stack. Pixels the baseline shows as lit terrain are
- * "body"; a projection that is geometrically right repaints nearly all of them
- * and leaves the surrounding space alone. A projector pointing somewhere else
- * changes almost nothing -- which is the failure this measures, and it is
- * insensitive to how the projected image happens to be exposed or coloured.
+ * with the image in the stack. Pixels the baseline shows as surface (anything
+ * that is not the clear colour) are "body"; a projection that is geometrically
+ * right repaints nearly all of them and leaves the surrounding space alone. A
+ * projector pointing somewhere else changes almost nothing -- which is the
+ * failure this measures, and it is insensitive to how the projected image
+ * happens to be exposed or coloured.
  *
  * Deliberately not a pixel-exact comparison against the source image: the
  * viewer looks at the body from the projector's axis but neither at the
@@ -81,7 +82,7 @@ export interface Coverage {
 export function bodyCoverage(
     baseline: Buffer,
     projected: Buffer,
-    bodyThreshold = 40,
+    backgroundTolerance = 10,
     epsilon = 12
 ): Coverage {
     const pa = PNG.sync.read(baseline);
@@ -98,6 +99,21 @@ export function bodyCoverage(
     const y0 = Math.floor(pa.height * 0.15),
         y1 = Math.floor(pa.height * 0.95);
 
+    // "body" is anything that is not the viewer's clear colour, NOT anything
+    // bright: the DRACO mosaic is hemispheric, so the unobserved cap renders
+    // pure black while empty space is the clear colour (#2A2A2A). A brightness
+    // threshold puts that cap on the space side and then reports every pixel
+    // the projection legitimately paints there as spill.
+    const bg = (() => {
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let y = y1 - 12; y < y1 - 4; y++)
+            for (let x = x1 - 12; x < x1 - 4; x++) {
+                const o = (y * pa.width + x) * 4;
+                r += pa.data[o]; g += pa.data[o + 1]; b += pa.data[o + 2]; n++;
+            }
+        return [r / n, g / n, b / n];
+    })();
+
     let body = 0,
         covered = 0,
         space = 0,
@@ -105,15 +121,19 @@ export function bodyCoverage(
     for (let y = y0; y < y1; y++) {
         for (let x = x0; x < x1; x++) {
             const o = (y * pa.width + x) * 4;
-            const lum =
-                (pa.data[o] + pa.data[o + 1] + pa.data[o + 2]) / 3;
+            const isBody =
+                Math.max(
+                    Math.abs(pa.data[o] - bg[0]),
+                    Math.abs(pa.data[o + 1] - bg[1]),
+                    Math.abs(pa.data[o + 2] - bg[2])
+                ) > backgroundTolerance;
             const changed =
                 Math.max(
                     Math.abs(pa.data[o] - pb.data[o]),
                     Math.abs(pa.data[o + 1] - pb.data[o + 1]),
                     Math.abs(pa.data[o + 2] - pb.data[o + 2])
                 ) > epsilon;
-            if (lum > bodyThreshold) {
+            if (isBody) {
                 body++;
                 if (changed) covered++;
             } else {

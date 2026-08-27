@@ -81,6 +81,36 @@ many **stack** layers cover each fragment (blue = few … red = many):
   through each row's edit panel; colormap and false-color toggle apply to the
   whole stack (one instrument, one legend).
 
+## If an image does not land on the terrain
+
+The pointing comes from two sidecar fields, and they have one convention:
+`SC_QUAT0..3` is the quaternion taking vectors from the **spacecraft frame to
+J2000**, and `TRG_POSX/Y/Z` is **target minus spacecraft** — a vector from the
+camera to the body named in `TARGET`, in km. A sidecar written the other way
+round (a conjugated quaternion, a negated vector, or one measured from the
+system primary instead of the target) parses perfectly, projects without
+complaint, and puts the image nowhere near the body. Nothing in the file says
+which reading was meant, so PRo3D cannot fall back.
+
+A generator can self-check: transform `TRG_POS` into the spacecraft frame and
+it must come out close to `(0, 0, +1)` — the target is what the camera looks
+at, and the boresight is +Z.
+
+To tell a metadata problem from a rendering one, render the body yourself and
+project that back:
+
+```
+pro3d-tool simulate-image --opc <the same OPC> --time <epoch> --body <body>
+    --frame <body-fixed frame> --out sim.png --write-mbi
+```
+
+`--write-mbi` writes a sidecar for the camera the render actually used, so
+importing `sim.png` and projecting it must lay the image exactly over the
+terrain it came from. If it does, the projection chain is fine and the problem
+is in the other images' metadata — see
+[COP-sidecar-issues.md](COP-sidecar-issues.md), which documents a delivery that
+got all three of the above wrong at once.
+
 # Under the hood
 
 One `sampler2DArray` (layer *i* = stack entry *i*) plus fixed-size uniform
