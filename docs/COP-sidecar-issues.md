@@ -14,14 +14,18 @@ reject them. Please forward to whoever generates these.
 ```
 
 `DATE-OBS` is the authoritative observation timestamp; here it carries a
-product id. The actual (simulated) observation time is only in `DATE`
-("File creation time UTC") and in the file name.
+product id. Worse, `DATE` is **the same value in every sidecar of the whole
+delivery** (`2027-02-05T01:00:00.000`, the sequence start — verified across
+dates), so it cannot stand in for the observation time either. The only
+per-image time in the delivery is the **file-name timestamp**
+(`HERA_AFC_2317_20270301_040000_COP` → 2027-03-01T04:00:00Z).
 
-*PRo3D fallback:* when `DATE-OBS` doesn't parse as a date, the `DATE` header is
-used instead.
+*PRo3D fallback:* when `DATE-OBS` doesn't parse as a date, the file-name
+timestamp (`_yyyyMMdd_HHmmss_`) is used; `DATE` is the last resort.
 
-*Fix:* write the simulated observation time into `DATE-OBS`
-(`2027-02-05T01:00:00.000`-style, as `DATE` already does).
+*Fix:* write each image's simulated observation time into `DATE-OBS`
+(ISO style, as `DATE` already is), and make `DATE` the actual per-file
+creation time rather than a constant.
 
 ## 2. `bands[].file_path` is empty
 

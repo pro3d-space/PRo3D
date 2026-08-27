@@ -161,20 +161,43 @@ module Tiff_Mbi_Json =
 
     let (|Float|_|) (s : string) = parseFloat' s
 
-    /// The observation time. DATE-OBS is authoritative; some synthetic exports
-    /// (HERA COP simulation, 2026-08) fill it with a product id ("AFC1-Synthetic")
-    /// instead of a timestamp, so fall back to the DATE header (file creation
-    /// time, which for synthetic data *is* the simulated observation time).
-    /// See docs/COP-sidecar-issues (data-generator report) for the details.
-    let tryExtractDateObsFromMbi (mbi: JsonValue) : DateTime option =
+    /// "..._20270301_040000_..." -> 2027-03-01T04:00:00Z. The instrument file
+    /// naming scheme (HERA_AFC_<seq>_<yyyyMMdd>_<HHmmss>_<phase>) carries the
+    /// observation time; for the COP synthetic delivery it is the ONLY
+    /// per-image time (see tryExtractDateObsFromMbi).
+    let tryParseTimestampFromFileName (fileName : string) : Option<DateTime> =
+        let m = System.Text.RegularExpressions.Regex.Match(fileName, @"_(\d{8})_(\d{6})_")
+        if m.Success then
+            match DateTime.TryParseExact(m.Groups.[1].Value + m.Groups.[2].Value,
+                                         "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
+                                         DateTimeStyles.AssumeUniversal ||| DateTimeStyles.AdjustToUniversal) with
+            | (true, d) -> Some d
+            | _ -> None
+        else None
+
+    /// The observation time. DATE-OBS is authoritative; the COP synthetic
+    /// export (2026-08) fills it with a product id ("AFC1-Synthetic") instead
+    /// of a timestamp, AND writes the same DATE (the sequence start) into
+    /// every sidecar of the delivery -- so when DATE-OBS is unusable the only
+    /// trustworthy per-image time is the file-name timestamp; DATE is the last
+    /// resort. See docs/COP-sidecar-issues (data-generator report), issue 1.
+    let tryExtractDateObs (fileName : Option<string>) (mbi : JsonValue) : Option<DateTime> =
         match tryGetFitsHeader "DATE-OBS" mbi parseDate with
         | Some d -> Some d
         | None ->
-            match tryGetFitsHeader "DATE" mbi parseDate with
+            match fileName |> Option.bind tryParseTimestampFromFileName with
             | Some d ->
-                Log.warn "[InstrumentMetadata] DATE-OBS is missing or unparseable, falling back to DATE (%A)" d
+                Log.warn "[InstrumentMetadata] DATE-OBS is missing or unparseable, using the file-name timestamp (%A)" d
                 Some d
-            | None -> None
+            | None ->
+                match tryGetFitsHeader "DATE" mbi parseDate with
+                | Some d ->
+                    Log.warn "[InstrumentMetadata] DATE-OBS is missing or unparseable, falling back to DATE (%A)" d
+                    Some d
+                | None -> None
+
+    let tryExtractDateObsFromMbi (mbi: JsonValue) : DateTime option =
+        tryExtractDateObs None mbi
 
     /// A FITS string header, with "" (observed in synthetic exports where the
     /// generator left the value blank) treated as absent.
@@ -241,7 +264,9 @@ module Tiff_Mbi_Json =
             Log.warn "[InstrumentMetadata] sun position %.3e km is implausible in km and in metres; keeping values as declared" asKm
             1.0
 
-    let tryParseJson (content : string) =
+    /// `fileName`: the image (or sidecar) file name, if known -- used only as
+    /// the observation-time fallback when DATE-OBS is unusable.
+    let tryParseJsonForFile (fileName : Option<string>) (content : string) =
         match JsonValue.TryParse(content) with
         | Some mbi ->
             try
@@ -256,7 +281,7 @@ module Tiff_Mbi_Json =
                 let instrument = tryGetFitsHeader "INSTRUME" mbi (function JsonValue.String s -> Some s | _ -> None)
                 let spiceMk = tryExtractSpiceMk mbi
                 let target = tryGetNonEmptyString "TARGET" mbi
-                match tryExtractDateObsFromMbi mbi, sunPos, earthPos, tryExtractSC_quat mbi, targetPos, instrument  with
+                match tryExtractDateObs fileName mbi, sunPos, earthPos, tryExtractSC_quat mbi, targetPos, instrument  with
                 | Some d, Some sunPos, Some earthPos, Result.Ok quat, Some targetPos, Some instrument ->
                     {
                         obs_date = d; sunPos = sunPos;
@@ -271,6 +296,8 @@ module Tiff_Mbi_Json =
             with e ->
                 Result.Error e
         | _ -> Result.Error (System.Exception("could not parse mbi json"))
+
+    let tryParseJson (content : string) = tryParseJsonForFile None content
 
     /// The band image file paths an MBI sidecar declares. Newer exports list
     /// them under "mbi_bands", older ones under "bands"; both carry a per-band
@@ -306,11 +333,12 @@ type ParsedMetadata = Option<Tiff_Mbi_Json.Mbi> * Option<Tiff_Json.ImageMetadata
 /// per-band images (Vis_0, NIR1_3, ...) -- so content, not file naming, is
 /// the only reliable way to associate an image with its mbi metadata.
 let private buildMbiIndex (dir : string) : Map<string, Tiff_Mbi_Json.Mbi> =
+    if not (Directory.Exists dir) then Map.empty else
     Directory.EnumerateFiles(dir, "*.mbi.json")
     |> Seq.collect (fun path ->
         try
             let content = File.ReadAllText path
-            match Tiff_Mbi_Json.tryParseJson content with
+            match Tiff_Mbi_Json.tryParseJsonForFile (Some (Path.GetFileName path)) content with
             | Result.Ok mbi ->
                 Tiff_Mbi_Json.tryParseBandFileNames content
                 |> List.map (fun bandFile -> bandFile, mbi)
@@ -321,6 +349,34 @@ let private buildMbiIndex (dir : string) : Map<string, Tiff_Mbi_Json.Mbi> =
             printfn $"could not read mbi json metadata {path}: {e}"
             [])
     |> Map.ofSeq
+
+/// Importing a folder looks metadata up once per image, but the index costs a
+/// full parse of every sidecar in the directory -- per image that is O(n^2)
+/// parses (a 92-image COP folder = ~8500 sidecar parses). Cache the index per
+/// directory, keyed by the sidecars' (count, newest write time), so an
+/// unchanged directory parses exactly once and edits/additions still
+/// invalidate. The cache only ever holds a handful of directories per session,
+/// so no eviction.
+let private mbiIndexCache =
+    System.Collections.Concurrent.ConcurrentDictionary<string, struct (int * int64) * Map<string, Tiff_Mbi_Json.Mbi>>()
+
+let private buildMbiIndexCached (dir : string) : Map<string, Tiff_Mbi_Json.Mbi> =
+    let stamp =
+        if not (Directory.Exists dir) then struct (0, 0L)
+        else
+            let mutable count = 0
+            let mutable newest = 0L
+            for f in Directory.EnumerateFiles(dir, "*.mbi.json") do
+                count <- count + 1
+                let t = File.GetLastWriteTimeUtc(f).Ticks
+                if t > newest then newest <- t
+            struct (count, newest)
+    match mbiIndexCache.TryGetValue dir with
+    | true, (s, idx) when s = stamp -> idx
+    | _ ->
+        let idx = buildMbiIndex dir
+        mbiIndexCache.[dir] <- (stamp, idx)
+        idx
 
 /// The per-image statistics/product-info sidecar ("<image file name>.json") is
 /// still located by naming convention: unlike the mbi sidecar, its content
@@ -371,7 +427,7 @@ let private tryParseMbiByNamingConvention (imagePath : string) : Option<Tiff_Mbi
     let sidecar = Path.ChangeExtension(imagePath, ".mbi.json")
     if File.Exists sidecar then
         try
-            match Tiff_Mbi_Json.tryParseJson (File.ReadAllText sidecar) with
+            match Tiff_Mbi_Json.tryParseJsonForFile (Some (Path.GetFileName imagePath)) (File.ReadAllText sidecar) with
             | Result.Ok mbi ->
                 Log.warn "[InstrumentMetadata] %s declares no band file paths; associated it with %s by naming convention"
                     (Path.GetFileName sidecar) (Path.GetFileName imagePath)
@@ -387,7 +443,7 @@ let private tryParseMbiByNamingConvention (imagePath : string) : Option<Tiff_Mbi
 
 let tryParseMetadataForImagePath (imagePath : string) : ParsedMetadata =
     let mbi =
-        match buildMbiIndex (Path.GetDirectoryName(imagePath)) |> Map.tryFind (Path.GetFileName imagePath) with
+        match buildMbiIndexCached (Path.GetDirectoryName(imagePath)) |> Map.tryFind (Path.GetFileName imagePath) with
         | Some mbi -> Some mbi
         | None -> tryParseMbiByNamingConvention imagePath
     let tif = tryParseTifJson imagePath
