@@ -588,10 +588,17 @@ module ViewerApp =
                     let camToBody = pc.view.Backward
                     let fwdB = camToBody.TransformDir(-V3d.OOI) |> Vec.normalize
                     let upB = camToBody.TransformDir V3d.OIO |> Vec.normalize
-                    // stand off to frame the instrument footprint: its extent at
-                    // the target distance, filled in a ~60 deg viewer fov
+                    // Stand off far enough to frame the instrument's footprint -- its
+                    // extent at the target distance -- in the VIEWER's own field of view,
+                    // not an assumed one. (This used to hard-code a factor of 0.87, i.e.
+                    // a ~60 degree viewer fov; the expression below reproduces that at 60
+                    // degrees and is right at any other.) Setting the viewer's focal
+                    // length to the instrument's therefore flies exactly to where the
+                    // instrument was, which is the only viewpoint from which the whole
+                    // projected image can land: from anywhere closer the camera sees
+                    // terrain the instrument could not.
                     let footprint = 2.0 * pc.distance / pc.proj.Forward.M11
-                    let standoff = max 1.0 (footprint * 0.87)
+                    let standoff = max 1.0 (0.5 * footprint * (Frustum.projTrafo m.frustum).Forward.M11)
                     let posB = camToBody.TransformPos V3d.Zero + fwdB * (pc.distance - standoff)
                     // into render space via the surface's current placement
                     let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.tryFind surfaceId |> Option.map Leaf.toSurface

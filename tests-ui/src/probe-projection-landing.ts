@@ -55,9 +55,13 @@ async function settled(page: Page, name: string): Promise<Buffer> {
 
     const app = await launchPro3d();
     const browser = await chromium.launch();
-    const context = await browser.newContext({
-        viewport: { width: 1600, height: 900 },
-    });
+    // PRO3D_PROBE_VIEWPORT=WxH. Square matters once the viewer's field of view is set to
+    // a square detector's: in a 16:9 window the vertical fov is the shorter one, so the
+    // framing would no longer be the instrument's.
+    const [vw, vh] = (process.env.PRO3D_PROBE_VIEWPORT ?? "1600x900")
+        .split("x")
+        .map((n) => parseInt(n, 10));
+    const context = await browser.newContext({ viewport: { width: vw, height: vh } });
 
     const render = await context.newPage();
     await render.goto(app.url + "?page=render");
@@ -149,6 +153,34 @@ async function settled(page: Page, name: string): Promise<Buffer> {
         return "no plus icon";
     }, wanted);
     console.log(`add ${wanted} to stack: ${clicked}`);
+
+    // PRO3D_PROBE_FLYTO=1 uses the GIS tab's own fly-to (the location arrow on the
+    // image's row), which puts the camera on that image's projector axis at the standoff
+    // that frames its footprint in the viewer's field of view. With the viewer's focal
+    // length set to the instrument's, that standoff IS the instrument's own distance.
+    if (process.env.PRO3D_PROBE_FLYTO === "1") {
+        const flew = await gis.evaluate((n) => {
+            const matches = Array.from(document.querySelectorAll("*")).filter(
+                (e) => (e.textContent ?? "").trim() === n
+            );
+            const deepest = matches.filter(
+                (e) => !Array.from(e.children).some((c) => matches.includes(c))
+            );
+            if (deepest.length === 0) return "header not found";
+            let el: Element | null = deepest[0];
+            while (el) {
+                const box = el.nextElementSibling?.querySelector("i.location.icon");
+                if (box) {
+                    (box as HTMLElement).click();
+                    return "clicked";
+                }
+                el = el.parentElement;
+            }
+            return "no fly-to icon in row";
+        }, wanted);
+        console.log(`fly to ${wanted}: ${flew}`);
+        await render.waitForTimeout(9000);   // the animation runs 3.5 s
+    }
 
     await render.waitForTimeout(6000);
     const projected = await settled(render, `${label}-projected.png`);
