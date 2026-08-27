@@ -359,23 +359,38 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
         | None ->
             Result.Error (sprintf "no frustum defined for instrument '%s' (see PRo3D.Base.InstrumentProjection)" instrument)
         | Some frustum ->
-            // Orientation from the instrument frame itself (the CK), not from an
+            // Orientation from the spacecraft's measured attitude (the CK), not from an
             // up-vector convention: the roll around the boresight is part of what the
-            // instrument saw, and inventing it makes the render incomparable with a real
-            // frame. Axis assignment matches the viewer's projector -- with the
-            // instrument frame's axes expressed in the body-fixed frame, the image's
-            // right is +Y, its up is +X and the boresight is +Z (the same convention
-            // InstrumentProjection.specialTrafos encodes for the mbi path).
+            // instrument saw, and inventing it makes the render incomparable both with a
+            // real frame of the same observation and with the viewer's mbi projector.
+            //
+            // Composed the way the viewer's projector is, so the two cannot drift apart:
+            // getLookAtQuat builds the pre-mounting camera basis as (-X, -Y, +Z) of the
+            // attitude frame, and the image-axis convention is then the specialTrafos
+            // entry. That entry is what makes this instrument-specific -- hard-coding
+            // AFC's axis map works for AFC and comes out 90 degrees off for ASPECT.
+            //
+            // The attitude is read from the INSTRUMENT frame rather than the spacecraft's,
+            // so the instrument's real boresight offset (0.145 deg for AFC-1) is included
+            // rather than idealised away; for ASPECT the two coincide, its channel frames
+            // being a zero-offset TKFRAME of MILANI_SPACECRAFT.
             let view =
-                match CooTransformation.getRotationTrafo instrument frame time with
-                | Some instrumentToBody ->
+                match CooTransformation.getRotationTrafo instrument frame time,
+                      Map.tryFind instrument InstrumentProjection.specialTrafos with
+                | Some instrumentToBody, Some mounting ->
                     let m = instrumentToBody.Forward.UpperLeftM33()
-                    Some (viewTrafoOfBasis m.C1 m.C0 m.C2 pos)
-                | None ->
-                    // No attitude at this epoch: fall back, and say so -- the roll is then
-                    // an arbitrary convention and the frame will not match a real image.
-                    Log.warn "[camera] no orientation for %s in %s at %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
-                        instrument frame (time.ToString "o")
+                    Some (viewTrafoOfBasis -m.C0 -m.C1 m.C2 pos * mounting)
+                | missing ->
+                    // No attitude (or no known mounting) at this epoch: fall back, and say
+                    // so -- the roll is then an arbitrary convention again and the frame
+                    // will not match a real image.
+                    match missing with
+                    | None, _ ->
+                        Log.warn "[camera] no attitude for %s in %s at %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
+                            instrument frame (time.ToString "o")
+                    | _ ->
+                        Log.warn "[camera] no mounting trafo known for %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
+                            instrument
                     let boresight = (-pos).Normalized
                     let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
                     Some (CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo)

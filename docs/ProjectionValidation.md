@@ -1,48 +1,70 @@
 # Validating the image projection
 
-Why do projected instrument images not sit exactly on the body, and how do we
-tell a *metadata* problem from a *rendering* problem?
+Does a projected instrument image land exactly on the terrain, and if not, is
+the fault in the projection or in the image's metadata?
 
-This page answers both with pictures. Everything here is reproducible from
-[`pro3d-tool`](./Pro3DTool-SimulateImage.md) and the Playwright harness in
-`tests-ui/`; the numbers are the ones those runs printed.
+This page answers that with a dataset we generate ourselves, so that "correct"
+is something we can construct rather than assume. Everything here is
+reproducible from [`pro3d-tool`](./Pro3DTool-SimulateImage.md) and the
+Playwright harness in `tests-ui/`; the numbers are what those runs printed.
 
-**Short answer.** Two independent things, neither of them a bug in the
-projection maths:
+**Short answer.** The projection chain is sound. Two things make images look
+wrong in practice, and neither is the projection maths:
 
-1. The **Orientation Source** defaults to *SPICE*, which does not read the
-   image's pointing at all — it aims the camera at the body centre with a fixed
-   roll. Images therefore land on the body but their features do not line up.
-2. Switching to *MBI* uses the image's measured attitude, and then the **HERA
-   COP delivery's sidecars** turn out to state that attitude three different
-   ways wrong, so those images miss the body entirely. Real HERA sidecars
-   (AFC2, HSH, ASPECT) are fine.
+1. **Orientation Source** defaults to *SPICE*, which reads no pointing from the
+   image at all — it aims the camera at the body centre with a fixed roll. Real
+   frames then land on the body with their features out of place.
+2. A sidecar can state the pointing wrongly, and the projector will follow it
+   faithfully. The HERA COP delivery does exactly this.
 
 ---
 
-## 1. The geometry is right: simulated vs delivered
+## 1. Ground truth we control: a self-made AFC dataset
 
-`pro3d-tool simulate-image` renders the body from SPICE at a given epoch. Here
-it is at `2027-03-01T04:00:00Z` next to the COP delivery's own frame for that
-epoch (`HERA_AFC_2317_20270301_040000_COP`):
+`pro3d-tool simulate-image --write-mbi` renders the body from SPICE and writes
+an `.mbi.json` describing **the camera it actually used**. Project that image
+back onto the same shape model and it must land on itself — there is no
+metadata to doubt, because the render and the sidecar are the same camera.
 
-| `simulate-image` (SPICE camera) | the delivery's own frame |
+Eight AFC-1 frames of Dimorphos are committed to the test data repository as
+`HERA/SimulatedAFC` (see the README there), rendered against the OPC sitting
+next to them so the set is self-contained:
+
+![a frame from the simulated AFC dataset](images/projectionValidation/afcset-frame.png)
+
+Three independent checks, all on the committed files:
+
+| check | result |
 |---|---|
-| ![simulated AFC frame](images/projectionValidation/afc-simulated.png) | ![delivered COP frame](images/projectionValidation/afc-delivered.png) |
+| sidecar read back through `Visualization.projectDirect` vs the render camera | boresight **0.000000°**, worst frustum corner **0.000 px** (all 8) |
+| `unproject --method mbi`, 5 pixels per frame | **40 of 40** hit the shape model |
+| `TRG_POS` transformed into the spacecraft frame | `(0.00225, 0.00118, 0.999997)` — +Z, as the convention requires |
 
-Same size, same place in the frame, same orientation. The illumination differs
-(the COP render is near-flat, ours is Lommel-Seeliger at a 41° phase angle) and
-ours carries the DRACO mosaic's texture rather than synthetic regolith — but the
-**silhouette agrees**, which is the part that depends on ephemeris, body
-orientation and instrument frustum. SPICE, the shape model and the delivery's
-images are consistent with each other.
+The residual `(0.00225, 0.00118)` is not error: it is AFC-1's real 0.145°
+offset from the direction the spacecraft tracks.
 
-## 2. The MBI path is right: real ASPECT data
+And in the viewer, importing one of these frames and projecting it onto that
+same OPC with *Orientation Source* = **MBI**:
 
-The stronger test uses a *real* observation. `simulate-image --mbi` takes the
-camera from an existing image's own `.mbi.json` — through the viewer's
-projection code, not a look-at — and renders with it. If the sidecar convention
-were misread, the render would not line up with the image it came from:
+| terrain, nothing projected | the frame projected back onto it |
+|---|---|
+| ![terrain only](images/projectionValidation/viewer-terrain.png) | ![self-render projected](images/projectionValidation/viewer-sim-mbi.png) |
+
+The projection repaints the visible body and paints essentially nothing beside
+it. What it does not cover is the limb, where the projector grazes the surface
+and falls off.
+
+`tests-ui/tests/projection-overlap.spec.ts` is this check as an assertion.
+
+## 2. Real data: ASPECT at Didymos
+
+The self-made set proves the chain is self-consistent. A *real* observation
+proves the convention is the one real deliveries use.
+
+`simulate-image --mbi` takes the camera from an existing image's own sidecar —
+through the viewer's projection code, not a look-at — and renders with it. If
+the convention were misread, the render would not line up with the image it
+came from:
 
 ```
 pro3d-tool simulate-image --opc <Didymos_ASPECT> \
@@ -54,73 +76,38 @@ pro3d-tool simulate-image --opc <Didymos_ASPECT> \
 |---|---|
 | ![real ASPECT frame](images/projectionValidation/aspect-real.png) | ![simulated from the ASPECT sidecar](images/projectionValidation/aspect-simulated.png) |
 
-Didymos sits at the same place, at the same size, in the same orientation.
-(Dimorphos is missing on the right simply because the OPC contains only
-Didymos.) The image and sidecar are from `PRo3D.Resources.TestData`
-(`HERA/Instrument Data`, `HERA/Didymos_ASPECT`) — no hand-made metadata is
-involved; the delivery's own sidecar is used as it ships.
+Same place, same size, same orientation. (Dimorphos is missing on the right
+only because that OPC contains Didymos alone.) Both files are in the test data
+repository under `HERA/Instrument Data`; the sidecar is used exactly as it
+ships.
 
-## 3. The closed loop: render it, project it back
+## 3. The setting that decides whether any of this is used
 
-`--write-mbi` writes a sidecar describing the camera the render actually used,
-so the image can be imported into the viewer and projected onto the very
-terrain it came from. It must land exactly on itself.
+*Projection Settings → Orientation Source*:
 
-The tool checks this before you even open the viewer: it reads the file it just
-wrote back through `Visualization.projectDirect` — the same call the viewer
-makes — and reports the disagreement.
+| mode | where the pointing comes from |
+|---|---|
+| **SPICE** (default) | Nowhere in the image. The spacecraft position is SPICE's, but the camera is then aimed at the **body centre** with a fixed up-vector — `InstrumentProjection.getLookAt` computes an attitude and discards it. Every image is painted as if shot dead-centre with one roll. |
+| **MBI** | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
 
-```
-[mbi] round trip: boresight 0.000001 deg, worst corner 0.000 px, max matrix element 1.648e-011
-```
+So the symptom tells you where to look: *"lands on the body but the features do
+not line up"* is the first mode; *"does not land at all"* is the second plus a
+sidecar problem.
 
-`tests-ui/tests/projection-overlap.spec.ts` then does the viewer half: import
-the render, fly onto its projector axis, and measure how much of the body the
-projection repaints.
-
-```
-body pixels 66175, covered 90.7%, spilled into space 0.18%
-```
-
-The missing tenth is the limb, where the projector grazes the surface and falls
-off. 0.18% "spill" means the projection essentially never paints where there is
-no surface.
-
-## 4. What is actually wrong, in the viewer
-
-All four pictures below are the same scene, same camera, same OPC
-(`Dimorphos_0_Meridian`), one image in the stack. Only the **Orientation
-Source** and the image differ. Coverage is the fraction of visible body the
-projection repainted.
-
-Terrain with nothing projected:
-
-![terrain only](images/projectionValidation/viewer-terrain.png)
+Measured in the viewer, one image in the stack, same scene and camera
+throughout:
 
 | | **SPICE** (default) | **MBI** |
 |---|---|---|
-| **COP frame, as delivered** | ![COP with SPICE](images/projectionValidation/viewer-cop-spice.png)<br>87.9% — lands, but offset | ![COP with MBI](images/projectionValidation/viewer-cop-mbi.png)<br>**0.0% — misses entirely** |
-| **`simulate-image --write-mbi`** | ![self-render with SPICE](images/projectionValidation/viewer-sim-spice.png)<br>83.9% | ![self-render with MBI](images/projectionValidation/viewer-sim-mbi.png)<br>**89.7% — lands** |
+| COP frame, as delivered | ![COP with SPICE](images/projectionValidation/viewer-cop-spice.png)<br>87.9% of the body repainted — but offset | ![COP with MBI](images/projectionValidation/viewer-cop-mbi.png)<br>**0.0% — misses entirely** |
 
-Read the table by column:
+`pro3d-tool unproject` says the same without a GPU: that frame's centre pixel
+finds no surface with `--method mbi`, and hits at 8557 m with `--method spice`.
 
-- **SPICE column** — both images land about equally well, because this mode
-  ignores what the image says and points at the body centre either way. Look at
-  the COP cell: the projected footprint is visibly shifted off the limb, dark
-  along the upper-left edge and leaving an uncovered crescent at the
-  lower-right. Nothing about the picture can be right here except by accident,
-  because the image's roll and its off-centre pointing were discarded.
-- **MBI column** — this mode follows what the image says, and the two images
-  diverge completely. Our own sidecar puts the image back where it came from.
-  The COP sidecar puts it nowhere near the body.
+## 4. The HERA COP delivery
 
-`pro3d-tool unproject` says the same thing without a GPU — the centre pixel of
-that COP frame finds no surface with `--method mbi` and hits at 8557 m with
-`--method spice`.
-
-## 5. Why the COP sidecars miss
-
-Three independent defects, each documented with its evidence and its fix in
+Its sidecars state the pointing three ways wrong at once — each documented with
+its evidence and its fix in
 [COP-sidecar-issues.md](./COP-sidecar-issues.md#pointing--issues-5-6-and-7):
 
 | | field | delivered | should be |
@@ -129,35 +116,73 @@ Three independent defects, each documented with its evidence and its fix in
 | 6 | `TRG_POSX/Y/Z` | the camera's location | target **minus** spacecraft |
 | 7 | `TRG_POSX/Y/Z` | measured from Didymos | measured from `TARGET` (Dimorphos) |
 
-Correcting all three by hand makes the same centre pixel land on Dimorphos at
-8561.9 m range, 0.15° from the delivery's own ground-truth boresight in
-`COP/PRo3D.json`. Correcting only 5 and 6 still misses: Dimorphos is 1.05 km
-from Didymos at an 8.2 km standoff, which is 7.0° — more than the AFC's whole
-5.53° field of view.
+Correcting all three by hand makes the centre pixel land on Dimorphos at
+8561.9 m, 0.15° from the delivery's own ground-truth boresight. Correcting only
+5 and 6 still misses.
 
-The one-line self-check for a generator: transform `TRG_POS` into the
-spacecraft frame and it must land on `(0, 0, +1)`. The three real HERA
-sidecars in `src/Tests/data` do, to 1e-4; `src/Tests/MbiSidecarTest.fs` asserts
-it.
+### The images themselves do not match our shape model either
+
+Rendering the same epoch with `simulate-image --no-lighting` (a flat disk, so
+the image *is* the silhouette) and overlaying the outlines — red = delivered,
+green = ours:
+
+![silhouette overlay, delivered vs simulated](images/projectionValidation/afc-overlay.png)
+
+| | |
+|---|---|
+| centroid offset | **1.80 px** of 1020 — the boresight and ephemeris agree to ~0.01° |
+| silhouette area | ours **1.149×** larger |
+| principal-axis roll | **+11.9°** |
+| best fit allowing rotation **and** scale | IoU 90.4% at −12°, scale 0.94 |
+
+A pure roll does not explain it: rotating our silhouette to best fit only
+raises IoU from 84.5% to 85.5%. The outlines are genuinely different shapes, so
+the body is presented differently — and indeed, checked against the delivery's
+own `PRo3D.json`, its per-image body **orientation** disagrees with SPICE's
+body-fixed frames:
+
+| epoch | Didymos vs `DIDYMOS_FIXED` | Dimorphos vs `DIMORPHOS_FIXED` |
+|---|---|---|
+| 2027-02-05T01:00 | 6.2° | 34.6° |
+| 2027-03-01T04:00 | 15.6° | 34.3° |
+| 2027-04-30T01:00 | 2.2° | 13.9° |
+
+Body *positions* agree with SPICE to about a metre, so this is orientation
+only, and it is not a constant frame offset or a single clock error. Our two
+Dimorphos OPCs agree with each other, which puts the disagreement between the
+delivery and SPICE rather than between our shape models.
+
+These frames were produced through PRo3D's own sequenced-bookmark rendering
+([PR #716](https://github.com/pro3d-space/PRo3D/pull/716)), which is the first
+place to look for how the body orientation was set per snapshot. Not chased
+further here.
 
 ## Reproducing this page
 
 ```
-# 1 + 3: render Dimorphos at a COP epoch, with a sidecar
-pro3d-tool simulate-image --opc <Dimorphos OPC> --time 2027-03-01T04:00:00Z \
-    --body DIMORPHOS --frame DIMORPHOS_FIXED --observer HERA \
-    --instrument HERA_AFC-1 --out sim/SIM_AFC1.png --write-mbi
+# 1: the self-made dataset (already committed to the test data repo)
+pro3d-tool simulate-image --opc <TestData>/HERA/Dimorphos \
+    --time 2027-03-04T14:00:00Z --body DIMORPHOS --frame DIMORPHOS_FIXED \
+    --observer HERA --instrument HERA_AFC-1 --gain 3.7 \
+    --out HERA_AFC_0005_20270304_140000_SIM.png --write-mbi
 
-# 2: render a real ASPECT observation through its own sidecar
-pro3d-tool simulate-image --opc <Didymos_ASPECT> --mbi <the .tif> \
+pro3d-tool unproject --opc <TestData>/HERA/Dimorphos \
+    --images <TestData>/HERA/SimulatedAFC --input pixels.csv \
+    --body DIMORPHOS --frame DIMORPHOS_FIXED --observer DIMORPHOS --method mbi
+
+# 2: a real ASPECT observation through its own sidecar
+pro3d-tool simulate-image --opc <TestData>/HERA/Didymos_ASPECT --mbi <the .tif> \
     --body DIDYMOS --frame DIDYMOS_FIXED --observer DIDYMOS --write-mbi
 
-# 3: the viewer half (asserts; needs the scene's own OPC)
-cd tests-ui && PRO3D_SIM_IMAGE_DIR=<sim> npx playwright test projection-overlap
+# 1 (viewer half): asserts; needs a scene on the same OPC
+cd tests-ui && PRO3D_SIM_IMAGE_DIR=<dataset> npx playwright test projection-overlap
 
-# 4: look at one case, including the ones that fail (asserts nothing)
+# 3: look at one case, including the ones that fail (asserts nothing)
 PRO3D_PROBE_IMAGE_DIR=<folder> PRO3D_PROBE_METHOD=MbiBased \
 PRO3D_PROBE_LABEL=cop-mbi npx tsx src/probe-projection-landing.ts
+
+# 4: flat silhouettes for an outline comparison
+pro3d-tool simulate-image ... --no-lighting --no-shadows --out flat.png
 ```
 
 The Playwright harness is machine-local by design (real GPU, local OPC and
