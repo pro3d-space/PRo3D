@@ -320,6 +320,23 @@ type SimCamera =
         aspect : float
     }
 
+/// World -> camera from an explicit camera basis, bypassing CameraView: `CameraView`
+/// re-derives `right` from `forward` and a sky vector, which silently discards the roll
+/// this is trying to preserve.
+///
+/// Aardvark's view trafo has (right, up, -forward) as its ROWS and -(R * location) as its
+/// translation -- the same layout `CameraView.viewTrafo` produces (verified against
+/// `CameraView.lookAt`).
+let private viewTrafoOfBasis (right : V3d) (up : V3d) (forward : V3d) (location : V3d) =
+    let r = M33d.FromCols(right, up, -forward).Transposed
+    let t = -(r * location)
+    let fw =
+        M44d(r.M00, r.M01, r.M02, t.X,
+             r.M10, r.M11, r.M12, t.Y,
+             r.M20, r.M21, r.M22, t.Z,
+             0.0,   0.0,   0.0,   1.0)
+    Trafo3d(fw, fw.Inverse)
+
 /// `distanceOverride` > 0 moves the camera to that range along the direction SPICE puts
 /// the spacecraft -- the viewpoint stays real, only the standoff changes. Useful when the
 /// body would otherwise be a handful of pixels, and for validation renders.
@@ -342,10 +359,28 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
         | None ->
             Result.Error (sprintf "no frustum defined for instrument '%s' (see PRo3D.Base.InstrumentProjection)" instrument)
         | Some frustum ->
-            let boresight = (-pos).Normalized
-            let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
+            // Orientation from the instrument frame itself (the CK), not from an
+            // up-vector convention: the roll around the boresight is part of what the
+            // instrument saw, and inventing it makes the render incomparable with a real
+            // frame. Axis assignment matches the viewer's projector -- with the
+            // instrument frame's axes expressed in the body-fixed frame, the image's
+            // right is +Y, its up is +X and the boresight is +Z (the same convention
+            // InstrumentProjection.specialTrafos encodes for the mbi path).
+            let view =
+                match CooTransformation.getRotationTrafo instrument frame time with
+                | Some instrumentToBody ->
+                    let m = instrumentToBody.Forward.UpperLeftM33()
+                    Some (viewTrafoOfBasis m.C1 m.C0 m.C2 pos)
+                | None ->
+                    // No attitude at this epoch: fall back, and say so -- the roll is then
+                    // an arbitrary convention and the frame will not match a real image.
+                    Log.warn "[camera] no orientation for %s in %s at %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
+                        instrument frame (time.ToString "o")
+                    let boresight = (-pos).Normalized
+                    let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
+                    Some (CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo)
             Ok {
-                view = CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo
+                view = view |> Option.defaultValue Trafo3d.Identity
                 proj = Frustum.projTrafo frustum
                 distance = distance
                 aspect = (frustum.right - frustum.left) / (frustum.top - frustum.bottom)
@@ -620,6 +655,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             |> Sg.uniform' "MicroScale" (float32 o.microScale)
             |> Sg.uniform' "MicroAmplitude" (float32 o.microAmplitude)
             |> Sg.uniform' "AmbientFloor" (float32 o.ambient)
+            |> Sg.uniform' "NoLighting" o.noLighting
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)
 

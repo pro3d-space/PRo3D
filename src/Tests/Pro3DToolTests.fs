@@ -99,6 +99,7 @@ module private Fixtures =
             ambient = 0.02
             gain = 0.0
             noShadows = false
+            noLighting = false
             shadowBias = 0.002
         }
 

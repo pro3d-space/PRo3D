@@ -155,6 +155,9 @@ type SimulateImageOptions =
         [<Option("no-shadows", HelpText = "Skip the sun shadow map; shading then comes from the local sun angle alone")>]
         noShadows : bool
 
+        [<Option("no-lighting", HelpText = "Render a flat white disk instead of a shaded body: the image is then the silhouette, for comparing pointing and shape against a real frame without shading in the way")>]
+        noLighting : bool
+
         [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002); raise against acne, lower against peter-panning")>]
         shadowBias : float
     }

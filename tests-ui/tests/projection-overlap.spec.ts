@@ -155,6 +155,27 @@ test("a self-rendered image projects back onto the body it was rendered from", a
         )
         .toBe(true);
 
+    // The sidecar is the thing under test, so the projector has to read it: the
+    // scene default (SPICE) ignores the image's attitude and aims at the body
+    // centre, which would pass this test for a render that agreed with nothing.
+    const orientation = process.env.PRO3D_ORIENTATION_SOURCE ?? "MbiBased";
+    const set = await gis.evaluate((m) => {
+        const label = Array.from(document.querySelectorAll("*")).find(
+            (e) => (e.textContent ?? "").trim() === "Orientation Source:"
+        );
+        const sel = label?.parentElement?.querySelector("select") as HTMLSelectElement | null;
+        if (!sel) return "not found";
+        const opt = Array.from(sel.options).find(
+            (o) => o.textContent?.trim() === m || o.value === m
+        );
+        if (!opt) return "no option " + m;
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        return "ok";
+    }, orientation);
+    expect(set, `orientation source -> ${orientation}`).toBe("ok");
+    await render.waitForTimeout(3000);
+
     // --- look along the projector axis ---------------------------------------
     // Fly-to puts the camera on the image's own axis, so the body fills the view
     // the way the projector sees it -- coverage measured from anywhere else
