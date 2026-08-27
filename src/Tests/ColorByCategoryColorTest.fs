@@ -3,6 +3,7 @@ namespace ColorByCategoryColor
 open System
 
 open Aardvark.Base
+open Aardvark.UI
 open FSharp.Data.Adaptive
 
 open Expecto
@@ -30,6 +31,26 @@ module Tests =
 
     let private colorOf (attr : ColorCategoryAttribute) (degrees : float) =
         ColorByCategory.colorOfValue (settings attr) degrees
+
+    /// An annotation of `geometry` carrying dip and strike results. `getFinishedAnnotation`
+    /// fits a plane to every geometry, so this is the state a plain polyline really ends up
+    /// in — not a contrived one.
+    let private withDns (geometry : Geometry) =
+        let a =
+            Annotation.make
+                Projection.Linear None geometry None
+                ({ c = C4b.White } : ColorInput) Annotation.Initial.thickness "surface"
+        { a with
+            dnsResults =
+                Some { DipAndStrikeResults.initial with
+                        dipAngle      = 30.0
+                        dipAzimuth    = 120.0
+                        strikeAzimuth = 30.0 } }
+
+    let private dnsAttributes =
+        [ ColorCategoryAttribute.DipAngle
+          ColorCategoryAttribute.DipAzimuth
+          ColorCategoryAttribute.StrikeAzimuth ]
 
     let tests () =
         testList "ColorByCategory cyclic coloring" [
@@ -99,5 +120,30 @@ module Tests =
                     "dip angle is an inclination, not an azimuth"
                 Expect.isNone (ColorByCategory.cyclicPeriod ColorCategoryAttribute.SurfaceName)
                     "categorical attributes are not cyclic"
+            }
+
+            // A plane is fitted to every geometry on finish, so `dnsResults` being present
+            // does not mean the annotation is a dip and strike measurement. Reading it
+            // regardless colored polylines and polygons, and the coloring then changed by
+            // itself the first time the reference system was edited, because that path drops
+            // the results of everything that is not DnS or TT.
+            test "dip and strike attributes ignore geometries that only carry a fitted plane" {
+                for attr in dnsAttributes do
+                    for geometry in [ Geometry.Polyline; Geometry.Polygon; Geometry.Line
+                                      Geometry.Point; Geometry.AxisEllipse ] do
+                        Expect.isTrue
+                            (Double.IsNaN (ColorByCategory.valueOf attr (withDns geometry)))
+                            (sprintf "%A on a %A must have no value" attr geometry)
+            }
+
+            test "dip and strike attributes read DnS and TT annotations" {
+                for geometry in [ Geometry.DnS; Geometry.TT ] do
+                    let a = withDns geometry
+                    Expect.equal (ColorByCategory.valueOf ColorCategoryAttribute.DipAngle a) 30.0
+                        (sprintf "%A should report its dip angle" geometry)
+                    Expect.equal (ColorByCategory.valueOf ColorCategoryAttribute.DipAzimuth a) 120.0
+                        (sprintf "%A should report its dip azimuth" geometry)
+                    Expect.equal (ColorByCategory.valueOf ColorCategoryAttribute.StrikeAzimuth a) 30.0
+                        (sprintf "%A should report its strike azimuth" geometry)
             }
         ]

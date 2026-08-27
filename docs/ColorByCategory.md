@@ -39,6 +39,20 @@ The rest of the panel depends on the kind of attribute:
 Categorical attributes deliberately have no on-screen legend: the panel already lists every
 category next to its color, and there is no *show legend* toggle to switch one off with.
 
+## Dip angle, dip azimuth and strike azimuth are gated on the geometry
+
+These three read `annotation.dnsResults`, but the presence of that record does **not** mean the
+annotation is a dip and strike measurement. `getFinishedAnnotation` fits a plane to *every*
+geometry — the ellipse tools need one — so an ordinary polyline or polygon with enough points
+carries dip and strike results too.
+
+`ColorByCategory.hasDipAndStrike` therefore gates the three attributes on
+`Geometry.DnS | Geometry.TT`, the same pair `DipAndStrike.reCalculateDipAndStrikeResults`
+keeps. Without that gate the panel colored polylines and polygons as though they had a dip,
+and the coloring then changed *by itself* the first time the reference system was edited:
+recalculation drops the results of every other geometry, so those annotations silently fell
+back to the no-value color.
+
 ## Directional vs. axial cyclic attributes
 
 Azimuths wrap, so a linear two-color ramp would put 359° and 1° — one degree apart on the

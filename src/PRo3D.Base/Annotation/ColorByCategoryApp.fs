@@ -81,6 +81,20 @@ module ColorByCategory =
         | ColorCategoryAttribute.SurfaceName -> true
         | _ -> false
 
+    /// Geometries for which dip and strike is an actual measurement rather than a leftover.
+    ///
+    /// `dnsResults` alone does not say so: `getFinishedAnnotation` fits a plane to *every*
+    /// geometry (the ellipse tools need one), so a polyline or polygon with enough points
+    /// carries dip and strike results too. Testing only `dnsResults` therefore colors those
+    /// as well — until the reference system changes, at which point
+    /// `DipAndStrike.reCalculateDipAndStrikeResults` drops the results of everything that is
+    /// not DnS or TT and the coloring silently changes. Gate on the geometry so it does not.
+    let hasDipAndStrike (g : Geometry) =
+        match g with
+        | Geometry.DnS
+        | Geometry.TT -> true
+        | _ -> false
+
     /// Period of a cyclic attribute in degrees; `None` when the attribute is not cyclic.
     ///
     /// Azimuths wrap — 359° and 1° are one degree apart, so a linear two-color ramp puts
@@ -199,7 +213,9 @@ module ColorByCategory =
         let fromResults (f : AnnotationResults -> float) =
             match a.results with | Some r -> f r | None -> Double.NaN
         let fromDns (f : DipAndStrikeResults -> float) =
-            match a.dnsResults with | Some r -> f r | None -> Double.NaN
+            if hasDipAndStrike a.geometry then
+                match a.dnsResults with | Some r -> f r | None -> Double.NaN
+            else Double.NaN
 
         match attr with
         | ColorCategoryAttribute.Slope             -> fromResults (fun r -> r.slope)
@@ -273,9 +289,11 @@ module ColorByCategory =
             | AdaptiveSome r -> (f r).GetValue t
             | _ -> Double.NaN
         let fromDns (f : AdaptiveDipAndStrikeResults -> aval<float>) =
-            match a.dnsResults.GetValue t with
-            | AdaptiveSome r -> (f r).GetValue t
-            | _ -> Double.NaN
+            if hasDipAndStrike (a.geometry.GetValue t) then
+                match a.dnsResults.GetValue t with
+                | AdaptiveSome r -> (f r).GetValue t
+                | _ -> Double.NaN
+            else Double.NaN
 
         match attr with
         | ColorCategoryAttribute.Slope             -> fromResults (fun r -> r.slope)
