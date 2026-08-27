@@ -33,7 +33,7 @@ The rest of the panel depends on the kind of attribute:
 | Kind | Attributes | Panel | Legend |
 | --- | --- | --- | --- |
 | **categorical** (discrete) | Annotation type, Semantic, Surface | one color picker per category, *reset colors* | **none** |
-| **cyclic** | Bearing, Dip azimuth, Strike azimuth | *show legend* toggle only | hue wheel strip over one period |
+| **cyclic** | Bearing, Dip azimuth, Strike azimuth | *show legend* and *interval* | hue wheel strip over one period, banded into sectors |
 | **numeric** (continuous) | Slope, Length, Way length, Height, Height delta, Avg altitude, Area, Line thickness, Dip angle | the standard false-color ramp properties (*show legend*, min, max, interval, colors, invert) plus *fit range to data* | false-color bar |
 
 Categorical attributes deliberately have no on-screen legend: the panel already lists every
@@ -72,6 +72,23 @@ correctly share a hue.
 Slope and Dip angle *look* angular but are not cyclic: both are inclinations from horizontal
 (`asin(…)` in degrees, −90…90 and 0…90), so their endpoints are extremes rather than
 neighbours and a plain ramp is right.
+
+## Both legends are classified scales
+
+Neither legend is a continuous blend — `interval` quantizes the *coloring*, and the legend
+draws what the coloring does. Two annotations in the same class get exactly the same color.
+
+| | How `interval` is used |
+| --- | --- |
+| numeric bar | directly: `FalseColorLegendApp.Draw.getColorForValue` buckets with `round((value - lower) / interval)`, one hue per bucket. `createStopps` draws the hard edges by emitting two gradient stops at the same offset — above 100 buckets it stops doing that and the bar goes smooth |
+| hue wheel | via `ColorByCategory.cyclicSectors`, which snaps `period / interval` to a **whole number** of sectors. An interval that did not divide the period would leave a partial sector straddling 0°, breaking the wrap the wheel exists for — so the requested width is a request, and the panel prints the count and width actually used |
+
+Each sector takes the hue of its own start, so 0° keeps the hue it had when the wheel was
+continuous. Switching to a cyclic attribute sets the interval to `period / 12` (30° for a dip
+azimuth, 15° for a bearing or strike) — `fitRange` has to do this, or the interval left over
+from the previous numeric attribute carries across, and a fitted `range / 20` can mean
+thousands of sectors, i.e. no visible banding at all. A degenerate interval (zero, negative,
+NaN) falls back to a single sector rather than dividing by zero.
 
 Colors that the user has not overridden come from a qualitative palette
 (`ColorByCategory.palette`) — annotation colors default to a sequential blue ramp, which is

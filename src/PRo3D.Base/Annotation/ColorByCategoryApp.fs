@@ -179,17 +179,31 @@ module ColorByCategory =
         | Some c -> c
         | None   -> palette.[paletteIndex ordinal label]
 
-    /// Hue wheel over one period: 0° and `period` land on the same hue. The double modulo
-    /// keeps negative angles in range.
-    let colorOfAzimuth (period : float) (degrees : float) =
+    /// How many sectors the hue wheel is split into, so it is a classified scale like the
+    /// numeric bar rather than a continuous blend.
+    ///
+    /// `interval` is a request, not an exact width: the count is snapped to a whole number so
+    /// the first and last sector meet cleanly at 0. An interval that does not divide the
+    /// period would otherwise leave a partial sector straddling the wrap, which is the one
+    /// thing the wheel exists to get right.
+    let cyclicSectors (period : float) (interval : float) =
+        if Double.IsNaN interval || Double.IsInfinity interval || interval <= 0.0 then 1
+        else period / interval |> round |> int |> max 1 |> min 360
+
+    /// Hue wheel over one period, quantized into `cyclicSectors` bands. Each band takes the
+    /// hue of its own start, so 0° keeps the hue it had when the wheel was continuous. The
+    /// double modulo keeps negative angles in range.
+    let colorOfAzimuth (period : float) (interval : float) (degrees : float) =
         let d = ((degrees % period) + period) % period
-        HSVf(float32 (d / period), 1.0f, 1.0f).ToC3f().ToC4b()
+        let sectors = cyclicSectors period interval
+        let index = int (floor (d / (period / float sectors))) |> max 0 |> min (sectors - 1)
+        HSVf(float32 (float index / float sectors), 1.0f, 1.0f).ToC3f().ToC4b()
 
     let colorOfValue (s : Settings) (v : float) =
         if Double.IsNaN v || Double.IsInfinity v then s.noValue
         else
             match cyclicPeriod s.attribute with
-            | Some period -> colorOfAzimuth period v
+            | Some period -> colorOfAzimuth period s.interval v
             | None ->
                 FalseColorLegendApp.Draw.getColorForValue
                     s.lower s.upper s.interval
@@ -344,32 +358,61 @@ module ColorByCategory =
             // a zero-width range would make the ramp divide by zero
             if mx - mn < 1e-9 then Some (Range1d(mn - 0.5, mx + 0.5)) else Some (Range1d(mn, mx))
 
+    /// `value` starts at a twentieth of the fitted span; the widget limit does not follow the
+    /// data, for the same reason the bounds' does not (see `FalseColorsModel.boundLimit`) —
+    /// widening min/max would otherwise leave the interval capped at the old span, too small
+    /// to class the new range sensibly.
     let private intervalFor (range : Range1d) : NumericInput =
         let span = range.Max - range.Min
         let step = if span > 0.0 then span / 20.0 else 1.0
         {
             value  = step
             min    = 0.0
-            max    = (if span > 0.0 then span else 1.0)
+            max    = FalseColorsModel.boundLimit
+            step   = step / 10.0
+            format = "{0:0.0000}"
+        }
+
+    /// Default sector width for a hue wheel: twelve sectors, so 30° for a dip azimuth and 15°
+    /// for a bearing or strike. The wheel does not fit to the data — its range is the period,
+    /// whatever the annotations happen to contain.
+    let private cyclicIntervalFor (period : float) : NumericInput =
+        let step = period / 12.0
+        {
+            value  = step
+            min    = 0.0
+            max    = period
             step   = step / 10.0
             format = "{0:0.0000}"
         }
 
     let private fitRange (annotations : seq<Annotation>) (model : ColorByCategoryModel) =
-        if isCategorical model.attribute || isCyclic model.attribute then
+        if isCategorical model.attribute then
             model
         else
-            match rangeOfData model.attribute annotations with
-            | None -> model
-            | Some range ->
-                // rebuilt rather than pushed through Numeric.update, which would clamp the
-                // new value to the *old* input's min/max and silently refuse the fit
+            match cyclicPeriod model.attribute with
+            // A wheel has no data range to fit, but it does need a sector width. Without this
+            // the interval left over from the previous attribute carries across — a numeric
+            // fit of range/20 can mean thousands of sectors, i.e. no visible banding at all.
+            | Some period ->
                 { model with
                     numericLegend =
                         { model.numericLegend with
-                            lowerBound = FalseColorsModel.initlb range
-                            upperBound = FalseColorsModel.initub range
-                            interval   = intervalFor range } }
+                            lowerBound = FalseColorsModel.initlb (Range1d(0.0, period))
+                            upperBound = FalseColorsModel.initub (Range1d(0.0, period))
+                            interval   = cyclicIntervalFor period } }
+            | None ->
+                match rangeOfData model.attribute annotations with
+                | None -> model
+                | Some range ->
+                    // rebuilt rather than pushed through Numeric.update, which would clamp the
+                    // new value to the *old* input's min/max and silently refuse the fit
+                    { model with
+                        numericLegend =
+                            { model.numericLegend with
+                                lowerBound = FalseColorsModel.initlb range
+                                upperBound = FalseColorsModel.initub range
+                                interval   = intervalFor range } }
 
     let update (annotations : seq<Annotation>) (model : ColorByCategoryModel) (act : ColorByCategoryAction) =
         match act with
@@ -486,11 +529,17 @@ module ColorByCategory =
                 else
                     match cyclicPeriod attr with
                     | Some period ->
-                        // the ramp bounds and colors do not apply to a hue wheel, so only the
-                        // legend toggle and the no-value color are offered
+                        // the ramp bounds and colors do not apply to a hue wheel, but the
+                        // interval does: it sets how many sectors the wheel is banded into
+                        let! interval = m.numericLegend.interval.value
+                        let sectors = cyclicSectors period interval
                         yield Html.table [
                             Html.row "show legend:" [
                                 GuiEx.iconCheckBox m.numericLegend.useFalseColors (LegendMessage FalseColorLegendApp.UseFalseColors)
+                            ]
+                            Html.row "interval:" [
+                                Numeric.view' [InputBox] m.numericLegend.interval
+                                |> UI.map (FalseColorLegendApp.SetInterval >> LegendMessage)
                             ]
                             noValueRow
                         ]
@@ -501,6 +550,11 @@ module ColorByCategory =
                                         (label attr) period
                                 else
                                     sprintf "%s wraps at %.0f°, so it is colored on a hue wheel." (label attr) period)
+                        ]
+                        // the requested interval is snapped to a whole number of sectors so the
+                        // wheel closes at 0, so say what was actually used
+                        yield div [ style "font-style:italic; padding:5px" ] [
+                            text (sprintf "%d sectors of %.2f°." sectors (period / float sectors))
                         ]
 
                     | None ->
@@ -547,15 +601,20 @@ module ColorByCategory =
 
                     match cyclicPeriod attr with
                     | Some period ->
+                        let! interval = m.numericLegend.interval.value
+                        let sectors = cyclicSectors period interval
                         let gradientId = "ColorByCategoryCyclicLegend"
+                        // One flat band per sector, drawn as a pair of stops sharing an offset
+                        // — the same trick FalseColorLegendApp.createStopps uses to give the
+                        // numeric bar its hard edges. Top of the bar is a full period, bottom
+                        // 0°, so the bands run in the reverse of the sector order.
                         let stops =
-                            [ 0 .. 12 ]
-                            |> List.map (fun i ->
-                                let f = float i / 12.0
-                                // top of the bar is a full period, bottom 0°, matching the
-                                // numeric bar
-                                let c = colorOfAzimuth period ((1.0 - f) * period)
-                                FalseColorLegendApp.Draw.buildSvgStop (float32 f) (c.ToC3b()))
+                            [ for i in 0 .. sectors - 1 do
+                                let c = colorOfAzimuth period interval (float (sectors - 1 - i) * (period / float sectors))
+                                yield FalseColorLegendApp.Draw.buildSvgStop
+                                        (float32 (float i / float sectors)) (c.ToC3b())
+                                yield FalseColorLegendApp.Draw.buildSvgStop
+                                        (float32 (float (i + 1) / float sectors)) (c.ToC3b()) ]
                             |> AList.ofList
 
                         yield Svg.defs [] [

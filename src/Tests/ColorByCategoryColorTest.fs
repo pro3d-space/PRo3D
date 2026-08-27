@@ -52,6 +52,10 @@ module Tests =
           ColorCategoryAttribute.DipAzimuth
           ColorCategoryAttribute.StrikeAzimuth ]
 
+    /// same as `colorOf`, with an explicit sector width
+    let private colorOfAt (interval : float) (attr : ColorCategoryAttribute) (degrees : float) =
+        ColorByCategory.colorOfValue { settings attr with interval = interval } degrees
+
     let tests () =
         testList "ColorByCategory cyclic coloring" [
 
@@ -145,5 +149,50 @@ module Tests =
                         (sprintf "%A should report its dip azimuth" geometry)
                     Expect.equal (ColorByCategory.valueOf ColorCategoryAttribute.StrikeAzimuth a) 30.0
                         (sprintf "%A should report its strike azimuth" geometry)
+            }
+
+            // the wheel is a classified scale like the numeric bar, not a continuous blend
+            test "angles within one sector share a color" {
+                // 30 deg sectors over the full circle
+                Expect.equal
+                    (colorOfAt 30.0 ColorCategoryAttribute.DipAzimuth 10.0)
+                    (colorOfAt 30.0 ColorCategoryAttribute.DipAzimuth 29.0)
+                    "10 and 29 deg are both in the first sector"
+                Expect.notEqual
+                    (colorOfAt 30.0 ColorCategoryAttribute.DipAzimuth 29.0)
+                    (colorOfAt 30.0 ColorCategoryAttribute.DipAzimuth 31.0)
+                    "29 and 31 deg straddle a sector boundary"
+
+                // and over the half circle the axial attributes use
+                Expect.equal
+                    (colorOfAt 15.0 ColorCategoryAttribute.Bearing 100.0)
+                    (colorOfAt 15.0 ColorCategoryAttribute.Bearing 104.0)
+                    "100 and 104 deg are both in the same sector"
+            }
+
+            test "the sector count is snapped so the wheel closes at zero" {
+                // 360/50 is 7.2, which would leave a partial sector straddling the wrap
+                Expect.equal (ColorByCategory.cyclicSectors 360.0 50.0) 7
+                    "an interval that does not divide the period is rounded to whole sectors"
+                Expect.equal (ColorByCategory.cyclicSectors 180.0 15.0) 12
+                    "an interval that does divide it is used as-is"
+
+                // the snap must not collapse the first and last sector onto one hue
+                Expect.notEqual
+                    (colorOfAt 50.0 ColorCategoryAttribute.DipAzimuth 0.0)
+                    (colorOfAt 50.0 ColorCategoryAttribute.DipAzimuth 359.0)
+                    "the last sector must stay distinct from the first"
+            }
+
+            test "a degenerate interval leaves one sector rather than dividing by zero" {
+                for interval in [ 0.0; -5.0; Double.NaN; Double.PositiveInfinity ] do
+                    Expect.equal (ColorByCategory.cyclicSectors 360.0 interval) 1
+                        (sprintf "interval %f should fall back to a single sector" interval)
+
+                // one sector means one flat color across the whole wheel, not a crash
+                Expect.equal
+                    (colorOfAt 0.0 ColorCategoryAttribute.DipAzimuth 10.0)
+                    (colorOfAt 0.0 ColorCategoryAttribute.DipAzimuth 200.0)
+                    "a single sector colors every angle the same"
             }
         ]
