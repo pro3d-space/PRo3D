@@ -25,11 +25,31 @@ The rest of the panel depends on the kind of attribute:
 | Kind | Attributes | Panel | Legend |
 | --- | --- | --- | --- |
 | **categorical** (discrete) | Annotation type, Semantic, Surface | one color picker per category, *reset colors* | **none** |
-| **cyclic** | Bearing, Dip azimuth, Strike azimuth | *show legend* toggle only | hue wheel strip, 0°–360° |
+| **cyclic** | Bearing, Dip azimuth, Strike azimuth | *show legend* toggle only | hue wheel strip over one period |
 | **numeric** (continuous) | Slope, Length, Way length, Height, Height delta, Avg altitude, True/Vertical thickness, Area, Major/Minor diameter, Line thickness, Dip angle | the standard false-color ramp properties (*show legend*, min, max, interval, colors, invert) plus *fit range to data* | false-color bar |
 
 Categorical attributes deliberately have no on-screen legend: the panel already lists every
 category next to its color, and there is no *show legend* toggle to switch one off with.
+
+## Directional vs. axial cyclic attributes
+
+Azimuths wrap, so a linear two-color ramp would put 359° and 1° — one degree apart on the
+ground — at opposite ends of the scale. They get a hue wheel instead, where the two ends of
+the period meet. `ColorByCategory.cyclicPeriod` says how long that period is:
+
+| Attribute | Period | Why |
+| --- | --- | --- |
+| Dip azimuth | **360°** | *Directional* — it says which way the plane dips, so 45° and 225° really are opposite |
+| Strike azimuth | **180°** | *Axial* — a strike line has no preferred end. `strikeAzimuth` is always `dipAzimuth ± 90`, so two planes sharing a strike line but dipping opposite ways read 180° apart and must still come out the same color |
+| Bearing | **180°** | *Axial* — it is the azimuth of the chord from the annotation's first to its last point, so redrawing a polyline backwards flips it by 180° without changing its orientation |
+
+Only the **coloring** folds. The annotation Properties panel and the CSV / Attitude exporters
+keep reporting the raw 0–360° value, so "Bearing: 200°" on one annotation and "20°" on another
+correctly share a hue.
+
+Slope and Dip angle *look* angular but are not cyclic: both are inclinations from horizontal
+(`asin(…)` in degrees, −90…90 and 0…90), so their endpoints are extremes rather than
+neighbours and a plain ramp is right.
 
 Colors that the user has not overridden come from a qualitative palette
 (`ColorByCategory.palette`) — annotation colors default to a sequential blue ramp, which is
@@ -78,8 +98,8 @@ other when more than one is switched on. They are not yet told apart or laid out
 2. add it to `label` and `unitOf`
 3. extract the value in **both** `valueOf` (plain `Annotation`) and `valueOfAdaptive`
    (token-based) — they must agree
-4. if it is discrete, add it to `isCategorical` and to `categories`; if it wraps at 360°, add
-   it to `isCyclic`
+4. if it is discrete, add it to `isCategorical` and to `categories`; if it is an orientation,
+   add it to `cyclicPeriod` with `Some 360.0` (directional) or `Some 180.0` (axial)
 
 Enum cases are appended, never renumbered: the attribute is persisted as its **integer**
 value, and the palette fallback for enum-backed categories is keyed on the same ordinal.

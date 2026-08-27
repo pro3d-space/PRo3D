@@ -22,6 +22,7 @@
     <Compile Include="GeoJsonExportTest.fs" />
     <Compile Include="AnnotationExportTest.fs" />
     <Compile Include="ColorByCategoryPersistenceTest.fs" />
+    <Compile Include="ColorByCategoryColorTest.fs" />
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />

@@ -37,6 +37,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         GeoJsonRework.Tests.tests()
         AnnotationExportTest.tests()
         ColorByCategoryPersistence.Tests.tests()
+        ColorByCategoryColor.Tests.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
         BulkAnnotationRoseTest.tests()

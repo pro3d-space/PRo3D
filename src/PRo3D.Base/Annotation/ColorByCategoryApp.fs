@@ -48,15 +48,24 @@ module ColorByCategory =
         | ColorCategoryAttribute.SurfaceName -> true
         | _ -> false
 
+    /// Period of a cyclic attribute in degrees; `None` when the attribute is not cyclic.
+    ///
     /// Azimuths wrap — 359° and 1° are one degree apart, so a linear two-color ramp puts
-    /// near-identical orientations at opposite ends of the scale. These get a full-circle
-    /// hue wheel instead, which ignores the ramp bounds and colors.
-    let isCyclic (a : ColorCategoryAttribute) =
+    /// near-identical orientations at opposite ends of the scale. These get a hue wheel
+    /// instead, which ignores the ramp bounds and colors.
+    ///
+    /// A dip azimuth is *directional* — it says which way the plane dips — so it runs the
+    /// full circle. A strike line, and the chord a polyline's bearing is measured along, are
+    /// *axial*: they have no preferred end, so 10° and 190° describe the same orientation
+    /// and have to come out the same color. Those wrap at 180°.
+    let cyclicPeriod (a : ColorCategoryAttribute) : Option<float> =
         match a with
+        | ColorCategoryAttribute.DipAzimuth    -> Some 360.0
         | ColorCategoryAttribute.Bearing
-        | ColorCategoryAttribute.DipAzimuth
-        | ColorCategoryAttribute.StrikeAzimuth -> true
-        | _ -> false
+        | ColorCategoryAttribute.StrikeAzimuth -> Some 180.0
+        | _                                    -> None
+
+    let isCyclic (a : ColorCategoryAttribute) = (cyclicPeriod a).IsSome
 
     let all =
         Enum.GetValues(typeof<ColorCategoryAttribute>)
@@ -123,18 +132,22 @@ module ColorByCategory =
         | Some c -> c
         | None   -> palette.[paletteIndex ordinal label]
 
-    let colorOfAzimuth (degrees : float) =
-        let d = ((degrees % 360.0) + 360.0) % 360.0
-        HSVf(float32 (d / 360.0), 1.0f, 1.0f).ToC3f().ToC4b()
+    /// Hue wheel over one period: 0° and `period` land on the same hue. The double modulo
+    /// keeps negative angles in range.
+    let colorOfAzimuth (period : float) (degrees : float) =
+        let d = ((degrees % period) + period) % period
+        HSVf(float32 (d / period), 1.0f, 1.0f).ToC3f().ToC4b()
 
     let colorOfValue (s : Settings) (v : float) =
         if Double.IsNaN v || Double.IsInfinity v then s.noValue
-        elif isCyclic s.attribute then colorOfAzimuth v
         else
-            FalseColorLegendApp.Draw.getColorForValue
-                s.lower s.upper s.interval
-                s.lowerColor s.upperColor s.invert
-                v
+            match cyclicPeriod s.attribute with
+            | Some period -> colorOfAzimuth period v
+            | None ->
+                FalseColorLegendApp.Draw.getColorForValue
+                    s.lower s.upper s.interval
+                    s.lowerColor s.upperColor s.invert
+                    v
 
     // -------------------------------------------------- non-adaptive extraction
 
@@ -410,24 +423,31 @@ module ColorByCategory =
                         ]
                         yield tinyButton "reset colors" ResetCategoryColors
 
-                elif isCyclic attr then
-                    // the ramp bounds and colors do not apply to a hue wheel, so only the
-                    // legend toggle and the no-value color are offered
-                    yield Html.table [
-                        Html.row "show legend:" [
-                            GuiEx.iconCheckBox m.numericLegend.useFalseColors (LegendMessage FalseColorLegendApp.UseFalseColors)
-                        ]
-                        noValueRow
-                    ]
-                    yield div [ style "font-style:italic; padding:5px" ] [
-                        text (sprintf "%s wraps at 360°, so it is colored on a hue wheel." (label attr))
-                    ]
-
                 else
-                    yield FalseColorLegendApp.UI.viewScalarMappingProperties paletteFile m.numericLegend
-                          |> UI.map LegendMessage
-                    yield Html.table [ noValueRow ]
-                    yield tinyButton "fit range to data" FitRangeToData
+                    match cyclicPeriod attr with
+                    | Some period ->
+                        // the ramp bounds and colors do not apply to a hue wheel, so only the
+                        // legend toggle and the no-value color are offered
+                        yield Html.table [
+                            Html.row "show legend:" [
+                                GuiEx.iconCheckBox m.numericLegend.useFalseColors (LegendMessage FalseColorLegendApp.UseFalseColors)
+                            ]
+                            noValueRow
+                        ]
+                        yield div [ style "font-style:italic; padding:5px" ] [
+                            text (
+                                if period < 360.0 then
+                                    sprintf "%s has no preferred direction, so it wraps at %.0f° and is colored on a hue wheel."
+                                        (label attr) period
+                                else
+                                    sprintf "%s wraps at %.0f°, so it is colored on a hue wheel." (label attr) period)
+                        ]
+
+                    | None ->
+                        yield FalseColorLegendApp.UI.viewScalarMappingProperties paletteFile m.numericLegend
+                              |> UI.map LegendMessage
+                        yield Html.table [ noValueRow ]
+                        yield tinyButton "fit range to data" FitRangeToData
             }
 
         require GuiEx.semui (
@@ -465,14 +485,16 @@ module ColorByCategory =
                 if enabled && show then
                     let! attr = m.attribute
 
-                    if isCyclic attr then
+                    match cyclicPeriod attr with
+                    | Some period ->
                         let gradientId = "ColorByCategoryCyclicLegend"
                         let stops =
                             [ 0 .. 12 ]
                             |> List.map (fun i ->
                                 let f = float i / 12.0
-                                // top of the bar is 360°, bottom 0°, matching the numeric bar
-                                let c = colorOfAzimuth ((1.0 - f) * 360.0)
+                                // top of the bar is a full period, bottom 0°, matching the
+                                // numeric bar
+                                let c = colorOfAzimuth period ((1.0 - f) * period)
                                 FalseColorLegendApp.Draw.buildSvgStop (float32 f) (c.ToC3b()))
                             |> AList.ofList
 
@@ -515,7 +537,7 @@ module ColorByCategory =
                                 (caption attr)
 
                         for i in 0 .. 4 do
-                            let deg = 360.0 - 90.0 * float i
+                            let deg = period - (period / 4.0) * float i
                             let y = 6.0 + 90.0 * (float i / 4.0)
                             yield Svg.text
                                     [ "x" => "25px"; "y" => sprintf "%f%%" y
@@ -523,7 +545,9 @@ module ColorByCategory =
                                       "pointer-events" => "none" ]
                                     (sprintf "%.0f°" deg)
 
-                    elif not (isCategorical attr) then
+                    | None when not (isCategorical attr) ->
                         yield! FalseColorLegendApp.Draw.createFalseColorLegendBasics
                                     "ColorByCategoryLegend" m.numericLegend
+
+                    | None -> ()
             }
