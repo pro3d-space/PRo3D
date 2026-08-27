@@ -1,6 +1,8 @@
-# Multi-Image Projection — implementation plan
+# Multi-Image Projection — implementation plan (archived)
 
-Requirements: [docs/MultiImageProjection.md](../docs/MultiImageProjection.md).
+Implemented 2026-08; the feature documentation is
+[docs/MultiImageProjection.md](../MultiImageProjection.md). Kept for the
+design decisions (D1--D8) and their rationale.
 Target: project an **ordered stack of up to a few dozen same-instrument images**
 onto OPC surfaces, painter's order (top wins), with a library/stack UI, hover
 preview, hover footprints (surface outline + frustum wireframe), fly-to, and
