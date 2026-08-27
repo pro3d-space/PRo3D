@@ -740,7 +740,10 @@ the extent factor and watch it extrapolate. Screenshot both for the docs page.
   outcrop traces show the *mean* of the same selection in 3D, and `R` is the number both share.
 - `ai/DOMAIN.md` — one row for `OutcropTraceModel` / `OutcropTraceApp`; `ai/README.md` type table
   likewise.
-- `PRODUCT_RELEASE_NOTES.md`.
+- **Not** `PRODUCT_RELEASE_NOTES.md`. `Build.fs` parses every `##` heading there as a version
+  (`ReleaseNotes.load`), so an "Unreleased" heading fails the build on every platform, and
+  minting the next prerelease number is a release decision rather than a feature one. The
+  entry belongs in whichever version section the maintainer opens.
 
 ---
 
