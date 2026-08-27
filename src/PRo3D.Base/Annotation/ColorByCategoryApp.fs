@@ -41,6 +41,43 @@ module ColorByCategory =
         | ColorCategoryAttribute.StrikeAzimuth     -> "Strike azimuth"
         | _                                       -> sprintf "%A" a
 
+    /// Shown when hovering an entry of the attribute dropdown. Says what the value is
+    /// measured from and, where it matters, which annotations actually have one — the
+    /// panel otherwise gives no clue why a whole set came out in the no-value color.
+    let tooltip (a : ColorCategoryAttribute) =
+        match a with
+        | ColorCategoryAttribute.AnnotationType ->
+            "The geometry type: point, line, polyline, polygon, dip and strike, true thickness or ellipse."
+        | ColorCategoryAttribute.Semantic ->
+            "The semantic tag, that can be assigned in the annotations' properties (Horizon 0-4, Crossbed, GrainSize)."
+        | ColorCategoryAttribute.SurfaceName ->
+            "The surface the annotation was drawn on."
+        | ColorCategoryAttribute.Slope ->
+            "Inclination of the straight line from the first to the last point, in degrees from horizontal (-90 to 90)."
+        | ColorCategoryAttribute.Bearing ->
+            "Compass direction of the straight line from the first to the last point (0 deg = north, clockwise). It is colored non-directional (0-180 deg), i.e. -v = v."
+        | ColorCategoryAttribute.Length ->
+            "Straight-line distance from the first to the last point, in meters. Close to zero for closed shapes such as ellipses, whose outline ends where it starts."
+        | ColorCategoryAttribute.WayLength ->
+            "Distance along the annotation, summed segment by segment, in meters. For an ellipse this is its perimeter."
+        | ColorCategoryAttribute.Height ->
+            "Difference in altitude between the highest and the lowest point, in meters."
+        | ColorCategoryAttribute.HeightDelta ->
+            "Difference in altitude between the first and the last point, in meters. Unlike Height this ignores the points in between."
+        | ColorCategoryAttribute.AvgAltitude ->
+            "Mean altitude over all points of the annotation, in meters."
+        | ColorCategoryAttribute.Area ->
+            "Polygons and ellipses: Enclosed area in square meters."
+        | ColorCategoryAttribute.Thickness ->
+            "Display setting: The line width the annotation is drawn with."
+        | ColorCategoryAttribute.DipAngle ->
+            "DnS: Angle between the fitted plane and horizontal, 0 to 90 degrees."
+        | ColorCategoryAttribute.DipAzimuth ->
+            "DnS: Compass direction the fitted plane dip (0 deg = north, clockwise). It is colored directional (0-360 deg)."
+        | ColorCategoryAttribute.StrikeAzimuth ->
+            "DnS: Compass direction of the strike line, perpendicular to the dip direction. It is colored non-directional (0-180 deg), i.e. -v = v."
+        | _ -> ""
+
     let isCategorical (a : ColorCategoryAttribute) =
         match a with
         | ColorCategoryAttribute.AnnotationType
@@ -383,6 +420,33 @@ module ColorByCategory =
             ColorPicker.defaultPalette paletteFile storageKey true
             (Aardvark.UI.AdaptiveColorInput({ c = current }))
 
+    /// Attribute dropdown with a per-entry tooltip, which `Html.SemUi.dropDown'` has nowhere
+    /// to hang. The tooltip is a plain `title` attribute rather than a Semantic UI popup:
+    /// an <option> may only contain text and the browser draws the open dropdown itself, so
+    /// a JS popup cannot attach to it — `title` is what actually shows. (It is also all that
+    /// is reachable here: PRo3D.Core.UI.wrapToolTip lives in PRo3D.Core, which compiles after
+    /// this file, and under the hood it sets the same attribute.)
+    let private attributeDropDown (selected : aval<ColorCategoryAttribute>) =
+        select [
+            onChange (fun str ->
+                Enum.Parse(typeof<ColorCategoryAttribute>, str)
+                |> unbox<ColorCategoryAttribute>
+                |> SetAttribute)
+            style "color:black"
+        ] [
+            for value in all do
+                let name = Enum.GetName(typeof<ColorCategoryAttribute>, value)
+                let att =
+                    AttributeMap.ofListCond [
+                        yield always (attribute "value" name)
+                        yield onlyWhen (selected |> AVal.map ((=) value)) (attribute "selected" "selected")
+                        match tooltip value with
+                        | "" -> ()
+                        | t  -> yield always (attribute "title" t)
+                    ]
+                yield Incremental.option att (AList.ofList [ text (label value) ])
+        ]
+
     let private tinyButton (caption : string) (msg : ColorByCategoryAction) =
         div [ style "padding: 4px 0px" ] [
             div [ clazz "ui tiny button"; onClick (fun _ -> msg) ] [ text caption ]
@@ -456,7 +520,7 @@ module ColorByCategory =
                     yield Html.table [
                         Html.row "enable:"    [ GuiEx.iconCheckBox m.enabled ToggleEnabled ]
                         Html.row "attribute:" [
-                            Html.SemUi.dropDown' (AList.ofList all) m.attribute SetAttribute label
+                            attributeDropDown m.attribute
                         ]
                     ]
                     yield! body

@@ -20,6 +20,14 @@ annotation property panels this one is **global**, not per selection.
 | *attribute* | which attribute drives the color |
 | *no value* | color for annotations that have no value for the attribute (a polyline asked for a diameter, an annotation with no planar fit asked for dip, uncomputed results) |
 
+Every entry of the *attribute* dropdown carries a tooltip (`ColorByCategory.tooltip`) saying
+what the value is measured from and which annotations actually have one — without it the panel
+gives no clue why a whole set came out in the no-value color. It is a plain `title` attribute
+on the `<option>`, not a Semantic UI popup: an `<option>` may only contain text and the browser
+draws the open dropdown itself, so a JS popup cannot attach to it. `PRo3D.Core.UI.wrapToolTip`
+sets the same attribute under the hood, but it lives in PRo3D.Core, which compiles *after*
+`ColorByCategoryApp.fs`, so it is not reachable from here.
+
 The rest of the panel depends on the kind of attribute:
 
 | Kind | Attributes | Panel | Legend |
@@ -95,7 +103,7 @@ other when more than one is switched on. They are not yet told apart or laid out
 # Adding an attribute
 
 1. add the case to `ColorCategoryAttribute` in `ColorByCategory-Model.fs` and run `adapt.cmd`
-2. add it to `label` and `unitOf`
+2. add it to `label`, `tooltip` and `unitOf`
 3. extract the value in **both** `valueOf` (plain `Annotation`) and `valueOfAdaptive`
    (token-based) — they must agree
 4. if it is discrete, add it to `isCategorical` and to `categories`; if it is an orientation,
