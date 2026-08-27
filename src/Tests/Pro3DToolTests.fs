@@ -76,6 +76,8 @@ module private Fixtures =
         {
             opc = ""
             time = ""
+            mbi = null
+            writeMbi = false
             out = ""
             instrument = "MILANI_ASPECT_NIR1"
             observer = "MILANI"
@@ -284,7 +286,7 @@ let private simulateImageTests =
                 let render (name : string) =
                     let path = Path.Combine(outDir, name)
                     match SimulateImageVerb.processImage runtime o "DIDYMOS" "DIDYMOS_FIXED" "MILANI"
-                              "MILANI_ASPECT_NIR1" time path hierarchies with
+                              "MILANI_ASPECT_NIR1" time path HeraSpiceTests.spiceFileName hierarchies with
                     | Result.Error e -> failtest e
                     | Result.Ok written ->
                         Expect.isTrue (File.Exists written) "PNG written"

@@ -92,8 +92,14 @@ type SimulateImageOptions =
         [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
         opc : string
 
-        [<Option("time", HelpText = "Observation time, ISO-8601 UTC (e.g. 2027-03-15T12:00:00Z)", Required = true)>]
+        [<Option("time", HelpText = "Observation time, ISO-8601 UTC (e.g. 2027-03-15T12:00:00Z). Required unless --mbi supplies the observation.")>]
         time : string
+
+        [<Option("mbi", HelpText = "Render the camera an existing image's .mbi.json sidecar defines, instead of a SPICE look-at camera at --time. Takes the image file or the sidecar; the epoch, instrument and pointing all come from it, so the result is directly comparable with that image.")>]
+        mbi : string
+
+        [<Option("write-mbi", HelpText = "Also write <out>.mbi.json and <out>.json describing the camera used, so the render can be imported into the PRo3D viewer and projected back onto the same body")>]
+        writeMbi : bool
 
         [<Option("out", HelpText = "Output PNG path (default: ./simulated.png)")>]
         out : string

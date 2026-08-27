@@ -391,6 +391,75 @@ let private toneMapToPng (img : PixImage<float32>) (explicitGain : float) : Resu
     Ok (out, gain)
 
 // ---------------------------------------------------------------------------------
+// Camera from an existing observation. `cameraAt` above points the instrument at the body
+// centre with an arbitrary roll -- fine for making a picture, useless for comparing with a
+// real frame. Taking the camera from an image's own mbi sidecar instead runs the render
+// through the viewer's projection path, so the result is directly comparable with that
+// image and any disagreement is the projection's, not the camera's.
+
+/// An observation resolved from an existing image's mbi sidecar.
+///
+/// The instrument comes from the sidecar rather than `--instrument`: the sidecar knows which
+/// camera took the image, and rendering an AFC1 observation through an AFC2 frustum would be
+/// a silent 90-degree roll.
+type MbiObservation =
+    {
+        camera     : SimCamera
+        time       : DateTime
+        /// SPICE instrument frame, e.g. "HERA_AFC-1"
+        instrument : string
+        /// native size, when the statistics sidecar declares one
+        size       : Option<V2i>
+    }
+
+/// Resolve `--mbi` to the image whose sidecar carries the observation. Accepts either the
+/// image or the sidecar itself: a caller who found the geometry by reading the .mbi.json
+/// should not have to work out which image file it belongs to.
+let private imageForMbiArgument (path : string) : Result<string * string, string> =
+    let full = Path.GetFullPath path
+    let dir = Path.GetDirectoryName full
+    let name = Path.GetFileName full
+    if name.EndsWith(".mbi.json", StringComparison.OrdinalIgnoreCase) then
+        let baseName = name.Substring(0, name.Length - ".mbi.json".Length)
+        let candidates =
+            [ ".png"; ".tif"; ".tiff"; ".jpg"; ".jpeg"; ".exr" ]
+            |> List.map (fun ext -> Path.Combine(dir, baseName + ext))
+        match candidates |> List.tryFind File.Exists with
+        | Some img -> Ok (dir, Path.GetFileName img)
+        | None -> Result.Error (sprintf "no image found next to %s (looked for %s.png/.tif/.jpg/.exr)" full baseName)
+    elif File.Exists full then Ok (dir, name)
+    else Result.Error (sprintf "not found: %s" full)
+
+/// The camera an existing observation was taken with, straight out of the viewer's own
+/// projection path (`InstrumentObservation.projectorCamera` -> `Visualization.projectDirect`).
+let cameraFromMbi (observer : string) (frame : string) (body : string)
+                  (mbiPath : string) : Result<MbiObservation, string> =
+    match imageForMbiArgument mbiPath with
+    | Result.Error e -> Result.Error e
+    | Ok (folder, imageFile) ->
+        match InstrumentObservation.resolveImage folder (Some imageFile) with
+        | Result.Error e -> Result.Error e
+        | Ok img ->
+            match InstrumentObservation.projectorCamera None observer frame body ProjectionMethod.MbiBased img with
+            | Result.Error e -> Result.Error e
+            | Ok cam ->
+                match Map.tryFind img.spiceName (InstrumentProjection.instruments cam.near cam.far) with
+                | None -> Result.Error (sprintf "no frustum defined for instrument frame '%s'" img.spiceName)
+                | Some frustum ->
+                    Ok {
+                        camera =
+                            {
+                                view = cam.view
+                                proj = cam.proj
+                                distance = cam.distance
+                                aspect = (frustum.right - frustum.left) / (frustum.top - frustum.bottom)
+                            }
+                        time = img.mbi.obs_date
+                        instrument = img.spiceName
+                        size = img.size
+                    }
+
+// ---------------------------------------------------------------------------------
 
 /// Render one simulated image. Returns the written file, or why it could not.
 ///
@@ -399,11 +468,29 @@ let private toneMapToPng (img : PixImage<float32>) (explicitGain : float) : Resu
 /// active kernel, adding no kernel swaps.
 let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                  (body : string) (frame : string) (observer : string) (instrument : string)
-                 (time : DateTime) (outPath : string) (hierarchies : string[]) : Result<string, string> =
+                 (time : DateTime) (outPath : string) (kernel : string) (hierarchies : string[]) : Result<string, string> =
+
+    // --mbi replaces the look-at camera with the observation an existing image declares;
+    // the instrument then comes from that sidecar too (see MbiObservation).
+    let observation =
+        if String.IsNullOrWhiteSpace o.mbi then Ok None
+        else cameraFromMbi observer frame body o.mbi |> Result.map Some
+
+    match observation with
+    | Result.Error e -> Result.Error e
+    | Ok observation ->
+
+    let instrument = observation |> Option.map (fun x -> x.instrument) |> Option.defaultValue instrument
+    // With --mbi the epoch is the observation's, not the command line's: sun direction,
+    // shadow map and sidecar all have to agree with the camera we are rendering through.
+    let time = observation |> Option.map (fun x -> x.time) |> Option.defaultValue time
 
     let size =
         // Each axis independently: --width alone keeps the native height, like sun-angles.
         let native =
+            match observation |> Option.bind (fun x -> x.size) with
+            | Some declared -> declared
+            | None ->
             match Map.tryFind instrument nativeSizes with
             | Some native -> native
             | None ->
@@ -414,11 +501,20 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             (if o.width  > 0 then o.width  else native.X),
             (if o.height > 0 then o.height else native.Y))
 
-    match cameraAt observer frame body instrument o.distance time with
+    let camera =
+        match observation with
+        | Some obs ->
+            if o.distance > 0.0 then
+                Log.warn "[camera] --distance is ignored with --mbi: the standoff is the observation's own"
+            Log.line "[camera] from %s (%s at %s)" (Path.GetFileName o.mbi) instrument (obs.time.ToString "o")
+            Ok obs.camera
+        | None -> cameraAt observer frame body instrument o.distance time
+
+    match camera with
     | Result.Error e -> Result.Error e
     | Ok cam ->
 
-    if o.distance > 0.0 then
+    if o.distance > 0.0 && Option.isNone observation then
         Log.warn "[camera] distance OVERRIDDEN to %.1f m -- the standoff is not the spacecraft's real range" o.distance
 
     // The frustum's aspect is fixed by the instrument; a differently-shaped viewport
@@ -539,6 +635,40 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 Log.line "[expose] auto gain %.3f (pass --gain %.3f to reproduce across a series)" gain gain
             png.Save(outPath)
             Log.line "[out] %s" outPath
+
+            // The sidecar is written from cam.view, the trafo the render actually used, and
+            // then read back through the viewer's own path -- so the numbers reported here
+            // are the real round-trip error, not a restatement of what we just wrote.
+            if o.writeMbi then
+                let ctx : MbiSidecar.Context =
+                    {
+                        instrument = instrument
+                        body = body
+                        frame = frame
+                        time = time
+                        kernel = kernel
+                        size = size
+                    }
+                match MbiSidecar.write ctx outPath cam.view with
+                | Result.Error e ->
+                    Log.warn "[mbi] no sidecar written: %s" e
+                | Ok sidecar ->
+                    Log.line "[mbi] %s" sidecar
+                    match MbiSidecar.writeStatistics ctx outPath png with
+                    | Result.Error e -> Log.warn "[mbi] no statistics sidecar: %s" e
+                    | Ok stats -> Log.line "[mbi] %s" stats
+                    match MbiSidecar.verify ctx outPath (cam.view * cam.proj) observer with
+                    | Result.Error e ->
+                        Log.warn "[mbi] could not verify the sidecar: %s" e
+                    | Ok r ->
+                        Log.line "[mbi] round trip: boresight %.6f deg, worst corner %.3f px, max matrix element %.3e"
+                            r.boresight r.pixels r.matrix
+                        // A tenth of a pixel is far below anything visible and still well
+                        // above the double-precision noise of the frame chain.
+                        if r.pixels > 0.1 then
+                            Log.warn "[mbi] the viewer reconstructs a DIFFERENT camera from this sidecar (%.3f px) -- projecting this image will not overlay the render"
+                                r.pixels
+
             Ok outPath
     finally
         SunAnglesVerb.FloatTarget.dispose target
@@ -552,13 +682,22 @@ let run (o : SimulateImageOptions) : int =
     let instrument = if String.IsNullOrWhiteSpace o.instrument then "HERA_AFC-1"      else o.instrument
     let outPath    = if String.IsNullOrWhiteSpace o.out        then Path.Combine(".", "simulated.png") else o.out
 
+    // --mbi carries its own epoch (the sidecar's DATE-OBS), so --time is only required
+    // without it; processImage replaces this value once the observation resolves.
+    let usingMbi = not (String.IsNullOrWhiteSpace o.mbi)
+
     let time =
-        match DateTime.TryParse(o.time, CultureInfo.InvariantCulture,
-                                DateTimeStyles.AdjustToUniversal ||| DateTimeStyles.AssumeUniversal) with
-        | true, t -> Some t
-        | _ -> None
+        if usingMbi && String.IsNullOrWhiteSpace o.time then Some DateTime.MinValue
+        else
+            match DateTime.TryParse(o.time, CultureInfo.InvariantCulture,
+                                    DateTimeStyles.AdjustToUniversal ||| DateTimeStyles.AssumeUniversal) with
+            | true, t -> Some t
+            | _ -> None
 
     match time with
+    | None when String.IsNullOrWhiteSpace o.time ->
+        Log.error "no observation given: pass --time <ISO-8601> or --mbi <image or sidecar>"
+        1
     | None -> Log.error "cannot parse --time '%s' (expected ISO-8601, e.g. 2027-03-15T12:00:00Z)" o.time; 1
     | Some time ->
 
@@ -571,16 +710,28 @@ let run (o : SimulateImageOptions) : int =
         1
     | Ok kernelRoot ->
 
-    // No image sidecar to declare a metakernel here, so the choice is explicit or the
-    // planning kernel: with a user-supplied time only hera_plan.tm reliably has coverage.
+    // With --mbi the image's own sidecar names the metakernel it was generated against, and
+    // reproducing that image means using it. Without one there is nothing to go on, so the
+    // choice is explicit or the planning kernel: at a user-supplied time only hera_plan.tm
+    // reliably has coverage.
+    let explicitKernel = if String.IsNullOrWhiteSpace o.kernel then None else Some o.kernel
     let kernel =
-        if not (String.IsNullOrWhiteSpace o.kernel) then
-            if File.Exists o.kernel then Ok o.kernel
-            else Result.Error (sprintf "kernel not found: %s" o.kernel)
-        else
-            let fallback = Path.Combine(kernelRoot, "mk", "hera_plan.tm")
-            if File.Exists fallback then Ok fallback
-            else Result.Error (sprintf "no metakernel: pass --kernel or provide %s" fallback)
+        let fallback () =
+            let f = Path.Combine(kernelRoot, "mk", "hera_plan.tm")
+            if File.Exists f then Ok f
+            else Result.Error (sprintf "no metakernel: pass --kernel or provide %s" f)
+        match explicitKernel with
+        | Some explicitPath ->
+            if File.Exists explicitPath then Ok explicitPath
+            else Result.Error (sprintf "kernel not found: %s" explicitPath)
+        | None when usingMbi ->
+            // resolveImage only parses the sidecar, so this is safe before SPICE is up
+            match imageForMbiArgument o.mbi |> Result.bind (fun (dir, file) -> InstrumentObservation.resolveImage dir (Some file)) with
+            | Ok img -> InstrumentObservation.resolveKernel None kernelRoot img
+            | Result.Error e ->
+                Log.warn "[spice] could not read %s to find its metakernel (%s)" o.mbi e
+                fallback ()
+        | None -> fallback ()
 
     match kernel with
     | Result.Error e -> Log.error "%s" e; 1
@@ -610,7 +761,7 @@ let run (o : SimulateImageOptions) : int =
     // An unexpected exception (corrupt OPC, driver failure) should surface as a clean
     // error and exit code, not a raw stack trace.
     try
-        match processImage runtime o body frame observer instrument time outPath hierarchies with
+        match processImage runtime o body frame observer instrument time outPath kernel hierarchies with
         | Ok _ -> 0
         | Result.Error e -> Log.error "%s" e; 1
     with e ->
