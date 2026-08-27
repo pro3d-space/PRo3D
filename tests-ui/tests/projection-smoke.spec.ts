@@ -84,9 +84,45 @@ test("COP image projects onto the Dimorphos OPC", async ({ browser }) => {
     await gis.locator("text=Import Directory").first().click();
 
     // import lists the folder's pngs; rows carry the file names
-    await expect(
-        gis.locator("text=HERA_AFC_0001_20270205_010000_COP.png")
-    ).toBeVisible({ timeout: 120_000 });
+    const anyRow = gis.locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/").first();
+    await expect(anyRow).toBeVisible({ timeout: 120_000 });
+
+    // optionally select a specific image (e.g. a Dimorphos-pointed frame)
+    // instead of the auto-selected first one
+    const wanted = process.env.PRO3D_SELECT_IMAGE;
+    if (wanted) {
+        // single-shot DOM click: the incremental list re-renders often enough
+        // that Playwright's actionability loop (scroll/stability checks) can
+        // starve against it. Row layout (ProjectedImageListApp.view): header
+        // div with the file name, next sibling holds the cells, first cell is
+        // Select and contains the checkbox <i>.
+        const result = await gis.evaluate((name) => {
+            // deepest element whose text is exactly the file name (the text
+            // may sit in a wrapper inside the header div)
+            const matches = Array.from(document.querySelectorAll("*")).filter(
+                (e) => (e.textContent ?? "").trim() === name
+            );
+            const deepest = matches.filter(
+                (e) => !Array.from(e.children).some((c) => matches.includes(c))
+            );
+            if (deepest.length === 0) return "header not found";
+            // climb until an ancestor whose next sibling holds the row cells
+            // (recognizable by the checkbox <i> in its first cell)
+            let el: Element | null = deepest[0];
+            while (el) {
+                const row = el.nextElementSibling;
+                const box = row?.children[0]?.querySelector("i");
+                if (box) {
+                    (box as HTMLElement).click();
+                    return "clicked";
+                }
+                el = el.parentElement;
+            }
+            return "checkbox not found";
+        }, wanted);
+        expect(result, `selecting ${wanted}`).toBe("clicked");
+        await gis.waitForTimeout(2000);
+    }
 
     // LoadImagesDir auto-selects the first image; give SPICE + texture load a
     // moment, then verify the render view changed where it matters
