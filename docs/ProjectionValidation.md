@@ -118,7 +118,13 @@ offset from the direction the spacecraft tracks.
 Camera on the image's own axis at 220 m, *Orientation Source* = MBI,
 *Transfer Function* off, one image in the stack:
 
-![the frame projected in the viewer, raw RGB, close up](images/projectionValidation/viewer-closeup-rawrgb.png)
+| terrain only | the frame projected onto it |
+|---|---|
+| ![terrain, nothing projected](images/projectionValidation/viewer-closeup-terrain.png) | ![the frame projected, raw RGB](images/projectionValidation/viewer-closeup-rawrgb.png) |
+
+(Same camera in both. The terrain's colouring is the OPC's placeholder *Earth*
+texture — that dataset ships no DRACO mosaic, which is why the uncovered limb at
+the lower right is blue and green.)
 
 The projection registers with the terrain, and it is the image's own greyscale
 rather than a colour map. What is left is the limb at the lower right, where the
