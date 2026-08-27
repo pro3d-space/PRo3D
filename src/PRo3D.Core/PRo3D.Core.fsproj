@@ -106,6 +106,9 @@
     <Compile Include="CrossSection-Model.fs" />
     <Compile Include="CrossSection-Model.g.fs" />
     <Compile Include="CrossSectionApp.fs" />
+    <Compile Include="OutcropTrace-Model.fs" />
+    <Compile Include="OutcropTrace-Model.g.fs" />
+    <Compile Include="OutcropTraceApp.fs" />
     <Compile Include="Validator/HeightValidator-Model.fs" />
     <Compile Include="Validator/HeightValidator-Model.g.fs" />
     <Compile Include="Validator/HeightValidatorApp.fs" />

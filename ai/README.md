@@ -18,6 +18,7 @@ Start at [../AGENTS.md](../AGENTS.md) for build/dependency/project-structure bas
 | Build the scene graph for a surface | [RENDERING.md](RENDERING.md#scene-graph-construction) |
 | Implement or debug picking / ray intersection | [RENDERING.md](RENDERING.md#picking) |
 | Add a custom shader/effect (outline, multitexture) | [RENDERING.md](RENDERING.md#shaders--effects) |
+| Combine a set of measured planes into one attitude | [DOMAIN.md](DOMAIN.md#outcrop-traces) |
 | Coordinate transforms / planetary reference systems | [DOMAIN.md](DOMAIN.md#reference-systems--spice) |
 | GIS entities / SPICE observation setup | [DOMAIN.md](DOMAIN.md#gis) |
 | Drive PRo3D from the command line | [AUTOMATION.md](AUTOMATION.md#command-line) |
@@ -39,6 +40,7 @@ Start at [../AGENTS.md](../AGENTS.md) for build/dependency/project-structure bas
 | `Bookmark`, `SequencedBookmarks`, `SceneState` | [DOMAIN.md](DOMAIN.md#bookmarks--sequenced-bookmarks) |
 | `ScaleVisualization`, `GeologicSurface`, `SceneObject`, `TraverseModel` | [DOMAIN.md](DOMAIN.md#other-domain-modules) |
 | `TransformationApp`, `VisualizationAndTFApp`, `FalseColorsModel` | [DOMAIN.md](DOMAIN.md#transformations--false-color) |
+| `OutcropTraceModel`, `OutcropTraceApp`, `MeanAttitude` | [DOMAIN.md](DOMAIN.md#outcrop-traces) |
 | `Level0KdTree`, `LazyKdTree`, `InCoreKdTree` | [RENDERING.md](RENDERING.md#kdtrees) |
 | `QueryResult`, `QueryFunctions` | [DOMAIN.md](DOMAIN.md#queries) |
 | `ProvenanceModel`, `ProvenanceApp` | [AUTOMATION.md](AUTOMATION.md#provenance-tracking) |

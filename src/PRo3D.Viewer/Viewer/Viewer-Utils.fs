@@ -859,6 +859,107 @@ module ViewerUtils =
                 return v
             }
 
+    module OutcropTraceShader =
+        open FShade
+
+        /// Only what the test needs: the interpolated colour so far, and the view-space
+        /// position `Shader.stableTrafo` writes into the ViewSpacePos semantic.
+        type OutcropTraceVertex = {
+            [<Color>]                        c  : V4f
+            [<Semantic("ViewSpacePos")>]     vp : V4f
+        }
+
+        type UniformScope with
+            member x.OutcropTraceEnabled : bool = x?OutcropTraceEnabled
+            /// xyz = view-space unit normal, w = view-space plane offset d
+            member x.OutcropTracePlane   : V4f  = x?OutcropTracePlane
+            /// xyz = view-space anchor, w = projection radius (metres)
+            member x.OutcropTraceExtent  : V4f  = x?OutcropTraceExtent
+            /// x = trace width, y = trace smoothing, z = bed thickness (<= 0 = single
+            /// plane), w = phase offset along the normal
+            member x.OutcropTraceParams  : V4f  = x?OutcropTraceParams
+            member x.OutcropTraceColor   : V4f  = x?OutcropTraceColor
+
+        /// Marks the fragments where a modelled bedding sequence meets the terrain.
+        ///
+        /// One attitude, uploaded as a single view-space plane; the whole sequence comes from
+        /// folding the signed distance into one bed-thickness interval. That is why there is
+        /// no uniform array and no per-fragment loop however many beds are on screen.
+        ///
+        /// Everything is view space: `v.vp` is camera-relative, so at 10 km a float32 still
+        /// resolves ~1 mm. The same test in world space would be a float32 dot product
+        /// against ~3.4e6 m on Mars, about 0.25 m of resolution - noise next to a 0.25 m
+        /// trace. The plane is composed on the CPU in double (OutcropTrace.viewSpaceAttitude).
+        ///
+        /// OutcropTraceEnabled gates the whole thing and the uniforms are always bound, zero
+        /// filled when off - see the crossSectionClip note above for why reading an unbound
+        /// value per fragment is not safe on every platform.
+        let outcropTrace (v : OutcropTraceVertex) =
+            fragment {
+                if not uniform.OutcropTraceEnabled then
+                    return v.c
+                else
+                    let p         = v.vp.XYZ
+                    let pl        = uniform.OutcropTracePlane
+                    let ext       = uniform.OutcropTraceExtent
+                    let par       = uniform.OutcropTraceParams
+                    let halfWidth = par.X * 0.5f
+                    let smooth    = max par.Y 1e-4f
+                    let bedThk    = par.Z
+
+                    // signed distance to the reference plane, view space, metres, shifted
+                    // along the normal by the phase offset. Sliding the whole sequence is
+                    // how you line a modelled bed up with a marker bed you can actually see;
+                    // the pattern repeats every bed thickness, so one bed of travel reaches
+                    // every possible phase.
+                    let signed = Vec.dot pl.XYZ p - pl.W - par.W
+
+                    // a sequence folds that distance into one bed-thickness interval
+                    let d =
+                        if bedThk > 0.0f then
+                            let m = signed - bedThk * floor (signed / bedThk)
+                            min m (bedThk - m)               // distance to the nearest bed
+                        else
+                            abs signed
+
+                    // How much the signed distance changes across one pixel. This is what
+                    // makes a *sequence* survivable: trace width and bed thickness are both
+                    // in metres, so once a bed is thinner than a couple of pixels of terrain
+                    // the traces shimmer, moire against the LOD and crawl as the camera
+                    // moves. At 500 m on a 1080-tall viewport with a 60 deg vertical FOV one
+                    // pixel already covers ~0.5 m face-on, and several times that at grazing
+                    // incidence, so a 1 m bed thickness is at the Nyquist limit before the
+                    // terrain tilts at all.
+                    // ddx/ddy, NOT ddxFine/ddyFine: the Fine variants emit dFdxFine/dFdyFine,
+                    // which need GLSL 4.50 or GL_ARB_derivative_control. macOS caps OpenGL at
+                    // 4.1, so they fail to compile there and take the whole surface shader
+                    // down with them. Plain dFdx/dFdy have been core since GLSL 1.10 and the
+                    // coarse/fine distinction is invisible at this scale anyway.
+                    let w = max (V2f(ddx signed, ddy signed) |> Vec.length) 1e-6f
+
+                    // Never let a trace fall below about a pixel and a half, or it
+                    // disappears and reappears between frames instead of getting fainter.
+                    let halfWidth = max halfWidth (w * 0.75f)
+                    let smooth    = max smooth w
+
+                    // band: 1 inside halfWidth, smoothstep out over `smooth`
+                    let band = 1.0f - Fun.Smoothstep(d, halfWidth, halfWidth + smooth)
+
+                    // Dissolve an over-dense sequence into a flat tint rather than a
+                    // shimmering mess: below ~3 pixels per bed there is no longer a pattern
+                    // to resolve, so fade the whole thing out instead of aliasing it.
+                    let density =
+                        if bedThk > 0.0f then Fun.Smoothstep(bedThk / w, 2.0f, 4.0f)
+                        else 1.0f
+
+                    // fade out away from the selection the attitude was measured on
+                    let r    = Vec.distance ext.XYZ p
+                    let fade = 1.0f - Fun.Smoothstep(r, ext.W, ext.W * 1.15f)
+
+                    let a = Fun.Clamp(band * fade * density, 0.0f, 1.0f)
+                    return V4f(v.c.XYZ * (1.0f - a) + uniform.OutcropTraceColor.XYZ * a, v.c.W)
+            }
+
     module CurtainShader =
         open FShade
 
@@ -953,6 +1054,9 @@ module ViewerUtils =
             Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
+
+            // last, so the trace colour is not modulated by lighting
+            OutcropTraceShader.outcropTrace |> toEffect
         ]
 
     let surfaceEffect =
@@ -1008,6 +1112,11 @@ module ViewerUtils =
             PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
             // Cast shadows (LightingMode.SunShadow); per-patch gated, no-op otherwise.
             PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
+
+            // Last in the stack on purpose: outcrop traces are an interpretive overlay, so
+            // their colour must survive lighting and shadowing. contourLines sits earlier
+            // and is shaded, which is right for a terrain property and wrong for this.
+            OutcropTraceShader.outcropTrace |> toEffect
         ]
         //Effect.compose [
             
@@ -1096,6 +1205,88 @@ module ViewerUtils =
             
             }                              
         sgs
+
+    /// The annotations the outcrop-trace attitude is measured on: the green multi-selection,
+    /// falling back to the single selected annotation when that is empty. One expression
+    /// covers both "a selection" and "a group's Select All", which is what fills
+    /// `selectedLeaves`.
+    let private outcropTraceSelection (annotations : AdaptiveGroupsModel) =
+        adaptive {
+            let! multi = annotations.selectedLeaves.Content
+            if HashSet.isEmpty multi then
+                let! single = annotations.singleSelectLeaf
+                return single |> Option.toList |> HashSet.ofList
+            else
+                return multi |> HashSet.map (fun ts -> ts.id)
+        }
+
+    /// Mean attitude of the current selection, or None when there is nothing usable.
+    ///
+    /// The aggregate is built the way the rose panel's is (see ViewerGUI, `angles`): one
+    /// AMap.filter reader over `flat` rather than N AMap.tryFind calls - tryFind
+    /// re-evaluates on *every* change of the map, so N lookups would turn one annotation
+    /// edit into N invalidations - and AMap.chooseA to cache the per-annotation read, so
+    /// editing one annotation re-reads that one. The source toggles are applied at the leaf,
+    /// filtering the already-collected map, so clicking a checkbox does not tear the
+    /// per-annotation subtree down and rebuild it.
+    let outcropTraceAttitude (m : AdaptiveModel) : aval<Option<MeanAttitude>> =
+        let annotations = m.drawing.annotations
+        // deliberately not gated on `enabled`: the Dip&Strike panel shows this same
+        // selection average with outcrop traces switched off. The draw gate lives in
+        // outcropTraceUniforms.
+        adaptive {
+                let! ids = outcropTraceSelection annotations
+                let perAnnotation =
+                    annotations.flat
+                    |> AMap.filter (fun annoId _ -> ids |> HashSet.contains annoId)
+                    |> AMap.chooseA (fun _ leaf ->
+                        match leaf with
+                        | AdaptiveAnnotations a ->
+                            // annotations with no dip and strike surface as the degenerate
+                            // zero-normal plane, which OutcropTrace.includes rejects
+                            let planeAndCenter =
+                                AVal.bindAdaptiveOption a.dnsResults (Plane3d(V3d.Zero, 0.0), V3d.Zero) (fun d ->
+                                    AVal.map2 (fun p c -> (p, c)) d.plane d.centerOfMass)
+                            AVal.map2
+                                (fun geo (plane, com) -> Some (geo, plane, com))
+                                a.geometry
+                                planeAndCenter
+                        | _ -> AVal.constant None)
+                    |> AMap.toAVal
+
+                let! perAnno = perAnnotation
+                let! usePolyline = m.outcropTraces.usePolyline
+                let! useDnS = m.outcropTraces.useDnS
+
+                let contributions =
+                    perAnno
+                    |> HashMap.fold (fun acc _ (geo, plane, com) ->
+                        if OutcropTrace.includes usePolyline useDnS geo plane
+                        then { OutcropTrace.plane = plane; OutcropTrace.center = com } :: acc
+                        else acc) []
+                    |> List.toArray
+
+                return OutcropTrace.meanAttitude contributions
+        }
+
+    /// View-space plane and extent for the shader, or None when nothing should be drawn.
+    ///
+    /// Folds together disabled, nothing selected, no usable planes, no dominant attitude and
+    /// girdle into one gate, so the shader can never be reached with a half-valid plane.
+    /// `view` is the view actually rendering the pass, not m.navigation.camera.view: taking
+    /// the latter would draw the main camera's plane into the instrument view.
+    let outcropTraceUniforms (view : aval<CameraView>) (m : AdaptiveModel) : aval<Option<V4f * V4f>> =
+        adaptive {
+            let! enabled = m.outcropTraces.enabled
+            if not enabled then return None else
+            match! outcropTraceAttitude m with
+            | Some attitude when attitude.shape = Cluster ->
+                let! radius = m.outcropTraces.projectionRadius.value
+                let! view' = view
+                return Some (OutcropTrace.viewSpaceAttitude (CameraView.viewTrafo view') radius attitude)
+            | _ ->
+                return None
+        }
 
     let createGroupedSgs
         (runtime        : IRuntime)
@@ -1260,11 +1451,27 @@ module ViewerUtils =
                 )
                 |> Sg.dynamic
 
+            let outcropTrace = outcropTraceUniforms view m
+            let outcropTraceParams =
+                adaptive {
+                    let! width  = m.outcropTraces.traceWidth.value
+                    let! smooth = m.outcropTraces.traceSmoothing.value
+                    let! bedThk = m.outcropTraces.bedThickness.value
+                    let! phase  = m.outcropTraces.phaseOffset.value
+                    return V4f(float32 width, float32 smooth, float32 bedThk, float32 phase)
+                }
+
             let surfaces =
                 surfaces
                 |> AMap.toASet
                 |> ASet.map snd
                 |> Sg.set
+                |> Sg.uniform "OutcropTraceEnabled" (outcropTrace |> AVal.map Option.isSome)
+                // always bound, zero filled when off - never left unbound; see outcropTrace
+                |> Sg.uniform "OutcropTracePlane"  (outcropTrace |> AVal.map (function Some (p, _) -> p | None -> V4f.Zero))
+                |> Sg.uniform "OutcropTraceExtent" (outcropTrace |> AVal.map (function Some (_, e) -> e | None -> V4f.Zero))
+                |> Sg.uniform "OutcropTraceParams" outcropTraceParams
+                |> Sg.uniform "OutcropTraceColor"  (m.outcropTraces.color.c |> AVal.map (fun c -> c.ToC4f().ToV4f()))
                 |> Sg.uniform "CrossSectionClippingEnabled" m.scene.crossSectionModel.clippingEnabled
                 // Whether there is a cross-section at all. See crossSectionClip.
                 |> Sg.uniform "CrossSectionDefined" (crossSectionData |> AVal.map Option.isSome)

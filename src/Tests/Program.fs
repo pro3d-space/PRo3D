@@ -24,6 +24,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section18_KeyboardShortcuts.tests
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
         PRo3D.Tests.Section20_BooleanOperations.tests
+        PRo3D.Tests.Section21_OutcropTraces.tests
     ]
 
 let allTests (parameters : TestUtils.TestParameters) : Test =
@@ -40,6 +41,8 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         TriangleSetTests.tests()
         BulkAnnotationRoseTest.tests()
         BulkAnnotationRoseTest.largeTests()
+        OutcropTraceAttitudeTest.tests()
+        OutcropTraceShaderTest.tests()
         PolygonFillTests.tests()
         RegionOpsTests.tests()
         RegionFixtureTests.tests()
