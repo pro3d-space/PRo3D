@@ -60,6 +60,11 @@ module SgExtensions =
                 /// InstrumentVisibilityMode.RelativeCount: tint fragments by
                 /// how many stack layers cover them (projectedStackCoverage)
                 stackCoverageEnabled : aval<bool>
+                /// The hovered image's own projector (surface frame, its obs
+                /// time) -- drives the hover-only footprint outline uniform and
+                /// the frustum wireframe (D5). None when nothing is hovered or
+                /// the projection does not resolve.
+                hoveredProjection : aval<Option<Trafo3d>>
                 sunDirection : aval<Option<V3d>>
                 sunLightEnabled : aval<bool>
                 /// World -> sun-camera clip space for shadow mapping; None disables the

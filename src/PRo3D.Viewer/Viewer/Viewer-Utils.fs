@@ -1013,6 +1013,10 @@ module ViewerUtils =
             // split are gone
             ImageProjection.Shaders.projectedStackCoverage |> toEffect
 
+            // hover footprint: green outline of the hovered image's frustum
+            // footprint on the surface (D5)
+            ImageProjection.Shaders.hoveredProjectionOutline |> toEffect
+
             // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
             // sphere-normal predecessor made relief invisible under sun lighting.
             PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
@@ -1170,25 +1174,40 @@ module ViewerUtils =
                 runtime
                 (PRo3D.GIS.ProjectedImagesListAppHelper.getStackTextureLayers m.scene.gisApp)
 
-        let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
+
+        let wrapGisData (surfaceId : Guid) (surfaceTrafo : aval<Trafo3d>) (sg : ISg<_>) =
             let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
             let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
             let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
 
-            sg
-            |> Sg.applyProjectedImages (fun body ->
-                body
-                |> AVal.map (function
-                    | Some b ->
-                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
-                        r
-                    | _ -> None
+            // per surface, shared by the per-patch applicator and the frustum
+            // wireframe (does not depend on the body value)
+            let projData = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
+
+            let wrapped =
+                sg
+                |> Sg.applyProjectedImages (fun body ->
+                    body
+                    |> AVal.map (function
+                        | Some b -> projData
+                        | _ -> None
+                    )
                 )
-            )
-            |> Sg.texture "ProjectedStackTextures" projectedStackTextures
-            |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
-            |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
-            |> Sg.noEvents
+                |> Sg.texture "ProjectedStackTextures" projectedStackTextures
+                |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
+                |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
+                |> Sg.noEvents
+
+            // hovered image's frustum wireframe (D5), in the surface's frame;
+            // appears/disappears with hoveredImage
+            let frustum =
+                match projData with
+                | Some p ->
+                    PRo3D.InstrumentProjection.Visualization.hoveredFrustumSg p.hoveredProjection surfaceTrafo
+                    |> Sg.noEvents
+                | None -> Sg.empty
+
+            Sg.ofList [wrapped; frustum]
 
 
         // Compute cross-section clipping data from scene-level cross section model
@@ -1256,8 +1275,21 @@ module ViewerUtils =
                             |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
 
+                    // the surface's placement, for overlays that live outside
+                    // the surface's own Sg subtree (the hovered-frustum lines)
+                    let surfaceTrafo =
+                        AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
+                        |> AVal.bind (function
+                            | Some (AdaptiveSurfaces s) ->
+                                adaptive {
+                                    let! fullTrafo = TransformationApp.fullTrafo s.transformation refSystem observationSystem observerSystem
+                                    let! preTransform = s.preTransform
+                                    return fullTrafo * preTransform
+                                }
+                            | _ -> AVal.constant Trafo3d.Identity)
+
                     surfaceSg
-                    |> wrapGisData guid
+                    |> wrapGisData guid surfaceTrafo
                 )
 
             let depthComposed = 

@@ -536,12 +536,87 @@ module ViewerApp =
                 a'
             | None -> m.animations
 
-    let updateViewer 
-        (runtime   : IRuntime) 
-        (signature : IFramebufferSignature) 
-        (sendQueue : BlockingCollection<string>) 
-        (mailbox   : MessagingMailbox) 
-        (m         : Model) 
+    /// Fly the camera onto an image's projector axis (D6): forward = the
+    /// instrument boresight, up from the projector, standing off just far
+    /// enough to frame the instrument's footprint instead of sitting at the
+    /// spacecraft's full range. The pose is computed in the projection
+    /// surface's body-fixed frame at the image's own observation time and
+    /// carried into render space by the surface's current placement, so the
+    /// view lines up with where the projection actually sticks to the terrain.
+    let addFlyToImageAnimation (m : Model) (imageId : System.Guid) =
+        let gis = m.scene.gisApp
+        let projectionSurface =
+            gis.gisSurfaces
+            |> HashMap.toSeq
+            |> Seq.tryPick (fun (sid, gs) ->
+                match gs.entity, gs.referenceFrame with
+                | Some entity, Some frame -> Some (sid, entity, frame)
+                | _ -> None)
+        let image = PRo3D.ImageMapping.ProjectedImageListModel.tryFind imageId gis.projectedImageList
+        let observerSystemOpt = Gis.GisApp.getObserverSystem gis
+
+        match projectionSurface, image, observerSystemOpt with
+        | Some (surfaceId, EntitySpiceName body, frame), Some image, Some observerSystem ->
+            let (EntitySpiceName observerName) = observerSystem.body
+            let metadata = InstrumentMetadata.tryParseMetadataForImagePath image.texture
+            let resolved =
+                match metadata with
+                | Some mbi, _ ->
+                    PRo3D.SPICE.InstrumentProjection.instrument2SpiceName mbi.instrument
+                    |> Option.map (fun spiceName ->
+                        { ResolvedImage.path = image.texture
+                          metadata = metadata
+                          mbi = mbi
+                          spiceName = spiceName
+                          size = None })
+                | _ -> None
+            match resolved with
+            | None ->
+                Log.warn "[Viewer] fly-to: no usable mbi metadata for %s" image.texture
+                m.animations
+            | Some resolved ->
+                let camera =
+                    InstrumentObservation.projectorCamera
+                        None observerName frame.Value body
+                        gis.projectedImageList.projectionMethod resolved
+                match camera with
+                | Result.Error e ->
+                    Log.warn "[Viewer] fly-to: %s" e
+                    m.animations
+                | Result.Ok pc ->
+                    // projector pose in the surface's body-fixed frame
+                    let camToBody = pc.view.Backward
+                    let fwdB = camToBody.TransformDir(-V3d.OOI) |> Vec.normalize
+                    let upB = camToBody.TransformDir V3d.OIO |> Vec.normalize
+                    // stand off to frame the instrument footprint: its extent at
+                    // the target distance, filled in a ~60 deg viewer fov
+                    let footprint = 2.0 * pc.distance / pc.proj.Forward.M11
+                    let standoff = max 1.0 (footprint * 0.87)
+                    let posB = camToBody.TransformPos V3d.Zero + fwdB * (pc.distance - standoff)
+                    // into render space via the surface's current placement
+                    let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.tryFind surfaceId |> Option.map Leaf.toSurface
+                    match surface with
+                    | None ->
+                        Log.warn "[Viewer] fly-to: projection surface %A not found" surfaceId
+                        m.animations
+                    | Some surface ->
+                        let observedSystem = Gis.GisApp.getSpiceReferenceSystem gis surfaceId
+                        let fullTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem observedSystem observerSystemOpt
+                        let t = (fullTrafo * surface.preTransform).Forward
+                        let pos = t.TransformPos posB
+                        let fwd = t.TransformDir fwdB |> Vec.normalize
+                        let up = t.TransformDir upB |> Vec.normalize
+                        createAnimation pos fwd up m.animations
+        | _ ->
+            Log.warn "[Viewer] fly-to: no projection surface with an assigned entity, no image, or no observer"
+            m.animations
+
+    let updateViewer
+        (runtime   : IRuntime)
+        (signature : IFramebufferSignature)
+        (sendQueue : BlockingCollection<string>)
+        (mailbox   : MessagingMailbox)
+        (m         : Model)
         (msg       : ViewerAction) =
         //Log.line "[Viewer_update] %A inter:%A pick:%A" msg m.interaction m.picking
         match msg, m.interaction with
@@ -2233,7 +2308,11 @@ module ViewerApp =
                         addFlyToSurfaceAnimation m id
                     | _ ->
                         m.animations
-                | _ -> 
+                | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage imageId) ->
+                    // handled here rather than in ProjectedImageListApp: the
+                    // camera animation is the Viewer's (D6)
+                    addFlyToImageAnimation m imageId
+                | _ ->
                     m.animations
             (Optic.set _gisApp gisApp m)
             |> Optic.set ViewerLenses._animation animations

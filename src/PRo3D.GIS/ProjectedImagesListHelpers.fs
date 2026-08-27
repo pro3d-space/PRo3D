@@ -135,32 +135,52 @@ module ProjectedImagesListAppHelper =
         // recomputes nothing, only genuinely new configurations pay for SPICE
         // (D8 in plans/multiImageProjection.md). Metadata parses are memoized
         // by texture path (sidecars do not change during a session).
+        let metadataCache = System.Collections.Generic.Dictionary<string, InstrumentMetadata.ParsedMetadata>()
+        let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string, Option<Trafo3d>>()
+        // created ONCE, outside the evaluations: building a fresh AVal.map
+        // inside AVal.custom and pulling it with the token adds a new
+        // out-of-date dependency on every pass -- the custom never settles
+        // and dependent patch uniforms never complete (surfaces vanish)
+        let surfaceReferenceFrameA =
+            surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
+
+        /// one image's projector in the surface frame at its own obs time,
+        /// memoized (D8: SPICE is single-threaded behind a global lock)
+        let computeProjector (t : FSharp.Data.Adaptive.AdaptiveToken) (observer : string) (id : Guid) (model : PRo3D.ImageMapping.ProjectedImageListModel) : Option<Trafo3d> =
+            match ProjectedImageListModel.tryFind id model with
+            | None -> None
+            | Some img ->
+                let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
+                let boresightTrafo = boresightAdjustment.GetValue(t)
+                let boresightKey =
+                    (model.boresightAdjustment.roll.value,
+                     model.boresightAdjustment.pitch.value,
+                     model.boresightAdjustment.yaw.value)
+                let metadata =
+                    match metadataCache.TryGetValue img.texture with
+                    | true, md -> md
+                    | _ ->
+                        let md = InstrumentMetadata.tryParseMetadataForImagePath img.texture
+                        metadataCache.[img.texture] <- md
+                        md
+                // a boresight slider drag creates a key per step; keep the
+                // cache bounded rather than evicting cleverly
+                if projectorCache.Count > 512 then projectorCache.Clear()
+                let key = (id, model.projectionMethod, boresightKey, observer, surfaceReferenceFrame)
+                match projectorCache.TryGetValue key with
+                | true, p -> p
+                | _ ->
+                    let p = Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some boresightTrafo) model.projectionMethod
+                    projectorCache.[key] <- p
+                    p
+
         let stackProjections =
-            let metadataCache = System.Collections.Generic.Dictionary<string, InstrumentMetadata.ParsedMetadata>()
-            let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string, Option<Trafo3d>>()
-            // created ONCE, outside the evaluation: building a fresh AVal.map
-            // inside AVal.custom and pulling it with the token adds a new
-            // out-of-date dependency on every pass -- the custom never settles
-            // and dependent patch uniforms never complete (surfaces vanish)
-            let surfaceReferenceFrameA =
-                surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
             AVal.custom (fun t ->
                 match observer.GetValue(t) with
                 | None -> [||]
                 | Some o ->
                     let (EntitySpiceName observer) = o.body
-                    let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
-                    let boresightTrafo = boresightAdjustment.GetValue(t)
                     let model = g.projectedImageList.Current.GetValue(t)
-                    let projectionMethod = model.projectionMethod
-                    let boresightKey =
-                        (model.boresightAdjustment.roll.value,
-                         model.boresightAdjustment.pitch.value,
-                         model.boresightAdjustment.yaw.value)
-
-                    // a boresight slider drag creates a key per step; keep the
-                    // cache bounded rather than evicting cleverly
-                    if projectorCache.Count > 512 then projectorCache.Clear()
 
                     // one layer per stack entry that exists in the library --
                     // even when its projector fails to resolve, so the indices
@@ -173,24 +193,9 @@ module ProjectedImagesListAppHelper =
                         match ProjectedImageListModel.tryFind id model with
                         | None -> None
                         | Some img ->
-                            let metadata =
-                                match metadataCache.TryGetValue img.texture with
-                                | true, md -> md
-                                | _ ->
-                                    let md = InstrumentMetadata.tryParseMetadataForImagePath img.texture
-                                    metadataCache.[img.texture] <- md
-                                    md
-                            let key = (id, projectionMethod, boresightKey, observer, surfaceReferenceFrame)
-                            let projector =
-                                match projectorCache.TryGetValue key with
-                                | true, p -> p
-                                | _ ->
-                                    let p = Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some boresightTrafo) projectionMethod
-                                    projectorCache.[key] <- p
-                                    p
                             let layer : Sg.ProjectedStackLayer =
                                 {
-                                    trafo = projector
+                                    trafo = computeProjector t observer id model
                                     minMax = V2f(img.falseColorModel.lowerBound.value, img.falseColorModel.upperBound.value)
                                     texturePath = img.texture
                                     channel = img.selectedChannel.idx
@@ -199,9 +204,23 @@ module ProjectedImagesListAppHelper =
                     )
             )
 
+        // the hovered image's own projector, hover-only footprints (D5): the
+        // surface outline uniform and the frustum wireframe both read this
+        let hoveredProjection =
+            AVal.custom (fun t ->
+                match observer.GetValue(t) with
+                | None -> None
+                | Some o ->
+                    let (EntitySpiceName observer) = o.body
+                    let model = g.projectedImageList.Current.GetValue(t)
+                    model.hoveredImage
+                    |> Option.bind (fun id -> computeProjector t observer id model)
+            )
+
         Some {
                 imageProjection = imageTrafo
                 stackProjections = stackProjections
+                hoveredProjection = hoveredProjection
                 // coverage view: tint by how many stack layers cover a fragment
                 stackCoverageEnabled =
                     g.projectedImageList.instrumentVisibility

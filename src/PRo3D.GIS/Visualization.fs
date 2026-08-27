@@ -164,6 +164,40 @@ module Visualization =
             empty.Value :> ITexture
         )
 
+    /// Frustum wireframe of the hovered image's projector (D5): the NDC cube
+    /// corners through the inverse view*proj, in the surface's frame; the
+    /// caller supplies the surface's current placement. The "far" rectangle is
+    /// cut at the TARGET distance rather than the far plane: nearFarForDistance
+    /// spans two orders of magnitude either side of the target, whose NDC depth
+    /// is therefore always ~0.98 -- the far plane itself would draw a box 100x
+    /// the standoff.
+    let hoveredFrustumSg (hoveredProjection : aval<Option<Trafo3d>>) (surfaceTrafo : aval<Trafo3d>) : ISg =
+        let lines =
+            hoveredProjection |> AVal.map (function
+                | None -> [||]
+                | Some full ->
+                    let inv = full.Backward
+                    let c (x : float) (y : float) (z : float) = inv.TransformPosProj(V3d(x, y, z))
+                    let zN = -1.0
+                    let zT = 0.98
+                    let corners z = [| c -1.0 -1.0 z; c 1.0 -1.0 z; c 1.0 1.0 z; c -1.0 1.0 z |]
+                    let n = corners zN
+                    let f = corners zT
+                    [|
+                        for i in 0 .. 3 do
+                            yield Line3d(n.[i], n.[(i + 1) % 4])
+                            yield Line3d(f.[i], f.[(i + 1) % 4])
+                            yield Line3d(n.[i], f.[i])
+                    |]
+            )
+        Sg.lines (AVal.constant C4b.Green) lines
+        |> Sg.shader {
+            do! DefaultSurfaces.stableTrafo
+            do! DefaultSurfaces.thickLine
+        }
+        |> Sg.uniform' "LineWidth" 3.0
+        |> Sg.trafo surfaceTrafo
+
     let createProjectedTexture (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (channel: aval<Channel>) : aval<ITexture> =
         AVal.bind2 (fun img  c ->
             match img with

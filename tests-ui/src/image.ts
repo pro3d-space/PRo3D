@@ -35,6 +35,24 @@ export function litFraction(buf: Buffer, threshold = 70): number {
     return lit / n;
 }
 
+/** whether the server-side render stream shows live scene content rather than
+ *  the AARDVARK loading splash: the splash background is pure black, the
+ *  viewer clears to dark gray (#2A2A2A) -- corner pixels tell them apart */
+export function streamLive(buf: Buffer): boolean {
+    const png = PNG.sync.read(buf);
+    const at = (x: number, y: number) => {
+        const o = (y * png.width + x) * 4;
+        return (png.data[o] + png.data[o + 1] + png.data[o + 2]) / 3;
+    };
+    const m = 8;
+    const corners = [
+        at(m, png.height - m),
+        at(png.width - m, png.height - m),
+        at(png.width - m, Math.floor(png.height / 2)),
+    ];
+    return corners.every((c) => c > 15);
+}
+
 export function diffPng(a: Buffer, b: Buffer, epsilon = 12): Diff {
     const pa = PNG.sync.read(a);
     const pb = PNG.sync.read(b);

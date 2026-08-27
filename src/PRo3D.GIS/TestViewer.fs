@@ -288,6 +288,7 @@ module TestViewer =
                             imageProjection = currentProjection
                             stackProjections = stackProjections
                             stackCoverageEnabled = AVal.constant true
+                            hoveredProjection = AVal.constant None
                             sunDirection = sunLight
                             sunLightEnabled = sunLightEnabled
                             lightViewProj = AVal.constant None

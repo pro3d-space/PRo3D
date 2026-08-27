@@ -198,6 +198,7 @@ module ProjectedImageListApp =
                                 i [clazz "arrow up icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos + 1))] []
                                 i [clazz "arrow down icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos - 1))] []
                                 i [clazz "remove icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []
+                                i [clazz "location arrow icon"; style "cursor: pointer"; onClick (fun _ -> FlyToImage id)] []
                                 Incremental.text name
                             ]
                 })
@@ -255,6 +256,7 @@ module ProjectedImageListApp =
                                                                     yield i [clazz "layer group icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []
                                                                 else
                                                                     yield i [clazz "plus icon"; style "cursor: pointer; opacity: 0.5"; onClick (fun _ -> AddToStack id)] []
+                                                                yield i [clazz "location arrow icon"; style "cursor: pointer; opacity: 0.7; margin-left: 4px"; onClick (fun _ -> FlyToImage id)] []
                                                             }
                                                         )
                                                     ]

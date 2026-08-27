@@ -12,6 +12,27 @@ module ImageProjectionOpcExtensions =
 
     let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
+            // hover footprint (D5): the hovered image's projector, same
+            // double-precision per-patch composition as the stack matrices
+            "HoveredProjectionTrafo", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant M44d.Identity
+                    | Some p ->
+                        (p.hoveredProjection, context.modelTrafo) ||> AVal.map2 (fun vp m ->
+                            match vp with
+                            | Some vp -> vp.Forward * m.Forward * patch.info.Local2Global.Forward
+                            | None -> M44d.Identity
+                        )
+                ) :> IAdaptiveValue
+            )
+            "HoveredProjectionValid", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant false
+                    | Some p -> p.hoveredProjection |> AVal.map Option.isSome
+                ) :> IAdaptiveValue
+            )
             "ProjectedStackCoverageEnabled", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
                 context.projectedImages |> AVal.bind (function

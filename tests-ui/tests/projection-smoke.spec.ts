@@ -1,6 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
 import { launchPro3d, Pro3d, config } from "../src/pro3d";
-import { diffPng, litFraction } from "../src/image";
+import { diffPng, litFraction, streamLive } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -19,6 +19,10 @@ let app: Pro3d;
 
 const artifacts = path.join(__dirname, "..", "artifacts");
 
+// a changed surface effect compiles from scratch on first start -- minutes
+// during which the stream shows the splash and then an empty scene
+test.setTimeout(15 * 60_000);
+
 test.beforeAll(async () => {
     fs.mkdirSync(artifacts, { recursive: true });
     app = await launchPro3d();
@@ -35,7 +39,12 @@ test.afterAll(async () => {
 async function stableScreenshot(page: Page, name: string): Promise<Buffer> {
     const started = Date.now();
     let shot = await page.screenshot();
-    while (litFraction(shot) < 0.003 && Date.now() - started < 240_000) {
+    // streamLive: the loading splash is rendered INTO the stream with a bright
+    // logo -- a plain brightness gate would accept it as content
+    while (
+        (!streamLive(shot) || litFraction(shot) < 0.003) &&
+        Date.now() - started < 600_000
+    ) {
         await page.waitForTimeout(3000);
         shot = await page.screenshot();
     }

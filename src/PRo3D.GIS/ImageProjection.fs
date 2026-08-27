@@ -36,6 +36,9 @@ module ImageProjection =
             /// InstrumentVisibilityMode.RelativeCount: tint fragments by how
             /// many stack layers cover them (projectedStackCoverage)
             member x.ProjectedStackCoverageEnabled : bool = uniform?ProjectedStackCoverageEnabled
+            /// hover footprint (D5): the hovered image's projector, per patch
+            member x.HoveredProjectionTrafo : M44f = uniform?HoveredProjectionTrafo
+            member x.HoveredProjectionValid : bool = uniform?HoveredProjectionValid
 
         type Vertex = {
             [<Position>]    pos     : V4f
@@ -160,6 +163,33 @@ module ImageProjection =
                             color <- V4f(mapped.XYZ * a + (1.0f - a) * v.c.XYZ, 1.0f)
                             covered <- true
                 return { v with c = color }
+            }
+
+        /// Hover footprint outline (D5): a green border where the HOVERED
+        /// image's projector footprint crosses the surface -- drawn for one
+        /// image only, so the stack loop stays free of per-layer border work
+        /// (the old single-image shader's always-on green border is subsumed
+        /// by this hover-only outline).
+        let hoveredProjectionOutline (v : Vertex) =
+            fragment {
+                if uniform.HoveredProjectionValid then
+                    let ndc = uniform.HoveredProjectionTrafo * v.localPos
+                    let p = ndc.XYZ / ndc.W
+                    let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
+                    let inRange = Vec.allGreaterOrEqual tc V3f.OOO && Vec.allSmallerOrEqual tc V3f.III
+                    let normal = uniform.HoveredProjectionTrafo.TransformDir(v.localNormalNumericallyUnstable) |> Vec.normalize
+                    if inRange && normal.Z < 0.0f then
+                        let borderWidth = 0.01f
+                        let xBorder = (smoothstep 0.0f borderWidth tc.X) * smoothstep 1.0f (1.0f - borderWidth) tc.X
+                        let yBorder = (smoothstep 0.0f borderWidth tc.Y) * smoothstep 1.0f (1.0f - borderWidth) tc.Y
+                        let borderFactor = xBorder * yBorder
+                        let borderColor = V3f(0.0f, 1.0f, 0.0f)
+                        let c = v.c.XYZ * borderFactor + borderColor * (1.0f - borderFactor)
+                        return { v with c = V4f(c, 1.0f) }
+                    else
+                        return v
+                else
+                    return v
             }
 
         [<ReflectedDefinition>]
