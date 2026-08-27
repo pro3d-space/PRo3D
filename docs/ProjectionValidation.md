@@ -30,11 +30,11 @@ impression, and each only meaningful once the one below it holds:
 |---|---|---|
 | **1** | the projection shader itself (`stableImageProjection`, offscreen — what `sun-angles` and `ProjectionTestbed` compose) | **passed**, below |
 | 2 | the stack shader (`stableImageProjectionStack`), offscreen, same image and camera — must equal step 1 | not run |
-| 3 | the production viewer, same image and camera — must equal step 2 | not run |
+| 3 | the production viewer, same image and camera — must equal step 2 | **partly**, below |
 
-Steps 2 and 3 need two things first: a raw-RGB path (so the comparison is not
-made through a colour map), and the viewer's missing `NormalFlip` binding —
-both noted at the bottom of this page.
+Both prerequisites for step 3 are now in: a *Transfer Function* toggle (off =
+the image's own RGB, so the render is comparable to the source rather than to a
+colour-mapped version of it), and the viewer's missing `NormalFlip` binding.
 
 ## 1. The projection shader reproduces the image it was given
 
@@ -113,11 +113,28 @@ Three independent checks, all on the committed files:
 The residual `(0.00225, 0.00118)` is not error: it is AFC-1's real 0.145°
 offset from the direction the spacecraft tracks.
 
-In the viewer this dataset does **not** yet project correctly — see the
-open items at the bottom. That is step 3, and it is not claimed here.
+### In the viewer (step 3, partly)
 
-`tests-ui/tests/projection-overlap.spec.ts` is the viewer-side check; it is
-currently red for this dataset, which is the point of step 3.
+Camera on the image's own axis at 220 m, *Orientation Source* = MBI,
+*Transfer Function* off, one image in the stack:
+
+![the frame projected in the viewer, raw RGB, close up](images/projectionValidation/viewer-closeup-rawrgb.png)
+
+The projection registers with the terrain, and it is the image's own greyscale
+rather than a colour map. What is left is the limb at the lower right, where the
+projector grazes the surface and the OPC's placeholder Earth texture shows
+through.
+
+| | body repainted | painted off the body |
+|---|---|---|
+| before the `NormalFlip` fix, 500 m | 17.1% | 0.01% |
+| after, 500 m | 86.2% | 0.08% |
+| after, 220 m (above) | **92.1%** | 0.23% |
+
+This is **not yet the pixel comparison step 1 was**: the viewer sits at 220 m
+while the image was taken from 5,765 m, so the perspective differs and only the
+registration can be judged, not DN for DN. A rigorous step 3 needs the viewer
+camera at the image's own pose and field of view.
 
 ## 2. Real data: ASPECT at Didymos
 
