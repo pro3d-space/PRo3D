@@ -15,7 +15,7 @@ module ImageProjection =
         open Aardvark.Rendering.Effects
 
 
-        type UniformScope with  
+        type UniformScope with
             member x.ProjectedImageModelViewProjValid : bool = uniform?ProjectedImageModelViewProjValid
             member x.ProjectedImageModelViewProj : M44f = uniform?ProjectedImageModelViewProj
             member x.ProjectedImagesLocalTrafos : M44f[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
@@ -24,6 +24,17 @@ module ImageProjection =
             /// 1 flips generateNormal's face normal, 0 (the default when unset) leaves it.
             /// Set per OPC hierarchy from the CPU-estimated winding; see OpcSg.build.
             member x.NormalFlip : float32 = uniform?NormalFlip
+            // The projection stack (multi-image projection), bottom -> top,
+            // filled per patch by projectionUniformMap. Fixed-size uniform
+            // arrays, NOT storage buffers: 32 * M44f = 2 KB sits far under the
+            // 16 KB UBO floor of GL 4.1, so the same shader runs on macOS
+            // (FShade emits SSBOs unconditionally, and macOS never got GL 4.3).
+            // The CPU side hands over plain arrays; UniformWriters zero-fills
+            // the tail and StackCount bounds the loop. The size type must match
+            // ProjectedImages.maxCount in ProjectedImageList-Model.fs.
+            member x.ProjectedStackTrafos : Arr<N<32>, M44f> = uniform?ProjectedStackTrafos
+            member x.ProjectedStackMinMax : Arr<N<32>, V2f> = uniform?ProjectedStackMinMax
+            member x.ProjectedStackCount : int = uniform?ProjectedStackCount
 
         type Vertex = {
             [<Position>]    pos     : V4f
@@ -73,6 +84,78 @@ module ImageProjection =
                     else
                         v.c
                 return { v with c = c }
+            }
+
+        let private projectedStackTexture =
+            sampler2dArray {
+                texture uniform?ProjectedStackTextures
+                filter Filter.MinMagMipLinear
+                addressU WrapMode.Border
+                addressV WrapMode.Border
+                borderColor C4f.White
+            }
+
+        // same texture + state as ColorMapping's colormapTextureSampler; local
+        // because the stack shader inlines its remap (see the NOTE there)
+        let private stackColormapSampler =
+            sampler2d {
+                texture uniform?ColormapTexture
+                filter Filter.MinMagMipLinear
+                addressU WrapMode.Clamp
+                addressV WrapMode.Clamp
+            }
+
+        type UniformScope with
+            member x.StackUseFalseColor : bool = uniform?UseFalseColor
+            member x.StackDataType : int = uniform?DataType
+
+        /// The projection stack: layers bottom -> top, painter's order -- the
+        /// TOPMOST layer that covers a fragment with a projector-facing normal
+        /// wins (walked top-down with an early-out, so the common single-cover
+        /// case samples once). Opaque stacking; the global opacity only blends
+        /// the stack's result with the underlying terrain color. Each layer
+        /// remaps its sample with its own min/max (colormap/false-color/data
+        /// type are global, D2). Subsumes the old single-image projection: a
+        /// stack of one behaves identically, minus the green border (the
+        /// hovered layer gets an outline in a later phase instead).
+        let stableImageProjectionStack (v : Vertex) =
+            fragment {
+                let mutable color = v.c
+                let mutable covered = false
+                let count = uniform.ProjectedStackCount
+                for j in 0 .. count - 1 do
+                    let i = count - 1 - j
+                    if not covered then
+                        let ndc = uniform.ProjectedStackTrafos.[i] * v.localPos
+                        let p = ndc.XYZ / ndc.W
+                        let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
+                        // an unresolved layer's zero matrix yields NaN here and
+                        // fails the range test -- the slot simply never covers
+                        let inRange = Vec.allGreaterOrEqual tc V3f.OOO && Vec.allSmallerOrEqual tc V3f.III
+                        let normal = uniform.ProjectedStackTrafos.[i].TransformDir(v.localNormalNumericallyUnstable) |> Vec.normalize
+                        if inRange && normal.Z < 0.0f then
+                            let value = projectedStackTexture.Sample(V2f(tc.X, tc.Y), i).X
+                            let minMax = uniform.ProjectedStackMinMax.[i]
+                            // per-layer remap, inlined rather than shared with
+                            // ColorMapping.remap: reworking that function would
+                            // change the legacy effect's identity and force a
+                            // full shader-cache recompile on users (see the
+                            // note there)
+                            let normalizedInt16 =
+                                min minMax.Y ((max minMax.X (value * 65000.0f)) - minMax.X) / (minMax.Y - minMax.X)
+                            let normalizedFloat =
+                                (value - minMax.X) / (minMax.Y - minMax.X)
+                            let normalized =
+                                if uniform.StackDataType = 2 then normalizedFloat else normalizedInt16
+                            let mapped =
+                                if uniform.StackUseFalseColor then
+                                    stackColormapSampler.Sample(V2f(normalized, 0.0f))
+                                else
+                                    V4f(normalized, normalized, normalized, 1.0f)
+                            let a = clamp 0.0f 1.0f uniform.ProjectedImageOpacity
+                            color <- V4f(mapped.XYZ * a + (1.0f - a) * v.c.XYZ, 1.0f)
+                            covered <- true
+                return { v with c = color }
             }
 
         [<ReflectedDefinition>]

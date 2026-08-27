@@ -1,6 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
 import { launchPro3d, Pro3d, config } from "../src/pro3d";
-import { diffPng } from "../src/image";
+import { diffPng, litFraction } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -28,10 +28,23 @@ test.afterAll(async () => {
     await app?.stop();
 });
 
-/** screenshot the page repeatedly until two consecutive frames are (nearly)
- *  identical, so OPC/LoD streaming has settled and diffs mean something */
+/** wait until the 3D content has actually rendered (an empty view is
+ *  perfectly "stable" -- first-run shader compilation of a changed effect and
+ *  OPC streaming can take minutes before anything appears), THEN wait for two
+ *  consecutive near-identical frames so LoD streaming has settled */
 async function stableScreenshot(page: Page, name: string): Promise<Buffer> {
-    let prev = await page.screenshot();
+    const started = Date.now();
+    let shot = await page.screenshot();
+    while (litFraction(shot) < 0.003 && Date.now() - started < 240_000) {
+        await page.waitForTimeout(3000);
+        shot = await page.screenshot();
+    }
+    expect(
+        litFraction(shot),
+        `render view still empty after ${Math.round((Date.now() - started) / 1000)}s (${name})`
+    ).toBeGreaterThan(0.003);
+
+    let prev = shot;
     for (let i = 0; i < 60; i++) {
         await page.waitForTimeout(1000);
         const cur = await page.screenshot();
@@ -86,6 +99,37 @@ test("COP image projects onto the Dimorphos OPC", async ({ browser }) => {
     // import lists the folder's pngs; rows carry the file names
     const anyRow = gis.locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/").first();
     await expect(anyRow).toBeVisible({ timeout: 120_000 });
+
+    // rendering consumes the projection STACK (the single-image path is
+    // subsumed): add the wanted image (or the first one) to the stack
+    const wantedOrFirst =
+        process.env.PRO3D_SELECT_IMAGE ??
+        (await gis
+            .locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/")
+            .first()
+            .innerText());
+    const addResult = await gis.evaluate((name) => {
+        const matches = Array.from(document.querySelectorAll("*")).filter(
+            (e) => (e.textContent ?? "").trim() === name
+        );
+        const deepest = matches.filter(
+            (e) => !Array.from(e.children).some((c) => matches.includes(c))
+        );
+        if (deepest.length === 0) return "header not found";
+        let el: Element | null = deepest[0];
+        while (el) {
+            const row = el.nextElementSibling;
+            const box = row?.querySelector("i.plus.icon");
+            if (box) {
+                (box as HTMLElement).click();
+                return "clicked";
+            }
+            el = el.parentElement;
+        }
+        return "no plus icon in row";
+    }, wantedOrFirst.trim());
+    expect(addResult, `add ${wantedOrFirst} to stack`).toBe("clicked");
+    await expect(gis.locator("text=Projection Stack (1/32)")).toBeVisible();
 
     // optionally select a specific image (e.g. a Dimorphos-pointed frame)
     // instead of the auto-selected first one

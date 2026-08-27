@@ -49,8 +49,13 @@ module ImageProjectionOpcExtensions =
                     | Some p ->
                         (p.stackProjections, context.modelTrafo)
                         ||> AVal.map2 (fun layers modelTrafo ->
-                            layers |> Array.map (fun ((vp : Trafo3d), _) ->
-                                vp.Forward * modelTrafo.Forward * patch.info.Local2Global.Forward |> M44f
+                            layers |> Array.map (fun layer ->
+                                match layer.trafo with
+                                | Some vp -> vp.Forward * modelTrafo.Forward * patch.info.Local2Global.Forward |> M44f
+                                // unresolved layer: the zero matrix maps every
+                                // vertex to (0,0,0,0), whose NaN NDC fails the
+                                // coverage test -- the slot stays, paints nothing
+                                | None -> M44f.Zero
                             )
                         )
                 ) :> IAdaptiveValue
@@ -59,7 +64,7 @@ module ImageProjectionOpcExtensions =
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
                 context.projectedImages |> AVal.bind (function
                     | None -> AVal.constant Array.empty<V2f>
-                    | Some p -> p.stackProjections |> AVal.map (Array.map snd)
+                    | Some p -> p.stackProjections |> AVal.map (Array.map (fun l -> l.minMax))
                 ) :> IAdaptiveValue
             )
             "ProjectedStackCount", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->

@@ -61,6 +61,109 @@ module Visualization =
             Log.warn "could not load texture %s: %s" path e.Message
             DefaultTextures.checkerboard
 
+    /// One band of an image as a PixImage, for a stack texture-array slice.
+    let private decodeBand (path : string) (channel : int) : Option<PixImage> =
+        try
+            match Path.GetExtension(path).ToLower() with
+            | ".tiff" | ".tif" ->
+                match MultiBandReader.tryReadMultiBandTiff path false with
+                | Result.Ok img ->
+                    InstrumentImageTextures.instrumentImageToTexture false img
+                    |> Array.tryItem channel
+                    |> Option.map (fun band -> band.pi)
+                | _ ->
+                    Log.warn "[ProjectedStack] could not read %s" path
+                    None
+            | ".exr" ->
+                use stream = File.OpenRead path
+                let mm = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel) (Some TextureLoading.TextureFormat.OpenEXR)
+                mm.ImageArray |> Array.tryHead
+            | ".png" | ".jpg" | ".jpeg" ->
+                PixImage.Load path |> Some
+            | ext ->
+                Log.warn "[ProjectedStack] unsupported image format %s (%s)" ext path
+                None
+        with e ->
+            Log.warn "[ProjectedStack] could not decode %s: %s" path e.Message
+            None
+
+    /// The stack texture array: slice i carries layer i's image band, aligned
+    /// with getProjectedImageData's stackProjections. Decoded bands are cached
+    /// per (path, channel) (D7); the GPU array is reallocated only when the
+    /// size, format or layer count grows past the current allocation --
+    /// reordering the stack is a re-upload, not a realloc.
+    let createProjectedStackTextureArray (runtime : ITextureRuntime) (layers : aval<array<string * int>>) : aval<ITexture> =
+        let decodeCache = System.Collections.Generic.Dictionary<string * int, Option<PixImage>>()
+        let decodeCached (path : string) (channel : int) =
+            match decodeCache.TryGetValue ((path, channel)) with
+            | true, pi -> pi
+            | _ ->
+                // bound the decode memory: 96 entries of AFC-sized bands ~ 400 MB
+                // worst case; a full clear is crude but correct, misses just decode again
+                if decodeCache.Count > 96 then decodeCache.Clear()
+                let pi = decodeBand path channel
+                decodeCache.[(path, channel)] <- pi
+                pi
+
+        // the sampler needs *some* 2d-array bound even with an empty stack
+        let empty =
+            lazy (
+                let t = runtime.CreateTexture2DArray(V2i.II, TextureFormat.Rgba8, levels = 1, samples = 1, count = 1)
+                t.Upload(PixImage<byte>(Col.Format.RGBA, V2i.II), slice = 0)
+                t
+            )
+
+        let mutable allocated : Option<IBackendTexture * V2i * TextureFormat * int> = None
+        let mutable uploaded : array<string * int> = [||]
+
+        AVal.custom (fun t ->
+          try
+            let ls = layers.GetValue t
+            if ls.Length = 0 then
+                empty.Value :> ITexture
+            else
+                let decoded = ls |> Array.map (fun (p, c) -> decodeCached p c)
+                match decoded |> Array.tryPick id with
+                | None -> empty.Value :> ITexture
+                | Some first ->
+                    let size = first.Size
+                    let format = TextureFormat.ofPixFormat first.PixFormat TextureParams.None
+                    let tex =
+                        match allocated with
+                        | Some (tex, s, f, capacity) when s = size && f = format && capacity >= ls.Length -> tex
+                        | current ->
+                            current |> Option.iter (fun (old, _, _, _) -> runtime.DeleteTexture old)
+                            let tex = runtime.CreateTexture2DArray(size, format, levels = 1, samples = 1, count = max ls.Length 1)
+                            allocated <- Some (tex, size, format, max ls.Length 1)
+                            uploaded <- [||]
+                            tex
+                    // a fresh allocation's content is undefined; slices without a
+                    // usable image must still be written, else they show garbage
+                    let black =
+                        lazy (PixImage<byte>(Col.Format.Gray, size) :> PixImage)
+                    for i in 0 .. ls.Length - 1 do
+                        let unchanged = i < uploaded.Length && uploaded.[i] = ls.[i]
+                        if not unchanged then
+                            match decoded.[i] with
+                            | Some pi when pi.Size = size ->
+                                tex.Upload(pi, slice = i)
+                            | Some pi ->
+                                // same-instrument stacks share one size (D1); a
+                                // mismatched image keeps its slot but stays dark
+                                Log.warn "[ProjectedStack] %s is %A, expected %A -- slice %d stays black" (fst ls.[i]) pi.Size size i
+                                tex.Upload(black.Value, slice = i)
+                            | None ->
+                                tex.Upload(black.Value, slice = i)
+                    uploaded <- ls
+                    tex :> ITexture
+          with e ->
+            // a failure here must not take the surface's render objects down
+            // with it -- log loudly and fall back to the (lazily created)
+            // 1-slice dummy so the sampler still has an array bound
+            Log.error "[ProjectedStack] building the stack texture array failed: %A" e
+            empty.Value :> ITexture
+        )
+
     let createProjectedTexture (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (channel: aval<Channel>) : aval<ITexture> =
         AVal.bind2 (fun img  c ->
             match img with

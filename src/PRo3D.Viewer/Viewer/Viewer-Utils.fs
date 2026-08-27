@@ -997,8 +997,15 @@ module ViewerUtils =
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
 
-            // TODO HERA: make this optional
-            ImageProjection.Shaders.stableImageProjection |> toEffect
+            // The projection stack (multi-image projection). Subsumes the old
+            // single-image stableImageProjection: a stack of one behaves
+            // identically, and hovering a library image previews it as the top
+            // layer (effectiveStack).
+            // The projection stack (multi-image projection). Subsumes the old
+            // single-image stableImageProjection: a stack of one behaves
+            // identically, and hovering a library image previews it as the top
+            // layer (effectiveStack).
+            ImageProjection.Shaders.stableImageProjectionStack |> toEffect
 
             if not Config.limitedShaderCapabilities then
                 ImageProjection.Shaders.localImageProjections |> toEffect
@@ -1152,22 +1159,31 @@ module ViewerUtils =
         // interactive viewer and PRo3D.Snapshots, which both assemble surfaces here.
         let sunShadow = SunShadowMap.get runtime m
 
+        // one stack texture array for all surfaces: slice i = stack layer i's
+        // image band, index-aligned with each surface's per-patch matrix array
+        // (both derive from the same filtered effectiveStack)
+        let projectedStackTextures =
+            PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
+                runtime
+                (PRo3D.GIS.ProjectedImagesListAppHelper.getStackTextureLayers m.scene.gisApp)
+
         let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
             let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
             let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
             let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
 
             sg
-            |> Sg.applyProjectedImages (fun body -> 
-                body 
-                |> AVal.map (function 
-                    | Some b -> 
+            |> Sg.applyProjectedImages (fun body ->
+                body
+                |> AVal.map (function
+                    | Some b ->
                         let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
                         r
-                    | _ -> None 
+                    | _ -> None
                 )
             )
             |> Sg.texture "ProjectedTexture" projectedTexture
+            |> Sg.texture "ProjectedStackTextures" projectedStackTextures
             |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
             |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
             |> Sg.noEvents

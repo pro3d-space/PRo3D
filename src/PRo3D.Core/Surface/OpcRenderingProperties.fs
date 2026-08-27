@@ -31,18 +31,33 @@ module SgExtensions =
                 let empty : aval<Option<string>> = AVal.constant None
                 s.Child?Body <- AVal.constant empty
 
+        /// One layer of the projection stack (multi-image projection).
+        type ProjectedStackLayer =
+            {
+                /// The projector's view*proj in the surface's reference frame at
+                /// this image's own observation time. None when the projection
+                /// did not resolve (no metadata / no SPICE coverage) -- the
+                /// layer keeps its slot (a zero matrix in the uniform array, so
+                /// texture-array slices and matrices stay index-aligned) and
+                /// simply never covers a fragment.
+                trafo : Option<Trafo3d>
+                /// display min/max of this layer (the per-image false-color range)
+                minMax : V2f
+                /// image file feeding this layer's texture-array slice
+                texturePath : string
+                /// which band of a multi-band image is uploaded
+                channel : int
+            }
+
         type ProjectedImages =
             {
                 imageProjection : aval<Option<Trafo3d>>
                 localImageProjectionTrafos : aval<array<Trafo3d>>
-                /// The projection stack (multi-image projection), bottom -> top:
-                /// per layer the projector's view*proj in the surface's frame at
-                /// that image's own observation time, and the layer's display
-                /// min/max. One array, not two: reorders and removals must
-                /// permute both together. Bounded by ProjectedImages.maxCount;
-                /// the stack shader consumes it as fixed-size uniform arrays
-                /// plus a count.
-                stackProjections : aval<array<Trafo3d * V2f>>
+                /// The projection stack, bottom -> top. Bounded by
+                /// ProjectedImages.maxCount; the stack shader consumes it as
+                /// fixed-size uniform arrays (matrices + min/max) plus a count,
+                /// and layer i samples slice i of the stack texture array.
+                stackProjections : aval<array<ProjectedStackLayer>>
                 sunDirection : aval<Option<V3d>>
                 sunLightEnabled : aval<bool>
                 /// World -> sun-camera clip space for shadow mapping; None disables the

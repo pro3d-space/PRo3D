@@ -7,6 +7,34 @@ export interface Diff {
     meanDelta: number;
 }
 
+/** fraction of clearly-lit pixels in the CENTRAL region of the render view --
+ *  a proxy for "the 3D content has actually rendered" (OPC streaming, effect
+ *  re-preparation and first-run shader compilation can take a while before
+ *  anything appears). Central region only: the false-color legend (left edge)
+ *  and the HUD text (top-left) would otherwise count as content. */
+export function litFraction(buf: Buffer, threshold = 70): number {
+    const png = PNG.sync.read(buf);
+    let lit = 0,
+        n = 0;
+    const x0 = Math.floor(png.width * 0.3),
+        x1 = Math.floor(png.width * 0.9);
+    const y0 = Math.floor(png.height * 0.3),
+        y1 = Math.floor(png.height * 0.95);
+    for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+            const o = (y * png.width + x) * 4;
+            n++;
+            if (
+                png.data[o] > threshold ||
+                png.data[o + 1] > threshold ||
+                png.data[o + 2] > threshold
+            )
+                lit++;
+        }
+    }
+    return lit / n;
+}
+
 export function diffPng(a: Buffer, b: Buffer, epsilon = 12): Diff {
     const pa = PNG.sync.read(a);
     const pb = PNG.sync.read(b);

@@ -77,6 +77,19 @@ module ProjectedImagesListAppHelper =
                     )
         }
 
+    /// The (image file, channel) feeding each slice of the stack texture array,
+    /// bottom -> top. Surface-independent (textures do not depend on the
+    /// projection frame), filtered exactly like getProjectedImageData's layer
+    /// array -- stack ids without a library image are dropped in both -- so
+    /// slice i always belongs to matrix i.
+    let getStackTextureLayers (g : AdaptiveGisApp) : aval<array<string * int>> =
+        g.projectedImageList.Current |> AVal.map (fun model ->
+            ProjectedImageListModel.effectiveStack model
+            |> IndexList.toArray
+            |> Array.choose (fun id ->
+                ProjectedImageListModel.tryFind id model
+                |> Option.map (fun img -> img.texture, img.selectedChannel.idx)))
+
     /// `lightViewProj`: world -> sun-camera clip space for shadow mapping, produced by
     /// the viewer's shadow-map pass; None (also whenever the lighting mode is not
     /// SunShadow) keeps the per-patch shadow lookup disabled.
@@ -150,13 +163,18 @@ module ProjectedImagesListAppHelper =
         let stackProjections =
             let metadataCache = System.Collections.Generic.Dictionary<string, InstrumentMetadata.ParsedMetadata>()
             let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string, Option<Trafo3d>>()
+            // created ONCE, outside the evaluation: building a fresh AVal.map
+            // inside AVal.custom and pulling it with the token adds a new
+            // out-of-date dependency on every pass -- the custom never settles
+            // and dependent patch uniforms never complete (surfaces vanish)
+            let surfaceReferenceFrameA =
+                surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
             AVal.custom (fun t ->
                 match observer.GetValue(t) with
                 | None -> [||]
                 | Some o ->
                     let (EntitySpiceName observer) = o.body
-                    let surfaceReferenceFrame =
-                        (surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)).GetValue(t)
+                    let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
                     let boresightTrafo = boresightAdjustment.GetValue(t)
                     let model = g.projectedImageList.Current.GetValue(t)
                     let projectionMethod = model.projectionMethod
@@ -169,6 +187,11 @@ module ProjectedImagesListAppHelper =
                     // cache bounded rather than evicting cleverly
                     if projectorCache.Count > 512 then projectorCache.Clear()
 
+                    // one layer per stack entry that exists in the library --
+                    // even when its projector fails to resolve, so the indices
+                    // stay aligned with the stack texture array's slices (which
+                    // are built from the same filtered stack, see
+                    // getStackTextureLayers)
                     ProjectedImageListModel.effectiveStack model
                     |> IndexList.toArray
                     |> Array.choose (fun id ->
@@ -190,9 +213,14 @@ module ProjectedImagesListAppHelper =
                                     let p = Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some boresightTrafo) projectionMethod
                                     projectorCache.[key] <- p
                                     p
-                            projector |> Option.map (fun trafo ->
-                                let minMax = V2f(img.falseColorModel.lowerBound.value, img.falseColorModel.upperBound.value)
-                                trafo, minMax)
+                            let layer : Sg.ProjectedStackLayer =
+                                {
+                                    trafo = projector
+                                    minMax = V2f(img.falseColorModel.lowerBound.value, img.falseColorModel.upperBound.value)
+                                    texturePath = img.texture
+                                    channel = img.selectedChannel.idx
+                                }
+                            Some layer
                     )
             )
 
