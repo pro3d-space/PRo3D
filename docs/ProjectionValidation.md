@@ -59,6 +59,9 @@ rather than through a colour map.
 |---|---|---|
 | ![source](images/projectionValidation/step1-source.png) | ![reprojected](images/projectionValidation/step1-reprojected.png) | ![difference](images/projectionValidation/step1-diff.png) |
 
+(AFC-1 frames are **1020 × 1020** — square, per `hera_afc_v06.ti`. These three
+are the same square crop around the body, at the same scale.)
+
 | | |
 |---|---|
 | body pixels rendered / source non-zero | 54,662 / 54,707 |
@@ -76,6 +79,15 @@ bilinear resampling across a hard edge, which no projection can avoid.
 So the projection shader, the sidecar convention and the camera model are
 correct together. Anything that misregisters downstream is introduced after
 this point.
+
+**What this step cannot show.** Source and reprojection share one camera, so a
+wrong *absolute* roll would rotate both together and cancel. Roll is pinned
+elsewhere: against the real ASPECT frame it comes out at **−2.03°** (IoU 93.9%),
+and for AFC the same code lands within **11.9°** of the COP delivered frame at
+the same epoch — different by an amount the delivery's own 34° body-orientation
+error covers, and nowhere near the 90° a wrong `specialTrafos` entry would give.
+An independent absolute-roll check for AFC would need a real AFC frame with
+trustworthy metadata, which we do not have.
 
 ## Supporting evidence: a self-made AFC dataset
 
