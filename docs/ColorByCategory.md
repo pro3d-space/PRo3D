@@ -34,7 +34,7 @@ The rest of the panel depends on the kind of attribute:
 | --- | --- | --- | --- |
 | **categorical** (discrete) | Annotation type, Semantic, Surface | one color picker per category, *reset colors* | **none** |
 | **cyclic** | Bearing, Dip azimuth, Strike azimuth | *show legend* toggle only | hue wheel strip over one period |
-| **numeric** (continuous) | Slope, Length, Way length, Height, Height delta, Avg altitude, True/Vertical thickness, Area, Major/Minor diameter, Line thickness, Dip angle | the standard false-color ramp properties (*show legend*, min, max, interval, colors, invert) plus *fit range to data* | false-color bar |
+| **numeric** (continuous) | Slope, Length, Way length, Height, Height delta, Avg altitude, Area, Line thickness, Dip angle | the standard false-color ramp properties (*show legend*, min, max, interval, colors, invert) plus *fit range to data* | false-color bar |
 
 Categorical attributes deliberately have no on-screen legend: the panel already lists every
 category next to its color, and there is no *show legend* toggle to switch one off with.
@@ -111,5 +111,6 @@ other when more than one is switched on. They are not yet told apart or laid out
 
 Enum cases are appended, never renumbered: the attribute is persisted as its **integer**
 value, and the palette fallback for enum-backed categories is keyed on the same ordinal.
+
 Case *names* matter too — category color overrides are stored under `"<attribute>/<label>"`
 with both parts printed via `%A`, so renaming a case orphans the colors saved for it.

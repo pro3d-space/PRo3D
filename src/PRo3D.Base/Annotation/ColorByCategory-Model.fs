@@ -30,17 +30,13 @@ type ColorCategoryAttribute =
     | Height            = 7
     | HeightDelta       = 8
     | AvgAltitude       = 9
-    | TrueThickness     = 10
-    | VerticalThickness = 11
-    | Area              = 12
-    // numeric, from ellipticResults / set on the annotation itself
-    | MajorDiameter     = 13
-    | MinorDiameter     = 14
-    | Thickness         = 15
+    | Area              = 10
+    // set on the annotation itself
+    | Thickness         = 11
     // numeric, from DipAndStrikeResults
-    | DipAngle          = 16
-    | DipAzimuth        = 17
-    | StrikeAzimuth     = 18
+    | DipAngle          = 12
+    | DipAzimuth        = 13
+    | StrikeAzimuth     = 14
 
 /// Action lives here rather than in the app module because DrawingAction
 /// (Drawing-Model.fs) has to reference it and that file compiles first —

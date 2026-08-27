@@ -30,11 +30,7 @@ module ColorByCategory =
         | ColorCategoryAttribute.Height            -> "Height"
         | ColorCategoryAttribute.HeightDelta       -> "Height delta"
         | ColorCategoryAttribute.AvgAltitude       -> "Avg altitude"
-        | ColorCategoryAttribute.TrueThickness     -> "True thickness"
-        | ColorCategoryAttribute.VerticalThickness -> "Vertical thickness"
         | ColorCategoryAttribute.Area              -> "Area"
-        | ColorCategoryAttribute.MajorDiameter     -> "Major diameter"
-        | ColorCategoryAttribute.MinorDiameter     -> "Minor diameter"
         | ColorCategoryAttribute.Thickness         -> "Line thickness"
         | ColorCategoryAttribute.DipAngle          -> "Dip angle"
         | ColorCategoryAttribute.DipAzimuth        -> "Dip azimuth"
@@ -197,18 +193,13 @@ module ColorByCategory =
         | ColorCategoryAttribute.SurfaceName    -> a.surfaceName, None
         | _                                     -> "", None
 
-    /// NaN whenever the annotation has no value for the attribute — a polyline asked for
-    /// a diameter, an annotation with no planar fit asked for dip, uncomputed results
+    /// NaN whenever the annotation has no value for the attribute — a point asked for
+    /// a bearing, an annotation with no planar fit asked for dip, uncomputed results
     let valueOf (attr : ColorCategoryAttribute) (a : Annotation) : float =
         let fromResults (f : AnnotationResults -> float) =
             match a.results with | Some r -> f r | None -> Double.NaN
         let fromDns (f : DipAndStrikeResults -> float) =
             match a.dnsResults with | Some r -> f r | None -> Double.NaN
-        // Axis0/Axis1 are the semi-axis *vectors*, so a diameter is twice their length
-        let fromEllipse (f : Ellipse2d -> float) =
-            match a.ellipticResults with
-            | Some r -> f r.geographicalEllipse
-            | None   -> Double.NaN
 
         match attr with
         | ColorCategoryAttribute.Slope             -> fromResults (fun r -> r.slope)
@@ -218,11 +209,7 @@ module ColorByCategory =
         | ColorCategoryAttribute.Height            -> fromResults (fun r -> r.height)
         | ColorCategoryAttribute.HeightDelta       -> fromResults (fun r -> r.heightDelta)
         | ColorCategoryAttribute.AvgAltitude       -> fromResults (fun r -> r.avgAltitude)
-        | ColorCategoryAttribute.TrueThickness     -> fromResults (fun r -> r.trueThickness)
-        | ColorCategoryAttribute.VerticalThickness -> fromResults (fun r -> r.verticalThickness)
         | ColorCategoryAttribute.Area              -> fromResults (fun r -> r.area)
-        | ColorCategoryAttribute.MajorDiameter     -> fromEllipse (fun e -> 2.0 * e.Axis0.Length)
-        | ColorCategoryAttribute.MinorDiameter     -> fromEllipse (fun e -> 2.0 * e.Axis1.Length)
         | ColorCategoryAttribute.Thickness         -> a.thickness.value
         | ColorCategoryAttribute.DipAngle          -> fromDns (fun r -> r.dipAngle)
         | ColorCategoryAttribute.DipAzimuth        -> fromDns (fun r -> r.dipAzimuth)
@@ -289,11 +276,6 @@ module ColorByCategory =
             match a.dnsResults.GetValue t with
             | AdaptiveSome r -> (f r).GetValue t
             | _ -> Double.NaN
-        // ellipticResults is a plain option, not a ModelType, so it reads directly
-        let fromEllipse (f : Ellipse2d -> float) =
-            match a.ellipticResults.GetValue t with
-            | Some r -> f r.geographicalEllipse
-            | None   -> Double.NaN
 
         match attr with
         | ColorCategoryAttribute.Slope             -> fromResults (fun r -> r.slope)
@@ -303,11 +285,7 @@ module ColorByCategory =
         | ColorCategoryAttribute.Height            -> fromResults (fun r -> r.height)
         | ColorCategoryAttribute.HeightDelta       -> fromResults (fun r -> r.heightDelta)
         | ColorCategoryAttribute.AvgAltitude       -> fromResults (fun r -> r.avgAltitude)
-        | ColorCategoryAttribute.TrueThickness     -> fromResults (fun r -> r.trueThickness)
-        | ColorCategoryAttribute.VerticalThickness -> fromResults (fun r -> r.verticalThickness)
         | ColorCategoryAttribute.Area              -> fromResults (fun r -> r.area)
-        | ColorCategoryAttribute.MajorDiameter     -> fromEllipse (fun e -> 2.0 * e.Axis0.Length)
-        | ColorCategoryAttribute.MinorDiameter     -> fromEllipse (fun e -> 2.0 * e.Axis1.Length)
         | ColorCategoryAttribute.Thickness         -> a.thickness.value.GetValue t
         | ColorCategoryAttribute.DipAngle          -> fromDns (fun r -> r.dipAngle)
         | ColorCategoryAttribute.DipAzimuth        -> fromDns (fun r -> r.dipAzimuth)
