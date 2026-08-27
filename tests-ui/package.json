@@ -1,0 +1,16 @@
+{
+  "name": "pro3d-tests-ui",
+  "private": true,
+  "description": "Playwright end-to-end tests driving the PRo3D UI in --server mode",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.20.1",
+    "@types/pngjs": "^6.0.5",
+    "pngjs": "^7.0.0"
+  }
+}

@@ -242,7 +242,9 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
         AVal.constant (
             Some {
                 imageProjection = AVal.constant (Some cam.full)
-                localImageProjectionTrafos = AVal.constant [||]
+                stackProjections = AVal.constant [||]
+                stackCoverageEnabled = AVal.constant false
+                hoveredProjection = AVal.constant None
                 sunDirection = AVal.constant (match sunDir with Ok d -> Some d | Result.Error _ -> None)
                 sunLightEnabled = AVal.constant (match sunDir with Ok _ -> true | Result.Error _ -> false)
                 lightViewProj = AVal.constant None

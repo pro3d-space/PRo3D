@@ -81,7 +81,10 @@ module ProjectedImageApp =
         format  = "{0:0.00}"
     }
 
-    let initial = { 
+    let initial = {
+        // a template, not a loaded image; loadFile mints the real id
+        id = Guid.Empty;
+        instrument = "";
         colorMap = ColorMap.Magma;
         selectedChannel = { idx = 0; name = None }
         channelOptions = [];
@@ -110,25 +113,34 @@ module ProjectedImageApp =
 
         let selectedChannelIdx = 0
 
-        let defaultMinValues = 
+        // Plain image formats (synthetic COP renders) come without the
+        // statistics sidecar and are sampled as normalized [0,1] -- treat them
+        // as float over the unit range, otherwise the defaults (uint16 remap
+        // over an empty 0..0 range) turn the projection into NaNs.
+        let isPlainImage =
+            match (Path.GetExtension texturePath).ToLowerInvariant() with
+            | ".png" | ".jpg" | ".jpeg" -> true
+            | _ -> false
+
+        let defaultMinValues =
             match tiffJson with
             | Some tf -> tf.image_statistics |> Array.toList |> List.map (fun x -> x.minimum)
             | None -> [0.0]
 
-        let defaultMaxValues = 
+        let defaultMaxValues =
             match tiffJson with
             | Some tf -> tf.image_statistics |> Array.toList|> List.map (fun x -> x.maximum)
-            | None -> [0.0]
+            | None -> if isPlainImage then [1.0] else [0.0]
 
-        let dataType = 
+        let dataType =
             match tiffJson with
-            | Some tf -> 
+            | Some tf ->
                 match tf.data_type with
                 | "uint16" -> DataType.UInt16
                 | "uint32" -> DataType.UInt32
                 | "float" -> DataType.Float
                 | _ -> DataType.UInt16
-            | None -> DataType.UInt16
+            | None -> if isPlainImage then DataType.Float else DataType.UInt16
 
         let rangeOffset = 0.1 * (defaultMaxValues[selectedChannelIdx] - defaultMinValues[selectedChannelIdx])
 
@@ -145,6 +157,16 @@ module ProjectedImageApp =
             | Some mbi -> mbi.targetPos.Length
             | None -> 0.0
 
+        // curated header: instrument, plus the camera system when the
+        // statistics sidecar declares one and it adds information
+        let instrument =
+            match tiffMbiJson, tiffJson with
+            | Some mbi, Some tf when not (String.IsNullOrWhiteSpace tf.camera_system) && tf.camera_system <> mbi.instrument ->
+                sprintf "%s (%s)" mbi.instrument tf.camera_system
+            | Some mbi, _ -> mbi.instrument
+            | None, Some tf -> tf.camera_system
+            | None, None -> ""
+
         let time =
             match tiffMbiJson with
             | Some mbi -> mbi.obs_date
@@ -159,8 +181,10 @@ module ProjectedImageApp =
                 //interval   = 
             }
 
-        { 
+        {
             initial with
+                id               = Guid.NewGuid();
+                instrument       = instrument;
                 texture          = Path.GetFullPath(texturePath);
                 defaultMinValues = defaultMinValues;
                 defaultMaxValues = defaultMaxValues;

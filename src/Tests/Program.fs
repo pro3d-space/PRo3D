@@ -54,6 +54,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         SbmtImportAlignmentTest.tests parameters
 
         ProjectedImageMetadataTest.tests()
+        ProjectedImageStackTest.tests()
 
         // *.opc.json sidecars; the fixture-backed case self-skips without the data
         OpcSidecarTests.tests()

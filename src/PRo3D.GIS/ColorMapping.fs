@@ -88,8 +88,15 @@ module Shaders =
         member x.UseFalseColor : bool = uniform?UseFalseColor
         member x.DataType : int = uniform?DataType
 
+    // Kept self-contained on purpose: any textual change to this function
+    // changes the composed surface effect's identity, which invalidates the
+    // on-disk shader cache -- every user then pays a full recompile of the
+    // ~300 KB surface program on next start (which looks like surfaces
+    // hanging for tens of seconds). The projection-stack shader inlines the
+    // same remap with per-layer ranges (ImageProjection.fs) instead of
+    // sharing a parameterized helper from here.
     [<ReflectedDefinition>]
-    let remap (v : float32) = 
+    let remap (v : float32) =
         let remappedClampedNormalizedXInt16 =
             min uniform.MaxValue ((max uniform.MinValue (v * 65000.0f)) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
         let remappedClampedNormalizedXFloat =
@@ -97,7 +104,7 @@ module Shaders =
         let remapClampNormalize =
             if uniform.UseFalseColor then
                 colormapTextureSampler.Sample(V2f ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0f))
-            else 
+            else
                 V4f(
                     (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
                     (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
