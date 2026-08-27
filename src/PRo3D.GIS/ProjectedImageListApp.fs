@@ -159,19 +159,64 @@ module ProjectedImageListApp =
                     ]
                 )
 
-        let contentImages = 
+        let isInStack (id : Guid) =
+            m.stack.Content |> AVal.map (IndexList.exists (fun _ i -> i = id))
+
+        /// The projection stack panel: draw order bottom -> top, displayed top
+        /// first (what you see on the surface wins at the top). Minimal
+        /// controls -- add/remove from the library, reorder with arrows; drag
+        /// & drop can replace the arrows later without touching the model.
+        let stackPanel =
+            Incremental.div (AttributeMap.ofList [ attribute "style" $"border: 2px solid black; margin-top: 10px" ]) (
+                alist {
+                    let! stack = m.stack.Content
+                    let! images = m.images.Content
+                    let count = stack.Count
+                    yield div [attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black; padding: 5px"] [
+                        text (sprintf "Projection Stack (%d/%d)" count ProjectedImages.maxCount)
+                    ]
+                    if count = 0 then
+                        yield div [attribute "style" "padding: 5px; color: #999"] [
+                            text "empty -- add images from the library below"
+                        ]
+                    else
+                        // display top layer first
+                        let entries = stack |> IndexList.toArray |> Array.rev
+                        for displayIdx in 0 .. entries.Length - 1 do
+                            let id = entries.[displayIdx]
+                            let stackPos = entries.Length - 1 - displayIdx // bottom-based
+                            let name =
+                                images
+                                |> IndexList.tryFind (fun _ img -> img.id = id)
+                                |> Option.map (fun img -> img.texture |> AVal.map Path.GetFileName)
+                                |> Option.defaultValue (AVal.constant "(missing image)")
+                            yield div [
+                                attribute "style" $"display: flex; align-items: center; gap: 4px; padding: 3px 5px; border-bottom: 1px solid {borderColor}"
+                                onMouseEnter (fun _ -> HoverImage (Some id))
+                                onMouseLeave (fun _ -> HoverImage None)
+                            ] [
+                                i [clazz "arrow up icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos + 1))] []
+                                i [clazz "arrow down icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos - 1))] []
+                                i [clazz "remove icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []
+                                Incremental.text name
+                            ]
+                })
+
+        let contentImages =
             let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesStack = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; display: flex; justify-content: center; align-items: center;"
 
             let header =
-                div [ 
+                div [
                     // attribute "clazz" "title active inverted"
-                    attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black" 
+                    attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black"
                 ] [
                     div [ attributesSelect ] [text "Select"]
                     div [ attributesEdit ] [text "Edit"]
+                    div [ attributesStack ] [text "Stack"]
                     div [ attributesAttr1 ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
                         text "Dist. to Planet"
@@ -192,12 +237,27 @@ module ProjectedImageListApp =
                                     |> AList.map (fun img ->
                                         // img.id is NonAdaptive, so rows can be keyed by it directly
                                         let id = img.id
-                                        div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
+                                        div [
+                                            attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"
+                                            onMouseEnter (fun _ -> HoverImage (Some id))
+                                            onMouseLeave (fun _ -> HoverImage None)
+                                        ] [
                                             div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
                                             div [attribute "style" "display: flex; font-weight: bold"]
                                                 [
                                                     div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun sel -> sel = Some id)) (SelectImage id)]
                                                     div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> ASet.contains id) (EditImage id)]
+                                                    div [attributesStack] [
+                                                        Incremental.div AttributeMap.empty (
+                                                            alist {
+                                                                let! inStack = isInStack id
+                                                                if inStack then
+                                                                    yield i [clazz "layer group icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []
+                                                                else
+                                                                    yield i [clazz "plus icon"; style "cursor: pointer; opacity: 0.5"; onClick (fun _ -> AddToStack id)] []
+                                                            }
+                                                        )
+                                                    ]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
                                                     div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
                                                 ]
@@ -285,6 +345,7 @@ module ProjectedImageListApp =
 
                 div [] [
                     div [style "width: 100%"] [showRelative2DImage (selectedImage m)]
+                    stackPanel
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                     ]
