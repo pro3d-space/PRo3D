@@ -101,35 +101,47 @@ test("COP image projects onto the Dimorphos OPC", async ({ browser }) => {
     await expect(anyRow).toBeVisible({ timeout: 120_000 });
 
     // rendering consumes the projection STACK (the single-image path is
-    // subsumed): add the wanted image (or the first one) to the stack
-    const wantedOrFirst =
+    // subsumed): add the requested images (PRO3D_STACK_IMAGES, comma
+    // separated; default PRO3D_SELECT_IMAGE or the first library row)
+    const stackImages = (
+        process.env.PRO3D_STACK_IMAGES ??
         process.env.PRO3D_SELECT_IMAGE ??
         (await gis
             .locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/")
             .first()
-            .innerText());
-    const addResult = await gis.evaluate((name) => {
-        const matches = Array.from(document.querySelectorAll("*")).filter(
-            (e) => (e.textContent ?? "").trim() === name
-        );
-        const deepest = matches.filter(
-            (e) => !Array.from(e.children).some((c) => matches.includes(c))
-        );
-        if (deepest.length === 0) return "header not found";
-        let el: Element | null = deepest[0];
-        while (el) {
-            const row = el.nextElementSibling;
-            const box = row?.querySelector("i.plus.icon");
-            if (box) {
-                (box as HTMLElement).click();
-                return "clicked";
+            .innerText())
+    )
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+    for (let k = 0; k < stackImages.length; k++) {
+        const name = stackImages[k];
+        const addResult = await gis.evaluate((n) => {
+            const matches = Array.from(document.querySelectorAll("*")).filter(
+                (e) => (e.textContent ?? "").trim() === n
+            );
+            const deepest = matches.filter(
+                (e) => !Array.from(e.children).some((c) => matches.includes(c))
+            );
+            if (deepest.length === 0) return "header not found";
+            let el: Element | null = deepest[0];
+            while (el) {
+                const row = el.nextElementSibling;
+                const box = row?.querySelector("i.plus.icon");
+                if (box) {
+                    (box as HTMLElement).click();
+                    return "clicked";
+                }
+                el = el.parentElement;
             }
-            el = el.parentElement;
-        }
-        return "no plus icon in row";
-    }, wantedOrFirst.trim());
-    expect(addResult, `add ${wantedOrFirst} to stack`).toBe("clicked");
-    await expect(gis.locator("text=Projection Stack (1/32)")).toBeVisible();
+            return "no plus icon in row";
+        }, name);
+        expect(addResult, `add ${name} to stack`).toBe("clicked");
+        await expect(
+            gis.locator(`text=Projection Stack (${k + 1}/32)`)
+        ).toBeVisible();
+    }
 
     // optionally select a specific image (e.g. a Dimorphos-pointed frame)
     // instead of the auto-selected first one
