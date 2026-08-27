@@ -138,14 +138,23 @@ standoff, so it cannot be compared with the source image DN for DN the way
 steps 1 and 2 were. It can be compared with **the terrain underneath it** —
 and that is the sharper test, provided both show the same thing.
 
-They can be made to. Rendering the image with the OPC's own DRACO mosaic as its
-albedo, unlit, and viewing the surface with DRACO as its primary texture puts
-the *same features* on both sides, so a misregistration is feature doubling
-rather than a judgement call:
+They can be made to. `--texture-only` renders the OPC's own DRACO mosaic as this
+camera sees it — no lighting, and no de-shading fit — and the surface is viewed
+with DRACO as its primary texture, so the *same features* are on both sides and
+a misregistration is feature doubling rather than a judgement call:
 
 ```
-pro3d-tool simulate-image --opc <Dimorphos_0_Meridian> --time 2027-03-21T14:00:00Z     --deshade --deshade-layer DRACO_1 --ambient 1.0 --no-shadows --write-mbi ...
+pro3d-tool simulate-image --opc <Dimorphos_0_Meridian> --time 2027-03-21T14:00:00Z     --texture-only --no-shadows --write-mbi ...
 ```
+
+![the mosaic as the instrument sees it](images/projectionValidation/step3-source-texture.png)
+
+Deliberately **not** `--deshade`: that fits a light direction (r = 0.38 here),
+divides it out, clamps the result and falls back to a constant albedo where its
+confidence drops — an approximation with no place in an image being used as
+evidence. Nor plain shaded relief: this shape model is smooth, so an unlit
+constant-albedo render is a featureless disk at any phase angle. The detail
+lives in the texture, so the texture is what the reference image has to carry.
 
 Camera on that image's own axis at 250 m, *Orientation Source* = MBI,
 *Transfer Function* off:
