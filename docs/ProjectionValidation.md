@@ -168,10 +168,30 @@ misregistration would show as a non-zero peak:
 
 Zero shift, zero difference. The production viewer's projection is exact.
 
-The grey area on the right of the second frame is not error: it is the image's
-own content painted over the region where the *mosaic* has no data (the DRACO
-coverage is hemispheric), plus a wedge the projector reaches at grazing
-incidence. The first frame shows that region black for the same reason.
+### Reading the right-hand side
+
+Two things there are easy to mistake for defects.
+
+**The flat bright area** is the de-shading falling back to a constant albedo
+where the DRACO mosaic has no data: its confidence weight goes to zero and the
+shader returns `AlbedoConst`. It is not lighting — `--ambient 1.0` removes the
+lighting term outright (`iOverF = albedo`). The source image is measurably flat
+there: std 16 DN, and stretching 152→240 DN reveals no structure.
+
+**The smeared, stair-stepped structure** is because we are *not looking through
+the AFC*. The camera is on the instrument's axis but at 250 m, where the
+instrument was at 8.0 km. From 32× closer it sees terrain the AFC saw at grazing
+incidence, or could not see at all behind ridges — so a handful of source texels
+stretch across hundreds of screen pixels (the radial smearing) and the
+projector's own horizon cuts across the relief (the hard edge).
+
+The same effect is why a projection never repaints the *whole* visible body from
+a close viewpoint. Measured on the same image: at the instrument's own pose the
+tool covers **99.92%** of it (54,662 of 54,707 pixels); from 500 m, where the
+camera's visible cap is 80°, **86.2%**; from 220 m, cap 67°, **92.1%**. Less
+coverage when the camera sees more of the body, because the shortfall lives at
+the limb. Nothing here is a projection error — it is the geometry of looking
+from somewhere the instrument was not.
 
 ### A caution about the coverage number
 

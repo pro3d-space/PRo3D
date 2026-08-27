@@ -100,6 +100,7 @@ module private Fixtures =
             gain = 0.0
             noShadows = false
             noLighting = false
+            textureOnly = false
             project = null
             projectShader = null
             shadowBias = 0.002

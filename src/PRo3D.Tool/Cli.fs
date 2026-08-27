@@ -158,6 +158,9 @@ type SimulateImageOptions =
         [<Option("no-lighting", HelpText = "Render a flat white disk instead of a shaded body: the image is then the silhouette, for comparing pointing and shape against a real frame without shading in the way")>]
         noLighting : bool
 
+        [<Option("texture-only", HelpText = "Render the OPC's own texture as this camera sees it: no lighting, and no de-shading fit. The honest way to get the mosaic into an image -- unlike --deshade, which fits a light direction, clamps the result and falls back to a constant albedo where it has no confidence.")>]
+        textureOnly : bool
+
         [<Option("project", HelpText = "Project this image onto the body instead of shading it, through PRo3D's projection shader, and render the result. With no --mbi the camera is that image's own, so the output must reproduce the input image -- which is what makes the projection checkable rather than merely plausible.")>]
         project : string
 

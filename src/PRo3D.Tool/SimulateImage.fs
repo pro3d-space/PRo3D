@@ -764,6 +764,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             |> Sg.uniform' "MicroAmplitude" (float32 o.microAmplitude)
             |> Sg.uniform' "AmbientFloor" (float32 o.ambient)
             |> Sg.uniform' "NoLighting" o.noLighting
+            |> Sg.uniform' "TextureOnly" o.textureOnly
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)
 
