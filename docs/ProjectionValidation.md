@@ -32,6 +32,16 @@ impression, and each only meaningful once the one below it holds:
 | 2 | the stack shader (`stableImageProjectionStack`), offscreen, same image and camera — must equal step 1 | **passed**, below |
 | 3 | the production viewer, same image and camera — must equal step 2 | **partly**, below |
 
+Step 3 is the awkward one: the viewer looks at the body through its own field of
+view from its own standoff, so it cannot be compared with the source image DN
+for DN the way steps 1 and 2 were. What *can* be compared is the projection
+against **the terrain underneath it** — and that is a sharper test than it
+sounds, provided both show the same thing. Rendering the image with the OPC's
+own DRACO mosaic as its albedo (`--deshade --deshade-layer DRACO_1
+--ambient 1.0`, i.e. unlit) and viewing the surface with DRACO as its primary
+texture puts the *same features* in both, so a misregistration shows up as
+doubling rather than as a judgement call.
+
 Both prerequisites for step 3 are now in: a *Transfer Function* toggle (off =
 the image's own RGB, so the render is comparable to the source rather than to a
 colour-mapped version of it), and the viewer's missing `NormalFlip` binding.
