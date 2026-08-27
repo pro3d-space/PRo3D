@@ -12,28 +12,11 @@ module ImageProjectionOpcExtensions =
 
     let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
-            "ProjectedImagesLocalTrafos", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                let context = scope |> unbox<OpcRenderingExtensions.Context> 
-                context.projectedImages |> AVal.bind (function 
-                    | None -> AVal.constant Array.empty<M44f>
-                    | Some p ->
-                        (p.localImageProjectionTrafos, context.modelTrafo)
-                        ||> AVal.map2 (fun arr modelTrafo ->  
-                            arr |> Array.map (fun (vp : Trafo3d) ->
-                                // first to body space, then through projection.
-                                // modelTrafo included for the same reason as in
-                                // ProjectedImageModelViewProj below.
-                                vp.Forward * modelTrafo.Forward * patch.info.Local2Global.Forward |> M44f
-                            )
-                        )
-                ) :> IAdaptiveValue
-            )
-            "ProjectedImagesLocalTrafosCount", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+            "ProjectedStackCoverageEnabled", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
                 context.projectedImages |> AVal.bind (function
-                    | None -> AVal.constant 0
-                    | Some p ->
-                        (p.localImageProjectionTrafos |> AVal.map Array.length)
+                    | None -> AVal.constant false
+                    | Some p -> p.stackCoverageEnabled
                 ) :> IAdaptiveValue
             )
             // The projection stack (multi-image projection), bottom -> top.
@@ -71,7 +54,14 @@ module ImageProjectionOpcExtensions =
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
                 context.projectedImages |> AVal.bind (function
                     | None -> AVal.constant 0
-                    | Some p -> p.stackProjections |> AVal.map Array.length
+                    | Some p ->
+                        // clamped to the Arr<N<32>> size (= ProjectedImages.maxCount,
+                        // not referencable here -- this file compiles before the
+                        // model): UniformWriters truncates an over-long matrix
+                        // array, and the shader loop must not index past what was
+                        // written (effectiveStack already caps the viewer's
+                        // stack; the testbeds can hand over more)
+                        p.stackProjections |> AVal.map (fun l -> min l.Length 32)
                 ) :> IAdaptiveValue
             )
             "ProjectedImageModelViewProjValid", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 

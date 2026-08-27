@@ -103,9 +103,9 @@ let main argv =
     Config.backgroundColor <- startupArgs.backgroundColor
     Config.useMapping <- startupArgs.useMapping
 
-    let limitedShaderCapabilities = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
-    Config.limitedShaderCapabilities <- limitedShaderCapabilities
-    Log.line "limited shader capabilities: %b" limitedShaderCapabilities
+    // no more limitedShaderCapabilities split: the projection shaders use
+    // bounded uniform arrays instead of storage buffers, so the same effect
+    // runs on macOS (GL 4.1)
 
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     

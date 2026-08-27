@@ -18,8 +18,6 @@ module ImageProjection =
         type UniformScope with
             member x.ProjectedImageModelViewProjValid : bool = uniform?ProjectedImageModelViewProjValid
             member x.ProjectedImageModelViewProj : M44f = uniform?ProjectedImageModelViewProj
-            member x.ProjectedImagesLocalTrafos : M44f[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
-            member x.ProjectedImagesCount : int = uniform?ProjectedImagesLocalTrafosCount
             member x.ProjectedImageOpacity : float32 = uniform?ProjectedImageOpacity2
             /// 1 flips generateNormal's face normal, 0 (the default when unset) leaves it.
             /// Set per OPC hierarchy from the CPU-estimated winding; see OpcSg.build.
@@ -35,6 +33,9 @@ module ImageProjection =
             member x.ProjectedStackTrafos : Arr<N<32>, M44f> = uniform?ProjectedStackTrafos
             member x.ProjectedStackMinMax : Arr<N<32>, V2f> = uniform?ProjectedStackMinMax
             member x.ProjectedStackCount : int = uniform?ProjectedStackCount
+            /// InstrumentVisibilityMode.RelativeCount: tint fragments by how
+            /// many stack layers cover them (projectedStackCoverage)
+            member x.ProjectedStackCoverageEnabled : bool = uniform?ProjectedStackCoverageEnabled
 
         type Vertex = {
             [<Position>]    pos     : V4f
@@ -60,7 +61,10 @@ module ImageProjection =
                 return { v with projectedPos = uniform.ProjectedImageModelViewProj * v.pos; localPos = v.pos; }
             }
 
-        let stableImageProjection (v : Vertex) = 
+        /// LEGACY single-image projection -- the viewer renders the projection
+        /// STACK (stableImageProjectionStack) instead; only the standalone
+        /// testbeds (TestViewer, ProjectionTestbed) still compose this.
+        let stableImageProjection (v : Vertex) =
             fragment {
                 let p = v.projectedPos.XYZ / v.projectedPos.W
                 let tc = V3f(0.5, 0.5,0.5) + V3f(0.5, 0.5, 0.5) * p.XYZ
@@ -195,25 +199,35 @@ module ImageProjection =
                 else V3f(0.5, 0.0, 0.0) // Dark Red
             color
 
-        let localImageProjections (v : Vertex) = 
+        /// Coverage view (InstrumentVisibilityMode.RelativeCount): tint each
+        /// fragment by how many STACK layers cover it. The port of the old
+        /// localImageProjections storage-buffer shader onto the bounded
+        /// Arr<N<32>> uniform arrays -- same coverage test, but over the
+        /// projection stack (which is what gets rendered) instead of the whole
+        /// library, and no SSBO, so it runs on GL 4.1/macOS and the
+        /// limitedShaderCapabilities platform split is gone.
+        let projectedStackCoverage (v : Vertex) =
             fragment {
-                let mutable clippedCount = 0
-                for i in 0 .. uniform.ProjectedImagesCount - 1 do
-                    let ndc = uniform.ProjectedImagesLocalTrafos[i] * v.localPos
-                    let normal = uniform.ProjectedImagesLocalTrafos[i].TransformDir(v.localNormalNumericallyUnstable).Normalized
-                    let p = ndc.XYZ / ndc.W
-                    let tc = V3f(0.5, 0.5, 0.5) + V3f(0.5, 0.5, 0.5) * p.XYZ
-                    // tc.Z too, else geometry behind the near plane counts as covered
-                    let clipped = Vec.anyGreater tc V3f.III || Vec.anySmaller tc V3f.OOO
-                    let onRightSide =  normal.Z < 0.0f
-                    if not onRightSide || clipped then
-                        clippedCount <- clippedCount + 1
+                if uniform.ProjectedStackCoverageEnabled && uniform.ProjectedStackCount > 0 then
+                    let mutable clippedCount = 0
+                    for i in 0 .. uniform.ProjectedStackCount - 1 do
+                        let ndc = uniform.ProjectedStackTrafos.[i] * v.localPos
+                        let normal = uniform.ProjectedStackTrafos.[i].TransformDir(v.localNormalNumericallyUnstable).Normalized
+                        let p = ndc.XYZ / ndc.W
+                        let tc = V3f(0.5, 0.5, 0.5) + V3f(0.5, 0.5, 0.5) * p.XYZ
+                        // tc.Z too, else geometry behind the near plane counts as covered
+                        let clipped = Vec.anyGreater tc V3f.III || Vec.anySmaller tc V3f.OOO
+                        let onRightSide = normal.Z < 0.0f
+                        if not onRightSide || clipped then
+                            clippedCount <- clippedCount + 1
 
-                if clippedCount < uniform.ProjectedImagesCount then 
-                    let color = mapClippedProjectionsToColor2 (uniform.ProjectedImagesCount  - clippedCount) uniform.ProjectedImagesCount 
-                    let c = v.c.XYZ * 0.8f + color * 0.2f
-                    return V4f(c, 1.0f)
-                else 
+                    if clippedCount < uniform.ProjectedStackCount then
+                        let color = mapClippedProjectionsToColor2 (uniform.ProjectedStackCount - clippedCount) uniform.ProjectedStackCount
+                        let c = v.c.XYZ * 0.8f + color * 0.2f
+                        return V4f(c, 1.0f)
+                    else
+                        return v.c
+                else
                     return v.c
             }
 

@@ -267,15 +267,27 @@ module TestViewer =
                     )
 
 
-                let localImageProjectionTrafos = observations |> Array.map snd |> Array.choose id |> AVal.constant
                 let sunLight = sunLightDirection |> AVal.map Option.Some
+
+                // the observation projectors ride the stack arrays (the old
+                // storage-buffer path is gone); only the coverage view reads
+                // them here, so min/max and texture slots are placeholders
+                let stackProjections =
+                    observations
+                    |> Array.map snd
+                    |> Array.choose id
+                    |> Array.map (fun t ->
+                        let layer : Sg.ProjectedStackLayer =
+                            { trafo = Some t; minMax = V2f(0.0f, 1.0f); texturePath = ""; channel = 0 }
+                        layer)
+                    |> AVal.constant
 
                 let projectedImages : aval<Option<Sg.ProjectedImages>> =
                     AVal.constant (
                         Some {
                             imageProjection = currentProjection
-                            localImageProjectionTrafos = localImageProjectionTrafos
-                            stackProjections = AVal.constant [||]
+                            stackProjections = stackProjections
+                            stackCoverageEnabled = AVal.constant true
                             sunDirection = sunLight
                             sunLightEnabled = sunLightEnabled
                             lightViewProj = AVal.constant None
@@ -309,13 +321,17 @@ module TestViewer =
         let wrapModel (planet : string) (sg : ISg) =
             let getProjectionTrafo _ =
                 currentProjection
+            let projectorTrafos = observations |> Array.choose snd |> Array.map (Trafo.forward >> M44f)
             sg
-            // projected frusta
-            |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount 
-            |> Sg.uniform' "ProjectedImagesLocalTrafos" (observations |> Array.choose snd |> Array.map (Trafo.forward >> M44f))
+            // projected frusta ride the bounded stack uniform arrays (the
+            // storage-buffer path is gone); the count is clamped to the
+            // Arr<N<32>> size, matching what the writer truncates to
+            |> Sg.uniform "ProjectedStackCount" (projectionCount |> AVal.map (min PRo3D.ImageMapping.ProjectedImages.maxCount))
+            |> Sg.uniform' "ProjectedStackTrafos" projectorTrafos
+            |> Sg.uniform' "ProjectedStackCoverageEnabled" true
             // projected texture
-            |> Sg.texture "ProjectedTexture" projectedTexture 
-            |> Sg.applyProjectedImage getProjectionTrafo 
+            |> Sg.texture "ProjectedTexture" projectedTexture
+            |> Sg.applyProjectedImage getProjectionTrafo
             |> Sg.uniform' "ProjectedImageModelViewProjValid" true
             //|> Rendering.StableTrafoSceneGraphExtension.Sg.wrapStableShadowViewProjTrafo (shadowMapCamera |> AVal.map Camera.viewProjTrafo) 
 
@@ -346,8 +362,8 @@ module TestViewer =
                 do! Shaders.solarLighting
 
                 do! ImageProjection.Shaders.stableImageProjection
-                
-                do! ImageProjection.Shaders.localImageProjections
+
+                do! ImageProjection.Shaders.projectedStackCoverage
             }
             |> InstrumentImageVisualization.applyProperties { imageSettings with instrumentImage = projectedTexture }
 
@@ -416,16 +432,16 @@ module TestViewer =
                 do! DefaultSurfaces.constantColor C4f.White
                 do! DefaultSurfaces.diffuseTexture
                 do! Shaders.solarLighting
-                do! ImageProjection.Shaders.localImageProjections
+                do! ImageProjection.Shaders.projectedStackCoverage
                 do! ImageProjection.Shaders.stableImageProjection
-                //do! Shader.LoDColor 
+                //do! Shader.LoDColor
             }
             |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
             |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
             |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant defaultSecondaryTextureId)
             |> Sg.uniform "LodVisEnabled" (cval false)
-            |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount //count
-            |> Sg.texture "ProjectedTexture" projectedTexture 
+            // stack arrays/count/enabled come per patch from the ProjectedImages record
+            |> Sg.texture "ProjectedTexture" projectedTexture
             |> Sg.trafo (transformation |> AVal.map fst)
             |> Sg.onOff (transformation |> AVal.map snd)
 

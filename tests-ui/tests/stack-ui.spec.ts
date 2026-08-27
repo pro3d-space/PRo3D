@@ -76,6 +76,15 @@ async function stackEntries(gis: Page): Promise<string[]> {
     });
 }
 
+/** poll until the stack panel shows exactly `expected` (top first) -- the
+ *  incremental UI updates asynchronously after a click, and the app is busy
+ *  re-rendering the projection when the stack changes */
+async function expectStack(gis: Page, expected: string[]) {
+    await expect
+        .poll(() => stackEntries(gis), { timeout: 15_000 })
+        .toEqual(expected);
+}
+
 test("stack add / reorder / remove through the GIS tab", async ({ browser }) => {
     const context = await browser.newContext();
     const gis = await context.newPage();
@@ -119,7 +128,7 @@ test("stack add / reorder / remove through the GIS tab", async ({ browser }) => 
     await expect(gis.locator("text=Projection Stack (1/32)")).toBeVisible();
     await clickRowIcon(gis, b, "plus");
     await expect(gis.locator("text=Projection Stack (2/32)")).toBeVisible();
-    expect(await stackEntries(gis)).toEqual([b, a]);
+    await expectStack(gis, [b, a]);
 
     // adding again must not duplicate
     await clickRowIcon(gis, a, "layer");
@@ -127,18 +136,18 @@ test("stack add / reorder / remove through the GIS tab", async ({ browser }) => 
     await expect(gis.locator("text=Projection Stack (1/32)")).toBeVisible();
     await clickRowIcon(gis, a, "plus");
     await expect(gis.locator("text=Projection Stack (2/32)")).toBeVisible();
-    expect(await stackEntries(gis)).toEqual([a, b]);
+    await expectStack(gis, [a, b]);
 
     // move a down (to the bottom) -> order back to [b, a]
     await clickStackIcon(gis, a, "down");
-    expect(await stackEntries(gis)).toEqual([b, a]);
+    await expectStack(gis, [b, a]);
 
     // moving the top further up is a clamped no-op
     await clickStackIcon(gis, b, "up");
-    expect(await stackEntries(gis)).toEqual([b, a]);
+    await expectStack(gis, [b, a]);
 
     // remove the top
     await clickStackIcon(gis, b, "remove");
     await expect(gis.locator("text=Projection Stack (1/32)")).toBeVisible();
-    expect(await stackEntries(gis)).toEqual([a]);
+    await expectStack(gis, [a]);
 });

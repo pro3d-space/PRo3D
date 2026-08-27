@@ -124,31 +124,6 @@ module ProjectedImagesListAppHelper =
                         None
             )
 
-        let trafos =
-            AVal.custom (fun t ->
-                match observer.GetValue(t) with
-                | None -> [||]
-                | Some o ->
-                    let m = g.projectedImageList.instrumentVisibility.GetValue(t)
-                    match m with
-                    |  PRo3D.ImageMapping.InstrumentVisibilityMode.RelativeCount ->
-                        let (EntitySpiceName observer) = o.body
-                        let surfaceReferenceFrame = surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
-
-                        let borsight = boresightAdjustment.GetValue(t)
-                        let surfaceReferenceFrame = surfaceReferenceFrame.GetValue(t)
-                        let images = g.projectedImageList.images.Content.GetValue(t)
-                        let projectionMethod = g.projectedImageList.projectionMethod.GetValue(t)
-
-                        images
-                        |> IndexList.toArray
-                        |> Array.choose (fun img ->
-                            let metaData = img.texture.GetValue(t) |>  InstrumentMetadata.tryParseMetadataForImagePath
-                            Visualization.projectDirect observer surfaceReferenceFrame metaData projectionSurfaceBodyName (Some borsight) projectionMethod
-                        )
-                    | _ -> [||]
-            )
-
         // The projection stack, bottom -> top (multi-image projection). Each
         // layer's projector is computed at that image's own observation time in
         // the surface's reference frame -- body-fixed, so the projection sticks
@@ -226,8 +201,11 @@ module ProjectedImagesListAppHelper =
 
         Some {
                 imageProjection = imageTrafo
-                localImageProjectionTrafos = trafos
                 stackProjections = stackProjections
+                // coverage view: tint by how many stack layers cover a fragment
+                stackCoverageEnabled =
+                    g.projectedImageList.instrumentVisibility
+                    |> AVal.map (fun m -> m = PRo3D.ImageMapping.InstrumentVisibilityMode.RelativeCount)
                 sunDirection = sunDirection
                 sunLightEnabled =
                     (g.projectedImageList.lightingMode, sunDirection) ||> AVal.map2 (fun l hasDir -> l <> PRo3D.ImageMapping.LightingMode.Off && Option.isSome hasDir)

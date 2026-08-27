@@ -1007,8 +1007,11 @@ module ViewerUtils =
             // layer (effectiveStack).
             ImageProjection.Shaders.stableImageProjectionStack |> toEffect
 
-            if not Config.limitedShaderCapabilities then
-                ImageProjection.Shaders.localImageProjections |> toEffect
+            // stack-coverage view (RelativeCount); uniform-gated, and on the
+            // same bounded uniform arrays as the stack shader -- the old
+            // storage-buffer variant and its limitedShaderCapabilities macOS
+            // split are gone
+            ImageProjection.Shaders.projectedStackCoverage |> toEffect
 
             // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
             // sphere-normal predecessor made relief invisible under sun lighting.
@@ -1182,7 +1185,6 @@ module ViewerUtils =
                     | _ -> None
                 )
             )
-            |> Sg.texture "ProjectedTexture" projectedTexture
             |> Sg.texture "ProjectedStackTextures" projectedStackTextures
             |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
             |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }

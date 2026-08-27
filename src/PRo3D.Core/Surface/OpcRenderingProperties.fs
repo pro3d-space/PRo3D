@@ -52,12 +52,14 @@ module SgExtensions =
         type ProjectedImages =
             {
                 imageProjection : aval<Option<Trafo3d>>
-                localImageProjectionTrafos : aval<array<Trafo3d>>
                 /// The projection stack, bottom -> top. Bounded by
                 /// ProjectedImages.maxCount; the stack shader consumes it as
                 /// fixed-size uniform arrays (matrices + min/max) plus a count,
                 /// and layer i samples slice i of the stack texture array.
                 stackProjections : aval<array<ProjectedStackLayer>>
+                /// InstrumentVisibilityMode.RelativeCount: tint fragments by
+                /// how many stack layers cover them (projectedStackCoverage)
+                stackCoverageEnabled : aval<bool>
                 sunDirection : aval<Option<V3d>>
                 sunLightEnabled : aval<bool>
                 /// World -> sun-camera clip space for shadow mapping; None disables the
