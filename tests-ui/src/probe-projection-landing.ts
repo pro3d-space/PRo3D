@@ -180,6 +180,32 @@ async function settled(page: Page, name: string): Promise<Buffer> {
         await render.waitForTimeout(3000);
     }
 
+    // PRO3D_PROBE_VISIBILITY=RelativeCount switches the "Visibility:" dropdown to the
+    // coverage view, which tints each fragment by how many stack layers cover it.
+    // This is the only HONEST coverage measurement: comparing a before/after screenshot
+    // counts pixels that CHANGED, which cannot tell "not covered" apart from "covered by
+    // a value that happens to match the terrain underneath".
+    const visibility = process.env.PRO3D_PROBE_VISIBILITY;
+    if (visibility) {
+        const r = await gis.evaluate((v) => {
+            const label = Array.from(document.querySelectorAll("*")).find(
+                (e) => (e.textContent ?? "").trim() === "Visibility:"
+            );
+            const sel = label?.parentElement?.querySelector("select") as HTMLSelectElement | null;
+            if (!sel) return "no select for Visibility:";
+            const opt = Array.from(sel.options).find(
+                (o) => o.textContent?.trim() === v || o.value === v
+            );
+            if (!opt)
+                return "no option " + v + " in " + Array.from(sel.options).map((o) => o.textContent).join("|");
+            sel.value = opt.value;
+            sel.dispatchEvent(new Event("change", { bubbles: true }));
+            return "set " + opt.textContent;
+        }, visibility);
+        console.log(`visibility -> ${visibility}: ${r}`);
+        await render.waitForTimeout(3000);
+    }
+
     // PRO3D_PROBE_TRANSFER=off unticks "Transfer Function", so the projected
     // image is painted as its own RGB. That is the only way the render can be
     // compared with the source image rather than with a colour-mapped version
