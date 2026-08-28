@@ -543,7 +543,8 @@ module ViewerApp =
     /// surface's body-fixed frame at the image's own observation time and
     /// carried into render space by the surface's current placement, so the
     /// view lines up with where the projection actually sticks to the terrain.
-    let addFlyToImageAnimation (m : Model) (imageId : System.Guid) =
+    /// The camera the fly-to should end at, or None with a warning logged.
+    let flyToImageCamera (m : Model) (imageId : System.Guid) : Option<CameraView> =
         let gis = m.scene.gisApp
         let projectionSurface =
             gis.gisSurfaces
@@ -573,7 +574,7 @@ module ViewerApp =
             match resolved with
             | None ->
                 Log.warn "[Viewer] fly-to: no usable mbi metadata for %s" image.texture
-                m.animations
+                None
             | Some resolved ->
                 let camera =
                     InstrumentObservation.projectorCamera
@@ -582,10 +583,11 @@ module ViewerApp =
                 match camera with
                 | Result.Error e ->
                     Log.warn "[Viewer] fly-to: %s" e
-                    m.animations
+                    None
                 | Result.Ok pc ->
                     // projector pose in the surface's body-fixed frame
                     let camToBody = pc.view.Backward
+                    let projPosB = camToBody.TransformPos V3d.Zero
                     let fwdB = camToBody.TransformDir(-V3d.OOI) |> Vec.normalize
                     let upB = camToBody.TransformDir V3d.OIO |> Vec.normalize
                     // Stand off far enough to frame the instrument's footprint -- its
@@ -599,24 +601,45 @@ module ViewerApp =
                     // terrain the instrument could not.
                     let footprint = 2.0 * pc.distance / pc.proj.Forward.M11
                     let standoff = max 1.0 (0.5 * footprint * (Frustum.projTrafo m.frustum).Forward.M11)
-                    let posB = camToBody.TransformPos V3d.Zero + fwdB * (pc.distance - standoff)
+                    let posB = projPosB + fwdB * (pc.distance - standoff)
                     // into render space via the surface's current placement
                     let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.tryFind surfaceId |> Option.map Leaf.toSurface
                     match surface with
                     | None ->
                         Log.warn "[Viewer] fly-to: projection surface %A not found" surfaceId
-                        m.animations
+                        None
                     | Some surface ->
                         let observedSystem = Gis.GisApp.getSpiceReferenceSystem gis surfaceId
                         let fullTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem observedSystem observerSystemOpt
                         let t = (fullTrafo * surface.preTransform).Forward
                         let pos = t.TransformPos posB
-                        let fwd = t.TransformDir fwdB |> Vec.normalize
+                        // Belt and braces: the camera must end up LOOKING AT the body.
+                        // "-Z is the look direction" holds only for a proper camera-to-world
+                        // basis, and this pose is assembled through
+                        // InstrumentProjection.specialTrafos, which are deliberately improper
+                        // (AFC-1 is FromOrthoNormalBasis(-Y,-X,Z), det -1 -- that is what
+                        // cancels getLookAtQuat's FromBasis(-C0,-C1,-C2)). Measured on
+                        // HERA/AFC-1 the extracted axis is already correct
+                        // (dot with the direction to the body = 1.0000), so this guard does
+                        // not currently fire; it is here because the invariant is cheap to
+                        // state and an empty frame is an expensive thing to debug.
+                        let bodyCentre = t.TransformPos V3d.Zero
+                        let toBody = bodyCentre - pos |> Vec.normalize
+                        let fwd0 = t.TransformDir fwdB |> Vec.normalize
+                        let fwd = if Vec.dot fwd0 toBody < 0.0 then -fwd0 else fwd0
                         let up = t.TransformDir upB |> Vec.normalize
-                        createAnimation pos fwd up m.animations
+                        // Build the CameraView here rather than leaving the caller to
+                        // assemble one, so the basis is orthonormal and right-handed by
+                        // construction. `up` is the instrument's, which through the
+                        // improper mounting comes out with up . sky = -0.64: the view is
+                        // close to upside down relative to whatever camera it replaces,
+                        // which is correct -- that IS the instrument's roll.
+                        Log.line "[Viewer] fly-to: pos %A |r| %.1f, dot(fwd,toBody) %.4f"
+                            pos (Vec.length pos) (Vec.dot fwd0 toBody)
+                        CameraView.lookAt pos (pos + fwd) up |> Some
         | _ ->
             Log.warn "[Viewer] fly-to: no projection surface with an assigned entity, no image, or no observer"
-            m.animations
+            None
 
     let updateViewer
         (runtime   : IRuntime)
@@ -2265,8 +2288,31 @@ module ViewerApp =
         | WriteCameraMetadata (path, camera),_ ->
             m
         | GisAppMessage msg, _ ->
-            let m, gisApp = 
+            let m, gisApp =
                  Gis.GisApp.update m.scene.gisApp gisLenses m msg
+
+            // Fly-to onto an image's projector axis. Handled here rather than in
+            // ProjectedImageListApp because the camera is the Viewer's (D6).
+            //
+            // The camera is SET, not animated, and that is deliberate.
+            // CameraAnimations.animateForwardAndLocation -- the deprecated animation path,
+            // see the AnimationMessage handler -- rotates forward and up out of the state
+            // it is handed while setting the location absolutely. Driven from here it put
+            // the camera at exactly the instrument's position and pointed it 180 degrees
+            // away, into empty space: bearing 80.54 / pitch -19.12 where looking at the
+            // body is 260.59 / +18.99, with a demonstrably correct CameraView going in
+            // (boresight dot direction-to-body = 1.0000). The target up is the
+            // instrument's, which comes through the improper mounting nearly opposite the
+            // camera being replaced, and that is the case the animation mishandles.
+            // An empty frame here is indistinguishable from a broken projection, so
+            // landing correctly matters more than the 3.5 s glide.
+            let m =
+                match msg with
+                | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage imageId) ->
+                    match flyToImageCamera m imageId with
+                    | Some view -> Optic.set _view view m
+                    | None -> m
+                | _ -> m
 
             let m =
                 match msg with
@@ -2315,10 +2361,6 @@ module ViewerApp =
                         addFlyToSurfaceAnimation m id
                     | _ ->
                         m.animations
-                | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage imageId) ->
-                    // handled here rather than in ProjectedImageListApp: the
-                    // camera animation is the Viewer's (D6)
-                    addFlyToImageAnimation m imageId
                 | _ ->
                     m.animations
             (Optic.set _gisApp gisApp m)

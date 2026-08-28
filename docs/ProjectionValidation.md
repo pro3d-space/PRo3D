@@ -376,6 +376,39 @@ further here.
 
   This governed *coverage*, not alignment — it explained a crescent, not a shift.
 
+- **The fly-to landed the camera in the right place pointing the wrong way.**
+  *Fly to this image* (the location arrow on an image's row) put the camera at
+  exactly the instrument's position — position residual 0 m against the
+  sidecar — and aimed it 180 degrees away, into empty space. The frame came
+  back entirely empty, which is indistinguishable from a broken projection, and
+  it cost most of a day: every check on the *position* passed, because at the
+  instrument's own focal length `standoff` equals `pc.distance`, so the sign
+  error cancels out of `posB = projPos + fwd * (distance - standoff)` and
+  survives only in the orientation.
+
+  The camera handed to the animation was correct — logged
+  `dot(boresight, direction-to-body) = 1.0000` — so the mangling was in
+  `CameraAnimations.animateForwardAndLocation`, the deprecated animation path
+  (`transformLocationForwardUp` rotates forward and up out of the state it is
+  given while setting the location absolutely). The target up here is the
+  instrument's, which through the improper mounting comes out nearly opposite
+  the current one. The fly-to now **sets** the camera instead of animating it:
+  landing correctly matters more than the 3.5 s glide.
+
+  Measured before/after at the AFC's 8.041 km, viewer fov set to AFC-1's
+  5.5307 degrees: lit fraction 0.00% → 3.23%, matching a reference render
+  whose camera was written straight into the scene file (3.23%); apparent body
+  width 22.6% of frame width against 22.8% predicted from the sidecar's range.
+  `tests-ui/tests/looking-at-dimorphos.spec.ts` asserts exactly that, so this
+  cannot regress silently.
+
+  Three plausible-looking fixes were falsified before this one, each by
+  measurement rather than inspection: correcting the sign where the axis is
+  extracted (`camToBody.TransformDir(-V3d.OOI)`), correcting it again in render
+  space, and seeding the animation state with the current camera. All three
+  were no-ops — the bearing never moved — which is what finally pointed at
+  the animation rather than at the pose.
+
 ## Still open
 
 Nothing in the ladder. The projection is correct in the shader (step 1), in the
@@ -401,7 +434,13 @@ pro3d-tool simulate-image --opc <TestData>/HERA/Didymos_ASPECT --mbi <the .tif> 
 # 1 (viewer half): asserts; needs a scene on the same OPC
 cd tests-ui && PRO3D_SIM_IMAGE_DIR=<dataset> npx playwright test projection-overlap
 
-# 3: look at one case, including the ones that fail (asserts nothing)
+# the gate the projection tests stand on: can the viewer be put where the
+# instrument was, and is the body then the right apparent size?
+PRO3D_AFC_DIR=<folder> npx playwright test looking-at-dimorphos
+
+# 3: look at one case, including the ones that fail (asserts nothing).
+# Screenshots and logs lit-fraction after EVERY stage -- an empty frame three
+# steps later cannot be attributed, and that is what made the fly-to bug expensive.
 PRO3D_PROBE_IMAGE_DIR=<folder> PRO3D_PROBE_METHOD=MbiBased \
 PRO3D_PROBE_LABEL=cop-mbi npx tsx src/probe-projection-landing.ts
 

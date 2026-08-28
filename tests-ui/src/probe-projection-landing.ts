@@ -22,12 +22,19 @@ const dir = process.env.PRO3D_PROBE_IMAGE_DIR;
 const label = process.env.PRO3D_PROBE_LABEL ?? "probe";
 const artifacts = path.join(__dirname, "..", "artifacts");
 
+// How long to wait for lit content before giving up. The first start after a shader
+// change compiles the surface program and can genuinely take minutes, but every other
+// run that reaches this ceiling has simply failed -- and paying 10 minutes per settle to
+// find that out (twice per probe) is most of a lost afternoon. Raise it deliberately via
+// PRO3D_PROBE_SETTLE_MS when a recompile is expected.
+const settleMs = Number(process.env.PRO3D_PROBE_SETTLE_MS ?? 120_000);
+
 async function settled(page: Page, name: string): Promise<Buffer> {
     const started = Date.now();
     let shot = await page.screenshot();
     while (
         (!streamLive(shot) || litFraction(shot) < 0.003) &&
-        Date.now() - started < 600_000
+        Date.now() - started < settleMs
     ) {
         await page.waitForTimeout(3000);
         shot = await page.screenshot();
@@ -66,7 +73,76 @@ async function settled(page: Page, name: string): Promise<Buffer> {
     const render = await context.newPage();
     await render.goto(app.url + "?page=render");
     await render.waitForSelector("img.rendercontrol", { timeout: 60_000 });
-    const baseline = await settled(render, `${label}-baseline.png`);
+    // wait for the scene, but do NOT take the baseline yet: with PRO3D_PROBE_FLYTO the
+    // camera still has to move, and a baseline from a different viewpoint makes every
+    // pixel "changed"
+    await settled(render, `${label}-loaded.png`);
+
+    // PRO3D_PROBE_FOCAL sets "Focal (mm)" on the Config page, which drives the
+    // INTERACTIVE view's frustum (hfov = 2*atan(11.84/(2*focal))). 122.563 mm is
+    // HERA/AFC-1's 5.5307 degrees, i.e. looking through the instrument.
+    // Near/Far matter as much as the focal here: at the instrument's own distance the body
+    // sits ~8 km out, and a far plane inside that clips it away entirely -- an empty frame
+    // that looks exactly like a broken projection. Both rebuild m.frustum (Viewer.fs:
+    // SetNearPlane/SetFarPlane preserve fov and aspect; UpdateFocal preserves near/far).
+    const cfgFields: Array<[string, string | undefined]> = [
+        ["Near Plane:", process.env.PRO3D_PROBE_NEAR],
+        ["Far Plane:", process.env.PRO3D_PROBE_FAR],
+        ["Focal (mm):", process.env.PRO3D_PROBE_FOCAL],
+    ];
+    if (cfgFields.some(([, v]) => v)) {
+        const cfg = await context.newPage();
+        await cfg.goto(app.url + "?page=config");
+        await cfg.waitForLoadState("networkidle");
+        for (const [labelText, value] of cfgFields) {
+            if (!value) continue;
+            // networkidle is not enough: the config page's rows arrive over the incremental
+            // DOM channel afterwards, so a field set too early silently reports
+            // "label not found" and the viewer keeps its default frustum
+            // "attached", not "visible": the rows live inside collapsed accordion
+            // sections, so they are in the DOM (and settable) while never being visible
+            await cfg
+                .locator(`text=${labelText}`)
+                .first()
+                .waitFor({ state: "attached", timeout: 30_000 });
+            const r = await cfg.evaluate(
+                ({ labelText, value }) => {
+                    const label = Array.from(
+                        document.querySelectorAll("td, div, span")
+                    ).find((e) => (e.textContent ?? "").trim() === labelText);
+                    if (!label) return "label not found";
+                    const row = label.closest("tr") ?? label.parentElement;
+                    // the slider comes first in the DOM for Focal; the box is the last input
+                    const inputs = Array.from(row?.querySelectorAll("input") ?? []);
+                    const input = inputs[inputs.length - 1] as HTMLInputElement | undefined;
+                    if (!input) return "no input in the row";
+                    const setter = Object.getOwnPropertyDescriptor(
+                        window.HTMLInputElement.prototype, "value"
+                    )!.set!;
+                    setter.call(input, value);
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                    input.dispatchEvent(
+                        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+                    );
+                    return "set " + input.value;
+                },
+                { labelText, value }
+            );
+            console.log(`${labelText} -> ${value}: ${r}`);
+            await render.waitForTimeout(1500);
+            // one screenshot per field: an empty frame three steps later is impossible to
+            // attribute, and every "the viewer renders nothing" hunt in this file so far
+            // has cost hours because the first empty frame was never localised
+            const s = await render.screenshot();
+            fs.writeFileSync(
+                path.join(artifacts, `${label}-after-${labelText.replace(/[^a-z]/gi, "")}.png`),
+                s
+            );
+            console.log(`   lit after ${labelText} ${(litFraction(s) * 100).toFixed(2)}%`);
+        }
+        await render.waitForTimeout(3000);
+    }
 
     const gis = await context.newPage();
     await gis.goto(app.url + "?page=gis");
@@ -133,54 +209,86 @@ async function settled(page: Page, name: string): Promise<Buffer> {
         .first()
         .waitFor({ timeout: 120_000 });
 
-    const clicked = await gis.evaluate((n) => {
-        const matches = Array.from(document.querySelectorAll("*")).filter(
-            (e) => (e.textContent ?? "").trim() === n
+    /** click an icon in the library row of `name` -- one DOM click, because the
+     *  incremental list re-renders often enough to starve an actionability loop */
+    const clickRowIcon = async (icon: string) =>
+        await gis.evaluate(
+            ({ n, i }) => {
+                const matches = Array.from(document.querySelectorAll("*")).filter(
+                    (e) => (e.textContent ?? "").trim() === n
+                );
+                const deepest = matches.filter(
+                    (e) => !Array.from(e.children).some((c) => matches.includes(c))
+                );
+                if (deepest.length === 0) return "header not found";
+                let el: Element | null = deepest[0];
+                while (el) {
+                    const box = el.nextElementSibling?.querySelector(i);
+                    if (box) {
+                        (box as HTMLElement).click();
+                        return "clicked";
+                    }
+                    el = el.parentElement;
+                }
+                return `no ${i} in row`;
+            },
+            { n: wanted, i: icon }
         );
-        const deepest = matches.filter(
-            (e) => !Array.from(e.children).some((c) => matches.includes(c))
-        );
-        if (deepest.length === 0) return "header not found";
-        let el: Element | null = deepest[0];
-        while (el) {
-            const box = el.nextElementSibling?.querySelector("i.plus.icon");
-            if (box) {
-                (box as HTMLElement).click();
-                return "clicked";
-            }
-            el = el.parentElement;
-        }
-        return "no plus icon";
-    }, wanted);
-    console.log(`add ${wanted} to stack: ${clicked}`);
 
+    // Fly FIRST, then take the baseline: the comparison is only meaningful between two
+    // frames from the same viewpoint, and fly-to moves the camera.
+    //
     // PRO3D_PROBE_FLYTO=1 uses the GIS tab's own fly-to (the location arrow on the
     // image's row), which puts the camera on that image's projector axis at the standoff
     // that frames its footprint in the viewer's field of view. With the viewer's focal
     // length set to the instrument's, that standoff IS the instrument's own distance.
     if (process.env.PRO3D_PROBE_FLYTO === "1") {
-        const flew = await gis.evaluate((n) => {
-            const matches = Array.from(document.querySelectorAll("*")).filter(
-                (e) => (e.textContent ?? "").trim() === n
-            );
-            const deepest = matches.filter(
-                (e) => !Array.from(e.children).some((c) => matches.includes(c))
-            );
-            if (deepest.length === 0) return "header not found";
-            let el: Element | null = deepest[0];
-            while (el) {
-                const box = el.nextElementSibling?.querySelector("i.location.icon");
-                if (box) {
-                    (box as HTMLElement).click();
-                    return "clicked";
-                }
-                el = el.parentElement;
-            }
-            return "no fly-to icon in row";
-        }, wanted);
-        console.log(`fly to ${wanted}: ${flew}`);
+        console.log(`fly to ${wanted}: ${await clickRowIcon("i.location.icon")}`);
         await render.waitForTimeout(9000);   // the animation runs 3.5 s
+        const s = await render.screenshot();
+        fs.writeFileSync(path.join(artifacts, `${label}-after-flyto.png`), s);
+        console.log(`   lit after fly-to ${(litFraction(s) * 100).toFixed(2)}%`);
+
+        // PRO3D_PROBE_FOCAL_AFTER widens the fov again once the camera has arrived.
+        // An empty frame at the instrument's own 5.5 degrees says nothing about WHY it is
+        // empty: at 60 degrees the body is still 1/48 of the frame, so if the camera is
+        // pointing anywhere near it the body shows up and the pointing is fine; if 60
+        // degrees is empty too, the camera is aimed somewhere else entirely.
+        const after = process.env.PRO3D_PROBE_FOCAL_AFTER;
+        if (after) {
+            const cfg2 = await context.newPage();
+            await cfg2.goto(app.url + "?page=config");
+            await cfg2.waitForLoadState("networkidle");
+            await cfg2
+                .locator("text=Focal (mm):")
+                .first()
+                .waitFor({ state: "attached", timeout: 30_000 });
+            const r = await cfg2.evaluate((v) => {
+                const lbl = Array.from(document.querySelectorAll("td, div, span")).find(
+                    (e) => (e.textContent ?? "").trim() === "Focal (mm):"
+                );
+                const inputs = Array.from(
+                    (lbl!.closest("tr") ?? lbl!.parentElement)?.querySelectorAll("input") ?? []
+                );
+                const input = inputs[inputs.length - 1] as HTMLInputElement;
+                Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype, "value"
+                )!.set!.call(input, v);
+                for (const e of ["input", "change"])
+                    input.dispatchEvent(new Event(e, { bubbles: true }));
+                input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+                return "set " + input.value;
+            }, after);
+            await render.waitForTimeout(4000);
+            const w = await render.screenshot();
+            fs.writeFileSync(path.join(artifacts, `${label}-after-flyto-wide.png`), w);
+            console.log(`   focal -> ${after}: ${r}; lit wide ${(litFraction(w) * 100).toFixed(2)}%`);
+        }
     }
+
+    const baseline = await settled(render, `${label}-baseline.png`);
+
+    console.log(`add ${wanted} to stack: ${await clickRowIcon("i.plus.icon")}`);
 
     await render.waitForTimeout(6000);
     const projected = await settled(render, `${label}-projected.png`);
