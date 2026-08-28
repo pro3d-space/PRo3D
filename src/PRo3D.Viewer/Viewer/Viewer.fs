@@ -120,7 +120,56 @@ module ViewerApp =
 
     let stash (model : Model) =
         { model with past = Some model.drawing; future = None }
-           
+
+    /// Samples the chosen surface scalar layer at every annotation control point, for Color by
+    /// Category's "surface attribute" mode. Reuses `ProfileAttributeExtraction.sampleAt` (ray
+    /// straight down, KdTree intersection, barycentric interpolation over the `.aara` grid) —
+    /// the same primitive the annotation export and the 3D cursor use, and the same shared
+    /// `Picking.cache`. Runs on the UI thread: O(total control points) ray casts, and the
+    /// first hit on a cold patch pulls its ~4 MB position grid, so it is manual (a button) and
+    /// not automatic. `withTextureFallback = true` chases layers that have no per-vertex data
+    /// into the attribute textures (an image decode per layer per patch, cold).
+    let sampleSurfaceForCbc (m : Model) (layer : string) : SurfaceSampleStore =
+        if layer = "" then SurfaceSampleStore.empty
+        else
+            let refSys   = m.scene.referenceSystem
+            let up       = refSys.up.value.Normalized
+            let surfaces = m.scene.surfacesModel
+            let observerSystem     = Gis.GisApp.getObserverSystem m.scene.gisApp
+            let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+            let mutable cache = PRo3D.Picking.cache
+
+            let annos = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toList
+
+            let entries =
+                annos
+                |> List.map (fun (key, a) ->
+                    let pts = a.points |> IndexList.toArray
+                    let values =
+                        pts |> Array.map (fun p ->
+                            let hit, c =
+                                ProfileAttributeExtraction.sampleAt
+                                    up surfaces refSys observedSystem observerSystem true cache p
+                            cache <- c
+                            match hit with
+                            | Some h ->
+                                h.attributes
+                                |> List.tryFind (fun sa -> String.Equals(sa.name, layer, StringComparison.OrdinalIgnoreCase))
+                                |> Option.bind (fun sa -> Array.tryHead sa.values)
+                                |> Option.defaultValue nan
+                            | None -> nan)
+                    let finite = values |> Array.filter (fun v -> not (Double.IsNaN v))
+                    key, { values = values
+                           mean   = if finite.Length = 0 then nan else Array.average finite })
+                |> HashMap.ofList
+
+            PRo3D.Picking.cache <- cache
+            let stampAnnos = annos |> List.map (fun (k, a) -> k, a.points |> IndexList.toArray)
+            { layer   = layer
+              stamp   = ColorByCategory.stampOf layer up stampAnnos
+              entries = entries }
+
+
     let mrefConfig : MInnerConfig<AdaptiveViewConfigModel> =
         {
             getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
@@ -698,6 +747,23 @@ module ViewerApp =
                     DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing enriched
 
                 { m with drawing = drawing; } |> stash
+
+            | Drawing.ColorByCategoryMessage ColorByCategoryAction.ResampleSurface ->
+                // the expensive surface-attribute sampling pass — needs SurfaceModel, so it
+                // lives here rather than in DrawingApp.update. Every other CbC message just
+                // flips `colorByCategorySurfaceStale` and repaints the button.
+                let drawing =
+                    DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing msg
+                let m = { m with drawing = drawing }
+                if m.drawing.colorByCategory.attributeKind <> ColorAttributeKind.SurfaceAttribute then
+                    m |> stash
+                else
+                    let store = sampleSurfaceForCbc m m.drawing.colorByCategory.surfaceLayer
+                    let annos = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
+                    let cbc' =
+                        ColorByCategory.update annos m.drawing.colorByCategory (ColorByCategoryAction.SetSurfaceSamples store)
+                        |> fun md -> ColorByCategory.update annos md ColorByCategoryAction.FitRangeToData
+                    m |> Optic.set _colorByCategory cbc' |> stash
 
             | _ ->
                 let view =

@@ -160,6 +160,10 @@ module ColorByCategory =
         invert         : bool
         categoryColors : HashMap<string, C4b>
         noValue        : C4b
+        attributeKind   : ColorAttributeKind
+        surfaceColoring : SurfaceColoringMode
+        surfaceLayer    : string
+        surfaceSamples  : SurfaceSampleStore
     }
 
     // ---------------------------------------------------------------- pure core
@@ -209,6 +213,52 @@ module ColorByCategory =
                     s.lower s.upper s.interval
                     s.lowerColor s.upperColor s.invert
                     v
+
+    // ------------------------------------------------------ surface attribute core
+
+    /// Line and fill color in `Pointwise` mode: the surface value belongs on the dots, the
+    /// connecting geometry is drawn neutral so it does not read as data.
+    let surfaceNeutral = C4b.Gray
+
+    /// A sample store only applies while its `layer` still matches the picked layer; after a
+    /// layer switch (or before the first sampling pass) there is nothing to show yet.
+    let private storeMatches (s : Settings) =
+        s.attributeKind = ColorAttributeKind.SurfaceAttribute
+        && s.surfaceLayer <> ""
+        && s.surfaceSamples.layer = s.surfaceLayer
+
+    /// ramp color of the mean sampled value; `noValue` when the store is stale/missing or the
+    /// annotation has no finite samples. Surface scalars are never cyclic, so `colorOfValue`
+    /// (NaN -> noValue, else numeric ramp) is exactly right.
+    let surfaceMeanColor (s : Settings) (key : System.Guid) : C4b =
+        if not (storeMatches s) then s.noValue
+        else
+            match HashMap.tryFind key s.surfaceSamples.entries with
+            | Some e when not (Double.IsNaN e.mean) -> colorOfValue s e.mean
+            | _ -> s.noValue
+
+    /// one ramp color per control point; `noValue` for a missed point, a stale store, or a
+    /// point-count that no longer matches what was sampled.
+    let surfacePointColors (s : Settings) (key : System.Guid) (n : int) : C4b[] =
+        if not (storeMatches s) then Array.create n s.noValue
+        else
+            match HashMap.tryFind key s.surfaceSamples.entries with
+            | Some e when e.values.Length = n ->
+                e.values |> Array.map (fun v -> if Double.IsNaN v then s.noValue else colorOfValue s v)
+            | _ -> Array.create n s.noValue
+
+    /// Order-independent hash of everything a surface sampling pass depends on: the layer, the
+    /// reference-frame up vector, and each annotation's identity, point count and point
+    /// positions. The panel recomputes this live and compares it to the stamp stored with the
+    /// samples to know whether the "resample" button should flag as stale. Shared by the GUI
+    /// (adaptive form) and the Viewer's sampler so the two agree.
+    let stampOf (layer : string) (up : V3d) (annos : seq<System.Guid * V3d[]>) : int =
+        let mutable h = hash (layer, up.GetHashCode())
+        for (k, pts) in annos do
+            let mutable ph = pts.Length
+            for p in pts do ph <- ph ^^^ p.GetHashCode()
+            h <- h ^^^ (hash (struct (k, ph)))
+        h
 
     // -------------------------------------------------- non-adaptive extraction
 
@@ -284,6 +334,10 @@ module ColorByCategory =
             invert         = m.numericLegend.invertMapping.GetValue t
             categoryColors = m.categoryColors.GetValue t |> HashMap.map (fun _ (c : ColorInput) -> c.c)
             noValue        = m.noValueColor.c.GetValue t
+            attributeKind   = m.attributeKind.GetValue t
+            surfaceColoring = m.surfaceColoring.GetValue t
+            surfaceLayer    = m.surfaceLayer.GetValue t
+            surfaceSamples  = m.surfaceSamples.GetValue t
         }
 
     let private categoryOfAdaptive (attr : ColorCategoryAttribute) (a : AdaptiveAnnotation) (t : AdaptiveToken) =
@@ -328,11 +382,28 @@ module ColorByCategory =
     /// `GetValue t`, so the caller's AVal.custom picks up the dependencies and the color
     /// buffers rebuild on any panel edit — no explicit invalidation needed.
     let resolve (s : Settings) (a : AdaptiveAnnotation) (t : AdaptiveToken) : C4b =
-        if isCategorical s.attribute then
-            let (label, ordinal) = categoryOfAdaptive s.attribute a t
-            colorOfCategory s label ordinal
-        else
-            valueOfAdaptive s.attribute a t |> colorOfValue s
+        match s.attributeKind with
+        | ColorAttributeKind.SurfaceAttribute ->
+            match s.surfaceColoring with
+            // in Pointwise mode the value lives on the dots (see `resolvePoints`); the line
+            // and fill this returns to are drawn neutral
+            | SurfaceColoringMode.Pointwise -> surfaceNeutral
+            | _                             -> surfaceMeanColor s a.key
+        | _ ->
+            if isCategorical s.attribute then
+                let (label, ordinal) = categoryOfAdaptive s.attribute a t
+                colorOfCategory s label ordinal
+            else
+                valueOfAdaptive s.attribute a t |> colorOfValue s
+
+    /// One color per control point, for the packed points builder. Only differs from a
+    /// repeated `resolve` in `SurfaceAttribute` + Pointwise/Both, where each dot takes its own
+    /// sampled value; every other mode paints all dots the annotation's single color.
+    let resolvePoints (s : Settings) (a : AdaptiveAnnotation) (t : AdaptiveToken) (n : int) : C4b[] =
+        match s.attributeKind with
+        | ColorAttributeKind.SurfaceAttribute when s.surfaceColoring <> SurfaceColoringMode.Annotation ->
+            surfacePointColors s a.key n
+        | _ -> Array.create n (resolve s a t)
 
     /// aval form, for the annotation list icons and the per-annotation SG path
     let resolveAdaptive (m : AdaptiveColorByCategoryModel) (a : AdaptiveAnnotation) : aval<C4b> =
@@ -356,6 +427,21 @@ module ColorByCategory =
         | vs ->
             let mn, mx = List.min vs, List.max vs
             // a zero-width range would make the ramp divide by zero
+            if mx - mn < 1e-9 then Some (Range1d(mn - 0.5, mx + 0.5)) else Some (Range1d(mn, mx))
+
+    /// data range over every finite sampled surface value, or None when nothing usable was
+    /// sampled yet
+    let surfaceRangeOfData (store : SurfaceSampleStore) : Option<Range1d> =
+        let values =
+            store.entries
+            |> HashMap.toValueList
+            |> List.collect (fun e -> e.values |> Array.toList)
+            |> List.filter (fun v -> not (Double.IsNaN v || Double.IsInfinity v))
+
+        match values with
+        | [] -> None
+        | vs ->
+            let mn, mx = List.min vs, List.max vs
             if mx - mn < 1e-9 then Some (Range1d(mn - 0.5, mx + 0.5)) else Some (Range1d(mn, mx))
 
     /// `value` starts at a twentieth of the fitted span; the widget limit does not follow the
@@ -386,8 +472,26 @@ module ColorByCategory =
             format = "{0:0.0000}"
         }
 
+    /// rebuild the ramp bounds + interval for a fitted data range (shared by measurement and
+    /// surface fits; both want the widget limits left wide — see `intervalFor`)
+    let private applyFittedRange (range : Range1d) (model : ColorByCategoryModel) =
+        { model with
+            numericLegend =
+                { model.numericLegend with
+                    lowerBound = FalseColorsModel.initlb range
+                    upperBound = FalseColorsModel.initub range
+                    interval   = intervalFor range } }
+
     let private fitRange (annotations : seq<Annotation>) (model : ColorByCategoryModel) =
-        if isCategorical model.attribute then
+        if model.attributeKind = ColorAttributeKind.SurfaceAttribute then
+            // fit to the sampled surface values, but only while the store matches the picked
+            // layer — a stale store would fit to the previous layer's numbers
+            if model.surfaceSamples.layer <> model.surfaceLayer then model
+            else
+                match surfaceRangeOfData model.surfaceSamples with
+                | None -> model
+                | Some range -> applyFittedRange range model
+        elif isCategorical model.attribute then
             model
         else
             match cyclicPeriod model.attribute with
@@ -438,6 +542,20 @@ module ColorByCategory =
             let prefix = sprintf "%A/" model.attribute
             { model with
                 categoryColors = model.categoryColors |> HashMap.filter (fun k _ -> not (k.StartsWith prefix)) }
+        | SetAttributeKind k ->
+            { model with attributeKind = k }
+        | SetSurfaceLayer l ->
+            // clear the now-mismatched samples so the panel/legend fall back to "no value"
+            // and the resample button flags until the Viewer refills the store
+            { model with surfaceLayer = l; surfaceSamples = SurfaceSampleStore.empty }
+        | SetSurfaceColoring c ->
+            { model with surfaceColoring = c }
+        | SetSurfaceSamples s ->
+            { model with surfaceSamples = s }
+        | ResampleSurface ->
+            // pure request — the Viewer intercepts it, runs the sampling pass and follows up
+            // with SetSurfaceSamples + FitRangeToData
+            model
 
     // --------------------------------------------------------------------- view
 
@@ -491,14 +609,98 @@ module ColorByCategory =
             div [ clazz "ui tiny button"; onClick (fun _ -> msg) ] [ text caption ]
         ]
 
-    let view (paletteFile : string) (annotations : aset<AdaptiveAnnotation>) (m : AdaptiveColorByCategoryModel) =
+    let private attributeKindLabel (k : ColorAttributeKind) =
+        match k with
+        | ColorAttributeKind.SurfaceAttribute -> "surface attribute"
+        | _                                   -> "annotation measurement"
+
+    let private surfaceColoringLabel (c : SurfaceColoringMode) =
+        match c with
+        | SurfaceColoringMode.Pointwise -> "pointwise"
+        | SurfaceColoringMode.Both      -> "both"
+        | _                             -> "annotation"
+
+    /// hand-rolled <select> over an enum's cases, styled like `attributeDropDown`
+    let private enumDropDown (ty : Type) (labelOf : 'a -> string)
+                             (selected : aval<'a>) (mk : 'a -> ColorByCategoryAction) =
+        select [
+            onChange (fun str -> Enum.Parse(ty, str) |> unbox<'a> |> mk)
+            style "color:black"
+        ] [
+            for value in (Enum.GetValues ty |> unbox<'a[]>) do
+                let att =
+                    AttributeMap.ofListCond [
+                        always (attribute "value" (Enum.GetName(ty, value)))
+                        onlyWhen (selected |> AVal.map ((=) value)) (attribute "selected" "selected")
+                    ]
+                yield Incremental.option att (AList.ofList [ text (labelOf value) ])
+        ]
+
+    /// <select> of surface scalar-layer labels; the list is adaptive (surfaces load/unload).
+    /// A leading blank keeps `onChange` firing on the first real pick.
+    let private surfaceLayerDropDown (selected : aval<string>) (layers : aval<list<string>>) =
+        Incremental.select
+            (AttributeMap.ofList [ onChange SetSurfaceLayer; style "color:black" ])
+            (alist {
+                let! ls = layers
+                yield Incremental.option
+                        (AttributeMap.ofListCond [
+                            always (attribute "value" "")
+                            onlyWhen (selected |> AVal.map (fun s -> s = "")) (attribute "selected" "selected") ])
+                        (AList.ofList [ text "— pick a layer —" ])
+                for l in ls do
+                    yield Incremental.option
+                            (AttributeMap.ofListCond [
+                                always (attribute "value" l)
+                                onlyWhen (selected |> AVal.map ((=) l)) (attribute "selected" "selected") ])
+                            (AList.ofList [ text l ])
+            })
+
+    /// "resample surface" button that turns orange while the cached samples are out of date
+    let private resampleButton (stale : aval<bool>) =
+        Incremental.div (AttributeMap.ofList [ style "padding: 4px 0px" ]) (
+            alist {
+                let! s = stale
+                let cls     = if s then "ui tiny orange button" else "ui tiny button"
+                let caption = if s then "resample surface ●"    else "resample surface"
+                yield div [ clazz cls; onClick (fun _ -> ResampleSurface) ] [ text caption ]
+            })
+
+    let view (paletteFile : string) (annotations : aset<AdaptiveAnnotation>)
+             (surfaceLayers : aval<list<string>>) (surfaceStale : aval<bool>)
+             (m : AdaptiveColorByCategoryModel) =
         let noValueRow =
             Html.row "no value:" [
                 ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3dCbcNoValue" true m.noValueColor
                 |> UI.map SetNoValueColor
             ]
 
-        let body =
+        let surfaceBody =
+            alist {
+                let! layer = m.surfaceLayer
+                let! store = m.surfaceSamples
+
+                yield Html.table [
+                    Html.row "coloring:" [
+                        enumDropDown typeof<SurfaceColoringMode> surfaceColoringLabel m.surfaceColoring SetSurfaceColoring
+                    ]
+                ]
+                yield resampleButton surfaceStale
+
+                if layer = "" then
+                    yield div [ style "font-style:italic; padding:5px" ] [
+                        text "pick a surface scalar layer above." ]
+                elif HashMap.isEmpty store.entries then
+                    yield div [ style "font-style:italic; padding:5px" ] [
+                        text "press \"resample surface\" to sample the layer at every annotation point." ]
+
+                yield FalseColorLegendApp.UI.viewScalarMappingProperties paletteFile m.numericLegend
+                      |> UI.map LegendMessage
+                yield Html.table [ noValueRow ]
+                yield tinyButton "fit range to data" FitRangeToData
+            }
+
+        let measurementBody =
             alist {
                 let! attr = m.attribute
 
@@ -564,13 +766,27 @@ module ColorByCategory =
                         yield tinyButton "fit range to data" FitRangeToData
             }
 
+        let body =
+            alist {
+                let! kind = m.attributeKind
+                match kind with
+                | ColorAttributeKind.SurfaceAttribute -> yield! surfaceBody
+                | _                                   -> yield! measurementBody
+            }
+
         require GuiEx.semui (
             Incremental.div AttributeMap.empty (
                 alist {
+                    let! kind = m.attributeKind
                     yield Html.table [
-                        Html.row "enable:"    [ GuiEx.iconCheckBox m.enabled ToggleEnabled ]
+                        Html.row "enable:"         [ GuiEx.iconCheckBox m.enabled ToggleEnabled ]
+                        Html.row "attribute type:" [
+                            enumDropDown typeof<ColorAttributeKind> attributeKindLabel m.attributeKind SetAttributeKind
+                        ]
                         Html.row "attribute:" [
-                            attributeDropDown m.attribute
+                            match kind with
+                            | ColorAttributeKind.SurfaceAttribute -> surfaceLayerDropDown m.surfaceLayer surfaceLayers
+                            | _                                   -> attributeDropDown m.attribute
                         ]
                     ]
                     yield! body
@@ -597,10 +813,16 @@ module ColorByCategory =
                 let! show    = m.numericLegend.useFalseColors
 
                 if enabled && show then
+                    let! kind = m.attributeKind
                     let! attr = m.attribute
 
-                    match cyclicPeriod attr with
-                    | Some period ->
+                    match kind, cyclicPeriod attr with
+                    | ColorAttributeKind.SurfaceAttribute, _ ->
+                        // surface attributes reuse the same numeric ramp; never cyclic
+                        yield! FalseColorLegendApp.Draw.createFalseColorLegendBasics
+                                    "ColorByCategoryLegend" m.numericLegend
+
+                    | _, Some period ->
                         let! interval = m.numericLegend.interval.value
                         let sectors = cyclicSectors period interval
                         let gradientId = "ColorByCategoryCyclicLegend"
@@ -664,9 +886,9 @@ module ColorByCategory =
                                       "pointer-events" => "none" ]
                                     (sprintf "%.0f°" deg)
 
-                    | None when not (isCategorical attr) ->
+                    | _, None when not (isCategorical attr) ->
                         yield! FalseColorLegendApp.Draw.createFalseColorLegendBasics
                                     "ColorByCategoryLegend" m.numericLegend
 
-                    | None -> ()
+                    | _, None -> ()
             }

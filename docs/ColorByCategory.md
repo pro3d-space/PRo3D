@@ -17,8 +17,9 @@ annotation property panels this one is **global**, not per selection.
 | Row | Meaning |
 | --- | --- |
 | *enable* | turns the override on; off restores each annotation's own color |
-| *attribute* | which attribute drives the color |
-| *no value* | color for annotations that have no value for the attribute (a polyline asked for a diameter, an annotation with no planar fit asked for dip, uncomputed results) |
+| *attribute type* | *annotation measurement* (an attribute of the annotation itself, below) or *surface attribute* (a scalar layer of the surface under it — see [below](#color-by-a-surface-scalar-layer)) |
+| *attribute* | which attribute drives the color — the measurement dropdown, or the surface scalar-layer dropdown when *attribute type* is *surface attribute* |
+| *no value* | color for annotations that have no value for the attribute (a polyline asked for a diameter, an annotation with no planar fit asked for dip, uncomputed results, a point that missed the surface) |
 
 Every entry of the *attribute* dropdown carries a tooltip (`ColorByCategory.tooltip`) saying
 what the value is measured from and which annotations actually have one — without it the panel
@@ -38,6 +39,44 @@ The rest of the panel depends on the kind of attribute:
 
 Categorical attributes deliberately have no on-screen legend: the panel already lists every
 category next to its color, and there is no *show legend* toggle to switch one off with.
+
+## Color by a surface scalar layer
+
+With *attribute type = surface attribute* the annotations are colored by a **scalar attribute
+(AARA layer)** of the surface — elevation, roughness, a band ratio — sampled at the points the
+user clicked when drawing each annotation, rather than by anything measured on the annotation.
+
+- The *attribute* dropdown lists the distinct scalar-layer **labels** across every loaded
+  surface's `.opcx` (`Surface.scalarLayers`). A layer only appears if that file lists it. The
+  label is matched against the per-vertex `.aara` name **case-insensitively**; multi-channel
+  layers use channel 0.
+- Each point is sampled by casting a ray straight down and reading whichever visible surface it
+  hits (`ProfileAttributeExtraction.sampleAt`) — not pinned to the annotation's origin surface.
+  A point that misses, or whose surface has no such layer, is *no value*.
+- *coloring* row:
+
+  | Mode | Control-point dots | Line & polygon fill |
+  | --- | --- | --- |
+  | **annotation** | mean color | mean color |
+  | **pointwise** | each dot by its own sampled value | neutral gray |
+  | **both** | each dot by its own sampled value | mean color |
+
+  "Mean color" is the ramp color of the **average of the finite sampled values** for that
+  annotation (all-missed → the whole annotation is *no value*). In *pointwise* / *both* a
+  colored dot is drawn at **every** control point of every annotation, any geometry —
+  polylines and polygons otherwise show no dots.
+- **Sampling is manual.** Press **resample surface**. It runs on the UI thread — one ray cast
+  per control point, and the first hit on a patch pulls its position grid — so it is not
+  automatic. The button turns **orange** whenever the cached colors are out of date: a point
+  was moved or added, an annotation was drawn or deleted, the reference frame changed, or the
+  layer was switched. Staleness is a live comparison of an input *stamp*
+  (`ColorByCategory.stampOf`: layer + reference-up + every annotation's point positions)
+  against the stamp stored with the samples, so it catches every edit path, undo included.
+- The sampled values are **not saved** in the `.pro3d` scene (they are derived, large, and go
+  stale on any edit). A freshly loaded scene shows *no value* in surface mode until you
+  resample.
+- *fit range to data* fits the ramp to the sampled values; the legend is the standard
+  false-color bar.
 
 ## Dip angle, dip azimuth and strike azimuth are gated on the geometry
 
@@ -114,7 +153,11 @@ other when more than one is switched on. They are not yet told apart or laid out
 - Model: [`src/PRo3D.Base/Annotation/ColorByCategory-Model.fs`](../src/PRo3D.Base/Annotation/ColorByCategory-Model.fs).
   `numericLegend : FalseColorsModel` carries the ramp; its `useFalseColors` field doubles as
   the panel's single *show legend* toggle. Persisted with the drawing model
-  (`Groups-Model.fs`); `attribute` is written as an `int`, colors as `C4b` strings.
+  (`Groups-Model.fs`); `attribute`, `attributeKind` and `surfaceColoring` are written as
+  `int`, colors as `C4b` strings. `surfaceSamples : SurfaceSampleStore` (`[<TreatAsValue>]`,
+  one `float[]` per annotation + its mean, plus the input `stamp`) is **not** written — it is
+  refilled by the *resample* pass. `attributeKind` / `surfaceLayer` / `surfaceColoring` are
+  additive, read with `Json.tryRead` + a default, so no version bump.
 - App: [`src/PRo3D.Base/Annotation/ColorByCategoryApp.fs`](../src/PRo3D.Base/Annotation/ColorByCategoryApp.fs).
   - pure core (`colorOf`, `colorOfValue`, `colorOfCategory`, `categories`) over `Annotation`
   - `Settings` is a plain snapshot of the panel, so per-annotation resolution stays pure and
@@ -126,9 +169,19 @@ other when more than one is switched on. They are not yet told apart or laid out
     per-annotation scene graph path
   - `ColorByCategory.disabled` is a permanently-off instance for callers that do not offer
     the feature (OpcViewer)
+  - the surface path is parallel and does not touch `resolve`'s measurement logic:
+    `surfaceMeanColor` / `surfacePointColors` read the precomputed `surfaceSamples` store on
+    `Settings`; `resolvePoints` returns the per-control-point array the packed points builder
+    needs; `stampOf` is the staleness hash
 - Rendering: [`PackedRendering.fs`](../src/PRo3D.Core/Drawing/PackedRendering.fs) takes the
-  model and resolves colors while building the packed vertex buffers.
-- GUI wiring: `Gui.colorByCategoryLegend` and `Gui.viewColorByCategory` in
+  model and resolves colors while building the packed vertex buffers. `fills` now also takes
+  the model (surface / measurement coloring reaches the polygon fill); `points` emits a dot
+  per control point in *pointwise* / *both*.
+- Sampling: `sampleSurfaceForCbc` in [`Viewer.fs`](../src/PRo3D.Viewer/Viewer/Viewer.fs) runs
+  the `ResampleSurface` pass (`DrawingApp.update` has no `SurfaceModel` in scope). The
+  `surfaceSamples` store is transient and Viewer-owned.
+- GUI wiring: `Gui.colorByCategoryLegend`, `Gui.viewColorByCategory`,
+  `Gui.surfaceScalarLayerLabels` and `Gui.colorByCategorySurfaceStale` in
   [`ViewerGUI.fs`](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs).
 
 # Adding an attribute
@@ -139,6 +192,10 @@ other when more than one is switched on. They are not yet told apart or laid out
    (token-based) — they must agree
 4. if it is discrete, add it to `isCategorical` and to `categories`; if it is an orientation,
    add it to `cyclicPeriod` with `Some 360.0` (directional) or `Some 180.0` (axial)
+
+This is for *annotation measurement* attributes. **Surface** attributes are not enum cases —
+the list is the surfaces' scalar-layer labels, gathered live by
+`Gui.surfaceScalarLayerLabels`, so a new AARA layer needs nothing here.
 
 Enum cases are appended, never renumbered: the attribute is persisted as its **integer**
 value, and the palette fallback for enum-backed categories is keyed on the same ordinal.

@@ -844,7 +844,7 @@ module PackedRendering =
     /// Returns raw geometry: the visible pass and the pick pass need different shaders and very
     /// different render state, so neither is baked in here. Same split as linesNoIndirect /
     /// packedRender.
-    let fills (depthOffset : aval<float>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
+    let fills (cbc : AdaptiveColorByCategoryModel) (depthOffset : aval<float>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
         let data =
             AVal.custom (fun t ->
                 // same cached ordering linesNoIndirect indexes, so position i here and object id i
@@ -854,6 +854,9 @@ module PackedRendering =
                 let colors = List<C4f>()
                 let objIds = List<int>()
                 let mutable pivotTrafo = None
+                // hoisted like linesNoIndirect: Color by Category also recolors the fill
+                let cbcSettings =
+                    if cbc.enabled.GetValue t then Some (ColorByCategory.readSettings cbc t) else None
 
                 for i in 0 .. annos.Length - 1 do
                     let (_, anno) = annos.[i]
@@ -889,7 +892,10 @@ module PackedRendering =
                         match chart |> Option.bind (fun c -> PolygonFill.tryComputeFill c points) with
                         | None -> ()
                         | Some mesh ->
-                            let rgb = anno.fillColor.c.GetValue(t).ToC4f()
+                            let rgb =
+                                match cbcSettings with
+                                | Some s -> (ColorByCategory.resolve s anno t).ToC4f()
+                                | None   -> anno.fillColor.c.GetValue(t).ToC4f()
                             let alpha = anno.fillAlpha.value.GetValue(t)
                             let color = C4f(rgb.R, rgb.G, rgb.B, float32 alpha)
 
@@ -1056,24 +1062,43 @@ module PackedRendering =
                             | Some s -> ColorByCategory.resolve s anno t
                             | None   -> anno.color.c.GetValue(t)
                         let color = if isSelected then C4b.VRVisGreen else baseColor
-                        match kind with
-                        | Geometry.Point ->
-                            let px   = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
+                        // Surface-attribute pointwise / both: a colored dot at every clicked
+                        // control point, for any geometry (polylines/polygons otherwise show
+                        // no dots). resolvePoints gives one color per control point.
+                        let surfacePointwise =
+                            match cbcSettings with
+                            | Some s ->
+                                s.attributeKind = ColorAttributeKind.SurfaceAttribute
+                                && s.surfaceColoring <> SurfaceColoringMode.Annotation
+                            | None -> false
+                        match cbcSettings with
+                        | Some s when surfacePointwise ->
+                            let cps  = anno.points.Content.GetValue(t) |> IndexList.toArray
+                            let cols = ColorByCategory.resolvePoints s anno t cps.Length
                             let size = anno.thickness.value.GetValue(t) + 0.5
-
-                            modelPos.Add(px.[0])
-                            colors.Add(color)
-                            sizes.Add(float32 size)
-                        | Geometry.DnS -> 
-                            if isSelected then
+                            for i in 0 .. cps.Length - 1 do
+                                modelPos.Add(cps.[i])
+                                colors.Add(if isSelected then C4b.VRVisGreen else cols.[i])
+                                sizes.Add(float32 size)
+                        | _ ->
+                            match kind with
+                            | Geometry.Point ->
                                 let px   = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
                                 let size = anno.thickness.value.GetValue(t) + 0.5
 
-                                for p in px do 
-                                    modelPos.Add(p)
-                                    colors.Add(color)
-                                    sizes.Add(float32 size)
-                        | _ -> ()
+                                modelPos.Add(px.[0])
+                                colors.Add(color)
+                                sizes.Add(float32 size)
+                            | Geometry.DnS ->
+                                if isSelected then
+                                    let px   = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
+                                    let size = anno.thickness.value.GetValue(t) + 0.5
+
+                                    for p in px do
+                                        modelPos.Add(p)
+                                        colors.Add(color)
+                                        sizes.Add(float32 size)
+                            | _ -> ()
 
                 Log.stop()
                 modelPos.ToArray(), colors.ToArray(), sizes.ToArray()

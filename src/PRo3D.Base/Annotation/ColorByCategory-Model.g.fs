@@ -1,5 +1,5 @@
-//bb24b6ab-c053-18e8-3892-183b835c9923
-//ccc1df35-f5da-a276-3d56-b020b77460cf
+//fc721004-d0d9-c84c-5769-d588e548e04a
+//55fa30a3-f03f-8f83-3571-90c1105f0541
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -18,6 +18,10 @@ type AdaptiveColorByCategoryModel(value : ColorByCategoryModel) =
     let _numericLegend_ = PRo3D.Base.AdaptiveFalseColorsModel(value.numericLegend)
     let _categoryColors_ = FSharp.Data.Adaptive.cval(value.categoryColors)
     let _noValueColor_ = Aardvark.UI.AdaptiveColorInput(value.noValueColor)
+    let _attributeKind_ = FSharp.Data.Adaptive.cval(value.attributeKind)
+    let _surfaceLayer_ = FSharp.Data.Adaptive.cval(value.surfaceLayer)
+    let _surfaceColoring_ = FSharp.Data.Adaptive.cval(value.surfaceColoring)
+    let _surfaceSamples_ = FSharp.Data.Adaptive.cval(value.surfaceSamples)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ColorByCategoryModel) = AdaptiveColorByCategoryModel(value)
@@ -32,6 +36,10 @@ type AdaptiveColorByCategoryModel(value : ColorByCategoryModel) =
             _numericLegend_.Update(value.numericLegend)
             _categoryColors_.Value <- value.categoryColors
             _noValueColor_.Update(value.noValueColor)
+            _attributeKind_.Value <- value.attributeKind
+            _surfaceLayer_.Value <- value.surfaceLayer
+            _surfaceColoring_.Value <- value.surfaceColoring
+            _surfaceSamples_.Value <- value.surfaceSamples
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.enabled = _enabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -39,6 +47,10 @@ type AdaptiveColorByCategoryModel(value : ColorByCategoryModel) =
     member __.numericLegend = _numericLegend_
     member __.categoryColors = _categoryColors_ :> FSharp.Data.Adaptive.aval<FSharp.Data.Adaptive.HashMap<Microsoft.FSharp.Core.string, Aardvark.UI.ColorInput>>
     member __.noValueColor = _noValueColor_
+    member __.attributeKind = _attributeKind_ :> FSharp.Data.Adaptive.aval<ColorAttributeKind>
+    member __.surfaceLayer = _surfaceLayer_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.surfaceColoring = _surfaceColoring_ :> FSharp.Data.Adaptive.aval<SurfaceColoringMode>
+    member __.surfaceSamples = _surfaceSamples_ :> FSharp.Data.Adaptive.aval<SurfaceSampleStore>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ColorByCategoryModelLenses = 
     type ColorByCategoryModel with
@@ -48,4 +60,8 @@ module ColorByCategoryModelLenses =
         static member numericLegend_ = ((fun (self : ColorByCategoryModel) -> self.numericLegend), (fun (value : PRo3D.Base.FalseColorsModel) (self : ColorByCategoryModel) -> { self with numericLegend = value }))
         static member categoryColors_ = ((fun (self : ColorByCategoryModel) -> self.categoryColors), (fun (value : FSharp.Data.Adaptive.HashMap<Microsoft.FSharp.Core.string, Aardvark.UI.ColorInput>) (self : ColorByCategoryModel) -> { self with categoryColors = value }))
         static member noValueColor_ = ((fun (self : ColorByCategoryModel) -> self.noValueColor), (fun (value : Aardvark.UI.ColorInput) (self : ColorByCategoryModel) -> { self with noValueColor = value }))
+        static member attributeKind_ = ((fun (self : ColorByCategoryModel) -> self.attributeKind), (fun (value : ColorAttributeKind) (self : ColorByCategoryModel) -> { self with attributeKind = value }))
+        static member surfaceLayer_ = ((fun (self : ColorByCategoryModel) -> self.surfaceLayer), (fun (value : Microsoft.FSharp.Core.string) (self : ColorByCategoryModel) -> { self with surfaceLayer = value }))
+        static member surfaceColoring_ = ((fun (self : ColorByCategoryModel) -> self.surfaceColoring), (fun (value : SurfaceColoringMode) (self : ColorByCategoryModel) -> { self with surfaceColoring = value }))
+        static member surfaceSamples_ = ((fun (self : ColorByCategoryModel) -> self.surfaceSamples), (fun (value : SurfaceSampleStore) (self : ColorByCategoryModel) -> { self with surfaceSamples = value }))
 

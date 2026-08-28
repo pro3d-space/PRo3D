@@ -38,6 +38,39 @@ type ColorCategoryAttribute =
     | DipAzimuth        = 13
     | StrikeAzimuth     = 14
 
+/// Whether the annotation set is colored by one of its own measurements or by a scalar
+/// attribute (AARA layer) of the surface, sampled at the clicked points. Persisted as `int`.
+type ColorAttributeKind =
+    | AnnotationMeasurement = 0
+    | SurfaceAttribute      = 1
+
+/// How a sampled surface attribute paints an annotation. Persisted as `int`.
+type SurfaceColoringMode =
+    /// whole annotation (line + fill + dots) = the ramp color of the mean point value
+    | Annotation = 0
+    /// each control point by its own sampled value; line and fill drawn neutral gray
+    | Pointwise  = 1
+    /// dots per-point (as Pointwise) + line/fill = the mean color (as Annotation)
+    | Both       = 2
+
+/// One annotation's sampled surface-attribute values: one entry per control point
+/// (`nan` where the ray missed or the layer had no value), plus their mean.
+type SurfaceSampleEntry = { values : float[]; mean : float }
+
+/// The result of a surface-attribute sampling pass over the whole annotation set. Transient
+/// (never persisted): derived from surface geometry × annotation points, stale on any edit,
+/// and not computable at load until surfaces have finished loading. `stamp` is the hash of
+/// the inputs it was computed from (see `ColorByCategory.stampOf`); the panel compares a live
+/// stamp against it to flag the "resample" button when the colors are out of date.
+type SurfaceSampleStore = {
+    layer   : string
+    stamp   : int
+    entries : HashMap<System.Guid, SurfaceSampleEntry>
+}
+
+module SurfaceSampleStore =
+    let empty = { layer = ""; stamp = 0; entries = HashMap.empty }
+
 /// Action lives here rather than in the app module because DrawingAction
 /// (Drawing-Model.fs) has to reference it and that file compiles first —
 /// same arrangement as FalseColorLegendApp.Action.
@@ -49,6 +82,11 @@ type ColorByCategoryAction =
     | SetNoValueColor   of ColorPicker.Action
     | FitRangeToData
     | ResetCategoryColors
+    | SetAttributeKind   of ColorAttributeKind
+    | SetSurfaceLayer    of string
+    | SetSurfaceColoring of SurfaceColoringMode
+    | SetSurfaceSamples  of SurfaceSampleStore   // written by the Viewer after a sampling pass
+    | ResampleSurface                            // pure request, intercepted by the Viewer
 
 [<ModelType>]
 type ColorByCategoryModel = {
@@ -72,6 +110,21 @@ type ColorByCategoryModel = {
     /// used when an annotation has no value for the attribute (NaN result, a
     /// non-ellipse asked for a diameter, an annotation with no planar fit, …)
     noValueColor   : ColorInput
+
+    /// measurement of the annotation itself, or a scalar attribute of the surface under it
+    attributeKind   : ColorAttributeKind
+
+    /// label of the surface scalar layer picked in `SurfaceAttribute` mode (`""` = none)
+    surfaceLayer    : string
+
+    /// how a sampled surface attribute paints the annotation
+    surfaceColoring : SurfaceColoringMode
+
+    /// sampled surface-attribute values, filled by a Viewer-side sampling pass. Transient
+    /// (not persisted). TreatAsValue: replaced wholesale on every resample, which is exactly
+    /// the invalidation a global recolor wants and keeps the renderer path a single read.
+    [<TreatAsValue>]
+    surfaceSamples  : SurfaceSampleStore
 }
 
 module ColorByCategoryModel =
@@ -85,6 +138,10 @@ module ColorByCategoryModel =
         numericLegend  = FalseColorsModel.initDefinedScalarsLegend (Range1d(0.0, 1.0))
         categoryColors = HashMap.empty
         noValueColor   = { c = C4b.Gray }
+        attributeKind   = ColorAttributeKind.AnnotationMeasurement
+        surfaceLayer    = ""
+        surfaceColoring = SurfaceColoringMode.Annotation
+        surfaceSamples  = SurfaceSampleStore.empty
     }
 
     let readV0 =
@@ -94,6 +151,10 @@ module ColorByCategoryModel =
             let! numericLegend  = Json.read "numericLegend"
             let! categoryColors = Json.read "categoryColors"
             let! noValueColor   = Json.read "noValueColor"
+            // additive fields — absent in scenes written before surface-attribute coloring
+            let! attributeKind   = Json.tryRead "attributeKind"
+            let! surfaceLayer    = Json.tryRead "surfaceLayer"
+            let! surfaceColoring = Json.tryRead "surfaceColoring"
 
             return {
                 version        = current
@@ -105,6 +166,16 @@ module ColorByCategoryModel =
                     |> List.map (fun (k, c) -> k, ({ c = C4b.Parse c } : ColorInput))
                     |> HashMap.ofList
                 noValueColor   = { c = C4b.Parse noValueColor }
+                attributeKind   =
+                    attributeKind
+                    |> Option.map enum<ColorAttributeKind>
+                    |> Option.defaultValue ColorAttributeKind.AnnotationMeasurement
+                surfaceLayer    = surfaceLayer |> Option.defaultValue ""
+                surfaceColoring =
+                    surfaceColoring
+                    |> Option.map enum<SurfaceColoringMode>
+                    |> Option.defaultValue SurfaceColoringMode.Annotation
+                surfaceSamples  = SurfaceSampleStore.empty
             }
         }
 
@@ -131,4 +202,8 @@ type ColorByCategoryModel with
                      |> HashMap.toList
                      |> List.map (fun (k, (c : ColorInput)) -> k, c.c.ToString()))
             do! Json.write "noValueColor"   (x.noValueColor.c.ToString())
+            do! Json.write "attributeKind"   (int x.attributeKind)
+            do! Json.write "surfaceLayer"    x.surfaceLayer
+            do! Json.write "surfaceColoring" (int x.surfaceColoring)
+            // surfaceSamples is transient — deliberately not written
         }

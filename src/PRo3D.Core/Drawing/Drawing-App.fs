@@ -1089,7 +1089,7 @@ module DrawingApp =
             // ids the pick target reads back agree across lines, fills and handles by construction
             let ordered = PackedRendering.orderedAnnotations (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s)))
             let lines, pickIds, bb = PackedRendering.linesNoIndirect model.colorByCategory config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) ordered viewMatrix
-            let fillGeometry = PackedRendering.fills config.offset ordered viewMatrix
+            let fillGeometry = PackedRendering.fills model.colorByCategory config.offset ordered viewMatrix
 
             // handles exist only for the single selected annotation, and only in edit mode
             let handleTarget =
@@ -1224,7 +1224,7 @@ module DrawingApp =
                             // fill first, so the outline draws over it
                             // no pick target in this branch, so the ids are unused - but the
                             // ordering is how fills takes its input
-                            PackedRendering.fills config.offset (PackedRendering.orderedAnnotations (ASet.single (g, a))) viewMatrix
+                            PackedRendering.fills model.colorByCategory config.offset (PackedRendering.orderedAnnotations (ASet.single (g, a))) viewMatrix
                             |> PackedRendering.packedFillRender
                             |> Sg.noEvents
                             Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed

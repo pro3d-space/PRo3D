@@ -65,6 +65,43 @@ module Gui =
             | AdaptiveAnnotations a -> Some a
             | _ -> None)
 
+    /// distinct, sorted scalar-layer labels across every loaded surface's `.opcx`; the
+    /// choices offered in Color by Category's "surface attribute" dropdown
+    let surfaceScalarLayerLabels (m : AdaptiveModel) : aval<list<string>> =
+        AVal.custom (fun t ->
+            m.scene.surfacesModel.surfaces.flat.Content.GetValue t
+            |> HashMap.toValueList
+            |> List.collect (fun leaf ->
+                match leaf with
+                | AdaptiveSurfaces s ->
+                    s.scalarLayers.Content.GetValue t
+                    |> HashMap.toValueList
+                    |> List.map (fun (l : AdaptiveScalarLayer) -> l.label.GetValue t)
+                | _ -> [])
+            |> List.distinct
+            |> List.sort)
+
+    /// true when Color by Category's cached surface samples no longer match the current
+    /// inputs (layer, reference-frame up, annotation points) — drives the "resample" button's
+    /// stale style. Comparing a live stamp catches every edit path, undo included, without
+    /// hooking individual actions.
+    let colorByCategorySurfaceStale (m : AdaptiveModel) : aval<bool> =
+        AVal.custom (fun t ->
+            let cbc   = m.drawing.colorByCategory
+            let layer = cbc.surfaceLayer.GetValue t
+            let store = cbc.surfaceSamples.GetValue t
+            if cbc.attributeKind.GetValue t <> ColorAttributeKind.SurfaceAttribute || layer = "" then
+                false
+            elif store.layer <> layer || HashMap.isEmpty store.entries then
+                true
+            else
+                let up = m.scene.referenceSystem.up.value.GetValue t
+                let annos =
+                    (annotationSet m).Content.GetValue t
+                    |> HashSet.toList
+                    |> List.map (fun a -> a.key, a.points.Content.GetValue t |> IndexList.toArray)
+                ColorByCategory.stampOf layer up annos <> store.stamp)
+
     /// Same placement as falseColorAttributes, only wider: the hue wheel drawn for the
     /// cyclic attributes captions itself, and the caption does not fit into 55px.
     let colorByCategoryAttributes =
@@ -1067,7 +1104,8 @@ module Gui =
         /// Unlike the other Properties panels this one is global rather than per-selection,
         /// so it does not go through GroupsApp.viewSelected.
         let viewColorByCategory (model : AdaptiveModel) =
-            ColorByCategory.view Config.colorPaletteStore (annotationSet model) model.drawing.colorByCategory
+            ColorByCategory.view Config.colorPaletteStore (annotationSet model)
+                (surfaceScalarLayerLabels model) (colorByCategorySurfaceStale model) model.drawing.colorByCategory
             |> UI.map (fun a -> ViewerAction.DrawingMessage(DrawingAction.ColorByCategoryMessage a))
             |> AVal.constant
           

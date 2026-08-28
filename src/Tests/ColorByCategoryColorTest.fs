@@ -27,7 +27,29 @@ module Tests =
             invert         = false
             categoryColors = HashMap.empty
             noValue        = C4b.Gray
+            attributeKind   = ColorAttributeKind.AnnotationMeasurement
+            surfaceColoring = SurfaceColoringMode.Annotation
+            surfaceLayer    = ""
+            surfaceSamples  = SurfaceSampleStore.empty
         }
+
+    /// settings wired for `SurfaceAttribute` mode with a matching sample store
+    let private surfaceSettings (layer : string) (coloring : SurfaceColoringMode)
+                                (entries : list<Guid * float[]>) : ColorByCategory.Settings =
+        let mean (vs : float[]) =
+            let finite = vs |> Array.filter (fun v -> not (Double.IsNaN v))
+            if finite.Length = 0 then nan else Array.average finite
+        { settings ColorCategoryAttribute.AnnotationType with
+            attributeKind   = ColorAttributeKind.SurfaceAttribute
+            surfaceColoring = coloring
+            surfaceLayer    = layer
+            surfaceSamples  =
+                { layer = layer
+                  stamp = 0
+                  entries =
+                    entries
+                    |> List.map (fun (k, vs) -> k, ({ values = vs; mean = mean vs } : SurfaceSampleEntry))
+                    |> HashMap.ofList } }
 
     let private colorOf (attr : ColorCategoryAttribute) (degrees : float) =
         ColorByCategory.colorOfValue (settings attr) degrees
@@ -194,5 +216,59 @@ module Tests =
                     (colorOfAt 0.0 ColorCategoryAttribute.DipAzimuth 10.0)
                     (colorOfAt 0.0 ColorCategoryAttribute.DipAzimuth 200.0)
                     "a single sector colors every angle the same"
+            }
+
+            // ---- surface attribute coloring ----
+
+            test "surface mean color maps a finite mean onto the ramp, misses fall back" {
+                let k = Guid.NewGuid()
+                let s = surfaceSettings "elevation" SurfaceColoringMode.Annotation [ k, [| 0.0; 100.0 |] ]
+                Expect.notEqual (ColorByCategory.surfaceMeanColor s k) s.noValue
+                    "a finite mean must produce a ramp color"
+                Expect.equal (ColorByCategory.surfaceMeanColor s (Guid.NewGuid())) s.noValue
+                    "an annotation with no sampled entry is no-value"
+                let allNaN = surfaceSettings "elevation" SurfaceColoringMode.Annotation [ k, [| nan; nan |] ]
+                Expect.equal (ColorByCategory.surfaceMeanColor allNaN k) allNaN.noValue
+                    "all-NaN samples mean the whole annotation is no-value"
+            }
+
+            test "surface coloring ignores a store left over from another layer" {
+                let k = Guid.NewGuid()
+                let s = surfaceSettings "elevation" SurfaceColoringMode.Annotation [ k, [| 10.0 |] ]
+                let stale = { s with surfaceLayer = "roughness" }   // store still tagged "elevation"
+                Expect.equal (ColorByCategory.surfaceMeanColor stale k) stale.noValue
+                    "a layer switch invalidates the cached samples"
+                Expect.equal (ColorByCategory.surfacePointColors stale k 1) [| stale.noValue |]
+                    "same for the per-point colors"
+            }
+
+            test "surface point colors: one per point; NaN and count mismatch are no-value" {
+                let k = Guid.NewGuid()
+                let s = surfaceSettings "elevation" SurfaceColoringMode.Pointwise [ k, [| 0.0; nan; 100.0 |] ]
+                let cols = ColorByCategory.surfacePointColors s k 3
+                Expect.equal cols.Length 3 "one color per control point"
+                Expect.equal cols.[1] s.noValue "a missed point is no-value"
+                Expect.notEqual cols.[0] s.noValue "a hit point is a ramp color"
+                Expect.equal (ColorByCategory.surfacePointColors s k 2) [| s.noValue; s.noValue |]
+                    "a point count that no longer matches the samples is all no-value"
+            }
+
+            test "resample stamp is order independent and reacts to every input" {
+                let a, b = Guid.NewGuid(), Guid.NewGuid()
+                let up = V3d.OOI
+                let p1 = [ a, [| V3d(1.0, 2.0, 3.0) |]; b, [| V3d.Zero |] ]
+                let p2 = [ b, [| V3d.Zero |]; a, [| V3d(1.0, 2.0, 3.0) |] ]
+                Expect.equal (ColorByCategory.stampOf "l" up p1) (ColorByCategory.stampOf "l" up p2)
+                    "annotation order must not change the stamp"
+                Expect.notEqual (ColorByCategory.stampOf "l" up p1)
+                    (ColorByCategory.stampOf "l" up [ a, [| V3d(1.0, 2.0, 3.5) |]; b, [| V3d.Zero |] ])
+                    "a moved point changes the stamp"
+                Expect.notEqual (ColorByCategory.stampOf "l" up p1)
+                    (ColorByCategory.stampOf "l" up [ a, [| V3d(1.0, 2.0, 3.0); V3d.Zero |]; b, [| V3d.Zero |] ])
+                    "an added point changes the stamp"
+                Expect.notEqual (ColorByCategory.stampOf "l" up p1) (ColorByCategory.stampOf "l" V3d.OIO p1)
+                    "a reference-frame change (up) changes the stamp"
+                Expect.notEqual (ColorByCategory.stampOf "l" up p1) (ColorByCategory.stampOf "m" up p1)
+                    "a different layer changes the stamp"
             }
         ]

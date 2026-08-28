@@ -66,6 +66,8 @@ Key types:
 
 Annotations can be exported to GeoJSON (see [AUTOMATION.md](AUTOMATION.md#remote-api)). See also `docs/AdvancedAnnotations.md` and `docs/SbmtImport.md`.
 
+- **Color by Category** (`ColorByCategory-Model.fs` / `ColorByCategoryApp.fs`, `docs/ColorByCategory.md`) — global display-only recolor of all annotations by a chosen *annotation measurement* or by a *surface scalar attribute* (AARA layer) sampled at the annotation's clicked points via `ProfileAttributeExtraction.sampleAt`. Surface samples are held in a transient, Viewer-owned `surfaceSamples` store refilled by a manual *resample* pass (`Viewer.sampleSurfaceForCbc`); a live input `stamp` flags the button when they go stale.
+
 ---
 
 ## Reference Systems & SPICE
