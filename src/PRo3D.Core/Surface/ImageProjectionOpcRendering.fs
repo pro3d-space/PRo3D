@@ -66,6 +66,27 @@ module ImageProjectionOpcExtensions =
 
     let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
+            // NO modelTrafo here. These matrices are applied to the RAW PATCH-LOCAL
+            // position (stableImageProjectionTrafo stashes localPos = v.pos), and
+            // Local2Global already carries that to the surface's body-fixed frame, which is
+            // the frame computeProjector builds the projector in. Composing the surface
+            // model trafo as well applies the body's own orientation (pxform body-fixed ->
+            // observer frame) a SECOND time.
+            //
+            // Measured on the AFC dataset, projecting an image back from its own camera:
+            // with the scene's observation frame set to J2000 the reprojection correlates
+            // 0.028 with the source image; with it set to DIMORPHOS_FIXED -- which makes
+            // the model trafo identity and so cancels the double rotation -- 0.697. The
+            // same image through the same shader offscreen, where the model trafo is
+            // identity, reproduces the source at correlation 1.0000 / 0.0064 mean DN.
+            //
+            // The old note here said the model trafo "is required; it only worked without
+            // while every body sat at identity". What it was compensating for is that
+            // computeProjector falls back to "J2000" when a surface has no GIS reference
+            // system -- and such a surface has no entity either, so getSurfaceTrafo returns
+            // None and the model trafo is identity regardless. Dropping it is correct in
+            // both cases, and it is what keeps the projection stuck to the TERRAIN when the
+            // scene time changes: the body rotates, and the image rotates with it.
             // hover footprint (D5): the hovered image's projector, same
             // double-precision per-patch composition as the stack matrices
             "HoveredProjectionTrafo", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
@@ -73,9 +94,9 @@ module ImageProjectionOpcExtensions =
                 context.projectedImages |> AVal.bind (function
                     | None -> AVal.constant M44d.Identity
                     | Some p ->
-                        (p.hoveredProjection, context.modelTrafo) ||> AVal.map2 (fun vp m ->
+                        p.hoveredProjection |> AVal.map (fun vp ->
                             match vp with
-                            | Some vp -> vp.Forward * m.Forward * patch.info.Local2Global.Forward
+                            | Some vp -> vp.Forward * patch.info.Local2Global.Forward
                             | None -> M44d.Identity
                         )
                 ) :> IAdaptiveValue
@@ -105,11 +126,11 @@ module ImageProjectionOpcExtensions =
                 context.projectedImages |> AVal.bind (function
                     | None -> AVal.constant Array.empty<M44f>
                     | Some p ->
-                        (p.stackProjections, context.modelTrafo)
-                        ||> AVal.map2 (fun layers modelTrafo ->
+                        p.stackProjections
+                        |> AVal.map (fun layers ->
                             layers |> Array.map (fun layer ->
                                 match layer.trafo with
-                                | Some vp -> vp.Forward * modelTrafo.Forward * patch.info.Local2Global.Forward |> M44f
+                                | Some vp -> vp.Forward * patch.info.Local2Global.Forward |> M44f
                                 // unresolved layer: the zero matrix maps every
                                 // vertex to (0,0,0,0), whose NaN NDC fails the
                                 // coverage test -- the slot stays, paints nothing
@@ -152,12 +173,10 @@ module ImageProjectionOpcExtensions =
                 context.projectedImages |> AVal.bind (function 
                     | None -> AVal.constant M44d.Identity
                     | Some p -> 
-                        (p.imageProjection, context.modelTrafo) ||> AVal.map2 (fun vp m ->
+                        p.imageProjection |> AVal.map (fun vp ->
                             match vp with
                             | Some vp ->
-                                // m.Forward (the surface model trafo) is required; it only
-                                // worked without while every body sat at identity.
-                                vp.Forward * m.Forward * patch.info.Local2Global.Forward
+                                vp.Forward * patch.info.Local2Global.Forward
                             | None -> 
                                 M44d.Identity
                         ) 
