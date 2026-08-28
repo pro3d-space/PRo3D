@@ -67,7 +67,7 @@ module FalseColorsModel =
         max     = 90.0
         step    = 0.1
         format = "{0:0.00}"
-    } 
+    }
     let initMinAngle = {
         value   = 0.0
         min     = 0.0
@@ -103,7 +103,7 @@ module FalseColorsModel =
         max     = 90.0
         step    = 0.0001
         format  = "{0:0.0000}"
-    } 
+    }
 
     /// Limit of the bound *input widgets*, not of the data. A ramp that starts below the
     /// smallest measurement or ends above the largest is a legitimate thing to want — to hold
@@ -174,7 +174,7 @@ module FalseColorsModel =
         max     = 90.0
         step    = 0.1
         format = "{0:0.00}"
-    } 
+    }
     let initMinDepth = {
         value   = 0.0
         min     = 0.0

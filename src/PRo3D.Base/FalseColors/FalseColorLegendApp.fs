@@ -86,6 +86,26 @@ module FalseColorLegendApp =
             let currHSV     = HSVf(hue, 1.0f, 1.0f)
             currHSV.ToC3f().ToC3b()
 
+        /// Upper limit for the number of range gaps. The legend never renders more than
+        /// 100 buckets; this ceiling only exists so `numOfRangeGaps + 2` cannot overflow
+        /// `int` when `interval` is tiny relative to the bound range.
+        [<Literal>]
+        let maxRangeGaps = 100000
+
+        /// `round(|range| / interval)` as a non-negative, overflow-safe `int`.
+        /// A non-positive or non-finite `interval` (e.g. the user dialing the interval
+        /// input down to 0) yields 0 gaps instead of dividing by zero — whose infinite
+        /// result used to saturate `int` and then overflow `numOfRangeGaps + 2` into a
+        /// negative bucket count, causing an out-of-range list access during label layout.
+        let rangeGapCount (range : float) (interval : float) : int =
+            if interval <= 0.0 || Double.IsNaN interval || Double.IsInfinity interval then
+                0
+            else
+                let gaps = System.Math.Round (abs range / interval)
+                if Double.IsNaN gaps || gaps <= 0.0 then 0
+                elif gaps >= float maxRangeGaps then maxRangeGaps
+                else int gaps
+
         /// Pure scalar -> ramp color. Shared by the adaptive `getColorDnS` below and by
         /// token-based callers that cannot use an aval-returning helper (ColorByCategory,
         /// which resolves colors inside the packed renderer's AVal.custom).
@@ -100,7 +120,7 @@ module FalseColorLegendApp =
             let hsvEnd   = HSVf.FromC3f (lowerColor.ToC3f())
 
             let range = upperBound - lowerBound
-            let numOfRangeGaps = int (System.Math.Round (range / interval))
+            let numOfRangeGaps = rangeGapCount range interval
             let numOfStops = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
 
             let hStepSize =
@@ -110,9 +130,9 @@ module FalseColorLegendApp =
                 ((hsvEnd.H + 1.0f) - hsvStart.H) / (single (numOfStops-1))
 
             let pos =
-                match lowerBound < value with
-                     | true -> int (System.Math.Round ( (value - lowerBound) / (float)interval )) //+1
-                     | _ -> 0
+                if interval > 0.0 && lowerBound < value then
+                    int (System.Math.Round ((value - lowerBound) / interval)) //+1
+                else 0
             let pos' =
                 match upperBound < value with
                     | true -> numOfRangeGaps + 1
@@ -156,7 +176,7 @@ module FalseColorLegendApp =
                 let hsvEnd   = HSVf.FromC3f (endColor.ToC3f())
 
                 let range = fcUpperBound - fcLowerBound
-                let numOfRangeGaps = int (System.Math.Round (range / fcInterval))
+                let numOfRangeGaps = rangeGapCount range fcInterval
                 let numOfStops = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
 
                 let hStepSize =
@@ -264,7 +284,7 @@ module FalseColorLegendApp =
 
                 if enabled then
                     let range = (fcUpperBound - fcLowerBound) |> abs
-                    let numOfRangeGaps = int (System.Math.Round (range / fcInterval))                    
+                    let numOfRangeGaps = rangeGapCount range fcInterval
                     
                     let isImage = imageStream.IsSome
 
