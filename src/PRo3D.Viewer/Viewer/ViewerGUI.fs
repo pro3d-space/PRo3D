@@ -847,10 +847,6 @@ module Gui =
                 Html.Layout.boxH [ GuiEx.iconToggle model.inverseFlag "toggle on icon" "toggle off icon" ViewerAction.InvertDrawing ]
                 Html.Layout.boxH [ text "Invert Drawing" ]
             ] |> UI.wrapToolTip DataPosition.Bottom invertDrawingTooltip
-
-            Html.Layout.horizontal [
-                scenepath model
-            ]
         ]
 
         // The secondary toolbar is always rendered (even when the active
@@ -858,19 +854,45 @@ module Gui =
         // when switching tools. `dynamicTopMenu` returns an empty div for
         // interactions without a secondary toolbar; the row height stays
         // stable thanks to the wrapping `.ui.menu`'s min-height.
+
+        // Interactions that actually contribute controls to the secondary
+        // toolbar row (i.e. `dynamicTopMenu` returns something non-empty).
+        let private hasSecondaryTools (i : Interactions) =
+            match i with
+            | Interactions.DrawAnnotation
+            | Interactions.PlaceRover
+            | Interactions.PlaceCoordinateSystem
+            | Interactions.PickAnnotation
+            | Interactions.PlaceScaleBar
+            | Interactions.PickPivotPoint -> true
+            | _ -> false
+
         let secondaryToolbarRow (m : AdaptiveModel) =
-            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0; border:0"] [
-                div [clazz "item topmenu"] [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
-                ]
+            // When the row is empty we drop the semantic-ui `item` class so
+            // its trailing vertical divider (`:before`) is not left as a
+            // stray tick; the row keeps its height via `.pro3d-topbar .ui.menu`.
+            let itemAttribs =
+                amap {
+                    let! interaction = m.interaction
+                    if hasSecondaryTools interaction
+                    then yield clazz "item topmenu"
+                    else yield clazz "topmenu pro3d-toolbar-empty"
+                } |> AttributeMap.ofAMap
+            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0"] [
+                Incremental.div itemAttribs (AList.ofAValSingle (dynamicTopMenu m))
             ]
 
         let getTopMenu (m:AdaptiveModel) =
             div [clazz "pro3d-topbar"] [
-                div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
+                div [clazz "ui menu"; style "padding:0; margin:0"] [
                     yield (menu m)
                     for t in (topMenuItems m) do
                         yield div [clazz "item topmenu"] [t]
+                    // scene name pinned to the right edge of the main row
+                    // (`margin-left:auto` on the flex `.ui.menu`)
+                    yield div [clazz "item topmenu"; style "margin-left:auto"] [
+                        Html.Layout.horizontal [ scenepath m ]
+                    ]
                 ]
                 secondaryToolbarRow m
             ]

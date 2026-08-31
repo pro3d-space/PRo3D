@@ -29,8 +29,31 @@
 } */
 
 .dockingMainDings {
-  /* main top-menu (40px) + always-present secondary toolbar row (40px) */
-  height: calc(100% - 80px);
+  /* main top-menu (34px) + always-present secondary toolbar row (34px) */
+  height: calc(100% - 68px);
+}
+
+/* Slim down both toolbar rows (default .ui.menu min-height is ~40px) and
+   give each row a horizontal separator in the same colour Semantic uses
+   for the vertical item dividers (.ui.menu .item:before -> rgba(34,36,38,.1)). */
+.pro3d-topbar .ui.menu {
+    min-height: 34px;
+    border: 0;
+    border-bottom: 1px solid rgba(34, 36, 38, 0.1);
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.pro3d-topbar .ui.menu .item,
+.pro3d-topbar .ui.menu .item.topmenu,
+.pro3d-topbar .ui.menu .pro3d-toolbar-empty {
+    min-height: 34px;
+}
+
+/* Indent the secondary toolbar so its first character lines up with the
+   word "Mode" on the main row (i.e. past the hamburger menu button). */
+.ui.menu.pro3d-secondary-toolbar .item.topmenu {
+    padding-left: 44px;
 }
 
 div.title {
