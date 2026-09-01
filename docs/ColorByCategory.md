@@ -176,7 +176,10 @@ other when more than one is switched on. They are not yet told apart or laid out
 - Rendering: [`PackedRendering.fs`](../src/PRo3D.Core/Drawing/PackedRendering.fs) takes the
   model and resolves colors while building the packed vertex buffers. `fills` now also takes
   the model (surface / measurement coloring reaches the polygon fill); `points` emits a dot
-  per control point in *pointwise* / *both*.
+  per control point in *pointwise* / *both*. Those dots are occluded by the terrain like the
+  lines and fills are: `PointsShader.pointSpriteFragment` biases its depth exactly the way
+  `PRo3D.Base.Shader.DepthOffset.depthOffsetFS` does, so an annotation on the far side of the
+  planet is hidden by the planet.
 - Sampling: `sampleSurfaceForCbc` in [`Viewer.fs`](../src/PRo3D.Viewer/Viewer/Viewer.fs) runs
   the `ResampleSurface` pass (`DrawingApp.update` has no `SurfaceModel` in scope). The
   `surfaceSamples` store is transient and Viewer-owned.

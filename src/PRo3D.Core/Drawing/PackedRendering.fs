@@ -108,14 +108,22 @@ module PackedRendering =
                 if c.Length > 1.0f then
                     discard()
 
+                // the sprite reads as a small sphere: every fragment sits on the hemisphere
+                // facing the camera, so its depth is that of the view-space centre pushed towards
+                // the viewer along the sprite normal. The offset stays in XYZ - carrying it in a
+                // V4f would also move the point off the w=1 plane and project it to an entirely
+                // different depth.
                 let n = V3f(c, sqrt(1.0f -  Vec.dot c c)) |> Vec.normalize
-                let p = v.np + V4f(n, 1.0f)
+                let p = V4f(v.np.XYZ + n, 1.0f)
 
                 let pp = uniform.ProjTrafo * p
-                let nd = pp.Z / pp.W
-                let d = (nd + 1.0f) / 2.0f
-
-                let d = (d - uniform.DepthOffset)  / v.pos.W
+                // Identical to PRo3D.Base.Shader.DepthOffset.depthOffsetFS, which is what the
+                // lines and fills use: a bias applied in clip space and divided by w, so it stays
+                // a constant distance in world units. Dividing the *depth* by w - what this did
+                // before - drove every distant dot towards 0, i.e. in front of everything, which
+                // is why dots showed through the terrain from the far side of the planet while
+                // the lines and fills of the same annotation did not.
+                let d = (pp.Z - uniform.DepthOffset) / pp.W
                 return { v with c = v.c;  depth = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0f  }
             }
 
@@ -1114,7 +1122,8 @@ module PackedRendering =
         |> Sg.vertexAttribute DefaultSemantic.Positions mvs
         |> Sg.vertexAttribute DefaultSemantic.Colors colors
         |> Sg.vertexAttribute "Sizes" sizes
-        |> Sg.uniform "DepthOffset" depthOffset
+        // scaled like the lines and fills, now that the dots bias their depth the same way
+        |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1)))
         |> Sg.shader { 
               do! PointsShader.pointSpriteVertex
               do! PointsShader.pointSpriteFragment
