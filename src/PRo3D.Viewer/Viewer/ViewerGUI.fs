@@ -818,15 +818,13 @@ module Gui =
         let topMenuItems (model : AdaptiveModel) = [
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
-            Navigation.UI.viewNavigationModes model.scene.referenceSystem.planet model.navigation |> UI.map NavigationMessage
 
-            // Interaction selector + ctrl-click hint. The mode-specific tool
-            // controls (annotation geometry, rover selector, etc.) live on the
-            // secondary toolbar row below so the planet selector and scene
-            // path stay visible on the main row at every window width.
+            // The navigation-mode and interaction selectors themselves live in the
+            // vertical tool strip overlaid on the right edge of the render view
+            // (Gui.ToolStrip). What stays here is the ctrl-click hint for the
+            // interaction the strip has selected - it is prose, not a control, and
+            // reads better on a full-width row than in a 30px strip.
             Html.Layout.horizontal [
-                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Tools:"] ]
-                Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Html.Layout.boxH [
                     div [style "font-style:italic"] [
                         Incremental.text (
@@ -844,8 +842,8 @@ module Gui =
             // interaction-mode switch like the two items above, so it lives on the main row
             // rather than in the Annotations dock page.
             Html.Layout.horizontal [
-                Html.Layout.boxH [ GuiEx.iconToggle model.inverseFlag "toggle on icon" "toggle off icon" ViewerAction.InvertDrawing ]
-                Html.Layout.boxH [ text "Invert Drawing" ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Invert Drawing:"] ]
+                Html.Layout.boxH [ GuiEx.iconCheckBox model.inverseFlag ViewerAction.InvertDrawing ]
             ] |> UI.wrapToolTip DataPosition.Bottom invertDrawingTooltip
         ]
 
@@ -897,6 +895,127 @@ module Gui =
                 secondaryToolbarRow m
             ]
         
+    /// Vertical icon strip overlaid on the right edge of the main render view. It replaces the
+    /// navigation-mode and interaction dropdowns that used to live in the top menu.
+    ///
+    /// Both selections are enum-valued model fields (`navigation.navigationMode` and
+    /// `interaction`), so "nothing selected" is not representable: exactly one navigation icon
+    /// and exactly one tool icon is highlighted at all times. The groups below therefore cover
+    /// every interaction the old dropdown offered, i.e. every `Interactions` case NOT in
+    /// `Interactions.hideSet` - keep the two in sync when un-hiding an interaction, otherwise
+    /// that interaction becomes unreachable and (if selected via F-key) shows no active icon.
+    module ToolStrip =
+
+        /// Group accent colours: the icon colour while idle, the chip colour once active.
+        module private Colors =
+            let navigation = "#4aa3ff"   // blue
+            let annotation = "#3fb950"   // green
+            let selection  = "#e3b341"   // amber
+            let placement  = "#b083f0"   // violet
+            let reference  = "#4fd1c5"   // teal
+
+        /// One strip button. `isEnabled` is only ever false for MapView without a reference
+        /// body; a disabled button dispatches nothing so the model cannot enter that state.
+        let private button
+            (color     : string)
+            (icon      : string)
+            (isActive  : aval<bool>)
+            (isEnabled : aval<bool>)
+            (tooltip   : string)
+            (action    : 'msg) =
+
+            let attribs =
+                amap {
+                    let! active  = isActive
+                    let! enabled = isEnabled
+                    // active and disabled are independent: MapView can be the current mode
+                    // while the scene has no reference body, and it must still read as the
+                    // one active navigation icon - just greyed out.
+                    let cls =
+                        (if active then "pro3d-tool active" else "pro3d-tool")
+                        + (if enabled then "" else " disabled")
+                    yield clazz cls
+                    yield style (sprintf "--tool-color:%s" color)
+                    if enabled then
+                        yield onClick (fun _ -> action)
+                } |> AttributeMap.ofAMap
+
+            Incremental.div attribs (AList.ofList [ i [clazz (icon + " icon")] [] ])
+            |> UI.wrapToolTip DataPosition.Left tooltip
+
+        let private navButton (icon : string) (tooltip : string) (mode : NavigationMode)
+                              (current : aval<NavigationMode>) (isEnabled : aval<bool>) =
+            button Colors.navigation icon
+                   (current |> AVal.map (fun x -> x = mode))
+                   isEnabled
+                   tooltip
+                   (NavigationMessage (Navigation.Action.SetNavigationMode mode))
+
+        let private toolButton (color : string) (icon : string) (tooltip : string)
+                               (interaction : Interactions) (current : aval<Interactions>) =
+            button color icon
+                   (current |> AVal.map (fun x -> x = interaction))
+                   (AVal.constant true)
+                   tooltip
+                   (SetInteraction interaction)
+
+        let private divider = div [clazz "pro3d-tool-divider"] []
+
+        let view (m : AdaptiveModel) : DomNode<ViewerAction> =
+            let navMode     = m.navigation.navigationMode
+            let interaction = m.interaction
+
+            // MapView orients to the planet centre with up = north, so it needs a reference
+            // body. Same rule the old dropdown applied via `dropDownDisabled`.
+            let mapViewEnabled =
+                m.scene.referenceSystem.planet |> AVal.map (fun p -> p <> Planet.None)
+
+            let tool color icon tooltip i = toolButton color icon tooltip i interaction
+
+            // Clicks must not reach the render body underneath: it starts a camera drag /
+            // selection rectangle on mousedown and opens the context menu on right click.
+            onBoot "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });" (
+                div [clazz "pro3d-toolstrip"] [
+                    // --- navigation -------------------------------------------------------
+                    navButton "plane" "Free fly - move the camera freely"
+                              NavigationMode.FreeFly navMode (AVal.constant true)
+                    navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point"
+                              NavigationMode.ArcBall navMode (AVal.constant true)
+                    navButton "map" "Map view - top down, up is north, speed scales with altitude (needs a planet)"
+                              NavigationMode.MapView navMode mapViewEnabled
+
+                    divider
+
+                    // --- annotations ------------------------------------------------------
+                    tool Colors.annotation "pencil"        "Draw annotation" Interactions.DrawAnnotation
+                    tool Colors.annotation "mouse pointer" "Select annotation" Interactions.PickAnnotation
+                    tool Colors.annotation "cut"           "Cut annotation - draw a stroke that cuts the selected annotation" Interactions.CutAnnotation
+                    tool Colors.annotation "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
+
+                    divider
+
+                    // --- selection --------------------------------------------------------
+                    tool Colors.selection "cubes" "Select surface" Interactions.PickSurface
+                    tool Colors.selection "crop"  "Select area - drag a rectangle to multi-select" Interactions.SelectArea
+
+                    divider
+
+                    // --- placement --------------------------------------------------------
+                    tool Colors.placement "rocket"   "Place rover" Interactions.PlaceRover
+                    tool Colors.placement "marker"   "Place distance point for the selected view plan" Interactions.PickDistancePoint
+                    tool Colors.placement "cube"     "Place scene object" Interactions.PlaceSceneObject
+                    tool Colors.placement "exchange" "Place scale bar" Interactions.PlaceScaleBar
+                    tool Colors.placement "anchor"   "Pick pivot point for placing / transforming" Interactions.PickPivotPoint
+
+                    divider
+
+                    // --- reference systems & camera ---------------------------------------
+                    tool Colors.reference "crosshairs" "Place coordinate cross" Interactions.PlaceCoordinateSystem
+                    tool Colors.reference "compass"    "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
+                    tool Colors.reference "bullseye"   "Pick the ArcBall orbit centre" Interactions.PickExploreCenter
+                ]
+            )
+
     module Annotations =
       
         let viewAnnotationProperties (model : AdaptiveModel) =
@@ -1477,6 +1596,8 @@ module Gui =
                                 yield scalarsColorLegend m
                                 yield projectedColorLegend m
                                 yield selectionRectangle m
+                                // navigation + interaction selector, overlaid on the right edge
+                                yield ToolStrip.view m |> UI.map ViewerMessage
                                 //yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
                                 //                                                           |> UI.map ViewerMessage
                             }

@@ -144,3 +144,90 @@ div.fullwidth.textcontainer > input {
     overflow-y : auto;    
     max-height: 30%    
 }*/
+
+/* ---------------------------------------------------------------------------
+   Tool strip: the vertical icon rail overlaid on the right edge of the main
+   render view. It replaces the navigation- and interaction dropdowns that used
+   to sit in the top menu. Each group carries its own accent colour, passed in
+   from F# as the --tool-color custom property on the button.
+   --------------------------------------------------------------------------- */
+.pro3d-toolstrip {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 5px;
+    border-radius: 8px;
+    background: rgba(24, 25, 27, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    z-index: 1000;
+    /* the render body sets pointer-events off for its other overlays */
+    pointer-events: auto;
+    user-select: none;
+    /* 17 buttons + 4 dividers is ~590px tall; scroll rather than overflow the
+       view when the render dock is short (small window, tall dock layout). */
+    max-height: calc(100% - 20px);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.pro3d-toolstrip .pro3d-tool {
+    width: 30px;
+    height: 30px;
+    margin: 1px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0.7;
+    color: var(--tool-color, #cccccc);
+}
+
+/* Fomantic gives i.icon a fixed 1.18em box plus side margins - both fight the
+   30px flex square, so they are reset here rather than per icon. */
+.pro3d-toolstrip .pro3d-tool i.icon {
+    margin: 0;
+    width: auto;
+    height: auto;
+    font-size: 15px;
+    line-height: 1;
+}
+
+.pro3d-toolstrip .pro3d-tool:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.10);
+}
+
+/* Active = filled chip in the group colour, icon knocked out in the render
+   background colour. Exactly one navigation and one tool button is active. */
+.pro3d-toolstrip .pro3d-tool.active {
+    opacity: 1;
+    color: #1B1C1E;
+    background: var(--tool-color, #888888);
+}
+
+.pro3d-toolstrip .pro3d-tool.disabled,
+.pro3d-toolstrip .pro3d-tool.disabled:hover {
+    opacity: 0.25;
+    cursor: default;
+    background: none;
+}
+
+/* A disabled button can still be the active one (MapView while the scene has no
+   reference body) - keep the chip so the "exactly one active" reading holds. */
+.pro3d-toolstrip .pro3d-tool.active.disabled,
+.pro3d-toolstrip .pro3d-tool.active.disabled:hover {
+    background: var(--tool-color, #888888);
+    opacity: 0.4;
+}
+
+.pro3d-toolstrip .pro3d-tool-divider {
+    width: 20px;
+    height: 1px;
+    margin: 5px 0;
+    background: rgba(255, 255, 255, 0.18);
+}
