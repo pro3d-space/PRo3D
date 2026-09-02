@@ -8,6 +8,7 @@ open FSharp.Data.Adaptive
 
 open Expecto
 
+open PRo3D.Base
 open PRo3D.Base.Annotation
 
 /// Cyclic attributes are colored on a hue wheel whose period depends on whether the quantity
@@ -255,20 +256,21 @@ module Tests =
 
             test "resample stamp is order independent and reacts to every input" {
                 let a, b = Guid.NewGuid(), Guid.NewGuid()
-                let up = V3d.OOI
+                let planet = Planet.Mars
                 let p1 = [ a, [| V3d(1.0, 2.0, 3.0) |]; b, [| V3d.Zero |] ]
                 let p2 = [ b, [| V3d.Zero |]; a, [| V3d(1.0, 2.0, 3.0) |] ]
-                Expect.equal (ColorByCategory.stampOf "l" up p1) (ColorByCategory.stampOf "l" up p2)
+                Expect.equal (ColorByCategory.stampOf "l" planet p1) (ColorByCategory.stampOf "l" planet p2)
                     "annotation order must not change the stamp"
-                Expect.notEqual (ColorByCategory.stampOf "l" up p1)
-                    (ColorByCategory.stampOf "l" up [ a, [| V3d(1.0, 2.0, 3.5) |]; b, [| V3d.Zero |] ])
+                Expect.notEqual (ColorByCategory.stampOf "l" planet p1)
+                    (ColorByCategory.stampOf "l" planet [ a, [| V3d(1.0, 2.0, 3.5) |]; b, [| V3d.Zero |] ])
                     "a moved point changes the stamp"
-                Expect.notEqual (ColorByCategory.stampOf "l" up p1)
-                    (ColorByCategory.stampOf "l" up [ a, [| V3d(1.0, 2.0, 3.0); V3d.Zero |]; b, [| V3d.Zero |] ])
+                Expect.notEqual (ColorByCategory.stampOf "l" planet p1)
+                    (ColorByCategory.stampOf "l" planet [ a, [| V3d(1.0, 2.0, 3.0); V3d.Zero |]; b, [| V3d.Zero |] ])
                     "an added point changes the stamp"
-                Expect.notEqual (ColorByCategory.stampOf "l" up p1) (ColorByCategory.stampOf "l" V3d.OIO p1)
-                    "a reference-frame change (up) changes the stamp"
-                Expect.notEqual (ColorByCategory.stampOf "l" up p1) (ColorByCategory.stampOf "m" up p1)
+                Expect.notEqual (ColorByCategory.stampOf "l" planet p1)
+                    (ColorByCategory.stampOf "l" Planet.Dimorphos p1)
+                    "a reference-frame change (planet) changes the stamp - it changes the sampling direction at every point"
+                Expect.notEqual (ColorByCategory.stampOf "l" planet p1) (ColorByCategory.stampOf "m" planet p1)
                     "a different layer changes the stamp"
             }
         ]

@@ -380,8 +380,21 @@ module ProfileAttributeExtraction =
     /// chased into the attribute textures. That costs an image decode per layer per
     /// patch, so it is worth it when the caller wants every layer it can get, and
     /// pure waste when it only came for the per-vertex LonLatRad grid.
+    ///
+    /// The question this answers - "what is the surface at this world position?" - is a
+    /// point location, not a ray: the direction is not a parameter of it and the caller
+    /// therefore does not supply one. A ray is only how the KdTree can be asked at all
+    /// (`extractAttributesFromHit` uses it for nothing but `GetPointOnRay`), so the
+    /// direction is derived here, per point, as the body-local up *at that point*.
+    ///
+    /// It deliberately does not use `refSys.up`: that follows the camera on a body
+    /// (`Viewer.refreshUpNorthForPosition` recomputes it from the camera location on every
+    /// navigation event), which made the landing point - and hence hit/miss and which
+    /// patch's attribute grid covers it - depend on where the viewer happened to be
+    /// standing. The ellipsoid normal at `position` is both what "straight down" was
+    /// always meant to be and the well-conditioned choice, being roughly perpendicular to
+    /// the local terrain rather than grazing it.
     let sampleAt
-        (up                  : V3d)
         (surfacesModel       : SurfaceModel)
         (refSys              : ReferenceSystem)
         (observedSystem      : SurfaceId -> Option<SpiceReferenceSystem>)
@@ -392,6 +405,7 @@ module ProfileAttributeExtraction =
         : Option<AttributeHit> * HashMap<string, ConcreteKdIntersectionTree> =
 
         let surfaceFilter = fun (_id : Guid) (l : Leaf) (_s : SgSurface) -> l.visible && l.active
+        let up = ReferenceSystemApp.upVector position refSys.planet
         let ray = FastRay3d(Ray3d(position + up * 10.0, -up))
 
         match SurfaceIntersection.doKdTreeIntersection surfacesModel refSys observedSystem observerSystem ray surfaceFilter cache false with

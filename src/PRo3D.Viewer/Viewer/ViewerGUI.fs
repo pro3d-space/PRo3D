@@ -82,9 +82,13 @@ module Gui =
             |> List.sort)
 
     /// true when Color by Category's cached surface samples no longer match the current
-    /// inputs (layer, reference-frame up, annotation points) — drives the "resample" button's
-    /// stale style. Comparing a live stamp catches every edit path, undo included, without
-    /// hooking individual actions.
+    /// inputs (layer, planet, annotation points) — drives the "resample" button's stale style.
+    /// Comparing a live stamp catches every edit path, undo included, without hooking
+    /// individual actions.
+    ///
+    /// Reads the planet and deliberately not `referenceSystem.up`: navigating rewrites that
+    /// vector from the camera position, so depending on it here re-evaluated this aval — and
+    /// flagged the button — on every camera movement. See `ColorByCategory.stampOf`.
     let colorByCategorySurfaceStale (m : AdaptiveModel) : aval<bool> =
         AVal.custom (fun t ->
             let cbc   = m.drawing.colorByCategory
@@ -95,12 +99,12 @@ module Gui =
             elif store.layer <> layer || HashMap.isEmpty store.entries then
                 true
             else
-                let up = m.scene.referenceSystem.up.value.GetValue t
+                let planet = m.scene.referenceSystem.planet.GetValue t
                 let annos =
                     (annotationSet m).Content.GetValue t
                     |> HashSet.toList
                     |> List.map (fun a -> a.key, a.points.Content.GetValue t |> IndexList.toArray)
-                ColorByCategory.stampOf layer up annos <> store.stamp)
+                ColorByCategory.stampOf layer planet annos <> store.stamp)
 
     /// Same placement as falseColorAttributes, only wider: the hue wheel drawn for the
     /// cyclic attributes captions itself, and the caption does not fit into 55px.

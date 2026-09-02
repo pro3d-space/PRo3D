@@ -248,12 +248,18 @@ module ColorByCategory =
             | _ -> Array.create n s.noValue
 
     /// Order-independent hash of everything a surface sampling pass depends on: the layer, the
-    /// reference-frame up vector, and each annotation's identity, point count and point
-    /// positions. The panel recomputes this live and compares it to the stamp stored with the
-    /// samples to know whether the "resample" button should flag as stale. Shared by the GUI
-    /// (adaptive form) and the Viewer's sampler so the two agree.
-    let stampOf (layer : string) (up : V3d) (annos : seq<System.Guid * V3d[]>) : int =
-        let mutable h = hash (layer, up.GetHashCode())
+    /// planet, and each annotation's identity, point count and point positions. The panel
+    /// recomputes this live and compares it to the stamp stored with the samples to know whether
+    /// the "resample" button should flag as stale. Shared by the GUI (adaptive form) and the
+    /// Viewer's sampler so the two agree.
+    ///
+    /// The planet and not the reference-frame up vector: each point is sampled along the
+    /// body-local up *there* (`ProfileAttributeExtraction.sampleAt`), which is a pure function of
+    /// the planet and the point position - and the positions are hashed below already. Hashing
+    /// `refSys.up` instead made the stamp change on every camera movement, because navigating
+    /// recomputes that vector at the camera (`Viewer.refreshUpNorthForPosition`).
+    let stampOf (layer : string) (planet : Planet) (annos : seq<System.Guid * V3d[]>) : int =
+        let mutable h = hash (layer, int planet)
         for (k, pts) in annos do
             let mutable ph = pts.Length
             for p in pts do ph <- ph ^^^ p.GetHashCode()

@@ -53,6 +53,12 @@ user clicked when drawing each annotation, rather than by anything measured on t
 - Each point is sampled by casting a ray straight down and reading whichever visible surface it
   hits (`ProfileAttributeExtraction.sampleAt`) — not pinned to the annotation's origin surface.
   A point that misses, or whose surface has no such layer, is *no value*.
+- **"Straight down" means at that point**, along the body-local up there (the ellipsoid normal
+  for the scene's planet), so a sampled value depends only on the point, the surfaces and the
+  planet — never on where the camera is. The reference system's own `up` is deliberately *not*
+  used: navigating recomputes it at the camera position, which used to make both the sampled
+  values and the stale flag follow the camera. The effect is invisible on Mars and severe on a
+  small body such as Dimorphos, where the up direction swings by tens of degrees as you orbit.
 - *coloring* row:
 
   | Mode | Control-point dots | Line & polygon fill |
@@ -70,8 +76,11 @@ user clicked when drawing each annotation, rather than by anything measured on t
   automatic. The button turns **orange** whenever the cached colors are out of date: a point
   was moved or added, an annotation was drawn or deleted, the reference frame changed, or the
   layer was switched. Staleness is a live comparison of an input *stamp*
-  (`ColorByCategory.stampOf`: layer + reference-up + every annotation's point positions)
-  against the stamp stored with the samples, so it catches every edit path, undo included.
+  (`ColorByCategory.stampOf`: layer + planet + every annotation's point positions) against the
+  stamp stored with the samples, so it catches every edit path, undo included. The planet
+  rather than the reference-frame up, because the per-point sampling directions are a pure
+  function of planet × point position and the positions are hashed already — camera movement
+  is therefore not an input and does not flag the button.
 - The sampled values are **not saved** in the `.pro3d` scene (they are derived, large, and go
   stale on any edit). A freshly loaded scene shows *no value* in surface mode until you
   resample.

@@ -123,17 +123,20 @@ module ViewerApp =
 
     /// Samples the chosen surface scalar layer at every annotation control point, for Color by
     /// Category's "surface attribute" mode. Reuses `ProfileAttributeExtraction.sampleAt` (ray
-    /// straight down, KdTree intersection, barycentric interpolation over the `.aara` grid) —
-    /// the same primitive the annotation export and the 3D cursor use, and the same shared
-    /// `Picking.cache`. Runs on the UI thread: O(total control points) ray casts, and the
-    /// first hit on a cold patch pulls its ~4 MB position grid, so it is manual (a button) and
+    /// straight down at each point, KdTree intersection, barycentric interpolation over the
+    /// `.aara` grid) — the same primitive the annotation export and the 3D cursor use, and the
+    /// same shared `Picking.cache`. Runs on the UI thread: O(total control points) ray casts, and
+    /// the first hit on a cold patch pulls its ~4 MB position grid, so it is manual (a button) and
     /// not automatic. `withTextureFallback = true` chases layers that have no per-vertex data
     /// into the attribute textures (an image decode per layer per patch, cold).
+    ///
+    /// The sampled values depend only on the control points, the surfaces and the planet — never
+    /// on the camera. `sampleAt` derives its own body-local up per point for exactly that reason,
+    /// which is also why the store's stamp hashes the planet rather than `refSys.up`.
     let sampleSurfaceForCbc (m : Model) (layer : string) : SurfaceSampleStore =
         if layer = "" then SurfaceSampleStore.empty
         else
             let refSys   = m.scene.referenceSystem
-            let up       = refSys.up.value.Normalized
             let surfaces = m.scene.surfacesModel
             let observerSystem     = Gis.GisApp.getObserverSystem m.scene.gisApp
             let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
@@ -149,7 +152,7 @@ module ViewerApp =
                         pts |> Array.map (fun p ->
                             let hit, c =
                                 ProfileAttributeExtraction.sampleAt
-                                    up surfaces refSys observedSystem observerSystem true cache p
+                                    surfaces refSys observedSystem observerSystem true cache p
                             cache <- c
                             match hit with
                             | Some h ->
@@ -166,7 +169,7 @@ module ViewerApp =
             PRo3D.Picking.cache <- cache
             let stampAnnos = annos |> List.map (fun (k, a) -> k, a.points |> IndexList.toArray)
             { layer   = layer
-              stamp   = ColorByCategory.stampOf layer up stampAnnos
+              stamp   = ColorByCategory.stampOf layer refSys.planet stampAnnos
               entries = entries }
 
 
