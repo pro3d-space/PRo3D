@@ -825,7 +825,7 @@ module Gui =
             // secondary toolbar row below so the planet selector and scene
             // path stay visible on the main row at every window width.
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Tools:"] ]
                 Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Html.Layout.boxH [
                     div [style "font-style:italic"] [
@@ -836,7 +836,7 @@ module Gui =
             ]
 
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Ref.System:"] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ]
 
