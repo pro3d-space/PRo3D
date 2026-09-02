@@ -50,10 +50,58 @@
     min-height: 34px;
 }
 
-/* Indent the secondary toolbar so its first character lines up with the
-   word "Mode" on the main row (i.e. past the hamburger menu button). */
-.ui.menu.pro3d-secondary-toolbar .item.topmenu {
-    padding-left: 44px;
+/* Indent the secondary toolbar so its leading item starts past the hamburger menu
+   button of the main row, lining its first character up with "Mode" above. Only the
+   leading item is indented - the tool controls and the trailing ctrl-click hint
+   follow it normally. */
+.ui.menu.pro3d-secondary-toolbar > .topmenu:first-child {
+    padding-left: 40px;
+}
+
+/* The row is one logical group (label, the active tool's settings, hint), so the
+   per-item vertical dividers semantic draws would just be noise here. */
+.ui.menu.pro3d-secondary-toolbar > .item:before {
+    display: none;
+}
+
+/* Breathing room between "Tool Settings" and the controls it labels, and stretching
+   instead of the flex-centring semantic applies to every menu item, so the chip inside
+   can run the full height of the row. `.ui.menu:not(.vertical) .item` sets that
+   centring at 4 classes' worth of specificity, hence the long selector here. */
+.ui.menu.pro3d-secondary-toolbar > .item.topmenu.pro3d-toolsettings-label {
+    padding-right: 10px;
+    align-self: stretch;
+    display: flex;
+    align-items: stretch;
+}
+
+/* The label itself: white on a chip in the active tool's group colour, as tall as the
+   row with no gap above or below. It starts where the item's indent puts it, i.e. past
+   the hamburger menu button. The colour is set inline from F# (Gui.ToolColors); only
+   the shape lives here. */
+.pro3d-toolsettings-chip {
+    display: flex;
+    align-items: center;
+    color: #ffffff;
+    font-weight: bold;
+    padding: 0 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+/* The tool controls come from Html.Layout.horizontal, i.e. a `ui table inverted
+   segment`, and semantic gives that a white table background, a dark inverted-segment
+   background, a border and a 1em margin - all of which fight the tinted row. (The
+   inline `backgroundColor: transparent` on that table is not a valid CSS property
+   name, so it never applied.) Reduce it to bare layout, in this row only. */
+.ui.menu.pro3d-secondary-toolbar table.ui.table,
+.ui.menu.pro3d-secondary-toolbar table.ui.table td {
+    background: transparent;
+    color: inherit;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    border-radius: 0;
 }
 
 div.title {

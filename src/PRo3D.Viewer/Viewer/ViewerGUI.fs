@@ -264,6 +264,50 @@ module Gui =
             ]                              
         ]
 
+    /// Accent colour per tool group. Single source of truth for the tool strip's icon
+    /// colours (Gui.ToolStrip) and the "Tool Settings" label on the secondary toolbar
+    /// row - the label is tinted with the active tool's colour so the row visibly
+    /// belongs to whichever icon is lit in the strip.
+    module ToolColors =
+        // Held as (r, g, b) rather than a hex string so the same definition yields both
+        // the solid chip colour and a toned down translucent wash of it.
+        let navigation = (0x4a, 0xa3, 0xff)   // blue
+        let annotation = (0x3f, 0xb9, 0x50)   // green
+        let selection  = (0xe3, 0xb3, 0x41)   // amber
+        let placement  = (0xb0, 0x83, 0xf0)   // violet
+        let reference  = (0x4f, 0xd1, 0xc5)   // teal
+        /// interactions that are hidden from the UI and so belong to no group
+        let neutral    = (0xcc, 0xcc, 0xcc)
+
+        let hex ((r, g, b) : int * int * int) = sprintf "#%02x%02x%02x" r g b
+
+        /// Translucent version of a group colour. `alpha` is a CSS literal passed through
+        /// verbatim - formatting a float here would emit a decimal comma under a German
+        /// locale and silently void the declaration.
+        let rgba (alpha : string) ((r, g, b) : int * int * int) =
+            sprintf "rgba(%d, %d, %d, %s)" r g b alpha
+
+        /// Group an interaction belongs to, expressed as its colour. This is also what
+        /// defines the grouping drawn in the tool strip, so an interaction added to a
+        /// group here must be added to the matching block of `ToolStrip.view` too.
+        let ofInteraction (i : Interactions) =
+            match i with
+            | Interactions.DrawAnnotation
+            | Interactions.PickAnnotation
+            | Interactions.CutAnnotation
+            | Interactions.EditAnnotation           -> annotation
+            | Interactions.PickSurface
+            | Interactions.SelectArea               -> selection
+            | Interactions.PlaceRover
+            | Interactions.PickDistancePoint
+            | Interactions.PlaceSceneObject
+            | Interactions.PlaceScaleBar
+            | Interactions.PickPivotPoint           -> placement
+            | Interactions.PlaceCoordinateSystem
+            | Interactions.PickSurfaceRefSys
+            | Interactions.PickExploreCenter        -> reference
+            | _                                     -> neutral
+
     module TopMenu =                       
 
         let jsImportOPCDialog =
@@ -819,19 +863,10 @@ module Gui =
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
 
-            // The navigation-mode and interaction selectors themselves live in the
-            // vertical tool strip overlaid on the right edge of the render view
-            // (Gui.ToolStrip). What stays here is the ctrl-click hint for the
-            // interaction the strip has selected - it is prose, not a control, and
-            // reads better on a full-width row than in a 30px strip.
-            Html.Layout.horizontal [
-                Html.Layout.boxH [
-                    div [style "font-style:italic"] [
-                        Incremental.text (
-                            (model.interaction, model.drawing.vertexGrab |> AVal.map Option.isSome)
-                            ||> AVal.map2 interactionTextWithState)
-                    ]]
-            ]
+            // The navigation-mode and interaction selectors live in the vertical tool
+            // strip overlaid on the right edge of the render view (Gui.ToolStrip), and
+            // the ctrl-click hint for the selected tool sits at the far end of the
+            // secondary toolbar row - see `secondaryToolbarRow` below.
 
             Html.Layout.horizontal [
                 Html.Layout.boxH [ div [style "font-weight:bold"] [text "Ref.System:"] ]
@@ -866,7 +901,7 @@ module Gui =
             | _ -> false
 
         let secondaryToolbarRow (m : AdaptiveModel) =
-            // When the row is empty we drop the semantic-ui `item` class so
+            // When the row carries no controls we drop the semantic-ui `item` class so
             // its trailing vertical divider (`:before`) is not left as a
             // stray tick; the row keeps its height via `.pro3d-topbar .ui.menu`.
             let itemAttribs =
@@ -876,8 +911,39 @@ module Gui =
                     then yield clazz "item topmenu"
                     else yield clazz "topmenu pro3d-toolbar-empty"
                 } |> AttributeMap.ofAMap
+
+            // Row label: a white-on-colour chip in the active tool's group colour, so the
+            // row reads as belonging to whichever icon is lit in the tool strip.
+            let label =
+                let attribs =
+                    amap {
+                        let! interaction = m.interaction
+                        yield clazz "pro3d-toolsettings-chip"
+                        yield style (sprintf "background:%s"
+                                             (ToolColors.hex (ToolColors.ofInteraction interaction)))
+                    } |> AttributeMap.ofAMap
+                div [clazz "item topmenu pro3d-toolsettings-label"] [
+                    Incremental.div attribs (AList.ofList [text "Tool Settings"])
+                ]
+
+            // Ctrl-click hint for the selected tool, flowing straight on after that tool's
+            // settings. It is prose about the tool the strip has selected, so it belongs
+            // with the tool's settings rather than on the main row.
+            let hint =
+                div [clazz "item topmenu"; style "font-style:italic"] [
+                    Incremental.text (
+                        (m.interaction, m.drawing.vertexGrab |> AVal.map Option.isSome)
+                        ||> AVal.map2 interactionTextWithState)
+                ]
+
+            // The row itself is untinted. To wash it in a toned down version of the active
+            // tool's colour instead, make these attributes incremental and add
+            //   background: ToolColors.rgba "0.16" (ToolColors.ofInteraction interaction)
+            // (`ToolColors.rgba` is kept around for exactly that).
             div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0"] [
+                label
                 Incremental.div itemAttribs (AList.ofAValSingle (dynamicTopMenu m))
+                hint
             ]
 
         let getTopMenu (m:AdaptiveModel) =
@@ -905,14 +971,6 @@ module Gui =
     /// `Interactions.hideSet` - keep the two in sync when un-hiding an interaction, otherwise
     /// that interaction becomes unreachable and (if selected via F-key) shows no active icon.
     module ToolStrip =
-
-        /// Group accent colours: the icon colour while idle, the chip colour once active.
-        module private Colors =
-            let navigation = "#4aa3ff"   // blue
-            let annotation = "#3fb950"   // green
-            let selection  = "#e3b341"   // amber
-            let placement  = "#b083f0"   // violet
-            let reference  = "#4fd1c5"   // teal
 
         /// One strip button. `isEnabled` is only ever false for MapView without a reference
         /// body; a disabled button dispatches nothing so the model cannot enter that state.
@@ -945,15 +1003,17 @@ module Gui =
 
         let private navButton (icon : string) (tooltip : string) (mode : NavigationMode)
                               (current : aval<NavigationMode>) (isEnabled : aval<bool>) =
-            button Colors.navigation icon
+            button (ToolColors.hex ToolColors.navigation) icon
                    (current |> AVal.map (fun x -> x = mode))
                    isEnabled
                    tooltip
                    (NavigationMessage (Navigation.Action.SetNavigationMode mode))
 
-        let private toolButton (color : string) (icon : string) (tooltip : string)
+        /// The colour is looked up rather than passed in, so `ToolColors.ofInteraction`
+        /// stays the one place that says which group a tool belongs to.
+        let private toolButton (icon : string) (tooltip : string)
                                (interaction : Interactions) (current : aval<Interactions>) =
-            button color icon
+            button (ToolColors.hex (ToolColors.ofInteraction interaction)) icon
                    (current |> AVal.map (fun x -> x = interaction))
                    (AVal.constant true)
                    tooltip
@@ -970,7 +1030,7 @@ module Gui =
             let mapViewEnabled =
                 m.scene.referenceSystem.planet |> AVal.map (fun p -> p <> Planet.None)
 
-            let tool color icon tooltip i = toolButton color icon tooltip i interaction
+            let tool icon tooltip i = toolButton icon tooltip i interaction
 
             // Clicks must not reach the render body underneath: it starts a camera drag /
             // selection rectangle on mousedown and opens the context menu on right click.
@@ -987,32 +1047,32 @@ module Gui =
                     divider
 
                     // --- annotations ------------------------------------------------------
-                    tool Colors.annotation "pencil"        "Draw annotation" Interactions.DrawAnnotation
-                    tool Colors.annotation "mouse pointer" "Select annotation" Interactions.PickAnnotation
-                    tool Colors.annotation "cut"           "Cut annotation - draw a stroke that cuts the selected annotation" Interactions.CutAnnotation
-                    tool Colors.annotation "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
+                    tool "pencil"        "Draw annotation" Interactions.DrawAnnotation
+                    tool "mouse pointer" "Select annotation" Interactions.PickAnnotation
+                    tool "cut"           "Cut annotation - draw a stroke that cuts the selected annotation" Interactions.CutAnnotation
+                    tool "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
 
                     divider
 
                     // --- selection --------------------------------------------------------
-                    tool Colors.selection "cubes" "Select surface" Interactions.PickSurface
-                    tool Colors.selection "crop"  "Select area - drag a rectangle to multi-select" Interactions.SelectArea
+                    tool "cubes" "Select surface" Interactions.PickSurface
+                    tool "crop"  "Select area - drag a rectangle to multi-select" Interactions.SelectArea
 
                     divider
 
                     // --- placement --------------------------------------------------------
-                    tool Colors.placement "rocket"   "Place rover" Interactions.PlaceRover
-                    tool Colors.placement "marker"   "Place distance point for the selected view plan" Interactions.PickDistancePoint
-                    tool Colors.placement "cube"     "Place scene object" Interactions.PlaceSceneObject
-                    tool Colors.placement "exchange" "Place scale bar" Interactions.PlaceScaleBar
-                    tool Colors.placement "anchor"   "Pick pivot point for placing / transforming" Interactions.PickPivotPoint
+                    tool "rocket"   "Place rover" Interactions.PlaceRover
+                    tool "marker"   "Place distance point for the selected view plan" Interactions.PickDistancePoint
+                    tool "cube"     "Place scene object" Interactions.PlaceSceneObject
+                    tool "exchange" "Place scale bar" Interactions.PlaceScaleBar
+                    tool "anchor"   "Pick pivot point for placing / transforming" Interactions.PickPivotPoint
 
                     divider
 
                     // --- reference systems & camera ---------------------------------------
-                    tool Colors.reference "crosshairs" "Place coordinate cross" Interactions.PlaceCoordinateSystem
-                    tool Colors.reference "compass"    "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
-                    tool Colors.reference "bullseye"   "Pick the ArcBall orbit centre" Interactions.PickExploreCenter
+                    tool "crosshairs" "Place coordinate cross" Interactions.PlaceCoordinateSystem
+                    tool "compass"    "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
+                    tool "bullseye"   "Pick the ArcBall orbit centre" Interactions.PickExploreCenter
                 ]
             )
 

@@ -25,7 +25,7 @@ removing points build on the same machinery and are not implemented yet — see
 **Escape** at any time puts a picked-up point back where it was. **Ctrl+Z** undoes a completed
 move.
 
-The hint line in the top toolbar says which of the two states you are in.
+The hint line at the right of the Tool Settings row says which of the two states you are in.
 
 ### Notes
 
