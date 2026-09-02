@@ -86,6 +86,66 @@ module FalseColorLegendApp =
             let currHSV     = HSVf(hue, 1.0f, 1.0f)
             currHSV.ToC3f().ToC3b()
 
+        /// Upper limit for the number of range gaps. The legend never renders more than
+        /// 100 buckets; this ceiling only exists so `numOfRangeGaps + 2` cannot overflow
+        /// `int` when `interval` is tiny relative to the bound range.
+        [<Literal>]
+        let maxRangeGaps = 100000
+
+        /// `round(|range| / interval)` as a non-negative, overflow-safe `int`.
+        /// A non-positive or non-finite `interval` (e.g. the user dialing the interval
+        /// input down to 0) yields 0 gaps instead of dividing by zero — whose infinite
+        /// result used to saturate `int` and then overflow `numOfRangeGaps + 2` into a
+        /// negative bucket count, causing an out-of-range list access during label layout.
+        let rangeGapCount (range : float) (interval : float) : int =
+            if interval <= 0.0 || Double.IsNaN interval || Double.IsInfinity interval then
+                0
+            else
+                let gaps = System.Math.Round (abs range / interval)
+                if Double.IsNaN gaps || gaps <= 0.0 then 0
+                elif gaps >= float maxRangeGaps then maxRangeGaps
+                else int gaps
+
+        /// Pure scalar -> ramp color. Shared by the adaptive `getColorDnS` below and by
+        /// token-based callers that cannot use an aval-returning helper (ColorByCategory,
+        /// which resolves colors inside the packed renderer's AVal.custom).
+        let getColorForValue
+            (lowerBound : float) (upperBound : float) (interval : float)
+            (lowerColor : C4b)   (upperColor : C4b)   (invert : bool)
+            (value : float) : C4b =
+
+            // the ramp is seeded with the *upper* color as its start hue and the *lower*
+            // color as its end hue; kept as-is so existing DnS coloring is unchanged
+            let hsvStart = HSVf.FromC3f (upperColor.ToC3f())
+            let hsvEnd   = HSVf.FromC3f (lowerColor.ToC3f())
+
+            let range = upperBound - lowerBound
+            let numOfRangeGaps = rangeGapCount range interval
+            let numOfStops = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
+
+            let hStepSize =
+              if hsvStart.H < hsvEnd.H then
+                (hsvEnd.H - hsvStart.H) / (single (numOfStops-1))
+              else
+                ((hsvEnd.H + 1.0f) - hsvStart.H) / (single (numOfStops-1))
+
+            let pos =
+                if interval > 0.0 && lowerBound < value then
+                    int (System.Math.Round ((value - lowerBound) / interval)) //+1
+                else 0
+            let pos' =
+                match upperBound < value with
+                    | true -> numOfRangeGaps + 1
+                    | _ -> pos
+
+            let currColor =
+              if invert then
+                getColor (hsvStart.H + (hStepSize * (single (pos'))))
+              else
+                getColor (hsvEnd.H - (hStepSize * (single (pos'))))
+
+            currColor.ToC3f().ToC4b()
+
         let getColorDnS (model : AdaptiveFalseColorsModel) (angle: aval<float>) =
             adaptive {
                 let! dipAngle = angle
@@ -95,36 +155,12 @@ module FalseColorLegendApp =
                 let! invertMapping  = model.invertMapping
                 let! fcUpperBound   = model.upperBound.value
                 let! fcLowerBound   = model.lowerBound.value
-                                
-                let hsvStart = HSVf.FromC3f (startColor.ToC3f())
-                let hsvEnd   = HSVf.FromC3f (endColor.ToC3f())
 
-                let range = fcUpperBound - fcLowerBound
-                let numOfRangeGaps = int (System.Math.Round (range / fcInterval))
-                let numOfStops = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
-
-                let hStepSize =
-                  if hsvStart.H < hsvEnd.H then 
-                    (hsvEnd.H - hsvStart.H) / (single (numOfStops-1)) 
-                  else 
-                    ((hsvEnd.H + 1.0f) - hsvStart.H) / (single (numOfStops-1))
-                
-                let pos = 
-                    match fcLowerBound < dipAngle with
-                         | true -> int (System.Math.Round ( (dipAngle - fcLowerBound) / (float)fcInterval )) //+1
-                         | _ -> 0
-                let pos' = 
-                    match fcUpperBound < dipAngle with
-                        | true -> numOfRangeGaps + 1
-                        | _ -> pos
-                     
-                let currColor = 
-                  if invertMapping then
-                    getColor (hsvStart.H + (hStepSize * (single (pos'))))
-                  else 
-                    getColor (hsvEnd.H - (hStepSize * (single (pos'))))
-                    
-                return currColor.ToC3f().ToC4b()
+                return
+                    getColorForValue
+                        fcLowerBound fcUpperBound fcInterval
+                        endColor startColor invertMapping
+                        dipAngle
             }
 
         let getShaderParams (model : AdaptiveFalseColorsModel) : aval<FalseColorsShaderParams> = 
@@ -140,7 +176,7 @@ module FalseColorLegendApp =
                 let hsvEnd   = HSVf.FromC3f (endColor.ToC3f())
 
                 let range = fcUpperBound - fcLowerBound
-                let numOfRangeGaps = int (System.Math.Round (range / fcInterval))
+                let numOfRangeGaps = rangeGapCount range fcInterval
                 let numOfStops = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
 
                 let hStepSize =
@@ -248,7 +284,7 @@ module FalseColorLegendApp =
 
                 if enabled then
                     let range = (fcUpperBound - fcLowerBound) |> abs
-                    let numOfRangeGaps = int (System.Math.Round (range / fcInterval))                    
+                    let numOfRangeGaps = rangeGapCount range fcInterval
                     
                     let isImage = imageStream.IsSome
 
