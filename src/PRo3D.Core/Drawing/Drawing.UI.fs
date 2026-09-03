@@ -250,7 +250,7 @@ module UI =
                                                   
         let setActiveAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                        
-        let colorAttributes = GroupsApp.activeGroupColorAttributes model group ""
+        let colorAttributes = GroupsApp.treeItemColorAttributes ""
         let desc =
             Incremental.div colorAttributes <| AList.ofList [
                 Incremental.text group.name
@@ -285,8 +285,7 @@ module UI =
                     yield clazz "icon outline folder"
                 // the icon is a sibling of the (white) description div and would
                 // otherwise inherit semantic ui's default (black) on our dark background
-                let! color = GroupsApp.activeGroupColor model group
-                yield style ("overflow-y : visible; " + color)
+                yield style ("overflow-y : visible; " + GroupsApp.treeItemColorStyle)
             } |> AttributeMap.ofAMap
           
         let childrenAttribs =
