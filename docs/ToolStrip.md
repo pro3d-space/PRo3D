@@ -12,7 +12,8 @@ filled chip in its group colour; idle icons are the same colour, dimmed.
 Hovering an icon shows a tooltip on its left. The ctrl-click hint for the selected
 tool ("CTRL+click to pick point on surface", …) sits on the **second toolbar row**,
 where a full sentence fits, following straight on after that tool's own controls
-(annotation geometry, rover selector, …). The row is labelled **Tool Settings** —
+(annotation geometry, rover selector, …). The row is labelled with the **selected
+tool's name** ("Draw Annotation", "Place Rover", …; `interactionName` in `ViewerGUI.fs`) —
 white on a full-height chip in the group colour of whichever tool is currently lit in
 the strip.
 
@@ -56,7 +57,7 @@ pick up `--tool-color` and the active-chip knockout like the font icons.
 |---|---|
 | Group colours + which group a tool is in | `Gui.ToolColors` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |
 | Strip markup, groups, icons | `Gui.ToolStrip` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |
-| "Tool Settings" label + hint row | `Gui.TopMenu.secondaryToolbarRow`, same file |
+| Selected-tool label (`interactionName`) + hint row | `Gui.TopMenu.secondaryToolbarRow`, same file |
 | Mounted as a render-view overlay | `Gui.Pages.pageRouting`, the `"render"` branch |
 | Layout, chips, dividers | `.pro3d-toolstrip` in [semui-overrides.css](../src/PRo3D.Viewer/resources/semui-overrides.css) |
 

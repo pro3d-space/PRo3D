@@ -265,7 +265,7 @@ module Gui =
         ]
 
     /// Accent colour per tool group. Single source of truth for the tool strip's icon
-    /// colours (Gui.ToolStrip) and the "Tool Settings" label on the secondary toolbar
+    /// colours (Gui.ToolStrip) and the selected-tool label on the secondary toolbar
     /// row - the label is tinted with the active tool's colour so the row visibly
     /// belongs to whichever icon is lit in the strip.
     module ToolColors =
@@ -856,6 +856,27 @@ module Gui =
             | Interactions.PickPivotPoint        -> ""
             | _ -> ""
 
+        /// Display name of the selected tool, shown as the secondary-toolbar chip. Covers
+        /// exactly the interactions reachable from the tool strip (`Gui.ToolStrip.view`);
+        /// hidden interactions fall back to the generic label.
+        let interactionName (i : Interactions) : string =
+            match i with
+            | Interactions.DrawAnnotation        -> "Draw Annotation"
+            | Interactions.PickAnnotation        -> "Select Annotation"
+            | Interactions.CutAnnotation         -> "Cut Annotation"
+            | Interactions.EditAnnotation        -> "Edit Annotation"
+            | Interactions.PickSurface           -> "Select Surface"
+            | Interactions.SelectArea            -> "Select Area"
+            | Interactions.PlaceRover            -> "Place Rover"
+            | Interactions.PickDistancePoint     -> "Place Distance Point"
+            | Interactions.PlaceSceneObject      -> "Place Scene Object"
+            | Interactions.PlaceScaleBar         -> "Place Scalebar"
+            | Interactions.PickPivotPoint        -> "Pick Pivot Point"
+            | Interactions.PlaceCoordinateSystem -> "Place Coordinate System"
+            | Interactions.PickSurfaceRefSys     -> "Pick Surface Reference System"
+            | Interactions.PickExploreCenter     -> "Pick Explore Center"
+            | _                                  -> "Tool Settings"
+
         let invertDrawingTooltip =
             "Invert drawing: swap the Ctrl modifier - pick and draw without Ctrl, hold Ctrl to navigate."
 
@@ -912,8 +933,9 @@ module Gui =
                     else yield clazz "topmenu pro3d-toolbar-empty"
                 } |> AttributeMap.ofAMap
 
-            // Row label: a white-on-colour chip in the active tool's group colour, so the
-            // row reads as belonging to whichever icon is lit in the tool strip.
+            // Row label: a white-on-colour chip in the active tool's group colour, showing
+            // the selected tool's name, so the row reads as belonging to whichever icon is
+            // lit in the tool strip.
             let label =
                 let attribs =
                     amap {
@@ -923,7 +945,8 @@ module Gui =
                                              (ToolColors.hex (ToolColors.ofInteraction interaction)))
                     } |> AttributeMap.ofAMap
                 div [clazz "item topmenu pro3d-toolsettings-label"] [
-                    Incremental.div attribs (AList.ofList [text "Tool Settings"])
+                    Incremental.div attribs (AList.ofList [
+                        Incremental.text (m.interaction |> AVal.map interactionName) ])
                 ]
 
             // Ctrl-click hint for the selected tool, flowing straight on after that tool's
