@@ -19,8 +19,9 @@ module UI =
 
     /// Enum dropdown with two independent filters:
     ///  - `exclude`  : values omitted from the list entirely
-    ///  - `disabled` : values shown but greyed out and unselectable, with
-    ///                 `disabledNote` appended to the label + tooltip explaining why
+    ///  - `disabled` : values shown but greyed out and unselectable; `disabledNote`,
+    ///                 when non-empty, is appended to the option's tooltip explaining why
+    ///                 (the visible label is left alone so it cannot widen the <select>)
     /// (An <option> may only contain text, so browsers ignore strike-through/styling
     /// inside it; the reliable "not selectable" signal is the `disabled` attribute.)
     let dropDownDisabled<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (disabled : HashSet<'a>) (disabledNote : string) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
@@ -42,11 +43,13 @@ module UI =
                 if exclude |> HashSet.contains value |> not then
                     let isDisabled = HashSet.contains value disabled
                     let att = attributes name value
-                    let label = if isDisabled && disabledNote <> "" then sprintf "%s  (%s)" name disabledNote else name
+                    // the label stays the bare name - a greyed, unselectable option is signal
+                    // enough, and a suffix here would stretch the <select> to its width
+                    let label = name
                     let tooltip =
                         let t = getTooltip value
                         if isDisabled && disabledNote <> "" then
-                            if t <> "" then sprintf "%s — %s" t disabledNote else disabledNote
+                            if t <> "" then sprintf "%s - %s" t disabledNote else disabledNote
                         else t
                     if tooltip <> "" then
                         yield Incremental.option att (AList.ofList [text label]) |> UI.wrapToolTip DataPosition.Bottom tooltip
@@ -73,7 +76,7 @@ module UI =
             match i with
             | Projection.Linear     -> "Produces straight line segments as point-to-point connections with linear interpolation between them, no actual projection is performed."
             | Projection.Viewpoint  -> "Between two points the space is sampled by shooting additional rays to intersect with the surface."
-            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene�s up-vector."
+            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene's up-vector."
             | _                     -> ""
 
         let thicknessTooltip = "Thickness of annotation"
@@ -114,11 +117,24 @@ module UI =
 
         let cells =
             alist {
+                let! geometry = model.geometry
+
                 yield Html.Layout.boxH [ div [style "font-weight:bold"] [text "Annotation:"] ]
                 // Axis4PEllipse is hidden from the selector for now — the geometry itself and its
                 // update/rendering path stay intact, so existing annotations still load and draw.
                 yield Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse; Geometry.Axis4PEllipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
-                yield Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
+
+                // grey out the projection modes this geometry cannot use (ellipses are Sky-only);
+                // the options stay readable so the user sees why. SetGeometry / SetProjection keep
+                // the model in the allowed set.
+                let disabledProjections =
+                    let allowed = Geometry.allowedProjections geometry
+                    Enum.GetValues(typeof<Projection>)
+                    |> unbox<Projection[]>
+                    |> Array.filter (fun p -> not (List.contains p allowed))
+                    |> HashSet.ofArray
+                yield Html.Layout.boxH [ dropDownDisabled HashSet.empty disabledProjections "not available for this annotation type" model.projection SetProjection projectionTooltip ]
+
                 // annotation color now comes from the active group's default color, so the tool-level color picker was removed
                 yield Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
 
@@ -126,7 +142,6 @@ module UI =
                 if projectionUsesSampling projection then
                     yield! AList.ofList samplingCells
 
-                let! geometry = model.geometry
                 if geometryIsFillable geometry then
                     yield! AList.ofList fillCells
             //  yield Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]

@@ -28,6 +28,32 @@ change that would be ignored.
 Both predicates live next to the view code. If `isFillable` or the set of
 sampling-driven projections changes, update the predicate here to match.
 
+## Allowed projections per geometry
+
+Not every geometry works with every projection — `addPoint` in
+[Drawing-App.fs](../src/PRo3D.Core/Drawing/Drawing-App.fs) has no branch for the
+excluded combinations and would `failwith` on them. The allowed set is
+`Geometry.allowedProjections` in
+[Annotation-Model.fs](../src/PRo3D.Base/Annotation/Annotation-Model.fs):
+
+| Geometry | Allowed projections |
+|---|---|
+| `AxisEllipse`, `Axis4PEllipse`, `Ellipse` | `Sky` |
+| everything else | `Linear`, `Viewpoint`, `Sky`, `Bookmark` |
+
+Enforced in three places:
+
+- **Projection dropdown** — disallowed entries are greyed out (not removed) with
+  `dropDownDisabled`; they keep their plain names and carry the reason only in a hover
+  tooltip, so the `<select>` stays the same width as under any other geometry.
+- **`SetGeometry`** — keeps the current projection if the new geometry allows it,
+  otherwise switches to the head of `allowedProjections` (the default). This also means
+  switching between two tools that both allow the current projection no longer resets it.
+- **`SetProjection`** — ignores a projection the current geometry does not allow.
+
+The head of each `allowedProjections` list is the default: `Linear` for the general
+tools, `Sky` for the ellipses.
+
 ## Related
 
 - [EllipseAnnotations.md](EllipseAnnotations.md) — ellipse tools force `Projection.Sky`

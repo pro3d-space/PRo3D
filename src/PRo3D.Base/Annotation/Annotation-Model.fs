@@ -47,6 +47,20 @@ module Geometry =
         | Geometry.Point | Geometry.Line | Geometry.Polyline | Geometry.Polygon -> true
         | _ -> false
 
+    /// The projection modes that produce a well-defined annotation for this geometry.
+    ///
+    /// The ellipse tools are fitted in a plane through the picked points and are only
+    /// meaningful under `Sky` (see docs/EllipseAnnotations.md); every other tool supports
+    /// all projection modes. `addPoint` in Drawing-App.fs has no branch for the excluded
+    /// combinations and would `failwith` on them.
+    ///
+    /// The head of the list is the default: `SetGeometry` selects it when the current
+    /// projection is not in the new geometry's allowed set.
+    let allowedProjections (geometry : Geometry) : list<Projection> =
+        match geometry with
+        | Geometry.Ellipse | Geometry.AxisEllipse | Geometry.Axis4PEllipse -> [ Projection.Sky ]
+        | _ -> [ Projection.Linear; Projection.Viewpoint; Projection.Sky; Projection.Bookmark ]
+
 type Semantic = 
 | Horizon0 = 0 
 | Horizon1 = 1 

@@ -587,18 +587,25 @@ module DrawingApp =
 
                 {model with semantic = mode }
             | SetGeometry mode, _, _ ->
-                let projection = 
-                    match mode with
-                    | Geometry.AxisEllipse
-                    | Geometry.Axis4PEllipse -> 
-                        Projection.Sky
-                    // every other tool uses linear as default. TODO: if switching back to default is an UX problem, 
-                    // we need to store the user-set projection mode and reset it if needed.
-                    | _ -> Projection.Linear
+                // keep the current projection if the new geometry supports it, otherwise
+                // fall back to that geometry's first allowed projection.
+                let allowed = Geometry.allowedProjections mode
+                let projection =
+                    if allowed |> List.contains model.projection then model.projection
+                    else
+                        match allowed with
+                        | p :: _ -> p
+                        | []     -> model.projection
 
                 { model with geometry = mode; projection = projection; }
             | SetProjection mode, _, _ ->
-                { model with projection = mode }                  
+                // the dropdown greys out projections the current geometry cannot use;
+                // ignore them here too in case the message arrives another way.
+                if Geometry.allowedProjections model.geometry |> List.contains mode then
+                    { model with projection = mode }
+                else
+                    model
+
             | ChangeThickness th, _, _ ->
                 { model with thickness = Numeric.update model.thickness th }
             | SetFillNewAnnotations b, _, _ ->
