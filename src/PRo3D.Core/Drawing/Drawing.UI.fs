@@ -95,7 +95,7 @@ module UI =
             Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
             // no fill colour here on purpose - it follows the active group's default colour, the
             // same single source the outline colour uses (see the note above)
-            Html.Layout.boxH [ div [style "font-weight:bold"] [text "Fill:"] ]
+            Html.Layout.boxH [ div [style "font-weight:bold"] [text "Fill/Alpha:"] ]
             Html.Layout.boxH [ GuiEx.iconCheckBoxSet model.fillNewAnnotations SetFillNewAnnotations ] |> UI.wrapToolTip DataPosition.Bottom fillTooltip
             Html.Layout.boxH [ Numeric.view' [InputBox] model.defaultFillAlpha |> UI.map ChangeDefaultFillAlpha ] |> UI.wrapToolTip DataPosition.Bottom fillAlphaTooltip
         //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
