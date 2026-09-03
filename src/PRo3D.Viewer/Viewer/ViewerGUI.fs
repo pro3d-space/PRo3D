@@ -1057,18 +1057,23 @@ module Gui =
 
             // Clicks must not reach the render body underneath: it starts a camera drag /
             // selection rectangle on mousedown and opens the context menu on right click.
+            // Navigation and tools sit in two separate panels with a small gap, so the
+            // blue navigation group reads as distinct from the interaction tools. Both
+            // panels share the button width and padding, so the icon columns line up.
             onBoot "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });" (
                 div [clazz "pro3d-toolstrip"] [
-                    // --- navigation -------------------------------------------------------
+                  // --- navigation panel --------------------------------------------------
+                  div [clazz "pro3d-toolstrip-group"] [
                     navButton "rocket" "Free fly - move the camera freely"
                               NavigationMode.FreeFly navMode (AVal.constant true)
                     navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point"
                               NavigationMode.ArcBall navMode (AVal.constant true)
                     navButton "map" "Map view - top down, up is north, speed scales with altitude (needs a planet)"
                               NavigationMode.MapView navMode mapViewEnabled
+                  ]
 
-                    divider
-
+                  // --- tool panel ------------------------------------------------------
+                  div [clazz "pro3d-toolstrip-group"] [
                     // --- annotations ------------------------------------------------------
                     tool "pencil"        "Draw annotation" Interactions.DrawAnnotation
                     tool "mouse pointer" "Select annotation" Interactions.PickAnnotation
@@ -1096,6 +1101,7 @@ module Gui =
                     tool "crosshairs" "Place coordinate cross" Interactions.PlaceCoordinateSystem
                     tool "compass"    "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
                     tool "bullseye"   "Pick the ArcBall orbit centre" Interactions.PickExploreCenter
+                  ]
                 ]
             )
 

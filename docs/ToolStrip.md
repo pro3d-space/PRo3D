@@ -19,7 +19,10 @@ the strip.
 
 ## Groups
 
-Groups are separated by a horizontal divider and share an accent colour.
+The **Navigation** group sits in its own panel, separated from the tool panel by a
+small gap (`.pro3d-toolstrip-group` in [semui-overrides.css](../src/PRo3D.Viewer/resources/semui-overrides.css)).
+Within the tool panel, groups are separated by a horizontal divider. Every group
+shares an accent colour.
 
 | Group | Colour | Icons |
 |---|---|---|

@@ -199,6 +199,9 @@ div.fullwidth.textcontainer > input {
    to sit in the top menu. Each group carries its own accent colour, passed in
    from F# as the --tool-color custom property on the button.
    --------------------------------------------------------------------------- */
+/* Outer rail: positions the strip and stacks the panels with a small gap. The
+   panel chrome (background, border) lives on .pro3d-toolstrip-group so the
+   navigation group reads as visually separate from the tools. */
 .pro3d-toolstrip {
     position: absolute;
     top: 50%;
@@ -207,19 +210,28 @@ div.fullwidth.textcontainer > input {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 6px 5px;
-    border-radius: 8px;
-    background: rgba(24, 25, 27, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    gap: 6px;
     z-index: 1000;
     /* the render body sets pointer-events off for its other overlays */
     pointer-events: auto;
     user-select: none;
-    /* 17 buttons + 4 dividers is ~590px tall; scroll rather than overflow the
-       view when the render dock is short (small window, tall dock layout). */
+    /* 17 buttons + 3 dividers + the panel gap is ~590px tall; scroll rather than
+       overflow the view when the render dock is short (small window, tall dock). */
     max-height: calc(100% - 20px);
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+/* One panel. Both panels share button width and padding, so the icon columns of
+   the navigation and tool groups line up. */
+.pro3d-toolstrip-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 5px;
+    border-radius: 8px;
+    background: rgba(24, 25, 27, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.09);
 }
 
 .pro3d-toolstrip .pro3d-tool {
