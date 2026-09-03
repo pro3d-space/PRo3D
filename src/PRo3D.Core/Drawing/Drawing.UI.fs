@@ -60,7 +60,7 @@ module UI =
     let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
         dropDownDisabled exclude HashSet.empty "" selected change getTooltip
 
-    let viewAnnotationToolsHorizontal (paletteFile : string) (model:AdaptiveDrawingModel) =
+    let viewAnnotationToolsHorizontal (paletteFile : string) (planet : aval<Planet>) (model:AdaptiveDrawingModel) =
         let geometryTooltip (i : Geometry) : string =
             match i with 
             | Geometry.Point        -> "A single point measurement on the surface."
@@ -118,11 +118,23 @@ module UI =
         let cells =
             alist {
                 let! geometry = model.geometry
+                let! currentPlanet = planet
 
                 yield Html.Layout.boxH [ div [style "font-weight:bold"] [text "Annotation:"] ]
                 // Axis4PEllipse is hidden from the selector for now — the geometry itself and its
                 // update/rendering path stay intact, so existing annotations still load and draw.
-                yield Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse; Geometry.Axis4PEllipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
+                // With Planet.None as the reference system, geometries whose measurements need a
+                // real body (DnS/TT azimuths, the ellipse surface-drape) are greyed out; the
+                // SetPlanet handler resets an active one back to Line.
+                let disabledGeometries =
+                    if currentPlanet = Planet.None then
+                        Enum.GetValues(typeof<Geometry>)
+                        |> unbox<Geometry[]>
+                        |> Array.filter Geometry.needsReferenceBody
+                        |> HashSet.ofArray
+                    else
+                        HashSet.empty
+                yield Html.Layout.boxH [ dropDownDisabled ( [ Geometry.Ellipse; Geometry.Axis4PEllipse ] |> HashSet.ofList ) disabledGeometries "needs a reference body" model.geometry SetGeometry geometryTooltip ]
 
                 // grey out the projection modes this geometry cannot use (ellipses are Sky-only);
                 // the options stay readable so the user sees why. SetGeometry / SetProjection keep

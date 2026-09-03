@@ -826,8 +826,8 @@ module Gui =
             adaptive {
                 let! interaction = m.interaction
                 match interaction with
-                | Interactions.DrawAnnotation -> 
-                    return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.drawing |> UI.map DrawingMessage
+                | Interactions.DrawAnnotation ->
+                    return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.scene.referenceSystem.planet m.drawing |> UI.map DrawingMessage
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 

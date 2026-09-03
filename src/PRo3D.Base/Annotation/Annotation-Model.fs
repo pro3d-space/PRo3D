@@ -61,6 +61,18 @@ module Geometry =
         | Geometry.Ellipse | Geometry.AxisEllipse | Geometry.Axis4PEllipse -> [ Projection.Sky ]
         | _ -> [ Projection.Linear; Projection.Viewpoint; Projection.Sky; Projection.Bookmark ]
 
+    /// Geometries whose results only make sense with a real reference body selected
+    /// (`Planet.None` gives an arbitrary world-axis frame: dip/strike/thickness azimuths
+    /// are measured from world +X, not true north). The ellipse tools additionally rely on
+    /// the Sky surface-drape, which has no valid scale without a body and produces an
+    /// empty outline -> a zero-point annotation that crashes result calculation.
+    /// The annotation toolbar greys these out while `Planet.None` is the reference system.
+    let needsReferenceBody (geometry : Geometry) =
+        match geometry with
+        | Geometry.DnS | Geometry.TT
+        | Geometry.Ellipse | Geometry.AxisEllipse | Geometry.Axis4PEllipse -> true
+        | _ -> false
+
 type Semantic = 
 | Horizon0 = 0 
 | Horizon1 = 1 
