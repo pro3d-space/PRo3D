@@ -200,36 +200,45 @@ module DrawingApp =
 
             let w = { w with dnsResults = dns }
 
-            let w = 
+            let wOpt =
                 match w.geometry, sampleSurface with
                 | Geometry.AxisEllipse, Some sampleSurface
-                | Geometry.Axis4PEllipse, Some sampleSurface -> 
+                | Geometry.Axis4PEllipse, Some sampleSurface ->
                     let geo = false
                     if geo then
                         match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
-                        | Some (ellipses, sampledPoints) -> 
+                        | Some (ellipses, sampledPoints) ->
                             let points = IndexList.ofArray sampledPoints
-                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
-                        | _ -> 
-                            w
+                            Some { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
+                        | _ ->
+                            Some w
                     else
                         match dns with
-                        | None -> w
-                        | Some dns -> 
+                        | None -> Some w
+                        | Some dns ->
                             match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
-                            | Some r -> 
+                            | Some r when r.surfaceProjectedEllipsePoints.Length >= 3 ->
                                 let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
                                 let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
-                                { w with points = points; ellipticResults = None }
-                            | _ -> 
-                                w
-                        
-                | _ -> 
-                    w
+                                Some { w with points = points; ellipticResults = None }
+                            | Some r ->
+                                // the ellipse outline could not be draped onto the surface (e.g. the
+                                // reference system has no body, so the Sky projection has no valid
+                                // scale). An annotation built from < 3 points is degenerate and would
+                                // crash result calculation, so drop it with a warning.
+                                Log.warn "[Drawing] ellipse outline could not be projected onto the surface (%d sampled points); annotation discarded" r.surfaceProjectedEllipsePoints.Length
+                                None
+                            | None ->
+                                Some w
 
-            let results = Calculations.calculateAnnotationResults w up north planet
+                | _ ->
+                    Some w
 
-            Some { w with results = Some results; view = view; }
+            match wOpt with
+            | None -> None
+            | Some w ->
+                let results = Calculations.calculateAnnotationResults w up north planet
+                Some { w with results = Some results; view = view; }
         | None -> None
 
     let finishAndAppend up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel)  = 
