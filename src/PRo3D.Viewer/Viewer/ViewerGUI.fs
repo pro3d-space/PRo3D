@@ -958,7 +958,7 @@ module Gui =
             // secondary toolbar row - see `secondaryToolbarRow` below.
 
             Html.Layout.horizontal [
-                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Ref.System:"] ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Reference System:"] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ]
 
