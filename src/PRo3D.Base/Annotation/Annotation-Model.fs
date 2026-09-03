@@ -16,11 +16,16 @@ open Aardvark.Geometry
 
 #nowarn "0686"
 
-type Projection = 
-| Linear = 0 
-| Viewpoint = 1 
+type Projection =
+| Linear = 0
+| Viewpoint = 1
 | Sky = 2
-| Bookmark = 3
+
+module Projection =
+    /// Reads a persisted projection value. Legacy scenes may carry `3`, the removed
+    /// "Bookmark" projection (never implemented past Nov 2021); those load as `Linear`.
+    let ofInt (i : int) : Projection =
+        (if i = 3 then 0 else i) |> enum<Projection>
 
 type Geometry =
 | Point         = 0
@@ -45,6 +50,32 @@ module Geometry =
     let isVertexEditable (geometry : Geometry) =
         match geometry with
         | Geometry.Point | Geometry.Line | Geometry.Polyline | Geometry.Polygon -> true
+        | _ -> false
+
+    /// The projection modes that produce a well-defined annotation for this geometry.
+    ///
+    /// The ellipse tools are fitted in a plane through the picked points and are only
+    /// meaningful under `Sky` (see docs/EllipseAnnotations.md); every other tool supports
+    /// all projection modes. `addPoint` in Drawing-App.fs has no branch for the excluded
+    /// combinations and would `failwith` on them.
+    ///
+    /// The head of the list is the default: `SetGeometry` selects it when the current
+    /// projection is not in the new geometry's allowed set.
+    let allowedProjections (geometry : Geometry) : list<Projection> =
+        match geometry with
+        | Geometry.Ellipse | Geometry.AxisEllipse | Geometry.Axis4PEllipse -> [ Projection.Sky ]
+        | _ -> [ Projection.Linear; Projection.Viewpoint; Projection.Sky ]
+
+    /// Geometries whose results only make sense with a real reference body selected
+    /// (`Planet.None` gives an arbitrary world-axis frame: dip/strike/thickness azimuths
+    /// are measured from world +X, not true north). The ellipse tools additionally rely on
+    /// the Sky surface-drape, which has no valid scale without a body and produces an
+    /// empty outline -> a zero-point annotation that crashes result calculation.
+    /// The annotation toolbar greys these out while `Planet.None` is the reference system.
+    let needsReferenceBody (geometry : Geometry) =
+        match geometry with
+        | Geometry.DnS | Geometry.TT
+        | Geometry.Ellipse | Geometry.AxisEllipse | Geometry.Axis4PEllipse -> true
         | _ -> false
 
 type Semantic = 
@@ -596,7 +627,7 @@ with
                 key              = key           |> Guid.Parse
                 modelTrafo       = modelTrafo    |> Trafo3d.Parse        
                 geometry         = geometry      |> enum<Geometry>
-                projection       = projection    |> enum<Projection>
+                projection       = projection    |> Projection.ofInt
                 semantic         = semantic      |> enum<Semantic>
                 points           = points        |> Serialization.jsonSerializer.UnPickleOfString
                 segments         = segments      |> Serialization.jsonSerializer.UnPickleOfString
@@ -663,7 +694,7 @@ with
                 key              = key           |> Guid.Parse
                 modelTrafo       = modelTrafo    |> Trafo3d.Parse        
                 geometry         = geometry      |> enum<Geometry>
-                projection       = projection    |> enum<Projection>
+                projection       = projection    |> Projection.ofInt
                 semantic         = semantic      |> enum<Semantic>
                 points           = points        |> Serialization.jsonSerializer.UnPickleOfString
                 segments         = segments      |> Serialization.jsonSerializer.UnPickleOfString
@@ -730,7 +761,7 @@ with
                 key              = key           |> Guid.Parse
                 modelTrafo       = modelTrafo    |> Trafo3d.Parse        
                 geometry         = geometry      |> enum<Geometry>
-                projection       = projection    |> enum<Projection>
+                projection       = projection    |> Projection.ofInt
                 semantic         = semantic      |> enum<Semantic>
                 points           = points        |> IndexList.ofList
                 segments         = segments      |> IndexList.ofList
@@ -800,7 +831,7 @@ with
                 key              = key           |> Guid.Parse
                 modelTrafo       = modelTrafo    |> Trafo3d.Parse        
                 geometry         = geometry      |> enum<Geometry>
-                projection       = projection    |> enum<Projection>
+                projection       = projection    |> Projection.ofInt
                 semantic         = semantic      |> enum<Semantic>
                 points           = points        |> IndexList.ofList
                 segments         = segments      |> IndexList.ofList
@@ -871,7 +902,7 @@ with
                 key              = key           |> Guid.Parse
                 modelTrafo       = modelTrafo    |> Trafo3d.Parse        
                 geometry         = geometry      |> enum<Geometry>
-                projection       = projection    |> enum<Projection>
+                projection       = projection    |> Projection.ofInt
                 semantic         = semantic      |> enum<Semantic>
                 points           = points        |> IndexList.ofList
                 segments         = segments      |> IndexList.ofList
@@ -957,7 +988,7 @@ with
                 key              = key           |> Guid.Parse
                 modelTrafo       = modelTrafo    |> Trafo3d.Parse
                 geometry         = geometry      |> enum<Geometry>
-                projection       = projection    |> enum<Projection>
+                projection       = projection    |> Projection.ofInt
                 semantic         = semantic      |> enum<Semantic>
                 points           = points        |> IndexList.ofList
                 segments         = segments      |> IndexList.ofList

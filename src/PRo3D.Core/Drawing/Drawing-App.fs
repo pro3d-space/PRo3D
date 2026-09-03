@@ -160,7 +160,7 @@ module DrawingApp =
         let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
-        | Projection.Viewpoint | Projection.Sky | Projection.Bookmark ->     
+        | Projection.Viewpoint | Projection.Sky ->
             let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList [firstP;lastP] }
 
             if PRo3D.Config.useAsyncIntersections then
@@ -200,36 +200,45 @@ module DrawingApp =
 
             let w = { w with dnsResults = dns }
 
-            let w = 
+            let wOpt =
                 match w.geometry, sampleSurface with
                 | Geometry.AxisEllipse, Some sampleSurface
-                | Geometry.Axis4PEllipse, Some sampleSurface -> 
+                | Geometry.Axis4PEllipse, Some sampleSurface ->
                     let geo = false
                     if geo then
                         match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
-                        | Some (ellipses, sampledPoints) -> 
+                        | Some (ellipses, sampledPoints) ->
                             let points = IndexList.ofArray sampledPoints
-                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
-                        | _ -> 
-                            w
+                            Some { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
+                        | _ ->
+                            Some w
                     else
                         match dns with
-                        | None -> w
-                        | Some dns -> 
+                        | None -> Some w
+                        | Some dns ->
                             match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
-                            | Some r -> 
+                            | Some r when r.surfaceProjectedEllipsePoints.Length >= 3 ->
                                 let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
                                 let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
-                                { w with points = points; ellipticResults = None }
-                            | _ -> 
-                                w
-                        
-                | _ -> 
-                    w
+                                Some { w with points = points; ellipticResults = None }
+                            | Some r ->
+                                // the ellipse outline could not be draped onto the surface (e.g. the
+                                // reference system has no body, so the Sky projection has no valid
+                                // scale). An annotation built from < 3 points is degenerate and would
+                                // crash result calculation, so drop it with a warning.
+                                Log.warn "[Drawing] ellipse outline could not be projected onto the surface (%d sampled points); annotation discarded" r.surfaceProjectedEllipsePoints.Length
+                                None
+                            | None ->
+                                Some w
 
-            let results = Calculations.calculateAnnotationResults w up north planet
+                | _ ->
+                    Some w
 
-            Some { w with results = Some results; view = view; }
+            match wOpt with
+            | None -> None
+            | Some w ->
+                let results = Calculations.calculateAnnotationResults w up north planet
+                Some { w with results = Some results; view = view; }
         | None -> None
 
     let finishAndAppend up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel)  = 
@@ -261,7 +270,7 @@ module DrawingApp =
                 //fetch current drawing segment (projected, polyline or polygon)
                 let result = 
                     match w.projection with
-                    | Projection.Viewpoint | Projection.Sky | Projection.Bookmark when allowSegmentGeneration ->                     
+                    | Projection.Viewpoint | Projection.Sky when allowSegmentGeneration ->
                         match IndexList.tryAt (IndexList.count w.points-1) w.points with
                         | None -> 
                             annotation, None
@@ -587,18 +596,25 @@ module DrawingApp =
 
                 {model with semantic = mode }
             | SetGeometry mode, _, _ ->
-                let projection = 
-                    match mode with
-                    | Geometry.AxisEllipse
-                    | Geometry.Axis4PEllipse -> 
-                        Projection.Sky
-                    // every other tool uses linear as default. TODO: if switching back to default is an UX problem, 
-                    // we need to store the user-set projection mode and reset it if needed.
-                    | _ -> Projection.Linear
+                // keep the current projection if the new geometry supports it, otherwise
+                // fall back to that geometry's first allowed projection.
+                let allowed = Geometry.allowedProjections mode
+                let projection =
+                    if allowed |> List.contains model.projection then model.projection
+                    else
+                        match allowed with
+                        | p :: _ -> p
+                        | []     -> model.projection
 
                 { model with geometry = mode; projection = projection; }
             | SetProjection mode, _, _ ->
-                { model with projection = mode }                  
+                // the dropdown greys out projections the current geometry cannot use;
+                // ignore them here too in case the message arrives another way.
+                if Geometry.allowedProjections model.geometry |> List.contains mode then
+                    { model with projection = mode }
+                else
+                    model
+
             | ChangeThickness th, _, _ ->
                 { model with thickness = Numeric.update model.thickness th }
             | SetFillNewAnnotations b, _, _ ->

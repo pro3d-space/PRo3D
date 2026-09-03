@@ -67,7 +67,7 @@ The moved point is written into the annotation, and then:
 - **Annotations that carry no segments keep none.** Every tool except the two ellipse ones defaults
   to `Projection.Linear`, which draws straight lines between points and generates no terrain
   samples at all. An edit does not silently promote such an annotation to a terrain-following one —
-  it keeps the shape it was drawn with. (Set the projection to Viewpoint, Sky or Bookmark *before*
+  it keeps the shape it was drawn with. (Set the projection to Viewpoint or Sky *before*
   drawing to get terrain-following segments.)
 - **Measurements are recomputed** — length, area, height, dip and strike.
 - **One undo entry is pushed** for the whole drop.

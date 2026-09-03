@@ -1800,18 +1800,26 @@ module ViewerApp =
             let m = 
                 match a with
                 | ReferenceSystemAction.SetPlanet planet ->
-                    let flat' = 
-                        m.scene.surfacesModel.surfaces.flat 
-                        |> HashMap.map (fun k v -> 
+                    let flat' =
+                        m.scene.surfacesModel.surfaces.flat
+                        |> HashMap.map (fun k v ->
                             let s = Leaf.toSurface v
-                            let sgSurface = m.scene.surfacesModel.sgSurfaces |> HashMap.find k 
+                            let sgSurface = m.scene.surfacesModel.sgSurfaces |> HashMap.find k
                             let bbCenter = sgSurface.globalBB.Center
-                            Leaf.Surfaces { 
-                                s with transformation = 
-                                            (TransformationApp.update s.transformation TransformationApp.Action.UpdatePlanetInLocalRefSys m.scene.referenceSystem bbCenter) 
+                            Leaf.Surfaces {
+                                s with transformation =
+                                            (TransformationApp.update s.transformation TransformationApp.Action.UpdatePlanetInLocalRefSys m.scene.referenceSystem bbCenter)
                                 }
                             )
-                    { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = flat' }}}}
+                    let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = flat' }}}}
+                    // the annotation toolbar greys out geometries that need a real reference body
+                    // (DnS/TT/ellipses) while Planet.None is selected; drop an active one back to
+                    // Line so the drawing tool never sits on a disabled - and for ellipses crashing
+                    // - geometry. Line allows every projection, so projection is left untouched.
+                    if planet = Planet.None && Geometry.needsReferenceBody m.drawing.geometry then
+                        { m with drawing = { m.drawing with geometry = Geometry.Line } }
+                    else
+                        m
                 |_ -> m
 
             //changing the reference system also requires adaptation of angular measurement values
