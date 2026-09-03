@@ -253,7 +253,7 @@ module Navigation =
 
         let viewNavigationModes  (planet : aval<Planet>) (model : AdaptiveNavigationModel) =
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large location arrow icon"] [] ]                
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Navigation:"] ]                
                 Html.Layout.boxH [ Incremental.div (AttributeMap.empty) (
                     alist {
                         let navMode = model.navigationMode

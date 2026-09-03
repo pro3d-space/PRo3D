@@ -332,6 +332,50 @@ module Gui =
             ]                              
         ]
 
+    /// Accent colour per tool group. Single source of truth for the tool strip's icon
+    /// colours (Gui.ToolStrip) and the selected-tool label on the secondary toolbar
+    /// row - the label is tinted with the active tool's colour so the row visibly
+    /// belongs to whichever icon is lit in the strip.
+    module ToolColors =
+        // Held as (r, g, b) rather than a hex string so the same definition yields both
+        // the solid chip colour and a toned down translucent wash of it.
+        let navigation = (0x4a, 0xa3, 0xff)   // blue
+        let annotation = (0x3f, 0xb9, 0x50)   // green
+        let selection  = (0xe3, 0xb3, 0x41)   // amber
+        let placement  = (0xb0, 0x83, 0xf0)   // violet
+        let reference  = (0x4f, 0xd1, 0xc5)   // teal
+        /// interactions that are hidden from the UI and so belong to no group
+        let neutral    = (0xcc, 0xcc, 0xcc)
+
+        let hex ((r, g, b) : int * int * int) = sprintf "#%02x%02x%02x" r g b
+
+        /// Translucent version of a group colour. `alpha` is a CSS literal passed through
+        /// verbatim - formatting a float here would emit a decimal comma under a German
+        /// locale and silently void the declaration.
+        let rgba (alpha : string) ((r, g, b) : int * int * int) =
+            sprintf "rgba(%d, %d, %d, %s)" r g b alpha
+
+        /// Group an interaction belongs to, expressed as its colour. This is also what
+        /// defines the grouping drawn in the tool strip, so an interaction added to a
+        /// group here must be added to the matching block of `ToolStrip.view` too.
+        let ofInteraction (i : Interactions) =
+            match i with
+            | Interactions.DrawAnnotation
+            | Interactions.PickAnnotation
+            | Interactions.CutAnnotation
+            | Interactions.EditAnnotation           -> annotation
+            | Interactions.PickSurface
+            | Interactions.SelectArea               -> selection
+            | Interactions.PlaceRover
+            | Interactions.PickDistancePoint
+            | Interactions.PlaceSceneObject
+            | Interactions.PlaceScaleBar
+            | Interactions.PickPivotPoint           -> placement
+            | Interactions.PlaceCoordinateSystem
+            | Interactions.PickSurfaceRefSys
+            | Interactions.PickExploreCenter        -> reference
+            | _                                     -> neutral
+
     module TopMenu =                       
 
         let jsImportOPCDialog =
@@ -880,31 +924,41 @@ module Gui =
             | Interactions.PickPivotPoint        -> ""
             | _ -> ""
 
+        /// Display name of the selected tool, shown as the secondary-toolbar chip. Covers
+        /// exactly the interactions reachable from the tool strip (`Gui.ToolStrip.view`);
+        /// hidden interactions fall back to the generic label.
+        let interactionName (i : Interactions) : string =
+            match i with
+            | Interactions.DrawAnnotation        -> "Draw Annotation"
+            | Interactions.PickAnnotation        -> "Select Annotation"
+            | Interactions.CutAnnotation         -> "Cut Annotation"
+            | Interactions.EditAnnotation        -> "Edit Annotation"
+            | Interactions.PickSurface           -> "Select Surface"
+            | Interactions.SelectArea            -> "Select Area"
+            | Interactions.PlaceRover            -> "Place Rover"
+            | Interactions.PickDistancePoint     -> "Place Distance Point"
+            | Interactions.PlaceSceneObject      -> "Place Scene Object"
+            | Interactions.PlaceScaleBar         -> "Place Scalebar"
+            | Interactions.PickPivotPoint        -> "Pick Pivot Point"
+            | Interactions.PlaceCoordinateSystem -> "Place Coordinate System"
+            | Interactions.PickSurfaceRefSys     -> "Pick Surface Reference System"
+            | Interactions.PickExploreCenter     -> "Pick Explore Center"
+            | _                                  -> "Tool Settings"
+
         let invertDrawingTooltip =
             "Invert drawing: swap the Ctrl modifier - pick and draw without Ctrl, hold Ctrl to navigate."
 
         let topMenuItems (model : AdaptiveModel) = [
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
-            Navigation.UI.viewNavigationModes model.scene.referenceSystem.planet model.navigation |> UI.map NavigationMessage
 
-            // Interaction selector + ctrl-click hint. The mode-specific tool
-            // controls (annotation geometry, rover selector, etc.) live on the
-            // secondary toolbar row below so the planet selector and scene
-            // path stay visible on the main row at every window width.
-            Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
-                Html.Layout.boxH [
-                    div [style "font-style:italic"] [
-                        Incremental.text (
-                            (model.interaction, model.drawing.vertexGrab |> AVal.map Option.isSome)
-                            ||> AVal.map2 interactionTextWithState)
-                    ]]
-            ]
+            // The navigation-mode and interaction selectors live in the vertical tool
+            // strip overlaid on the right edge of the render view (Gui.ToolStrip), and
+            // the ctrl-click hint for the selected tool sits at the far end of the
+            // secondary toolbar row - see `secondaryToolbarRow` below.
 
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Ref.System:"] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ]
 
@@ -912,13 +966,9 @@ module Gui =
             // interaction-mode switch like the two items above, so it lives on the main row
             // rather than in the Annotations dock page.
             Html.Layout.horizontal [
-                Html.Layout.boxH [ GuiEx.iconToggle model.inverseFlag "toggle on icon" "toggle off icon" ViewerAction.InvertDrawing ]
-                Html.Layout.boxH [ text "Invert Drawing" ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Invert Drawing:"] ]
+                Html.Layout.boxH [ GuiEx.iconCheckBox model.inverseFlag ViewerAction.InvertDrawing ]
             ] |> UI.wrapToolTip DataPosition.Bottom invertDrawingTooltip
-
-            Html.Layout.horizontal [
-                scenepath model
-            ]
         ]
 
         // The secondary toolbar is always rendered (even when the active
@@ -926,23 +976,204 @@ module Gui =
         // when switching tools. `dynamicTopMenu` returns an empty div for
         // interactions without a secondary toolbar; the row height stays
         // stable thanks to the wrapping `.ui.menu`'s min-height.
+
+        // Interactions that actually contribute controls to the secondary
+        // toolbar row (i.e. `dynamicTopMenu` returns something non-empty).
+        let private hasSecondaryTools (i : Interactions) =
+            match i with
+            | Interactions.DrawAnnotation
+            | Interactions.PlaceRover
+            | Interactions.PlaceCoordinateSystem
+            | Interactions.PickAnnotation
+            | Interactions.PlaceScaleBar
+            | Interactions.PickPivotPoint -> true
+            | _ -> false
+
         let secondaryToolbarRow (m : AdaptiveModel) =
-            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0; border:0"] [
-                div [clazz "item topmenu"] [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
+            // When the row carries no controls we drop the semantic-ui `item` class so
+            // its trailing vertical divider (`:before`) is not left as a
+            // stray tick; the row keeps its height via `.pro3d-topbar .ui.menu`.
+            let itemAttribs =
+                amap {
+                    let! interaction = m.interaction
+                    if hasSecondaryTools interaction
+                    then yield clazz "item topmenu"
+                    else yield clazz "topmenu pro3d-toolbar-empty"
+                } |> AttributeMap.ofAMap
+
+            // Row label: a white-on-colour chip in the active tool's group colour, showing
+            // the selected tool's name, so the row reads as belonging to whichever icon is
+            // lit in the tool strip.
+            let label =
+                let attribs =
+                    amap {
+                        let! interaction = m.interaction
+                        yield clazz "pro3d-toolsettings-chip"
+                        yield style (sprintf "background:%s"
+                                             (ToolColors.hex (ToolColors.ofInteraction interaction)))
+                    } |> AttributeMap.ofAMap
+                div [clazz "item topmenu pro3d-toolsettings-label"] [
+                    Incremental.div attribs (AList.ofList [
+                        Incremental.text (m.interaction |> AVal.map interactionName) ])
                 ]
+
+            // Ctrl-click hint for the selected tool, flowing straight on after that tool's
+            // settings. It is prose about the tool the strip has selected, so it belongs
+            // with the tool's settings rather than on the main row.
+            let hint =
+                div [clazz "item topmenu"; style "font-style:italic"] [
+                    Incremental.text (
+                        (m.interaction, m.drawing.vertexGrab |> AVal.map Option.isSome)
+                        ||> AVal.map2 interactionTextWithState)
+                ]
+
+            // The row itself is untinted. To wash it in a toned down version of the active
+            // tool's colour instead, make these attributes incremental and add
+            //   background: ToolColors.rgba "0.16" (ToolColors.ofInteraction interaction)
+            // (`ToolColors.rgba` is kept around for exactly that).
+            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0"] [
+                label
+                Incremental.div itemAttribs (AList.ofAValSingle (dynamicTopMenu m))
+                hint
             ]
 
         let getTopMenu (m:AdaptiveModel) =
             div [clazz "pro3d-topbar"] [
-                div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
+                div [clazz "ui menu"; style "padding:0; margin:0"] [
                     yield (menu m)
                     for t in (topMenuItems m) do
                         yield div [clazz "item topmenu"] [t]
+                    // scene name pinned to the right edge of the main row
+                    // (`margin-left:auto` on the flex `.ui.menu`)
+                    yield div [clazz "item topmenu"; style "margin-left:auto"] [
+                        Html.Layout.horizontal [ scenepath m ]
+                    ]
                 ]
                 secondaryToolbarRow m
             ]
         
+    /// Vertical icon strip overlaid on the right edge of the main render view. It replaces the
+    /// navigation-mode and interaction dropdowns that used to live in the top menu.
+    ///
+    /// Both selections are enum-valued model fields (`navigation.navigationMode` and
+    /// `interaction`), so "nothing selected" is not representable: exactly one navigation icon
+    /// and exactly one tool icon is highlighted at all times. The groups below therefore cover
+    /// every interaction the old dropdown offered, i.e. every `Interactions` case NOT in
+    /// `Interactions.hideSet` - keep the two in sync when un-hiding an interaction, otherwise
+    /// that interaction becomes unreachable and (if selected via F-key) shows no active icon.
+    module ToolStrip =
+
+        /// One strip button. `isEnabled` is only ever false for MapView without a reference
+        /// body; a disabled button dispatches nothing so the model cannot enter that state.
+        let private button
+            (color     : string)
+            (icon      : string)
+            (isActive  : aval<bool>)
+            (isEnabled : aval<bool>)
+            (tooltip   : string)
+            (action    : 'msg) =
+
+            let attribs =
+                amap {
+                    let! active  = isActive
+                    let! enabled = isEnabled
+                    // active and disabled are independent: MapView can be the current mode
+                    // while the scene has no reference body, and it must still read as the
+                    // one active navigation icon - just greyed out.
+                    let cls =
+                        (if active then "pro3d-tool active" else "pro3d-tool")
+                        + (if enabled then "" else " disabled")
+                    yield clazz cls
+                    yield style (sprintf "--tool-color:%s" color)
+                    if enabled then
+                        yield onClick (fun _ -> action)
+                } |> AttributeMap.ofAMap
+
+            Incremental.div attribs (AList.ofList [ i [clazz (icon + " icon")] [] ])
+            |> UI.wrapToolTip DataPosition.Left tooltip
+
+        let private navButton (icon : string) (tooltip : string) (mode : NavigationMode)
+                              (current : aval<NavigationMode>) (isEnabled : aval<bool>) =
+            button (ToolColors.hex ToolColors.navigation) icon
+                   (current |> AVal.map (fun x -> x = mode))
+                   isEnabled
+                   tooltip
+                   (NavigationMessage (Navigation.Action.SetNavigationMode mode))
+
+        /// The colour is looked up rather than passed in, so `ToolColors.ofInteraction`
+        /// stays the one place that says which group a tool belongs to.
+        let private toolButton (icon : string) (tooltip : string)
+                               (interaction : Interactions) (current : aval<Interactions>) =
+            button (ToolColors.hex (ToolColors.ofInteraction interaction)) icon
+                   (current |> AVal.map (fun x -> x = interaction))
+                   (AVal.constant true)
+                   tooltip
+                   (SetInteraction interaction)
+
+        let private divider = div [clazz "pro3d-tool-divider"] []
+
+        let view (m : AdaptiveModel) : DomNode<ViewerAction> =
+            let navMode     = m.navigation.navigationMode
+            let interaction = m.interaction
+
+            // MapView orients to the planet centre with up = north, so it needs a reference
+            // body. Same rule the old dropdown applied via `dropDownDisabled`.
+            let mapViewEnabled =
+                m.scene.referenceSystem.planet |> AVal.map (fun p -> p <> Planet.None)
+
+            let tool icon tooltip i = toolButton icon tooltip i interaction
+
+            // Clicks must not reach the render body underneath: it starts a camera drag /
+            // selection rectangle on mousedown and opens the context menu on right click.
+            // Navigation and tools sit in two separate panels with a small gap, so the
+            // blue navigation group reads as distinct from the interaction tools. Both
+            // panels share the button width and padding, so the icon columns line up.
+            onBoot "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });" (
+                div [clazz "pro3d-toolstrip"] [
+                  // --- navigation panel --------------------------------------------------
+                  div [clazz "pro3d-toolstrip-group"] [
+                    navButton "rocket" "Free fly - move the camera freely"
+                              NavigationMode.FreeFly navMode (AVal.constant true)
+                    // trailing ◎ echoes the bullseye "Pick ArcBall orbit centre" tool
+                    navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point  ◎"
+                              NavigationMode.ArcBall navMode (AVal.constant true)
+                    navButton "map" "Map view - top down, up is north, speed scales with altitude (needs a planet)"
+                              NavigationMode.MapView navMode mapViewEnabled
+                  ]
+
+                  // --- tool panel ------------------------------------------------------
+                  div [clazz "pro3d-toolstrip-group"] [
+                    // --- annotations ------------------------------------------------------
+                    tool "pencil"        "Draw annotation" Interactions.DrawAnnotation
+                    tool "mouse pointer" "Select annotation" Interactions.PickAnnotation
+                    tool "cut"           "Cut annotation - draw a stroke that cuts the selected annotation" Interactions.CutAnnotation
+                    tool "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
+
+                    divider
+
+                    // --- selection --------------------------------------------------------
+                    tool "mouse pointer" "Select surface" Interactions.PickSurface
+                    tool "crop"  "Select area - drag a rectangle to multi-select" Interactions.SelectArea
+
+                    divider
+
+                    // --- placement --------------------------------------------------------
+                    tool "pro3d-tire" "Place rover" Interactions.PlaceRover
+                    tool "marker"   "Place distance point for the selected view plan" Interactions.PickDistancePoint
+                    tool "cube"     "Place scene object" Interactions.PlaceSceneObject
+                    tool "ruler" "Place scale bar" Interactions.PlaceScaleBar
+                    tool "anchor"   "Pick pivot point for placing / transforming" Interactions.PickPivotPoint
+
+                    divider
+
+                    // --- reference systems & camera ---------------------------------------
+                    tool "crosshairs" "Place coordinate cross" Interactions.PlaceCoordinateSystem
+                    tool "compass"    "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
+                    tool "bullseye"   "Pick the ArcBall orbit centre" Interactions.PickExploreCenter
+                  ]
+                ]
+            )
+
     module Annotations =
       
         let viewAnnotationProperties (model : AdaptiveModel) =
@@ -1532,6 +1763,8 @@ module Gui =
                                 yield scalarsColorLegend m
                                 yield projectedColorLegend m
                                 yield selectionRectangle m
+                                // navigation + interaction selector, overlaid on the right edge
+                                yield ToolStrip.view m |> UI.map ViewerMessage
                                 //yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
                                 //                                                           |> UI.map ViewerMessage
                             }

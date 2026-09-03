@@ -29,8 +29,79 @@
 } */
 
 .dockingMainDings {
-  /* main top-menu (40px) + always-present secondary toolbar row (40px) */
-  height: calc(100% - 80px);
+  /* main top-menu (34px) + always-present secondary toolbar row (34px) */
+  height: calc(100% - 68px);
+}
+
+/* Slim down both toolbar rows (default .ui.menu min-height is ~40px) and
+   give each row a horizontal separator in the same colour Semantic uses
+   for the vertical item dividers (.ui.menu .item:before -> rgba(34,36,38,.1)). */
+.pro3d-topbar .ui.menu {
+    min-height: 34px;
+    border: 0;
+    border-bottom: 1px solid rgba(34, 36, 38, 0.1);
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.pro3d-topbar .ui.menu .item,
+.pro3d-topbar .ui.menu .item.topmenu,
+.pro3d-topbar .ui.menu .pro3d-toolbar-empty {
+    min-height: 34px;
+}
+
+/* Indent the secondary toolbar so its leading item starts past the hamburger menu
+   button of the main row, lining its first character up with "Mode" above. Only the
+   leading item is indented - the tool controls and the trailing ctrl-click hint
+   follow it normally. */
+.ui.menu.pro3d-secondary-toolbar > .topmenu:first-child {
+    padding-left: 40px;
+}
+
+/* The row is one logical group (label, the active tool's settings, hint), so the
+   per-item vertical dividers semantic draws would just be noise here. */
+.ui.menu.pro3d-secondary-toolbar > .item:before {
+    display: none;
+}
+
+/* Breathing room between "Tool Settings" and the controls it labels, and stretching
+   instead of the flex-centring semantic applies to every menu item, so the chip inside
+   can run the full height of the row. `.ui.menu:not(.vertical) .item` sets that
+   centring at 4 classes' worth of specificity, hence the long selector here. */
+.ui.menu.pro3d-secondary-toolbar > .item.topmenu.pro3d-toolsettings-label {
+    padding-right: 10px;
+    align-self: stretch;
+    display: flex;
+    align-items: stretch;
+}
+
+/* The label itself: white on a chip in the active tool's group colour, as tall as the
+   row with no gap above or below. It starts where the item's indent puts it, i.e. past
+   the hamburger menu button. The colour is set inline from F# (Gui.ToolColors); only
+   the shape lives here. */
+.pro3d-toolsettings-chip {
+    display: flex;
+    align-items: center;
+    color: #ffffff;
+    font-weight: bold;
+    padding: 0 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+/* The tool controls come from Html.Layout.horizontal, i.e. a `ui table inverted
+   segment`, and semantic gives that a white table background, a dark inverted-segment
+   background, a border and a 1em margin - all of which fight the tinted row. (The
+   inline `backgroundColor: transparent` on that table is not a valid CSS property
+   name, so it never applied.) Reduce it to bare layout, in this row only. */
+.ui.menu.pro3d-secondary-toolbar table.ui.table,
+.ui.menu.pro3d-secondary-toolbar table.ui.table td {
+    background: transparent;
+    color: inherit;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    border-radius: 0;
 }
 
 div.title {
@@ -121,3 +192,115 @@ div.fullwidth.textcontainer > input {
     overflow-y : auto;    
     max-height: 30%    
 }*/
+
+/* ---------------------------------------------------------------------------
+   Tool strip: the vertical icon rail overlaid on the right edge of the main
+   render view. It replaces the navigation- and interaction dropdowns that used
+   to sit in the top menu. Each group carries its own accent colour, passed in
+   from F# as the --tool-color custom property on the button.
+   --------------------------------------------------------------------------- */
+/* Outer rail: positions the strip and stacks the panels with a small gap. The
+   panel chrome (background, border) lives on .pro3d-toolstrip-group so the
+   navigation group reads as visually separate from the tools. */
+.pro3d-toolstrip {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    z-index: 1000;
+    /* the render body sets pointer-events off for its other overlays */
+    pointer-events: auto;
+    user-select: none;
+    /* 17 buttons + 3 dividers + the panel gap is ~590px tall; scroll rather than
+       overflow the view when the render dock is short (small window, tall dock). */
+    max-height: calc(100% - 20px);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* One panel. Both panels share button width and padding, so the icon columns of
+   the navigation and tool groups line up. */
+.pro3d-toolstrip-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 5px;
+    border-radius: 8px;
+    background: rgba(24, 25, 27, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.pro3d-toolstrip .pro3d-tool {
+    width: 30px;
+    height: 30px;
+    margin: 1px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0.7;
+    color: var(--tool-color, #cccccc);
+}
+
+/* Fomantic gives i.icon a fixed 1.18em box plus side margins - both fight the
+   30px flex square, so they are reset here rather than per icon. */
+.pro3d-toolstrip .pro3d-tool i.icon {
+    margin: 0;
+    width: auto;
+    height: auto;
+    font-size: 15px;
+    line-height: 1;
+}
+
+/* Custom glyphs that Fomantic's icon font does not carry. The SVG is painted
+   through a CSS mask with `background-color: currentColor`, so it inherits
+   --tool-color and the active-chip knockout exactly like the font icons.
+   Fill is white so the mask reads the same under alpha- and luminance-mode.
+   pro3d-tire: Phosphor "tire" (https://phosphoricons.com), MIT-licensed. */
+.pro3d-toolstrip .pro3d-tool i.icon.pro3d-tire {
+    width: 16px;
+    height: 16px;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20fill='white'%20viewBox='0%200%20256%20256'%3E%3Cpath%20d='M149.26,159.26C155.09,173.82,163.5,176,168,176s12.91-2.18,18.74-16.74c3.39-8.48,5.26-19.58,5.26-31.26s-1.87-22.78-5.26-31.26C180.91,82.18,172.5,80,168,80s-12.91,2.18-18.74,16.74C145.87,105.22,144,116.32,144,128S145.87,150.78,149.26,159.26ZM168,96.2c2.62,2.06,8,13,8,31.8s-5.38,29.74-8,31.8c-2.62-2.06-8-13-8-31.8S165.38,98.26,168,96.2ZM232,216H196.41C213.12,197.73,224,165.47,224,128c0-58.32-26.35-104-60-104H92C58.35,24,32,69.68,32,128S58.35,232,92,232H232a8,8,0,0,0,0-16ZM193.74,63.93C202.93,80.91,208,103.67,208,128s-5.07,47.09-14.26,64.07C185.38,207.5,174.82,216,164,216s-21.38-8.5-29.74-23.93C125.07,175.09,120,152.33,120,128s5.07-47.09,14.26-64.07C142.62,48.5,153.18,40,164,40S185.38,48.5,193.74,63.93ZM48,128c0-2.5.07-5,.17-7.44L80,97.83l24.43,17.45c-.28,4.16-.43,8.41-.43,12.72a179.89,179.89,0,0,0,3.07,33.5l-22.42-16a8,8,0,0,0-9.3,0l-23.74,17A161,161,0,0,1,48,128ZM62.26,63.93C70.62,48.5,81.18,40,92,40h39.59c-11.9,13-20.84,33.12-25,57.16L84.65,81.49a8,8,0,0,0-9.3,0L50.49,99.25C52.85,86,56.83,74,62.26,63.93Zm0,128.14a100.08,100.08,0,0,1-5.94-13.32L80,161.83l33.94,24.24c4.6,12,10.6,22.22,17.65,29.93H92C81.18,216,70.62,207.5,62.26,192.07Z'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20fill='white'%20viewBox='0%200%20256%20256'%3E%3Cpath%20d='M149.26,159.26C155.09,173.82,163.5,176,168,176s12.91-2.18,18.74-16.74c3.39-8.48,5.26-19.58,5.26-31.26s-1.87-22.78-5.26-31.26C180.91,82.18,172.5,80,168,80s-12.91,2.18-18.74,16.74C145.87,105.22,144,116.32,144,128S145.87,150.78,149.26,159.26ZM168,96.2c2.62,2.06,8,13,8,31.8s-5.38,29.74-8,31.8c-2.62-2.06-8-13-8-31.8S165.38,98.26,168,96.2ZM232,216H196.41C213.12,197.73,224,165.47,224,128c0-58.32-26.35-104-60-104H92C58.35,24,32,69.68,32,128S58.35,232,92,232H232a8,8,0,0,0,0-16ZM193.74,63.93C202.93,80.91,208,103.67,208,128s-5.07,47.09-14.26,64.07C185.38,207.5,174.82,216,164,216s-21.38-8.5-29.74-23.93C125.07,175.09,120,152.33,120,128s5.07-47.09,14.26-64.07C142.62,48.5,153.18,40,164,40S185.38,48.5,193.74,63.93ZM48,128c0-2.5.07-5,.17-7.44L80,97.83l24.43,17.45c-.28,4.16-.43,8.41-.43,12.72a179.89,179.89,0,0,0,3.07,33.5l-22.42-16a8,8,0,0,0-9.3,0l-23.74,17A161,161,0,0,1,48,128ZM62.26,63.93C70.62,48.5,81.18,40,92,40h39.59c-11.9,13-20.84,33.12-25,57.16L84.65,81.49a8,8,0,0,0-9.3,0L50.49,99.25C52.85,86,56.83,74,62.26,63.93Zm0,128.14a100.08,100.08,0,0,1-5.94-13.32L80,161.83l33.94,24.24c4.6,12,10.6,22.22,17.65,29.93H92C81.18,216,70.62,207.5,62.26,192.07Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.pro3d-toolstrip .pro3d-tool:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.10);
+}
+
+/* Active = filled chip in the group colour, icon knocked out in the render
+   background colour. Exactly one navigation and one tool button is active. */
+.pro3d-toolstrip .pro3d-tool.active {
+    opacity: 1;
+    color: #1B1C1E;
+    background: var(--tool-color, #888888);
+}
+
+.pro3d-toolstrip .pro3d-tool.disabled,
+.pro3d-toolstrip .pro3d-tool.disabled:hover {
+    opacity: 0.25;
+    cursor: default;
+    background: none;
+}
+
+/* A disabled button can still be the active one (MapView while the scene has no
+   reference body) - keep the chip so the "exactly one active" reading holds. */
+.pro3d-toolstrip .pro3d-tool.active.disabled,
+.pro3d-toolstrip .pro3d-tool.active.disabled:hover {
+    background: var(--tool-color, #888888);
+    opacity: 0.4;
+}
+
+.pro3d-toolstrip .pro3d-tool-divider {
+    width: 20px;
+    height: 1px;
+    margin: 5px 0;
+    background: rgba(255, 255, 255, 0.18);
+}

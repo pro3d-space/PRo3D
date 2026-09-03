@@ -13,7 +13,7 @@ removing points build on the same machinery and are not implemented yet — see
 
 ## Using it
 
-1. Choose **Edit Annotation** in the interaction dropdown in the top toolbar.
+1. Choose **Edit Annotation** (the green move icon) in the [tool strip](ToolStrip.md) on the right edge of the main view.
 2. Select an annotation — Ctrl+click it in the 3D view, or pick it in the annotation tree. Its
    control points appear as white discs.
 3. **Ctrl+click a handle** to pick it up. It turns green, and a green line runs from the cursor to
@@ -25,7 +25,7 @@ removing points build on the same machinery and are not implemented yet — see
 **Escape** at any time puts a picked-up point back where it was. **Ctrl+Z** undoes a completed
 move.
 
-The hint line beside the interaction dropdown says which of the two states you are in.
+The hint line at the right of the Tool Settings row says which of the two states you are in.
 
 ### Notes
 

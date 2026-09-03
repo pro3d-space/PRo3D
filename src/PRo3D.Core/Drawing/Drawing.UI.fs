@@ -83,19 +83,19 @@ module UI =
         let fillAlphaTooltip = "Fill opacity for new annotations, 0 to 1"
 
         Html.Layout.horizontal [
-            Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
+            Html.Layout.boxH [ div [style "font-weight:bold"] [text "Annotation:"] ]
             // Axis4PEllipse is hidden from the selector for now — the geometry itself and its
             // update/rendering path stay intact, so existing annotations still load and draw.
             Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse; Geometry.Axis4PEllipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
             Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
             // annotation color now comes from the active group's default color, so the tool-level color picker was removed
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
-            Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
+            Html.Layout.boxH [ div [style "font-weight:bold"] [text "Sampling:"] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
             Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
             // no fill colour here on purpose - it follows the active group's default colour, the
             // same single source the outline colour uses (see the note above)
-            Html.Layout.boxH [ i [clazz "large tint icon"] [] ]
+            Html.Layout.boxH [ div [style "font-weight:bold"] [text "Fill/Alpha:"] ]
             Html.Layout.boxH [ GuiEx.iconCheckBoxSet model.fillNewAnnotations SetFillNewAnnotations ] |> UI.wrapToolTip DataPosition.Bottom fillTooltip
             Html.Layout.boxH [ Numeric.view' [InputBox] model.defaultFillAlpha |> UI.map ChangeDefaultFillAlpha ] |> UI.wrapToolTip DataPosition.Bottom fillAlphaTooltip
         //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]

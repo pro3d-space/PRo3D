@@ -1781,7 +1781,7 @@ module ViewPlanApp =
 
         let viewSelectRover (m : AdaptiveRoverModel) : DomNode<RoverApp.Action> =
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Rocket icon"] [] ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Rover:"] ]
                 Html.Layout.boxH [ 
                     UI.dropDown'' 
                         (RoverApp.roversList m)  
