@@ -82,23 +82,58 @@ module UI =
         let fillTooltip = "Fill new annotations. Closed geometries only; uses the group colour"
         let fillAlphaTooltip = "Fill opacity for new annotations, 0 to 1"
 
-        Html.Layout.horizontal [
-            Html.Layout.boxH [ div [style "font-weight:bold"] [text "Annotation:"] ]
-            // Axis4PEllipse is hidden from the selector for now — the geometry itself and its
-            // update/rendering path stay intact, so existing annotations still load and draw.
-            Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse; Geometry.Axis4PEllipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
-            Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
-            // annotation color now comes from the active group's default color, so the tool-level color picker was removed
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
-            Html.Layout.boxH [ div [style "font-weight:bold"] [text "Sampling:"] ]
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
-            Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
-            // no fill colour here on purpose - it follows the active group's default colour, the
-            // same single source the outline colour uses (see the note above)
-            Html.Layout.boxH [ div [style "font-weight:bold"] [text "Fill/Alpha:"] ]
-            Html.Layout.boxH [ GuiEx.iconCheckBoxSet model.fillNewAnnotations SetFillNewAnnotations ] |> UI.wrapToolTip DataPosition.Bottom fillTooltip
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.defaultFillAlpha |> UI.map ChangeDefaultFillAlpha ] |> UI.wrapToolTip DataPosition.Bottom fillAlphaTooltip
-        //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
+        // Sampling amount/unit only drive the ray casting done for viewpoint and sky projection;
+        // they are meaningless for linear and bookmark projection, so the whole group is hidden there.
+        let projectionUsesSampling (p : Projection) =
+            match p with
+            | Projection.Viewpoint | Projection.Sky -> true
+            | _ -> false
+
+        // Fill/alpha only affects closed geometries whose interior can be filled
+        // (matches PackedRendering.isFillable); hidden for points, lines, polylines and DnS.
+        let geometryIsFillable (g : Geometry) =
+            match g with
+            | Geometry.Polygon | Geometry.Ellipse | Geometry.AxisEllipse | Geometry.Axis4PEllipse -> true
+            | _ -> false
+
+        let samplingCells =
+            [
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Sampling:"] ]
+                Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
+                Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
+            ]
+
+        // no fill colour here on purpose - it follows the active group's default colour, the
+        // same single source the outline colour uses (see the note above)
+        let fillCells =
+            [
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Fill/Alpha:"] ]
+                Html.Layout.boxH [ GuiEx.iconCheckBoxSet model.fillNewAnnotations SetFillNewAnnotations ] |> UI.wrapToolTip DataPosition.Bottom fillTooltip
+                Html.Layout.boxH [ Numeric.view' [InputBox] model.defaultFillAlpha |> UI.map ChangeDefaultFillAlpha ] |> UI.wrapToolTip DataPosition.Bottom fillAlphaTooltip
+            ]
+
+        let cells =
+            alist {
+                yield Html.Layout.boxH [ div [style "font-weight:bold"] [text "Annotation:"] ]
+                // Axis4PEllipse is hidden from the selector for now — the geometry itself and its
+                // update/rendering path stay intact, so existing annotations still load and draw.
+                yield Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse; Geometry.Axis4PEllipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
+                yield Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
+                // annotation color now comes from the active group's default color, so the tool-level color picker was removed
+                yield Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
+
+                let! projection = model.projection
+                if projectionUsesSampling projection then
+                    yield! AList.ofList samplingCells
+
+                let! geometry = model.geometry
+                if geometryIsFillable geometry then
+                    yield! AList.ofList fillCells
+            //  yield Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
+            }
+
+        table [clazz "ui table inverted segment"; style "backgroundColor: transparent"] [
+            tbody [] [ Incremental.tr AttributeMap.empty cells ]
         ]
                     
     /// Selection still wins over the category color, which in turn overrides the
