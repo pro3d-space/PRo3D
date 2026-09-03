@@ -1037,7 +1037,7 @@ module Gui =
             onBoot "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });" (
                 div [clazz "pro3d-toolstrip"] [
                     // --- navigation -------------------------------------------------------
-                    navButton "plane" "Free fly - move the camera freely"
+                    navButton "rocket" "Free fly - move the camera freely"
                               NavigationMode.FreeFly navMode (AVal.constant true)
                     navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point"
                               NavigationMode.ArcBall navMode (AVal.constant true)
@@ -1055,16 +1055,16 @@ module Gui =
                     divider
 
                     // --- selection --------------------------------------------------------
-                    tool "cubes" "Select surface" Interactions.PickSurface
+                    tool "mouse pointer" "Select surface" Interactions.PickSurface
                     tool "crop"  "Select area - drag a rectangle to multi-select" Interactions.SelectArea
 
                     divider
 
                     // --- placement --------------------------------------------------------
-                    tool "rocket"   "Place rover" Interactions.PlaceRover
+                    tool "pro3d-tire" "Place rover" Interactions.PlaceRover
                     tool "marker"   "Place distance point for the selected view plan" Interactions.PickDistancePoint
                     tool "cube"     "Place scene object" Interactions.PlaceSceneObject
-                    tool "exchange" "Place scale bar" Interactions.PlaceScaleBar
+                    tool "ruler" "Place scale bar" Interactions.PlaceScaleBar
                     tool "anchor"   "Pick pivot point for placing / transforming" Interactions.PickPivotPoint
 
                     divider

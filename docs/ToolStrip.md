@@ -43,6 +43,13 @@ appears active.
 Icon names must exist in **Semantic UI 2.2.6** (loaded from CDN, FontAwesome 4-era
 set); newer FontAwesome 5 names silently render as an empty box.
 
+A glyph the font does not carry can still be added as an SVG: give the button a
+custom icon name (e.g. `pro3d-tire`) and, in [semui-overrides.css](../src/PRo3D.Viewer/resources/semui-overrides.css),
+match `.pro3d-toolstrip .pro3d-tool i.icon.<name>` with a `mask` data-URI plus
+`background-color: currentColor`. Painting through `currentColor` makes the SVG
+pick up `--tool-color` and the active-chip knockout like the font icons.
+`pro3d-tire` (Place rover) uses Phosphor's MIT-licensed "tire".
+
 ## Where the code lives
 
 | Piece | Location |
