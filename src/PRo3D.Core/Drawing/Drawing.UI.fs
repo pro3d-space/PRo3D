@@ -86,7 +86,7 @@ module UI =
         let fillAlphaTooltip = "Fill opacity for new annotations, 0 to 1"
 
         // Sampling amount/unit only drive the ray casting done for viewpoint and sky projection;
-        // they are meaningless for linear and bookmark projection, so the whole group is hidden there.
+        // they are meaningless for linear projection, so the whole group is hidden there.
         let projectionUsesSampling (p : Projection) =
             match p with
             | Projection.Viewpoint | Projection.Sky -> true

@@ -57,7 +57,7 @@ Interactive measurement/markup placed on surfaces.
 
 Key types:
 - **`Geometry`** — `Point` | `Line` | `Polyline` | `Polygon` | `DnS` (dip & strike) | `TT` (true thickness) | `Ellipse` | `AxisEllipse` | `Axis4PEllipse`.
-- **`Projection`** — `Linear` | `Viewpoint` | `Sky` | `Bookmark` (how sampled points are projected).
+- **`Projection`** — `Linear` | `Viewpoint` | `Sky` (how sampled points are projected). Persisted as an int; legacy value `3` (a removed "Bookmark" mode) loads as `Linear` via `Projection.ofInt`.
 - **`Semantic`** — geological semantics (`Horizon0..4`, `Crossbed`, `GrainSize`, `None`).
 - **`Segment`** — a span between two picked points plus intermediate sampled points (`IndexList<V3d>`).
 - **`Annotation`** — the full markup: geometry, segments, style (color/thickness), projection/semantic, and computed results.

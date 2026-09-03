@@ -18,8 +18,7 @@ change that would be ignored.
 
 - **Sampling** (`projectionUsesSampling`) — the sampling amount and unit only drive the
   extra ray casting done for `Projection.Viewpoint` and `Projection.Sky`. For
-  `Projection.Linear` and `Projection.Bookmark` there is no sampling, so the group is
-  hidden.
+  `Projection.Linear` there is no sampling, so the group is hidden.
 - **Fill/Alpha** (`geometryIsFillable`) — fill only applies to closed geometries whose
   interior can be triangulated: `Polygon`, `Ellipse`, `AxisEllipse`, `Axis4PEllipse`.
   This mirrors `PackedRendering.isFillable`. For points, lines, polylines and `DnS` the
@@ -39,7 +38,7 @@ excluded combinations and would `failwith` on them. The allowed set is
 | Geometry | Allowed projections |
 |---|---|
 | `AxisEllipse`, `Axis4PEllipse`, `Ellipse` | `Sky` |
-| everything else | `Linear`, `Viewpoint`, `Sky`, `Bookmark` |
+| everything else | `Linear`, `Viewpoint`, `Sky` |
 
 Enforced in three places:
 
