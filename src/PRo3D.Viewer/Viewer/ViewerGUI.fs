@@ -1066,7 +1066,8 @@ module Gui =
                   div [clazz "pro3d-toolstrip-group"] [
                     navButton "rocket" "Free fly - move the camera freely"
                               NavigationMode.FreeFly navMode (AVal.constant true)
-                    navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point"
+                    // trailing ◎ echoes the bullseye "Pick ArcBall orbit centre" tool
+                    navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point  ◎"
                               NavigationMode.ArcBall navMode (AVal.constant true)
                     navButton "map" "Map view - top down, up is north, speed scales with altitude (needs a planet)"
                               NavigationMode.MapView navMode mapViewEnabled
