@@ -5,19 +5,31 @@ It shows the three reference-system axes and lets you snap the camera to a clean
 axis-aligned view of your selection with a single click — the same affordance a
 view-cube gives in CAD / DCC tools.
 
-For the reference frame these axes are expressed in, see
-[Camera & Navigation](Navigation.md). **Note:** the axis→direction mapping below
-disagrees with the rest of the codebase — see
-[Navigation.md, open question 2](Navigation.md#7-open-questions-and-known-inconsistencies).
+For the reference frame these directions are expressed in, see
+[Camera & Navigation](Navigation.md).
 
 ![gizmo](images/navigation-gizmo.png)
 
 ## What it shows
 
-- Three coloured lines from the centre to labelled circles: **X = East** (red),
-  **Y = North** (green), **Z = Up** (blue) — the reference-system frame
-  (`east = north × up`), the same basis used by the in-scene reference cross.
-- The three opposite directions **-X / -Y / -Z** as toned-down lines and circles.
+- Three coloured lines from the centre to labelled circles: **north** (red),
+  **east** (green) and **up** (blue) — the reference-system frame
+  (`east = north × up`), with the same colour assignment the in-scene reference
+  cross uses.
+- The three opposite directions as toned-down lines and circles.
+- **The labels follow the selected reference system**, mirroring the split the
+  in-scene cross already makes ([`Sg.fs`](../src/PRo3D.Core/Sg.fs)):
+
+  | Reference system | labels |
+  |---|---|
+  | Mars, Earth, Moon, Phobos, Deimos, Didymos, Dimorphos, ENU | `N` / `E` / `U` (and `-N` / `-E` / `-U`) |
+  | `None`, `JPL` | `X` / `Y` / `Z` (and `-X` / `-Y` / `-Z`) |
+
+  Where axis letters are used the mapping is **X = north, Y = east, Z = up**, matching
+  the in-scene `xyzSystem` cross and
+  `TransformationApp.getReferenceSystemBasis_global`. On a real body the letters would
+  be misleading — the local frame tilts as you move over the surface and is not the
+  frame the vertex coordinates are in — so those get compass letters instead.
 - The gizmo rotates live with the camera. When two circles overlap, the one nearer
   the viewer is drawn on top (painter's algorithm on the projected depth), and
   circles pointing away from the viewer are dimmed.
@@ -32,14 +44,15 @@ at a distance that frames that bounding box.
   (`GroupsModel.selectedLeaves`).
 - **With nothing multi-selected the circles render disabled and do nothing** — there
   is no target to frame.
-- Camera *up* after the snap: for the top / bottom view (±Z) North points up the
-  screen (map convention); for ±X / ±Y the reference Up axis stays vertical.
+- Camera *up* after the snap: for the top / bottom view North points up the screen
+  (map convention, matching [MapView](MapView.md)); for the four side views the
+  reference Up direction stays vertical.
 
 ## Implementation
 
 | File | Role |
 |------|------|
-| [`src/PRo3D.Viewer/NavigationGizmo.fs`](../src/PRo3D.Viewer/NavigationGizmo.fs) | `GizmoAxis`, the SVG overlay `view`, and the `resolveAxisWorldDir` / `gizmoCameraUp` helpers |
+| [`src/PRo3D.Viewer/NavigationGizmo.fs`](../src/PRo3D.Viewer/NavigationGizmo.fs) | `GizmoAxis` (named by direction: `North`/`South`/`East`/`West`/`Up`/`Down`), `labelOf`, the SVG overlay `view`, and the `resolveAxisWorldDir` / `gizmoCameraUp` helpers |
 | [`src/PRo3D.Viewer/Viewer-Model.fs`](../src/PRo3D.Viewer/Viewer-Model.fs) | `ViewerAction.OrientCameraToGizmoAxis of NavigationGizmo.GizmoAxis` |
 | [`src/PRo3D.Viewer/Viewer/Viewer.fs`](../src/PRo3D.Viewer/Viewer/Viewer.fs) | `updateViewer` handler: bounding box of the multi-selection → framing distance → push a `CameraAnimations.animateForwardAndLocation` animation |
 | [`src/PRo3D.Viewer/Viewer/ViewerGUI.fs`](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) | yields the gizmo into the `"render"` page's overlay `alist`, next to the [tool strip](ToolStrip.md) |

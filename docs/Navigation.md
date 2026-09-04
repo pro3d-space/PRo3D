@@ -59,8 +59,8 @@ Two further pieces of the reference-system model matter downstream:
   Almost every consumer reads `northO`, **not** `north` — the exception is
   `Sg.view`'s `styleXZYnorth` ([`Sg.fs:283`](../src/PRo3D.Core/Sg.fs#L283)), which
   still reads `north.value`.
-- **`origin`** is where the cross is drawn and what gets persisted. Navigating
-  re-derives up/north but must *not* move `origin` — see §5.
+- **`origin`** is where the cross is drawn and what gets persisted. up/north always
+  describe the frame *at `origin`*, and navigating leaves both alone — see §5.
 
 ### The one invariant that holds everywhere
 
@@ -141,7 +141,7 @@ None / ENU / Phobos / Deimos / Didymos / Dimorphos as another.
 **`updateCameraUp` runs for every `ReferenceSystemAction`, not just `SetPlanet`**
 ([`Viewer.fs:1826-1829`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L1826-L1829)) — so
 nudging the north-offset slider, toggling the cross's visibility or changing its
-text size also re-rolls the camera. See open question 3.
+text size also re-rolls the camera. See open question 4.
 
 ---
 
@@ -156,7 +156,7 @@ not.** Two conventions are live in the codebase at the same time:
 | [`TransformationApp.getLocalRefSys`](../src/PRo3D.Core/TransformationApp.fs#L322-L329) | north | east | up | **left** |
 | [`Sg.view` → `xyzSystem`](../src/PRo3D.Core/Sg.fs#L216-L253) — the in-scene cross with "X"/"Y"/"Z" labels | north | east | up | **left** |
 | [`ScaleBarsApp.viewScaleCoordinateFrame`](../src/PRo3D.Core/ScaleBarsApp.fs#L721) (red/green/blue through the basis above) | north | east | up | **left** |
-| [`NavigationGizmo.axisDir`](../src/PRo3D.Viewer/NavigationGizmo.fs#L59-L63) | **east** | **north** | up | right |
+| [`NavigationGizmo.labelOf`](../src/PRo3D.Viewer/NavigationGizmo.fs) — only where axis letters are shown (`None` / `JPL`) | north | east | up | **left** |
 | [`MapViewController.mapFrame`](../src/PRo3D.Viewer/MapViewCameraController.fs#L106-L108), `ENU` / `None` † | east | north | up | right |
 | [`MapViewController.mapFrame`](../src/PRo3D.Viewer/MapViewCameraController.fs#L104-L105), `JPL` † | north | east | **down** | right |
 
@@ -166,8 +166,12 @@ MapView is to be fixed in its own right (open question 1); whatever convention i
 settled here should then be applied to it, not read out of it.
 
 So the convention actually in force is **X = North, Y = East, Z = Up** — a
-left-handed frame (`X × Y = −Z`) — held by the four non-MapView consumers, and the
-navigation gizmo is the outlier.
+left-handed frame (`X × Y = −Z`) — held by every non-MapView consumer.
+
+The gizmo used to be the outlier (X = east, Y = north). It now sidesteps the question
+where it can: its six endpoints are named by direction, and it only draws **X/Y/Z at
+all** for `None` / `JPL`, where it follows the majority convention. Everywhere else it
+draws `N`/`E`/`U`, which cannot be misread. See open question 2.
 
 ### Colours
 
@@ -366,27 +370,30 @@ the order is roughly the order we intend to work through them.
    scope still to be collected; [MapView.md](MapView.md) describes the intended
    design, not necessarily the current behaviour.
 
-2. **The gizmo's X and Y are swapped** relative to every non-MapView consumer (§2).
-   Red points east in the gizmo and north everywhere else. Affects both the drawing
-   and the click-snap.
+2. ~~**The gizmo's X and Y are swapped** relative to every non-MapView consumer.~~
+   **FIXED.** Red used to point east in the gizmo and north everywhere else, in both
+   the drawing and the click-snap.
 
-   *Proposed resolution (§5 of the discussion):* make the gizmo's **labels follow
-   the reference system** instead of fixing one convention for all of them —
-   `N`/`E`/`U` where the reference system is presented as a compass frame, `X`/`Y`/`Z`
-   where it is presented as an axis frame. The in-scene cross already makes exactly
-   this split ([`Sg.fs:338-348`](../src/PRo3D.Core/Sg.fs#L338-L348)):
+   *Resolution:* rather than pick one convention for every reference system, the
+   gizmo's **labels now follow the reference system**, mirroring the split the
+   in-scene cross already makes ([`Sg.fs:338-348`](../src/PRo3D.Core/Sg.fs#L338-L348)):
 
-   | Reference system | in-scene cross labels | proposed gizmo labels |
+   | Reference system | in-scene cross labels | gizmo labels |
    |---|---|---|
    | Mars, Earth, Moon, Phobos, Deimos, Didymos, Dimorphos | `N` arrow only | `N` / `E` / `U` |
    | `ENU` | `N`, `E` | `N` / `E` / `U` |
    | `None`, `JPL` | `X`, `Y`, `Z` | `X` / `Y` / `Z` |
 
+   `GizmoAxis` is now named by direction (`North`/`South`/`East`/`West`/`Up`/`Down`)
+   rather than by axis letter, so the geometry and the click-snap are independent of
+   the labelling; `labelOf` picks the letters. Colours are unchanged and now agree
+   with the cross for every planet: north red, east green, up blue.
+
    This dissolves the letter ambiguity for every real body — a circle labelled `N`
    cannot be read as the wrong axis — and confines the X/Y question to `None` and
-   `JPL`, where it can simply follow the `xyzSystem` cross (X = north, Y = east).
-   It also leaves `getReferenceSystemBasis_global` untouched, so no persisted
-   transformation values are reinterpreted.
+   `JPL`, where it follows the `xyzSystem` cross (X = north, Y = east). It leaves
+   `getReferenceSystemBasis_global` untouched, so no persisted transformation values
+   are reinterpreted.
 
 3. ~~**The coordinate cross is oriented at the camera but drawn at the origin.**~~
    **FIXED.** The `NavigationMessage` handler used to refresh up / north / northO at
@@ -460,30 +467,69 @@ the order is roughly the order we intend to work through them.
    real hole and the five bodies it misses are the same five where item 3 is most
    visible, which is what made it look related.
 
-6. **`Planet.None`'s north disagrees between two subsystems.**
+6. **TODO — the reference system is guessed, not read from the OPC.**
+   *Blocked: waiting on a definition of how the `*.opc.json` sidecar stores this.*
+
+   The sidecar JOANNEUM's ExportGpc writes next to an OPC already carries the
+   body-fixed frame, and PRo3D already parses it
+   ([`OpcMetadata.fs`](../src/PRo3D.Core/OpcMetadata.fs)): a `DemModel` block
+   (`DemSphere` centre + rotation axis, or `DemEllipsoid` centre + `AxisX`/`AxisY`/
+   `AxisZ` + `Radii`) and, for OPCs derived from a SPICE DSK, a `DskSummary` with
+   `body` (`"402 (DEIMOS)"`), `referenceFrame` (`"IAU_DEIMOS"`) and a radius range.
+
+   **It is read and then only logged** —
+   [`Scene.fs:126-127`](../src/PRo3D.Viewer/Scene.fs#L126-L127), in the shared
+   `import'` path used by both surface import and scene load: *"Not persisted into the
+   scene - logged so the provenance is visible."*
+
+   What sets the planet instead is a radius guess on first import
+   ([`Viewer.fs:234`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L234)).
+   `Planet.inferCoordinateSystem` can only return Mars (2500–4000 km), Earth
+   (5500–7000 km) or `None` — it cannot name Moon, Phobos, Deimos, Didymos,
+   Dimorphos, JPL or ENU. Worse, `Planet.suggestedSystem` then sees
+   `(inferred = None, current = Phobos)`, falls through to its catch-all, warns
+   *"found reference system does not align with suggested system"* and **resets the
+   planet to `None`** — which also greys out MapView. On scene load the inference is
+   commented out entirely ([`Scene.fs:389-403`](../src/PRo3D.Viewer/Scene.fs#L389-L403)).
+
+   Most of the wiring exists:
+   [`CooTransformation.planetFromString`](../src/PRo3D.Base/CooTransformation.fs#L541-L550)
+   already maps `"deimos"` → `Planet.Deimos` for all seven bodies, so the chain is
+   sidecar `body` → strip the `"402 (…)"` wrapper → `planetFromString` → `SetPlanet`,
+   with the radius heuristic kept as the fallback for OPCs that have no sidecar (older
+   Mars/Earth data). `DemModel.radii` would also give MapView its body radius directly.
+
+   A wrong planet corrupts up/north, the cross, the gizmo, MapView's availability and
+   scale, and annotation angles all at once, so this sits upstream of much of the rest
+   of this list.
+
+7. **`Planet.None`'s north disagrees between two subsystems.**
    [`ReferenceSystem.updateCoordSystemAt`](../src/PRo3D.Core/ReferenceSystem.fs#L88-L92)
    groups `None` with `JPL` and gives north `+X`;
    [`MapViewController.mapFrame`](../src/PRo3D.Viewer/MapViewCameraController.fs#L106-L108)
    groups `None` with `ENU` and gives north `+Y`. [MapView.md](MapView.md) asserts
    the two match. Folds into item 1.
 
-7. **Earth's transformation basis is the global identity**, not its local
+8. **Earth's transformation basis is the global identity**, not its local
    (north, east, up) triad, unlike every other body
    ([`TransformationApp.fs:106-107`](../src/PRo3D.Core/TransformationApp.fs#L106-L107)).
    Intentional or historical is unclear.
 
-8. **What should be screen-up after a ±Z gizmo snap** — entangled with item 2. The
-   preference expressed so far is the CAD view-cube convention, "Y up". Under
-   X = north / Y = east that puts *east* up the screen in a top view, which
-   contradicts the north-up map convention; under X = east / Y = north it means
-   north-up and `gizmoCameraUp` needs no change. Settle after item 2.
+9. **What should be screen-up after a top / bottom gizmo snap** — was blocked on
+   item 2, now unblocked and still open. `gizmoCameraUp` currently puts **north** up
+   the screen, the map convention, matching [MapView](MapView.md) and the in-scene
+   cross's `N` arrow. The CAD view-cube convention would instead put the second axis
+   up, which on a body means *east* — readable as "Y up" only for `None` / `JPL`,
+   where the letters exist at all. Since the gizmo now labels bodies `N`/`E`/`U`,
+   "Y up" no longer names anything on those, and north-up is the coherent default.
+   Left as-is pending a decision.
 
-9. **East is computed with the wrong sign in two coordinate crosses.**
+10. **East is computed with the wrong sign in two coordinate crosses.**
    [`TraverseApp.fs:647`](../src/PRo3D.Viewer/TraverseApp.fs#L647) and
    [`ViewPlanApp.fs:1068`](../src/PRo3D.SimulatedViews/Viewplanner/ViewPlanApp.fs#L1068)
    both use `up × north`, which is `−east`. Those green lines point west.
 
-10. **The orientation cube is dead code.**
+11. **The orientation cube is dead code.**
    [`Viewer.fs:2839`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L2839) binds it, but the
    list returned at
    [`:2851-2857`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L2851-L2857) omits it — so
@@ -491,10 +537,10 @@ the order is roughly the order we intend to work through them.
     the `resources/rotationcube*` assets are all inert. Either wire it back up or
     remove it.
 
-11. **`ViewPlanApp.fs:1052-1053`** paints both the `right` and the `tilt` platform
+12. **`ViewPlanApp.fs:1052-1053`** paints both the `right` and the `tilt` platform
     marker `C4b.Red`.
 
-12. **[`NavigationGizmo.md`](NavigationGizmo.md) links `images/navigation-gizmo.png`**,
+13. **[`NavigationGizmo.md`](NavigationGizmo.md) links `images/navigation-gizmo.png`**,
     which does not exist in `docs/images/`.
 
 ---

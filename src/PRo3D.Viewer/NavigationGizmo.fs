@@ -6,13 +6,16 @@ open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open Aardvark.UI
 open Aardvark.UI.Operators
+open PRo3D.Base
 open PRo3D.Core
 
 /// Small interactive axis gizmo overlaid in the bottom-left corner of the render view.
 ///
-/// It draws the three reference-system axes (X = East, Y = North, Z = Up) as coloured
-/// lines ending in labelled circles, plus the three opposite directions (-X/-Y/-Z) as
-/// toned-down lines and circles. The gizmo is a pure function of the camera orientation
+/// It draws the three reference-system directions - north (red), east (green) and up
+/// (blue), the same colours as the in-scene reference cross - as lines ending in
+/// labelled circles, plus the three opposite directions as toned-down lines and
+/// circles. Whether the circles are labelled N/E/U or X/Y/Z depends on the selected
+/// reference system; see `labelOf`. The gizmo is a pure function of the camera orientation
 /// and the reference system, redrawn whenever either changes; it carries no model state
 /// and does not touch scene geometry - the bounding-box / framing maths for a click
 /// happens in `updateViewer` (see `ViewerAction.OrientCameraToGizmoAxis`).
@@ -22,31 +25,50 @@ open PRo3D.Core
 /// circles render disabled and dispatch nothing.
 module NavigationGizmo =
 
-    /// One of the six axis endpoints. X -> East, Y -> North, Z -> Up (reference-system frame).
+    /// One of the six endpoints, named by the direction it points in the reference-system
+    /// frame. The *labels* drawn on them depend on the reference system - see `labelOf`.
     type GizmoAxis =
-        | PosX | NegX
-        | PosY | NegY
-        | PosZ | NegZ
+        | North | South
+        | East  | West
+        | Up    | Down
 
-    let private allAxes = [ PosX; NegX; PosY; NegY; PosZ; NegZ ]
+    let private allAxes = [ North; South; East; West; Up; Down ]
 
     let private isPositive =
         function
-        | PosX | PosY | PosZ -> true
-        | NegX | NegY | NegZ -> false
+        | North | East | Up   -> true
+        | South | West | Down -> false
 
-    let private label =
-        function
-        | PosX -> "X" | NegX -> "-X"
-        | PosY -> "Y" | NegY -> "-Y"
-        | PosZ -> "Z" | NegZ -> "-Z"
+    /// Reference systems that present their frame as a compass get compass letters; the
+    /// plain cartesian frames get axis letters. This mirrors the split the in-scene cross
+    /// already makes in `PRo3D.Core.Sg.view`, which draws an "N" arrow (or "N"/"E") for
+    /// the bodies and ENU, and "X"/"Y"/"Z" for None/JPL.
+    let private usesCompassLabels (planet : Planet) =
+        match planet with
+        | Planet.None | Planet.JPL -> false
+        | _                        -> true
 
-    /// Base hue per axis: X red, Y green, Z blue (matches the in-scene reference cross).
+    /// Where axis letters are used, the mapping follows the in-scene `xyzSystem` cross
+    /// and `TransformationApp.getReferenceSystemBasis_global`: X = north, Y = east, Z = up.
+    let private labelOf (planet : Planet) =
+        if usesCompassLabels planet then
+            function
+            | North -> "N" | South -> "-N"
+            | East  -> "E" | West  -> "-E"
+            | Up    -> "U" | Down  -> "-U"
+        else
+            function
+            | North -> "X" | South -> "-X"
+            | East  -> "Y" | West  -> "-Y"
+            | Up    -> "Z" | Down  -> "-Z"
+
+    /// Base hue per direction: north red, east green, up blue - the same assignment the
+    /// in-scene reference cross uses for all planets (`PRo3D.Core.Sg.view`).
     let private axisRgb =
         function
-        | PosX | NegX -> (0xE0, 0x3B, 0x3B)
-        | PosY | NegY -> (0x46, 0xC0, 0x55)
-        | PosZ | NegZ -> (0x4A, 0xA3, 0xFF)
+        | North | South -> (0xE0, 0x3B, 0x3B)
+        | East  | West  -> (0x46, 0xC0, 0x55)
+        | Up    | Down  -> (0x4A, 0xA3, 0xFF)
 
     /// ENU basis from the reference-system up/north. `east = north x up`, matching the
     /// convention in `PRo3D.Core.Sg.getOrientationSystem` / `Sg.view`.
@@ -58,9 +80,9 @@ module NavigationGizmo =
 
     let private axisDir (east : V3d) (north : V3d) (up : V3d) (a : GizmoAxis) : V3d =
         match a with
-        | PosX ->  east  | NegX -> -east
-        | PosY ->  north | NegY -> -north
-        | PosZ ->  up    | NegZ -> -up
+        | North ->  north | South -> -north
+        | East  ->  east  | West  -> -east
+        | Up    ->  up    | Down  -> -up
 
     // -- helpers used by the update handler (imperative context; plain values) ------------
 
@@ -69,13 +91,13 @@ module NavigationGizmo =
         let e, n, u = enuBasis rs.up.value rs.northO
         (axisDir e n u a).Normalized
 
-    /// Camera "up" (sky) to use after snapping onto `a`. For a top/bottom view (Z) the
-    /// map convention is North-up; otherwise the reference Up axis stays vertical.
+    /// Camera "up" (sky) to use after snapping onto `a`. For a top/bottom view the map
+    /// convention is North-up; otherwise the reference Up direction stays vertical.
     let gizmoCameraUp (rs : ReferenceSystem) (a : GizmoAxis) : V3d =
         let _, n, u = enuBasis rs.up.value rs.northO
         match a with
-        | PosZ ->  n
-        | NegZ -> -n
+        | Up   ->  n
+        | Down -> -n
         | _    ->  u
 
     // -- rendering -----------------------------------------------------------------------
@@ -91,8 +113,10 @@ module NavigationGizmo =
         (enabled  : bool)
         (camView  : CameraView)
         (upRaw    : V3d)
-        (northRaw : V3d) : DomNode<'msg> =
+        (northRaw : V3d)
+        (planet   : Planet) : DomNode<'msg> =
 
+        let label = labelOf planet
         let east, north, up = enuBasis upRaw northRaw
         let right = camView.Right.Normalized
         let camUp = camView.Up.Normalized
@@ -190,8 +214,9 @@ module NavigationGizmo =
                 let! camView = cam
                 let! up      = rs.up.value
                 let! north   = rs.northO
+                let! planet  = rs.planet
                 let! isOn    = enabled
-                return buildSvg mkMsg isOn camView up north
+                return buildSvg mkMsg isOn camView up north planet
             }
 
         // The gizmo floats over the render body, which starts a camera drag / selection
