@@ -605,8 +605,17 @@ the order is roughly the order we intend to work through them.
     the blue PRo3D uses for up everywhere else; lookAt stays yellow, deliberately off the
     red/green/blue scheme because it marks where the rover looks rather than an axis.
 
-15. **[`NavigationGizmo.md`](NavigationGizmo.md) links `images/navigation-gizmo.png`**,
-    which does not exist in `docs/images/`.
+15. ~~**[`NavigationGizmo.md`](NavigationGizmo.md) links `images/navigation-gizmo.png`**,
+    which does not exist in `docs/images/`.~~ **FIXED** — the link is removed. It was
+    decorative, at the top of the page with no prose depending on it, so dropping it
+    loses nothing; drop a screenshot into `docs/images/` and re-add the line if one is
+    wanted.
+
+    Not a navigation issue, but found by the same check and still open:
+    [`GisView.md:71`](GisView.md) references `images/editEntities.png`, which is also
+    missing. That one cannot just be deleted — the sentence before it reads *"circled in
+    red in the screenshot below"*, and [`GisView.tex:153`](GisView.tex) includes the same
+    file. It needs the actual screenshot restored.
 
 ---
 

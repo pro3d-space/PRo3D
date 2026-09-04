@@ -8,8 +8,6 @@ view-cube gives in CAD / DCC tools.
 For the reference frame these directions are expressed in, see
 [Camera & Navigation](Navigation.md).
 
-![gizmo](images/navigation-gizmo.png)
-
 ## What it shows
 
 - Three coloured lines from the centre to labelled circles: **north** (red),
