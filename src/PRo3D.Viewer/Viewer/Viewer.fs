@@ -1823,11 +1823,21 @@ module ViewerApp =
                     m.scene.referenceSystem 
                     a
                     
+            // Re-aim the camera only when the sky it would be built from actually moved.
+            // `updateCameraUp` keeps the position and viewing direction but replaces the
+            // sky vector, which *rolls* the camera about its own view axis - so running it
+            // on every reference-system action snapped the roll on purely cosmetic edits
+            // (toggling the cross, its text size or colour, nudging the north offset) and
+            // on re-picking the planet that was already selected. Only `planet` and `up`
+            // feed `bodyAwareSky`, so comparing it across the update is the exact
+            // precondition, and it leaves a camera the user deliberately rolled alone.
+            let skyOf (rs : ReferenceSystem) = ReferenceSystem.bodyAwareSky rs.planet rs.up.value
+            let skyMoved = Vec.distance (skyOf m.scene.referenceSystem) (skyOf refsystem') > 1e-9
+
             let _refSystem = (Model.scene_ >-> Scene.referenceSystem_)
             let m = 
-                m 
-                |> Optic.set _refSystem refsystem'
-                |> SceneLoader.updateCameraUp     
+                let m = m |> Optic.set _refSystem refsystem'
+                if skyMoved then SceneLoader.updateCameraUp m else m
                 
             //changing the planet requires update of local reference systems
             let m = 

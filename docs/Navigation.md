@@ -138,10 +138,13 @@ table above, the resulting camera sky splits the dropdown into exactly two group
 which is why Earth / Mars / Moon behave as one group and
 None / ENU / Phobos / Deimos / Didymos / Dimorphos as another.
 
-**`updateCameraUp` runs for every `ReferenceSystemAction`, not just `SetPlanet`**
-([`Viewer.fs:1826-1829`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L1826-L1829)) — so
-nudging the north-offset slider, toggling the cross's visibility or changing its
-text size also re-rolls the camera. See open question 4.
+The re-aim is gated on that sky actually moving
+([`Viewer.fs:1826-1835`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L1826-L1835)): only
+`planet` and `up` feed `bodyAwareSky`, so cosmetic actions — toggling the cross,
+changing its text size or colour, nudging the north offset — and re-picking the
+planet that is already selected leave the camera alone. It used to run for every
+`ReferenceSystemAction`, which snapped the camera roll on all of those; see open
+question 6.
 
 ---
 
@@ -430,7 +433,7 @@ the order is roughly the order we intend to work through them.
    route around the old behaviour and say so in their comments —
    `ProfileAttributeExtraction.sampleAt` and `ColorByCategoryApp.stampOf`. The one
    consumer that does want up near the camera is `bodyAwareSky` via
-   `updateCameraUp`, which is not called from this path and is item 4.
+   `updateCameraUp`, which is not called from this path and is item 6.
 
    Anchoring the refresh at `origin` instead of removing it would have been
    equivalent for the cross (recomputing at an unchanged origin is idempotent) but
@@ -442,16 +445,54 @@ the order is roughly the order we intend to work through them.
    alone never sees the reference system — drive one `NavigationMessage` and assert
    `up` / `north` / `origin` are unchanged.
 
-4. **`updateCameraUp` runs on every reference-system action, not just `SetPlanet`**
-   ([`Viewer.fs:1826-1829`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L1826-L1829)).
-   Toggling the cross's visibility, changing its text size or colour, or dragging
-   the north-offset slider all re-roll the camera about its view axis. Only the
-   actions that actually change the frame (`SetPlanet`, `SetUp`, `SetNorth`,
-   `SetNOffset`, `InferCoordSystem`) have any business doing that, and arguably not
-   even all of those. This is the mechanism behind "switching the reference system
-   reorients the OPC" — the OPC does not move, the camera rolls (§1).
+4. ~~**On a small body the frame is a local tangent frame, and degenerate at the body
+   centre.**~~ **FIXED.** `northVector` builds `east = pole × up`, `north = up × east`,
+   so north and east are *tangent* to the surface — north walks along the ground toward
+   the pole rather than pointing at it. Only `up` leaves the surface, so four of the six
+   gizmo snaps looked *across* the body instead of at it. And `pole × up` collapses to
+   the zero vector whenever up runs parallel to the polar axis — on a pole, and at the
+   body centre where `getUpVector` falls back to `+Z`, which is exactly where
+   `InferCoordSystem` puts the origin for an OPC that wraps a whole body.
 
-5. **`getReferenceSystemBasis_local` throws for Moon, Phobos, Deimos, Didymos and
+   Two changes. `northVector`
+   ([`ReferenceSystem.fs:74-93`](../src/PRo3D.Core/ReferenceSystem.fs#L74-L93)) now falls
+   back to a stable arbitrary tangent instead of normalising a zero vector, mirroring
+   `MapViewController.mapFrame`'s pole guard. And the small bodies
+   (`CooTransformation.isSmallBody`) now use the **body-fixed** frame in both the gizmo
+   (`NavigationGizmo.frameOf`) and the in-scene cross (`Sg.view`'s `bodyFixedSystem`),
+   labelled X/Y/Z along global +X/+Y/+Z, so the six snaps are the canonical views of the
+   model. Mars, Earth and Moon keep the local tangent frame, where OPCs are surface
+   patches and "look from the north" is meaningful. None/JPL/ENU still flow through
+   `enuBasis` unchanged — JPL's up is `−Z`, which a blanket substitution would have
+   silently flipped.
+
+   `referenceSystem.up`/`north`/`northO` are untouched, so annotation results (dip and
+   strike, bearing) are unaffected: only the navigation and display frames changed.
+
+5. **The reference cross is drawn at `origin`, which for whole-body data is the body
+   centre.** `InferCoordSystem` sets `origin = fullBb.Center` on first import
+   ([`Viewer.fs:234`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L234)), and for an OPC that
+   wraps a whole small body that centre is the body centre — so the cross is drawn
+   *inside* the model and may be invisible. Item 4 fixed the axes' orientation; this is
+   their placement. Options: leave it (body-fixed axes at the body centre are arguably
+   the honest depiction), scale the cross past the body's radius, or place the origin on
+   the surface for whole-body data.
+
+6. ~~**`updateCameraUp` runs on every reference-system action, not just `SetPlanet`.**~~
+   **FIXED.** Toggling the cross's visibility, changing its text size or colour, or
+   dragging the north-offset slider all re-rolled the camera about its view axis — the
+   mechanism behind "switching the reference system reorients the OPC" (§1): the OPC
+   does not move, the camera rolls.
+
+   The `ReferenceSystemMessage` handler now compares `bodyAwareSky` across the update
+   and re-aims only when it actually moved. Only `planet` and `up` feed that sky, so the
+   comparison *is* the precondition — no enumeration of actions to keep in sync as
+   `ReferenceSystemAction` grows. It also covers two cases an action list would have
+   missed: re-picking the planet that is already selected, and any action that
+   recomputes `up` to the same value. A camera the user deliberately rolled is now left
+   alone unless the reference frame genuinely changed under it.
+
+7. **`getReferenceSystemBasis_local` throws for Moon, Phobos, Deimos, Didymos and
    Dimorphos.** Its match
    ([`TransformationApp.fs:127-146`](../src/PRo3D.Core/TransformationApp.fs#L127-L146))
    handles only Earth, ENU, Mars, JPL and None, and ends in `| _ -> failwith ""` —
@@ -467,7 +508,7 @@ the order is roughly the order we intend to work through them.
    real hole and the five bodies it misses are the same five where item 3 is most
    visible, which is what made it look related.
 
-6. **TODO — the reference system is guessed, not read from the OPC.**
+8. **TODO — the reference system is guessed, not read from the OPC.**
    *Blocked: waiting on a definition of how the `*.opc.json` sidecar stores this.*
 
    The sidecar JOANNEUM's ExportGpc writes next to an OPC already carries the
@@ -503,33 +544,33 @@ the order is roughly the order we intend to work through them.
    scale, and annotation angles all at once, so this sits upstream of much of the rest
    of this list.
 
-7. **`Planet.None`'s north disagrees between two subsystems.**
+9. **`Planet.None`'s north disagrees between two subsystems.**
    [`ReferenceSystem.updateCoordSystemAt`](../src/PRo3D.Core/ReferenceSystem.fs#L88-L92)
    groups `None` with `JPL` and gives north `+X`;
    [`MapViewController.mapFrame`](../src/PRo3D.Viewer/MapViewCameraController.fs#L106-L108)
    groups `None` with `ENU` and gives north `+Y`. [MapView.md](MapView.md) asserts
    the two match. Folds into item 1.
 
-8. **Earth's transformation basis is the global identity**, not its local
-   (north, east, up) triad, unlike every other body
-   ([`TransformationApp.fs:106-107`](../src/PRo3D.Core/TransformationApp.fs#L106-L107)).
-   Intentional or historical is unclear.
+10. **Earth's transformation basis is the global identity**, not its local
+    (north, east, up) triad, unlike every other body
+    ([`TransformationApp.fs:106-107`](../src/PRo3D.Core/TransformationApp.fs#L106-L107)).
+    Intentional or historical is unclear.
 
-9. **What should be screen-up after a top / bottom gizmo snap** — was blocked on
-   item 2, now unblocked and still open. `gizmoCameraUp` currently puts **north** up
-   the screen, the map convention, matching [MapView](MapView.md) and the in-scene
-   cross's `N` arrow. The CAD view-cube convention would instead put the second axis
-   up, which on a body means *east* — readable as "Y up" only for `None` / `JPL`,
-   where the letters exist at all. Since the gizmo now labels bodies `N`/`E`/`U`,
-   "Y up" no longer names anything on those, and north-up is the coherent default.
-   Left as-is pending a decision.
+11. **What should be screen-up after a top / bottom gizmo snap** — was blocked on
+    item 2, now unblocked and still open. `gizmoCameraUp` currently puts **north** up
+    the screen, the map convention, matching [MapView](MapView.md) and the in-scene
+    cross's `N` arrow. The CAD view-cube convention would instead put the second axis
+    up, which on a body means *east* — readable as "Y up" only for `None` / `JPL`,
+    where the letters exist at all. Since the gizmo now labels bodies `N`/`E`/`U`,
+    "Y up" no longer names anything on those, and north-up is the coherent default.
+    Left as-is pending a decision.
 
-10. **East is computed with the wrong sign in two coordinate crosses.**
+12. **East is computed with the wrong sign in two coordinate crosses.**
    [`TraverseApp.fs:647`](../src/PRo3D.Viewer/TraverseApp.fs#L647) and
    [`ViewPlanApp.fs:1068`](../src/PRo3D.SimulatedViews/Viewplanner/ViewPlanApp.fs#L1068)
    both use `up × north`, which is `−east`. Those green lines point west.
 
-11. **The orientation cube is dead code.**
+13. **The orientation cube is dead code.**
    [`Viewer.fs:2839`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L2839) binds it, but the
    list returned at
    [`:2851-2857`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L2851-L2857) omits it — so
@@ -537,10 +578,10 @@ the order is roughly the order we intend to work through them.
     the `resources/rotationcube*` assets are all inert. Either wire it back up or
     remove it.
 
-12. **`ViewPlanApp.fs:1052-1053`** paints both the `right` and the `tilt` platform
+14. **`ViewPlanApp.fs:1052-1053`** paints both the `right` and the `tilt` platform
     marker `C4b.Red`.
 
-13. **[`NavigationGizmo.md`](NavigationGizmo.md) links `images/navigation-gizmo.png`**,
+15. **[`NavigationGizmo.md`](NavigationGizmo.md) links `images/navigation-gizmo.png`**,
     which does not exist in `docs/images/`.
 
 ---
