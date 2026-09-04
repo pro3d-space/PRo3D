@@ -565,10 +565,30 @@ the order is roughly the order we intend to work through them.
     "Y up" no longer names anything on those, and north-up is the coherent default.
     Left as-is pending a decision.
 
-12. **East is computed with the wrong sign in two coordinate crosses.**
-   [`TraverseApp.fs:647`](../src/PRo3D.Viewer/TraverseApp.fs#L647) and
-   [`ViewPlanApp.fs:1068`](../src/PRo3D.SimulatedViews/Viewplanner/ViewPlanApp.fs#L1068)
-   both use `up × north`, which is `−east`. Those green lines point west.
+12. ~~**East is computed with the wrong sign in two coordinate crosses.**~~
+    **PARTLY FIXED.** `east = north × up` is the convention everywhere (`Sg.view`,
+    `TransformationApp`, `Surface`, `AnnotationHelpers.computeAzimuth`); `up × north`
+    is `−east`. The two *display* crosses — `TraverseApp.viewCoordinateCross` and
+    `ViewPlanApp.viewCoordinateCross`, line-for-line copies of each other — drew their
+    green axis pointing west. Both fixed.
+
+    **Two further sites share the formula and are deliberately NOT fixed**, because they
+    change geometry rather than a drawn line:
+
+    - [`ViewPlanApp.placementTrafoFromSolTrafo`](../src/PRo3D.SimulatedViews/Viewplanner/ViewPlanApp.fs#L258)
+      passes `east` in as the rover's `right` vector, making the placement basis
+      left-handed — a mirrored rover placement, which propagates into view plans,
+      instrument projections and snapshots.
+    - [`WayPointsTraverseApp.computeSolRotation`](../src/PRo3D.Viewer/Traverse/WayPointsTraverse.fs#L19)
+      uses `east` as the **pitch rotation axis**, so a positive pitch tilts the opposite
+      way. It is the only live `computeSolRotation` — the `RoverTraverse` and
+      `RIMFAXTraverse` variants both return `Trafo3d.Identity`.
+
+    Both may have been matched empirically to real telemetry rather than derived:
+    `computeSolRotation` also negates its yaw angle, which is the fingerprint of signs
+    tuned until the data looked right. Flipping them would move existing rover
+    placements and traverse orientations, so it wants someone who can check the result
+    against known-good data.
 
 13. **The orientation cube is dead code.**
    [`Viewer.fs:2839`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L2839) binds it, but the

@@ -1065,7 +1065,9 @@ module ViewPlanApp =
             
             let up = refSystem.up.value
             let north = refSystem.northO
-            let east = AVal.map2(Vec.cross) up north
+            // east = north x up, the convention in Sg.view / TransformationApp.
+            // `Vec.cross up north` is -east, which drew this green axis pointing west.
+            let east = AVal.map2 (fun (up : V3d) (n : V3d) -> n.Cross(up)) up north
 
             [
                 Sg.drawSingleLine ~~V3d.Zero up    ~~C4b.Blue  ~~2.0 trafo
