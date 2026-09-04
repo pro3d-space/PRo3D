@@ -1765,6 +1765,17 @@ module Gui =
                                 yield selectionRectangle m
                                 // navigation + interaction selector, overlaid on the right edge
                                 yield ToolStrip.view m |> UI.map ViewerMessage
+                                // axis gizmo, bottom-left corner: click an axis to look along it
+                                // onto the multi-selected surfaces; disabled with no selection
+                                let gizmoEnabled =
+                                    m.scene.surfacesModel.surfaces.selectedLeaves.Content
+                                    |> AVal.map (HashSet.isEmpty >> not)
+                                yield NavigationGizmo.view
+                                        (fun a -> OrientCameraToGizmoAxis a)
+                                        gizmoEnabled
+                                        m.navigation.camera.view
+                                        m.scene.referenceSystem
+                                      |> UI.map ViewerMessage
                                 //yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
                                 //                                                           |> UI.map ViewerMessage
                             }

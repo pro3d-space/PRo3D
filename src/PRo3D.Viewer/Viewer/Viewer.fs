@@ -646,7 +646,39 @@ module ViewerApp =
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_ -> Optic.set _view cv m
-        | SetCameraAndFrustum (cv, hfov, _),_ -> 
+        | OrientCameraToGizmoAxis axis, _ when not (AnimationApp.shouldAnimate m.animations) ->
+            // Navigation gizmo click: look straight along a reference-system axis onto the
+            // centre of the multi-selected surfaces' combined bounding box, framed to fit it.
+            let selectedBBs =
+                m.scene.surfacesModel.surfaces.selectedLeaves
+                |> HashSet.toList
+                |> List.choose (fun ts ->
+                    m.scene.surfacesModel.sgSurfaces
+                    |> HashMap.tryFind ts.id
+                    |> Option.map (fun sg -> sg.globalBB))
+            match selectedBBs with
+            | [] -> m   // gizmo renders disabled without a multi-selection - nothing to frame
+            | bbs ->
+                let bb     = bbs |> Box3d
+                let center = bb.Center
+                let dir    = NavigationGizmo.resolveAxisWorldDir m.scene.referenceSystem axis
+                let camUp  = NavigationGizmo.gizmoCameraUp m.scene.referenceSystem axis
+                let hfov   = (m.frustum |> Frustum.horizontalFieldOfViewInDegrees) * Constant.RadiansPerDegree
+                let aspect = Frustum.aspect m.frustum |> max 1e-3
+                let vfov   = 2.0 * atan (tan (hfov * 0.5) / aspect)
+                let radius = (bb.Size.Length * 0.5) |> max 1e-3
+                let dist   = 1.25 * (max (radius / tan (hfov * 0.5)) (radius / tan (vfov * 0.5)))
+                let eye    = center + dir * dist
+                let fwd    = -dir
+                // Axis-aligned snap: keep the chosen up exactly (bodyAwareLookAt would
+                // override it on small bodies); the viewing direction is radial on purpose.
+                let anim =
+                    CameraAnimations.animateForwardAndLocation eye fwd camUp 2.0 "ForwardAndLocation2s"
+                    |> AnimationAction.PushAnimation
+                    |> AnimationApp.update m.animations
+                { m with animations = anim }
+        | OrientCameraToGizmoAxis _, _ -> m
+        | SetCameraAndFrustum (cv, hfov, _),_ ->
             Log.warn "[Viewer] SetCameraAndFrustum not implemented!"
             m
         | SetCameraAndFrustum2 (cv,frustum),_ ->

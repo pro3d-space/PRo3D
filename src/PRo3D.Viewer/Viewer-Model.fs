@@ -102,8 +102,9 @@ type ViewerAction =
 | DnSColorLegendMessage           of FalseColorLegendApp.Action
 | SceneObjectsMessage             of SceneObjectAction
 | FrustumMessage                  of FrustumProperties.Action
-| SetCamera                       of CameraView        
-| SetCameraAndFrustum             of CameraView * double * double        
+| SetCamera                       of CameraView
+| OrientCameraToGizmoAxis         of NavigationGizmo.GizmoAxis
+| SetCameraAndFrustum             of CameraView * double * double
 | SetCameraAndFrustum2            of CameraView * Frustum
 | SetFrustum                      of Frustum
 | SetRenderViewportSize           of V2i
