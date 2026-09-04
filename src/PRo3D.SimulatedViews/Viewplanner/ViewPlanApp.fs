@@ -1048,9 +1048,12 @@ module ViewPlanApp =
                 fix       = ~~false
             }
 
+            // One colour per axis, or the cross cannot be read: tilt is the trafo's up
+            // column, so it takes the blue PRo3D uses for up everywhere else. It was red,
+            // the same as `right`.
             let lookAt = { marker with direction = lookAtVec; color = (AVal.constant C4b.Yellow)}
             let right  = { marker with direction = rightVec;  color = (AVal.constant C4b.Red)}
-            let tilt   = { marker with direction = tiltVec;   color = (AVal.constant C4b.Red)}
+            let tilt   = { marker with direction = tiltVec;   color = (AVal.constant C4b.Blue)}
 
             Sg.ofList [
                 lookAt |> directionMarker near cam

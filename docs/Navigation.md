@@ -598,8 +598,12 @@ the order is roughly the order we intend to work through them.
     the `resources/rotationcube*` assets are all inert. Either wire it back up or
     remove it.
 
-14. **`ViewPlanApp.fs:1052-1053`** paints both the `right` and the `tilt` platform
-    marker `C4b.Red`.
+14. ~~**`ViewPlanApp.fs:1052-1053`** paints both the `right` and the `tilt` platform
+    marker `C4b.Red`.~~ **FIXED.** `drawPlatformCoordinateCross` draws the three columns
+    of the rover trafo — lookAt (C0), right (C1), tilt (C2) — and two of them were the
+    same red, so the cross could not be read. `tilt` is the up column, so it now takes
+    the blue PRo3D uses for up everywhere else; lookAt stays yellow, deliberately off the
+    red/green/blue scheme because it marks where the rover looks rather than an axis.
 
 15. **[`NavigationGizmo.md`](NavigationGizmo.md) links `images/navigation-gizmo.png`**,
     which does not exist in `docs/images/`.
