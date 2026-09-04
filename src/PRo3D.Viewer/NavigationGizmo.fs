@@ -39,14 +39,25 @@ module NavigationGizmo =
         | North | East | Up   -> true
         | South | West | Down -> false
 
+    /// Small bodies are navigated from *outside*: their OPC data wraps the whole body, so
+    /// the meaningful frame is the body-fixed one. A local tangent frame at a surface
+    /// point has north and east grazing the surface, which makes four of the six snaps
+    /// look across the body rather than at it, and it degenerates entirely at the body
+    /// centre - where `InferCoordSystem` puts the reference system for whole-body data.
+    /// Same predicate and same rationale as `ReferenceSystem.bodyAwareSky`.
+    ///
+    /// The non-planetary frames (None/JPL/ENU) are already fixed cartesian frames in
+    /// `ReferenceSystem.updateCoordSystemAt`, so they are left to flow through `enuBasis`
+    /// unchanged - JPL's up is -Z, which a blanket substitution would silently flip.
+    let private usesBodyFixedFrame (planet : Planet) = CooTransformation.isSmallBody planet
+
     /// Reference systems that present their frame as a compass get compass letters; the
-    /// plain cartesian frames get axis letters. This mirrors the split the in-scene cross
-    /// already makes in `PRo3D.Core.Sg.view`, which draws an "N" arrow (or "N"/"E") for
-    /// the bodies and ENU, and "X"/"Y"/"Z" for None/JPL.
+    /// ones whose frame is a fixed cartesian one get axis letters. For None/JPL this
+    /// mirrors the split the in-scene cross already makes in `PRo3D.Core.Sg.view`.
     let private usesCompassLabels (planet : Planet) =
         match planet with
         | Planet.None | Planet.JPL -> false
-        | _                        -> true
+        | p                        -> not (usesBodyFixedFrame p)
 
     /// Where axis letters are used, the mapping follows the in-scene `xyzSystem` cross
     /// and `TransformationApp.getReferenceSystemBasis_global`: X = north, Y = east, Z = up.
@@ -78,6 +89,14 @@ module NavigationGizmo =
         let e = (Vec.cross n u).Normalized
         e, n, u
 
+    /// The (east, north, up) triple the six endpoints are built from. Body-fixed for the
+    /// small bodies (see `usesBodyFixedFrame`), the local tangent frame otherwise. The
+    /// body-fixed assignment follows the `xyzSystem` cross's letters: X = north, Y = east,
+    /// Z = up, so the circles labelled X/Y/Z point along global +X/+Y/+Z.
+    let private frameOf (planet : Planet) (up : V3d) (north : V3d) : V3d * V3d * V3d =
+        if usesBodyFixedFrame planet then V3d.OIO, V3d.IOO, V3d.OOI
+        else enuBasis up north
+
     let private axisDir (east : V3d) (north : V3d) (up : V3d) (a : GizmoAxis) : V3d =
         match a with
         | North ->  north | South -> -north
@@ -88,13 +107,13 @@ module NavigationGizmo =
 
     /// World-space unit direction of a gizmo axis for the given reference system.
     let resolveAxisWorldDir (rs : ReferenceSystem) (a : GizmoAxis) : V3d =
-        let e, n, u = enuBasis rs.up.value rs.northO
+        let e, n, u = frameOf rs.planet rs.up.value rs.northO
         (axisDir e n u a).Normalized
 
     /// Camera "up" (sky) to use after snapping onto `a`. For a top/bottom view the map
     /// convention is North-up; otherwise the reference Up direction stays vertical.
     let gizmoCameraUp (rs : ReferenceSystem) (a : GizmoAxis) : V3d =
-        let _, n, u = enuBasis rs.up.value rs.northO
+        let _, n, u = frameOf rs.planet rs.up.value rs.northO
         match a with
         | Up   ->  n
         | Down -> -n
@@ -117,7 +136,7 @@ module NavigationGizmo =
         (planet   : Planet) : DomNode<'msg> =
 
         let label = labelOf planet
-        let east, north, up = enuBasis upRaw northRaw
+        let east, north, up = frameOf planet upRaw northRaw
         let right = camView.Right.Normalized
         let camUp = camView.Up.Normalized
         let fwd   = camView.Forward.Normalized
