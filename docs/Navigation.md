@@ -381,8 +381,10 @@ reference system — it holds no state. Full description in
 
 ## 7. Open questions and known inconsistencies
 
-The backlog this document was written to establish. Nothing here has been changed yet;
-the order is roughly the order we intend to work through them.
+The backlog this document was written to establish. Struck-through items are resolved
+— either fixed, or closed by a decision to leave the behaviour as it is — and the
+reasoning is kept rather than deleted, so a later reader can tell a considered choice
+from an oversight.
 
 1. **MapView is buggy and needs fixing in its own right.** Symptoms and scope still to
    be collected; [MapView.md](MapView.md) describes the intended design, not
@@ -496,14 +498,19 @@ the order is roughly the order we intend to work through them.
    `referenceSystem.up`/`north`/`northO` are untouched, so annotation results (dip and
    strike, bearing) are unaffected: only the navigation and display frames changed.
 
-5. **The reference cross is drawn at `origin`, which for whole-body data is the body
-   centre.** `InferCoordSystem` sets `origin = fullBb.Center` on first import
+5. ~~**The reference cross is drawn at `origin`, which for whole-body data is the body
+   centre.**~~ **CLOSED — leaving as is, by decision.** `InferCoordSystem` sets
+   `origin = fullBb.Center` on first import
    ([`Viewer.fs:234`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L234)), and for an OPC that
-   wraps a whole small body that centre is the body centre — so the cross is drawn
-   *inside* the model and may be invisible. Item 4 fixed the axes' orientation; this is
-   their placement. Options: leave it (body-fixed axes at the body centre are arguably
-   the honest depiction), scale the cross past the body's radius, or place the origin on
-   the surface for whole-body data.
+   wraps a whole small body that centre *is* the body centre, so the cross is drawn
+   inside the model and can be hard to see. Item 4 fixed the axes' orientation; this was
+   about their placement.
+
+   No code change. Body-fixed axes drawn at the body centre are the honest depiction of
+   that frame — the centre is where those axes actually originate — and the cross can
+   still be placed anywhere with the *Place Coordinate System* tool when a surface-local
+   frame is wanted. The alternatives considered and rejected were scaling the cross past
+   the body's radius, and moving the origin onto the surface for whole-body data.
 
 6. ~~**`updateCameraUp` runs on every reference-system action, not just `SetPlanet`.**~~
    **FIXED.** Toggling the cross's visibility, changing its text size or colour, or
