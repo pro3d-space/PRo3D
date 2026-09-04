@@ -822,6 +822,24 @@ module Gui =
                 ]
             ]
         
+        /// The Transformations model of the single selected surface, or None when nothing
+        /// is selected (or the selection no longer exists in the group tree). Same lookup
+        /// `SurfaceApp.viewTranslationTools` does for the Transformations panel.
+        let private selectedSurfaceTransformation (m : AdaptiveModel) =
+            adaptive {
+                let! guid = m.scene.surfacesModel.surfaces.singleSelectLeaf
+                match guid with
+                | None -> return None
+                | Some id ->
+                    let! exists = (m.scene.surfacesModel.surfaces.flat |> AMap.keys) |> ASet.contains id
+                    if not exists then return None
+                    else
+                        let! leaf = m.scene.surfacesModel.surfaces.flat |> AMap.find id
+                        match leaf with
+                        | AdaptiveSurfaces surf -> return Some surf.transformation
+                        | _ -> return None
+            }
+
         let dynamicTopMenu (m:AdaptiveModel) =
             adaptive {
                 let! interaction = m.interaction
@@ -837,6 +855,52 @@ module Gui =
                         Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ] |> UI.wrapToolTip DataPosition.Bottom measurementTooltip
                         Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ] |> UI.wrapToolTip DataPosition.Bottom visibilityTooltip                     
                         ] |> UI.map ReferenceSystemMessage 
+                | Interactions.PickSurfaceRefSys ->
+                    // Mirrors the Place Coordinate System row: a unit dropdown sizing the
+                    // cross, and an eye toggling it. Both act on the selected surface's
+                    // Transformations, so with nothing selected they render greyed and
+                    // inert rather than vanishing - the row keeps its shape either way.
+                    let measurementTooltip = "Measurement to adapt the size of the surface reference system"
+                    let visibilityTooltip  = "Toggle visibility of the surface reference system"
+                    let! trafo = selectedSurfaceTransformation m
+
+                    let sizeInMetres, isVisible =
+                        match trafo with
+                        | Some t -> t.refSysSize.value, t.showTrafoRefSys
+                        | None   -> AVal.constant 0.0, AVal.constant false
+
+                    // `refSysSize` is metres, the chart is the same unit list the global
+                    // reference system uses. Convert with the same `scaleToSize`; a size
+                    // typed into the Transformations panel that matches no entry shows as
+                    // the nearest one.
+                    let selectedScale =
+                        (sizeInMetres, m.scene.referenceSystem.scaleChart |> AList.toAVal)
+                        ||> AVal.map2 (fun size chart ->
+                            chart
+                            |> IndexList.toList
+                            |> List.sortBy (fun label -> abs (PRo3D.Core.Sg.scaleToSize label - size))
+                            |> List.tryHead
+                            |> Option.defaultValue "2m")
+
+                    let row =
+                        Html.Layout.horizontal [
+                            Html.Layout.boxH [
+                                Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart selectedScale
+                                    (fun label ->
+                                        TransformationApp.Action.SetRefSysSize
+                                            (Numeric.Action.SetValue (PRo3D.Core.Sg.scaleToSize label))) id
+                            ] |> UI.wrapToolTip DataPosition.Bottom measurementTooltip
+                            Html.Layout.boxH [
+                                GuiEx.iconToggle isVisible "unhide icon" "hide icon"
+                                    TransformationApp.Action.ToggleRefSysVisible
+                            ] |> UI.wrapToolTip DataPosition.Bottom visibilityTooltip
+                        ] |> UI.map (SurfaceAppAction.TranslationMessage >> SurfaceActions)
+
+                    match trafo with
+                    | Some _ -> return row
+                    | None ->
+                        return div [ style "opacity:0.45; pointer-events:none"
+                                     attribute "title" "select a surface to change its reference system" ] [ row ]
                 | Interactions.PickAnnotation ->
                      return Html.Layout.horizontal [
                         Html.Layout.boxH [text "eps.:"]
@@ -913,6 +977,7 @@ module Gui =
             match i with 
             | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
             | Interactions.PlaceCoordinateSystem -> "Pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
+            | Interactions.PickSurfaceRefSys     -> "Pick a point on the selected surface to give it its own reference system, and choose a unit of measurement to adapt the size of its cross."
             | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
             | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
@@ -941,7 +1006,7 @@ module Gui =
             | Interactions.PlaceScaleBar         -> "Place Scalebar"
             | Interactions.PickPivotPoint        -> "Pick Pivot Point"
             | Interactions.PlaceCoordinateSystem -> "Place Coordinate System"
-            | Interactions.PickSurfaceRefSys     -> "Pick Surface Reference System"
+            | Interactions.PickSurfaceRefSys     -> "Place Surface Reference System"
             | Interactions.PickExploreCenter     -> "Pick Explore Center"
             | _                                  -> "Tool Settings"
 
@@ -984,6 +1049,7 @@ module Gui =
             | Interactions.DrawAnnotation
             | Interactions.PlaceRover
             | Interactions.PlaceCoordinateSystem
+            | Interactions.PickSurfaceRefSys
             | Interactions.PickAnnotation
             | Interactions.PlaceScaleBar
             | Interactions.PickPivotPoint -> true
