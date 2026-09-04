@@ -312,10 +312,6 @@ module ViewerApp =
     let private updateUpNorthForPosition (pos : V3d) (m : Model) =
         updateReferenceSystemAt ReferenceSystemAction.UpdateUpNorth pos m
 
-    /// keeps up/north current for pos while leaving the coordinate cross where the user put it
-    let private refreshUpNorthForPosition (pos : V3d) (m : Model) =
-        updateReferenceSystemAt ReferenceSystemAction.RefreshUpNorth pos m
-
     let private createMultiSelectBox (startPoint: V2i) (viewPortSize: V2i) (currentPoint: V2i) =
         let clippingBox = Box2i.FromSize viewPortSize
         let newRenderBox = Box2i.FromPoints(clippingBox.Clamped(startPoint), clippingBox.Clamped(currentPoint)) // limited to rendercontrol-size!
@@ -618,13 +614,18 @@ module ViewerApp =
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
-            m 
-            |> logScreenOption 10000 feedback 
+            // Navigating does not touch the reference system at all. up/north describe the
+            // frame at `origin` - where the cross is drawn (Sg.view), what the reference
+            // system panel reports and what gets persisted - so refreshing them at the
+            // camera drew the cross in one place carrying the orientation of another, and
+            // wiped any manual SetUp/SetNorth on the next mouse event. Every action that
+            // legitimately sets them (UpdateUpNorth, InferCoordSystem, SetPlanet) already
+            // computes them at `origin`.
+            // See https://github.com/pro3d-space/PRo3D/issues/662
+            m
+            |> logScreenOption 10000 feedback
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
-            // orientation only - navigating must not drag the reference system origin along,
-            // see https://github.com/pro3d-space/PRo3D/issues/662
-            |> refreshUpNorthForPosition nav.camera.view.Location
         | NavigationMessage msg, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_ -> // belongs to deprecated animation

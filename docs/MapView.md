@@ -8,6 +8,9 @@ is scaled by how high the camera is above the ground.
 Pick it from the [tool strip](ToolStrip.md) on the right edge of the main view (the blue map
 icon, third in the navigation group).
 
+For the frame and camera state MapView shares with the other two modes, see
+[Camera & Navigation](Navigation.md).
+
 | File | Role |
 |------|------|
 | [`src/PRo3D.Viewer/MapViewCameraController.fs`](../src/PRo3D.Viewer/MapViewCameraController.fs) | The controller: map frame, camera constraint, pan/zoom integration |

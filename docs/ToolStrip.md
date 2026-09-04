@@ -4,6 +4,9 @@ The tool strip is the vertical icon rail overlaid on the **right edge of the mai
 render view**. It carries the two selections that used to sit in the top toolbar as
 dropdowns: the **navigation mode** and the **interaction** (the "tool").
 
+The navigation modes themselves are described in
+[Camera & Navigation](Navigation.md).
+
 Both are enum-valued fields on the model (`navigation.navigationMode` and
 `interaction`), so "nothing selected" cannot happen: **exactly one navigation icon
 and exactly one tool icon is highlighted at all times**. The active one is drawn as a

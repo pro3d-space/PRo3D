@@ -5,6 +5,11 @@ It shows the three reference-system axes and lets you snap the camera to a clean
 axis-aligned view of your selection with a single click — the same affordance a
 view-cube gives in CAD / DCC tools.
 
+For the reference frame these axes are expressed in, see
+[Camera & Navigation](Navigation.md). **Note:** the axis→direction mapping below
+disagrees with the rest of the codebase — see
+[Navigation.md, open question 2](Navigation.md#7-open-questions-and-known-inconsistencies).
+
 ![gizmo](images/navigation-gizmo.png)
 
 ## What it shows
