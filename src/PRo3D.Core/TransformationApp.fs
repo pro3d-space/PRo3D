@@ -102,48 +102,54 @@ module TransformationApp =
 
         let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
 
+        // The frames with no body name their axes directly and carry the north offset.
+        // Everything else is a body, and uses the reference system's own north/east/up
+        // triad - which is why that is the fallback rather than an error: a body added
+        // to `Planet` later belongs here, and guessing wrong is better than throwing
+        // from inside a pivot pick or a trafo export.
         match refSystem.planet with
         | Planet.Earth ->
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
         | Planet.ENU -> 
             Trafo3d.FromOrthoNormalBasis( V3d.OIO, V3d.IOO, V3d.OOI) * northCorrection
-        | Planet.Mars | Planet.Moon | Planet.Phobos | Planet.Deimos | Planet.Dimorphos | Planet.Didymos ->
-            let north, up, east =
-                let north = refSystem.northO.Normalized        
-                let up    = refSystem.up.value.Normalized
-                let east  = north.Cross(up).Normalized
-                north, up, east
-            
-            let refSysRotation = 
-                Trafo3d.FromOrthoNormalBasis(north, east, up)
-            refSysRotation
         | Planet.JPL -> 
             Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI) * northCorrection
         | Planet.None -> 
             // northCorrection
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
-        | _ -> failwith ""
+        | _ ->
+            // Mars, Moon, Phobos, Deimos, Didymos, Dimorphos
+            let north = refSystem.northO.Normalized
+            let up    = refSystem.up.value.Normalized
+            let east  = north.Cross(up).Normalized
+            Trafo3d.FromOrthoNormalBasis(north, east, up)
 
     let getReferenceSystemBasis_local 
         (directions : Affine3d)
         (planet : Planet) =
 
+        // Same dispatch as `getReferenceSystemBasis_global`, but the body triad is read
+        // off the surface's own local frame instead of the reference system. The body
+        // case is the fallback for the same reason it is there: this used to list only
+        // `Planet.Mars` and send Moon, Phobos, Deimos, Didymos and Dimorphos into
+        // `failwith ""` - reachable from a pivot pick or a trafo export.
+        //
+        // Note this cannot apply `northCorrection` the way the global variant does: it
+        // is not given the ReferenceSystem, only the surface's directions and the planet.
         match planet with
         | Planet.Earth ->
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI)
         | Planet.ENU -> 
             Trafo3d.FromOrthoNormalBasis( V3d.OIO, V3d.IOO, V3d.OOI)
-        | Planet.Mars ->
-            let north, up, east = getNorthUpEastFromLocalRefSys directions
-            let refSysRotation = 
-                Trafo3d.FromOrthoNormalBasis(north, east, up)
-            refSysRotation
         | Planet.JPL -> 
             Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI)
         | Planet.None -> 
             //Trafo3d(directions)
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI)
-        | _ -> failwith ""
+        | _ ->
+            // Mars, Moon, Phobos, Deimos, Didymos, Dimorphos
+            let north, up, east = getNorthUpEastFromLocalRefSys directions
+            Trafo3d.FromOrthoNormalBasis(north, east, up)
 
     let translationFromReferenceSystemBasis
         (translation    : V3d)

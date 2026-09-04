@@ -526,21 +526,32 @@ from an oversight.
    recomputes `up` to the same value. A camera the user deliberately rolled is now left
    alone unless the reference frame genuinely changed under it.
 
-7. **`getReferenceSystemBasis_local` throws for Moon, Phobos, Deimos, Didymos and
-   Dimorphos.** Its match
-   ([`TransformationApp.fs:127-146`](../src/PRo3D.Core/TransformationApp.fs#L127-L146))
-   handles only Earth, ENU, Mars, JPL and None, and ends in `| _ -> failwith ""` —
-   whereas the `_global` variant
-   ([`:105-125`](../src/PRo3D.Core/TransformationApp.fs#L105-L125)) covers all the
-   bodies. It is reached from
+7. ~~**`getReferenceSystemBasis_local` throws for Moon, Phobos, Deimos, Didymos and
+   Dimorphos.**~~ **FIXED.** Its match listed only `Planet.Mars` as a body and ended in
+   `| _ -> failwith ""`, so the five bodies added to the `Planet` enum after it was
+   written fell straight through. The `_global` variant had them all — the list simply
+   was not kept in step.
+
+   Both functions are the same dispatch: the frames with no body (Earth, ENU, JPL, None)
+   name their axes directly, everything else is a body using a north/east/up triad —
+   `_global` from the reference system, `_local` from the surface's own frame. So both
+   now name the four bodiless frames explicitly and make **the body case the fallback**,
+   which fixes the five and removes the `failwith` from both. A body added to `Planet`
+   later lands in the right branch by default, instead of throwing from inside a pivot
+   pick or a trafo export. Behaviour is unchanged for all ten declared planets.
+
+   *Reachability, for the record:* only via
    [`getReferenceSystemBasisAndOriginTrafo`](../src/PRo3D.Core/TransformationApp.fs#L197-L201)
-   when a surface has a local reference system **and** pivot mode is `BBCenter` or
-   `PickPivot`. Defaults (`refSys = None`, `pivotMode = NoPivot`,
-   [`Transformation-Model.fs:143`](../src/PRo3D.Core/Transformation-Model.fs#L143),
-   [`:154`](../src/PRo3D.Core/Transformation-Model.fs#L154)) keep it out of reach on
-   a fresh scene, so this is a latent crash, not an everyday symptom — but it is a
-   real hole and the five bodies it misses are the same five where item 3 is most
-   visible, which is what made it look related.
+   with a surface-local reference system **and** pivot mode `BBCenter` or `PickPivot`,
+   and only from the two live `fullTrafo'` call sites — `SetPickedPivotPoint` (Ctrl+click
+   with the Pick Pivot Point tool) and `writeTrafoDataToJson` (Export trafo data). The
+   *adaptive* `fullTrafo` ([`:211`](../src/PRo3D.Core/TransformationApp.fs#L211)) has no
+   callers at all, so this never ran during rendering.
+
+   *Left as is:* `_local` cannot apply the `northCorrection` that `_global` applies to
+   the four bodiless frames — it is handed only the surface's directions and the planet,
+   not the `ReferenceSystem` that carries `noffset`. Noted in the code; fixing it means
+   changing the signature.
 
 8. **TODO — the reference system is guessed, not read from the OPC.**
    *Blocked: waiting on a definition of how the `*.opc.json` sidecar stores this.*
