@@ -56,10 +56,13 @@ frame is derived from:
   `east = Z × up`, `north = up × east`.
 - **Non-planetary frames** — `up` is a fixed axis convention rather than a
   function of position, so the `Z × up` construction degenerates everywhere.
-  These frames name their axes directly:
-  `Planet.JPL` is NED (X north, Y east, Z **down**), `Planet.ENU` and
-  `Planet.None` are ENU (X east, Y north, Z up). This matches the reference
-  system's own definition of north (see TC-2.4).
+  These frames name their axes directly, each matching what
+  `ReferenceSystem.updateCoordSystemAt` defines for that planet:
+  `Planet.JPL` is NED (north `+X`, up `−Z`), `Planet.ENU` is ENU
+  (north `+Y`, up `+Z`), and `Planet.None` takes JPL's north (`+X`) with ENU's
+  up (`+Z`). None used to share the ENU branch, putting its north 90° out from
+  the reference system, the cross and the gizmo. TC-2.5 asserts the agreement
+  against `ReferenceSystemApp` directly, so neither side can drift.
 
 Right over a pole, north is genuinely undefined. `blocksPole` rejects camera
 motion that would drive the view direction into the polar axis, so the camera

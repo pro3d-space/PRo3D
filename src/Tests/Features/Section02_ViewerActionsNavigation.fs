@@ -380,6 +380,31 @@ let tests =
             Expect.equal frame.north V3d.OIO "ENU north should point along +Y (see TC-2.4)"
         }
 
+        test "TC-2.5 the non-planetary map frames agree with the reference system" {
+            // mapFrame used to share one branch between ENU and None, which put None's
+            // north on +Y while ReferenceSystemApp puts it on +X - a 90 degree
+            // disagreement with the cross, the gizmo and the transformation basis. Since
+            // MapView takes `north` as the camera's sky, the two must not drift apart.
+            // Asserted against ReferenceSystemApp rather than against literals, so the
+            // test fails if either side moves.
+            let p = V3d(1.0, 2.0, 3.0)
+            let referenceFrame (planet : Planet) =
+                let model = { ReferenceSystem.initial with planet = planet }
+                let rs, _ =
+                    ReferenceSystemApp.update
+                        Nav.viewConfig LenseConfigs.referenceSystemConfig model
+                        (ReferenceSystemAction.UpdateUpNorth p)
+                rs.up.value, rs.north.value
+
+            for planet in [ Planet.None; Planet.JPL; Planet.ENU ] do
+                let frame = MapViewController.mapFrame planet p
+                let refUp, refNorth = referenceFrame planet
+                Expect.equal frame.up refUp
+                    (sprintf "%A: map frame up should match the reference system's" planet)
+                Expect.equal frame.north refNorth
+                    (sprintf "%A: map frame north should match the reference system's" planet)
+        }
+
         test "TC-2.5 the Mars map frame is a right-handed east/north/up triple" {
             let frame = MapViewController.mapFrame Planet.Mars Nav.marsSurface
             Expect.floatClose Accuracy.low (Vec.dot frame.up frame.north) 0.0 "up and north should be perpendicular"

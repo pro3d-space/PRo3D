@@ -589,12 +589,24 @@ from an oversight.
    scale, and annotation angles all at once, so this sits upstream of much of the rest
    of this list.
 
-9. **`Planet.None`'s north disagrees between two subsystems.**
+9. ~~**`Planet.None`'s north disagrees between two subsystems.**~~ **FIXED.**
    [`ReferenceSystem.updateCoordSystemAt`](../src/PRo3D.Core/ReferenceSystem.fs#L88-L92)
    groups `None` with `JPL` and gives north `+X`;
-   [`MapViewController.mapFrame`](../src/PRo3D.Viewer/MapViewCameraController.fs#L106-L108)
-   groups `None` with `ENU` and gives north `+Y`. [MapView.md](MapView.md) asserts
-   the two match. Folds into item 1.
+   [`MapViewController.mapFrame`](../src/PRo3D.Viewer/MapViewCameraController.fs)
+   shared one branch between `ENU` and `None` and gave it `+Y`. Since MapView uses
+   `north` as the camera's **sky**, that was a 90° roll away from the cross, the gizmo
+   and the transformation basis. [MapView.md](MapView.md) asserted the two matched.
+
+   `mapFrame` moved, not `ReferenceSystem`: `+X` is what every other consumer of
+   `Planet.None` uses, and it keeps the cross's X on global +X and Z on global +Z.
+   Putting north on `+Y` instead would have swapped X and Y relative to the global axes
+   — strictly worse for plain cartesian data. `None` now has its own branch
+   (north `+X`, up `+Z`, `east = north × up = −Y`); `east` is computed but read by
+   nothing, and is kept consistent only so the record does not mislead.
+
+   Covered by a new TC-2.5 case that checks `mapFrame` against `ReferenceSystemApp` for
+   all three bodiless frames, asserted against the app rather than literals so a change
+   on either side fails the test.
 
 10. **Earth's transformation basis is the global identity**, not its local
     (north, east, up) triad, unlike every other body
