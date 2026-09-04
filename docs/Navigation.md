@@ -160,16 +160,32 @@ not.** Two conventions are live in the codebase at the same time:
 | [`Sg.view` → `xyzSystem`](../src/PRo3D.Core/Sg.fs#L216-L253) — the in-scene cross with "X"/"Y"/"Z" labels | north | east | up | **left** |
 | [`ScaleBarsApp.viewScaleCoordinateFrame`](../src/PRo3D.Core/ScaleBarsApp.fs#L721) (red/green/blue through the basis above) | north | east | up | **left** |
 | [`NavigationGizmo.labelOf`](../src/PRo3D.Viewer/NavigationGizmo.fs) — only where axis letters are shown (`None` / `JPL`) | north | east | up | **left** |
-| [`MapViewController.mapFrame`](../src/PRo3D.Viewer/MapViewCameraController.fs#L106-L108), `ENU` / `None` † | east | north | up | right |
-| [`MapViewController.mapFrame`](../src/PRo3D.Viewer/MapViewCameraController.fs#L104-L105), `JPL` † | north | east | **down** | right |
 
-† **MapView is known to be buggy and is not a source of truth for this.** Its rows
-are listed for completeness only — do not treat them as evidence for a convention.
-MapView is to be fixed in its own right (open question 1); whatever convention is
-settled here should then be applied to it, not read out of it.
+So the convention in force is **X = North, Y = East, Z = Up** — a left-handed frame
+(`X × Y = −Z`) — held by every consumer that attaches letters to directions at all.
 
-So the convention actually in force is **X = North, Y = East, Z = Up** — a
-left-handed frame (`X × Y = −Z`) — held by every non-MapView consumer.
+### MapView does not take part in this question
+
+Worth stating, because it is easy to assume otherwise: **`MapViewController.mapFrame`
+never attaches a letter to anything.** It returns an `(east, north, up)` record and uses
+`north` as the camera's sky vector; nothing downstream reads an X, Y or Z out of it. The
+`// NED: X north, Y east, Z down` and `// ENU: X east, Y north, Z up` comments on its
+non-planetary branches
+([`MapViewCameraController.fs:104-108`](../src/PRo3D.Viewer/MapViewCameraController.fs#L104-L108))
+only record which *global* axis plays each role for those fixed frames — they are not a
+labelling convention, and they are not in tension with the table above.
+
+All three branches are right-handed `(east, north, up)` triples, the same invariant as
+§1: ENU gives `X × Y = Z`; JPL gives `Y × X = −Z = up`; the planetary branch builds
+`east = pole × up`, `north = up × east`, so `east × north = up` by construction. TC-2.5
+asserts exactly that for Mars.
+
+So there is **no left- versus right-handedness defect in MapView to fix**. FreeFly and
+ArcBall likewise have no handedness at all — they move a `CameraView` (position,
+direction, sky) and never see an axis letter. Handedness lives only in the widgets that
+draw letters and in `TransformationApp`'s basis. What is actually open about MapView is
+open question 1 (symptoms still to be collected) and open question 9 (`Planet.None`'s
+north), neither of which is a handedness problem.
 
 The gizmo used to be the outlier (X = east, Y = north). It now sidesteps the question
 where it can: its six endpoints are named by direction, and it only draws **X/Y/Z at
@@ -368,10 +384,21 @@ reference system — it holds no state. Full description in
 The backlog this document was written to establish. Nothing here has been changed yet;
 the order is roughly the order we intend to work through them.
 
-1. **MapView is buggy and needs fixing in its own right.** Until it is, it is *not*
-   a source of truth for frame conventions — see the † note in §2. Symptoms and
-   scope still to be collected; [MapView.md](MapView.md) describes the intended
-   design, not necessarily the current behaviour.
+1. **MapView is buggy and needs fixing in its own right.** Symptoms and scope still to
+   be collected; [MapView.md](MapView.md) describes the intended design, not
+   necessarily the current behaviour.
+
+   **Not a handedness problem** — `mapFrame` is right-handed on every branch and
+   attaches no axis letters, so it neither agrees nor disagrees with §2's convention
+   (see *MapView does not take part in this question*). Candidates found by reading the
+   code, none yet confirmed against a symptom: it derives its own frame from `planet`
+   and position and so ignores `noffset`/`northO` and any manual `SetUp`/`SetNorth`
+   (there is a commented-out attempt at this in
+   [`Navigation.fs:137-140`](../src/PRo3D.Viewer/Navigation.fs#L137-L140)); it re-aims
+   the camera in place on entry rather than moving it, so arriving from a ground-level
+   FreeFly pose gives a nadir view from a couple of metres up; and it re-purposes
+   `targetPhiTheta` / `panFactor` / `rotationFactor` while active. Open question 9 folds
+   in here too.
 
 2. ~~**The gizmo's X and Y are swapped** relative to every non-MapView consumer.~~
    **FIXED.** Red used to point east in the gizmo and north everywhere else, in both
