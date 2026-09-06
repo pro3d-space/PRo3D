@@ -55,7 +55,10 @@ custom icon name (e.g. `pro3d-tire`) and, in [semui-overrides.css](../src/PRo3D.
 match `.pro3d-toolstrip .pro3d-tool i.icon.<name>` with a `mask` data-URI plus
 `background-color: currentColor`. Painting through `currentColor` makes the SVG
 pick up `--tool-color` and the active-chip knockout like the font icons.
-`pro3d-tire` (Place rover) uses Phosphor's MIT-licensed "tire".
+`pro3d-tire` (Place rover) and `pro3d-coordinate-cross` (Place coordinate cross)
+use Phosphor's MIT-licensed glyphs; `pro3d-surface-ref-sys` (Place surface
+reference system) is `pro3d-coordinate-cross` with a small plus badge in the
+top-left corner.
 
 ## Where the code lives
 

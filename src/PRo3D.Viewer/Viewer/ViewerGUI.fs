@@ -1233,9 +1233,9 @@ module Gui =
                     divider
 
                     // --- reference systems & camera ---------------------------------------
-                    tool "crosshairs" "Place coordinate cross" Interactions.PlaceCoordinateSystem
-                    tool "compass"    "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
-                    tool "bullseye"   "Pick the ArcBall orbit centre" Interactions.PickExploreCenter
+                    tool "pro3d-coordinate-cross" "Place coordinate cross" Interactions.PlaceCoordinateSystem
+                    tool "pro3d-surface-ref-sys" "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
+                    tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' to set the pivot point to the body center" Interactions.PickExploreCenter
                   ]
                 ]
             )
