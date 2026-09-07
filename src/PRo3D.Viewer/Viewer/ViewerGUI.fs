@@ -952,6 +952,7 @@ module Gui =
             | Interactions.PlaceCoordinateSystem -> sprintf "%s+click to place coordinate cross" ctrl
             | Interactions.DrawAnnotation        -> sprintf "%s+click to pick point on surface" ctrl
             | Interactions.PickAnnotation        -> sprintf "%s+click on annotation to select" ctrl
+            | Interactions.CutAnnotation         -> sprintf "%s+click to draw separating polyline" ctrl
             | Interactions.PickSurface           -> sprintf "%s+click on surface to select" ctrl
             | Interactions.PlaceRover            -> sprintf "%s+click to (1) place rover and (2) pick lookat" ctrl
             | Interactions.TrafoControls         -> "not implemented"
@@ -1176,6 +1177,11 @@ module Gui =
                    tooltip
                    (SetInteraction interaction)
 
+        /// A one-shot command button - it fires an action on the current selection rather
+        /// than switching the interaction mode, so it never reads as "active".
+        let private actionButton (color : string) (icon : string) (tooltip : string) (action : ViewerAction) =
+            button color icon (AVal.constant false) (AVal.constant true) tooltip action
+
         let private divider = div [clazz "pro3d-tool-divider"] []
 
         let view (m : AdaptiveModel) : DomNode<ViewerAction> =
@@ -1213,6 +1219,9 @@ module Gui =
                     tool "pencil"        "Draw annotation" Interactions.DrawAnnotation
                     tool "mouse pointer" "Select annotation" Interactions.PickAnnotation
                     tool "cut"           "Cut annotation - draw a stroke that cuts the selected annotation" Interactions.CutAnnotation
+                    actionButton (ToolColors.hex ToolColors.annotation) "pro3d-union"
+                                 "Union selected annotations (2 or more)"
+                                 (ViewerAction.DrawingMessage (DrawingAction.UnionSelectedAnnotations None))
                     tool "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
 
                     divider
