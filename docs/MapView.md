@@ -143,6 +143,13 @@ The [navigation axis gizmo](NavigationGizmo.md) keeps its four horizontal snaps 
 MapView but disables the vertical (Up / Down) ones: looking along the polar axis is
 the north-up singularity `blocksPole` guards against.
 
+Its [axis lock](NavigationGizmo.md#lock-a-navigation-axis) is available in MapView
+for the **vertical edge only**: clicking it constrains a drag to a constant-latitude
+orbit about the body spin axis (`mapFrame.polarAxis`), i.e. longitude-only motion.
+The two horizontal edges are not lockable in MapView. The lock is a post-filter on
+the camera in `Navigation.update` and is transient (see NavigationGizmo.md for the
+clearing rules).
+
 ## Tests
 
 `src/Tests/Features/Section02_ViewerActionsNavigation.fs`, TC-2.5.

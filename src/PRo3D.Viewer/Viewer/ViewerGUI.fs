@@ -1854,9 +1854,21 @@ module Gui =
                                                 "Vertical (up/down) views are not available in Map View - use the horizontal axes."
                                             else "")
                                         gizmoHasSelection m.navigation.navigationMode
+                                // Which edges can be clicked to lock an axis: ArcBall any,
+                                // MapView only the vertical edge, FreeFly none.
+                                let gizmoEdgeLockEnabled =
+                                    m.navigation.navigationMode
+                                    |> AVal.map (fun mode a ->
+                                        match mode, a with
+                                        | NavigationMode.ArcBall, _                     -> true
+                                        | NavigationMode.MapView, NavigationAxis.UpDown -> true
+                                        | _                                            -> false)
                                 yield NavigationGizmo.view
                                         (fun a -> OrientCameraToGizmoAxis a)
+                                        (fun a -> ToggleNavigationAxisLock a)
                                         gizmoAxisEnabled
+                                        gizmoEdgeLockEnabled
+                                        m.navigation.lockedAxis
                                         gizmoHint
                                         m.navigation.camera.view
                                         m.scene.referenceSystem

@@ -376,6 +376,16 @@ reference system — it holds no state. Full description in
 - `gizmoCameraUp` ([`NavigationGizmo.fs:74-79`](../src/PRo3D.Viewer/NavigationGizmo.fs#L74-L79))
   currently returns *north* as the screen-up for the top/bottom (±Z) view, and the
   reference up otherwise.
+- Clicking an **edge** (the full diameter line) **locks that axis**:
+  `NavigationModel.lockedAxis` is set, and `Navigation.update` post-filters the
+  camera in its ArcBall and MapView branches through
+  `NavigationConstraint.constrainRotationToAxis`, so that a drag may only rotate the
+  camera about the locked world axis (swing-twist decomposition — keep the twist,
+  drop the swing; zoom / dolly untouched). ArcBall allows all three edges; MapView
+  only the vertical one (constant-latitude orbit about the body spin axis); FreeFly
+  does not support it. The lock is transient and is cleared on a mode switch, a
+  circle click, a re-click of the edge, and scene / bookmark load. Full description
+  in [NavigationGizmo.md](NavigationGizmo.md#lock-a-navigation-axis).
 
 ---
 

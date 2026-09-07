@@ -27,6 +27,14 @@ open PRo3D.Core
 /// are disabled as well, since MapView locks the camera to a nadir, north-up pose and a
 /// vertical snap is its gimbal-lock singularity. A `hint` string carries the reason and is
 /// surfaced as a hover tooltip.
+///
+/// Clicking an *edge* (the full diameter line) toggles an axis lock
+/// (`ViewerAction.ToggleNavigationAxisLock`): `NavigationModel.lockedAxis` is set, the
+/// edge is highlighted yellow, and `Navigation.update` constrains navigation to a
+/// rotation about that axis (`NavigationConstraint.constrainRotationToAxis`). Which
+/// edges are clickable is decided by `edgeLockEnabled` (ArcBall: all three; MapView:
+/// vertical only; FreeFly: none). The gizmo `view` stays a pure function - the lock
+/// state lives on the model and is passed in.
 module NavigationGizmo =
 
     /// One of the six endpoints, named by the direction it points in the reference-system
@@ -53,7 +61,7 @@ module NavigationGizmo =
     /// The non-planetary frames (None/JPL/ENU) are already fixed cartesian frames in
     /// `ReferenceSystem.updateCoordSystemAt`, so they are left to flow through `enuBasis`
     /// unchanged - JPL's up is -Z, which a blanket substitution would silently flip.
-    let private usesBodyFixedFrame (planet : Planet) = CooTransformation.isSmallBody planet
+    let private usesBodyFixedFrame (planet : Planet) = NavigationConstraint.usesBodyFixedFrame planet
 
     /// Reference systems that present their frame as a compass get compass letters; the
     /// ones whose frame is a fixed cartesian one get axis letters. For None/JPL this
@@ -85,21 +93,11 @@ module NavigationGizmo =
         | East  | West  -> (0x46, 0xC0, 0x55)
         | Up    | Down  -> (0x4A, 0xA3, 0xFF)
 
-    /// ENU basis from the reference-system up/north. `east = north x up`, matching the
-    /// convention in `PRo3D.Core.Sg.getOrientationSystem` / `Sg.view`.
-    let private enuBasis (up : V3d) (north : V3d) : V3d * V3d * V3d =
-        let u = up.Normalized
-        let n = north.Normalized
-        let e = (Vec.cross n u).Normalized
-        e, n, u
-
-    /// The (east, north, up) triple the six endpoints are built from. Body-fixed for the
-    /// small bodies (see `usesBodyFixedFrame`), the local tangent frame otherwise. The
-    /// body-fixed assignment follows the `xyzSystem` cross's letters: X = north, Y = east,
-    /// Z = up, so the circles labelled X/Y/Z point along global +X/+Y/+Z.
+    /// The (east, north, up) triple the six endpoints are built from - body-fixed for
+    /// the small bodies, the local tangent frame otherwise. Shared with the axis-lock
+    /// constraint so the dots and the locked axle stay in agreement.
     let private frameOf (planet : Planet) (up : V3d) (north : V3d) : V3d * V3d * V3d =
-        if usesBodyFixedFrame planet then V3d.OIO, V3d.IOO, V3d.OOI
-        else enuBasis up north
+        NavigationConstraint.frameOf planet up north
 
     let private axisDir (east : V3d) (north : V3d) (up : V3d) (a : GizmoAxis) : V3d =
         match a with
@@ -107,12 +105,19 @@ module NavigationGizmo =
         | East  ->  east  | West  -> -east
         | Up    ->  up    | Down  -> -up
 
+    /// The lockable (unsigned) axis a gizmo endpoint sits on.
+    let navAxisOf =
+        function
+        | North | South -> NavigationAxis.NorthSouth
+        | East  | West  -> NavigationAxis.EastWest
+        | Up    | Down  -> NavigationAxis.UpDown
+
     // -- helpers used by the update handler (imperative context; plain values) ------------
 
     /// World-space unit direction of a gizmo axis for the given reference system.
     let resolveAxisWorldDir (rs : ReferenceSystem) (a : GizmoAxis) : V3d =
-        let e, n, u = frameOf rs.planet rs.up.value rs.northO
-        (axisDir e n u a).Normalized
+        let d = NavigationConstraint.getAxisWorldDirection rs (navAxisOf a)
+        if isPositive a then d else -d
 
     /// Camera "up" (sky) to use after snapping onto `a`. For a top/bottom view the map
     /// convention is North-up; otherwise the reference Up direction stays vertical.
@@ -131,13 +136,25 @@ module NavigationGizmo =
     let private dotR    = 10.0
     let private fmt (v : float) = sprintf "%f" v   // invariant-culture '.'-decimal
 
+    let private allNavAxes = [ NavigationAxis.NorthSouth; NavigationAxis.EastWest; NavigationAxis.UpDown ]
+
+    /// The (+, -) gizmo endpoints of a lockable axis.
+    let private navPair =
+        function
+        | NavigationAxis.NorthSouth -> North, South
+        | NavigationAxis.EastWest   -> East,  West
+        | NavigationAxis.UpDown     -> Up,    Down
+
     let private buildSvg
-        (mkMsg       : GizmoAxis -> 'msg)
-        (axisEnabled : GizmoAxis -> bool)
-        (camView     : CameraView)
-        (upRaw       : V3d)
-        (northRaw    : V3d)
-        (planet      : Planet) : DomNode<'msg> =
+        (mkMsg           : GizmoAxis -> 'msg)
+        (mkLockMsg       : NavigationAxis -> 'msg)
+        (axisEnabled     : GizmoAxis -> bool)
+        (edgeLockEnabled : NavigationAxis -> bool)
+        (lockedAxis      : Option<NavigationAxis>)
+        (camView         : CameraView)
+        (upRaw           : V3d)
+        (northRaw        : V3d)
+        (planet          : Planet) : DomNode<'msg> =
 
         let label = labelOf planet
         let east, north, up = frameOf planet upRaw northRaw
@@ -194,6 +211,45 @@ module NavigationGizmo =
                            "stroke-opacity" => fmt o
                            "pointer-events" => "none" ])
 
+        // Projected screen position of a gizmo endpoint (centre if it somehow is missing).
+        let endpoint a =
+            projected
+            |> List.tryFind (fun m -> m.axis = a)
+            |> Option.map (fun m -> m.x, m.y)
+            |> Option.defaultValue (c, c)
+
+        // Transparent thick hit-lines spanning the full diameter (- endpoint through the
+        // centre to the + endpoint), one per lockable axis. Rendered under the dots, so a
+        // click near an endpoint still snaps; a click along the shaft locks the axis.
+        let edgeHits =
+            allNavAxes
+            |> List.choose (fun na ->
+                if not (edgeLockEnabled na) then None
+                else
+                    let ap, am = navPair na
+                    let (x1, y1) = endpoint ap
+                    let (x2, y2) = endpoint am
+                    Svg.line [ "x1" => fmt x1; "y1" => fmt y1; "x2" => fmt x2; "y2" => fmt y2
+                               "stroke" => "transparent"; "stroke-width" => "14"
+                               "stroke-linecap" => "round"
+                               "style" => "cursor:pointer"
+                               "pointer-events" => "stroke"
+                               onClick (fun _ -> mkLockMsg na) ]
+                    |> Some)
+
+        // The locked edge, drawn yellow over the coloured lines.
+        let lockHighlight =
+            match lockedAxis with
+            | Some na ->
+                let ap, am = navPair na
+                let (x1, y1) = endpoint ap
+                let (x2, y2) = endpoint am
+                [ Svg.line [ "x1" => fmt x1; "y1" => fmt y1; "x2" => fmt x2; "y2" => fmt y2
+                             "stroke" => "#FFD400"; "stroke-width" => "4"
+                             "stroke-linecap" => "round"
+                             "pointer-events" => "none" ] ]
+            | None -> []
+
         let dots =
             projected
             |> List.collect (fun m ->
@@ -201,6 +257,7 @@ module NavigationGizmo =
                 let on  = axisEnabled m.axis
                 let col = rgbStr m.axis
                 let o = opacityOf m.axis pos (m.depth > 0.0)
+                let locked = lockedAxis = Some (navAxisOf m.axis)
                 // Circles always take pointer events (even when disabled) so hovering one
                 // still triggers the wrapper's :hover tooltip; only the click is gated.
                 // Lines/labels/gaps stay click-through so a drag started between circles
@@ -209,7 +266,9 @@ module NavigationGizmo =
                     [ "cx" => fmt m.x; "cy" => fmt m.y; "r" => fmt dotR
                       "fill" => (if pos then col else "rgb(28,29,31)")
                       "fill-opacity" => fmt o
-                      "stroke" => col; "stroke-width" => "2"; "stroke-opacity" => fmt o
+                      "stroke" => (if locked then "#FFD400" else col)
+                      "stroke-width" => (if locked then "3" else "2")
+                      "stroke-opacity" => (if locked then "1" else fmt o)
                       "style" => (if on then "cursor:pointer" else "cursor:default")
                       "pointer-events" => "all" ]
                 let clickAttrs =
@@ -231,7 +290,7 @@ module NavigationGizmo =
               "height" => sprintf "%fpx" boxSize
               "viewBox" => sprintf "0 0 %f %f" boxSize boxSize
               "style" => "display:block; overflow:visible; user-select:none" ]
-            (guides @ lines @ dots)
+            (guides @ edgeHits @ lines @ lockHighlight @ dots)
 
     /// The gizmo overlay. `cam` is the live camera view (only its orientation is used);
     /// `axisEnabled` decides, per circle, whether it is clickable (false for every axis
@@ -239,20 +298,25 @@ module NavigationGizmo =
     /// `hint` is the hover-tooltip text explaining a disabled state, or "" when the gizmo
     /// is fully usable (no tooltip, and the wrapper stays click-through).
     let view
-        (mkMsg       : GizmoAxis -> 'msg)
-        (axisEnabled : aval<GizmoAxis -> bool>)
-        (hint        : aval<string>)
-        (cam         : aval<CameraView>)
-        (rs          : AdaptiveReferenceSystem) : DomNode<'msg> =
+        (mkMsg           : GizmoAxis -> 'msg)
+        (mkLockMsg       : NavigationAxis -> 'msg)
+        (axisEnabled     : aval<GizmoAxis -> bool>)
+        (edgeLockEnabled : aval<NavigationAxis -> bool>)
+        (lockedAxis      : aval<Option<NavigationAxis>>)
+        (hint            : aval<string>)
+        (cam             : aval<CameraView>)
+        (rs              : AdaptiveReferenceSystem) : DomNode<'msg> =
 
         let node =
             adaptive {
-                let! camView = cam
-                let! up      = rs.up.value
-                let! north   = rs.northO
-                let! planet  = rs.planet
-                let! isOn    = axisEnabled
-                return buildSvg mkMsg isOn camView up north planet
+                let! camView   = cam
+                let! up        = rs.up.value
+                let! north     = rs.northO
+                let! planet    = rs.planet
+                let! isOn      = axisEnabled
+                let! edgeOn    = edgeLockEnabled
+                let! locked    = lockedAxis
+                return buildSvg mkMsg mkLockMsg isOn edgeOn locked camView up north planet
             }
 
         // Tooltip lives on the wrapper as a semantic-ui `data-tooltip` (pure CSS), shown
@@ -266,6 +330,9 @@ module NavigationGizmo =
                     yield clazz "pro3d-nav-gizmo"
                     let! h = hint
                     let disabledHint = not (System.String.IsNullOrWhiteSpace h)
+                    // The wrapper stays click-through when fully usable so a drag in a gap
+                    // reaches the render body; the circles and the transparent edge
+                    // hit-lines set their own `pointer-events` and stay clickable anyway.
                     yield style (sprintf "position:absolute; left:12px; bottom:12px; width:112px; height:112px; pointer-events:%s"
                                          (if disabledHint then "auto" else "none"))
                     if disabledHint then

@@ -56,6 +56,7 @@
     <Compile Include="AnnotationExport-Model.g.fs" />
     <Compile Include="AnnotationExportApp.fs" />
     <Compile Include="ReferenceSystem.fs" />
+    <Compile Include="NavigationConstraint.fs" />
     <Compile Include="TransformationApp.fs" />
     <Compile Include="TriangleSet.fs" />
     <Compile Include="Surface.fs" />

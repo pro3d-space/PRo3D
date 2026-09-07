@@ -104,6 +104,7 @@ type ViewerAction =
 | FrustumMessage                  of FrustumProperties.Action
 | SetCamera                       of CameraView
 | OrientCameraToGizmoAxis         of NavigationGizmo.GizmoAxis
+| ToggleNavigationAxisLock        of NavigationAxis
 | SetCameraAndFrustum             of CameraView * double * double
 | SetCameraAndFrustum2            of CameraView * Frustum
 | SetFrustum                      of Frustum

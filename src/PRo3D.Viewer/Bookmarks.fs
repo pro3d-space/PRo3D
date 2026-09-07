@@ -208,6 +208,7 @@ module Bookmarks =
                                 exploreCenter = bkm.exploreCenter
                                 navigationMode = bkm.navigationMode
                                 updatePerFrame = (bkm.navigationMode = NavigationMode.MapView)
+                                lockedAxis = None
                             }
                         let newOuterModel = Optic.set navigationModel nav' outerModel
                         newOuterModel, bookmarks
