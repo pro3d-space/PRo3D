@@ -139,6 +139,10 @@ metres up — correct, but rarely what the user wants. Framing the loaded surfac
 on entry would need the scene bounding box, which the navigation layer currently
 has no access to.
 
+The [navigation axis gizmo](NavigationGizmo.md) keeps its four horizontal snaps in
+MapView but disables the vertical (Up / Down) ones: looking along the polar axis is
+the north-up singularity `blocksPole` guards against.
+
 ## Tests
 
 `src/Tests/Features/Section02_ViewerActionsNavigation.fs`, TC-2.5.

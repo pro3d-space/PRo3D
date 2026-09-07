@@ -21,8 +21,12 @@ open PRo3D.Core
 /// happens in `updateViewer` (see `ViewerAction.OrientCameraToGizmoAxis`).
 ///
 /// Clicking a circle asks the viewer to look straight along that axis onto the centre of
-/// the currently multi-selected surfaces' bounding box. With nothing multi-selected the
-/// circles render disabled and dispatch nothing.
+/// the currently multi-selected surfaces' bounding box - set instantly, no animation
+/// (see `ViewerAction.OrientCameraToGizmoAxis`). With nothing multi-selected every circle
+/// renders disabled and dispatches nothing; in MapView the two vertical circles (Up/Down)
+/// are disabled as well, since MapView locks the camera to a nadir, north-up pose and a
+/// vertical snap is its gimbal-lock singularity. A `hint` string carries the reason and is
+/// surfaced as a hover tooltip.
 module NavigationGizmo =
 
     /// One of the six endpoints, named by the direction it points in the reference-system
@@ -128,12 +132,12 @@ module NavigationGizmo =
     let private fmt (v : float) = sprintf "%f" v   // invariant-culture '.'-decimal
 
     let private buildSvg
-        (mkMsg    : GizmoAxis -> 'msg)
-        (enabled  : bool)
-        (camView  : CameraView)
-        (upRaw    : V3d)
-        (northRaw : V3d)
-        (planet   : Planet) : DomNode<'msg> =
+        (mkMsg       : GizmoAxis -> 'msg)
+        (axisEnabled : GizmoAxis -> bool)
+        (camView     : CameraView)
+        (upRaw       : V3d)
+        (northRaw    : V3d)
+        (planet      : Planet) : DomNode<'msg> =
 
         let label = labelOf planet
         let east, north, up = frameOf planet upRaw northRaw
@@ -153,9 +157,13 @@ module NavigationGizmo =
             // painter's algorithm: farthest first so nearer circles paint on top
             |> List.sortByDescending (fun m -> m.depth)
 
-        let dim = if enabled then 1.0 else 0.35
+        // Per-axis dim: a disabled circle greys out on its own. The shared guides only
+        // grey when *nothing* is clickable (no selection).
+        let anyEnabled = allAxes |> List.exists axisEnabled
+        let guideDim   = if anyEnabled then 1.0 else 0.35
 
-        let opacityOf pos facingAway =
+        let opacityOf axis pos facingAway =
+            let dim = if axisEnabled axis then 1.0 else 0.35
             (match pos, facingAway with
              | true,  false -> 1.0
              | true,  true  -> 0.5
@@ -169,9 +177,9 @@ module NavigationGizmo =
         let guides =
             [ Svg.circle [ "cx" => fmt c; "cy" => fmt c; "r" => fmt ringR
                            "fill" => "none"; "stroke" => "#ffffff"; "stroke-width" => "1"
-                           "stroke-opacity" => fmt (0.12 * dim); "pointer-events" => "none" ]
+                           "stroke-opacity" => fmt (0.12 * guideDim); "pointer-events" => "none" ]
               Svg.circle [ "cx" => fmt c; "cy" => fmt c; "r" => "2.5"
-                           "fill" => "#cccccc"; "fill-opacity" => fmt (0.6 * dim)
+                           "fill" => "#cccccc"; "fill-opacity" => fmt (0.6 * guideDim)
                            "pointer-events" => "none" ] ]
 
         // all connecting lines behind all circles
@@ -179,7 +187,7 @@ module NavigationGizmo =
             projected
             |> List.map (fun m ->
                 let pos = isPositive m.axis
-                let o = opacityOf pos (m.depth > 0.0)
+                let o = opacityOf m.axis pos (m.depth > 0.0)
                 Svg.line [ "x1" => fmt c; "y1" => fmt c; "x2" => fmt m.x; "y2" => fmt m.y
                            "stroke" => rgbStr m.axis
                            "stroke-width" => (if pos then "2.5" else "1.5")
@@ -190,17 +198,22 @@ module NavigationGizmo =
             projected
             |> List.collect (fun m ->
                 let pos = isPositive m.axis
+                let on  = axisEnabled m.axis
                 let col = rgbStr m.axis
-                let o = opacityOf pos (m.depth > 0.0)
+                let o = opacityOf m.axis pos (m.depth > 0.0)
+                // Circles always take pointer events (even when disabled) so hovering one
+                // still triggers the wrapper's :hover tooltip; only the click is gated.
+                // Lines/labels/gaps stay click-through so a drag started between circles
+                // reaches the render body.
                 let circleAttrs =
                     [ "cx" => fmt m.x; "cy" => fmt m.y; "r" => fmt dotR
                       "fill" => (if pos then col else "rgb(28,29,31)")
                       "fill-opacity" => fmt o
                       "stroke" => col; "stroke-width" => "2"; "stroke-opacity" => fmt o
-                      "style" => (if enabled then "cursor:pointer" else "cursor:default")
-                      "pointer-events" => (if enabled then "all" else "none") ]
+                      "style" => (if on then "cursor:pointer" else "cursor:default")
+                      "pointer-events" => "all" ]
                 let clickAttrs =
-                    if enabled then [ onClick (fun _ -> mkMsg m.axis) ]
+                    if on then [ onClick (fun _ -> mkMsg m.axis) ]
                     else []
                 let circle = Svg.circle (circleAttrs @ clickAttrs)
                 let txt =
@@ -221,12 +234,16 @@ module NavigationGizmo =
             (guides @ lines @ dots)
 
     /// The gizmo overlay. `cam` is the live camera view (only its orientation is used);
-    /// `enabled` is false while no surface is multi-selected.
+    /// `axisEnabled` decides, per circle, whether it is clickable (false for every axis
+    /// while no surface is multi-selected, and additionally for Up/Down in MapView);
+    /// `hint` is the hover-tooltip text explaining a disabled state, or "" when the gizmo
+    /// is fully usable (no tooltip, and the wrapper stays click-through).
     let view
-        (mkMsg   : GizmoAxis -> 'msg)
-        (enabled : aval<bool>)
-        (cam     : aval<CameraView>)
-        (rs      : AdaptiveReferenceSystem) : DomNode<'msg> =
+        (mkMsg       : GizmoAxis -> 'msg)
+        (axisEnabled : aval<GizmoAxis -> bool>)
+        (hint        : aval<string>)
+        (cam         : aval<CameraView>)
+        (rs          : AdaptiveReferenceSystem) : DomNode<'msg> =
 
         let node =
             adaptive {
@@ -234,17 +251,33 @@ module NavigationGizmo =
                 let! up      = rs.up.value
                 let! north   = rs.northO
                 let! planet  = rs.planet
-                let! isOn    = enabled
+                let! isOn    = axisEnabled
                 return buildSvg mkMsg isOn camView up north planet
             }
+
+        // Tooltip lives on the wrapper as a semantic-ui `data-tooltip` (pure CSS), shown
+        // whenever `hint` is non-empty (some or all circles disabled). While the gizmo is
+        // fully usable the wrapper stays `pointer-events:none` so a drag started in a gap
+        // between circles reaches the render body; once there is something to explain it
+        // takes pointer events so a hover anywhere over it raises the tooltip.
+        let wrapperAttribs =
+            AttributeMap.ofAMap (
+                amap {
+                    yield clazz "pro3d-nav-gizmo"
+                    let! h = hint
+                    let disabledHint = not (System.String.IsNullOrWhiteSpace h)
+                    yield style (sprintf "position:absolute; left:12px; bottom:12px; width:112px; height:112px; pointer-events:%s"
+                                         (if disabledHint then "auto" else "none"))
+                    if disabledHint then
+                        yield attribute "data-tooltip" h
+                        yield attribute "data-position" "right center"
+                        yield attribute "data-inverted" ""
+                }
+            )
 
         // The gizmo floats over the render body, which starts a camera drag / selection
         // rectangle on mousedown and opens the context menu on right click - swallow those
         // so interacting with the gizmo never moves the camera. Same guard as ToolStrip.
         onBoot "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });" (
-            Incremental.div
-                (AttributeMap.ofList
-                    [ clazz "pro3d-nav-gizmo"
-                      style "position:absolute; left:12px; bottom:12px; width:112px; height:112px; pointer-events:none" ])
-                (AList.ofAValSingle node)
+            Incremental.div wrapperAttribs (AList.ofAValSingle node)
         )

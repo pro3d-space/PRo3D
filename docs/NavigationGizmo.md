@@ -34,17 +34,30 @@ For the reference frame these directions are expressed in, see
 
 ## What a click does
 
-Clicking a circle animates the camera (2 s) to **look straight along that axis onto
-the centre of the combined bounding box of the currently multi-selected surfaces**,
-at a distance that frames that bounding box.
+Clicking a circle **instantly** sets the camera (no animation) to **look straight
+along that axis onto the centre of the combined bounding box of the currently
+multi-selected surfaces**, at a distance that frames that bounding box.
 
 - Multi-selection is the green cube-icon selection in the Surfaces panel
   (`GroupsModel.selectedLeaves`).
 - **With nothing multi-selected the circles render disabled and do nothing** — there
-  is no target to frame.
+  is no target to frame. Hovering the gizmo then shows a tooltip saying at least one
+  surface must be selected.
 - Camera *up* after the snap: for the top / bottom view North points up the screen
   (map convention, matching [MapView](MapView.md)); for the four side views the
   reference Up direction stays vertical.
+
+### Per navigation mode
+
+| Mode | Behaviour |
+|---|---|
+| **FreeFly** | All six circles set the camera view directly. |
+| **ArcBall** | Same direct set. The orbit pivot (`exploreCenter`) is left where it is, so orbiting after a snap keeps its previous centre. |
+| **MapView** | The four horizontal circles work. **Up / Down are disabled** — MapView locks the camera to a nadir, north-up pose and looking along the vertical (polar) axis is its gimbal-lock singularity (`MapViewCameraController.blocksPole`); the tooltip says so. |
+
+The snap builds `CameraView.lookAt eye center camUp`, orthonormal by construction
+(`forward = −axis`, `forward ⟂ camUp` for every axis and both frame types), so there
+is no gimbal lock at the moment it is applied.
 
 ## Implementation
 
@@ -52,8 +65,8 @@ at a distance that frames that bounding box.
 |------|------|
 | [`src/PRo3D.Viewer/NavigationGizmo.fs`](../src/PRo3D.Viewer/NavigationGizmo.fs) | `GizmoAxis` (named by direction: `North`/`South`/`East`/`West`/`Up`/`Down`), `labelOf`, the SVG overlay `view`, and the `resolveAxisWorldDir` / `gizmoCameraUp` helpers |
 | [`src/PRo3D.Viewer/Viewer-Model.fs`](../src/PRo3D.Viewer/Viewer-Model.fs) | `ViewerAction.OrientCameraToGizmoAxis of NavigationGizmo.GizmoAxis` |
-| [`src/PRo3D.Viewer/Viewer/Viewer.fs`](../src/PRo3D.Viewer/Viewer/Viewer.fs) | `updateViewer` handler: bounding box of the multi-selection → framing distance → push a `CameraAnimations.animateForwardAndLocation` animation |
-| [`src/PRo3D.Viewer/Viewer/ViewerGUI.fs`](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) | yields the gizmo into the `"render"` page's overlay `alist`, next to the [tool strip](ToolStrip.md) |
+| [`src/PRo3D.Viewer/Viewer/Viewer.fs`](../src/PRo3D.Viewer/Viewer/Viewer.fs) | `updateViewer` handler: bounding box of the multi-selection → framing distance → set `CameraView.lookAt` instantly via `_view` + `_animationView` (no animation); MapView + Up/Down is a no-op |
+| [`src/PRo3D.Viewer/Viewer/ViewerGUI.fs`](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) | yields the gizmo into the `"render"` page's overlay `alist` next to the [tool strip](ToolStrip.md); builds `axisEnabled` (selection + not MapView-vertical) and the `hint` tooltip text |
 
 Design notes:
 
@@ -67,6 +80,18 @@ Design notes:
   `ViewerGUI.ToolStrip.view`), so interacting with the gizmo never starts a camera
   drag, selection rectangle, or context menu on the render body underneath. Only the
   circles take pointer events; the lines/labels/gaps are click-through.
+- **Instant, not animated.** The click writes the new `CameraView` straight to
+  `_view` (and mirrors it into `_animationView`, as the navigation handler does),
+  rather than pushing a `CameraAnimations` animation. A disabled circle keeps
+  `pointer-events` so its hover still triggers the tooltip; only the `onClick` is
+  dropped.
+- **Tooltip.** `view` takes a `hint : aval<string>`, set as a semantic-ui `data-tooltip`
+  on the wrapper `div` (pure CSS). `hint` is `""` while the gizmo is fully usable — then
+  the wrapper is `pointer-events:none` and stays click-through. When `ViewerGUI` fills it
+  with the "select a surface" / "not available in Map View" text the wrapper flips to
+  `pointer-events:auto` so a hover anywhere over the gizmo raises the tooltip.
+  `axisEnabled : aval<GizmoAxis -> bool>` gates each circle individually so Up/Down can
+  be disabled without the other four.
 - **Framing.** `dist = 1.25 · max(r / tan(hfov/2), r / tan(vfov/2))` with
   `r = ½·|bb.Size|`; `hfov` from `Frustum.horizontalFieldOfViewInDegrees`, `vfov`
   derived via `Frustum.aspect`.

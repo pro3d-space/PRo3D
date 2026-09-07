@@ -1832,13 +1832,32 @@ module Gui =
                                 // navigation + interaction selector, overlaid on the right edge
                                 yield ToolStrip.view m |> UI.map ViewerMessage
                                 // axis gizmo, bottom-left corner: click an axis to look along it
-                                // onto the multi-selected surfaces; disabled with no selection
-                                let gizmoEnabled =
+                                // onto the multi-selected surfaces; disabled with no selection,
+                                // and Up/Down disabled in MapView (nadir is its gimbal-lock axis)
+                                let gizmoHasSelection =
                                     m.scene.surfacesModel.surfaces.selectedLeaves.Content
                                     |> AVal.map (HashSet.isEmpty >> not)
+                                let gizmoAxisEnabled =
+                                    AVal.map2
+                                        (fun sel mode a ->
+                                            sel &&
+                                            not (mode = NavigationMode.MapView &&
+                                                 (a = NavigationGizmo.Up || a = NavigationGizmo.Down)))
+                                        gizmoHasSelection m.navigation.navigationMode
+                                // "" while the gizmo is fully usable: no tooltip, wrapper stays click-through
+                                let gizmoHint =
+                                    AVal.map2
+                                        (fun sel mode ->
+                                            if not sel then
+                                                "Select at least one surface to use the navigation gizmo."
+                                            elif mode = NavigationMode.MapView then
+                                                "Vertical (up/down) views are not available in Map View - use the horizontal axes."
+                                            else "")
+                                        gizmoHasSelection m.navigation.navigationMode
                                 yield NavigationGizmo.view
                                         (fun a -> OrientCameraToGizmoAxis a)
-                                        gizmoEnabled
+                                        gizmoAxisEnabled
+                                        gizmoHint
                                         m.navigation.camera.view
                                         m.scene.referenceSystem
                                       |> UI.map ViewerMessage
