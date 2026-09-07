@@ -312,10 +312,6 @@ module ViewerApp =
     let private updateUpNorthForPosition (pos : V3d) (m : Model) =
         updateReferenceSystemAt ReferenceSystemAction.UpdateUpNorth pos m
 
-    /// keeps up/north current for pos while leaving the coordinate cross where the user put it
-    let private refreshUpNorthForPosition (pos : V3d) (m : Model) =
-        updateReferenceSystemAt ReferenceSystemAction.RefreshUpNorth pos m
-
     let private createMultiSelectBox (startPoint: V2i) (viewPortSize: V2i) (currentPoint: V2i) =
         let clippingBox = Box2i.FromSize viewPortSize
         let newRenderBox = Box2i.FromPoints(clippingBox.Clamped(startPoint), clippingBox.Clamped(currentPoint)) // limited to rendercontrol-size!
@@ -618,13 +614,18 @@ module ViewerApp =
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
-            m 
-            |> logScreenOption 10000 feedback 
+            // Navigating does not touch the reference system at all. up/north describe the
+            // frame at `origin` - where the cross is drawn (Sg.view), what the reference
+            // system panel reports and what gets persisted - so refreshing them at the
+            // camera drew the cross in one place carrying the orientation of another, and
+            // wiped any manual SetUp/SetNorth on the next mouse event. Every action that
+            // legitimately sets them (UpdateUpNorth, InferCoordSystem, SetPlanet) already
+            // computes them at `origin`.
+            // See https://github.com/pro3d-space/PRo3D/issues/662
+            m
+            |> logScreenOption 10000 feedback
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
-            // orientation only - navigating must not drag the reference system origin along,
-            // see https://github.com/pro3d-space/PRo3D/issues/662
-            |> refreshUpNorthForPosition nav.camera.view.Location
         | NavigationMessage msg, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_ -> // belongs to deprecated animation
@@ -646,7 +647,43 @@ module ViewerApp =
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_ -> Optic.set _view cv m
-        | SetCameraAndFrustum (cv, hfov, _),_ -> 
+        | OrientCameraToGizmoAxis axis, _ when not (AnimationApp.shouldAnimate m.animations) ->
+            // Navigation gizmo click: look straight along a reference-system axis onto the
+            // centre of the multi-selected surfaces' combined bounding box, framed to fit it.
+            // The camera is set instantly - no animation (see docs/NavigationGizmo.md).
+            let selectedBBs =
+                m.scene.surfacesModel.surfaces.selectedLeaves
+                |> HashSet.toList
+                |> List.choose (fun ts ->
+                    m.scene.surfacesModel.sgSurfaces
+                    |> HashMap.tryFind ts.id
+                    |> Option.map (fun sg -> sg.globalBB))
+            match selectedBBs, m.navigation.navigationMode, axis with
+            | [], _, _ -> m   // gizmo renders disabled without a multi-selection - nothing to frame
+            // MapView locks the camera to a nadir, north-up pose; a vertical snap is its
+            // gimbal-lock singularity. The gizmo disables Up/Down there - guard anyway.
+            | _, NavigationMode.MapView, (NavigationGizmo.Up | NavigationGizmo.Down) -> m
+            | bbs, _, _ ->
+                let bb     = bbs |> Box3d
+                let center = bb.Center
+                let dir    = NavigationGizmo.resolveAxisWorldDir m.scene.referenceSystem axis
+                let camUp  = NavigationGizmo.gizmoCameraUp m.scene.referenceSystem axis
+                let hfov   = (m.frustum |> Frustum.horizontalFieldOfViewInDegrees) * Constant.RadiansPerDegree
+                let aspect = Frustum.aspect m.frustum |> max 1e-3
+                let vfov   = 2.0 * atan (tan (hfov * 0.5) / aspect)
+                let radius = (bb.Size.Length * 0.5) |> max 1e-3
+                let dist   = 1.25 * (max (radius / tan (hfov * 0.5)) (radius / tan (vfov * 0.5)))
+                let eye    = center + dir * dist
+                // Axis-aligned snap: keep the chosen up exactly (bodyAwareLookAt would
+                // override it on small bodies); the viewing direction is radial on purpose.
+                // lookAt aims *at* `center`, so forward = -dir and Sky = camUp come out right
+                // (this also avoids the animateForwardAndLocation sign bug).
+                let newView = CameraView.lookAt eye center camUp
+                m
+                |> Optic.set _view newView
+                |> Optic.set _animationView newView
+        | OrientCameraToGizmoAxis _, _ -> m
+        | SetCameraAndFrustum (cv, hfov, _),_ ->
             Log.warn "[Viewer] SetCameraAndFrustum not implemented!"
             m
         | SetCameraAndFrustum2 (cv,frustum),_ ->
@@ -1790,11 +1827,21 @@ module ViewerApp =
                     m.scene.referenceSystem 
                     a
                     
+            // Re-aim the camera only when the sky it would be built from actually moved.
+            // `updateCameraUp` keeps the position and viewing direction but replaces the
+            // sky vector, which *rolls* the camera about its own view axis - so running it
+            // on every reference-system action snapped the roll on purely cosmetic edits
+            // (toggling the cross, its text size or colour, nudging the north offset) and
+            // on re-picking the planet that was already selected. Only `planet` and `up`
+            // feed `bodyAwareSky`, so comparing it across the update is the exact
+            // precondition, and it leaves a camera the user deliberately rolled alone.
+            let skyOf (rs : ReferenceSystem) = ReferenceSystem.bodyAwareSky rs.planet rs.up.value
+            let skyMoved = Vec.distance (skyOf m.scene.referenceSystem) (skyOf refsystem') > 1e-9
+
             let _refSystem = (Model.scene_ >-> Scene.referenceSystem_)
             let m = 
-                m 
-                |> Optic.set _refSystem refsystem'
-                |> SceneLoader.updateCameraUp     
+                let m = m |> Optic.set _refSystem refsystem'
+                if skyMoved then SceneLoader.updateCameraUp m else m
                 
             //changing the planet requires update of local reference systems
             let m = 

@@ -256,8 +256,9 @@ module ColorByCategory =
     /// The planet and not the reference-frame up vector: each point is sampled along the
     /// body-local up *there* (`ProfileAttributeExtraction.sampleAt`), which is a pure function of
     /// the planet and the point position - and the positions are hashed below already. Hashing
-    /// `refSys.up` instead made the stamp change on every camera movement, because navigating
-    /// recomputes that vector at the camera (`Viewer.refreshUpNorthForPosition`).
+    /// `refSys.up` instead would tie the stamp to where the coordinate cross happens to sit,
+    /// which has nothing to do with the samples (and, while navigation still recomputed that
+    /// vector at the camera, changed the stamp on every camera movement).
     let stampOf (layer : string) (planet : Planet) (annos : seq<System.Guid * V3d[]>) : int =
         let mutable h = hash (layer, int planet)
         for (k, pts) in annos do

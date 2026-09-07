@@ -387,13 +387,13 @@ module ProfileAttributeExtraction =
     /// (`extractAttributesFromHit` uses it for nothing but `GetPointOnRay`), so the
     /// direction is derived here, per point, as the body-local up *at that point*.
     ///
-    /// It deliberately does not use `refSys.up`: that follows the camera on a body
-    /// (`Viewer.refreshUpNorthForPosition` recomputes it from the camera location on every
-    /// navigation event), which made the landing point - and hence hit/miss and which
-    /// patch's attribute grid covers it - depend on where the viewer happened to be
-    /// standing. The ellipsoid normal at `position` is both what "straight down" was
-    /// always meant to be and the well-conditioned choice, being roughly perpendicular to
-    /// the local terrain rather than grazing it.
+    /// It deliberately does not use `refSys.up`: that is the up at the reference system's
+    /// `origin`, not at `position`, and on a body the two diverge with distance. (It used
+    /// to be worse - navigation recomputed it from the camera location on every event, so
+    /// the landing point depended on where the viewer happened to be standing.) The
+    /// ellipsoid normal at `position` is both what "straight down" was always meant to be
+    /// and the well-conditioned choice, being roughly perpendicular to the local terrain
+    /// rather than grazing it.
     let sampleAt
         (surfacesModel       : SurfaceModel)
         (refSys              : ReferenceSystem)

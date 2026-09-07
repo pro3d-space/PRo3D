@@ -102,48 +102,54 @@ module TransformationApp =
 
         let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
 
+        // The frames with no body name their axes directly and carry the north offset.
+        // Everything else is a body, and uses the reference system's own north/east/up
+        // triad - which is why that is the fallback rather than an error: a body added
+        // to `Planet` later belongs here, and guessing wrong is better than throwing
+        // from inside a pivot pick or a trafo export.
         match refSystem.planet with
         | Planet.Earth ->
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
         | Planet.ENU -> 
             Trafo3d.FromOrthoNormalBasis( V3d.OIO, V3d.IOO, V3d.OOI) * northCorrection
-        | Planet.Mars | Planet.Moon | Planet.Phobos | Planet.Deimos | Planet.Dimorphos | Planet.Didymos ->
-            let north, up, east =
-                let north = refSystem.northO.Normalized        
-                let up    = refSystem.up.value.Normalized
-                let east  = north.Cross(up).Normalized
-                north, up, east
-            
-            let refSysRotation = 
-                Trafo3d.FromOrthoNormalBasis(north, east, up)
-            refSysRotation
         | Planet.JPL -> 
             Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI) * northCorrection
         | Planet.None -> 
             // northCorrection
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
-        | _ -> failwith ""
+        | _ ->
+            // Mars, Moon, Phobos, Deimos, Didymos, Dimorphos
+            let north = refSystem.northO.Normalized
+            let up    = refSystem.up.value.Normalized
+            let east  = north.Cross(up).Normalized
+            Trafo3d.FromOrthoNormalBasis(north, east, up)
 
     let getReferenceSystemBasis_local 
         (directions : Affine3d)
         (planet : Planet) =
 
+        // Same dispatch as `getReferenceSystemBasis_global`, but the body triad is read
+        // off the surface's own local frame instead of the reference system. The body
+        // case is the fallback for the same reason it is there: this used to list only
+        // `Planet.Mars` and send Moon, Phobos, Deimos, Didymos and Dimorphos into
+        // `failwith ""` - reachable from a pivot pick or a trafo export.
+        //
+        // Note this cannot apply `northCorrection` the way the global variant does: it
+        // is not given the ReferenceSystem, only the surface's directions and the planet.
         match planet with
         | Planet.Earth ->
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI)
         | Planet.ENU -> 
             Trafo3d.FromOrthoNormalBasis( V3d.OIO, V3d.IOO, V3d.OOI)
-        | Planet.Mars ->
-            let north, up, east = getNorthUpEastFromLocalRefSys directions
-            let refSysRotation = 
-                Trafo3d.FromOrthoNormalBasis(north, east, up)
-            refSysRotation
         | Planet.JPL -> 
             Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI)
         | Planet.None -> 
             //Trafo3d(directions)
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI)
-        | _ -> failwith ""
+        | _ ->
+            // Mars, Moon, Phobos, Deimos, Didymos, Dimorphos
+            let north, up, east = getNorthUpEastFromLocalRefSys directions
+            Trafo3d.FromOrthoNormalBasis(north, east, up)
 
     let translationFromReferenceSystemBasis
         (translation    : V3d)
@@ -374,8 +380,12 @@ module TransformationApp =
                 { model with pivot = p'; oldPivot = p'.value; trafoChanged = false; refSys = af} 
              else model
         | SetPickedReferenceSystem p -> // world space.......
+            // Placing a reference system shows it. `showTrafoRefSys` is otherwise whatever
+            // the surface was loaded with, and the current reader defaults it to false when
+            // the scene JSON has no such field (Transformation-Model.fs read6) - so picking
+            // a frame could store it correctly and draw nothing, with no hint why.
             let af = getLocalRefSys refSys p
-            { model with refSys = Some af}
+            { model with refSys = Some af; showTrafoRefSys = true }
         | TogglePivotVisible -> 
             { model with showPivot = not model.showPivot}
         | SetScaling a ->
@@ -506,7 +516,10 @@ module TransformationApp =
 
         let view (model:AdaptiveTransformations) 
                      (exportPath : string) =
-            let mode : aval<EulerMode> = AVal.constant EulerMode.XYZ
+            // Bound to the model, not a constant: the dropdown used to be fed
+            // `AVal.constant EulerMode.XYZ`, so it always displayed XYZ no matter what
+            // `SetEulerMode` had written - wired for writing but not for reading back.
+            let mode : aval<EulerMode> = model.eulerMode
             let modeDropDown = 
                 let values = 
                     [ EulerMode.XYZ, "XYZ"; EulerMode.XZY, "XZY"; EulerMode.YXZ, "YXZ"; EulerMode.YZX, "YZX"; EulerMode.ZXY, "ZXY"; EulerMode.ZYX, "ZYX"]
@@ -517,7 +530,7 @@ module TransformationApp =
             require GuiEx.semui (
                 Html.table [  
                     //Html.row "Visible:" [GuiEx.iconCheckBox model.useTranslationArrows ToggleVisible ]
-                    UI.wrapToolTip DataPosition.Bottom "East(X)/North(Y)/Up(Z) is defined by this reference system. Using the global reference system is considered harmful since re-setting it changes all transformations." (
+                    UI.wrapToolTip DataPosition.Bottom "North(X)/East(Y)/Up(Z) is defined by this reference system. Using the global reference system is considered harmful since re-setting it changes all transformations." (
                         Html.row "ReferenceSystem:"    [Html.SemUi.dropDown model.refSysMode SetRefSysMode] 
                     )
                     Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map Action.SetTranslation ]
@@ -537,7 +550,9 @@ module TransformationApp =
                     Html.row "Show local RefSys:" [GuiEx.iconCheckBox model.showTrafoRefSys Action.ToggleRefSysVisible ]
                     Html.row "Local Reference System:" [viewLocalRefSysData model.refSys]
                     Html.row "RefSys Size:"      [Numeric.view' [InputBox] model.refSysSize |> UI.map Action.SetRefSysSize]
-                    Html.row "Mode" [modeDropDown]
+                    UI.wrapToolTip DataPosition.Bottom "Order in which the yaw, pitch and roll rotations are composed. This is not a coordinate system: the axes stay North(X)/East(Y)/Up(Z) whichever order is picked." (
+                        Html.row "Euler order:" [modeDropDown]
+                    )
                     Html.row "Import Trafodata:"  [ loadTrafoButton ]
                     Html.row "Export Trafodata:"  [ saveTrafoButton ]
                 ]

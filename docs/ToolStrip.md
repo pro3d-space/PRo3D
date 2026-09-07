@@ -4,6 +4,9 @@ The tool strip is the vertical icon rail overlaid on the **right edge of the mai
 render view**. It carries the two selections that used to sit in the top toolbar as
 dropdowns: the **navigation mode** and the **interaction** (the "tool").
 
+The navigation modes themselves are described in
+[Camera & Navigation](Navigation.md).
+
 Both are enum-valued fields on the model (`navigation.navigationMode` and
 `interaction`), so "nothing selected" cannot happen: **exactly one navigation icon
 and exactly one tool icon is highlighted at all times**. The active one is drawn as a
@@ -52,7 +55,10 @@ custom icon name (e.g. `pro3d-tire`) and, in [semui-overrides.css](../src/PRo3D.
 match `.pro3d-toolstrip .pro3d-tool i.icon.<name>` with a `mask` data-URI plus
 `background-color: currentColor`. Painting through `currentColor` makes the SVG
 pick up `--tool-color` and the active-chip knockout like the font icons.
-`pro3d-tire` (Place rover) uses Phosphor's MIT-licensed "tire".
+`pro3d-tire` (Place rover) and `pro3d-coordinate-cross` (Place coordinate cross)
+use Phosphor's MIT-licensed glyphs; `pro3d-surface-ref-sys` (Place surface
+reference system) is `pro3d-coordinate-cross` with a small plus badge in the
+top-left corner.
 
 ## Where the code lives
 
