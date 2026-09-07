@@ -481,8 +481,27 @@ module ViewerUtils =
                         surf.transferFunction |> AVal.map (fun tf -> tf.textureCombiner)
                     )
                     |> Sg.uniform "SecondaryTextureContour"(
-                        surf.contourModel.Current |> AVal.map (fun m -> 
+                        surf.contourModel.Current |> AVal.map (fun m ->
                             V4d((if m.enabled then m.distance.value else -1.0), m.width.value, m.border.value, 0.0)
+                        )
+                    )
+                    // LatLon graticule overlay. X = lat interval deg (<=0 disables:
+                    // off, or a non-planetary body), Y = lon interval deg, Z = line
+                    // width px. The per-vertex lat/lon attribute is supplied by
+                    // Surface.Sg via Sg.applyLatLonGrid at the group level.
+                    |> Sg.uniform "LatLonGridParams" (
+                        (surf.latLonModel.Current, refsys.planet) ||> AVal.map2 (fun m planet ->
+                            let usable =
+                                m.enabled &&
+                                CooTransformation.getConvention planet <> CooTransformation.NonPlanetary
+                            V4d((if usable then float m.latInterval else -1.0),
+                                float m.lonInterval, m.lineWidth.value, 0.0)
+                        )
+                    )
+                    |> Sg.uniform "LatLonLineColor" (
+                        surf.latLonModel.Current |> AVal.map (fun m ->
+                            let c = m.lineColor.c
+                            V4d(float c.R / 255.0, float c.G / 255.0, float c.B / 255.0, 1.0)
                         )
                     )
                     |> Sg.uniform "TransferFunctionMode" (
@@ -988,6 +1007,9 @@ module ViewerUtils =
             Shader.secondaryTexture |> toEffect 
 
             Shader.contourLines |> toEffect
+            // additive latitude/longitude graticule; composites over the colour
+            // produced by the stages above, like contourLines.
+            Shader.latLonLines |> toEffect
             Shaders.donutFragment |> toEffect
 
             CrossSectionShader.crossSectionClip |> toEffect
@@ -1274,6 +1296,15 @@ module ViewerUtils =
                 |> Sg.texture "ShadowMap" sunShadow.texture
                 |> Sg.uniform "ShadowMapBias" (sunShadow.bias |> AVal.map float32)
                 |> Sg.applyCrossSection crossSectionData
+                // Bake the per-vertex lat/lon attribute for the LatLon graticule
+                // whenever the scene sits on a planetary body. Gated on the body,
+                // not the per-surface enable flag, so toggling the overlay is a
+                // pure uniform change (see LatLonGridParams).
+                |> Sg.applyLatLonGrid (
+                    m.scene.referenceSystem.planet |> AVal.map (fun p ->
+                        if CooTransformation.getConvention p <> CooTransformation.NonPlanetary
+                        then Some p else None)
+                )
                 |> Sg.noEvents
 
             Sg.ofList [surfaces; depthComposed]

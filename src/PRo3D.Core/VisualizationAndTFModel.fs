@@ -182,3 +182,100 @@ type ContourLineModel with
             do! Json.writeFloat "width" x.width.value
             do! Json.writeFloat "border" x.border.value
         }
+
+/// Additive latitude/longitude graticule drawn on OPC planetary surfaces.
+/// Overlay only - composed into the surface effect stack next to the contour
+/// lines, never replacing a shader. See docs/LatLon-Shader.md.
+[<ModelType>]
+type LatLonShaderModel =
+    {
+        version     : int
+        enabled     : bool
+        /// Phase 2 renders the degree-indicator labels; Phase 1 only stores the flag.
+        showLabels  : bool
+        /// Label size in screen pixels (consumed in Phase 2).
+        textSize    : NumericInput
+        /// Degrees between parallels; an integer divisor of 360 (equidistant).
+        latInterval : int
+        /// Degrees between meridians; an integer divisor of 360 (equidistant).
+        lonInterval : int
+        lineColor   : ColorInput
+        /// Grid line width in screen pixels.
+        lineWidth   : NumericInput
+    }
+
+module LatLonShaderModel =
+
+    let current = 0
+
+    /// The 24 positive integer divisors of 360. Dropdown source; the update guard
+    /// and the JSON clamp both reference this.
+    let divisorsOf360 : list<int> =
+        [ 1; 2; 3; 4; 5; 6; 8; 9; 10; 12; 15; 18; 20; 24
+          30; 36; 40; 45; 60; 72; 90; 120; 180; 360 ]
+
+    let defaultInterval = 10
+
+    /// Force an interval onto the divisor grid, falling back to the default.
+    let sanitizeInterval (i : int) =
+        if i > 0 && 360 % i = 0 then i else defaultInterval
+
+    let initial =
+        {
+            version     = current
+            enabled     = false
+            showLabels  = false
+            textSize    = { value = 14.0; min = 4.0; max = 96.0; step = 1.0; format = "{0:0}" }
+            latInterval = defaultInterval
+            lonInterval = defaultInterval
+            lineColor   = { c = C4b(255uy, 210uy, 60uy, 255uy) }   // amber - visible on Mars terrain
+            lineWidth   = { value = 1.5; min = 0.5; max = 10.0; step = 0.5; format = "{0:0.0}" }
+        }
+
+    let read0 =
+        json {
+            let! enabled     = Json.readOrDefault "enabled" false
+            let! showLabels  = Json.readOrDefault "showLabels" false
+            let! textSize    = Json.tryRead "textSize"
+            let! latInterval = Json.readOrDefault "latInterval" defaultInterval
+            let! lonInterval = Json.readOrDefault "lonInterval" defaultInterval
+            let! lineWidth   = Json.tryRead "lineWidth"
+            let! lineColorJ  = Json.tryRead "lineColor"
+            let! lineColor =
+                match lineColorJ with
+                | Some (_ : Chiron.Json) -> Json.readWith Ext.fromJson<ColorInput,Ext> "lineColor"
+                | None -> json { return initial.lineColor }
+            return {
+                version     = current
+                enabled     = enabled
+                showLabels  = showLabels
+                textSize    = match textSize  with Some v -> { initial.textSize  with value = v } | None -> initial.textSize
+                latInterval = sanitizeInterval latInterval
+                lonInterval = sanitizeInterval lonInterval
+                lineColor   = lineColor
+                lineWidth   = match lineWidth with Some v -> { initial.lineWidth with value = v } | None -> initial.lineWidth
+            }
+        }
+
+type LatLonShaderModel with
+    static member FromJson(_ : LatLonShaderModel) =
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! LatLonShaderModel.read0
+            | _ ->
+                return! v
+                |> sprintf "don't know version %A of LatLonShaderModel"
+                |> Json.error
+        }
+    static member ToJson (x : LatLonShaderModel) =
+        json {
+            do! Json.write "version"     x.version
+            do! Json.write "enabled"     x.enabled
+            do! Json.write "showLabels"  x.showLabels
+            do! Json.writeFloat "textSize" x.textSize.value
+            do! Json.write "latInterval" x.latInterval
+            do! Json.write "lonInterval" x.lonInterval
+            do! Json.writeWith (Ext.toJson<ColorInput,Ext>) "lineColor" x.lineColor
+            do! Json.writeFloat "lineWidth" x.lineWidth.value
+        }

@@ -73,6 +73,22 @@ module SgExtensions =
         let applyCrossSection (data : aval<Option<CrossSectionData>>) (sg : ISg) =
             CrossSectionApplicator(sg, data) :> ISg
 
+        /// Carries the body whose graticule (LatLon shader) should be baked into the
+        /// per-vertex lat/lon attribute. `None` -> non-planetary surface, skip.
+        type LatLonGridApplicator(child : ISg, planet : aval<Option<PRo3D.Base.Planet>>) =
+            inherit Sg.AbstractApplicator(child)
+            member x.LatLonGridPlanet = planet
+
+        [<Rule>]
+        type LatLonGridSem() =
+            member x.LatLonGridPlanet(app : LatLonGridApplicator, scope : Ag.Scope) =
+                app.Child?LatLonGridPlanet <- app.LatLonGridPlanet
+            member x.LatLonGridPlanet(s : Root<ISg>, scope : Ag.Scope) =
+                s.Child?LatLonGridPlanet <- AVal.constant None
+
+        let applyLatLonGrid (planet : aval<Option<PRo3D.Base.Planet>>) (sg : ISg) =
+            LatLonGridApplicator(sg, planet) :> ISg
+
         let applyBody (s : aval<Option<string>>) (sg : ISg) =
             BodyApplicator(sg, s) :> ISg
 
@@ -96,6 +112,9 @@ module OpcRenderingExtensions =
     type Ag.Scope with
         member x.CrossSectionData : aval<Option<Sg.CrossSectionData>> = x?CrossSectionData
 
+    type Ag.Scope with
+        member x.LatLonGridPlanet : aval<Option<PRo3D.Base.Planet>> = x?LatLonGridPlanet
+
     type Context =
         {
             footprintVP : aval<M44d>
@@ -104,6 +123,7 @@ module OpcRenderingExtensions =
             texturesScope : obj
             agScope : Ag.Scope
             crossSectionData : aval<Option<Sg.CrossSectionData>>
+            latLonGridPlanet : aval<Option<PRo3D.Base.Planet>>
         }
 
     let captureContext (n : PatchNode) (s : Ag.Scope) =
@@ -113,10 +133,12 @@ module OpcRenderingExtensions =
         let body = s.Body
         let projectedImages = s.ProjectedImages s.Body
         let crossSectionData = s.CrossSectionData
+        let latLonGridPlanet = s.LatLonGridPlanet
 
         {   footprintVP = footprintVP; texturesScope = secondaryTexture;
             modelTrafo = modelTrafo;
             projectedImages = projectedImages
             agScope = s
             crossSectionData = crossSectionData
+            latLonGridPlanet = latLonGridPlanet
         }  :> obj

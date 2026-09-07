@@ -774,6 +774,55 @@ module Shader =
             return V4f(finalColor, 1.0f)
         }
 
+    type UniformScope with
+        /// LatLon graticule. X = latitude interval in degrees (<= 0 disables, e.g.
+        /// non-planetary body), Y = longitude interval in degrees, Z = line width
+        /// in pixels, W unused.
+        member x.LatLonGridParams : V4f = uniform?LatLonGridParams
+        member x.LatLonLineColor  : V4f = uniform?LatLonLineColor
+
+    type LatLonVertex =
+        {
+            [<Color>]                    c            : V4f
+            [<Semantic("LatLonSinCos")>] latLonSinCos : V4f
+        }
+
+    /// Coverage in [0,1] of a grid line for one angular coordinate. `w` is
+    /// |d(coord)/d(pixel)|, so the line keeps a constant width on screen; it also
+    /// blows up at the poles and the +/-180 seam, where we suppress the line.
+    [<ReflectedDefinition>]
+    let private latLonCoverage (coordDeg : float32) (intervalDeg : float32) (w : float32) (halfPx : float32) =
+        if w > 0.0f && w < intervalDeg * 0.5f then
+            let ph = coordDeg / intervalDeg
+            let distDeg = abs (ph - floor (ph + 0.5f)) * intervalDeg
+            1.0f - Fun.Smoothstep(distDeg, (halfPx - 0.5f) * w, (halfPx + 0.5f) * w)
+        else
+            0.0f
+
+    /// Additive latitude/longitude graticule. Reads the CPU-computed per-vertex
+    /// (sinphi, cosphi, sinlambda, coslambda) attribute that Surface.Sg bakes in
+    /// double precision, so no world-scale position is transformed in the shader.
+    /// Composites over the incoming colour exactly like contourLines.
+    let latLonLines (v : LatLonVertex) =
+        fragment {
+            let p = uniform.LatLonGridParams
+            let deg = 57.29577951308232f
+            let sc  = v.latLonSinCos
+            let lat = atan2 sc.X sc.Y * deg
+            let lon = atan2 sc.Z sc.W * deg
+            let wLat = abs (ddx lat) + abs (ddy lat)
+            let wLon = abs (ddx lon) + abs (ddy lon)
+            let half = p.Z * 0.5f
+            let cov =
+                if p.X <= 0.0f then 0.0f
+                else
+                    max (latLonCoverage lat p.X wLat half)
+                        (latLonCoverage lon p.Y wLon half)
+            let a = Fun.Clamp(cov, 0.0f, 1.0f)
+            let rgb = v.c.XYZ * (1.0f - a) + uniform.LatLonLineColor.XYZ * a
+            return V4f(rgb, 1.0f)
+        }
+
 
     let depthCalculation2 (v : FootPrintVertex) =
         fragment {     

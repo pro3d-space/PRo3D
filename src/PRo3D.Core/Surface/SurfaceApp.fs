@@ -100,6 +100,7 @@ module SurfaceUtils =
 
             
             contourModel = ContourLineModel.initial
+            latLonModel = LatLonShaderModel.initial
 
             highlightSelected     = true
             highlightAlways       = false
@@ -1646,7 +1647,13 @@ module SurfaceApp =
                 div [] [
                     viewSurfaceProperty model (fun s -> ContourLineApp.view s.contourModel |> UI.map (SurfaceAppAction.SurfacePropertiesMessage << SurfaceProperties.CountourAppMessage))
                 ]
-            ] 
+            ]
+
+            yield GuiEx.accordion "LatLon Shader" "globe" false [
+                div [] [
+                    viewSurfaceProperty model (fun s -> LatLonShaderApp.view s.latLonModel |> UI.map (SurfaceAppAction.SurfacePropertiesMessage << SurfaceProperties.LatLonShaderMessage))
+                ]
+            ]
 
             //yield GuiEx.accordion "Radiometry" "file image outline" false [
             //    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))

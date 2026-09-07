@@ -1,5 +1,5 @@
-//2f5da3f0-6e33-0c2a-91ce-7f9ad38df387
-//1c7f3826-31bc-3fd5-e093-b79b3c3a4b06
+//919e04ce-b872-3ec9-266d-d35efea2650d
+//e9aaddcf-c37f-99c4-a23e-a49de44503d5
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -86,4 +86,50 @@ module ContourLineModelLenses =
         static member distance_ = ((fun (self : ContourLineModel) -> self.distance), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ContourLineModel) -> { self with distance = value }))
         static member width_ = ((fun (self : ContourLineModel) -> self.width), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ContourLineModel) -> { self with width = value }))
         static member border_ = ((fun (self : ContourLineModel) -> self.border), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ContourLineModel) -> { self with border = value }))
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type AdaptiveLatLonShaderModel(value : LatLonShaderModel) =
+    let _version_ = FSharp.Data.Adaptive.cval(value.version)
+    let _enabled_ = FSharp.Data.Adaptive.cval(value.enabled)
+    let _showLabels_ = FSharp.Data.Adaptive.cval(value.showLabels)
+    let _textSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.textSize)
+    let _latInterval_ = FSharp.Data.Adaptive.cval(value.latInterval)
+    let _lonInterval_ = FSharp.Data.Adaptive.cval(value.lonInterval)
+    let _lineColor_ = Aardvark.UI.AdaptiveColorInput(value.lineColor)
+    let _lineWidth_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.lineWidth)
+    let mutable __value = value
+    let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
+    static member Create(value : LatLonShaderModel) = AdaptiveLatLonShaderModel(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : LatLonShaderModel) -> AdaptiveLatLonShaderModel(value)) (fun (adaptive : AdaptiveLatLonShaderModel) (value : LatLonShaderModel) -> adaptive.Update(value))
+    member __.Update(value : LatLonShaderModel) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<LatLonShaderModel>.ShallowEquals(value, __value))) then
+            __value <- value
+            __adaptive.MarkOutdated()
+            _version_.Value <- value.version
+            _enabled_.Value <- value.enabled
+            _showLabels_.Value <- value.showLabels
+            _textSize_.Update(value.textSize)
+            _latInterval_.Value <- value.latInterval
+            _lonInterval_.Value <- value.lonInterval
+            _lineColor_.Update(value.lineColor)
+            _lineWidth_.Update(value.lineWidth)
+    member __.Current = __adaptive
+    member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
+    member __.enabled = _enabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.showLabels = _showLabels_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.textSize = _textSize_
+    member __.latInterval = _latInterval_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
+    member __.lonInterval = _lonInterval_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
+    member __.lineColor = _lineColor_
+    member __.lineWidth = _lineWidth_
+[<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+module LatLonShaderModelLenses = 
+    type LatLonShaderModel with
+        static member version_ = ((fun (self : LatLonShaderModel) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : LatLonShaderModel) -> { self with version = value }))
+        static member enabled_ = ((fun (self : LatLonShaderModel) -> self.enabled), (fun (value : Microsoft.FSharp.Core.bool) (self : LatLonShaderModel) -> { self with enabled = value }))
+        static member showLabels_ = ((fun (self : LatLonShaderModel) -> self.showLabels), (fun (value : Microsoft.FSharp.Core.bool) (self : LatLonShaderModel) -> { self with showLabels = value }))
+        static member textSize_ = ((fun (self : LatLonShaderModel) -> self.textSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : LatLonShaderModel) -> { self with textSize = value }))
+        static member latInterval_ = ((fun (self : LatLonShaderModel) -> self.latInterval), (fun (value : Microsoft.FSharp.Core.int) (self : LatLonShaderModel) -> { self with latInterval = value }))
+        static member lonInterval_ = ((fun (self : LatLonShaderModel) -> self.lonInterval), (fun (value : Microsoft.FSharp.Core.int) (self : LatLonShaderModel) -> { self with lonInterval = value }))
+        static member lineColor_ = ((fun (self : LatLonShaderModel) -> self.lineColor), (fun (value : Aardvark.UI.ColorInput) (self : LatLonShaderModel) -> { self with lineColor = value }))
+        static member lineWidth_ = ((fun (self : LatLonShaderModel) -> self.lineWidth), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : LatLonShaderModel) -> { self with lineWidth = value }))
 
