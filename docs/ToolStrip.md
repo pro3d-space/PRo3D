@@ -30,13 +30,18 @@ shares an accent colour.
 | Group | Colour | Icons |
 |---|---|---|
 | **Navigation** | blue | Free fly, ArcBall, Map view |
-| **Annotation** | green | Draw annotation, Select annotation, Cut annotation, Edit annotation |
+| **Annotation** | green | Draw annotation, Select annotation, Cut annotation, Union selected annotations, Edit annotation |
 | **Selection** | amber | Select surface, Select area |
 | **Placement** | violet | Place rover, Place distance point, Place scene object, Place scale bar, Pick pivot point |
 | **Reference & camera** | teal | Place coordinate cross, Place surface reference system, Pick ArcBall orbit centre |
 
 **Map view** needs a reference body: with `Planet.None` it is greyed out and not
 clickable, the same rule the old navigation dropdown applied.
+
+Most strip icons switch the interaction mode. **Union selected annotations** is the
+exception: it is a one-shot command (`actionButton` in `Gui.ToolStrip`) that fires
+`DrawingAction.UnionSelectedAnnotations` on the current tree selection and never reads
+as "active". It sits directly below **Cut annotation** in the green group.
 
 ## Adding an interaction
 
@@ -55,10 +60,10 @@ custom icon name (e.g. `pro3d-tire`) and, in [semui-overrides.css](../src/PRo3D.
 match `.pro3d-toolstrip .pro3d-tool i.icon.<name>` with a `mask` data-URI plus
 `background-color: currentColor`. Painting through `currentColor` makes the SVG
 pick up `--tool-color` and the active-chip knockout like the font icons.
-`pro3d-tire` (Place rover) and `pro3d-coordinate-cross` (Place coordinate cross)
-use Phosphor's MIT-licensed glyphs; `pro3d-surface-ref-sys` (Place surface
-reference system) is `pro3d-coordinate-cross` with a small plus badge in the
-top-left corner.
+`pro3d-tire` (Place rover), `pro3d-coordinate-cross` (Place coordinate cross) and
+`pro3d-union` (Union selected annotations) use Phosphor's MIT-licensed glyphs;
+`pro3d-surface-ref-sys` (Place surface reference system) is `pro3d-coordinate-cross`
+with a small plus badge in the top-left corner.
 
 ## Where the code lives
 
