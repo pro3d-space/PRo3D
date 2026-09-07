@@ -1,9 +1,10 @@
 # Navigation Axis Gizmo
 
 A small always-visible gizmo in the **bottom-left corner of the main render view**.
-It shows the three reference-system axes and lets you snap the camera to a clean,
-axis-aligned view of your selection with a single click — the same affordance a
-view-cube gives in CAD / DCC tools.
+It shows the three reference-system axes. Clicking a **circle** snaps the camera to a
+clean, axis-aligned view of your selection (the affordance a view-cube gives in
+CAD / DCC tools); clicking an **edge** locks that axis so navigation can only rotate
+the camera about it (see [Lock a navigation axis](#lock-a-navigation-axis)).
 
 For the reference frame these directions are expressed in, see
 [Camera & Navigation](Navigation.md).
@@ -55,6 +56,35 @@ multi-selected surfaces**, at a distance that frames that bounding box.
 | **ArcBall** | Same direct set. The orbit pivot (`exploreCenter`) is left where it is, so orbiting after a snap keeps its previous centre. |
 | **MapView** | The four horizontal circles work. **Up / Down are disabled** — MapView locks the camera to a nadir, north-up pose and looking along the vertical (polar) axis is its gimbal-lock singularity (`MapViewCameraController.blocksPole`); the tooltip says so. |
 
+## Lock a navigation axis
+
+Clicking an **edge** — the full diameter line through the centre, e.g. `-N … +N` —
+**locks that axis**. The whole edge is highlighted **yellow** and its two circles get a
+yellow ring. While an axis is locked, mouse navigation may only **rotate the camera about
+that world axis**: dragging revolves the view around the highlighted axle, the other two
+rotational degrees of freedom are frozen, and **zoom / dolly stay free**. Dragging exactly
+along the frozen direction does nothing (it "feels stuck").
+
+The lock is **transient** — it is never written to the scene or a bookmark. It is cleared
+by:
+
+- switching the camera mode,
+- clicking one of the gizmo circles (the axis snap),
+- clicking the locked edge again (toggle off),
+- loading a scene or restoring a bookmark.
+
+### Per navigation mode
+
+| Mode | Lockable edges | Effect |
+|---|---|---|
+| **FreeFly** | none | Not supported — FreeFly is in-place mouse-look with no orbit pivot. The edges are not clickable. |
+| **ArcBall** | all three | Orbit around `exploreCenter` collapses to a 1-DOF rotation about the locked axis. |
+| **MapView** | vertical only (`Up`/`Down`) | Constant-latitude orbit about the body spin axis → drag changes longitude only. The two horizontal edges are not clickable (MapView already forces look-at-origin + north-up). |
+
+The constraint is a swing-twist decomposition of the frame-to-frame camera rotation
+(`NavigationConstraint.constrainRotationToAxis`), applied as a post-filter inside
+`Navigation.update` for the ArcBall and MapView branches.
+
 The snap builds `CameraView.lookAt eye center camUp`, orthonormal by construction
 (`forward = −axis`, `forward ⟂ camUp` for every axis and both frame types), so there
 is no gimbal lock at the moment it is applied.
@@ -63,18 +93,32 @@ is no gimbal lock at the moment it is applied.
 
 | File | Role |
 |------|------|
-| [`src/PRo3D.Viewer/NavigationGizmo.fs`](../src/PRo3D.Viewer/NavigationGizmo.fs) | `GizmoAxis` (named by direction: `North`/`South`/`East`/`West`/`Up`/`Down`), `labelOf`, the SVG overlay `view`, and the `resolveAxisWorldDir` / `gizmoCameraUp` helpers |
-| [`src/PRo3D.Viewer/Viewer-Model.fs`](../src/PRo3D.Viewer/Viewer-Model.fs) | `ViewerAction.OrientCameraToGizmoAxis of NavigationGizmo.GizmoAxis` |
-| [`src/PRo3D.Viewer/Viewer/Viewer.fs`](../src/PRo3D.Viewer/Viewer/Viewer.fs) | `updateViewer` handler: bounding box of the multi-selection → framing distance → set `CameraView.lookAt` instantly via `_view` + `_animationView` (no animation); MapView + Up/Down is a no-op |
-| [`src/PRo3D.Viewer/Viewer/ViewerGUI.fs`](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) | yields the gizmo into the `"render"` page's overlay `alist` next to the [tool strip](ToolStrip.md); builds `axisEnabled` (selection + not MapView-vertical) and the `hint` tooltip text |
+| [`src/PRo3D.Viewer/NavigationGizmo.fs`](../src/PRo3D.Viewer/NavigationGizmo.fs) | `GizmoAxis` (named by direction: `North`/`South`/`East`/`West`/`Up`/`Down`), `labelOf`, the SVG overlay `view` (circles for the snap, transparent edge hit-lines + yellow highlight for the lock), and the `resolveAxisWorldDir` / `gizmoCameraUp` / `navAxisOf` helpers |
+| [`src/PRo3D.Core/NavigationConstraint.fs`](../src/PRo3D.Core/NavigationConstraint.fs) | frame helpers shared with the gizmo (`frameOf` / `axisWorldDirection`) and `constrainRotationToAxis` — the swing-twist post-filter the axis lock applies |
+| [`src/PRo3D.Base/Navigation-Model.fs`](../src/PRo3D.Base/Navigation-Model.fs) | `NavigationAxis` (`NorthSouth`/`EastWest`/`UpDown`) and `NavigationModel.lockedAxis : Option<NavigationAxis>` (transient) |
+| [`src/PRo3D.Viewer/Viewer-Model.fs`](../src/PRo3D.Viewer/Viewer-Model.fs) | `ViewerAction.OrientCameraToGizmoAxis of NavigationGizmo.GizmoAxis`, `ViewerAction.ToggleNavigationAxisLock of NavigationAxis` |
+| [`src/PRo3D.Viewer/Viewer/Viewer.fs`](../src/PRo3D.Viewer/Viewer/Viewer.fs) | `updateViewer` handlers: snap (bounding box → framing distance → `CameraView.lookAt` via `_view` + `_animationView`, also clears the lock); `ToggleNavigationAxisLock` toggles `lockedAxis` when the mode allows the axis |
+| [`src/PRo3D.Viewer/Navigation.fs`](../src/PRo3D.Viewer/Navigation.fs) | `Navigation.update` applies `constrainRotationToAxis` in the ArcBall and MapView branches while `lockedAxis` is set; `SetNavigationMode` clears it |
+| [`src/PRo3D.Viewer/Viewer/ViewerGUI.fs`](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) | yields the gizmo into the `"render"` page's overlay `alist` next to the [tool strip](ToolStrip.md); builds `axisEnabled`, `edgeLockEnabled` (ArcBall any / MapView vertical / FreeFly none) and the `hint` tooltip text |
 
 Design notes:
 
 - **Overlay, not an `Sg`.** The gizmo is an SVG overlay driven only by the camera
-  orientation (`m.navigation.camera.view`) and the reference system. It has no model
-  state and is not persisted. The geometry-dependent maths (selection bounding box,
-  framing distance from the current frustum FOV) runs in `updateViewer`, where
-  reading plain `Model` values is fine.
+  orientation (`m.navigation.camera.view`), the reference system, and
+  `m.navigation.lockedAxis`. The `view` function itself holds no state; the axis
+  lock lives on `NavigationModel` (transient, not persisted). The geometry-dependent
+  maths (selection bounding box, framing distance from the current frustum FOV) runs
+  in `updateViewer`, where reading plain `Model` values is fine.
+- **Axis lock.** Clicking an edge sets `NavigationModel.lockedAxis`;
+  `Navigation.update` then post-filters the camera through
+  `NavigationConstraint.constrainRotationToAxis` (swing-twist: keep the rotation's
+  twist about the locked world axis, drop the swing) in its ArcBall and MapView
+  branches. ArcBall pivots on `exploreCenter` and allows all three edges; MapView
+  pivots on the body centre and only the vertical edge (constant-latitude orbit
+  about `mapFrame.polarAxis`); FreeFly is unsupported (`edgeLockEnabled` is `false`
+  for every axis there). The lock clears on a mode switch (`SetNavigationMode`), a
+  circle click (`OrientCameraToGizmoAxis`), a re-click of the locked edge, and
+  scene / bookmark load (those rebuild `NavigationModel`).
 - **Click isolation.** The wrapper `div` stops propagation of
   `mousedown mouseup click dblclick contextmenu wheel` (same guard as
   `ViewerGUI.ToolStrip.view`), so interacting with the gizmo never starts a camera

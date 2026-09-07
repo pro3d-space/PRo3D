@@ -414,4 +414,88 @@ let tests =
                 "east x north should give up"
             Expect.isSome frame.polarAxis "a planetary frame has a pole to guard against"
         }
+
+        // TC-2.6 Navigation axis lock (navigation gizmo edge click)
+
+        test "TC-2.6 an ArcBall drag along the locked axis does not move the camera" {
+            // ReferenceSystem.initial is Mars with up = +Z, so locking UpDown pins
+            // the world +Z axis. A vertical mouse drag is a latitude change (rotation
+            // about a horizontal axis) - the frozen direction.
+            let centre = V3d.Zero
+            let entered, _ =
+                Nav.run true None false (Nav.modelLookingAt (V3d(20.0, 0.0, 0.0)) centre)
+                    (Navigation.Action.ArcBallAction (ArcBallController.Message.Pick centre))
+            let start = { entered with lockedAxis = Some NavigationAxis.UpDown }
+            let before = start.camera.view
+            let step m msg = fst (Nav.run false None false m (Navigation.Action.ArcBallAction msg))
+            let after =
+                [ ArcBallController.Message.Down (MouseButtons.Left, V2i(100, 100))
+                  ArcBallController.Message.Move (V2i(100, 170)) ]
+                |> List.fold step start
+            Expect.isLessThan (Vec.distance after.camera.view.Location before.Location) 1e-6
+                "dragging along the locked axis must not move the camera"
+            Expect.isGreaterThan
+                (Vec.dot (Vec.normalize after.camera.view.Forward) (Vec.normalize before.Forward))
+                (1.0 - 1e-9)
+                "the view direction must not change either"
+        }
+
+        test "TC-2.6 an ArcBall drag about the locked axis orbits at a fixed radius" {
+            let centre = V3d.Zero
+            let entered, _ =
+                Nav.run true None false (Nav.modelLookingAt (V3d(20.0, 0.0, 0.0)) centre)
+                    (Navigation.Action.ArcBallAction (ArcBallController.Message.Pick centre))
+            let start = { entered with lockedAxis = Some NavigationAxis.UpDown }
+            let before = start.camera.view
+            let r0 = Vec.length before.Location
+            let step m msg = fst (Nav.run false None false m (Navigation.Action.ArcBallAction msg))
+            let after =
+                [ ArcBallController.Message.Down (MouseButtons.Left, V2i(100, 100))
+                  ArcBallController.Message.Move (V2i(180, 100)) ]   // horizontal = about +Z
+                |> List.fold step start
+            Expect.isGreaterThan (Vec.distance after.camera.view.Location before.Location) 1e-3
+                "a horizontal drag should still orbit about the locked vertical axis"
+            Expect.floatClose Accuracy.high (Vec.length after.camera.view.Location) r0
+                "the orbit radius must be preserved (zoom stays free, but this drag has none)"
+            Expect.floatClose Accuracy.medium after.camera.view.Location.Z before.Location.Z
+                "the camera coordinate along the locked axis stays fixed"
+            Expect.isGreaterThan
+                (Vec.dot (Vec.normalize (centre - after.camera.view.Location))
+                         (Vec.normalize after.camera.view.Forward))
+                (1.0 - 1e-6)
+                "the camera keeps looking at the orbit centre"
+        }
+
+        test "TC-2.6 switching the navigation mode clears the axis lock" {
+            let centre = V3d.Zero
+            let entered, _ =
+                Nav.run true None false (Nav.modelLookingAt (V3d(20.0, 0.0, 0.0)) centre)
+                    (Navigation.Action.ArcBallAction (ArcBallController.Message.Pick centre))
+            let start = { entered with lockedAxis = Some NavigationAxis.NorthSouth }
+            let nav, _ =
+                Nav.run false None false start
+                    (Navigation.Action.SetNavigationMode NavigationMode.FreeFly)
+            Expect.equal nav.lockedAxis None "a camera-mode switch must clear the lock"
+        }
+
+        test "TC-2.6 a locked MapView drag holds the camera latitude" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let start = { entered with lockedAxis = Some NavigationAxis.UpDown }
+            let pole =
+                match (MapViewController.mapFrame Planet.Mars start.camera.view.Location).polarAxis with
+                | Some p -> p
+                | None   -> failtest "the Mars map frame should have a polar axis"
+            let latOf (v : V3d) = Vec.dot (Vec.normalize v) pole
+            let before = start.camera.view.Location
+            let step m msg = fst (Nav.run false None false m (Navigation.Action.MapViewControllerAction msg))
+            let after =
+                [ MapViewController.Message.Down (MouseButtons.Left, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(100, 180))
+                  MapViewController.Message.Up MouseButtons.Left ]
+                |> List.fold step start
+            Expect.floatClose Accuracy.medium (latOf after.camera.view.Location) (latOf before)
+                "with the vertical axis locked a vertical drag must not change latitude"
+        }
     ]

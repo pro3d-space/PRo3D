@@ -27,11 +27,12 @@ module Navigation =
         | MapViewControllerAction  of MapViewController.Message
         | SetNavigationMode        of NavigationMode
 
-    type smallConfig<'a,'b> = 
+    type smallConfig<'a,'b> =
         {
             navigationSensitivity : Lens<'a, float>
             up                    : Lens<'b, V3d>
             north                 : Lens<'b, V3d>
+            northO                : Lens<'b, V3d>
             frustum               : Lens<'a, Frustum>
             windowSize            : Lens<'a, V2i>
             planet                : Lens<'b, Planet>
@@ -101,8 +102,26 @@ module Navigation =
                     let mb = if (ctrlFlag && button = MouseButtons.Right) then MouseButtons.Left else button
                     ArcBallController.Message.Up mb
                 | _ -> a
+            let beforeView = model.camera.view
             let cam = ArcBallController.update model.camera msg
-            let cam = { cam with sensitivity = smallConfig.navigationSensitivity.Get(bigConfigA); orbitCenter = Some model.exploreCenter } 
+            let cam = { cam with sensitivity = smallConfig.navigationSensitivity.Get(bigConfigA); orbitCenter = Some model.exploreCenter }
+
+            // Axis lock (ArcBall only): collapse this step's orientation change to its
+            // twist about the locked world axis, orbiting `exploreCenter`; dolly stays
+            // free. `Pick` is a deliberate re-centre, so it is left unconstrained.
+            let cam =
+                match model.lockedAxis with
+                | Some navAxis when model.navigationMode = NavigationMode.ArcBall
+                                 && (match a with ArcBallController.Message.Pick _ -> false | _ -> true) ->
+                    let axisDir =
+                        NavigationConstraint.axisWorldDirection
+                            (smallConfig.planet.Get bigConfigB)
+                            (smallConfig.up.Get bigConfigB)
+                            (smallConfig.northO.Get bigConfigB)
+                            navAxis
+                    { cam with view = NavigationConstraint.constrainRotationToAxis beforeView cam.view axisDir model.exploreCenter }
+                | _ -> cam
+
             match cam.orbitCenter with
             | Some oc -> { model with camera = cam; exploreCenter = oc}, feedback
             | None -> { model with camera = cam }, feedback
@@ -176,15 +195,29 @@ module Navigation =
                         cam |> MapViewController.updateCameraForMapView planet                    
                     | _ -> cam
                 else
-                    match a with 
-                    | KeyUp _ 
-                    | Up _ -> 
-                        cam |> MapViewController.updateCameraForMapView planet                    
+                    match a with
+                    | KeyUp _
+                    | Up _ ->
+                        cam |> MapViewController.updateCameraForMapView planet
                     | _ -> cam
+
+            // Axis lock (MapView supports the vertical edge only): constant-latitude
+            // orbit about the body spin axis (falling back to the map-frame up for the
+            // constant-up frames). A spin-axis twist preserves look-at-origin + north-up,
+            // so it is safe to apply after `updateCameraForMapView`.
+            let cam =
+                match model.lockedAxis with
+                | Some NavigationAxis.UpDown ->
+                    let frame = mapFrame planet model.camera.view.Location
+                    let axisDir = frame.polarAxis |> Option.defaultValue frame.up
+                    { cam with view = NavigationConstraint.constrainRotationToAxis model.camera.view cam.view axisDir V3d.OOO }
+                | _ -> cam
 
             { model with camera = cam }, None
 
         | SetNavigationMode mode ->
+            // A camera-mode switch always clears the gizmo axis lock.
+            let model = { model with lockedAxis = None }
             match mode with
             | NavigationMode.ArcBall ->
                 let model, message = pickOrbitCenter pickFunction model

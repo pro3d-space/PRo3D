@@ -207,6 +207,7 @@ module ViewerApp =
             navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
             north                 = ReferenceSystem.north_ >-> V3dInput.value_ |> Aether.toBase
+            northO                = ReferenceSystem.northO_ |> Aether.toBase
             frustum               = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_ |> Aether.toBase
             windowSize            = ViewConfigModel.frustumModel_ >-> FrustumModel.windowSize_ |> Aether.toBase
             planet                = (ReferenceSystem.planet_ |> Aether.toBase)
@@ -682,7 +683,20 @@ module ViewerApp =
                 m
                 |> Optic.set _view newView
                 |> Optic.set _animationView newView
+                |> Optic.set (_navigation >-> NavigationModel.lockedAxis_) None   // circle click clears the lock
         | OrientCameraToGizmoAxis _, _ -> m
+        | ToggleNavigationAxisLock axis, _ ->
+            // Navigation gizmo edge click: toggle the axis lock. Only ArcBall (any
+            // axis) and MapView (vertical only) support it - see docs/NavigationGizmo.md.
+            let allowed =
+                match m.navigation.navigationMode, axis with
+                | NavigationMode.ArcBall, _                     -> true
+                | NavigationMode.MapView, NavigationAxis.UpDown -> true
+                | _                                            -> false
+            if not allowed then m
+            else
+                let next = if m.navigation.lockedAxis = Some axis then None else Some axis
+                m |> Optic.set (_navigation >-> NavigationModel.lockedAxis_) next
         | SetCameraAndFrustum (cv, hfov, _),_ ->
             Log.warn "[Viewer] SetCameraAndFrustum not implemented!"
             m
