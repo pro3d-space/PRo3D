@@ -765,7 +765,11 @@ module TraverseApp =
                     |> Sg.withEvents [
                         SceneEventKind.Click, (
                             fun (sceneHit : SceneHit) ->
-                                true, Seq.ofList [PickRimfaxSurface (surface.surface, traverseId, solNumber)])
+                                // left button only - the others navigate the camera
+                                if sceneHit.event.evtButtons = Aardvark.Application.MouseButtons.Left then
+                                    true, Seq.ofList [PickRimfaxSurface (surface.surface, traverseId, solNumber)]
+                                else
+                                    true, Seq.empty)
                         ]
                     // imported RIMFAX surfaces always discard their white bands automatically
                     |> Sg.uniform "WhiteDiscardEnabled"   (AVal.constant true)

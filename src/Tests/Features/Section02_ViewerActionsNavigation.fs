@@ -39,14 +39,25 @@ module private Nav =
     let userPrefs  = UserPreferences.initial
 
     /// Navigation.update against a specific reference system (i.e. a specific
-    /// planet), matching how the NavigationMessage handler calls it (Viewer.fs).
+    /// planet) and a specific mouse scheme, matching how the NavigationMessage
+    /// handler calls it (Viewer.fs).
+    let runWith (refSystem       : ReferenceSystem)
+                (scheme          : Navigation.MouseScheme)
+                (switchToArcball : bool)
+                (pick            : option<unit -> option<V3d>>)
+                (model           : NavigationModel)
+                (act             : Navigation.Action) =
+        Navigation.update viewConfig refSystem navConf userPrefs switchToArcball pick model act scheme
+
+    /// As runWith, on the default mouse scheme, with `ctrlFlag` given directly.
     let runOn (refSystem       : ReferenceSystem)
               (switchToArcball : bool)
               (pick            : option<unit -> option<V3d>>)
               (ctrlFlag        : bool)
               (model           : NavigationModel)
               (act             : Navigation.Action) =
-        Navigation.update viewConfig refSystem navConf userPrefs switchToArcball pick model act ctrlFlag
+        let scheme = { Navigation.MouseScheme.full with ctrlFlag = ctrlFlag }
+        runWith refSystem scheme switchToArcball pick model act
 
     /// Navigation.update with the viewer's own config, matching how the
     /// NavigationMessage handler calls it (Viewer.fs).

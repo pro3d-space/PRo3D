@@ -945,34 +945,43 @@ module Gui =
                 }        
         )
             
-        let interactionText (i : Interactions) =
-            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
-            match i with 
-            | Interactions.PickExploreCenter     -> sprintf "%s+click to place arcball center" ctrl
-            | Interactions.PlaceCoordinateSystem -> sprintf "%s+click to place coordinate cross" ctrl
-            | Interactions.DrawAnnotation        -> sprintf "%s+click to pick point on surface" ctrl
-            | Interactions.PickAnnotation        -> sprintf "%s+click on annotation to select" ctrl
-            | Interactions.CutAnnotation         -> sprintf "%s+click to draw separating polyline" ctrl
-            | Interactions.PickSurface           -> sprintf "%s+click on surface to select" ctrl
-            | Interactions.PlaceRover            -> sprintf "%s+click to (1) place rover and (2) pick lookat" ctrl
+        /// How the hint lines below name the gesture that runs the active tool. Direct
+        /// Tool Mode puts the tool on a plain left click, so the modifier must drop out
+        /// of the text or every hint reads wrong.
+        let private clickGesture (directToolMode : bool) =
+            if directToolMode then "Click"
+            else
+                let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
+                sprintf "%s+click" ctrl
+
+        let interactionText (directToolMode : bool) (i : Interactions) =
+            let click = clickGesture directToolMode
+            match i with
+            | Interactions.PickExploreCenter     -> sprintf "%s to place arcball center" click
+            | Interactions.PlaceCoordinateSystem -> sprintf "%s to place coordinate cross" click
+            | Interactions.DrawAnnotation        -> sprintf "%s to pick point on surface" click
+            | Interactions.PickAnnotation        -> sprintf "%s on annotation to select" click
+            | Interactions.CutAnnotation         -> sprintf "%s to draw separating polyline" click
+            | Interactions.PickSurface           -> sprintf "%s on surface to select" click
+            | Interactions.PlaceRover            -> sprintf "%s to (1) place rover and (2) pick lookat" click
             | Interactions.TrafoControls         -> "not implemented"
             | Interactions.PlaceSurface          -> "not implemented"
-            | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
-            | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
-            | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
-            | Interactions.PickSurfaceRefSys     -> sprintf "%s+click to place additional reference system for selected surface" ctrl
+            | Interactions.PlaceScaleBar         -> sprintf "%s to place scale bar" click
+            | Interactions.PlaceSceneObject      -> sprintf "%s to place scene object" click
+            | Interactions.PickPivotPoint        -> sprintf "%s to place pivot point" click
+            | Interactions.PickSurfaceRefSys     -> sprintf "%s to place additional reference system for selected surface" click
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
 
         /// As interactionText, but also reflects whether a control point is currently in hand.
         /// Click-to-grab has no drag affordance to feel out, so the hint line is most of what makes
         /// the gesture discoverable.
-        let interactionTextWithState (i : Interactions) (grabbed : bool) =
-            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
+        let interactionTextWithState (directToolMode : bool) (i : Interactions) (grabbed : bool) =
+            let click = clickGesture directToolMode
             match i with
-            | Interactions.EditAnnotation when grabbed -> sprintf "%s+click to drop the point, ESC to cancel" ctrl
-            | Interactions.EditAnnotation -> sprintf "%s+click a vertex of the selected annotation to move it" ctrl
-            | _ -> interactionText i
+            | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click
+            | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it" click
+            | _ -> interactionText directToolMode i
 
         let interactionTooltip (i : Interactions) : string =
             match i with 
@@ -1011,8 +1020,10 @@ module Gui =
             | Interactions.PickExploreCenter     -> "Pick Explore Center"
             | _                                  -> "Tool Settings"
 
-        let invertDrawingTooltip =
-            "Invert drawing: swap the Ctrl modifier - pick and draw without Ctrl, hold Ctrl to navigate."
+        let directToolModeTooltip =
+            "Direct Tool Mode: the active tool runs on the left mouse button, no Ctrl needed. \
+             Middle button pans, right button orbits, wheel zooms. Hold Ctrl to orbit with the \
+             left button as well."
 
         let topMenuItems (model : AdaptiveModel) = [
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
@@ -1028,13 +1039,14 @@ module Gui =
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ]
 
-            // Inverts the Ctrl convention (picking = ctrlFlag <> inverseFlag). It is a global
+            // Hands the left mouse button to the active tool and moves navigation onto the
+            // middle and right buttons (picking = ctrlFlag <> directToolMode). It is a global
             // interaction-mode switch like the two items above, so it lives on the main row
-            // rather than in the Annotations dock page.
+            // rather than in the Annotations dock page. See docs/DirectToolMode.md.
             Html.Layout.horizontal [
-                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Invert Drawing:"] ]
-                Html.Layout.boxH [ GuiEx.iconCheckBox model.inverseFlag ViewerAction.InvertDrawing ]
-            ] |> UI.wrapToolTip DataPosition.Bottom invertDrawingTooltip
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Direct Tool Mode:"] ]
+                Html.Layout.boxH [ GuiEx.iconCheckBox model.directToolMode ViewerAction.ToggleDirectToolMode ]
+            ] |> UI.wrapToolTip DataPosition.Bottom directToolModeTooltip
         ]
 
         // The secondary toolbar is always rendered (even when the active
@@ -1090,8 +1102,10 @@ module Gui =
             let hint =
                 div [clazz "item topmenu"; style "font-style:italic"] [
                     Incremental.text (
-                        (m.interaction, m.drawing.vertexGrab |> AVal.map Option.isSome)
-                        ||> AVal.map2 interactionTextWithState)
+                        AVal.map3 interactionTextWithState
+                            m.directToolMode
+                            m.interaction
+                            (m.drawing.vertexGrab |> AVal.map Option.isSome))
                 ]
 
             // The row itself is untinted. To wash it in a toned down version of the active
