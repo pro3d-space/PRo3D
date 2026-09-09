@@ -536,9 +536,9 @@ module ViewerUtils =
                             yield SceneEventKind.Move, (
                                 fun sceneHit ->
                                     let surfacePicking = surfacePicking |> AVal.force
-                                    let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
+                                    let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.directToolMode |> AVal.force))
                                     // only show the preview cursor while in picking mode (ctrl held,
-                                    // modulo invert) - no preview while navigating the camera
+                                    // modulo Direct Tool Mode) - no preview while navigating the camera
                                     if previewPickingEnabled.GetValue() && surfacePicking && surfacePickingActivated then
                                         let name  = surf.name |> AVal.force
                                         true, Seq.ofList [PreviewPickSurface (sceneHit, name, true)]
@@ -547,10 +547,16 @@ module ViewerUtils =
                             )
                         yield SceneEventKind.Click, (
                            fun sceneHit -> 
-                                let name  = surf.name |> AVal.force        
+                                let name  = surf.name |> AVal.force
                                 let surfacePicking = surfacePicking |> AVal.force
-                                let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
-                                if surfacePicking && surfacePickingActivated then
+                                let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.directToolMode |> AVal.force))
+                                // Tools are on the left button only. In Direct Tool Mode the right
+                                // button orbits the camera, and a right-drag ending on a surface
+                                // would otherwise place a point where the drag happened to stop.
+                                // This is the master gate feeding `matchPickingInteraction`, so it
+                                // covers every place/pick interaction at once.
+                                let leftButton = (sceneHit.event.evtButtons = Aardvark.Application.MouseButtons.Left)
+                                if surfacePicking && surfacePickingActivated && leftButton then
                                     true, Seq.ofList [PickSurface (sceneHit, name, true)]
                                 else 
                                     true, Seq.ofList []
@@ -1087,7 +1093,9 @@ module ViewerUtils =
                             surfaces 
                             m.frustum 
                             selected 
-                            (AVal.map2 (&&) m.ctrlFlag m.inverseFlag)
+                            // picking mode, same predicate as the interactive path. Offscreen
+                            // scene-event handlers never fire, so this is consistency only.
+                            (AVal.map2 (<>) m.ctrlFlag m.directToolMode)
                             m.scene.config.showPreviewIntersection
                             sf.globalBB 
                             refSystem 

@@ -211,8 +211,15 @@ module ViewerApp =
             frustum               = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_ |> Aether.toBase
             windowSize            = ViewConfigModel.frustumModel_ >-> FrustumModel.windowSize_ |> Aether.toBase
             planet                = (ReferenceSystem.planet_ |> Aether.toBase)
-        }    
-    
+        }
+
+    /// Which mouse buttons the camera listens to right now. In Direct Tool Mode the
+    /// left button belongs to the active tool, so `Navigation.update` drops its
+    /// presses and moves its look gesture onto the right button; Ctrl hands the left
+    /// button back to the camera. See docs/DirectToolMode.md.
+    let mouseScheme (m : Model) : Navigation.MouseScheme =
+        { directToolMode = m.directToolMode; ctrlFlag = m.ctrlFlag }
+
     let mutable cache = HashMap.Empty
 
     let updateSceneWithNewSurface (m: Model) =
@@ -394,7 +401,7 @@ module ViewerApp =
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
             let navigation', feedback = 
-                Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) m.ctrlFlag
+                Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) (mouseScheme m)
             { m with navigation = navigation' }
             |> logScreenOption 10000 feedback
         | Interactions.PlaceRover, ViewerMode.Standard ->
@@ -515,7 +522,7 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
-    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (inverseFlag : bool) =
+    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (directToolMode : bool) =
         match k with
         | Aardvark.Application.Keys.Enter ->
             match interaction with
@@ -534,11 +541,11 @@ module ViewerApp =
             | _ -> DrawingAction.ClearWorking
         | Keyboard.Modifier ->
             match interaction with
-            | Interactions.DrawAnnotation -> (if inverseFlag then DrawingAction.StopDrawing else DrawingAction.StartDrawing)
-            | Interactions.PickAnnotation -> (if inverseFlag then DrawingAction.StopPicking else DrawingAction.StartPicking)
+            | Interactions.DrawAnnotation -> (if directToolMode then DrawingAction.StopDrawing else DrawingAction.StartDrawing)
+            | Interactions.PickAnnotation -> (if directToolMode then DrawingAction.StopPicking else DrawingAction.StartPicking)
             // vertex editing dispatches on (draw = false, pick = true) like annotation selection,
             // so without this the ctrl press never sets model.pick and nothing reaches the handlers
-            | Interactions.EditAnnotation -> (if inverseFlag then DrawingAction.StopPicking else DrawingAction.StartPicking)
+            | Interactions.EditAnnotation -> (if directToolMode then DrawingAction.StopPicking else DrawingAction.StartPicking)
             | _ -> DrawingAction.Nop
         //| Aardvark.Application.Keys.LeftShift -> 
         //    match m.interaction with                     
@@ -611,7 +618,7 @@ module ViewerApp =
             let pickingFunction () = 
                 V3d(0.0, 0.0, 0.0) |> pickRayNdc
                             
-            let nav, feedback = Navigation.update c ref navConf m.userPreferences true (Some pickingFunction) m.navigation msg m.ctrlFlag
+            let nav, feedback = Navigation.update c ref navConf m.userPreferences true (Some pickingFunction) m.navigation msg (mouseScheme m)
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
@@ -724,9 +731,14 @@ module ViewerApp =
                 DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (DrawingAction.GroupsMessage msg)
 
             { m with drawing = drawing } |> stash
-        | InvertDrawing, _ ->
-            let updatedInverseFlag = not m.inverseFlag
-            { m with inverseFlag = updatedInverseFlag; drawing = {m.drawing with draw = updatedInverseFlag} }
+        | ToggleDirectToolMode, _ ->
+            let enabled = not m.directToolMode
+            // `picking` is set here as well as on the Ctrl key-up path below: without it
+            // the checkbox and `PickObject`'s gate disagree until the next Ctrl press.
+            { m with
+                directToolMode = enabled
+                picking        = enabled
+                drawing        = { m.drawing with draw = enabled } }
         | DrawingMessage msg,_ -> //Interactions.DrawAnnotation
             match msg with
             | Drawing.FlyToAnnotation id ->
@@ -743,7 +755,7 @@ module ViewerApp =
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with animations = a'}              
                 | None -> m
-            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.inverseFlag) ->
+            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.directToolMode) ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
                     //let pickingAction, msg =
@@ -1717,7 +1729,7 @@ module ViewerApp =
                     let c   = m.scene.config
                     let ref = m.scene.referenceSystem
                     let navigation', _ = 
-                        Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) m.ctrlFlag
+                        Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) (mouseScheme m)
                     { m with navigation = navigation' }
                 | _ -> m
           
@@ -1811,15 +1823,15 @@ module ViewerApp =
                 match m.interaction with
                 | Interactions.DrawAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.inverseFlag then DrawingAction.StartDrawing else DrawingAction.StopDrawing)
-                    { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.directToolMode then DrawingAction.StartDrawing else DrawingAction.StopDrawing)
+                    { m with drawing = d; ctrlFlag = false; picking = m.directToolMode }
                 | Interactions.PickAnnotation
                 | Interactions.EditAnnotation ->
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.inverseFlag then DrawingAction.StartPicking else DrawingAction.StopPicking)
-                    { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.directToolMode then DrawingAction.StartPicking else DrawingAction.StopPicking)
+                    { m with drawing = d; ctrlFlag = false; picking = m.directToolMode }
                 //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
-                |_-> { m with ctrlFlag = false; picking = m.inverseFlag }
+                |_-> { m with ctrlFlag = false; picking = m.directToolMode }
             | _ -> m                                  
         | SetInteraction t,_ -> 
                 
@@ -2448,9 +2460,20 @@ module ViewerApp =
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
                 let! state = model.navigationMode
-                let! inverseFlag = m.inverseFlag
+                let! directToolMode = m.directToolMode
                 let! ctrlFlag = m.ctrlFlag
-                match state, inverseFlag = ctrlFlag with
+
+                // The camera is live whenever *some* mouse button still drives it. In
+                // Direct Tool Mode that is middle (pan), right (orbit) and the wheel,
+                // even while the tool owns the left button - `Navigation.update` drops
+                // the left-button presses rather than unsubscribing the controller, so
+                // you can zoom and pan without letting go of the tool.
+                // The default mode is unchanged: holding Ctrl to use a tool stops the
+                // camera dead, which is what keeps a navigation drag from re-firing a
+                // pick (see docs/story-picking-during-navigation.md).
+                let cameraLive = directToolMode || not ctrlFlag
+
+                match state, cameraLive with
                 | NavigationMode.FreeFly, true ->
                     yield! FreeFlyController.extractAttributes model.camera Navigation.Action.FreeFlyAction
                 | NavigationMode.ArcBall, true ->                         
@@ -2481,7 +2504,7 @@ module ViewerApp =
                 //attribute "showFPS" "true"
                 //attribute "data-renderalways" "true"
                 Aardvark.UI.Events.onKeyDown' (fun k ->
-                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k (m.inverseFlag |> AVal.force)
+                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k (m.directToolMode |> AVal.force)
                     [KeyDown k; DrawingMessage drawingAction]
                 )
                 onKeyUp   (KeyUp)        
@@ -2550,12 +2573,12 @@ module ViewerApp =
         // drawing app needs pickable stuff. however whether logs are pickable depends on 
         // outer application state. we consider annotations to pickable if they are visible
         // and we are in "pick annotation" mode.
-        AVal.map3 (fun ctrlPressed inverse interaction -> 
-            match ctrlPressed, inverse, interaction with
+        AVal.map3 (fun ctrlPressed directToolMode interaction ->
+            match ctrlPressed, directToolMode, interaction with
             | true, false, Interactions.PickLog -> true
             | false, true, Interactions.PickLog -> true
             | _ -> false
-        ) m.ctrlFlag m.inverseFlag m.interaction
+        ) m.ctrlFlag m.directToolMode m.interaction
 
     // overlays that occur in instrumentview + main renderview
     let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) (frustum : aval<Frustum>) =

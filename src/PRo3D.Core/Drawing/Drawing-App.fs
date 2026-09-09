@@ -1156,7 +1156,11 @@ module DrawingApp =
                             let vertex = hoveredVertex.GetValue()
                             let editing = vertexEditingAllowed.GetValue()
                             let alreadyGrabbed = grabbedVertex.GetValue() >= 0
-                            if alreadyGrabbed then
+                            // selecting and grabbing are left-button gestures; the middle and
+                            // right buttons drive the camera in every mouse scheme
+                            if b <> Aardvark.Application.MouseButtons.Left then
+                                DrawingAction.Nop
+                            elif alreadyGrabbed then
                                 // a grab is live: the drop belongs to the viewer's surface-click
                                 // path, which is the only place the live hit point exists
                                 DrawingAction.Nop
