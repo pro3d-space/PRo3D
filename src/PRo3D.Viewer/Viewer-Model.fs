@@ -82,8 +82,8 @@ type PickPivot =
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
-type ViewerAction =     
-| InvertDrawing
+type ViewerAction =
+| ToggleDirectToolMode
 | DrawingMessage                  of DrawingAction
 | AnnotationGroupsMessageViewer   of GroupsAppAction
 | NavigationMessage               of Navigation.Action
@@ -634,7 +634,10 @@ type Model = {
     picking          : bool
     pivotType        : PickPivot
     ctrlFlag         : bool
-    inverseFlag      : bool
+    /// "Direct Tool Mode": the active tool owns the left mouse button without Ctrl,
+    /// and camera navigation moves to the middle (pan) and right (orbit) buttons.
+    /// Session-only, never persisted. See docs/DirectToolMode.md.
+    directToolMode   : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>

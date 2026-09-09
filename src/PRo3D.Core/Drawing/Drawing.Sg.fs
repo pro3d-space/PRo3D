@@ -244,7 +244,12 @@ module Sg =
 
                 let rayHash = sceneHit.globalRay.Ray.Ray.GetHashCode()
 
-                if (rayHash = lastHash) then
+                // Selecting is a left-button gesture. The other buttons drive the camera
+                // in every mouse scheme, and in Direct Tool Mode a right-drag orbit that
+                // happens to end on an annotation would otherwise select it.
+                if sceneHit.event.evtButtons <> Aardvark.Application.MouseButtons.Left then
+                    true, Seq.empty
+                elif (rayHash = lastHash) then
                     Log.warn "[AnnotationPicking] detected duplicate picking interaction (rayhash)"
                     true, Seq.empty
                 else
