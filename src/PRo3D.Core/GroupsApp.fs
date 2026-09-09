@@ -27,7 +27,8 @@ type GroupsAppAction =
     | SetGroupName          of string
     | SetChildName          of string
     | ClearGroup            of list<Index>
-    | AddLeafToSelection    of list<Index>*Guid*string 
+    | RemoveSelectedLeaves
+    | AddLeafToSelection    of list<Index>*Guid*string
     | SingleSelectLeaf      of list<Index>*Guid*string 
     | ToggleGroup           of list<Index>
     | SetVisibility         of path : list<Index> * isVisible : bool
@@ -495,6 +496,16 @@ module GroupsApp =
             let last = checkLastSelected m'
 
             { m' with selectedLeaves = selection ; singleSelectLeaf = last }
+        | RemoveSelectedLeaves ->
+            // green multi-selection first, single selection as a fallback so a lone
+            // selection is still removable. Each leaf is dropped from tree and flat.
+            match model.selectedLeaves |> HashSet.toList with
+            | [] ->
+                match model.singleSelectLeaf with
+                | Some id -> removeLeafById id model
+                | None    -> model
+            | selected ->
+                removeSelected selected true model
         | SingleSelectLeaf (p,id,s) ->
             addSingleSelectedLeaf model p id s
         | AddLeafToSelection (p,id,s) ->

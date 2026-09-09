@@ -1433,46 +1433,14 @@ module Gui =
             |> UI.map (fun a -> ViewerAction.DrawingMessage(DrawingAction.ColorByCategoryMessage a))
             |> AVal.constant
           
-        let annotationLeafButtonns' (model : AdaptiveModel) = 
-            let ts = model.drawing.annotations.activeChild
-            let sel = model.drawing.annotations.singleSelectLeaf
-            adaptive {  
-                let! ts = ts
-                let! sel = sel
-                match sel with
-                | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupsMessageViewer)
-                | None -> return div [style "font-style:italic"] [ text "no annotation group selected" ]
-            }      
-            
-        let annotationLeafButtonns (model : AdaptiveModel) =           
-            AVal.map2(fun ts sel -> 
-                match sel with
-                | Some _ -> (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupsMessageViewer)
-                | None -> div [style "font-style:italic"] [ text "no annotation group selected" ]
-            ) model.drawing.annotations.activeChild model.drawing.annotations.singleSelectLeaf
-            
-        let annotationGroupProperties (model : AdaptiveModel) =                            
-            GroupsApp.viewUI model.drawing.annotations 
-            |> UI.map AnnotationGroupsMessageViewer 
+        let annotationGroupProperties (model : AdaptiveModel) =
+            GroupsApp.viewUI model.drawing.annotations
+            |> UI.map AnnotationGroupsMessageViewer
             |> AVal.constant
-        
-        let annotationGroupButtons (model : AdaptiveModel) = 
-            model.drawing.annotations.activeGroup 
-            |> AVal.map (fun x -> GroupsApp.viewGroupButtons x |> UI.map AnnotationGroupsMessageViewer)            
-            
-        let annotationUI (m : AdaptiveModel) = 
-            
-            let buttons = 
-                m.drawing.annotations.lastSelectedItem
-                |> AVal.bind (fun x -> 
-                    match x with 
-                    | SelectedItem.Group -> annotationGroupButtons m
-                    | _ -> annotationLeafButtonns m 
-                )
 
+        let annotationUI (m : AdaptiveModel) =
             div [] [
                 GuiEx.accordion "Annotations" "Write" true [
-                    GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
                     Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
@@ -1481,9 +1449,9 @@ module Gui =
                 ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))
-                ] 
+                ]
                 GuiEx.accordion "Actions" "Asterisk" true [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
+                    Drawing.UI.viewAnnotationActions |> UI.map ViewerAction.DrawingMessage
                 ]
             ]
 

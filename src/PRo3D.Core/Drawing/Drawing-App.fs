@@ -657,7 +657,7 @@ module DrawingApp =
                     match model.annotations.flat.TryFind id with
                     | Some leaf -> model' |> pushUndo (LeafRemoved(leaf, path))
                     | None      -> model'
-                | GroupsAppAction.RemoveGroup _ | GroupsAppAction.ClearGroup _ ->
+                | GroupsAppAction.RemoveGroup _ | GroupsAppAction.ClearGroup _ | GroupsAppAction.RemoveSelectedLeaves ->
                     model' |> pushUndo (SnapshotDelta(model.annotations, annotations))
                 | _ -> model'
             | RecalculateMeasurements, _,_ -> 

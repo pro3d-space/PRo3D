@@ -214,6 +214,8 @@ module UI =
             let multiSelect  = fun _ -> multiSelect(a,path)
             
             let ac = sprintf "color: %s" (Html.color C4b.White)
+            // contains the right-floated remove (times) icon so it doesn't bleed into the description
+            let headerRowStyle = ac + "; overflow:hidden"
             
             let visibleIcon = 
                 amap {
@@ -275,31 +277,36 @@ module UI =
             
                 }
             
-            div [clazz "item"] [
+            div [clazz "item"; style "border-bottom:1px solid rgba(255,255,255,0.12); padding-bottom:4px; margin-bottom:4px"] [
                 Incremental.i iconAttributes AList.empty
-                div [clazz "content"] [                  
-                
+                div [clazz "content"] [
+
                     //header
-                    yield Incremental.div (AttributeMap.ofList [style ac]) (
+                    yield Incremental.div (AttributeMap.ofList [style headerRowStyle]) (
                         alist {                          
                             //yield div[][
                             let! hc = headerColor
                             yield div [clazz "header"; style hc] [
                                 Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                             ]
-                            yield Incremental.i visibleIcon AList.empty 
+                            yield Incremental.i visibleIcon AList.empty
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
-                            yield 
-                                i [clazz "home icon"; onClick (fun _ -> FlyToAnnotation a.key)] [] 
-                                    |> UI.wrapToolTip DataPosition.Bottom "FlyTo" 
-                        } 
+                            yield
+                                i [clazz "home icon"; onClick (fun _ -> FlyToAnnotation a.key)] []
+                                    |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
+                            yield
+                                i [clazz "red times icon"
+                                   style "float:right; margin-left:0.25em; cursor:pointer"
+                                   onClick (fun _ -> lift (GroupsAppAction.RemoveLeaf (a.key, path)))] []
+                                    |> UI.wrapToolTip DataPosition.Bottom "Remove"
+                        }
                     )
 
                     //description
                     let desc = AVal.map2 (fun x y -> sprintf "#Points: %A | taken on: %A" x y) (a.points |> AList.count) a.surfaceName
                     yield div [clazz "description";style ac ] [Incremental.text desc]
                 ]
-            ]                            
+            ]
         )     
 
     let staticClickIcon (icon : string) (toolTipText : string) (onClickAction : 'a) : DomNode<'a> =
@@ -311,28 +318,83 @@ module UI =
     let rec viewTree (cbc : AdaptiveColorByCategoryModel) path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<DrawingAction> =
                                                   
         let setActiveAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
-                       
-        let colorAttributes = GroupsApp.treeItemColorAttributes ""
+
+        // whole-group visibility toggle, shown inline on the row next to the set-active circle.
+        // mirrors the per-annotation visibleIcon above; ToggleGroup flips group.visible and every leaf.
+        let toggleGroupVisibilityIcon =
+            let attribs =
+                amap {
+                    yield onMouseClick (fun _ -> GroupsMessage(GroupsAppAction.ToggleGroup path))
+                    let! visible = group.visible
+                    if visible then yield clazz "unhide icon"
+                    else yield clazz "hide icon"
+                    yield style GroupsApp.treeItemColorStyle
+                } |> AttributeMap.ofAMap
+            Incremental.i attribs AList.empty
+            |> UI.wrapToolTip DataPosition.Bottom "Toggle visibility"
+
+        // fixed-width icon slot so every label starts at the same x; `iconSlotStyle` is
+        // reused by the colour-picker row so its label lines up with the rest.
+        let iconSlotStyle = "float:none; display:inline-flex; align-items:center; justify-content:center; width:1.3em; margin-right:1.1em"
+        let menuRowPad    = "padding-left:1.6em"
+
+        // one clickable row (icon + label) in the group context menu
+        let menuRow (icon : string) (label : string) (msg : DrawingAction) =
+            div [ clazz "item"
+                  style ("cursor:pointer; white-space:nowrap; color:black; " + menuRowPad)
+                  onClick (fun _ -> msg) ] [
+                i [clazz icon; style iconSlotStyle] []
+                span [] [text label]
+            ]
+
+        // context menu: bulk actions for the group, opened by clicking the ellipsis icon.
+        // semui inline dropdown (trigger + nested `.menu`), same pattern as the sidebar
+        // menu in ViewerGUI. `action:'hide'` -> a click just runs our onClick and closes.
+        let contextMenu =
+            onBoot "$('#__ID__').dropdown({ action: 'hide', on: 'click' });" (
+                div [ clazz "ui pointing dropdown"
+                      style ("margin-left:auto; " + GroupsApp.treeItemColorStyle) ] [
+                    i [clazz "ellipsis vertical circular icon"
+                       style (GroupsApp.treeItemColorStyle + "; box-shadow:0 0 0 1px currentColor inset; cursor:pointer; margin:0")] []
+                    |> UI.wrapToolTip DataPosition.Bottom "Group actions"
+                    div [clazz "menu"; style "color:black"] [
+                        menuRow "bookmark icon"         "Select all"   (GroupsMessage(GroupsAppAction.SetSelection(path, true)))
+                        menuRow "bookmark outline icon" "Deselect all" (GroupsMessage(GroupsAppAction.SetSelection(path, false)))
+                        menuRow "unhide icon"           "Show all"     (GroupsMessage(GroupsAppAction.SetVisibility(path, true)))
+                        menuRow "hide icon"             "Hide all"     (GroupsMessage(GroupsAppAction.SetVisibility(path, false)))
+                        div [clazz "divider"] []
+                        // plain div, not `.item`: an `.item` click would close the menu
+                        // (action:'hide') before the colour picker opens. Same icon slot +
+                        // left padding as menuRow so the label aligns with the others.
+                        div [ style ("white-space:nowrap; color:black; display:flex; align-items:center; padding:0.5em 1.14em 0.5em 1.6em") ] [
+                            span [style iconSlotStyle] [
+                                ColorPicker.view group.defaultColor
+                                |> UI.map (fun a -> GroupsMessage(GroupsAppAction.SetGroupDefaultColor(path, a)))
+                            ]
+                            span [] [text "Default color"]
+                        ]
+                        div [clazz "divider"] []
+                        menuRow "eraser icon"          "Clear group"  (GroupsMessage(GroupsAppAction.ClearGroup path))
+                        menuRow "trash alternate icon" "Remove group" (GroupsMessage(GroupsAppAction.RemoveGroup path))
+                    ]
+                ]
+            )
+
+        // group header bar: a touch darker than the panel so groups read as sections
+        let colorAttributes =
+            GroupsApp.treeItemColorAttributes "background-color:rgba(0,0,0,0.22); border-radius:3px; padding:2px 6px; display:flex; align-items:center; "
         let desc =
             Incremental.div colorAttributes <| AList.ofList [
                 Incremental.text group.name
-                Incremental.i setActiveAttributes AList.empty 
+                Incremental.i setActiveAttributes AList.empty
                 |> UI.wrapToolTip DataPosition.Bottom "Set active"
-                  
-                i [clazz "plus icon"; onMouseClick (fun _ -> GroupsMessage(GroupsAppAction.AddGroup path))] [] 
+
+                i [clazz "plus icon"; onMouseClick (fun _ -> GroupsMessage(GroupsAppAction.AddGroup path))] []
                 |> UI.wrapToolTip DataPosition.Bottom "Add Group"
 
-                staticClickIcon "unhide icon" "Show All" (GroupsMessage(GroupsAppAction.SetVisibility(path,true)))
-                staticClickIcon "hide icon"   "Hide All" (GroupsMessage(GroupsAppAction.SetVisibility(path,false)))
+                toggleGroupVisibilityIcon
 
-                staticClickIcon "bookmark icon"         "Select All"   (GroupsMessage(GroupsAppAction.SetSelection(path,true)))
-                staticClickIcon "bookmark outline icon" "Deselect All" (GroupsMessage(GroupsAppAction.SetSelection(path,false)))
-
-                staticClickIcon "calculator icon"       "Recalculate selected Polygon Measurements" (RecalculateMeasurements)
-
-                ColorPicker.view group.defaultColor
-                |> UI.map (fun a -> GroupsMessage(GroupsAppAction.SetGroupDefaultColor(path, a)))
-                |> UI.wrapToolTip DataPosition.Bottom "Default color for new annotations in this group"
+                contextMenu
             ]
            
         let itemAttributes =
@@ -405,5 +467,25 @@ module UI =
             let tree = viewTree model.colorByCategory [] model.annotations.rootGroup model.annotations a
             //Incremental.div (AttributeMap.ofList [clazz "ui list"]) ([])
             div [clazz "ui list"] [tree]
+        )
+
+    /// Actions accordion for the annotation tab: always annotation-scoped (Remove / Move /
+    /// Recalculate / Clear Selection), regardless of whether a group or an annotation was
+    /// last clicked. Group-level bulk actions live in the per-group context menu (viewTree).
+    /// Remove targets the green multi-selection, falling back to the single selection.
+    let viewAnnotationActions : DomNode<DrawingAction> =
+        let actionButton (icon : string) (toolTip : string) (msg : DrawingAction) =
+            div [clazz "ui buttons inverted"] [
+                button [clazz "ui icon button"; onMouseClick (fun _ -> msg)] [
+                    i [clazz icon] []
+                ] |> UI.wrapToolTip DataPosition.Top toolTip
+            ]
+        require GuiEx.semui (
+            Html.table [
+                Html.row "Remove:"      [ actionButton "remove icon red"   "Remove selected annotation(s)"     (GroupsMessage GroupsAppAction.RemoveSelectedLeaves) ]
+                Html.row "Move:"        [ actionButton "move icon"          "Move selection to active group"    (GroupsMessage GroupsAppAction.MoveLeaves) ]
+                Html.row "Recalculate:" [ actionButton "calculator icon"    "Recalculate selected measurements" RecalculateMeasurements ]
+                Html.row "Selection:"   [ actionButton "remove circle icon" "Clear selection"                   (GroupsMessage GroupsAppAction.ClearSelection) ]
+            ]
         )
 
