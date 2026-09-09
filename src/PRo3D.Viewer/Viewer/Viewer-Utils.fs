@@ -485,17 +485,24 @@ module ViewerUtils =
                             V4d((if m.enabled then m.distance.value else -1.0), m.width.value, m.border.value, 0.0)
                         )
                     )
-                    // LatLon graticule overlay. X = lat interval deg (<=0 disables:
-                    // off, or a non-planetary body), Y = lon interval deg, Z = line
-                    // width px. The per-vertex lat/lon attribute is supplied by
-                    // Surface.Sg via Sg.applyLatLonGrid at the group level.
-                    |> Sg.uniform "LatLonGridParams" (
+                    // LatLon graticule overlay. LatLevels.X <= 0 disables everything
+                    // (off, or a non-planetary body); LatLevels.YZW / LonLevels.XYZ
+                    // are 1/0 flags for the 1°/5°/15° parallels and meridians. The
+                    // per-vertex lat/lon attribute is supplied by Surface.Sg via
+                    // Sg.applyLatLonGrid at the group level.
+                    |> Sg.uniform "LatLonLatLevels" (
                         (surf.latLonModel.Current, refsys.planet) ||> AVal.map2 (fun m planet ->
                             let usable =
                                 m.enabled &&
                                 CooTransformation.getConvention planet <> CooTransformation.NonPlanetary
-                            V4d((if usable then float m.latInterval else -1.0),
-                                float m.lonInterval, m.lineWidth.value, 0.0)
+                            let b v = if v then 1.0 else 0.0
+                            V4d((if usable then 1.0 else -1.0), b m.lat1, b m.lat5, b m.lat15)
+                        )
+                    )
+                    |> Sg.uniform "LatLonLonLevels" (
+                        surf.latLonModel.Current |> AVal.map (fun m ->
+                            let b v = if v then 1.0 else 0.0
+                            V4d(b m.lon1, b m.lon5, b m.lon15, 0.0)
                         )
                     )
                     |> Sg.uniform "LatLonLineColor" (
@@ -1299,7 +1306,7 @@ module ViewerUtils =
                 // Bake the per-vertex lat/lon attribute for the LatLon graticule
                 // whenever the scene sits on a planetary body. Gated on the body,
                 // not the per-surface enable flag, so toggling the overlay is a
-                // pure uniform change (see LatLonGridParams).
+                // pure uniform change (see LatLonLatLevels).
                 |> Sg.applyLatLonGrid (
                     m.scene.referenceSystem.planet |> AVal.map (fun p ->
                         if CooTransformation.getConvention p <> CooTransformation.NonPlanetary

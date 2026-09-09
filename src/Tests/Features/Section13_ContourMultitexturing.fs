@@ -52,35 +52,27 @@ let private latLonTests =
             Expect.isTrue m.enabled "the graticule should be enabled after toggling"
         }
 
-        test "TC-13.4 ToggleLabels flips the degree-indicator flag" {
-            let m = LatLonShaderApp.update LatLonShaderModel.initial LatLonShaderApp.Action.ToggleLabels
-            Expect.isTrue m.showLabels "the label flag should be set after toggling"
+        test "TC-13.4 ToggleLat flips the parallel granularity it names" {
+            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.ToggleLat 1)
+            Expect.isTrue m.lat1 "the 1° parallels should be on after toggling"
+            let m2 = LatLonShaderApp.update m (LatLonShaderApp.Action.ToggleLat 15)
+            Expect.isFalse m2.lat15 "the 15° parallels should be off after toggling (on by default)"
+            Expect.isTrue m2.lat1 "toggling 15° must not touch the 1° flag"
         }
 
-        test "TC-13.4 SetLatInterval accepts a divisor of 360" {
-            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.SetLatInterval 15)
-            Expect.equal m.latInterval 15 "the latitude interval should be 15"
+        test "TC-13.4 ToggleLon flips the meridian granularity it names" {
+            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.ToggleLon 5)
+            Expect.isFalse m.lon5 "the 5° meridians should be off after toggling (on by default)"
+            Expect.equal m.lon1 LatLonShaderModel.initial.lon1 "toggling 5° must not touch the 1° flag"
         }
 
-        test "TC-13.4 SetLonInterval rejects a non-divisor of 360" {
-            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.SetLonInterval 7)
-            Expect.equal m.lonInterval LatLonShaderModel.initial.lonInterval "7 does not divide 360, interval unchanged"
+        test "TC-13.4 ToggleLat ignores an unknown granularity" {
+            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.ToggleLat 7)
+            Expect.equal m LatLonShaderModel.initial "7° is not an offered level, model unchanged"
         }
 
-        test "TC-13.4 every offered interval divides 360" {
-            Expect.isTrue
-                (LatLonShaderModel.divisorsOf360 |> List.forall (fun d -> d > 0 && 360 % d = 0))
-                "all dropdown intervals must be positive divisors of 360"
-        }
-
-        test "TC-13.4 SetTextSize changes the label size" {
-            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.SetTextSize (Numeric.SetValue 24.0))
-            Expect.floatClose Accuracy.high m.textSize.value 24.0 "the label text size should be 24"
-        }
-
-        test "TC-13.4 SetLineWidth changes the line width" {
-            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.SetLineWidth (Numeric.SetValue 3.0))
-            Expect.floatClose Accuracy.high m.lineWidth.value 3.0 "the line width should be 3"
+        test "TC-13.4 the offered levels are 1, 5 and 15" {
+            Expect.equal LatLonShaderApp.levels [ 1; 5; 15 ] "the graticule granularities are 1°, 5° and 15°"
         }
 
         test "TC-13.4 SetLineColor changes the line colour" {

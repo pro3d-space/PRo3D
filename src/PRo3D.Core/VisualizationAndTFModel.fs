@@ -191,69 +191,74 @@ type LatLonShaderModel =
     {
         version     : int
         enabled     : bool
-        /// Phase 2 renders the degree-indicator labels; Phase 1 only stores the flag.
-        showLabels  : bool
-        /// Label size in screen pixels (consumed in Phase 2).
-        textSize    : NumericInput
-        /// Degrees between parallels; an integer divisor of 360 (equidistant).
-        latInterval : int
-        /// Degrees between meridians; an integer divisor of 360 (equidistant).
-        lonInterval : int
+        /// 1° parallels (line width 0.5 px).
+        lat1        : bool
+        /// 5° parallels (line width 1.0 px).
+        lat5        : bool
+        /// 15° parallels (line width 2.0 px).
+        lat15       : bool
+        /// 1° meridians (line width 0.5 px).
+        lon1        : bool
+        /// 5° meridians (line width 1.0 px).
+        lon5        : bool
+        /// 15° meridians (line width 2.0 px).
+        lon15       : bool
+        /// Colour of the 1/5/15 graticule lines. The equator is always drawn
+        /// yellow and the prime meridian red (width 2.5 px), regardless of this.
         lineColor   : ColorInput
-        /// Grid line width in screen pixels.
-        lineWidth   : NumericInput
     }
 
 module LatLonShaderModel =
 
-    let current = 0
-
-    /// The 24 positive integer divisors of 360. Dropdown source; the update guard
-    /// and the JSON clamp both reference this.
-    let divisorsOf360 : list<int> =
-        [ 1; 2; 3; 4; 5; 6; 8; 9; 10; 12; 15; 18; 20; 24
-          30; 36; 40; 45; 60; 72; 90; 120; 180; 360 ]
-
-    let defaultInterval = 10
-
-    /// Force an interval onto the divisor grid, falling back to the default.
-    let sanitizeInterval (i : int) =
-        if i > 0 && 360 % i = 0 then i else defaultInterval
+    let current = 1
 
     let initial =
         {
             version     = current
             enabled     = false
-            showLabels  = false
-            textSize    = { value = 14.0; min = 4.0; max = 96.0; step = 1.0; format = "{0:0}" }
-            latInterval = defaultInterval
-            lonInterval = defaultInterval
+            lat1        = false
+            lat5        = true
+            lat15       = true
+            lon1        = false
+            lon5        = true
+            lon15       = true
             lineColor   = { c = C4b(255uy, 210uy, 60uy, 255uy) }   // amber - visible on Mars terrain
-            lineWidth   = { value = 1.5; min = 0.5; max = 10.0; step = 0.5; format = "{0:0.0}" }
         }
 
+    let private readLineColor =
+        json {
+            let! lineColorJ = Json.tryRead "lineColor"
+            match lineColorJ with
+            | Some (_ : Chiron.Json) -> return! Json.readWith Ext.fromJson<ColorInput,Ext> "lineColor"
+            | None -> return initial.lineColor
+        }
+
+    /// v0 stored a single lat/lon interval + a line width. The multi-scale grid
+    /// replaced them, so the granularity toggles fall back to the v1 defaults;
+    /// enabled and the line colour are preserved.
     let read0 =
         json {
-            let! enabled     = Json.readOrDefault "enabled" false
-            let! showLabels  = Json.readOrDefault "showLabels" false
-            let! textSize    = Json.tryRead "textSize"
-            let! latInterval = Json.readOrDefault "latInterval" defaultInterval
-            let! lonInterval = Json.readOrDefault "lonInterval" defaultInterval
-            let! lineWidth   = Json.tryRead "lineWidth"
-            let! lineColorJ  = Json.tryRead "lineColor"
-            let! lineColor =
-                match lineColorJ with
-                | Some (_ : Chiron.Json) -> Json.readWith Ext.fromJson<ColorInput,Ext> "lineColor"
-                | None -> json { return initial.lineColor }
+            let! enabled   = Json.readOrDefault "enabled" false
+            let! lineColor = readLineColor
+            return { initial with enabled = enabled; lineColor = lineColor }
+        }
+
+    let read1 =
+        json {
+            let! enabled   = Json.readOrDefault "enabled" false
+            let! lat1      = Json.readOrDefault "lat1"  initial.lat1
+            let! lat5      = Json.readOrDefault "lat5"  initial.lat5
+            let! lat15     = Json.readOrDefault "lat15" initial.lat15
+            let! lon1      = Json.readOrDefault "lon1"  initial.lon1
+            let! lon5      = Json.readOrDefault "lon5"  initial.lon5
+            let! lon15     = Json.readOrDefault "lon15" initial.lon15
+            let! lineColor = readLineColor
             return {
-                version     = current
-                enabled     = enabled
-                showLabels  = showLabels
-                textSize    = match textSize  with Some v -> { initial.textSize  with value = v } | None -> initial.textSize
-                latInterval = sanitizeInterval latInterval
-                lonInterval = sanitizeInterval lonInterval
-                lineColor   = lineColor
-                lineWidth   = match lineWidth with Some v -> { initial.lineWidth with value = v } | None -> initial.lineWidth
+                version   = current
+                enabled   = enabled
+                lat1 = lat1; lat5 = lat5; lat15 = lat15
+                lon1 = lon1; lon5 = lon5; lon15 = lon15
+                lineColor = lineColor
             }
         }
 
@@ -263,6 +268,7 @@ type LatLonShaderModel with
             let! v = Json.read "version"
             match v with
             | 0 -> return! LatLonShaderModel.read0
+            | 1 -> return! LatLonShaderModel.read1
             | _ ->
                 return! v
                 |> sprintf "don't know version %A of LatLonShaderModel"
@@ -270,12 +276,13 @@ type LatLonShaderModel with
         }
     static member ToJson (x : LatLonShaderModel) =
         json {
-            do! Json.write "version"     x.version
-            do! Json.write "enabled"     x.enabled
-            do! Json.write "showLabels"  x.showLabels
-            do! Json.writeFloat "textSize" x.textSize.value
-            do! Json.write "latInterval" x.latInterval
-            do! Json.write "lonInterval" x.lonInterval
+            do! Json.write "version"    x.version
+            do! Json.write "enabled"    x.enabled
+            do! Json.write "lat1"  x.lat1
+            do! Json.write "lat5"  x.lat5
+            do! Json.write "lat15" x.lat15
+            do! Json.write "lon1"  x.lon1
+            do! Json.write "lon5"  x.lon5
+            do! Json.write "lon15" x.lon15
             do! Json.writeWith (Ext.toJson<ColorInput,Ext>) "lineColor" x.lineColor
-            do! Json.writeFloat "lineWidth" x.lineWidth.value
         }

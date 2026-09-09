@@ -10,53 +10,53 @@ open PRo3D.Core
 
 /// Update / view for the LatLon graticule overlay. Mirrors ContourLineApp.
 /// Kept in its own file (rather than VisualizationAndTFApp.fs) because the
-/// interval dropdown needs UI.dropDown'' from UI.fs, which compiles later.
+/// view needs helpers from UI.fs, which compiles later.
 module LatLonShaderApp =
+
+    /// The three graticule granularities, in degrees. Each has a fixed screen
+    /// line width (see Shader.latLonLines): 1° → 0.5 px, 5° → 1.0 px, 15° → 2.0 px.
+    let levels = [ 1; 5; 15 ]
 
     type Action =
         | ToggleEnabled
-        | ToggleLabels
-        | SetTextSize    of Numeric.Action
-        | SetLatInterval of int
-        | SetLonInterval of int
-        | SetLineColor   of ColorPicker.Action
-        | SetLineWidth   of Numeric.Action
+        | ToggleLat    of int          // 1 | 5 | 15
+        | ToggleLon    of int          // 1 | 5 | 15
+        | SetLineColor of ColorPicker.Action
 
     let update (m : LatLonShaderModel) (action : Action) =
         match action with
-        | ToggleEnabled     -> { m with enabled    = not m.enabled }
-        | ToggleLabels      -> { m with showLabels = not m.showLabels }
-        | SetTextSize a     -> { m with textSize   = Numeric.update m.textSize a }
-        | SetLatInterval i  -> if 360 % i = 0 then { m with latInterval = i } else m
-        | SetLonInterval i  -> if 360 % i = 0 then { m with lonInterval = i } else m
-        | SetLineColor a    -> { m with lineColor  = ColorPicker.update m.lineColor a }
-        | SetLineWidth a    -> { m with lineWidth  = Numeric.update m.lineWidth a }
-
-    let private intervalDropdown (selected : aval<int>) (ctor : int -> Action) =
-        UI.dropDown''
-            (AList.ofList LatLonShaderModel.divisorsOf360)
-            (selected |> AVal.map Some)
-            (fun o -> ctor (o |> Option.defaultValue LatLonShaderModel.defaultInterval))
-            (fun d -> sprintf "%d°" d)
+        | ToggleEnabled  -> { m with enabled = not m.enabled }
+        | ToggleLat 1    -> { m with lat1  = not m.lat1 }
+        | ToggleLat 5    -> { m with lat5  = not m.lat5 }
+        | ToggleLat 15   -> { m with lat15 = not m.lat15 }
+        | ToggleLat _    -> m
+        | ToggleLon 1    -> { m with lon1  = not m.lon1 }
+        | ToggleLon 5    -> { m with lon5  = not m.lon5 }
+        | ToggleLon 15   -> { m with lon15 = not m.lon15 }
+        | ToggleLon _    -> m
+        | SetLineColor a -> { m with lineColor = ColorPicker.update m.lineColor a }
 
     /// The graticule only makes sense once the reference system is tied to a
     /// celestial body. For JPL / ENU / None there is no lat-lon frame, so the
     /// parameters are hidden and a hint is shown instead.
     let private hasBody (planet : Planet) =
-        match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> false
-        | _ -> true
+        CooTransformation.getConvention planet <> CooTransformation.NonPlanetary
+
+    /// A row of 1° / 5° / 15° checkboxes for one axis.
+    let private levelChecks (toggle : int -> Action) (b1 : aval<bool>) (b5 : aval<bool>) (b15 : aval<bool>) =
+        div [ style "display:inline-flex; gap:16px; align-items:center" ] [
+            span [] [ GuiEx.iconCheckBox b1  (toggle 1);  text " 1°"  ]
+            span [] [ GuiEx.iconCheckBox b5  (toggle 5);  text " 5°"  ]
+            span [] [ GuiEx.iconCheckBox b15 (toggle 15); text " 15°" ]
+        ]
 
     let private parameters (model : AdaptiveLatLonShaderModel) =
         Html.table [
-          Html.row ""             []
-          Html.row "enabled"      [ GuiEx.iconCheckBox model.enabled ToggleEnabled ]
-          Html.row "lat interval" [ intervalDropdown model.latInterval SetLatInterval ]
-          Html.row "lon interval" [ intervalDropdown model.lonInterval SetLonInterval ]
-          Html.row "line color"   [ ColorPicker.view model.lineColor |> UI.map SetLineColor ]
-          Html.row "line width"   [ Numeric.view' [NumericInputType.InputBox] model.lineWidth |> UI.map SetLineWidth ]
-          Html.row "show labels"  [ GuiEx.iconCheckBox model.showLabels ToggleLabels ]
-          Html.row "text size"    [ Numeric.view' [NumericInputType.InputBox] model.textSize |> UI.map SetTextSize ]
+          Html.row ""            []
+          Html.row "enabled"     [ GuiEx.iconCheckBox model.enabled ToggleEnabled ]
+          Html.row "lat lines"   [ levelChecks ToggleLat model.lat1 model.lat5 model.lat15 ]
+          Html.row "lon lines"   [ levelChecks ToggleLon model.lon1 model.lon5 model.lon15 ]
+          Html.row "line color"  [ ColorPicker.view model.lineColor |> UI.map SetLineColor ]
         ]
 
     let view (planet : aval<Planet>) (model : AdaptiveLatLonShaderModel) =
