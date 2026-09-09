@@ -12,6 +12,13 @@ already renders. It never replaces another shader, and it is configured per surf
 
 Surfaces panel &rarr; **LatLon Shader** accordion (directly below **Contours**).
 
+The graticule only has a meaning once the reference system is bound to a celestial
+body. When the reference system is `None`, `JPL` or `ENU` the accordion hides every
+parameter and shows the italic hint *"Set reference system to a body to display the
+latlon shader"* instead. The controls reappear as soon as a body is selected
+(Reference System panel). The gate is `LatLonShaderApp.view`, which takes
+`referenceSystem.planet` and switches on `LatLonShaderApp.hasBody`.
+
 | Field | Meaning |
 |---|---|
 | enabled | Draw the graticule on this surface. |

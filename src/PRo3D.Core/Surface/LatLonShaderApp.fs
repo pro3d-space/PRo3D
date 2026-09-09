@@ -39,8 +39,15 @@ module LatLonShaderApp =
             (fun o -> ctor (o |> Option.defaultValue LatLonShaderModel.defaultInterval))
             (fun d -> sprintf "%d°" d)
 
-    let view (model : AdaptiveLatLonShaderModel) =
-      require GuiEx.semui (
+    /// The graticule only makes sense once the reference system is tied to a
+    /// celestial body. For JPL / ENU / None there is no lat-lon frame, so the
+    /// parameters are hidden and a hint is shown instead.
+    let private hasBody (planet : Planet) =
+        match planet with
+        | Planet.None | Planet.JPL | Planet.ENU -> false
+        | _ -> true
+
+    let private parameters (model : AdaptiveLatLonShaderModel) =
         Html.table [
           Html.row ""             []
           Html.row "enabled"      [ GuiEx.iconCheckBox model.enabled ToggleEnabled ]
@@ -51,4 +58,17 @@ module LatLonShaderApp =
           Html.row "show labels"  [ GuiEx.iconCheckBox model.showLabels ToggleLabels ]
           Html.row "text size"    [ Numeric.view' [NumericInputType.InputBox] model.textSize |> UI.map SetTextSize ]
         ]
+
+    let view (planet : aval<Planet>) (model : AdaptiveLatLonShaderModel) =
+      require GuiEx.semui (
+        Incremental.div AttributeMap.empty (
+          planet
+          |> AVal.map (fun p ->
+              if hasBody p then
+                  parameters model
+              else
+                  div [style "font-style:italic; padding:5px"]
+                      [ text "Set reference system to a body to display the latlon shader" ])
+          |> AList.ofAValSingle
+        )
       )
