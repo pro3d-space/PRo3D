@@ -1,5 +1,5 @@
-//688f9ae3-9807-edbb-fc48-6a25961e19f1
-//faeec3cf-918b-9352-69a7-f6791c961f77
+//8e8e81a5-0c55-4743-8a78-dc4fd176c02a
+//1a492e35-a821-e3d0-b4c8-6f4c9dc14a69
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -206,7 +206,7 @@ type AdaptiveModel(value : Model) =
     let _picking_ = FSharp.Data.Adaptive.cval(value.picking)
     let _pivotType_ = FSharp.Data.Adaptive.cval(value.pivotType)
     let _ctrlFlag_ = FSharp.Data.Adaptive.cval(value.ctrlFlag)
-    let _inverseFlag_ = FSharp.Data.Adaptive.cval(value.inverseFlag)
+    let _directToolMode_ = FSharp.Data.Adaptive.cval(value.directToolMode)
     let _frustum_ = FSharp.Data.Adaptive.cval(value.frustum)
     let _viewPortSizes_ = FSharp.Data.Adaptive.cmap(value.viewPortSizes)
     let _overlayFrustum_ = FSharp.Data.Adaptive.cval(value.overlayFrustum)
@@ -269,7 +269,7 @@ type AdaptiveModel(value : Model) =
             _picking_.Value <- value.picking
             _pivotType_.Value <- value.pivotType
             _ctrlFlag_.Value <- value.ctrlFlag
-            _inverseFlag_.Value <- value.inverseFlag
+            _directToolMode_.Value <- value.directToolMode
             _frustum_.Value <- value.frustum
             _viewPortSizes_.Value <- value.viewPortSizes
             _overlayFrustum_.Value <- value.overlayFrustum
@@ -318,7 +318,7 @@ type AdaptiveModel(value : Model) =
     member __.picking = _picking_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.pivotType = _pivotType_ :> FSharp.Data.Adaptive.aval<PickPivot>
     member __.ctrlFlag = _ctrlFlag_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
-    member __.inverseFlag = _inverseFlag_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.directToolMode = _directToolMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.frustum = _frustum_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.Frustum>
     member __.viewPortSizes = _viewPortSizes_ :> FSharp.Data.Adaptive.amap<Microsoft.FSharp.Core.string, Aardvark.Base.V2i>
     member __.overlayFrustum = _overlayFrustum_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Rendering.Frustum>>
@@ -370,7 +370,7 @@ module ModelLenses =
         static member picking_ = ((fun (self : Model) -> self.picking), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with picking = value }))
         static member pivotType_ = ((fun (self : Model) -> self.pivotType), (fun (value : PickPivot) (self : Model) -> { self with pivotType = value }))
         static member ctrlFlag_ = ((fun (self : Model) -> self.ctrlFlag), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with ctrlFlag = value }))
-        static member inverseFlag_ = ((fun (self : Model) -> self.inverseFlag), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with inverseFlag = value }))
+        static member directToolMode_ = ((fun (self : Model) -> self.directToolMode), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with directToolMode = value }))
         static member frustum_ = ((fun (self : Model) -> self.frustum), (fun (value : Aardvark.Rendering.Frustum) (self : Model) -> { self with frustum = value }))
         static member viewPortSizes_ = ((fun (self : Model) -> self.viewPortSizes), (fun (value : FSharp.Data.Adaptive.HashMap<Microsoft.FSharp.Core.string, Aardvark.Base.V2i>) (self : Model) -> { self with viewPortSizes = value }))
         static member overlayFrustum_ = ((fun (self : Model) -> self.overlayFrustum), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Rendering.Frustum>) (self : Model) -> { self with overlayFrustum = value }))
