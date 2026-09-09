@@ -43,7 +43,8 @@ module SurfaceProperties =
         | SetTextureCombiner of TextureCombiner
         | SetBlendFactor of float
         | CountourAppMessage of ContourLineApp.Action
-        | SetHomePosition 
+        | LatLonShaderMessage of LatLonShaderApp.Action
+        | SetHomePosition
         | ToggleFilterByDistance 
         | ToggleFilterByTriangleSize
         | SetFilterDistance of Numeric.Action
@@ -53,8 +54,10 @@ module SurfaceProperties =
 
     let update (model : Surface) (act : Action) =
         match act with
-        | CountourAppMessage act -> 
+        | CountourAppMessage act ->
             { model with contourModel = ContourLineApp.update model.contourModel act }
+        | LatLonShaderMessage act ->
+            { model with latLonModel = LatLonShaderApp.update model.latLonModel act }
         | SetFillMode mode ->
             { model with fillMode = mode }
         | SetCullMode mode ->

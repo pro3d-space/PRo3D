@@ -182,3 +182,107 @@ type ContourLineModel with
             do! Json.writeFloat "width" x.width.value
             do! Json.writeFloat "border" x.border.value
         }
+
+/// Additive latitude/longitude graticule drawn on OPC planetary surfaces.
+/// Overlay only - composed into the surface effect stack next to the contour
+/// lines, never replacing a shader. See docs/LatLon-Shader.md.
+[<ModelType>]
+type LatLonShaderModel =
+    {
+        version     : int
+        enabled     : bool
+        /// 1° parallels (line width 0.5 px).
+        lat1        : bool
+        /// 5° parallels (line width 1.0 px).
+        lat5        : bool
+        /// 15° parallels (line width 2.0 px).
+        lat15       : bool
+        /// 1° meridians (line width 0.5 px).
+        lon1        : bool
+        /// 5° meridians (line width 1.0 px).
+        lon5        : bool
+        /// 15° meridians (line width 2.0 px).
+        lon15       : bool
+        /// Colour of the 1/5/15 graticule lines. The equator is always drawn
+        /// yellow and the prime meridian red (width 2.5 px), regardless of this.
+        lineColor   : ColorInput
+    }
+
+module LatLonShaderModel =
+
+    let current = 1
+
+    let initial =
+        {
+            version     = current
+            enabled     = false
+            lat1        = false
+            lat5        = true
+            lat15       = true
+            lon1        = false
+            lon5        = true
+            lon15       = true
+            lineColor   = { c = C4b(0uy, 0uy, 0uy, 255uy) }   // amber - visible on Mars terrain
+        }
+
+    let private readLineColor =
+        json {
+            let! lineColorJ = Json.tryRead "lineColor"
+            match lineColorJ with
+            | Some (_ : Chiron.Json) -> return! Json.readWith Ext.fromJson<ColorInput,Ext> "lineColor"
+            | None -> return initial.lineColor
+        }
+
+    /// v0 stored a single lat/lon interval + a line width. The multi-scale grid
+    /// replaced them, so the granularity toggles fall back to the v1 defaults;
+    /// enabled and the line colour are preserved.
+    let read0 =
+        json {
+            let! enabled   = Json.readOrDefault "enabled" false
+            let! lineColor = readLineColor
+            return { initial with enabled = enabled; lineColor = lineColor }
+        }
+
+    let read1 =
+        json {
+            let! enabled   = Json.readOrDefault "enabled" false
+            let! lat1      = Json.readOrDefault "lat1"  initial.lat1
+            let! lat5      = Json.readOrDefault "lat5"  initial.lat5
+            let! lat15     = Json.readOrDefault "lat15" initial.lat15
+            let! lon1      = Json.readOrDefault "lon1"  initial.lon1
+            let! lon5      = Json.readOrDefault "lon5"  initial.lon5
+            let! lon15     = Json.readOrDefault "lon15" initial.lon15
+            let! lineColor = readLineColor
+            return {
+                version   = current
+                enabled   = enabled
+                lat1 = lat1; lat5 = lat5; lat15 = lat15
+                lon1 = lon1; lon5 = lon5; lon15 = lon15
+                lineColor = lineColor
+            }
+        }
+
+type LatLonShaderModel with
+    static member FromJson(_ : LatLonShaderModel) =
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! LatLonShaderModel.read0
+            | 1 -> return! LatLonShaderModel.read1
+            | _ ->
+                return! v
+                |> sprintf "don't know version %A of LatLonShaderModel"
+                |> Json.error
+        }
+    static member ToJson (x : LatLonShaderModel) =
+        json {
+            do! Json.write "version"    x.version
+            do! Json.write "enabled"    x.enabled
+            do! Json.write "lat1"  x.lat1
+            do! Json.write "lat5"  x.lat5
+            do! Json.write "lat15" x.lat15
+            do! Json.write "lon1"  x.lon1
+            do! Json.write "lon5"  x.lon5
+            do! Json.write "lon15" x.lon15
+            do! Json.writeWith (Ext.toJson<ColorInput,Ext>) "lineColor" x.lineColor
+        }

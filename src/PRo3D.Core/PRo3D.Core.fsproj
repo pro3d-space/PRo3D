@@ -68,6 +68,7 @@
     <Compile Include="Traverse-Model.fs" />
     <Compile Include="Traverse-Model.g.fs" />
     <Compile Include="Surface\Translation.fs" />
+    <Compile Include="Surface\LatLonShaderApp.fs" />
     <Compile Include="Surface\Surface-Properties.fs" />
     <Compile Include="Surface\Surface.Files.fs" />
     <Compile Include="Surface\OpcRenderingProperties.fs" />

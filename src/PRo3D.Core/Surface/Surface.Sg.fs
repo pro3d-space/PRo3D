@@ -92,10 +92,42 @@ module FootprintSg =
 //            n.Child?DepthVP <- n.ViewProj
 
 module Sg =
-    
 
-    let applyFootprint (v : aval<M44d>) (sg : ISg) = 
+
+    let applyFootprint (v : aval<M44d>) (sg : ISg) =
         FootprintSg.FootprintApplicator(v, sg) :> ISg
+
+    /// LatLon graticule: flattening f = 1 - rPolar/rEquator of the body, used to
+    /// turn planetocentric latitude into the planetographic latitude PRo3D's
+    /// coordinate readout shows (latG = atan(tan latC / (1-f)^2)). Memoized per
+    /// body so patch loads don't repeat the native SPICE radius lookups.
+    let private latLonFlatteningCache =
+        System.Collections.Concurrent.ConcurrentDictionary<PRo3D.Base.Planet, float>()
+
+    let private bodyFlattening (planet : PRo3D.Base.Planet) : float =
+        latLonFlatteningCache.GetOrAdd(planet, fun p ->
+            match CooTransformation.getConvention p with
+            | CooTransformation.NonPlanetary -> 0.0
+            | CooTransformation.Spherical _ -> 0.0
+            | CooTransformation.Ellipsoidal radii ->
+                let eq = (radii.X + radii.Y) * 0.5
+                if eq > 0.0 then max 0.0 (1.0 - radii.Z / eq) else 0.0
+            | CooTransformation.Planetographic ->
+                let rEq = CooTransformation.tryGetBodyRadius p (V3d(1.0, 0.0, 0.0))
+                let rPo = CooTransformation.tryGetBodyRadius p (V3d(0.0, 0.0, 1.0))
+                match rEq, rPo with
+                | Some a, Some c when a > 0.0 -> max 0.0 (1.0 - c / a)
+                | _ -> 0.0)
+
+    /// (sinφ, cosφ, sinλ, cosλ) of the planetographic lat/lon at body-fixed `pWorld`.
+    /// sin/cos rather than raw degrees so linear interpolation across a triangle
+    /// does not tear at the ±180° longitude seam.
+    let private latLonSinCos (f : float) (pWorld : V3d) : V4f =
+        let n = pWorld.Normalized
+        let latC = asin (clamp -1.0 1.0 n.Z)
+        let lon  = atan2 n.Y n.X
+        let latG = if f <> 0.0 then atan2 (tan latC) ((1.0 - f) ** 2.0) else latC
+        V4f(float32 (sin latG), float32 (cos latG), float32 (sin lon), float32 (cos lon))
 
     //type Ag.Scope with
     //    member x.DepthVP : aval<M44d> = x?DepthVP
@@ -469,8 +501,34 @@ module Sg =
                                     SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
                             )
 
+                        // LatLon graticule: per-vertex (sinφ,cosφ,sinλ,cosλ) computed on
+                        // the CPU in double, so the shader never transforms a world-scale
+                        // position through float32. Built for every planetary OPC patch
+                        // (gated on the body, not the enable flag) so toggling the overlay
+                        // is a pure uniform change; only a planet change reloads patches.
+                        let latLonBuf : aval<IBuffer> =
+                            context.latLonGridPlanet
+                            |> AVal.bind (fun planetOpt ->
+                                match planetOpt with
+                                | Some planet ->
+                                    let (g, _) = Aardvark.Data.Opc.Patch.load h.opcPaths r.modality r.info
+                                    let positions = g.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
+                                    let f = bodyFlattening planet
+                                    let arr : V4f[] = Array.zeroCreate positions.Length
+                                    for i = 0 to positions.Length - 1 do
+                                        let pWorld = r.info.Local2Global.TransformPos (V3d positions.[i])
+                                        arr.[i] <- latLonSinCos f pWorld
+                                    AVal.constant (ArrayBuffer(arr) :> IBuffer)
+                                | None ->
+                                    // Placeholder (see InsideOutsideV4 note). latLonLines
+                                    // guards on LatLonGridParams so this is never sampled
+                                    // for a non-planetary surface.
+                                    SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
+                            )
+
                         baseAttrs
                         |> Map.add (Sym.ofString "InsideOutsideV4") (BufferView(crossSectionBuf, typeof<V4f>))
+                        |> Map.add (Sym.ofString "LatLonSinCos") (BufferView(latLonBuf, typeof<V4f>))
 
                     PatchNode(
                         signature, 

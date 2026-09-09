@@ -100,6 +100,7 @@ module SurfaceUtils =
 
             
             contourModel = ContourLineModel.initial
+            latLonModel = LatLonShaderModel.initial
 
             highlightSelected     = true
             highlightAlways       = false
@@ -1610,7 +1611,7 @@ module SurfaceApp =
             return (GroupsApp.viewGroupButtons ts |> UI.map GroupsMessage)
         } 
     
-    let surfaceUI (scenePath : aval<Option<string>>) (colorPaletteStore : string) (model:AdaptiveSurfaceModel) =
+    let surfaceUI (scenePath : aval<Option<string>>) (colorPaletteStore : string) (refSystem : AdaptiveReferenceSystem) (model:AdaptiveSurfaceModel) =
         let item2 = 
             model.surfaces.lastSelectedItem 
                 |> AVal.bind (fun x -> 
@@ -1646,7 +1647,13 @@ module SurfaceApp =
                 div [] [
                     viewSurfaceProperty model (fun s -> ContourLineApp.view s.contourModel |> UI.map (SurfaceAppAction.SurfacePropertiesMessage << SurfaceProperties.CountourAppMessage))
                 ]
-            ] 
+            ]
+
+            yield GuiEx.accordion "LatLon Shader" "globe" false [
+                div [] [
+                    viewSurfaceProperty model (fun s -> LatLonShaderApp.view refSystem.planet s.latLonModel |> UI.map (SurfaceAppAction.SurfacePropertiesMessage << SurfaceProperties.LatLonShaderMessage))
+                ]
+            ]
 
             //yield GuiEx.accordion "Radiometry" "file image outline" false [
             //    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))
