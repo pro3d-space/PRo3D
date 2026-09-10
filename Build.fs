@@ -71,6 +71,26 @@ let patchAardiumVersion (version : string) =
     let patched = rx.Replace(text, sprintf "\"version\": \"%s\"" version, 1)
     File.WriteAllText(path, patched)
 
+// The viewer's version is a source literal, stamped here from the release notes
+// before the publish that follows. Unstamped builds (dotnet run, IDE, plain
+// build.cmd) therefore report "development build" rather than a stale number -
+// which is how issue #733 arrived reporting 5.4.0 against a 6.0.0 build.
+// Fail loudly rather than shipping the placeholder if the line ever moves.
+let patchViewerVersion (version : string) =
+    let path = "src/PRo3D.Viewer/Program.fs"
+    let mutable found = false
+    let patched =
+        File.ReadAllLines path
+        |> Array.map (fun line ->
+            if line.StartsWith "let viewerVersion" then
+                found <- true
+                sprintf "let viewerVersion       = \"%s\"" version
+            else line
+        )
+    if not found then
+        failwithf "no 'let viewerVersion' line in %s - the release would ship the placeholder version" path
+    File.WriteAllLines(path, patched)
+
 
 //Target.create "Compile" (fun _ ->
 //    run dotnet "build" "src"
@@ -347,15 +367,7 @@ Target.create "CopyToElectron" (fun _ ->
         Directory.Delete(dotnetOutputPath, true)
 
     // 0.0 copy version over into source code...
-    let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
-    let patched =
-        programFs
-        |> Array.map (fun line ->
-            if line.StartsWith "let viewerVersion" then
-                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion
-            else line
-        )
-    File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
+    patchViewerVersion notes.NugetVersion
 
     // 0.1 keep aardium/package.json version in sync so electron-builder's
     // release tag (v{version}) matches the FAKE GitHubRelease draft tag.
@@ -448,15 +460,7 @@ Target.create "TestUnpack" (fun _ ->
 Target.create "Publish" (fun _ ->
 
     // 0.0 copy version over into source code...
-    let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
-    let patched = 
-        programFs 
-        |> Array.map (fun line -> 
-            if line.StartsWith "let viewerVersion" then 
-                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
-            else line
-        )
-    File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
+    patchViewerVersion notes.NugetVersion
 
     if Directory.Exists "bin/publish" then 
         Directory.Delete("bin/publish", true)
