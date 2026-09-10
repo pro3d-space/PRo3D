@@ -144,6 +144,25 @@ got all three of the above wrong at once.
 Worked through with pictures, both modes side by side:
 [ProjectionValidation.md](ProjectionValidation.md).
 
+## Known limitation: surface transformations do not reach the projection
+
+The projector is computed in the OPC's own coordinates, taken as the body-fixed
+frame of the surface's SPICE reference frame. A surface's **Transformation**
+(translation, yaw/pitch/roll, scaling, pivot) and its pre-transformation are not
+part of that: they move the terrain and the projected image together, so an
+image stays on the same terrain points however the surface is transformed.
+
+The consequence: if you transform a surface to **correct its registration** —
+for example to align an OPC with other data — the projection does not see the
+correction. Images land where they would on the untransformed OPC. For surfaces
+that are placed by SPICE alone, with an identity Transformation, this makes no
+difference.
+
+(Technically: the per-patch projector matrices are `projector * Local2Global`;
+the surface model trafo, which carries both the SPICE placement and the user
+Transformation, is deliberately left out, because including it applied the
+body's rotation twice. Separating the user part from the SPICE part is the fix.)
+
 # Under the hood
 
 One `sampler2DArray` (layer *i* = stack entry *i*) plus fixed-size uniform

@@ -2454,7 +2454,7 @@ module ViewerApp =
                                 if oi.time.date = mbi.obs_date then gisApp
                                 else
                                     Log.line "[Viewer] fly-to: observation time %s -> %s (the image's epoch)"
-                                        (oi.time.date.ToString "u") (mbi.obs_date.ToString "u")
+                                        (oi.time.date.ToUniversalTime().ToString "u") (mbi.obs_date.ToUniversalTime().ToString "u")
                                     { gisApp with
                                         defaultObservationInfo =
                                             { oi with time = { oi.time with date = mbi.obs_date } } }

@@ -44,6 +44,7 @@ npm run test:projection                   # projection end to end, see below
 | `PRO3D_E2E_OPCS` | OPC directories for `projection-e2e`, `;`-separated | the test-data Dimorphos |
 | `PRO3D_E2E_SCENE_TEMPLATE` | scene `projection-e2e` derives its own from | the test-data scene template |
 | `PRO3D_E2E_DATE` / `PRO3D_E2E_EPOCH` | observation for `projection-e2e` | 2027-03-21 / 20:00:00 |
+| `PRO3D_E2E_SCENE_EPOCH` | scene time for its cross-epoch fly-to case | 14:00:00 |
 | `PRO3D_PYTHON` | interpreter with numpy, for the data generator | `python` |
 
 Current specs:
@@ -70,8 +71,12 @@ The regression test for image projection. Per OPC it:
    identity beating every mirror/rotation, gray staying gray — and > 90 %
    coverage from the shader's own coverage view with < 2 % spill.
 
-About a minute on a warm shader cache; generated data, screenshots and the
-measured numbers land in `artifacts/e2e/<OPC>/` and the test output.
+It runs twice: once with the scene already at the frame's epoch, and once with
+the scene 6 h earlier (`PRO3D_E2E_SCENE_EPOCH`, default 14:00), where fly-to has to
+move the scene time to the frame's epoch *before* computing the camera — the other
+order leaves the body rotated half a turn out from under it. About two minutes on a
+warm shader cache; generated data, screenshots and the measured numbers land in
+`artifacts/e2e/<label>/` and the test output.
 
 Prerequisites beyond the other specs: a Release build of **`PRo3D.Tool`** as
 well as the viewer (`bin/Release/net9.0/PRo3D.Tool.exe`), Python with numpy,

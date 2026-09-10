@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, Page, Browser } from "@playwright/test";
 import { spawnSync } from "child_process";
 import { launchPro3d, Pro3d, fixture } from "../src/pro3d";
 import { bodyCoverage, diffPng, litFraction, registration, streamLive } from "../src/image";
@@ -30,6 +30,7 @@ import * as path from "path";
  *   PRO3D_SPICE_KERNELS       kernel tree, handed to pro3d-tool and written into the scene
  *   PRO3D_PYTHON              interpreter with numpy (default `python`)
  *   PRO3D_E2E_DATE / _EPOCH   observation (default 2027-03-21 20:00:00, the 6.7 km pass)
+ *   PRO3D_E2E_SCENE_EPOCH     scene time for the cross-epoch fly-to case (default 14:00:00)
  *
  * The default epoch is tied to the kernel version: it was chosen against
  * hera_plan_v182_20260820. ESA's plan kernels move HERA's future trajectory between
@@ -133,18 +134,24 @@ async function selectBeside(gis: Page, label: string, option: string) {
     expect(r, `${label} -> ${option}`).toBe("ok");
 }
 
-for (const opc of opcs) {
-    const name = path.basename(path.dirname(opc));
-
-    test(`a frame rendered from ${name} projects back onto it`, async ({ browser }) => {
+/**
+ * Generate, project, compare. The scene is set to `sceneEpoch`, the projected frame is
+ * from `frameEpoch`; when they differ, fly-to has to move the scene time to the frame's
+ * epoch BEFORE it computes the camera, or the body rotates out from under it (Dimorphos
+ * turns ~90 degrees in 3 h) and the frame no longer lands.
+ */
+async function projectBack(browser: Browser, opc: string, label: string, sceneEpoch: string, frameEpoch: string) {
         test.skip(!fs.existsSync(opc), `OPC not found: ${opc} (set PRO3D_TEST_DATA, or PRO3D_E2E_OPCS)`);
         test.skip(
             !fs.existsSync(template),
             `scene template not found: ${template} (set PRO3D_TEST_DATA, or PRO3D_E2E_SCENE_TEMPLATE)`
         );
+        const name = label;
 
         // --- 1. generate the frame and its scene --------------------------------
-        const out = path.join(artifacts, "e2e", name);
+        // the generator puts the scene on its LAST epoch, so the scene's goes last
+        const epochs = frameEpoch === sceneEpoch ? [frameEpoch] : [frameEpoch, sceneEpoch];
+        const out = path.join(artifacts, "e2e", label);
         fs.rmSync(out, { recursive: true, force: true });
         fs.mkdirSync(out, { recursive: true });
         const gen = spawnSync(
@@ -156,7 +163,7 @@ for (const opc of opcs) {
                 "--texture-layer", layer,
                 "--scene-template", template,
                 "--date", date,
-                "--epochs", epoch,
+                "--epochs", epochs.join(","),
                 ...(kernels ? ["--kernel-root", kernels] : []),
             ],
             { encoding: "utf8" }
@@ -165,7 +172,7 @@ for (const opc of opcs) {
         expect(gen.status, `generator failed:\n${gen.stdout}\n${gen.stderr}`).toBe(0);
 
         const scene = path.join(out, "ProjectionTest.pro3d");
-        const frame = `AFC1_${layer.replace("_", "")}_${date.replace(/-/g, "")}_${epoch.replace(/:/g, "")}.png`;
+        const frame = `AFC1_${layer.replace("_", "")}_${date.replace(/-/g, "")}_${frameEpoch.replace(/:/g, "")}.png`;
         expect(fs.existsSync(scene), "the generator must write the scene").toBe(true);
         expect(fs.existsSync(path.join(out, frame)), `the generator must render ${frame}`).toBe(true);
 
@@ -218,6 +225,11 @@ for (const opc of opcs) {
             await clickRowIcon(gis, frame, "i.location.icon");
             await render.waitForTimeout(5000);
             const baseline = await settled(render, "baseline.png", out);
+            if (frameEpoch !== sceneEpoch)
+                expect(
+                    fs.readFileSync(app.logFile, "utf-8"),
+                    "fly-to must move the scene time to the frame's epoch"
+                ).toContain(`observation time ${date} ${sceneEpoch}Z -> ${date} ${frameEpoch}Z`);
 
             await clickRowIcon(gis, frame, "i.plus.icon");
             await expect(gis.locator("text=Projection Stack (1/32)")).toBeVisible({ timeout: 30_000 });
@@ -261,5 +273,17 @@ for (const opc of opcs) {
         } finally {
             await app?.stop();
         }
-    });
+}
+
+// the scene epoch for the second case: 6 h before the frame, half a Dimorphos rotation
+const otherEpoch = process.env.PRO3D_E2E_SCENE_EPOCH ?? "14:00:00";
+
+for (const opc of opcs) {
+    const name = path.basename(path.dirname(opc));
+
+    test(`a frame rendered from ${name} projects back onto it`, async ({ browser }) =>
+        projectBack(browser, opc, name, epoch, epoch));
+
+    test(`fly-to a frame from another epoch than the scene's still lands (${name})`, async ({ browser }) =>
+        projectBack(browser, opc, `${name}-epoch`, otherEpoch, epoch));
 }
