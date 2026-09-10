@@ -188,10 +188,37 @@ standoff, so it cannot be compared with the source image DN for DN the way
 steps 1 and 2 were. It can be compared with **the terrain underneath it** —
 and that is the sharper test, provided both show the same thing.
 
-They can be made to. `--texture-only` renders the OPC's own DRACO mosaic as this
-camera sees it — no lighting, and no de-shading fit — and the surface is viewed
-with DRACO as its primary texture, so the *same features* are on both sides and
-a misregistration is feature doubling rather than a judgement call:
+> **They cannot, and this is the second reason the comparison below is
+> retracted.** The claim was that `--texture-only` renders the OPC's own DRACO
+> mosaic, so that the same features are on both sides. It does not. The tool
+> passes `None` for `PatchNode`'s texture getter where the viewer passes
+> `Some (getTextures …)`, so the tool always draws the patch's **default**
+> texture, and there is no option to choose a layer. The scene meanwhile sets
+> `selectedTexture = DRACO_1` (index 8).
+>
+> Measured from the same camera at 8 040.7 m, correlating the tool's
+> `--texture-only` render against the viewer's terrain:
+>
+> | viewer's texture layer | correlation with the tool's render |
+> |---|---|
+> | `DRACO_1` (index 8, what the scene selects) | **0.0345** |
+> | `Earth` (index 0, the patch default) | **0.8616**, identity, zero shift |
+>
+> So the two sides of this comparison were showing *different layers of the same
+> OPC*. No projection, correct or not, could have made them agree. Note this is
+> independent of the broken metric described below — either fault alone would
+> have invalidated the test.
+>
+> Running the DRACO case properly needs a way to tell the tool which texture
+> layer to render. Until then, the projection is validated by projecting an
+> image and viewing it from the projector, where the terrain's texture does not
+> enter into it — see [the proof](#the-proof).
+
+The original text, kept for the record: *"`--texture-only` renders the OPC's own
+DRACO mosaic as this camera sees it — no lighting, and no de-shading fit — and
+the surface is viewed with DRACO as its primary texture, so the same features
+are on both sides and a misregistration is feature doubling rather than a
+judgement call"*:
 
 ```
 pro3d-tool simulate-image --opc <Dimorphos_0_Meridian> --time 2027-03-21T14:00:00Z     --texture-only --no-shadows --write-mbi ...
