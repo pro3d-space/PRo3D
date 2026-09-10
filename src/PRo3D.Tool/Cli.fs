@@ -158,7 +158,10 @@ type SimulateImageOptions =
         [<Option("no-lighting", HelpText = "Render a flat white disk instead of a shaded body: the image is then the silhouette, for comparing pointing and shape against a real frame without shading in the way")>]
         noLighting : bool
 
-        [<Option("texture-only", HelpText = "Render the OPC's own texture as this camera sees it: no lighting, and no de-shading fit. Unlike --deshade, which fits a light direction, clamps the result and falls back to a constant albedo where it has no confidence. NOTE: this draws the patch's DEFAULT texture layer (index 0), not whichever layer a PRo3D scene selects -- there is no layer option yet. On Dimorphos_0_Meridian that is 'Earth', while a scene may well select 'DRACO_1', and the two are different images; do not compare this render against a viewer screenshot without checking the scene's selectedTexture.")>]
+        [<Option("texture-layer", HelpText = "Which texture layer of the OPC to draw, by name ('DRACO_1') or index ('8'); the names come from the .opcx and are listed if the one given does not match. Default: the patch's own default layer, which is NOT necessarily what a PRo3D scene shows -- a scene stores its own selectedTexture, so the same OPC can render as 'Earth' here and 'DRACO_1' in the viewer. Match this to the scene's selectedTexture before comparing a render against a viewer screenshot.")>]
+        textureLayer : string
+
+        [<Option("texture-only", HelpText = "Render the OPC's own texture as this camera sees it: no lighting, and no de-shading fit. Unlike --deshade, which fits a light direction, clamps the result and falls back to a constant albedo where it has no confidence. Use --texture-layer to choose which layer.")>]
         textureOnly : bool
 
         [<Option("project", HelpText = "Project this image onto the body instead of shading it, through PRo3D's projection shader, and render the result. With no --mbi the camera is that image's own, so the output must reproduce the input image -- which is what makes the projection checkable rather than merely plausible.")>]

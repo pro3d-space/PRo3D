@@ -1,4 +1,4 @@
-namespace PRo3D.Core
+﻿namespace PRo3D.Core
 
 open System
 open System.IO
@@ -79,6 +79,15 @@ module OpcSg =
             body            : string
 
             useCompressedTextures : bool
+
+            /// Which texture layer of the OPC to draw, by index into the layers the
+            /// `.opcx` declares (see `OpcTextureLayers.read`). None draws the patch's
+            /// default, which is what this always did before the option existed -- and is
+            /// NOT necessarily what a PRo3D scene shows: a scene stores its own
+            /// `selectedTexture`, so the same OPC can render as "Earth" here and as
+            /// "DRACO_1" in the viewer. Comparing an offscreen render against a viewer
+            /// screenshot without matching these two is comparing different data.
+            textureLayer : Option<int>
         }
 
     let defaultConfig signature runner lodDecider body =
@@ -89,6 +98,7 @@ module OpcSg =
             asyncLoading = true
             body = body
             useCompressedTextures = true
+            textureLayer = None
         }
 
     /// Build one LOD node per OPC hierarchy, wired up with the projection uniforms.
@@ -190,13 +200,44 @@ module OpcSg =
 
             let tree = PatchLod.toRoseTree h.tree
 
+            // Texture getters only when a layer was asked for: passing them
+            // unconditionally would change what every existing caller renders, and the
+            // patch default is what they have always got.
+            //
+            // The getters have to unwrap OpcRenderingExtensions.Context to reach the
+            // secondary-texture scope, exactly as Surface.Sg does -- captureContext (which
+            // this shares with the viewer) hands the LOD scope over as that record, not as
+            // the raw scope SecondaryTexture expects.
+            let paths = OpcPaths.OpcPaths basePath
+            let withScope f (lodScope : obj) (r : PatchLod.RenderPatch) =
+                let context = unbox<OpcRenderingExtensions.Context> lodScope
+                f paths context.texturesScope r
+            let textures, attributes =
+                match cfg.textureLayer with
+                | None -> None, None
+                | Some _ ->
+                    Some (withScope SecondaryTexture.textures),
+                    Some (withScope SecondaryTexture.vertexAttributes)
+
             PatchLod.PatchNode(
                 cfg.signature, cfg.runner, basePath, cfg.lodDecider,
                 cfg.useCompressedTextures, true, ViewerModality.XYZ,
                 PatchLod.CoordinatesMapping.Local, cfg.asyncLoading,
                 OpcRenderingExtensions.captureContext,
                 ImageProjectionOpcExtensions.projectionUniformMap,
-                tree, None, None, PixImagePfim.Loader)
+                tree, textures, attributes, PixImagePfim.Loader)
+            |> fun sg ->
+                match cfg.textureLayer with
+                | None -> sg :> ISg
+                | Some idx ->
+                    let attr : AttributeParameters =
+                        {
+                            selectedTexture =
+                                Some { texture = TextureReference.LegacyId idx
+                                       channel = ChannelReference.NoChannelSelection }
+                            selectedScalar = None
+                        }
+                    sg |> Sg.AttributeParameters (AVal.constant attr)
             |> Sg.applyBody (AVal.constant (Some cfg.body))
             |> Sg.applyProjectedImages' (fun _ -> projectedImages)
             |> InstrumentImageVisualization.applyProperties imageSettings

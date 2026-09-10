@@ -1,4 +1,4 @@
-module PRo3D.Tool.SimulateImageVerb
+﻿module PRo3D.Tool.SimulateImageVerb
 
 open System
 open System.Globalization
@@ -20,6 +20,67 @@ open PRo3D.Core
 open PRo3D.SPICE
 open PRo3D.ImageMapping
 open PRo3D.InstrumentVisualization   // VisualizationProperties
+open PRo3D.Core.Surface               // SurfaceUtils, SurfaceProperties -- .opcx layer lists
+
+/// Resolving `--texture-layer` against what an OPC actually declares.
+///
+/// An OPC's texture layers are listed in its `.opcx`; the PRo3D viewer reads them the
+/// same way (see `Scene.fs`) and stores the chosen one as the surface's
+/// `selectedTexture`. The tool used to have no say and always drew the patch's default
+/// layer -- which is why an offscreen render and a viewer screenshot of the same body
+/// could show different data and never be comparable. Measured on
+/// `Dimorphos_0_Meridian`: the default is "Earth" (index 0) while a scene selects
+/// "DRACO_1" (index 8), and the two renders correlate 0.03.
+module OpcTextureLayers =
+
+    /// The layers an OPC declares, in the index order the renderer uses.
+    let read (opcDir : string) : list<int * string> =
+        let opcx =
+            [ yield! Directory.EnumerateFiles(opcDir, "*.opcx")
+              // an OPC directory sometimes holds the hierarchy one level down
+              for sub in Directory.EnumerateDirectories opcDir do
+                  yield! Directory.EnumerateFiles(sub, "*.opcx") ]
+            |> List.sort
+            |> List.tryHead
+        match opcx with
+        | None -> []
+        | Some path ->
+            try
+                SurfaceUtils.SurfaceAttributes.read path
+                |> SurfaceProperties.getTextures
+                |> IndexList.toList
+                |> List.map (fun l -> l.index, l.label)
+            with e ->
+                Log.warn "[texture] could not read %s (%s)" path e.Message
+                []
+
+    /// `wanted` is a layer name ("DRACO_1") or an index ("8"). None when it does not
+    /// resolve -- the caller decides whether that is fatal.
+    let resolve (opcDir : string) (wanted : string) : Option<int> =
+        let layers = read opcDir
+        let byName =
+            layers |> List.tryFind (fun (_, label) ->
+                String.Equals(label, wanted, StringComparison.OrdinalIgnoreCase))
+        match byName with
+        | Some (idx, label) ->
+            Log.line "[texture] layer '%s' -> index %d" label idx
+            Some idx
+        | None ->
+            match Int32.TryParse(wanted, NumberStyles.Integer, CultureInfo.InvariantCulture) with
+            | true, idx when layers |> List.exists (fun (i, _) -> i = idx) ->
+                let label = layers |> List.tryPick (fun (i, l) -> if i = idx then Some l else None)
+                Log.line "[texture] layer index %d -> '%s'" idx (defaultArg label "?")
+                Some idx
+            | true, idx when List.isEmpty layers ->
+                // no .opcx to check against: trust the caller rather than refuse
+                Log.warn "[texture] no .opcx found under %s; using index %d unchecked" opcDir idx
+                Some idx
+            | _ ->
+                Log.error "[texture] no layer '%s'. This OPC declares: %s" wanted
+                    (if List.isEmpty layers then "(none found -- no .opcx?)"
+                     else layers |> List.map (fun (i, l) -> sprintf "%d=%s" i l) |> String.concat ", ")
+                None
+
 
 // The simulate-image verb: time + SPICE kernels + OPC + instrument name in, one simulated
 // asteroid image out. Sun position, spacecraft position and body orientation come from
@@ -518,7 +579,8 @@ let cameraFromMbi (observer : string) (frame : string) (body : string)
 /// active kernel, adding no kernel swaps.
 let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                  (body : string) (frame : string) (observer : string) (instrument : string)
-                 (time : DateTime) (outPath : string) (kernel : string) (hierarchies : string[]) : Result<string, string> =
+                 (time : DateTime) (outPath : string) (kernel : string) (hierarchies : string[])
+                 (textureLayer : Option<int>) : Result<string, string> =
 
     // --project renders an existing image projected onto the body rather than a shaded
     // body. With no --mbi it also supplies the camera, so the render is taken from the
@@ -675,7 +737,9 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         let cfg =
             { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
                 // Blocking loads: reproducible offscreen output, same as sun-angles.
-                asyncLoading = false }
+                asyncLoading = false
+                // None keeps the patch default, which is what this always rendered
+                textureLayer = textureLayer }
 
         let opc = OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies |> Sg.ofList
 
@@ -895,6 +959,20 @@ let run (o : SimulateImageOptions) : int =
         1
     else
 
+    // Resolve before any GPU work, so a bad layer name fails immediately with the list of
+    // what the OPC actually has, rather than after a minute of loading.
+    let textureLayer =
+        match o.textureLayer with
+        | null | "" -> Ok None
+        | wanted ->
+            match OpcTextureLayers.resolve o.opc wanted with
+            | Some idx -> Ok (Some idx)
+            | None -> Result.Error ()
+
+    match textureLayer with
+    | Result.Error () -> 1
+    | Ok textureLayer ->
+
     let outDir = Path.GetDirectoryName(Path.GetFullPath outPath)
     Directory.CreateDirectory outDir |> ignore
 
@@ -913,7 +991,7 @@ let run (o : SimulateImageOptions) : int =
     // An unexpected exception (corrupt OPC, driver failure) should surface as a clean
     // error and exit code, not a raw stack trace.
     try
-        match processImage runtime o body frame observer instrument time outPath kernel hierarchies with
+        match processImage runtime o body frame observer instrument time outPath kernel hierarchies textureLayer with
         | Ok _ -> 0
         | Result.Error e -> Log.error "%s" e; 1
     with e ->
