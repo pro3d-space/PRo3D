@@ -186,7 +186,14 @@ module ProjectedImageListModel =
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         instrumentVisibility = InstrumentVisibilityMode.Off
         lightingMode = LightingMode.Off
-        projectionMethod = ProjectionMethod.Spice
+        // MbiBased, not Spice: Spice discards the pointing the image carries. It computes
+        // a look-at from the spacecraft's ephemeris, aims the boresight at the body centre
+        // and takes a fixed roll -- so a real frame lands ON the body but with its
+        // features in the wrong place, which reads as "the projection is broken" when the
+        // projection is fine and the setting is wrong. MbiBased uses the attitude in the
+        // sidecar (SC_QUAT + TRG_POS), which is what the image was actually taken with.
+        // Not persisted in a scene, so this default is what every session starts with.
+        projectionMethod = ProjectionMethod.MbiBased
         useTransferFunction = true
     }
 

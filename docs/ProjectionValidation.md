@@ -15,9 +15,11 @@ three — see [the proof](#the-proof) below.
 
 Things that still make images look wrong independently of the projection itself:
 
-1. **Orientation Source** defaults to *SPICE*, which reads no pointing from the
-   image at all — it aims the camera at the body centre with a fixed roll. Real
-   frames then land on the body with their features out of place.
+1. **Orientation Source** set to *SPICE* reads no pointing from the image at all
+   — it aims the camera at the body centre with a fixed roll, so real frames land
+   on the body with their features out of place. It used to be the default, which
+   made a correct projection look broken out of the box; **MBI** is the default
+   now.
 2. A sidecar can state the pointing wrongly, and the projector will follow it
    faithfully. The HERA COP delivery does exactly this.
 3. **The scene has to be set up before any of it can work.** From an empty
@@ -382,8 +384,8 @@ ships.
 
 | mode | where the pointing comes from |
 |---|---|
-| **SPICE** (default) | Nowhere in the image. The spacecraft position is SPICE's, but the camera is then aimed at the **body centre** with a fixed up-vector — `InstrumentProjection.getLookAt` computes an attitude and discards it. Every image is painted as if shot dead-centre with one roll. |
-| **MBI** | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
+| **SPICE** | Nowhere in the image. The spacecraft position is SPICE's, but the camera is then aimed at the **body centre** with a fixed up-vector — `InstrumentProjection.getLookAt` computes an attitude and discards it. Every image is painted as if shot dead-centre with one roll. |
+| **MBI** (default) | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
 
 So the symptom tells you where to look: *"lands on the body but the features do
 not line up"* is the first mode; *"does not land at all"* is the second plus a
@@ -392,7 +394,7 @@ sidecar problem.
 Measured in the viewer, one image in the stack, same scene and camera
 throughout:
 
-| | **SPICE** (default) | **MBI** |
+| | **SPICE** | **MBI** |
 |---|---|---|
 | COP frame, as delivered | ![COP with SPICE](images/projectionValidation/viewer-cop-spice.png)<br>87.9% of the body repainted — but offset | ![COP with MBI](images/projectionValidation/viewer-cop-mbi.png)<br>**0.0% — misses entirely** |
 

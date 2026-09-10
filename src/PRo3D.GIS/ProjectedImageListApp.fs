@@ -31,7 +31,9 @@ module ProjectedImageListApp =
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         instrumentVisibility = InstrumentVisibilityMode.Off
         lightingMode = LightingMode.Off
-        projectionMethod = ProjectionMethod.Spice
+        // see the note on ProjectedImageListModel.initial -- Spice throws away the
+        // image's own attitude and aims at the body centre with a fixed roll
+        projectionMethod = ProjectionMethod.MbiBased
         useTransferFunction = true
     }
 
