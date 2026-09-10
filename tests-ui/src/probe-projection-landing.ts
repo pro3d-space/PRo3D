@@ -10,7 +10,7 @@
 //   PRO3D_PROBE_IMAGE       which image to use (default: the first row)
 //   PRO3D_PROBE_LABEL       file-name prefix for the screenshots (default "probe")
 //
-// Unlike projection-overlap.spec.ts this asserts nothing -- it is the tool for
+// Unlike projection-e2e.spec.ts this asserts nothing -- it is the tool for
 // looking at a case, including the ones that fail.
 import { chromium, Page } from "@playwright/test";
 import { launchPro3d } from "./pro3d";

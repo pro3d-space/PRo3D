@@ -638,11 +638,7 @@ The other probes in `tests-ui/src/`, and why they exist:
 | probe | question it answers |
 |---|---|
 | `probe-projection-landing.ts` | look at one case end to end, including the ones that fail; screenshots and logs lit-fraction after **every** step, because an empty frame three steps later cannot be attributed |
-| `probe-look.ts` | load a scene and screenshot it, nothing else — tells a broken scene apart from a broken harness |
 | `probe-accordion.ts` | **clicks** a UI control like a user and asserts the result is visible; the other probes reach into the DOM and so cannot see a broken widget |
-| `probe-accordion-dom.ts` | prints an accordion's DOM and what jQuery matches, for writing a selector against what is there |
-| `probe-jserrors.ts` | watches console / pageerror / requestfailed while a page loads and a control is clicked |
-| `probe-dump.ts` | dumps a page's DOM so selectors are written against reality |
 
 The Playwright harness is machine-local by design (real GPU, local OPC and image
 data); `tests-ui/src/pro3d.ts` lists the `PRO3D_*` variables, and

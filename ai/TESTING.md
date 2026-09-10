@@ -97,9 +97,8 @@ is the shape to copy.
   the tree labels entries `0|Dimorphos`, not `Dimorphos`.
 - **No JS error does not mean it worked.** `$(sel).accordion(…)` on an *empty*
   jQuery set is a silent no-op. Two attempted fixes "succeeded" while leaving the
-  widget dead, with a clean console. `probe-jserrors.ts` watches
-  console/pageerror/requestfailed; `probe-accordion-dom.ts` prints what jQuery
-  actually matches, which is what ended the guessing.
+  widget dead, with a clean console. Listen to console/pageerror/requestfailed
+  and print what jQuery actually matches -- that is what ended the guessing.
 - **Semantic UI accordions must not be nested-and-initialised.** Its selectors
   (`.title`, `.content`) resolve across *all* descendants, so an outer accordion
   also owns an inner one's titles and the inner panel never opens. Only

@@ -49,6 +49,7 @@ test("the viewer can look at Dimorphos from where the AFC was", async ({ browser
         Math.hypot(h["TRG_POSX"], h["TRG_POSY"], h["TRG_POSZ"]);
     expect(range).toBeGreaterThan(100);
 
+    fs.mkdirSync(artifacts, { recursive: true });
     const app = await launchPro3d();
     // square window: with the field of view set to a square detector's, a 16:9 window
     // would frame the body by its shorter vertical fov instead of the instrument's
