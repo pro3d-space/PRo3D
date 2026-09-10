@@ -51,13 +51,19 @@ module NormalWinding =
                         if Vec.dot n centroid > 0.0 then outward <- outward + 1
                         else inward <- inward + 1
                     t <- t + stride
-                if outward + inward = 0 then 0.0
+                if outward + inward = 0 then
+                    Log.warn "[opc]   winding: no usable face in the root patch of %s; NormalFlip 0" basePath
+                    0.0
                 else
                     let flip = if inward > outward then 1.0 else 0.0
                     Log.line "[opc]   winding: %d outward / %d inward -> NormalFlip %.0f"
                         outward inward flip
                     flip
-            | _ -> 0.0
+            | p, i ->
+                Log.warn "[opc]   winding: unexpected geometry layout in %s (positions %s, indices %s); NormalFlip 0"
+                    basePath (if isNull p then "none" else p.GetType().Name)
+                    (if isNull i then "none" else i.GetType().Name)
+                0.0
         with e ->
             Log.warn "[opc]   could not estimate winding (%s); NormalFlip 0" e.Message
             0.0
@@ -81,27 +87,12 @@ module ImageProjectionOpcExtensions =
 
     let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
-            // NO modelTrafo here. These matrices are applied to the RAW PATCH-LOCAL
-            // position (stableImageProjectionTrafo stashes localPos = v.pos), and
-            // Local2Global already carries that to the surface's body-fixed frame, which is
-            // the frame computeProjector builds the projector in. Composing the surface
-            // model trafo as well applies the body's own orientation (pxform body-fixed ->
-            // observer frame) a SECOND time.
-            //
-            // Measured on the AFC dataset, projecting an image back from its own camera:
-            // with the scene's observation frame set to J2000 the reprojection correlates
-            // 0.028 with the source image; with it set to DIMORPHOS_FIXED -- which makes
-            // the model trafo identity and so cancels the double rotation -- 0.697. The
-            // same image through the same shader offscreen, where the model trafo is
-            // identity, reproduces the source at correlation 1.0000 / 0.0064 mean DN.
-            //
-            // The old note here said the model trafo "is required; it only worked without
-            // while every body sat at identity". What it was compensating for is that
-            // computeProjector falls back to "J2000" when a surface has no GIS reference
-            // system -- and such a surface has no entity either, so getSurfaceTrafo returns
-            // None and the model trafo is identity regardless. Dropping it is correct in
-            // both cases, and it is what keeps the projection stuck to the TERRAIN when the
-            // scene time changes: the body rotates, and the image rotates with it.
+            // The projector matrices below are vp * Local2Global and deliberately NOT
+            // vp * modelTrafo * Local2Global: they apply to the raw patch-local position,
+            // Local2Global already lands in the surface's body-fixed frame, and that is
+            // the frame computeProjector builds vp in. The model trafo would apply the
+            // body's orientation a second time. Leaving it out is also what keeps the
+            // projection on the terrain when the scene time changes.
             // hover footprint (D5): the hovered image's projector, same
             // double-precision per-patch composition as the stack matrices
             "HoveredProjectionTrafo", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
