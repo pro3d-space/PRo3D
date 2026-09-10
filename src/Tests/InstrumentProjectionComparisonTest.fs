@@ -197,25 +197,17 @@ let tests () =
                 Expect.isSome hit "quaternion-based center ray should hit round Didymos"
         }
 
-        // Reproduces the original race -- projectOntoQuat and projectOnto, which are each
-        // several native calls, running interleaved across threads -- and checks every
-        // concurrent result still matches a fresh sequential baseline.
+        // Reproduces the original race: projectOntoQuat and projectOnto, each several
+        // native calls, running interleaved across threads.
         //
-        // All 50 items compute the HSH projection, and deliberately so: they used to be
-        // half HSH and half ASPECT, which is not a scenario that can be given a meaning.
-        // Those two fixtures name different meta-kernels (ops_v172 vs plan_v180), only one
-        // meta-kernel can be loaded at a time, and loading is DeInit + Init + furnsh. Half
-        // the threads were therefore emptying the kernel pool underneath the other half:
-        // the mild outcome was an HSH lookup answered by a kernel with no HERA_HSH frame
-        // (SPICE(UNKNOWNFRAME), dropped by the Array.choose below, so the check quietly
-        // measured almost nothing), and the usual outcome was an access violation inside a
-        // native call whose kernels had just been freed.
-        //
-        // One fixture keeps the pool constant for the whole parallel section -- parseMbi's
-        // ensureKernelAt sees the kernel it wants already active and does nothing -- so
-        // what races is exactly what this test is about, and every result has to resolve.
-        // Cross-kernel behaviour is covered by the sequential tests above, which is the
-        // only place it can be covered.
+        // All 50 items use one fixture. Half HSH and half ASPECT, as this was, is not a
+        // scenario with a meaning: those two name different meta-kernels, only one loads
+        // at a time, and loading is DeInit + Init + furnsh -- so half the threads were
+        // freeing the kernels the other half were reading (usually an access violation,
+        // otherwise an HSH lookup answered by the plan kernel, which came back None and
+        // was dropped by the Array.choose). One fixture keeps the pool constant, so the
+        // race is the intended one and every result has to resolve. Cross-kernel
+        // behaviour is covered by the sequential tests above.
         test "concurrent projectOntoQuat/projectOnto calls no longer corrupt each other's results" {
             let baseline =
                 match computeHshAngle () with

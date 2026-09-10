@@ -21,19 +21,12 @@ module Coo = PRo3D.Base.CooTransformation
 
 let logDir = Path.Combine(".", "logs")
 
-/// The `kernels` directory of a HERA SPICE dataset, i.e. the directory holding
-/// `mk`, `ck`, `spk`, ... .
+/// The `kernels` directory of a HERA dataset -- the one holding `mk`, `ck`, `spk`, ... .
 ///
-/// PRO3D_SPICE_KERNELS is the documented way in - the same variable PRo3D.Tool reads,
-/// with the same tolerance: point it either at the dataset root (which has `kernels/mk`)
-/// or straight at the `kernels` directory. CI sets it to whatever
-/// scripts/fetch-spice-kernels.sh downloaded.
-///
-/// Without the variable, fall back to a `spice` mirror checked out next to the PRo3D
-/// clone, which is how the developer machines these tests were written on are laid out.
-/// The fallback is also what a missing/misspelled path degrades to - the point of
-/// resolution here is only to find the kernels, not to diagnose; `hasHera` below turns
-/// "not found" into skipped tests either way.
+/// From $PRO3D_SPICE_KERNELS, which may name either the dataset root or `kernels` itself
+/// (as PRo3D.Tool reads it); otherwise a `spice` mirror next to the PRo3D clone. Not
+/// found means `hasHera` is false and the kernel tests skip.
+/// See docs/tests/SpiceKernels.md.
 let kernelsDir =
     let sibling = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", "spice", "kernels")
     let fromEnv =
@@ -49,12 +42,10 @@ let mkDir = Path.Combine(kernelsDir, "mk")
 
 let spiceFileName = Path.Combine(mkDir, "hera_ops.tm")
 
-// HERA tests need the HERA mission kernels, which are far too large to commit
-// (the meta-kernels these tests load close over ~1.3 GB). They self-skip when the
-// kernels are absent, or when --skip-hera is passed (runTests uses this for a
-// deterministic kernel-free run). Kernel-independent SPICE coverage lives in
-// SpiceTests.fs and always runs. (Adopted from releases/6.0.0.)
-// CI gets the kernels via scripts/fetch-spice-kernels.sh - see docs/SpiceKernels.md.
+// The HERA mission kernels are ~1.3 GB, too large to commit. These tests self-skip
+// without them, and on --skip-hera even with them (runTests passes it, for a
+// deterministic kernel-free run). Kernel-independent SPICE coverage is in SpiceTests.fs.
+// CI gets them via scripts/fetch-spice-kernels.sh; see docs/tests/SpiceKernels.md.
 /// Public so other kernel-using tests can honour the flag too: --skip-hera promises a
 /// deterministic kernel-free run even on a machine that has the kernels.
 let skipHeraRequested =
@@ -75,50 +66,27 @@ let init () =
     { new IDisposable with
         member x.Dispose() =
             CooTransformation.DeInit()
-            // DeInit empties the kernel pool, so whatever ensureKernelAt believed was
-            // loaded is gone. Say so, or the next ensureKernelAt for that same kernel
-            // decides it has nothing to do and every lookup after it comes back empty.
+            // DeInit empties the pool, so the record of what is loaded has to go too --
+            // otherwise the next ensureKernelAt for that kernel decides it need not act.
             lock spiceLock (fun () -> activeKernel.Value <- None) }
 
-// Different scenarios need different kernels: an mbi sidecar's own SPICE_MK field
-// names the exact meta-kernel it was generated against (e.g. HSH/AFC2 fixtures say
-// "hera_ops_v172_...", the ASPECT fixture says "hera_plan_v180_..."). Loading two
-// meta-kernels *on top of* each other was tried and breaks things: two ops
-// snapshots define conflicting CK segments for the same frame (HERA_HSH started
-// failing). There's also no native kernel-unload/kclear export to reach for
-// (checked PRo3D.SPICE-2's CooTransformation.dll exports directly -- only
-// AddSpiceKernel/DeInit/Init/GetRelState/GetPositionTransformationMatrix/etc,
-// nothing to unload a single kernel). So: track which single kernel is active,
-// and reset the pool whenever a scenario needs a different one -- verified
-// empirically that a fresh Init with just the target kernel resolves correctly
-// (both for an isolated hera_ops_v172 and an isolated hera_plan). Every caller
-// (fixture-driven or generic) must re-request its kernel immediately before
-// making SPICE calls, since anyone could have swapped it since the caller last
-// checked.
+// One meta-kernel at a time: there is no per-kernel unload, and layering two of them
+// makes conflicting CK segments for the same frame silently win over each other. So track
+// which one is active and reset the pool (DeInit + Init + furnsh) when a scenario needs a
+// different one. An mbi sidecar's SPICE_MK field says which that is. Every caller has to
+// re-request its kernel immediately before its SPICE calls, since anyone may have swapped
+// it since.
 //
-// Switching goes through PRo3D.Base.CooTransformation.switchKernel -- the same call the
-// viewer makes -- rather than reaching for AddSpiceKernel directly. Besides keeping the
-// tests honest about the app's own path, that brings the meta-kernel materialisation
-// with it: PATH_VALUES is rewritten to the absolute directory it always meant before the
-// furnsh, so nothing SPICE records depends on the process working directory.
-//
-// That matters more than it sounds. SPICE stores the file names a meta-kernel produces
-// exactly as they read at furnsh time, and DAF re-opens binary kernels (SPK/CK/DSK)
-// lazily, by the stored name, long afterwards. ESA's meta-kernels name them relatively
-// -- PATH_VALUES is '..' in mk/ and '../..' in mk/former_versions/ -- so this code used
-// to chdir into the meta-kernel's own directory and leave the process parked there.
-// That holds only while every meta-kernel lives in the same directory. Once fixtures
-// started naming archived kernels, a swap moved the working directory out from under
-// names DAF had already stored, and the damage surfaced nowhere near its cause: a failed
-// re-open, then SPICE(BADSUBSCRIPT) in dafah on the next DeInit (KCLEAR -> CKUPF ->
-// DAFCLS) tripping over the broken entry, then every later lookup returning
-// SPICE(DAFNOSUCHHANDLE) -- which reads exactly like a kernel with no coverage at the
-// requested epoch.
+// Switching goes through CooTransformation.switchKernel, as the viewer does, for two
+// reasons documented in docs/tests/SpiceKernels.md: it rewrites PATH_VALUES to an absolute
+// path before the furnsh, so nothing SPICE stores depends on the working directory (this
+// used to chdir instead, which broke once a swap crossed from mk/ to mk/former_versions/),
+// and the swap has to hold the projection lock, because it empties the pool.
 let private cooTrafoInitialized =
     lazy (
         // switchKernel reinitializes with the log directory initCooTrafo recorded, so the
-        // suite has to have gone through initCooTrafo at least once. It normally has
-        // (GeoJsonExportTest.init does it), but not when someone runs only these tests.
+        // suite has to have been through initCooTrafo at least once -- it has, unless
+        // someone runs only these tests.
         let appData =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Pro3D")
         Coo.initCooTrafo None appData)
@@ -131,10 +99,8 @@ let ensureKernelAt (candidates : string list) : unit =
             let fullPath = Path.GetFullPath(path)
             if activeKernel.Value <> Some fullPath then
                 cooTrafoInitialized.Force()
-                // Under the lock the projection code uses, not just this module's own:
-                // switchKernel empties and refills the kernel pool, and doing that while
-                // another thread sits inside a SPICE call corrupts that call's result at
-                // best and segfaults the process at worst.
+                // The projection lock, not just this module's: a swap during another
+                // thread's SPICE call mixes two kernel sets, or crashes it.
                 InstrumentProjection.withSpiceLock (fun () ->
                     match Coo.switchKernel (Path.GetDirectoryName fullPath) (Path.GetFileName fullPath) with
                     | Some _ -> ()

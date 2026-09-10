@@ -1,23 +1,16 @@
 #!/usr/bin/env bash
-# Downloads exactly the HERA SPICE kernels the test suite needs into <dest>/kernels,
-# laid out like the ESA server so the meta-kernels' relative $KERNELS paths resolve.
+# Downloads the HERA SPICE kernels the test suite needs into <dest>/kernels, laid out
+# like the ESA server. See docs/tests/SpiceKernels.md.
 #
 #   scripts/fetch-spice-kernels.sh [dest]        # default dest: ./spice
 #   PRO3D_SPICE_KERNELS=<dest> ./runAllTests.sh  # then point the tests at it
 #
-# What it fetches is the transitive closure of the meta-kernels pinned in
-# scripts/spice-kernels.pins -- ~120 files, ~1.3 GB. The full ESA dataset is ~11 GB
-# and its git repo carries every version ever published, so neither is worth cloning
-# for a test run; the meta-kernels already name precisely what SPICE will load.
+# Fetches the closure of the meta-kernels pinned in scripts/spice-kernels.pins: ~120
+# files, ~1.3 GB, out of an ~11 GB dataset. Re-running is offline and takes a second
+# when the tree is complete, so it is safe to run unconditionally after a CI cache
+# restore; a partial restore heals instead of failing later inside CSPICE.
 #
-# Re-running is cheap and offline: a completed tree records a manifest, and a rerun
-# only re-reads that plus local file sizes. Only a missing/short/absent file costs a
-# request, which is what makes this safe to run unconditionally after a CI cache
-# restore -- a half-populated cache heals itself instead of failing the run later
-# inside CSPICE.
-#
-# Env: PRO3D_SPICE_BASE_URL (mirror to fetch from), PRO3D_SPICE_JOBS (parallel
-# downloads, default 8).
+# Env: PRO3D_SPICE_BASE_URL (mirror), PRO3D_SPICE_JOBS (parallel downloads, default 8).
 set -euo pipefail
 
 BASE_URL="${PRO3D_SPICE_BASE_URL:-https://spiftp.esac.esa.int/data/SPICE/HERA/kernels}"
@@ -28,9 +21,8 @@ pins_file="$script_dir/spice-kernels.pins"
 
 file_size() { wc -c < "$1" | tr -d ' '; }
 
-# --retry-all-errors (curl 7.71+) is what makes a retry cover a mid-transfer reset,
-# not just a connection failure. Older curl rejects the unknown option outright, so
-# ask before using it rather than failing every download on an old runner image.
+# --retry-all-errors (curl 7.71+) covers a mid-transfer reset, not just a failed
+# connection. Older curl rejects unknown options outright, so ask before passing it.
 retry_opts() {
     local opts="--retry 5 --retry-delay 2 --retry-connrefused --speed-limit 1024 --speed-time 60"
     if curl --help all 2>/dev/null | grep -q -- '--retry-all-errors'; then
@@ -39,13 +31,11 @@ retry_opts() {
     echo "$opts"
 }
 
-# Once per process: each worker re-enters this script, so this costs one probe per
-# download, not one per curl call.
+# Once per process -- workers re-enter this script, so it is one probe per download.
 RETRY_OPTS="$(retry_opts)"
 
-# Size the remote file so a rerun can tell "already have it" from "have half of it".
-# Empty output means "unknown" -- a server that refuses HEAD is a reason to download
-# and skip the size check, never a reason to fail the run, hence the `|| true`.
+# Remote size, so a rerun can tell "already have it" from "have half of it". Empty
+# means unknown: a server refusing HEAD means download anyway, not fail (`|| true`).
 remote_size() {
     local headers
     headers="$(curl -fsSIL --max-time 60 $RETRY_OPTS "$1" 2>/dev/null || true)"
@@ -55,8 +45,7 @@ remote_size() {
 }
 
 # One download, in its own process so xargs can run several. Re-entering the script
-# this way (rather than exporting a function) keeps it working under any /bin/sh-ish
-# xargs and on Git Bash.
+# beats exporting a function: it works under any xargs, Git Bash included.
 fetch_one() {
     local kernels_dir="$1" rel="$2"
     local out="$kernels_dir/$rel" url="$BASE_URL/$rel"
@@ -97,9 +86,8 @@ kernels_dir="$dest/kernels"
 manifest="$kernels_dir/.pro3d-kernels-manifest"
 
 # Every quoted entry in KERNELS_TO_LOAD, as a path below kernels/. The count check
-# guards the one way this parse can silently under-deliver: a meta-kernel that wraps
-# a long path across two quoted strings would yield fewer paths than quoted lines,
-# and the missing kernel would only surface much later as a puzzling SPICE error.
+# catches the one way this can under-deliver: a path wrapped across two quoted strings
+# parses as fewer paths than quoted lines, and the kernel goes missing without a word.
 kernel_list() {
     local mk="$1"
     local paths quoted
@@ -113,11 +101,9 @@ kernel_list() {
     printf '%s\n' "$paths"
 }
 
-# Where a pinned meta-kernel lives below kernels/. ESA keeps the newest release in
-# mk/ and moves it to mk/former_versions/ as soon as the next one is published, so a
-# pin that is current today is archived in a few weeks - look in both, newest first.
-# Local hits first so a half-populated tree costs no requests, and so the answer does
-# not change mid-life of a cache entry.
+# Where a pinned meta-kernel lives below kernels/. ESA moves the newest release from
+# mk/ to mk/former_versions/ as soon as the next one lands, so look in both. Local hits
+# first, so a half-populated tree costs no requests.
 resolve_mk() {
     local name="$1" candidate
     for candidate in "mk/$name" "mk/former_versions/$name"; do
@@ -142,14 +128,12 @@ pins_id="$(printf '%s\n' "$pins" | cksum | tr -d ' ')"
 
 echo "SPICE kernels -> $kernels_dir"
 
-# Fast path: this manifest was written for today's pins, and everything it promised is
-# still there at the right size. That is the CI-cache-hit case and must not touch the
-# network.
+# Fast path, and the CI cache hit: the manifest was written for today's pins and
+# everything it lists is still there at the right size. Must not touch the network.
 #
-# The pins check is what makes it safe to restore a cache entry written for older pins
-# (CI does, via restore-keys, so that bumping one pin refetches one closure instead of
-# all four): every file such a tree lists is present and correct, so a size-only check
-# would call it complete and never fetch the newly pinned meta-kernel.
+# The pins check is what makes restoring an older entry safe (CI does, via restore-keys,
+# so a pin bump refetches one closure rather than four): every file such a tree lists is
+# present and correct, so a size-only check would never fetch the new meta-kernel.
 if [ -f "$manifest" ] && [ "$(head -n 1 "$manifest")" = "#pins $pins_id" ]; then
     complete=1
     while IFS=$'\t' read -r rel size; do
@@ -168,11 +152,9 @@ elif [ -f "$manifest" ]; then
     echo "  manifest was written for different pins -- refetching what changed"
 fi
 
-# The meta-kernels first: they are what says which kernels exist.
-#
-# Aliased pins are additionally written into mk/ under their plain name (hera_ops.tm,
-# hera_plan.tm) - the names the tests open, and the names PRo3D ships with, while the
-# pin file decides which release they actually are.
+# The meta-kernels first: they are what says which kernels exist. Aliased pins are also
+# written into mk/ under the plain name the tests open (hera_ops.tm, hera_plan.tm),
+# while the pin file decides which release that actually is.
 mk_paths=()
 aliases=()
 while IFS= read -r line; do
@@ -183,12 +165,10 @@ while IFS= read -r line; do
     case "$line" in
         *" -> "*)
             alias_name="${line##* -> }"
-            # ESA rewrites PATH_VALUES from '..' to '../..' when it archives a
-            # meta-kernel into former_versions/ - the kernel list is untouched, only
-            # that one line differs. A copy landing back in mk/ therefore has to have
-            # it rewritten, or every $KERNELS path resolves one directory too high
-            # (the tests chdir to the meta-kernel's own directory before loading it).
-            # A no-op when the pin is still current and sits in mk/.
+            # Archiving into former_versions/ rewrites PATH_VALUES from '..' to
+            # '../..' and nothing else, so a copy landing back in mk/ has to have it
+            # put back, or every $KERNELS path resolves one directory too high. A no-op
+            # for a pin still sitting in mk/.
             sed "s|\(PATH_VALUES *= *( *\)'[^']*'|\1'..'|" "$kernels_dir/$mk_path" \
                 > "$kernels_dir/mk/$alias_name"
             aliases+=("mk/$alias_name")
@@ -196,13 +176,9 @@ while IFS= read -r line; do
     esac
 done <<< "$pins"
 
-# Union of the closures. Sorting is what deduplicates: the four meta-kernels overlap
-# heavily (~250 entries collapse to ~120 files), and downloading a 338 MB CK twice
-# would double the cold-cache cost for nothing.
-#
-# Accumulated in a file rather than a `$(... | sort)` pipeline on purpose: a failing
-# kernel_list inside a pipeline's subshell would be masked by sort's exit status, and
-# a truncated kernel list is precisely the failure that must not pass silently.
+# Union of the closures; sorting deduplicates the heavy overlap (~250 entries, ~120
+# files). Accumulated in a file rather than a sort pipeline because sort's exit status
+# would mask a failing kernel_list -- the one failure that must not pass silently.
 closure_file="$kernels_dir/.pro3d-kernels-closure"
 : > "$closure_file"
 for mk in "${mk_paths[@]}"; do
@@ -214,8 +190,8 @@ echo "  $(grep -c . "$closure_file") kernels named by ${#mk_paths[@]} meta-kerne
 xargs -P "$JOBS" -I {} "$script_dir/fetch-spice-kernels.sh" --fetch-one "$kernels_dir" {} \
     < "$closure_file"
 
-# Write the manifest last, and only from files that are actually on disk -- it is the
-# "this tree is usable" marker, so a partial write here would be worse than none.
+# The manifest last, and only from files actually on disk: it is the "tree is usable"
+# marker, so a partial one is worse than none.
 : > "$manifest.tmp"
 for rel in "${mk_paths[@]}" "${aliases[@]}" $(cat "$closure_file"); do
     if [ ! -f "$kernels_dir/$rel" ]; then
@@ -226,8 +202,7 @@ for rel in "${mk_paths[@]}" "${aliases[@]}" $(cat "$closure_file"); do
     printf '%s\t%s\n' "$rel" "$(file_size "$kernels_dir/$rel")" >> "$manifest.tmp"
 done
 sort -u "$manifest.tmp" -o "$manifest.tmp"
-# The pins line first, so the fast path can reject a manifest from other pins by
-# reading one line.
+# Pins line first, so the fast path can reject a foreign manifest in one read.
 { echo "#pins $pins_id"; cat "$manifest.tmp"; } > "$manifest.new"
 mv "$manifest.new" "$manifest"
 rm -f "$manifest.tmp"
