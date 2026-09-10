@@ -1,4 +1,4 @@
-﻿namespace PRo3D.Core
+namespace PRo3D.Core
 
 open System
 open System.IO

@@ -1,4 +1,4 @@
-﻿namespace PRo3D.ImageMapping
+namespace PRo3D.ImageMapping
 
 open System
 open System.IO
