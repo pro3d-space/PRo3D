@@ -452,8 +452,19 @@ module Sg =
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
-            |> Array.map (fun h ->      
-                let patchLodWithTextures = 
+            |> Array.map (fun h ->
+                // Winding vote for the projection shaders' projector-facing test; it
+                // reads the root patch from disk, so it is only taken once something is
+                // projected onto this hierarchy (see normalFlipUniform).
+                let normalFlip =
+                    lazy (match h.tree with
+                          | QTree.Node (p, _) | QTree.Leaf p ->
+                              NormalWinding.estimate h.opcPaths.Opc_DirAbsPath p)
+                let uniforms =
+                    allUniforms
+                    |> Map.add "NormalFlip" (ImageProjectionOpcExtensions.normalFlipUniform normalFlip)
+
+                let patchLodWithTextures =
 
                     let extractTextureScope f (p : OpcPaths) (lodScope : obj) (r : RenderPatch) =
                         let context = unbox<OpcRenderingExtensions.Context> lodScope
@@ -541,7 +552,7 @@ module Sg =
                         PatchLod.CoordinatesMapping.Local, 
                         useAsyncLoading, 
                         OpcRenderingExtensions.captureContext, 
-                        allUniforms,
+                        uniforms,
                         PatchLod.toRoseTree h.tree,
                         Some (getTextures h.opcPaths), 
                         Some (getVertexAttributes h.opcPaths), 
@@ -549,18 +560,6 @@ module Sg =
                     )
                 //plainPatchLod
                 (patchLodWithTextures :> ISg)
-                // Per hierarchy, and OUTER rather than in allUniforms: a per-patch uniform
-                // of this name would shadow it. Without it the projection shaders' "is
-                // this fragment facing the projector" test reads an unflipped normal, and
-                // on an inward-wound dataset the projection survives only near the limb.
-                // The offscreen tools (OpcSg.build) have always bound this; the viewer did
-                // not, and its lighting workaround -- orienting the face normal toward the
-                // VIEWER (see PRo3D.GIS.Shaders.solarShadingLS) -- cannot stand in, because
-                // the projector is not the camera.
-                |> Aardvark.SceneGraph.SgFSharp.Sg.uniform' "NormalFlip"
-                    (match h.tree with
-                     | QTree.Node (p, _) | QTree.Leaf p ->
-                        NormalWinding.estimate h.opcPaths.Opc_DirAbsPath p)
             )
             |> Aardvark.SceneGraph.SgFSharp.Sg.ofArray
                                                                       

@@ -64,6 +64,21 @@ module NormalWinding =
 
 module ImageProjectionOpcExtensions =
 
+    /// The viewer's per-patch "NormalFlip": 0 while nothing is projected or hovered, the
+    /// hierarchy's winding vote otherwise. `flip` is forced on first use, so a scene that
+    /// never projects never loads a patch to vote on. (The offscreen tools bind the vote
+    /// eagerly instead: their shading reads the flipped normal on every render.)
+    let normalFlipUniform (flip : Lazy<float>) : obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue =
+        fun scope _ ->
+            let context = scope |> unbox<OpcRenderingExtensions.Context>
+            context.projectedImages |> AVal.bind (function
+                | None -> AVal.constant 0.0f
+                | Some p ->
+                    (p.stackProjections, p.hoveredProjection) ||> AVal.map2 (fun layers hovered ->
+                        if layers.Length = 0 && Option.isNone hovered then 0.0f
+                        else float32 flip.Value)
+            ) :> IAdaptiveValue
+
     let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
             // NO modelTrafo here. These matrices are applied to the RAW PATCH-LOCAL
