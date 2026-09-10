@@ -30,8 +30,8 @@ The hint line at the right of the Tool Settings row says which of the two states
 ### Notes
 
 - **Ctrl is what separates picking from navigating**, here as everywhere else in PRo3D. Without it
-  the mouse drives the camera. If you have the "invert drawing" toggle on, it is the other way
-  round.
+  the mouse drives the camera. With [Direct Tool Mode](DirectToolMode.md) on it is the other way
+  round — plain click grabs, Ctrl hands the button back to the camera.
 - **The 3D cursor is switched on for you** while you are in this mode, whatever the scene's
   "preview intersection" setting says — the drop needs a live surface hit. Your setting is read,
   never overwritten, and applies again as soon as you leave the mode.

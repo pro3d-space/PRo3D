@@ -222,31 +222,11 @@ module ViewerApp =
 
     /// True when the active drawing/picking tool owns the left mouse button right now.
     /// The classic scheme arms the tool while Ctrl is held; Direct Tool Mode inverts that,
-    /// so the tool is armed *unless* Ctrl is held. Same predicate the surface-pick
-    /// scene-event gate uses in Viewer-Utils (`ViewerUtils.toolArmed`); keep them in step.
+    /// so the tool is armed *unless* Ctrl is held. This - together with the active
+    /// interaction - is the whole arming decision: the scene-event handlers, the surface-pick
+    /// gate (`ViewerUtils.toolArmed`) and `allowAnnotationPicking` all consult it, and
+    /// `DrawingModel` no longer carries draw/pick flags. See docs/DirectToolMode.md.
     let toolArmed (m : Model) : bool = m.ctrlFlag <> m.directToolMode
-
-    /// The single writer for `drawing.draw` / `drawing.pick` / `picking`. Those flags carry
-    /// no state of their own - they are a pure function of (interaction, ctrlFlag,
-    /// directToolMode) - so every handler that moves one of those three inputs ends by
-    /// calling this rather than poking the flags directly. That is what keeps the classic
-    /// "hold Ctrl" scheme and Direct Tool Mode from having to agree by hand. The
-    /// (act, draw, pick) gates in DrawingApp.update stay as a safety net. See
-    /// docs/DirectToolMode.md.
-    let syncToolArm (m : Model) : Model =
-        let armed = toolArmed m
-        let draw, pick =
-            match m.interaction with
-            | Interactions.DrawAnnotation                          -> armed, false
-            | Interactions.PickAnnotation | Interactions.EditAnnotation
-            | Interactions.CutAnnotation  | Interactions.DrawLog   -> false, armed
-            | _                                                    -> false, false
-        { m with
-            picking = armed
-            drawing = { m.drawing with
-                          draw = draw
-                          pick = pick
-                          hoverPosition = (if draw then m.drawing.hoverPosition else None) } }
 
     let mutable cache = HashMap.Empty
 
@@ -568,7 +548,7 @@ module ViewerApp =
             | Interactions.EditAnnotation -> DrawingAction.CancelVertexEdit
             | _ -> DrawingAction.ClearWorking
         // Ctrl no longer maps to Start/Stop{Drawing,Picking} here: arming the tool is
-        // `syncToolArm`'s job, driven off the KeyDown/KeyUp handlers' ctrlFlag change.
+        // `toolArmed` (ctrlFlag <> directToolMode), evaluated at the event source.
         //| Aardvark.Application.Keys.LeftShift ->
         //    match m.interaction with                     
         //    | Interactions.PickAnnotation -> DrawingAction.StartPickingMulti
@@ -754,10 +734,9 @@ module ViewerApp =
 
             { m with drawing = drawing } |> stash
         | ToggleDirectToolMode, _ ->
-            // syncToolArm derives draw/pick/picking from the new directToolMode together
-            // with the active interaction, so this is right for every tool - not just
-            // DrawAnnotation, which the old blunt `draw = enabled` was written for.
-            { m with directToolMode = not m.directToolMode } |> syncToolArm
+            // No draw/pick bookkeeping to do: `toolArmed` reads directToolMode directly at
+            // every gate, so flipping it is the whole of the toggle.
+            { m with directToolMode = not m.directToolMode }
         | DrawingMessage msg,_ -> //Interactions.DrawAnnotation
             match msg with
             | Drawing.FlyToAnnotation id ->
@@ -1755,9 +1734,7 @@ module ViewerApp =
 
             let m =
                 match k with
-                | Keyboard.Modifier ->
-                    //| Interactions.PickMinervaProduct -> arm minerva picking here too
-                    { m with ctrlFlag = true } |> syncToolArm
+                | Keyboard.Modifier -> { m with ctrlFlag = true }
                 | _ -> m
 
             let m =
@@ -1836,9 +1813,7 @@ module ViewerApp =
                 | _ -> m
 
             match k with
-            | Keyboard.Modifier ->
-                //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
-                { m with ctrlFlag = false } |> syncToolArm
+            | Keyboard.Modifier -> { m with ctrlFlag = false }
             | _ -> m
         | SetInteraction t,_ ->
                 
@@ -1851,9 +1826,7 @@ module ViewerApp =
                 | Some _ when t <> Interactions.EditAnnotation -> { m.drawing with vertexGrab = None }
                 | _ -> m.drawing
 
-            // the new tool needs its own draw/pick arming - without this a switch out of
-            // DrawAnnotation would leave `draw = true` and block the pick-family tools
-            { m with interaction = t; drawing = drawing } |> syncToolArm //|> UserFeedback.queueFeedback feedback
+            { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_ ->                                
             let refsystem',_ = 
                 ReferenceSystemApp.update
@@ -2556,11 +2529,14 @@ module ViewerApp =
             ] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage) 
         ]     
         
-    let allowAnnotationPicking (m : AdaptiveModel) =       
-        // drawing app needs pickable stuff. however whether annotations are pickable depends on 
-        // outer application state. we consider annotations to pickable if they are visible
-        // and we are in "pick annotation" mode.
-        m.interaction |> AVal.map (function
+    let allowAnnotationPicking (m : AdaptiveModel) =
+        // Whether the annotation pick target fires at all. Needs a pick-capable interaction
+        // *and* the tool armed (Ctrl held, or not held in Direct Tool Mode) - this is the
+        // sole arm gate for annotation selection / vertex grab now that DrawingModel carries
+        // no draw/pick flags. Handle *visibility* is separate (allowVertexEditing).
+        (m.interaction, ViewerUtils.toolArmed m) ||> AVal.map2 (fun interaction armed ->
+            armed &&
+            match interaction with
             | Interactions.PickAnnotation -> true
             | Interactions.DrawLog -> true
             // editing needs the same pick target: a click on the body re-selects, and the handles
@@ -2571,7 +2547,8 @@ module ViewerApp =
 
     /// Whether the control point handles are drawn and pickable. Unlike allowAnnotationPicking,
     /// this is the *only* mode that shows them - handles on every selected annotation everywhere
-    /// would be noise, and would put every annotation's vertices in the pick buffer.
+    /// would be noise, and would put every annotation's vertices in the pick buffer. Kept
+    /// interaction-only (no toolArmed) so the handles stay visible while you reach for Ctrl.
     let allowVertexEditing (m : AdaptiveModel) =
         m.interaction |> AVal.map (function
             | Interactions.EditAnnotation -> true

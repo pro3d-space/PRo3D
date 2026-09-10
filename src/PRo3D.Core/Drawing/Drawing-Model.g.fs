@@ -1,5 +1,5 @@
-//1f731282-9b66-9d1e-664a-71a6e4b0fe97
-//4b47552b-94a2-6a67-557d-f583ecccd637
+//e7ff2eab-7ba0-8d0a-4408-cb17009112d7
+//e0a8fc6f-d2a5-deb0-9797-75aa0659c62e
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -34,8 +34,6 @@ module AutomaticGeoJsonExportLenses =
         static member lastGeoJsonPathXyz_ = ((fun (self : AutomaticGeoJsonExport) -> self.lastGeoJsonPathXyz), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : AutomaticGeoJsonExport) -> { self with lastGeoJsonPathXyz = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveDrawingModel(value : DrawingModel) =
-    let _draw_ = FSharp.Data.Adaptive.cval(value.draw)
-    let _pick_ = FSharp.Data.Adaptive.cval(value.pick)
     let _multi_ = FSharp.Data.Adaptive.cval(value.multi)
     let _hoverPosition_ = FSharp.Data.Adaptive.cval(value.hoverPosition)
     let _working_ =
@@ -81,8 +79,6 @@ type AdaptiveDrawingModel(value : DrawingModel) =
         if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<DrawingModel>.ShallowEquals(value, __value))) then
             __value <- value
             __adaptive.MarkOutdated()
-            _draw_.Value <- value.draw
-            _pick_.Value <- value.pick
             _multi_.Value <- value.multi
             _hoverPosition_.Value <- value.hoverPosition
             _working_.Update(value.working)
@@ -107,8 +103,6 @@ type AdaptiveDrawingModel(value : DrawingModel) =
             _haltonPoints_.Value <- value.haltonPoints
             _automaticGeoJsonExport_.Update(value.automaticGeoJsonExport)
     member __.Current = __adaptive
-    member __.draw = _draw_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
-    member __.pick = _pick_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.multi = _multi_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.hoverPosition = _hoverPosition_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Aardvark.Base.Trafo3d>>
     member __.working = _working_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<PRo3D.Base.Annotation.Annotation, PRo3D.Base.Annotation.AdaptiveAnnotation, PRo3D.Base.Annotation.AdaptiveAnnotation>>
@@ -135,8 +129,6 @@ type AdaptiveDrawingModel(value : DrawingModel) =
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module DrawingModelLenses = 
     type DrawingModel with
-        static member draw_ = ((fun (self : DrawingModel) -> self.draw), (fun (value : Microsoft.FSharp.Core.bool) (self : DrawingModel) -> { self with draw = value }))
-        static member pick_ = ((fun (self : DrawingModel) -> self.pick), (fun (value : Microsoft.FSharp.Core.bool) (self : DrawingModel) -> { self with pick = value }))
         static member multi_ = ((fun (self : DrawingModel) -> self.multi), (fun (value : Microsoft.FSharp.Core.bool) (self : DrawingModel) -> { self with multi = value }))
         static member hoverPosition_ = ((fun (self : DrawingModel) -> self.hoverPosition), (fun (value : Microsoft.FSharp.Core.option<Aardvark.Base.Trafo3d>) (self : DrawingModel) -> { self with hoverPosition = value }))
         static member working_ = ((fun (self : DrawingModel) -> self.working), (fun (value : Microsoft.FSharp.Core.Option<PRo3D.Base.Annotation.Annotation>) (self : DrawingModel) -> { self with working = value }))

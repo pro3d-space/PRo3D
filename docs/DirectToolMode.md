@@ -31,38 +31,35 @@ toolArmed  =  ctrlFlag <> directToolMode
 i.e. classic = *armed while Ctrl held*, Direct Tool Mode = *armed unless Ctrl
 held*. It has two representations that must stay in step:
 
-- `ViewerApp.toolArmed : Model -> bool` — for the update handlers.
-- `ViewerUtils.toolArmed : AdaptiveModel -> aval<bool>` — for the surface-pick
-  scene-event gate (`surfacePickingActivated`) and the camera-live check.
+- `ViewerApp.toolArmed : Model -> bool` — used by the `DrawLog` pick guard.
+- `ViewerUtils.toolArmed : AdaptiveModel -> aval<bool>` — used by the surface-pick
+  scene-event gate (`surfacePickingActivated`) and by `allowAnnotationPicking`.
+  The camera-live check spells out a related predicate inline
+  (`directToolMode || not ctrlFlag`).
 
-### `syncToolArm` — the single writer for `draw` / `pick`
+There is **no stored arm state**. `toolArmed` together with the active
+`interaction` *is* the whole decision, evaluated fresh at each gate:
 
-`DrawingModel.draw` and `DrawingModel.pick` (and `Model.picking`) carry no state
-of their own. They are a pure function of `(interaction, ctrlFlag,
-directToolMode)`:
+| what fires | gated by |
+|---|---|
+| place a point (`AddPointAdv`), cut-stroke point, coordinate cross, rover, … | `surfacePicking` (interaction ≠ Pick*) **&&** `toolArmed` **&&** left button — `ViewerUtils`, feeds `matchPickingInteraction` |
+| select an annotation / grab or drop a control point | `allowAnnotationPicking` = `toolArmed` **&&** interaction ∈ {`PickAnnotation`, `EditAnnotation`, `DrawLog`} — gates the annotation pick target |
+| draw the control-point handles | `allowVertexEditing` = interaction is `EditAnnotation` (no `toolArmed`, so handles stay visible while you reach for Ctrl) |
 
-| interaction | armed → | disarmed → |
-|---|---|---|
-| `DrawAnnotation` | `draw = true` | `draw = false` |
-| `PickAnnotation`, `EditAnnotation`, `CutAnnotation`, `DrawLog` | `pick = true` | `pick = false` |
-| anything else | — | — |
+`Model.ctrlFlag` / `Model.directToolMode` are the only inputs the handlers touch:
+`ToggleDirectToolMode` flips `directToolMode`, the `Keyboard.Modifier`
+KeyDown/KeyUp handlers set `ctrlFlag`. `SetInteraction` just sets `interaction`.
 
-`ViewerApp.syncToolArm : Model -> Model` computes that table. **Every handler
-that moves one of the three inputs ends by calling it** instead of poking the
-flags directly:
+### History
 
-- `ToggleDirectToolMode`
-- Ctrl `KeyDown` / `KeyUp` (`Keyboard.Modifier`)
-- `SetInteraction`
-
-This is what keeps the classic scheme and Direct Tool Mode from having to agree
-by hand. Before it existed, `ToggleDirectToolMode` bluntly set `draw = true` for
-every tool — correct only for `DrawAnnotation` — which left `PickAnnotation`,
-`EditAnnotation` and `CutAnnotation` unable to match their `(_, false, true)`
-gate in `DrawingApp.update` while Direct Tool Mode was on.
-
-The `(act, draw, pick)` gates inside `DrawingApp.update` are left in place as a
-safety net; they are now always fed consistent flags.
+`DrawingModel` used to carry `draw` / `pick` bool flags, mirrored by hand from
+four handlers, and `DrawingApp.update` matched `(act, draw, pick)`. Direct Tool
+Mode's toggle set `draw = true` for every tool — correct only for
+`DrawAnnotation` — so `PickAnnotation` / `EditAnnotation` / `CutAnnotation` could
+never match their `(_, false, true)` arm while it was on. The flags are now gone;
+`DrawingApp.update` matches `act` alone. `StartDrawing` / `StopDrawing` /
+`StartPicking` / `StopPicking` remain as no-op `DrawingAction` cases for the test
+harness (`StopDrawing` still clears the hover preview).
 
 ## Related
 
