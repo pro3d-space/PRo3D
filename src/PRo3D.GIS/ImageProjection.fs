@@ -299,12 +299,11 @@ module ImageProjection =
                 yield { t.P2 with localNormal = normal; i = 2 }
             }
 
-        // Optional per-dataset winding correction, composed AFTER generateNormal only
-        // where NormalFlip is bound (the projection testbed). NormalFlip's sign still
-        // follows the source data's triangle winding, which two OPCs can disagree on; it
-        // is estimated once per dataset on the CPU (OpcSg.estimateNormalFlip). Kept out of
-        // generateNormal itself because that shader is in the main viewer's always-on OPC
-        // effect stack, where an unbound uniform makes FShade throw.
+        // Per-dataset winding correction, composed AFTER generateNormal: OPC exports
+        // disagree on triangle winding, and the projector-facing test needs outward
+        // normals. NormalFlip comes from NormalWinding.estimate -- bound eagerly by the
+        // offscreen tools, and per patch (lazily, only while projecting) by the viewer.
+        // Every scene graph composing this must bind NormalFlip; an unbound uniform throws.
         let applyNormalFlip (v : NormalVertex) =
             vertex {
                 return { v with localNormal = if uniform.NormalFlip > 0.5f then -v.localNormal else v.localNormal }

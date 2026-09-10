@@ -1010,12 +1010,8 @@ module ViewerUtils =
             ImageProjection.Shaders.generateNormal |> toEffect
             // Must follow generateNormal and precede anything that tests the normal
             // against the PROJECTOR (stableImageProjectionStack, projectedStackCoverage,
-            // hoveredProjectionOutline). OPC datasets are inconsistently wound; NormalFlip
-            // carries the per-dataset vote bound in Surface.Sg. The offscreen tools have
-            // always composed this -- the viewer did not, so on an inward-wound dataset
-            // its projection facing test was inverted and the image survived only near the
-            // limb. Terrain lighting is unaffected: solarShadingLS orients the normal
-            // toward the viewer itself.
+            // hoveredProjectionOutline). NormalFlip is bound per patch in Surface.Sg.
+            // Terrain lighting does not care: solarShadingLS orients the normal itself.
             ImageProjection.Shaders.applyNormalFlip |> toEffect
 
             Shader.fixAlpha |> toEffect

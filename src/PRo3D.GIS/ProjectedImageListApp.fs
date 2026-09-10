@@ -150,13 +150,11 @@ module ProjectedImageListApp =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"
                                     
-                // No .accordion() call here on purpose. These sections are nested inside
-                // GuiEx.accordion "Projected Images", and Semantic UI only supports
-                // nesting when the OUTERMOST accordion alone is initialised -- its
-                // selectors ('.title', '.content') resolve across all descendants, so a
-                // second call binds to the same inner titles and the inner panel never
-                // opens. Overriding the selectors with child combinators does not work
-                // either: Semantic UI leaves the widget uninitialised, silently.
+                // No .accordion() call here on purpose: these sections are nested inside
+                // GuiEx.accordion "Projected Images", and Semantic UI only supports nesting
+                // when the outermost accordion alone is initialised (its selectors resolve
+                // across all descendants, so an inner call steals the titles and the inner
+                // panel never opens).
                 (
                     div [styling] [
                         div [clazz "ui inverted accordion fluid"] [
@@ -319,10 +317,7 @@ module ProjectedImageListApp =
                 accordion "Projection Settings" "settings" false (style "margin-top: 6px") [
                     div [clazz "ui inverted list"] [
                         div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                            // the slider blends the projected stack over the terrain --
-                            // it was labelled "Visualization", which says nothing about
-                            // what it does and reads as a mode selector next to
-                            // "Visibility" below
+                            // blends the projected stack over the terrain
                             div [] [text "Image Opacity:"]
                             div [style "margin-left: auto;"] [
                                 Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity

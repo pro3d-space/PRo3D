@@ -82,11 +82,7 @@ module OpcSg =
 
             /// Which texture layer of the OPC to draw, by index into the layers the
             /// `.opcx` declares (see `OpcTextureLayers.read`). None draws the patch's
-            /// default, which is what this always did before the option existed -- and is
-            /// NOT necessarily what a PRo3D scene shows: a scene stores its own
-            /// `selectedTexture`, so the same OPC can render as "Earth" here and as
-            /// "DRACO_1" in the viewer. Comparing an offscreen render against a viewer
-            /// screenshot without matching these two is comparing different data.
+            /// default, which is not necessarily the `selectedTexture` a PRo3D scene shows.
             textureLayer : Option<int>
         }
 

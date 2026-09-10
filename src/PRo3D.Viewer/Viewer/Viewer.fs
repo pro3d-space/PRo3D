@@ -648,15 +648,9 @@ module ViewerApp =
                     let projPosB = camToBody.TransformPos V3d.Zero
                     let fwdB = camToBody.TransformDir(-V3d.OOI) |> Vec.normalize
                     let upB = camToBody.TransformDir V3d.OIO |> Vec.normalize
-                    // Stand off far enough to frame the instrument's footprint -- its
-                    // extent at the target distance -- in the VIEWER's own field of view,
-                    // not an assumed one. (This used to hard-code a factor of 0.87, i.e.
-                    // a ~60 degree viewer fov; the expression below reproduces that at 60
-                    // degrees and is right at any other.) Setting the viewer's focal
-                    // length to the instrument's therefore flies exactly to where the
-                    // instrument was, which is the only viewpoint from which the whole
-                    // projected image can land: from anywhere closer the camera sees
-                    // terrain the instrument could not.
+                    // Stand off far enough to frame the instrument's footprint in the
+                    // VIEWER's field of view; with the viewer's focal length set to the
+                    // instrument's, that is exactly the instrument's own position.
                     let footprint = 2.0 * pc.distance / pc.proj.Forward.M11
                     let standoff = max 1.0 (0.5 * footprint * (Frustum.projTrafo m.frustum).Forward.M11)
                     let posB = projPosB + fwdB * (pc.distance - standoff)
@@ -685,10 +679,7 @@ module ViewerApp =
                                 image.texture (Vec.dot fwd toBody)
                         CameraView.lookAt pos (pos + fwd) up |> Some
         | _ ->
-            // Name the missing precondition. Lumping three unrelated causes into one
-            // sentence is what this used to do, and starting PRo3D from empty trips all
-            // three in turn -- there is no way to tell from the old message which step of
-            // the setup is still outstanding.
+            // name each missing precondition: from an empty PRo3D all three trip in turn
             let missing =
                 [ if Option.isNone observerSystemOpt then
                       yield "no observed body is set (GIS tab -> Current Observation Settings -> Observed body)"
@@ -2442,46 +2433,17 @@ module ViewerApp =
             // Fly-to onto an image's projector axis. Handled here rather than in
             // ProjectedImageListApp because the camera is the Viewer's (D6).
             //
-            // The camera is SET, not animated, and that is deliberate.
-            // CameraAnimations.animateForwardAndLocation -- the deprecated animation path,
-            // see the AnimationMessage handler -- rotates forward and up out of the state
-            // it is handed while setting the location absolutely. Driven from here it put
-            // the camera at exactly the instrument's position and pointed it 180 degrees
-            // away, into empty space: bearing 80.54 / pitch -19.12 where looking at the
-            // body is 260.59 / +18.99, with a demonstrably correct CameraView going in
-            // (boresight dot direction-to-body = 1.0000). The target up is the
-            // instrument's, which comes through the improper mounting nearly opposite the
-            // camera being replaced, and that is the case the animation mishandles.
-            // An empty frame here is indistinguishable from a broken projection, so
-            // landing correctly matters more than the 3.5 s glide.
+            // The camera is SET, not animated: the deprecated
+            // CameraAnimations.animateForwardAndLocation landed it pointing 180 degrees
+            // away from the body. An animated fly-to via the Animator is a TODO.
             let m, gisApp =
                 match msg with
                 | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage imageId) ->
-                    // Take the scene's observation time to the image's own epoch FIRST,
-                    // then compute the camera from the updated state. The order is
-                    // load-bearing: the camera is derived from the projector pose in the
-                    // surface's body-fixed frame and carried into render space by the
-                    // surface's placement, and that placement depends on the clock. Set
-                    // the time afterwards and the body rotates out from under a camera
-                    // aimed at where it used to be -- 3 h is ~91 degrees on Dimorphos.
-                    // Measured when this was the wrong way round: flying to a frame whose
-                    // epoch matched the scene clock registered 0.9628 against its source,
-                    // while a frame 3 h away registered 0.046 with coverage down to 48.6%,
-                    // and the silhouette check still passed (IoU 0.95) because a triaxial
-                    // ellipsoid looks much the same whichever way it is turned -- which is
-                    // exactly why the orientation and content checks have to be run too.
-                    //
-                    // The projector itself does not need the clock: it is built in the
-                    // body-fixed frame at the image's own obs time, so the projection
-                    // sticks to the terrain whatever the scene time says. Everything
-                    // around it does -- the surface's placement, the sun, the spacecraft.
-                    // And flying to a 2027 image with the clock left at PRo3D's default
-                    // (2025-03-10, ObservationInfo.initial) puts every SPICE call outside
-                    // the mission kernels' coverage: the surface never gets placed, the
-                    // projection cannot resolve, and because SPICE calls serialise on a
-                    // global lock the failing calls repeat per frame and drag the UI down.
-                    // Flying to an image is the moment the user has said which epoch they
-                    // mean.
+                    // Set the scene time to the image's epoch FIRST, then compute the
+                    // camera: the camera is carried into render space by the surface's
+                    // placement, which depends on the clock -- the other order leaves the
+                    // body rotated out from under it. The projector itself is independent of
+                    // the scene time; the sun, the placement and kernel coverage are not.
                     let gisApp =
                         match PRo3D.ImageMapping.ProjectedImageListModel.tryFind imageId gisApp.projectedImageList with
                         | None -> gisApp
