@@ -140,6 +140,24 @@ let private roundTripTest =
                     Expect.isLessThan r.pixels 0.1
                         "the viewer must reconstruct the same camera from the sidecar we wrote"
                     Expect.isLessThan r.boresight 1.0e-3 "boresight must round-trip"
+
+                // The metric must be able to fail: against a camera tilted by a known angle,
+                // the reported miss has to be that angle in pixels. (It once read the field
+                // of view out of view * proj and came out negative, passing the check above
+                // for any sidecar at all.)
+                let tiltDeg = 0.05
+                let tilted = view * Trafo3d.RotationXInDegrees tiltDeg
+                let fovYDeg = 2.0 * atan (1.0 / proj.Forward.M11) * Constant.DegreesPerRadian
+                let expected = tiltDeg * float ctx.size.Y / fovYDeg
+                match MbiSidecar.verify ctx imagePath (tilted * proj) observer with
+                | Result.Error e -> failtestf "could not verify against the tilted camera: %s" e
+                | Ok r ->
+                    printfn "[mbiSidecar] tilted %.2f deg: worst corner %.3f px (expected ~%.3f)"
+                        tiltDeg r.pixels expected
+                    Expect.isGreaterThan r.pixels (0.8 * expected)
+                        "a tilted camera must be reported as a miss of about the tilt, in pixels"
+                    Expect.isLessThan r.pixels (1.2 * expected)
+                        "a tilted camera must be reported as a miss of about the tilt, in pixels"
         finally
             try Directory.Delete(dir, true) with _ -> ()
     }

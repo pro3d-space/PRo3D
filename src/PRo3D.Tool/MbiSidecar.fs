@@ -319,7 +319,12 @@ let verify (ctx : Context) (imagePath : string) (rendered : Trafo3d) (observer :
     // corner directions carry roll and fov; express the miss in pixels so it is comparable
     // with what a user would see
     let corners = [ V2d(-1.0, -1.0); V2d(1.0, -1.0); V2d(-1.0, 1.0); V2d(1.0, 1.0) ]
-    let pixelsPerDegree = float ctx.size.Y / (2.0 * atan (1.0 / rendered.Forward.M11) * Constant.DegreesPerRadian)
+    // The vertical field of view, measured between the frustum's own top and bottom rays.
+    // `rendered` is view * proj, so no single element of it is the projection's scale: M11
+    // is that scale times a component of the camera's up vector, which made this negative
+    // for half of all attitudes -- and a negative error passes every "< threshold" check.
+    let fovY = angleDeg (dirOf rendered (V2d(0.0, -1.0))) (dirOf rendered (V2d(0.0, 1.0)))
+    let pixelsPerDegree = float ctx.size.Y / fovY
     let pixels =
         corners
         |> List.map (fun c -> angleDeg (dirOf rendered c) (dirOf readBack c) * pixelsPerDegree)
