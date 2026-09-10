@@ -197,24 +197,31 @@ let tests () =
                 Expect.isSome hit "quaternion-based center ray should hit round Didymos"
         }
 
-        // Reproduces the original race (HSH + ASPECT interleaved across threads) and checks
-        // every concurrent HSH result still matches a fresh sequential baseline.
+        // Reproduces the original race: projectOntoQuat and projectOnto, each several
+        // native calls, running interleaved across threads.
+        //
+        // All 50 items use one fixture. Half HSH and half ASPECT, as this was, is not a
+        // scenario with a meaning: those two name different meta-kernels, only one loads
+        // at a time, and loading is DeInit + Init + furnsh -- so half the threads were
+        // freeing the kernels the other half were reading (usually an access violation,
+        // otherwise an HSH lookup answered by the plan kernel, which came back None and
+        // was dropped by the Array.choose). One fixture keeps the pool constant, so the
+        // race is the intended one and every result has to resolve. Cross-kernel
+        // behaviour is covered by the sequential tests above.
         test "concurrent projectOntoQuat/projectOnto calls no longer corrupt each other's results" {
             let baseline =
                 match computeHshAngle () with
                 | Some angle -> angle
                 | None -> failtest "baseline HSH computation returned None -- cannot run the concurrency check"
 
-            let work =
-                Array.append
-                    (Array.init 25 (fun _ -> async { return Choice1Of2 (computeHshAngle ()) }))
-                    (Array.init 25 (fun _ -> async { return Choice2Of2 (computeAspectResolves ()) }))
-
+            let work = Array.init 50 (fun _ -> async { return computeHshAngle () })
             let results = work |> Async.Parallel |> Async.RunSynchronously
-            let hshAngles = results |> Array.choose (function Choice1Of2 a -> a | _ -> None)
-            Expect.isGreaterThan hshAngles.Length 0 "expected at least one concurrent HSH result to resolve"
 
-            for angle in hshAngles do
+            let unresolved = results |> Array.filter Option.isNone |> Array.length
+            Expect.equal unresolved 0
+                "every concurrent HSH computation must resolve -- the kernel it needs stays loaded throughout"
+
+            for angle in results |> Array.choose id do
                 Expect.floatClose Accuracy.high angle baseline
                     (sprintf "concurrent HSH result %.6f drifted from baseline %.6f -- SPICE calls are racing again" angle baseline)
         }

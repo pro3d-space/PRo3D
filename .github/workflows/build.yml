@@ -52,6 +52,59 @@ jobs:
       - name: Build
         run: ${{ matrix.run-build }}
 
-      # kernel-independent tests (HERA tests skip themselves via --skip-hera)
+      # kernel-independent tests (HERA tests skip themselves via --skip-hera).
+      # The kernel-backed ones run in the spice-tests job below.
       - name: Test
         run: ${{ matrix.run-tests }}
+
+  # The HERA SPICE tests, which need ~1.3 GB of ESA mission kernels. Linux only, on
+  # purpose: kernels are platform-independent data files, and one cache entry of that
+  # size per OS would crowd the paket caches out of the repository's 10 GB budget.
+  spice-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Paket
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages
+            paket-files
+          key: ${{ runner.os }}-paket-${{ hashFiles('paket.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-paket-
+
+      # Keyed on the pins, not on anything ESA controls: publishing a new SKD (which
+      # happens every few weeks) must not invalidate this, and bumping a pin must.
+      # restore-keys hands a pin bump the previous tree, so it refetches one changed
+      # meta-kernel closure instead of all four.
+      - name: Cache SPICE kernels
+        uses: actions/cache@v6
+        with:
+          path: spice
+          key: ${{ runner.os }}-spice-${{ hashFiles('scripts/spice-kernels.pins') }}
+          restore-keys: |
+            ${{ runner.os }}-spice-
+
+      # Runs on a cache hit too: it verifies the restored tree offline against its own
+      # manifest and exits in a second when complete, and repairs a partial restore
+      # instead of letting it fail much later inside CSPICE.
+      - name: Fetch SPICE kernels
+        run: bash scripts/fetch-spice-kernels.sh spice
+
+      - name: Build
+        run: sh ./build.sh
+
+      # Everything, including the HERA tests. Tests needing private data or a GL
+      # context still skip themselves here.
+      - name: Test
+        env:
+          PRO3D_SPICE_KERNELS: ${{ github.workspace }}/spice
+        run: bash ./runAllTests.sh

@@ -176,8 +176,7 @@ let private sunAngleTests =
             // The ASPECT sidecar names a planning kernel; ops does not cover the epoch.
             // Going through ensureKernelAt reuses the suite's tracking, so this is a no-op
             // when that kernel is already active.
-            let mkDir = Path.GetDirectoryName HeraSpiceTests.spiceFileName
-            HeraSpiceTests.ensureKernelAt [ Path.Combine(mkDir, "hera_plan.tm"); HeraSpiceTests.spiceFileName ]
+            HeraSpiceTests.ensureKernelAt [ Path.Combine(HeraSpiceTests.mkDir, "hera_plan.tm"); HeraSpiceTests.spiceFileName ]
 
             let outDir = Path.Combine(Path.GetTempPath(), "pro3d-tool-tests", Guid.NewGuid().ToString("N"))
             Directory.CreateDirectory outDir |> ignore
@@ -267,8 +266,7 @@ let private simulateImageTests =
             | Result.Error e -> skiptest (sprintf "no resolvable ASPECT image: %s" e)
             | Result.Ok img ->
 
-            let mkDir = Path.GetDirectoryName HeraSpiceTests.spiceFileName
-            HeraSpiceTests.ensureKernelAt [ Path.Combine(mkDir, "hera_plan.tm"); HeraSpiceTests.spiceFileName ]
+            HeraSpiceTests.ensureKernelAt [ Path.Combine(HeraSpiceTests.mkDir, "hera_plan.tm"); HeraSpiceTests.spiceFileName ]
 
             let outDir = Path.Combine(Path.GetTempPath(), "pro3d-tool-tests", Guid.NewGuid().ToString("N"))
             Directory.CreateDirectory outDir |> ignore
