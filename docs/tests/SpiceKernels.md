@@ -102,7 +102,10 @@ the kernel-backed suite in a separate `spice-tests` job:
 
 1. `actions/cache` on `spice/`, keyed by `hashFiles('scripts/spice-kernels.pins')` — an
    ESA release does not invalidate it, a pin bump does. `restore-keys` hands a bumped run
-   the previous tree, so it refetches one closure instead of four.
+   the previous tree, so it refetches one closure instead of four. Note the two hashes
+   are not the same: `hashFiles` covers the whole file, while the script's completeness
+   check hashes only the pin lines — so editing a comment there costs a new 1.2 GB cache
+   entry, but no downloads.
 2. `bash scripts/fetch-spice-kernels.sh spice`, cache hit or not.
 3. `PRO3D_SPICE_KERNELS=$GITHUB_WORKSPACE/spice bash ./runAllTests.sh`.
 
