@@ -41,11 +41,25 @@ import sys
 
 import numpy as np
 
-EPOCHS = ["14:00:00", "17:00:00", "20:00:00", "23:00:00"]
-DATE = "2027-03-21"
-# Dimorphos rotates in about 11.9 h, so 3 h apart is roughly a quarter turn: the four
-# frames see genuinely different faces, which is what makes them useful as a stack and as
-# a test that flying between them carries the scene clock along.
+# HARD-CODED DEFAULTS, not discovered values. The script does not ask the kernels what
+# they cover: doing that properly needs spiceypy (see src/Tests/spice_coverage_tests.py)
+# and is not worth the dependency here. So the epoch is a plain --date/--epochs argument
+# with a default that is known to work against hera_plan.tm. Point it at a different
+# kernel set without changing the date and the renders will simply fail, with SPICE
+# saying so.
+#
+# Why this one: 2027-03-21 lies inside hera_plan.tm's coverage with HERA in close orbit at
+# Dimorphos, which puts the ranges at 6.7-8.4 km and the phase angle low enough that the
+# lit frames show the whole disk. Dimorphos rotates in about 11.9 h, so epochs 3 h apart
+# are roughly a quarter turn each: the four frames see genuinely different faces, which is
+# what makes the set useful as a stack and as a test that flying between them carries the
+# scene clock along.
+#
+# Change --date/--epochs for a different mission phase or kernel set. The sidecar check at
+# the end prints each frame's range, which is the quickest way to see whether the geometry
+# the new epoch produced is sensible.
+DEFAULT_EPOCHS = ["14:00:00", "17:00:00", "20:00:00", "23:00:00"]
+DEFAULT_DATE = "2027-03-21"
 
 
 def run_tool(repo, args, quiet=False):
@@ -168,9 +182,23 @@ def main():
                     help="fixed gain for the lit frames, so a series is comparable")
     ap.add_argument("--scene-template", default=None,
                     help="a .pro3d to derive ProjectionTest.pro3d from; skipped if absent")
+    ap.add_argument("--date", default=DEFAULT_DATE,
+                    help="UTC date for the frames (default %s); must lie inside the "
+                         "loaded kernels' coverage" % DEFAULT_DATE)
+    ap.add_argument("--epochs", default=",".join(DEFAULT_EPOCHS),
+                    help="comma-separated UTC times on that date (default %s)"
+                         % ",".join(DEFAULT_EPOCHS))
     ap.add_argument("--list-layers", action="store_true",
                     help="print the OPC's texture layers and exit")
     a = ap.parse_args()
+    date = a.date
+    epochs = [e.strip() for e in a.epochs.split(",") if e.strip()]
+    if not epochs:
+        print("--epochs is empty")
+        return 2
+    # the scene's camera goes on one frame's axis; the third by default, which in the
+    # shipped set is the closest pass (6.7 km) and so the most detailed frame
+    best_epoch = epochs[2] if len(epochs) > 2 else epochs[-1]
 
     common = ["--opc", a.opc, "--body", "DIMORPHOS", "--frame", "DIMORPHOS_FIXED",
               "--observer", "HERA", "--instrument", "HERA_AFC-1"]
@@ -180,7 +208,7 @@ def main():
     if a.list_layers:
         # an unmatched name makes the tool print what the OPC declares
         p = run_tool(repo, ["simulate-image"] + common +
-                     ["--time", "%sT14:00:00Z" % DATE, "--texture-only",
+                     ["--time", "%sT%sZ" % (date, epochs[0]), "--texture-only",
                       "--texture-layer", "__list__", "--out", os.devnull], quiet=True)
         print((p.stdout or "") + (p.stderr or ""))
         return 0
@@ -192,18 +220,28 @@ def main():
     # epoch stays the only underscore-separated field in the stem
     tag = a.texture_layer.replace("_", "")
 
-    for t in EPOCHS:
-        stamp = "%s_%s" % (DATE.replace("-", ""), t.replace(":", ""))
-        iso = "%sT%sZ" % (DATE, t)
+    failed = []
+    for t in epochs:
+        stamp = "%s_%s" % (date.replace("-", ""), t.replace(":", ""))
+        iso = "%sT%sZ" % (date, t)
         print(" %s  unlit (%s)" % (iso, a.texture_layer))
-        run_tool(repo, ["simulate-image"] + common +
-                 ["--time", iso, "--texture-only", "--texture-layer", a.texture_layer,
-                  "--write-mbi", "--out",
-                  os.path.join(a.out, "AFC1_%s_%s.png" % (tag, stamp))])
+        p1 = run_tool(repo, ["simulate-image"] + common +
+                      ["--time", iso, "--texture-only", "--texture-layer", a.texture_layer,
+                       "--write-mbi", "--out",
+                       os.path.join(a.out, "AFC1_%s_%s.png" % (tag, stamp))])
         print(" %s  lit" % iso)
-        run_tool(repo, ["simulate-image"] + common +
-                 ["--time", iso, "--gain", a.gain, "--write-mbi", "--out",
-                  os.path.join(a.out, "AFC1_SIM_%s.png" % stamp)])
+        p2 = run_tool(repo, ["simulate-image"] + common +
+                      ["--time", iso, "--gain", a.gain, "--write-mbi", "--out",
+                       os.path.join(a.out, "AFC1_SIM_%s.png" % stamp)])
+        # A failed render leaves no files behind, and the sidecar check below only looks
+        # at what IS there -- so without this a half-empty data set reports "all sidecars
+        # pass". The usual cause is an epoch where the body is not in the instrument's
+        # field of view, or one outside the kernels' coverage; the tool says which.
+        for kind, pr in (("unlit", p1), ("lit", p2)):
+            if pr.returncode != 0:
+                why = [l.strip() for l in ((pr.stdout or "") + (pr.stderr or "")).splitlines()
+                       if "ERROR" in l]
+                failed.append((iso, kind, why[-1] if why else "exit %d" % pr.returncode))
 
     print("\nsidecar check -- A^T*TRG_POS must be close to (0, 0, +1):")
     bad = check_sidecars(a.out)
@@ -212,7 +250,7 @@ def main():
         # index is resolved by the tool from the .opcx; the viewer needs it too, and the
         # two orderings have differed between OPC exports, so read it rather than assume
         p = run_tool(repo, ["simulate-image"] + common +
-                     ["--time", "%sT14:00:00Z" % DATE, "--texture-only",
+                     ["--time", "%sT%sZ" % (date, epochs[0]), "--texture-only",
                       "--texture-layer", "__list__", "--out", os.devnull], quiet=True)
         idx = None
         for line in ((p.stdout or "") + (p.stderr or "")).splitlines():
@@ -224,18 +262,24 @@ def main():
         if idx is None:
             print("could not resolve '%s' to an index; scene not written" % a.texture_layer)
         else:
-            best = "%s_%s" % (DATE.replace("-", ""), EPOCHS[2].replace(":", ""))
+            best = "%s_%s" % (date.replace("-", ""), best_epoch.replace(":", ""))
             out = os.path.join(a.out, "ProjectionTest.pro3d")
             write_scene(a.scene_template, out, a.opc, a.texture_layer, idx,
                         os.path.join(a.out, "AFC1_%s_%s.mbi.json" % (tag, best)),
-                        "%sT%s.0000000Z" % (DATE, EPOCHS[2]))
+                        "%sT%s.0000000Z" % (date, best_epoch))
             print("\nwrote %s (texture %s index %d, camera on the %s frame's axis)"
-                  % (out, a.texture_layer, idx, EPOCHS[2]))
+                  % (out, a.texture_layer, idx, best_epoch))
 
+    if failed:
+        print("\n%d of %d renders FAILED:" % (len(failed), 2 * len(epochs)))
+        for iso, kind, why in failed:
+            print("   %s %-5s  %s" % (iso, kind, why))
     if bad:
         print("\n%d sidecar(s) FAILED the boresight invariant" % bad)
+    if failed or bad:
         return 1
-    print("\nall sidecars pass the boresight invariant")
+    print("\nall %d renders succeeded and every sidecar passes the boresight invariant"
+          % (2 * len(epochs)))
     return 0
 
 
