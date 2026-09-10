@@ -438,6 +438,7 @@ module TestViewer =
                 //do! Shader.LoDColor
             }
             |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
+            |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
             |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
             |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant defaultSecondaryTextureId)
             |> Sg.uniform "LodVisEnabled" (cval false)
