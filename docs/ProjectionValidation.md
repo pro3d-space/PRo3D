@@ -8,10 +8,12 @@ is something we can construct rather than assume. Everything here is
 reproducible from [`pro3d-tool`](./Pro3DTool-SimulateImage.md) and the
 Playwright harness in `tests-ui/`; the numbers are what those runs printed.
 
-**Where things stand.** The projection *shader* is proven correct (step 1
-below, to a mean of 0.077 DN). The production viewer is **not** yet validated,
-and currently does not project our own dataset correctly. Two further things
-make images look wrong independently of any of that:
+**Where things stand.** All three rungs pass, the production viewer included.
+Projecting an AFC frame back onto the shape model it was rendered against, from
+that frame's own camera, reproduces the frame **at zero pointing offset** in all
+three — see [the proof](#the-proof) below.
+
+Two things still make images look wrong independently of the projection itself:
 
 1. **Orientation Source** defaults to *SPICE*, which reads no pointing from the
    image at all — it aims the camera at the body centre with a fixed roll. Real
@@ -32,14 +34,62 @@ impression, and each only meaningful once the one below it holds:
 | 2 | the stack shader (`stableImageProjectionStack`), offscreen, same image and camera — must equal step 1 | **passed**, below |
 | 3 | the production viewer, same image and camera — must equal step 2 | **passed**, below |
 
-All three pass. Step 1 and 2 compare the render against the source image DN for
-DN; step 3 cannot (the viewer has its own field of view and standoff) and
-compares the projection against the terrain underneath it instead, which turns
-out to be the sharpest test of the three.
+All three pass, and all three are now compared the same way: against the source
+image itself.
 
-Both prerequisites for step 3 are now in: a *Transfer Function* toggle (off =
-the image's own RGB, so the render is comparable to the source rather than to a
-colour-mapped version of it), and the viewer's missing `NormalFlip` binding.
+Step 3 used to be excused from that ("the viewer has its own field of view and
+standoff") and compared against the terrain underneath instead. It no longer
+needs the excuse. Flying to the image puts the camera on the projector's own
+axis, and setting *Focal (mm)* to the instrument's makes the viewer's field of
+view the instrument's, so the render is the same gnomonic projection of the same
+scene as the source frame — just on a different pixel grid. Resample by the
+width ratio and the two must agree **at zero shift**. That is a stronger claim
+than fitting each body's bounding box: a fit quietly absorbs a real pointing
+error and then reports a meaningless few-pixel residual, which is exactly what
+an earlier version of this page did.
+
+Prerequisites for step 3, all now in: the *Transfer Function* toggle (off = the
+image's own RGB, so the render is comparable to the source rather than to a
+colour-mapped version of it), the viewer's missing `NormalFlip` binding, a
+fly-to that lands pointing at the body, and the projector matrix fix below.
+
+<a name="the-proof"></a>
+### The proof
+
+One AFC-1 frame of Dimorphos (`--texture-only`, so the comparison is of geometry
+and not of a lighting model), projected back onto `Dimorphos_0_Meridian` from
+its own camera at 8 040.7 m:
+
+| rung | correlation at zero shift | best shift found | mean ΔDN over the body |
+|---|---|---|---|
+| **1** tool, single-image shader | **0.9999** | (0, 0) px | 0.175 |
+| **2** tool, stack shader | **1.0000** | (0, 0) px | 0.006 |
+| **3** viewer, production render | **0.9758** | (0, 0) px | 3.37 |
+
+The search ranged ±24 px (±0.12°, ±17 m at that range) and found its maximum at
+zero in every case — there is no residual pointing offset to explain.
+
+Rungs 1 and 2 (offscreen, source → single shader → stack shader):
+
+![the tool reproduces the frame through both shaders](images/projectionValidation/proof-tool.png)
+
+Rung 3, the production viewer — source left, viewer right, same angular scale,
+*Transfer Function* off so the layer is painted as its own RGB:
+
+![the viewer reproduces the frame](images/projectionValidation/proof-viewer.png)
+
+The viewer's 0.9758 (0.9831 over body pixels alone) is lower than the tool's
+1.0000 for reasons that are not pointing: it resamples the image through the
+terrain's texture pipeline, it renders 95.9% of the source's lit pixels rather
+than all of them (the rest is the sliver at the limb the projector genuinely
+cannot see, plus the 1100 vs 1020 grid), and its background is DN 34 rather than
+0. Measuring ΔDN over the union of the two bodies rather than their overlap
+reports 33.6 instead of 3.37, which is the background offset and not a
+projection error — worth stating because that is a trap this page fell into.
+
+Coverage, measured with the shader's own coverage view (*Visibility →
+RelativeCount*) rather than by diffing screenshots: **99.8%** of body pixels.
+The missing 0.2% is terrain the projector cannot see.
 
 ## 1. The projection shader reproduces the image it was given
 
@@ -163,19 +213,54 @@ Camera on that image's own axis at 250 m, *Orientation Source* = MBI,
 |---|---|
 | ![terrain, DRACO](images/projectionValidation/step3-terrain-draco.png) | ![the image projected](images/projectionValidation/step3-projected-draco.png) |
 
-Over the mosaic the two are indistinguishable. Measured by cross-correlating the
-high-pass filtered frames — which finds the shift that best aligns them, so a
-misregistration would show as a non-zero peak:
+> **It is visible in the figure above, if you look at the dark side.** The
+> right-hand frame has a bright smeared crescent in the shadowed region, with
+> hard stair-stepped edges, that is simply not in the terrain frame. Split the
+> difference by brightness and the metric's blind spot is obvious:
+>
+> | region | mean \|ΔDN\| | pixels differing > 6 DN |
+> |---|---|---|
+> | lit mosaic — the region the 1.0000 was measured over | 1.219 | 0.88% |
+> | dark side — excluded by that region | 8.968 | **9.89%** |
+>
+> 12,007 pixels went from terrain **DN 0.0** to projected **DN 95.9**: 5.75% of
+> the frame, bright content painted onto pure-black terrain. Isolated (red):
+>
+> ![the projection spilling onto the dark side](images/projectionValidation/step3-draco-spill.png)
+>
+> The stretching is a projector at grazing incidence; the stair-stepping is the
+> per-triangle facing test working from a misrotated normal. Both are symptoms
+> of the double rotation — and both were sitting in the figure while the number
+> underneath it said "exact".
+>
+> **This comparison was a false positive, and is kept here as a warning.** It
+> reported best correlation **1.0000** at shift **(0, 0)**, mean ΔDN **0.000**
+> over 342,635 lit pixels, 99.99% bit-identical — and concluded "the production
+> viewer's projection is exact". It was not: at that time the projector matrix
+> carried a double body rotation, and the projection covered only a fraction of
+> the frame.
+>
+> The metric is what failed. Correlating *the viewer against the terrain
+> underneath it* asks "did these two frames stay the same", and the answer is
+> dominated by the pixels the projection never touched. The more the projection
+> was broken, the fewer pixels it repainted, and the *closer* to 1.0000 the
+> score got. A test whose score improves as the thing under test gets worse is
+> not a test.
+>
+> The same trap sits in the `bodyCoverage` helper, which counts pixels that
+> **changed** and so cannot distinguish "not covered" from "covered by a value
+> that happens to match". On one frame it reported 8.5% where the shader's own
+> coverage view reported 41.3%.
+>
+> Two rules came out of this, and the proof at the top of this page follows
+> both: **compare against the source image, never against the thing being
+> painted over**, and **measure coverage with the coverage view** (*Visibility
+> → RelativeCount*), which reports what the shader actually covered.
 
-| | |
-|---|---|
-| region | 600 × 630 px over the mosaic |
-| best correlation | **1.0000** |
-| at shift | **(0, 0) px** |
-| mean \|ΔDN\|, 342,635 lit pixels | **0.000** |
-| bit-identical | **99.99%** |
-
-Zero shift, zero difference. The production viewer's projection is exact.
+With the projector fixed, the honest version of this test — the viewer against
+the **source frame**, at the instrument's own field of view and standoff — is
+[the proof](#the-proof): correlation **0.9758** at **zero** shift, coverage
+**99.8%**.
 
 ### Reading the right-hand side
 
@@ -250,6 +335,11 @@ The same dataset on an Earth-textured OPC, camera on the image's axis at 220 m
 | before the `NormalFlip` fix, 500 m | 17.1% | 0.01% |
 | after, 500 m | 86.2% | 0.08% |
 | after, 220 m | 92.1% | 0.23% |
+
+These are *changed-pixel* numbers, taken before the double-rotation fix, and
+they are kept only to show the direction the `NormalFlip` binding moved things.
+They understate coverage for the reason given in step 3 above. The number to
+trust is the coverage view's: **99.8%**.
 
 ## Supporting evidence: real data, ASPECT at Didymos
 
@@ -363,51 +453,85 @@ further here.
   min/max remap and the colour map. Instrument data still defaults to the
   transfer function; an RGB image does not need it, and a projection cannot be
   *checked* against its source through a colour map.
+- **The body's own rotation was applied twice — the one defect that actually
+  broke the viewer.** The per-patch projector matrices composed
+  `vp.Forward * modelTrafo.Forward * Local2Global.Forward`. But these are applied
+  to the raw *patch-local* position, and `Local2Global` already carries that to
+  the surface's body-fixed frame — which is the frame `computeProjector` builds
+  `vp` in ("the surface's reference frame — body-fixed, so the projection sticks
+  to the terrain regardless of the scene's current time"). The model trafo then
+  applied pxform, body-fixed → observer frame, a *second* time.
+
+  Measured on one AFC frame projected back from its own camera: correlation with
+  the source **0.028 → 0.976**. Setting the scene's observation frame to
+  `DIMORPHOS_FIXED`, which makes the model trafo identity, gives the same
+  improvement by hand — which is what confirmed the diagnosis.
+
+  The removed line carried the note *"the surface model trafo is required; it
+  only worked without while every body sat at identity"*. What it compensated
+  for is that `computeProjector` falls back to `"J2000"` when a surface has no
+  GIS reference system — and such a surface has no entity either, so
+  `getSurfaceTrafo` returns `None` and the model trafo is identity anyway.
+
+  **This is why the offscreen tools were always right and only the viewer was
+  wrong**: the tools place the OPC without a GIS transform, so their model trafo
+  is identity and the extra rotation was the identity matrix. `sun-angles`,
+  `unproject`, `simulate-image` and both testbeds were never affected.
+
 - **The viewer never bound `NormalFlip`.** The offscreen tools estimate each
   dataset's winding and bind it; the viewer did not, and worked around it for
   *lighting* by orienting the face normal toward the viewer. That cannot work
-  for the projection, whose facing test is relative to the **projector**. On an
-  inward-wound OPC the test was inverted and the projection survived only near
-  the limb. The heuristic now lives in `PRo3D.Core.NormalWinding.estimate` (one
-  implementation for the tools and the viewer), `Surface.Sg` binds it per
-  hierarchy, and the surface effect composes `applyNormalFlip`. Measured:
-  `Dimorphos_0_Meridian` votes 98 outward (flip 0), the test-repo
-  `HERA/Dimorphos` 26 inward (flip 1).
+  for the projection, whose facing test is relative to the **projector**. The
+  heuristic now lives in `PRo3D.Core.NormalWinding.estimate` (one implementation
+  for the tools and the viewer), `Surface.Sg` binds it per hierarchy, and the
+  surface effect composes `applyNormalFlip`. Measured: `Dimorphos_0_Meridian`
+  votes 0 outward / 26 inward (flip 1).
 
-  This governed *coverage*, not alignment — it explained a crescent, not a shift.
+  This governs *coverage*, not alignment — it explains a crescent, not a shift.
+
+- **A wrong turn worth recording: the projector-facing test is fine.** Before
+  the double rotation was found, the `normal.Z < 0` test looked like the
+  culprit: forcing `NormalFlip 1` covered 40.9% of the body and forcing 0
+  covered 58.0% — union 98.8%, overlap 0.2%, which reads as "this OPC is not
+  consistently wound, so one flip per hierarchy cannot work", and the test was
+  removed.
+
+  That reading was wrong. The facing test evaluates
+  `ProjectedStackTrafos[i].TransformDir(localNormal).Z`, using the *same* matrix
+  that carried the double rotation. The normals in the test were being
+  misrotated, splitting the body along a plane set by the erroneous rotation and
+  unrelated to the triangle winding. With the rotation fixed the test covers
+  **99.8%** (against 99.7% with it removed) — it now costs 0.1%, which is the
+  terrain the projector genuinely cannot see. The test was restored.
+
+  The lesson generalises: a test that consumes a broken matrix fails in a
+  pattern that looks like a bug in the test.
 
 - **The fly-to landed the camera in the right place pointing the wrong way.**
-  *Fly to this image* (the location arrow on an image's row) put the camera at
-  exactly the instrument's position — position residual 0 m against the
-  sidecar — and aimed it 180 degrees away, into empty space. The frame came
-  back entirely empty, which is indistinguishable from a broken projection, and
-  it cost most of a day: every check on the *position* passed, because at the
-  instrument's own focal length `standoff` equals `pc.distance`, so the sign
-  error cancels out of `posB = projPos + fwd * (distance - standoff)` and
-  survives only in the orientation.
+  *Fly to this image* put the camera at exactly the instrument's position —
+  position residual 0 m against the sidecar — and aimed it 180° away. The frame
+  came back empty, which is indistinguishable from a broken projection. Every
+  check on the *position* passed, because at the instrument's own focal length
+  the standoff equals the range and the sign error cancels out of
+  `pos = projPos + fwd * (distance - standoff)`, surviving only in the
+  orientation.
 
-  The camera handed to the animation was correct — logged
-  `dot(boresight, direction-to-body) = 1.0000` — so the mangling was in
-  `CameraAnimations.animateForwardAndLocation`, the deprecated animation path
-  (`transformLocationForwardUp` rotates forward and up out of the state it is
-  given while setting the location absolutely). The target up here is the
-  instrument's, which through the improper mounting comes out nearly opposite
-  the current one. The fly-to now **sets** the camera instead of animating it:
-  landing correctly matters more than the 3.5 s glide.
+  The camera handed to the animation was correct (`dot(boresight,
+  direction-to-body) = 1.0000`); `CameraAnimations.animateForwardAndLocation`
+  — the deprecated animation path — rotates forward and up out of the state it
+  is given while setting the location absolutely, and mishandles a target up
+  that is nearly opposite the current one, which the instrument's is. The fly-to
+  now **sets** the camera. `tests-ui/tests/looking-at-dimorphos.spec.ts` asserts
+  the body is in frame and the right apparent size (22.6% of frame width against
+  22.8% predicted from the sidecar's range), so it cannot regress silently.
 
-  Measured before/after at the AFC's 8.041 km, viewer fov set to AFC-1's
-  5.5307 degrees: lit fraction 0.00% → 3.23%, matching a reference render
-  whose camera was written straight into the scene file (3.23%); apparent body
-  width 22.6% of frame width against 22.8% predicted from the sidecar's range.
-  `tests-ui/tests/looking-at-dimorphos.spec.ts` asserts exactly that, so this
-  cannot regress silently.
-
-  Three plausible-looking fixes were falsified before this one, each by
-  measurement rather than inspection: correcting the sign where the axis is
-  extracted (`camToBody.TransformDir(-V3d.OOI)`), correcting it again in render
-  space, and seeding the animation state with the current camera. All three
-  were no-ops — the bearing never moved — which is what finally pointed at
-  the animation rather than at the pose.
+- **The transfer function was not a property.** `UseFalseColor` was bound in
+  `ColorMapping.fs` as `p.colorMapping |> AVal.map Option.isSome`, and
+  `getProjectionVisualizationProperties` always supplies a colour map for the
+  selected image — so it was effectively always on. Now a real
+  `useTransferFunction` flag on `ProjectedImageListModel`, with a checkbox in
+  *Projection Settings*; off paints the layer's own RGB. A projection cannot be
+  *checked* against its source through a colour map.
 
 ## Still open
 
