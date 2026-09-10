@@ -82,8 +82,8 @@ type PickPivot =
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
-type ViewerAction =     
-| InvertDrawing
+type ViewerAction =
+| ToggleDirectToolMode
 | DrawingMessage                  of DrawingAction
 | AnnotationGroupsMessageViewer   of GroupsAppAction
 | NavigationMessage               of Navigation.Action
@@ -102,8 +102,10 @@ type ViewerAction =
 | DnSColorLegendMessage           of FalseColorLegendApp.Action
 | SceneObjectsMessage             of SceneObjectAction
 | FrustumMessage                  of FrustumProperties.Action
-| SetCamera                       of CameraView        
-| SetCameraAndFrustum             of CameraView * double * double        
+| SetCamera                       of CameraView
+| OrientCameraToGizmoAxis         of NavigationGizmo.GizmoAxis
+| ToggleNavigationAxisLock        of NavigationAxis
+| SetCameraAndFrustum             of CameraView * double * double
 | SetCameraAndFrustum2            of CameraView * Frustum
 | SetFrustum                      of Frustum
 | SetRenderViewportSize           of V2i
@@ -128,7 +130,10 @@ type ViewerAction =
 | PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d> * Option<AttributeHit>
 
 
-| PickObject                      of V3d*Guid
+// PickObject is dead: nothing dispatches it (its SurfaceApp call sites were commented out
+// long ago) and its handler gated on Model.picking, which nothing writes any more. Kept
+// commented rather than deleted in case the object-pick flow is ever revived.
+//| PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
 | SetScenePath                    of string // used to set hint path in scene (e.g. to be used in top menu bar)
@@ -632,7 +637,10 @@ type Model = {
     picking          : bool
     pivotType        : PickPivot
     ctrlFlag         : bool
-    inverseFlag      : bool
+    /// "Direct Tool Mode": the active tool owns the left mouse button without Ctrl,
+    /// and camera navigation moves to the middle (pan) and right (orbit) buttons.
+    /// Session-only, never persisted. See docs/DirectToolMode.md.
+    directToolMode   : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>

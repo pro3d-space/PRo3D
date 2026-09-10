@@ -108,14 +108,22 @@ module PackedRendering =
                 if c.Length > 1.0f then
                     discard()
 
+                // the sprite reads as a small sphere: every fragment sits on the hemisphere
+                // facing the camera, so its depth is that of the view-space centre pushed towards
+                // the viewer along the sprite normal. The offset stays in XYZ - carrying it in a
+                // V4f would also move the point off the w=1 plane and project it to an entirely
+                // different depth.
                 let n = V3f(c, sqrt(1.0f -  Vec.dot c c)) |> Vec.normalize
-                let p = v.np + V4f(n, 1.0f)
+                let p = V4f(v.np.XYZ + n, 1.0f)
 
                 let pp = uniform.ProjTrafo * p
-                let nd = pp.Z / pp.W
-                let d = (nd + 1.0f) / 2.0f
-
-                let d = (d - uniform.DepthOffset)  / v.pos.W
+                // Identical to PRo3D.Base.Shader.DepthOffset.depthOffsetFS, which is what the
+                // lines and fills use: a bias applied in clip space and divided by w, so it stays
+                // a constant distance in world units. Dividing the *depth* by w - what this did
+                // before - drove every distant dot towards 0, i.e. in front of everything, which
+                // is why dots showed through the terrain from the far side of the planet while
+                // the lines and fills of the same annotation did not.
+                let d = (pp.Z - uniform.DepthOffset) / pp.W
                 return { v with c = v.c;  depth = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0f  }
             }
 
@@ -643,12 +651,16 @@ module PackedRendering =
     let orderedAnnotations (annoSet : aset<Guid * AdaptiveAnnotation>) : aval<(Guid * AdaptiveAnnotation)[]> =
         AVal.custom (fun t -> annoSet.Content.GetValue(t) |> HashSet.toArray)
 
-    let linesNoIndirect (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
+    let linesNoIndirect (cbc : AdaptiveColorByCategoryModel) (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
           let data =
               AVal.custom (fun t ->
                   Log.startTimed "mk lines"
                   let annos = ordered.GetValue(t)
                   let selected = selected.Content.GetValue(t)
+                  // hoisted above the annotation loop; every field is pulled with this
+                  // token, so the color buffers rebuild on any panel edit
+                  let cbcSettings =
+                      if cbc.enabled.GetValue t then Some (ColorByCategory.readSettings cbc t) else None
                   let vertices = List<_>()
                   let colors = List<_>()
                   let tolerances = List<float32>()
@@ -666,10 +678,14 @@ module PackedRendering =
                       let ps = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
                       b <- Box3d(b, Box3d(ps))
                       let offset = 0.0
-                      let color = if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
+                      let baseColor =
+                          match cbcSettings with
+                          | Some s -> ColorByCategory.resolve s anno t
+                          | None   -> anno.color.c.GetValue(t)
+                      let color = if HashSet.contains id selected then C4b.VRVisGreen else baseColor
                       let thickness = anno.thickness.value.GetValue(t)
                       let tolerance = 0.0
-                      let modelTrafo = 
+                      let modelTrafo =
                           match modelTrafo with
                           | None -> 
                                 let t = anno.modelTrafo.GetValue(t)
@@ -836,7 +852,7 @@ module PackedRendering =
     /// Returns raw geometry: the visible pass and the pick pass need different shaders and very
     /// different render state, so neither is baked in here. Same split as linesNoIndirect /
     /// packedRender.
-    let fills (depthOffset : aval<float>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
+    let fills (cbc : AdaptiveColorByCategoryModel) (depthOffset : aval<float>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
         let data =
             AVal.custom (fun t ->
                 // same cached ordering linesNoIndirect indexes, so position i here and object id i
@@ -846,6 +862,9 @@ module PackedRendering =
                 let colors = List<C4f>()
                 let objIds = List<int>()
                 let mutable pivotTrafo = None
+                // hoisted like linesNoIndirect: Color by Category also recolors the fill
+                let cbcSettings =
+                    if cbc.enabled.GetValue t then Some (ColorByCategory.readSettings cbc t) else None
 
                 for i in 0 .. annos.Length - 1 do
                     let (_, anno) = annos.[i]
@@ -881,7 +900,10 @@ module PackedRendering =
                         match chart |> Option.bind (fun c -> PolygonFill.tryComputeFill c points) with
                         | None -> ()
                         | Some mesh ->
-                            let rgb = anno.fillColor.c.GetValue(t).ToC4f()
+                            let rgb =
+                                match cbcSettings with
+                                | Some s -> (ColorByCategory.resolve s anno t).ToC4f()
+                                | None   -> anno.fillColor.c.GetValue(t).ToC4f()
                             let alpha = anno.fillAlpha.value.GetValue(t)
                             let color = C4f(rgb.R, rgb.G, rgb.B, float32 alpha)
 
@@ -1026,41 +1048,65 @@ module PackedRendering =
         |> Sg.depthTest (AVal.constant DepthTest.None)
         |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
 
-    let points (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
-        let instanceAttribs = 
-            AVal.custom (fun t -> 
+    let points (cbc : AdaptiveColorByCategoryModel) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
+        let instanceAttribs =
+            AVal.custom (fun t ->
                 Log.startTimed "creating points"
                 let annos       = annoSet.Content.GetValue(t)
                 let selected    = selected.Content.GetValue(t)
                 let modelPos    = List<V3d>()
                 let colors      = List<C4b>()
                 let sizes       = List<float32>()
+                let cbcSettings =
+                    if cbc.enabled.GetValue t then Some (ColorByCategory.readSettings cbc t) else None
 
-                for (id,anno) in annos do   
+                for (id,anno) in annos do
                     let kind = anno.geometry.GetValue t
                     let isVisible = anno.visible.GetValue(t)
                     if isVisible then
                         let isSelected = HashSet.exists (fun (x : Guid) -> x = id) selected
-                        let c = anno.color.c
-                        let color = if isSelected then C4b.VRVisGreen else c.GetValue(t)
-                        match kind with
-                        | Geometry.Point ->
-                            let px   = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
+                        let baseColor =
+                            match cbcSettings with
+                            | Some s -> ColorByCategory.resolve s anno t
+                            | None   -> anno.color.c.GetValue(t)
+                        let color = if isSelected then C4b.VRVisGreen else baseColor
+                        // Surface-attribute pointwise / both: a colored dot at every clicked
+                        // control point, for any geometry (polylines/polygons otherwise show
+                        // no dots). resolvePoints gives one color per control point.
+                        let surfacePointwise =
+                            match cbcSettings with
+                            | Some s ->
+                                s.attributeKind = ColorAttributeKind.SurfaceAttribute
+                                && s.surfaceColoring <> SurfaceColoringMode.Annotation
+                            | None -> false
+                        match cbcSettings with
+                        | Some s when surfacePointwise ->
+                            let cps  = anno.points.Content.GetValue(t) |> IndexList.toArray
+                            let cols = ColorByCategory.resolvePoints s anno t cps.Length
                             let size = anno.thickness.value.GetValue(t) + 0.5
-
-                            modelPos.Add(px.[0])
-                            colors.Add(color)
-                            sizes.Add(float32 size)
-                        | Geometry.DnS -> 
-                            if isSelected then
+                            for i in 0 .. cps.Length - 1 do
+                                modelPos.Add(cps.[i])
+                                colors.Add(if isSelected then C4b.VRVisGreen else cols.[i])
+                                sizes.Add(float32 size)
+                        | _ ->
+                            match kind with
+                            | Geometry.Point ->
                                 let px   = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
                                 let size = anno.thickness.value.GetValue(t) + 0.5
 
-                                for p in px do 
-                                    modelPos.Add(p)
-                                    colors.Add(color)
-                                    sizes.Add(float32 size)
-                        | _ -> ()
+                                modelPos.Add(px.[0])
+                                colors.Add(color)
+                                sizes.Add(float32 size)
+                            | Geometry.DnS ->
+                                if isSelected then
+                                    let px   = PRo3D.Core.Drawing.Sg.getPolylinePointsAt anno t
+                                    let size = anno.thickness.value.GetValue(t) + 0.5
+
+                                    for p in px do
+                                        modelPos.Add(p)
+                                        colors.Add(color)
+                                        sizes.Add(float32 size)
+                            | _ -> ()
 
                 Log.stop()
                 modelPos.ToArray(), colors.ToArray(), sizes.ToArray()
@@ -1076,7 +1122,8 @@ module PackedRendering =
         |> Sg.vertexAttribute DefaultSemantic.Positions mvs
         |> Sg.vertexAttribute DefaultSemantic.Colors colors
         |> Sg.vertexAttribute "Sizes" sizes
-        |> Sg.uniform "DepthOffset" depthOffset
+        // scaled like the lines and fills, now that the dots bias their depth the same way
+        |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1)))
         |> Sg.shader { 
               do! PointsShader.pointSpriteVertex
               do! PointsShader.pointSpriteFragment

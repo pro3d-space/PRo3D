@@ -774,6 +774,80 @@ module Shader =
             return V4f(finalColor, 1.0f)
         }
 
+    type UniformScope with
+        /// LatLon graticule, parallels. X <= 0 disables the whole overlay (off, or
+        /// a non-planetary body). Y / Z / W = 1/0 flags for the 1° / 5° / 15°
+        /// parallels.
+        member x.LatLonLatLevels : V4f = uniform?LatLonLatLevels
+        /// LatLon graticule, meridians. X / Y / Z = 1/0 flags for the 1° / 5° / 15°
+        /// meridians. W unused.
+        member x.LatLonLonLevels : V4f = uniform?LatLonLonLevels
+        /// Colour of the 1° / 5° / 15° graticule lines. The equator (yellow) and
+        /// prime meridian (red) use fixed colours in the shader.
+        member x.LatLonLineColor : V4f = uniform?LatLonLineColor
+
+    type LatLonVertex =
+        {
+            [<Color>]                    c            : V4f
+            [<Semantic("LatLonSinCos")>] latLonSinCos : V4f
+        }
+
+    /// Coverage in [0,1] of a grid line for one angular coordinate. `w` is
+    /// |d(coord)/d(pixel)|, so the line keeps a constant `widthPx` on screen; it
+    /// also blows up at the poles and the +/-180 seam, where we suppress the line.
+    [<ReflectedDefinition>]
+    let private latLonCoverage (coordDeg : float32) (intervalDeg : float32) (w : float32) (widthPx : float32) =
+        let halfPx = widthPx * 0.5f
+        if w > 0.0f && w < intervalDeg * 0.5f then
+            let ph = coordDeg / intervalDeg
+            let distDeg = abs (ph - floor (ph + 0.5f)) * intervalDeg
+            1.0f - Fun.Smoothstep(distDeg, (halfPx - 0.5f) * w, (halfPx + 0.5f) * w)
+        else
+            0.0f
+
+    /// Composite a grid line of colour `col` and coverage `cov` over `baseRgb`.
+    [<ReflectedDefinition>]
+    let private overlayLine (baseRgb : V3f) (cov : float32) (col : V3f) =
+        let a = Fun.Clamp(cov, 0.0f, 1.0f)
+        baseRgb * (1.0f - a) + col * a
+
+    /// Additive latitude/longitude graticule. Reads the CPU-computed per-vertex
+    /// (sinphi, cosphi, sinlambda, coslambda) attribute that Surface.Sg bakes in
+    /// double precision, so no world-scale position is transformed in the shader.
+    /// Draws up to three nested grids per axis (1°/5°/15°, widths 0.5/1.0/2.0 px),
+    /// painted fine-to-coarse, then the equator (yellow) and prime meridian (red)
+    /// at 2.5 px on top. Composites over the incoming colour like contourLines.
+    let latLonLines (v : LatLonVertex) =
+        fragment {
+            let deg = 57.29577951308232f
+            let latLev = uniform.LatLonLatLevels
+            let lonLev = uniform.LatLonLonLevels
+
+            let sc  = v.latLonSinCos
+            let lat = atan2 sc.X sc.Y * deg
+            let lon = atan2 sc.Z sc.W * deg
+            let wLat = abs (ddx lat) + abs (ddy lat)
+            let wLon = abs (ddx lon) + abs (ddy lon)
+
+            let mutable rgb = v.c.XYZ
+
+            if latLev.X > 0.5f then
+                let g = uniform.LatLonLineColor.XYZ
+                // Fine to coarse: wider (coarser) lines paint over narrower ones.
+                if latLev.Y > 0.5f then rgb <- overlayLine rgb (latLonCoverage lat 1.0f  wLat 0.5f) g
+                if lonLev.X > 0.5f then rgb <- overlayLine rgb (latLonCoverage lon 1.0f  wLon 0.5f) g
+                if latLev.Z > 0.5f then rgb <- overlayLine rgb (latLonCoverage lat 5.0f  wLat 1.0f) g
+                if lonLev.Y > 0.5f then rgb <- overlayLine rgb (latLonCoverage lon 5.0f  wLon 1.0f) g
+                if latLev.W > 0.5f then rgb <- overlayLine rgb (latLonCoverage lat 15.0f wLat 2.0f) g
+                if lonLev.Z > 0.5f then rgb <- overlayLine rgb (latLonCoverage lon 15.0f wLon 2.0f) g
+                // Equator (yellow) and prime meridian (red). Interval 360° so only
+                // lat = 0 and lon = 0 produce a line; always drawn while enabled.
+                rgb <- overlayLine rgb (latLonCoverage lat 360.0f wLat 2.5f) (V3f(1.0f, 1.0f, 0.0f))
+                rgb <- overlayLine rgb (latLonCoverage lon 360.0f wLon 2.5f) (V3f(1.0f, 0.0f, 0.0f))
+
+            return V4f(rgb, 1.0f)
+        }
+
 
     let depthCalculation2 (v : FootPrintVertex) =
         fragment {     

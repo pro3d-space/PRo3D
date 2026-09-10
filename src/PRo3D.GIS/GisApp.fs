@@ -424,7 +424,7 @@ module GisApp =
         alist {
             let children = AList.collecti (fun i v -> viewTree (i::path) v surfaces m) group.subNodes
             let activeAttributes = GroupsApp.setActiveGroupAttributeMap path surfaces group GroupsMessage
-            let colorAttributes = GroupsApp.activeGroupColorAttributes surfaces group ""
+            let colorAttributes = GroupsApp.treeItemColorAttributes ""
 
             let desc =
                 Incremental.div colorAttributes <| AList.ofList [
@@ -442,8 +442,7 @@ module GisApp =
                     else yield clazz "icon outline folder"
                     // the icon is a sibling of the (white) description div and would
                     // otherwise inherit semantic ui's default (black) on our dark background
-                    let! color = GroupsApp.activeGroupColor surfaces group
-                    yield style ("overflow-y : visible; " + color)
+                    yield style ("overflow-y : visible; " + GroupsApp.treeItemColorStyle)
                 } |> AttributeMap.ofAMap
             
             let childrenAttribs =

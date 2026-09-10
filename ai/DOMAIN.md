@@ -57,7 +57,7 @@ Interactive measurement/markup placed on surfaces.
 
 Key types:
 - **`Geometry`** — `Point` | `Line` | `Polyline` | `Polygon` | `DnS` (dip & strike) | `TT` (true thickness) | `Ellipse` | `AxisEllipse` | `Axis4PEllipse`.
-- **`Projection`** — `Linear` | `Viewpoint` | `Sky` | `Bookmark` (how sampled points are projected).
+- **`Projection`** — `Linear` | `Viewpoint` | `Sky` (how sampled points are projected). Persisted as an int; legacy value `3` (a removed "Bookmark" mode) loads as `Linear` via `Projection.ofInt`.
 - **`Semantic`** — geological semantics (`Horizon0..4`, `Crossbed`, `GrainSize`, `None`).
 - **`Segment`** — a span between two picked points plus intermediate sampled points (`IndexList<V3d>`).
 - **`Annotation`** — the full markup: geometry, segments, style (color/thickness), projection/semantic, and computed results.
@@ -65,6 +65,8 @@ Key types:
 - **`DrawingModel`** — the live working annotation (`Option<Annotation>`), the annotation `GroupsModel`, current color/thickness/projection/geometry/semantic, and sampling settings. Undo/redo lives on the root `Model` (`past`/`future`), not here.
 
 Annotations can be exported to GeoJSON (see [AUTOMATION.md](AUTOMATION.md#remote-api)). See also `docs/AdvancedAnnotations.md` and `docs/SbmtImport.md`.
+
+- **Color by Category** (`ColorByCategory-Model.fs` / `ColorByCategoryApp.fs`, `docs/ColorByCategory.md`) — global display-only recolor of all annotations by a chosen *annotation measurement* or by a *surface scalar attribute* (AARA layer) sampled at the annotation's clicked points via `ProfileAttributeExtraction.sampleAt`. Surface samples are held in a transient, Viewer-owned `surfaceSamples` store refilled by a manual *resample* pass (`Viewer.sampleSurfaceForCbc`); a live input `stamp` flags the button when they go stale.
 
 ---
 

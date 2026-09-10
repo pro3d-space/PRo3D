@@ -42,7 +42,7 @@ module ScaleBarsDrawing =
 
         let viewScaleBarToolsHorizontal (model:AdaptiveScaleBarDrawing) =
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Scale Bar:"] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.orientation SetOrientation ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.alignment SetPivot ]
                 Html.Layout.boxH [ Numeric.view' [InputBox] model.length |> UI.map SetLength ]  

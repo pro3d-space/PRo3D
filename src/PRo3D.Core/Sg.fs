@@ -335,14 +335,29 @@ module Sg =
             //|> Sg.trafo refSysTrafo2   
             //|> Sg.trafo translation
 
+        // Small bodies: the OPC wraps the whole body and is viewed from outside, so the
+        // meaningful frame is the body-fixed one. A local tangent frame at a surface point
+        // leaves north and east grazing the surface, and degenerates altogether at the body
+        // centre - which is where InferCoordSystem puts the origin for whole-body data.
+        // Same predicate and rationale as ReferenceSystem.bodyAwareSky, and matches what
+        // the navigation gizmo draws for these bodies.
+        let bodyFixedSystem =
+            Sg.ofList [
+                point model.origin (AVal.constant C4b.Red) cam
+                sizeText
+                { styleX with direction = ~~V3d.IOO } |> directionMarker near cam
+                { styleY with direction = ~~V3d.OIO } |> directionMarker near cam
+                { styleZ with direction = ~~V3d.OOI } |> directionMarker near cam
+            ]
+
         let currentSystem =
-            model.planet 
-            |> AVal.map(fun planet -> 
+            model.planet
+            |> AVal.map(fun planet ->
                 match planet with
-                | Planet.Mars | Planet.Earth -> refsystem
+                | Planet.Mars | Planet.Earth | Planet.Moon -> refsystem
                 | Planet.ENU -> refsystem2
-                | Planet.Moon | Planet.Dimorphos | Planet.Deimos | Planet.Didymos | Planet.Phobos -> refsystem
-                | _ -> xyzSystem 
+                | Planet.Dimorphos | Planet.Deimos | Planet.Didymos | Planet.Phobos -> bodyFixedSystem
+                | _ -> xyzSystem
             )
             
         currentSystem |> Sg.dynamic |> Sg.onOff(model.isVisible)

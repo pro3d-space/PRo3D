@@ -65,6 +65,9 @@
     <Compile Include="Annotation\CrossSectionClipping.fs" />
     <Compile Include="Annotation\Annotation-Model.fs" />
     <Compile Include="Annotation\Annotation-Model.g.fs" />
+    <Compile Include="Annotation\ColorByCategory-Model.fs" />
+    <Compile Include="Annotation\ColorByCategory-Model.g.fs" />
+    <Compile Include="Annotation\ColorByCategoryApp.fs" />
     <Compile Include="Annotation\AnnotationHelpers.fs" />
     <Compile Include="Geometry\AnnotationRegionOps.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.fs" />

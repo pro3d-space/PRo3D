@@ -160,7 +160,7 @@ module DrawingApp =
         let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
-        | Projection.Viewpoint | Projection.Sky | Projection.Bookmark ->     
+        | Projection.Viewpoint | Projection.Sky ->
             let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList [firstP;lastP] }
 
             if PRo3D.Config.useAsyncIntersections then
@@ -200,36 +200,45 @@ module DrawingApp =
 
             let w = { w with dnsResults = dns }
 
-            let w = 
+            let wOpt =
                 match w.geometry, sampleSurface with
                 | Geometry.AxisEllipse, Some sampleSurface
-                | Geometry.Axis4PEllipse, Some sampleSurface -> 
+                | Geometry.Axis4PEllipse, Some sampleSurface ->
                     let geo = false
                     if geo then
                         match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
-                        | Some (ellipses, sampledPoints) -> 
+                        | Some (ellipses, sampledPoints) ->
                             let points = IndexList.ofArray sampledPoints
-                            { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
-                        | _ -> 
-                            w
+                            Some { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
+                        | _ ->
+                            Some w
                     else
                         match dns with
-                        | None -> w
-                        | Some dns -> 
+                        | None -> Some w
+                        | Some dns ->
                             match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
-                            | Some r -> 
+                            | Some r when r.surfaceProjectedEllipsePoints.Length >= 3 ->
                                 let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
                                 let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
-                                { w with points = points; ellipticResults = None }
-                            | _ -> 
-                                w
-                        
-                | _ -> 
-                    w
+                                Some { w with points = points; ellipticResults = None }
+                            | Some r ->
+                                // the ellipse outline could not be draped onto the surface (e.g. the
+                                // reference system has no body, so the Sky projection has no valid
+                                // scale). An annotation built from < 3 points is degenerate and would
+                                // crash result calculation, so drop it with a warning.
+                                Log.warn "[Drawing] ellipse outline could not be projected onto the surface (%d sampled points); annotation discarded" r.surfaceProjectedEllipsePoints.Length
+                                None
+                            | None ->
+                                Some w
 
-            let results = Calculations.calculateAnnotationResults w up north planet
+                | _ ->
+                    Some w
 
-            Some { w with results = Some results; view = view; }
+            match wOpt with
+            | None -> None
+            | Some w ->
+                let results = Calculations.calculateAnnotationResults w up north planet
+                Some { w with results = Some results; view = view; }
         | None -> None
 
     let finishAndAppend up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel)  = 
@@ -261,7 +270,7 @@ module DrawingApp =
                 //fetch current drawing segment (projected, polyline or polygon)
                 let result = 
                     match w.projection with
-                    | Projection.Viewpoint | Projection.Sky | Projection.Bookmark when allowSegmentGeneration ->                     
+                    | Projection.Viewpoint | Projection.Sky when allowSegmentGeneration ->
                         match IndexList.tryAt (IndexList.count w.points-1) w.points with
                         | None -> 
                             annotation, None
@@ -525,18 +534,20 @@ module DrawingApp =
         (act         : DrawingAction) =
 
         let newModel =
-            match (act, model.draw, model.pick) with
-            | StartDrawing, _, false ->                     
-                { model with draw = true }
-            | StopDrawing, _, false -> 
-                { model with draw = false; hoverPosition = None; pick = false }
-            | StartPicking, _, _ ->                                       
-                { model with pick = true }
-            | StopPicking, _, _ -> 
-                { model with pick = false}        
-            | DrawingAction.Move p, true, false -> 
+            // Whether the drawing/picking tool is "armed" is decided at the event source now
+            // (ViewerApp.toolArmed + the active interaction gate the scene-event handlers and
+            // allowAnnotationPicking), so the update no longer matches on draw/pick flags.
+            match act with
+            // legacy no-ops: arming is no longer a DrawingModel concern. StopDrawing still
+            // clears the (currently unused) hover preview. Kept because the test harness and
+            // older call sites still send them.
+            | StartDrawing | StartPicking | StopPicking ->
+                model
+            | StopDrawing ->
+                { model with hoverPosition = None }
+            | DrawingAction.Move p ->
                 { model with hoverPosition = Some (Trafo3d.Translation p) }
-            | AddPointAdv (point, projectSurface, referenceFrame, name, bookmarkId), true, false ->
+            | AddPointAdv (point, projectSurface, referenceFrame, name, bookmarkId) ->
                 let up    = smallConfig.up.Get(bigConfig)
                 let north = smallConfig.north.Get(bigConfig)
                 let planet = smallConfig.planet.Get(bigConfig)
@@ -560,7 +571,7 @@ module DrawingApp =
                 match newLeaf with
                 | Some leaf -> model' |> pushUndo (LeafAdded(leaf, groupPath))
                 | None      -> model'
-            | RemoveLastPoint, _, _ -> 
+            | RemoveLastPoint -> 
               //let annotation = { w with points = w.points |> IndexList.append p }
               // { annotation with segments = IndexList.append newSegment annotation.segments }
           
@@ -570,70 +581,77 @@ module DrawingApp =
                                                     segments = w.segments |> IndexList.removeAt (w.segments.Count - 1)}}
                 | Some _ -> { model with working = None }
                 | None -> model
-            | SetSegment(segmentIndex,segment), _, _ ->
+            | SetSegment(segmentIndex,segment) ->
                 match model.working with
                 | None -> model
                 | Some w ->                         
                     { model with working = Some { w with segments = IndexList.setAt segmentIndex segment w.segments } }
-            | Finish, _, _ -> 
+            | Finish -> 
                 finish bigConfig smallConfig model view
-            | Exit, _, _ -> 
+            | Exit -> 
                 { model with hoverPosition = None }
-            | SetSemantic mode, _, _ ->
+            | SetSemantic mode ->
                 let model =
                     match mode with
                     | Semantic.GrainSize -> { model with geometry = Geometry.Line }
                     | _ -> model
 
                 {model with semantic = mode }
-            | SetGeometry mode, _, _ ->
-                let projection = 
-                    match mode with
-                    | Geometry.AxisEllipse
-                    | Geometry.Axis4PEllipse -> 
-                        Projection.Sky
-                    // every other tool uses linear as default. TODO: if switching back to default is an UX problem, 
-                    // we need to store the user-set projection mode and reset it if needed.
-                    | _ -> Projection.Linear
+            | SetGeometry mode ->
+                // keep the current projection if the new geometry supports it, otherwise
+                // fall back to that geometry's first allowed projection.
+                let allowed = Geometry.allowedProjections mode
+                let projection =
+                    if allowed |> List.contains model.projection then model.projection
+                    else
+                        match allowed with
+                        | p :: _ -> p
+                        | []     -> model.projection
 
                 { model with geometry = mode; projection = projection; }
-            | SetProjection mode, _, _ ->
-                { model with projection = mode }                  
-            | ChangeThickness th, _, _ ->
+            | SetProjection mode ->
+                // the dropdown greys out projections the current geometry cannot use;
+                // ignore them here too in case the message arrives another way.
+                if Geometry.allowedProjections model.geometry |> List.contains mode then
+                    { model with projection = mode }
+                else
+                    model
+
+            | ChangeThickness th ->
                 { model with thickness = Numeric.update model.thickness th }
-            | SetFillNewAnnotations b, _, _ ->
+            | SetFillNewAnnotations b ->
                 { model with fillNewAnnotations = b }
-            | ChangeDefaultFillAlpha a, _, _ ->
+            | ChangeDefaultFillAlpha a ->
                 { model with defaultFillAlpha = Numeric.update model.defaultFillAlpha a }
-            | ChangeSamplingAmount k, _, _ ->
+            | ChangeSamplingAmount k ->
                 let samplingAmount = Numeric.update model.samplingAmount k
                 { model with samplingAmount = samplingAmount ; samplingDistance = DrawingModel.calculateSamplingDistance samplingAmount model.samplingUnit }
-            | SetSamplingUnit k, _, _ ->
+            | SetSamplingUnit k ->
                 { model with samplingUnit = k; samplingDistance = DrawingModel.calculateSamplingDistance model.samplingAmount k }
-            | SetExportPath s, _, _ ->
+            | SetExportPath s ->
                 { model with exportPath = Some s }        
-            | Send, _, _ ->                                                      
+            | Send ->                                                      
                 model
-            | ClearWorking,_ , _->
+            | ClearWorking ->
                 { model with working = None }
-            | DrawingAction.Clear,_ , _->
+            | DrawingAction.Clear ->
                 let before = model.annotations
                 let after  = GroupsModel.initial
                 { model with annotations = after } |> pushUndo (SnapshotDelta(before, after))
-            | DrawingAction.Nop, _, _ -> model
-            | Undo, _, _ ->
+            | DrawingAction.Nop -> model
+            | Undo ->
                 match model.undoStack with
                 | [] -> model
                 | delta :: rest ->
                     let annotations = applyUndoDelta model.annotations delta
                     { model with annotations = annotations; undoStack = rest; redoStack = delta :: model.redoStack }
-            | Redo, _, _ ->
+            | Redo ->
                 match model.redoStack with
                 | [] -> model
                 | delta :: rest ->
                     let annotations = applyRedoDelta model.annotations delta
                     { model with annotations = annotations; undoStack = delta :: model.undoStack; redoStack = rest }
-            | GroupsMessage msg,_, _ ->
+            | GroupsMessage msg ->
                 let annotations = GroupsApp.update model.annotations msg
                 let model' = { model with annotations = annotations }
                 match msg with
@@ -644,7 +662,7 @@ module DrawingApp =
                 | GroupsAppAction.RemoveGroup _ | GroupsAppAction.ClearGroup _ ->
                     model' |> pushUndo (SnapshotDelta(model.annotations, annotations))
                 | _ -> model'
-            | RecalculateMeasurements, _,_ -> 
+            | RecalculateMeasurements -> 
                 let up    = smallConfig.up.Get(bigConfig)
                 let north = smallConfig.north.Get(bigConfig)
                 let planet = smallConfig.planet.Get(bigConfig)
@@ -678,7 +696,7 @@ module DrawingApp =
                         ) model.annotations.flat
                 
                 { model with annotations = { model.annotations with flat = annotationsFlat }}
-            | AddCutStrokePoint p, _, _ ->
+            | AddCutStrokePoint p ->
                 match GroupsModel.tryGetSelectedAnnotation model.annotations with
                 | None ->
                     Log.warn "[Drawing] select the annotation to cut before drawing the stroke"
@@ -701,17 +719,17 @@ module DrawingApp =
                             points = points }
                     { model with cutStroke = Some stroke }
 
-            | RemoveLastCutPoint, _, _ ->
+            | RemoveLastCutPoint ->
                 match model.cutStroke with
                 | Some s when s.points.Count > 1 ->
                     { model with cutStroke = Some { s with points = s.points |> IndexList.removeAt (s.points.Count - 1) } }
                 | Some _ -> { model with cutStroke = None }
                 | None -> model
 
-            | ClearCutStroke, _, _ ->
+            | ClearCutStroke ->
                 { model with cutStroke = None }
 
-            | ApplyCutStroke projectToSurface, _, _ ->
+            | ApplyCutStroke projectToSurface ->
                 match model.cutStroke, GroupsModel.tryGetSelectedAnnotation model.annotations with
                 | Some stroke, Some target when stroke.points.Count >= 2 ->
                     let projectToSurface = projectToSurface |> Option.defaultValue (fun _ -> None)
@@ -754,7 +772,7 @@ module DrawingApp =
                     Log.warn "[Drawing] cutting needs a selected annotation and a stroke of at least two points"
                     model
 
-            | UnionSelectedAnnotations projectToSurface, _, _ ->
+            | UnionSelectedAnnotations projectToSurface ->
                 let projectToSurface = projectToSurface |> Option.defaultValue (fun _ -> None)
 
                 // the selection is an unordered set; the depth-first tree walk makes the operand
@@ -824,13 +842,21 @@ module DrawingApp =
                     Log.warn "[Drawing] union needs at least two selected annotations"
                     model
 
-            | DnsColorLegendMessage msg,_, _ ->
+            | DnsColorLegendMessage msg ->
                 { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
-            | FlyToAnnotation msg, _, _ ->               
+            | ColorByCategoryMessage msg ->
+                // the annotations are needed because FitRangeToData - and SetAttribute,
+                // which auto-fits - scan them for the attribute's min/max
+                let annotations =
+                    model.annotations.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
+                { model with
+                    colorByCategory = ColorByCategory.update annotations model.colorByCategory msg }
+            | FlyToAnnotation msg ->               
                 model        
 
-            // method via bvh
-            | PickAnnotation (_, id), false, true | PickDirectly id, false, true ->
+            // method via bvh. Reaches here only when the annotation pick target actually
+            // fired, which `allowAnnotationPicking` already gates on (interaction + toolArmed).
+            | PickAnnotation (_, id) | PickDirectly id ->
                 match (model.annotations.flat.TryFind id) with
                 | Some (Leaf.Annotations ann) ->       
                             
@@ -850,9 +876,10 @@ module DrawingApp =
                 | _ -> model
 
             // ---- vertex editing (Interactions.EditAnnotation) ----------------------------------
-            // Same (draw = false, pick = true) gate as annotation selection above: both are picks.
+            // Gated at the source like annotation selection: the readback only emits GrabVertex
+            // while `allowAnnotationPicking` (interaction + toolArmed) and `allowVertexEditing`.
 
-            | GrabVertex (id, pointIndex), false, true ->
+            | GrabVertex (id, pointIndex) ->
                 match model.annotations.flat.TryFind id with
                 | Some (Leaf.Annotations ann) when Geometry.isVertexEditable ann.geometry ->
                     match IndexList.tryAt pointIndex ann.points with
@@ -864,19 +891,19 @@ module DrawingApp =
                     | None -> model
                 | _ -> model
 
-            | ArmVertexGrab, _, _ ->
+            | ArmVertexGrab ->
                 // the preview cursor produced a hit after the grab, so the next click is a drop
                 match model.vertexGrab with
                 | Some g when not g.movedSinceGrab ->
                     { model with vertexGrab = Some { g with movedSinceGrab = true } }
                 | _ -> model
 
-            | CancelVertexEdit, _, _ ->
+            | CancelVertexEdit ->
                 // the annotation was never touched while the grab was live, so forgetting the grab
                 // is the whole of the undo
                 { model with vertexGrab = None }
 
-            | MoveVertex (id, pointIndex, position, samplePoint), false, true ->
+            | MoveVertex (id, pointIndex, position, samplePoint) ->
                 match model.annotations.flat.TryFind id with
                 | Some (Leaf.Annotations ann) when Geometry.isVertexEditable ann.geometry ->
                     let up     = smallConfig.up.Get(bigConfig)
@@ -901,7 +928,7 @@ module DrawingApp =
                 | _ ->
                     { model with vertexGrab = None }
 
-            | AddAnnotations path, _,_ ->
+            | AddAnnotations path ->
                 match path |> List.tryHead with
                 | Some p -> 
                     let annos = DrawingUtilities.IO.loadAnnotationsFromFile p
@@ -910,18 +937,18 @@ module DrawingApp =
                     { model with annotations = merged }
                 | None ->
                     model
-            | ExportAsAnnotations path, _, _ ->
+            | ExportAsAnnotations path ->
                 if path.IsNullOrEmpty() |> not then
                     Drawing.IO.saveVersioned model path
                 else
                     model
-            | ExportAsAttitude path, _, _ ->
+            | ExportAsAttitude path ->
                 if path.IsNullOrEmpty() |> not then
                     let annotations = extractVisibleAnnotations model
                     AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
                 model
 
-            | LegacySaveVersioned, _,_ ->
+            | LegacySaveVersioned ->
                 let path = "./annotations.json"
                 let pathgGrouping = "./annotations.grouping"
             
@@ -938,7 +965,7 @@ module DrawingApp =
 
                 { model with annotations = annotations' }
                 //model
-            | LegacyLoadVersioned, _,_ ->
+            | LegacyLoadVersioned ->
                 let path = "./annotations.json"
                 let pathgGrouping = "./annotations.grouping"
 
@@ -1057,8 +1084,8 @@ module DrawingApp =
             Log.startTimed "[Drawing] creating finished annotation geometry"
             let annotations =              
                 annoSet 
-                |> ASet.map(fun (_,(a, t)) -> 
-                    let c = UI.mkColor model.annotations a
+                |> ASet.map(fun (_,(a, t)) ->
+                    let c = UI.mkColor model.colorByCategory model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
                         a.geometry 
@@ -1081,8 +1108,8 @@ module DrawingApp =
             // one cached ordering shared by every packed draw that writes an object id, so the
             // ids the pick target reads back agree across lines, fills and handles by construction
             let ordered = PackedRendering.orderedAnnotations (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s)))
-            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) ordered viewMatrix
-            let fillGeometry = PackedRendering.fills config.offset ordered viewMatrix
+            let lines, pickIds, bb = PackedRendering.linesNoIndirect model.colorByCategory config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) ordered viewMatrix
+            let fillGeometry = PackedRendering.fills model.colorByCategory config.offset ordered viewMatrix
 
             // handles exist only for the single selected annotation, and only in edit mode
             let handleTarget =
@@ -1133,7 +1160,11 @@ module DrawingApp =
                             let vertex = hoveredVertex.GetValue()
                             let editing = vertexEditingAllowed.GetValue()
                             let alreadyGrabbed = grabbedVertex.GetValue() >= 0
-                            if alreadyGrabbed then
+                            // selecting and grabbing are left-button gestures; the middle and
+                            // right buttons drive the camera in every mouse scheme
+                            if b <> Aardvark.Application.MouseButtons.Left then
+                                DrawingAction.Nop
+                            elif alreadyGrabbed then
                                 // a grab is live: the drop belongs to the viewer's surface-click
                                 // path, which is the only place the live hit point exists
                                 DrawingAction.Nop
@@ -1158,7 +1189,7 @@ module DrawingApp =
                        )
                 ]
             let packedPoints =
-                PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
+                PackedRendering.points model.colorByCategory (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
                 |> Sg.noEvents
 
             // listed before the lines so outlines draw on top of their own fill. The fill writes
@@ -1202,7 +1233,7 @@ module DrawingApp =
             let annotations =
                 annoSet
                 |> ASet.map(fun (g,(a,t)) ->
-                    let c = UI.mkColor model.annotations a
+                    let c = UI.mkColor model.colorByCategory model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints =
                         a.geometry
@@ -1217,7 +1248,7 @@ module DrawingApp =
                             // fill first, so the outline draws over it
                             // no pick target in this branch, so the ids are unused - but the
                             // ordering is how fills takes its input
-                            PackedRendering.fills config.offset (PackedRendering.orderedAnnotations (ASet.single (g, a))) viewMatrix
+                            PackedRendering.fills model.colorByCategory config.offset (PackedRendering.orderedAnnotations (ASet.single (g, a))) viewMatrix
                             |> PackedRendering.packedFillRender
                             |> Sg.noEvents
                             Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed

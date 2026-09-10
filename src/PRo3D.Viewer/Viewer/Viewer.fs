@@ -120,7 +120,59 @@ module ViewerApp =
 
     let stash (model : Model) =
         { model with past = Some model.drawing; future = None }
-           
+
+    /// Samples the chosen surface scalar layer at every annotation control point, for Color by
+    /// Category's "surface attribute" mode. Reuses `ProfileAttributeExtraction.sampleAt` (ray
+    /// straight down at each point, KdTree intersection, barycentric interpolation over the
+    /// `.aara` grid) — the same primitive the annotation export and the 3D cursor use, and the
+    /// same shared `Picking.cache`. Runs on the UI thread: O(total control points) ray casts, and
+    /// the first hit on a cold patch pulls its ~4 MB position grid, so it is manual (a button) and
+    /// not automatic. `withTextureFallback = true` chases layers that have no per-vertex data
+    /// into the attribute textures (an image decode per layer per patch, cold).
+    ///
+    /// The sampled values depend only on the control points, the surfaces and the planet — never
+    /// on the camera. `sampleAt` derives its own body-local up per point for exactly that reason,
+    /// which is also why the store's stamp hashes the planet rather than `refSys.up`.
+    let sampleSurfaceForCbc (m : Model) (layer : string) : SurfaceSampleStore =
+        if layer = "" then SurfaceSampleStore.empty
+        else
+            let refSys   = m.scene.referenceSystem
+            let surfaces = m.scene.surfacesModel
+            let observerSystem     = Gis.GisApp.getObserverSystem m.scene.gisApp
+            let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+            let mutable cache = PRo3D.Picking.cache
+
+            let annos = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toList
+
+            let entries =
+                annos
+                |> List.map (fun (key, a) ->
+                    let pts = a.points |> IndexList.toArray
+                    let values =
+                        pts |> Array.map (fun p ->
+                            let hit, c =
+                                ProfileAttributeExtraction.sampleAt
+                                    surfaces refSys observedSystem observerSystem true cache p
+                            cache <- c
+                            match hit with
+                            | Some h ->
+                                h.attributes
+                                |> List.tryFind (fun sa -> String.Equals(sa.name, layer, StringComparison.OrdinalIgnoreCase))
+                                |> Option.bind (fun sa -> Array.tryHead sa.values)
+                                |> Option.defaultValue nan
+                            | None -> nan)
+                    let finite = values |> Array.filter (fun v -> not (Double.IsNaN v))
+                    key, { values = values
+                           mean   = if finite.Length = 0 then nan else Array.average finite })
+                |> HashMap.ofList
+
+            PRo3D.Picking.cache <- cache
+            let stampAnnos = annos |> List.map (fun (k, a) -> k, a.points |> IndexList.toArray)
+            { layer   = layer
+              stamp   = ColorByCategory.stampOf layer refSys.planet stampAnnos
+              entries = entries }
+
+
     let mrefConfig : MInnerConfig<AdaptiveViewConfigModel> =
         {
             getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
@@ -155,11 +207,27 @@ module ViewerApp =
             navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
             north                 = ReferenceSystem.north_ >-> V3dInput.value_ |> Aether.toBase
+            northO                = ReferenceSystem.northO_ |> Aether.toBase
             frustum               = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_ |> Aether.toBase
             windowSize            = ViewConfigModel.frustumModel_ >-> FrustumModel.windowSize_ |> Aether.toBase
             planet                = (ReferenceSystem.planet_ |> Aether.toBase)
-        }    
-    
+        }
+
+    /// Which mouse buttons the camera listens to right now. In Direct Tool Mode the
+    /// left button belongs to the active tool, so `Navigation.update` drops its
+    /// presses and moves its look gesture onto the right button; Ctrl hands the left
+    /// button back to the camera. See docs/DirectToolMode.md.
+    let mouseScheme (m : Model) : Navigation.MouseScheme =
+        { directToolMode = m.directToolMode; ctrlFlag = m.ctrlFlag }
+
+    /// True when the active drawing/picking tool owns the left mouse button right now.
+    /// The classic scheme arms the tool while Ctrl is held; Direct Tool Mode inverts that,
+    /// so the tool is armed *unless* Ctrl is held. This - together with the active
+    /// interaction - is the whole arming decision: the scene-event handlers, the surface-pick
+    /// gate (`ViewerUtils.toolArmed`) and `allowAnnotationPicking` all consult it, and
+    /// `DrawingModel` no longer carries draw/pick flags. See docs/DirectToolMode.md.
+    let toolArmed (m : Model) : bool = m.ctrlFlag <> m.directToolMode
+
     let mutable cache = HashMap.Empty
 
     let updateSceneWithNewSurface (m: Model) =
@@ -260,10 +328,6 @@ module ViewerApp =
     let private updateUpNorthForPosition (pos : V3d) (m : Model) =
         updateReferenceSystemAt ReferenceSystemAction.UpdateUpNorth pos m
 
-    /// keeps up/north current for pos while leaving the coordinate cross where the user put it
-    let private refreshUpNorthForPosition (pos : V3d) (m : Model) =
-        updateReferenceSystemAt ReferenceSystemAction.RefreshUpNorth pos m
-
     let private createMultiSelectBox (startPoint: V2i) (viewPortSize: V2i) (currentPoint: V2i) =
         let clippingBox = Box2i.FromSize viewPortSize
         let newRenderBox = Box2i.FromPoints(clippingBox.Clamped(startPoint), clippingBox.Clamped(currentPoint)) // limited to rendercontrol-size!
@@ -345,7 +409,7 @@ module ViewerApp =
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
             let navigation', feedback = 
-                Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) m.ctrlFlag
+                Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) (mouseScheme m)
             { m with navigation = navigation' }
             |> logScreenOption 10000 feedback
         | Interactions.PlaceRover, ViewerMode.Standard ->
@@ -466,7 +530,7 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
-    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (inverseFlag : bool) =
+    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) =
         match k with
         | Aardvark.Application.Keys.Enter ->
             match interaction with
@@ -483,15 +547,9 @@ module ViewerApp =
             // working annotation to clear
             | Interactions.EditAnnotation -> DrawingAction.CancelVertexEdit
             | _ -> DrawingAction.ClearWorking
-        | Keyboard.Modifier ->
-            match interaction with
-            | Interactions.DrawAnnotation -> (if inverseFlag then DrawingAction.StopDrawing else DrawingAction.StartDrawing)
-            | Interactions.PickAnnotation -> (if inverseFlag then DrawingAction.StopPicking else DrawingAction.StartPicking)
-            // vertex editing dispatches on (draw = false, pick = true) like annotation selection,
-            // so without this the ctrl press never sets model.pick and nothing reaches the handlers
-            | Interactions.EditAnnotation -> (if inverseFlag then DrawingAction.StopPicking else DrawingAction.StartPicking)
-            | _ -> DrawingAction.Nop
-        //| Aardvark.Application.Keys.LeftShift -> 
+        // Ctrl no longer maps to Start/Stop{Drawing,Picking} here: arming the tool is
+        // `toolArmed` (ctrlFlag <> directToolMode), evaluated at the event source.
+        //| Aardvark.Application.Keys.LeftShift ->
         //    match m.interaction with                     
         //    | Interactions.PickAnnotation -> DrawingAction.StartPickingMulti
         //    | _ -> DrawingAction.Nop
@@ -678,17 +736,22 @@ module ViewerApp =
             let pickingFunction () = 
                 V3d(0.0, 0.0, 0.0) |> pickRayNdc
                             
-            let nav, feedback = Navigation.update c ref navConf m.userPreferences true (Some pickingFunction) m.navigation msg m.ctrlFlag
+            let nav, feedback = Navigation.update c ref navConf m.userPreferences true (Some pickingFunction) m.navigation msg (mouseScheme m)
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
-            m 
-            |> logScreenOption 10000 feedback 
+            // Navigating does not touch the reference system at all. up/north describe the
+            // frame at `origin` - where the cross is drawn (Sg.view), what the reference
+            // system panel reports and what gets persisted - so refreshing them at the
+            // camera drew the cross in one place carrying the orientation of another, and
+            // wiped any manual SetUp/SetNorth on the next mouse event. Every action that
+            // legitimately sets them (UpdateUpNorth, InferCoordSystem, SetPlanet) already
+            // computes them at `origin`.
+            // See https://github.com/pro3d-space/PRo3D/issues/662
+            m
+            |> logScreenOption 10000 feedback
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
-            // orientation only - navigating must not drag the reference system origin along,
-            // see https://github.com/pro3d-space/PRo3D/issues/662
-            |> refreshUpNorthForPosition nav.camera.view.Location
         | NavigationMessage msg, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_ -> // belongs to deprecated animation
@@ -710,7 +773,56 @@ module ViewerApp =
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_ -> Optic.set _view cv m
-        | SetCameraAndFrustum (cv, hfov, _),_ -> 
+        | OrientCameraToGizmoAxis axis, _ when not (AnimationApp.shouldAnimate m.animations) ->
+            // Navigation gizmo click: look straight along a reference-system axis onto the
+            // centre of the multi-selected surfaces' combined bounding box, framed to fit it.
+            // The camera is set instantly - no animation (see docs/NavigationGizmo.md).
+            let selectedBBs =
+                m.scene.surfacesModel.surfaces.selectedLeaves
+                |> HashSet.toList
+                |> List.choose (fun ts ->
+                    m.scene.surfacesModel.sgSurfaces
+                    |> HashMap.tryFind ts.id
+                    |> Option.map (fun sg -> sg.globalBB))
+            match selectedBBs, m.navigation.navigationMode, axis with
+            | [], _, _ -> m   // gizmo renders disabled without a multi-selection - nothing to frame
+            // MapView locks the camera to a nadir, north-up pose; a vertical snap is its
+            // gimbal-lock singularity. The gizmo disables Up/Down there - guard anyway.
+            | _, NavigationMode.MapView, (NavigationGizmo.Up | NavigationGizmo.Down) -> m
+            | bbs, _, _ ->
+                let bb     = bbs |> Box3d
+                let center = bb.Center
+                let dir    = NavigationGizmo.resolveAxisWorldDir m.scene.referenceSystem axis
+                let camUp  = NavigationGizmo.gizmoCameraUp m.scene.referenceSystem axis
+                let hfov   = (m.frustum |> Frustum.horizontalFieldOfViewInDegrees) * Constant.RadiansPerDegree
+                let aspect = Frustum.aspect m.frustum |> max 1e-3
+                let vfov   = 2.0 * atan (tan (hfov * 0.5) / aspect)
+                let radius = (bb.Size.Length * 0.5) |> max 1e-3
+                let dist   = 1.25 * (max (radius / tan (hfov * 0.5)) (radius / tan (vfov * 0.5)))
+                let eye    = center + dir * dist
+                // Axis-aligned snap: keep the chosen up exactly (bodyAwareLookAt would
+                // override it on small bodies); the viewing direction is radial on purpose.
+                // lookAt aims *at* `center`, so forward = -dir and Sky = camUp come out right
+                // (this also avoids the animateForwardAndLocation sign bug).
+                let newView = CameraView.lookAt eye center camUp
+                m
+                |> Optic.set _view newView
+                |> Optic.set _animationView newView
+                |> Optic.set (_navigation >-> NavigationModel.lockedAxis_) None   // circle click clears the lock
+        | OrientCameraToGizmoAxis _, _ -> m
+        | ToggleNavigationAxisLock axis, _ ->
+            // Navigation gizmo edge click: toggle the axis lock. Only ArcBall (any
+            // axis) and MapView (vertical only) support it - see docs/NavigationGizmo.md.
+            let allowed =
+                match m.navigation.navigationMode, axis with
+                | NavigationMode.ArcBall, _                     -> true
+                | NavigationMode.MapView, NavigationAxis.UpDown -> true
+                | _                                            -> false
+            if not allowed then m
+            else
+                let next = if m.navigation.lockedAxis = Some axis then None else Some axis
+                m |> Optic.set (_navigation >-> NavigationModel.lockedAxis_) next
+        | SetCameraAndFrustum (cv, hfov, _),_ ->
             Log.warn "[Viewer] SetCameraAndFrustum not implemented!"
             m
         | SetCameraAndFrustum2 (cv,frustum),_ ->
@@ -737,9 +849,10 @@ module ViewerApp =
                 DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (DrawingAction.GroupsMessage msg)
 
             { m with drawing = drawing } |> stash
-        | InvertDrawing, _ ->
-            let updatedInverseFlag = not m.inverseFlag
-            { m with inverseFlag = updatedInverseFlag; drawing = {m.drawing with draw = updatedInverseFlag} }
+        | ToggleDirectToolMode, _ ->
+            // No draw/pick bookkeeping to do: `toolArmed` reads directToolMode directly at
+            // every gate, so flipping it is the whole of the toggle.
+            { m with directToolMode = not m.directToolMode }
         | DrawingMessage msg,_ -> //Interactions.DrawAnnotation
             match msg with
             | Drawing.FlyToAnnotation id ->
@@ -756,7 +869,7 @@ module ViewerApp =
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with animations = a'}              
                 | None -> m
-            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.inverseFlag) ->
+            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && toolArmed m ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
                     //let pickingAction, msg =
@@ -814,6 +927,23 @@ module ViewerApp =
                     DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing enriched
 
                 { m with drawing = drawing; } |> stash
+
+            | Drawing.ColorByCategoryMessage ColorByCategoryAction.ResampleSurface ->
+                // the expensive surface-attribute sampling pass — needs SurfaceModel, so it
+                // lives here rather than in DrawingApp.update. Every other CbC message just
+                // flips `colorByCategorySurfaceStale` and repaints the button.
+                let drawing =
+                    DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing msg
+                let m = { m with drawing = drawing }
+                if m.drawing.colorByCategory.attributeKind <> ColorAttributeKind.SurfaceAttribute then
+                    m |> stash
+                else
+                    let store = sampleSurfaceForCbc m m.drawing.colorByCategory.surfaceLayer
+                    let annos = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
+                    let cbc' =
+                        ColorByCategory.update annos m.drawing.colorByCategory (ColorByCategoryAction.SetSurfaceSamples store)
+                        |> fun md -> ColorByCategory.update annos md ColorByCategoryAction.FitRangeToData
+                    m |> Optic.set _colorByCategory cbc' |> stash
 
             | _ ->
                 let view =
@@ -1623,16 +1753,18 @@ module ViewerApp =
                         result
                 else m
 
-        | PickObject (p,id),_ ->  
-            match m.picking with
-            | true ->
-                let hitF _ = None
-                let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
-                match (m.scene.surfacesModel.surfaces.flat.TryFind id) with
-                | Some x -> matchPickingInteraction sendQueue p observedSystem hitF (x |> Leaf.toSurface) m 
-                | None -> m
-            | false -> m
-        | SaveScene s,_ ->                 
+        // PickObject is dead - nothing dispatches it. Handler kept commented alongside the
+        // ViewerAction case in Viewer-Model.fs.
+        //| PickObject (p,id),_ ->
+        //    match m.picking with
+        //    | true ->
+        //        let hitF _ = None
+        //        let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
+        //        match (m.scene.surfacesModel.surfaces.flat.TryFind id) with
+        //        | Some x -> matchPickingInteraction sendQueue p observedSystem hitF (x |> Leaf.toSurface) m
+        //        | None -> m
+        //    | false -> m
+        | SaveScene s,_ ->
             let target = match m.scene.scenePath with | Some path -> path | None -> s
             m |> ViewerIO.saveEverything target
         | SaveAs s,_ ->
@@ -1713,18 +1845,14 @@ module ViewerApp =
                     let c   = m.scene.config
                     let ref = m.scene.referenceSystem
                     let navigation', _ = 
-                        Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) m.ctrlFlag
+                        Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick V3d.Zero)) (mouseScheme m)
                     { m with navigation = navigation' }
                 | _ -> m
           
 
             let m =
-                match k with 
-                | Keyboard.Modifier ->
-                    match m.interaction with
-                    //| Interactions.PickMinervaProduct -> 
-                    //    { m with minervaModel = { m.minervaModel with picking = true }; ctrlFlag = true}
-                    |_ -> { m with ctrlFlag = true}
+                match k with
+                | Keyboard.Modifier -> { m with ctrlFlag = true }
                 | _ -> m
 
             let m =
@@ -1803,21 +1931,9 @@ module ViewerApp =
                 | _ -> m
 
             match k with
-            | Keyboard.Modifier -> 
-                match m.interaction with
-                | Interactions.DrawAnnotation -> 
-                    let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.inverseFlag then DrawingAction.StartDrawing else DrawingAction.StopDrawing)
-                    { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
-                | Interactions.PickAnnotation
-                | Interactions.EditAnnotation ->
-                    let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.inverseFlag then DrawingAction.StartPicking else DrawingAction.StopPicking)
-                    { m with drawing = d; ctrlFlag = false; picking = m.inverseFlag }
-                //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
-                |_-> { m with ctrlFlag = false; picking = m.inverseFlag }
-            | _ -> m                                  
-        | SetInteraction t,_ -> 
+            | Keyboard.Modifier -> { m with ctrlFlag = false }
+            | _ -> m
+        | SetInteraction t,_ ->
                 
             // let feedback = sprintf "pick refrence plane; confirm with ENTER" t |> UserFeedback.create 3000
             //let feedback = "pick refrence plane \n confirm with ENTER" |> UserFeedback.create 3000
@@ -1837,28 +1953,46 @@ module ViewerApp =
                     m.scene.referenceSystem 
                     a
                     
+            // Re-aim the camera only when the sky it would be built from actually moved.
+            // `updateCameraUp` keeps the position and viewing direction but replaces the
+            // sky vector, which *rolls* the camera about its own view axis - so running it
+            // on every reference-system action snapped the roll on purely cosmetic edits
+            // (toggling the cross, its text size or colour, nudging the north offset) and
+            // on re-picking the planet that was already selected. Only `planet` and `up`
+            // feed `bodyAwareSky`, so comparing it across the update is the exact
+            // precondition, and it leaves a camera the user deliberately rolled alone.
+            let skyOf (rs : ReferenceSystem) = ReferenceSystem.bodyAwareSky rs.planet rs.up.value
+            let skyMoved = Vec.distance (skyOf m.scene.referenceSystem) (skyOf refsystem') > 1e-9
+
             let _refSystem = (Model.scene_ >-> Scene.referenceSystem_)
             let m = 
-                m 
-                |> Optic.set _refSystem refsystem'
-                |> SceneLoader.updateCameraUp     
+                let m = m |> Optic.set _refSystem refsystem'
+                if skyMoved then SceneLoader.updateCameraUp m else m
                 
             //changing the planet requires update of local reference systems
             let m = 
                 match a with
                 | ReferenceSystemAction.SetPlanet planet ->
-                    let flat' = 
-                        m.scene.surfacesModel.surfaces.flat 
-                        |> HashMap.map (fun k v -> 
+                    let flat' =
+                        m.scene.surfacesModel.surfaces.flat
+                        |> HashMap.map (fun k v ->
                             let s = Leaf.toSurface v
-                            let sgSurface = m.scene.surfacesModel.sgSurfaces |> HashMap.find k 
+                            let sgSurface = m.scene.surfacesModel.sgSurfaces |> HashMap.find k
                             let bbCenter = sgSurface.globalBB.Center
-                            Leaf.Surfaces { 
-                                s with transformation = 
-                                            (TransformationApp.update s.transformation TransformationApp.Action.UpdatePlanetInLocalRefSys m.scene.referenceSystem bbCenter) 
+                            Leaf.Surfaces {
+                                s with transformation =
+                                            (TransformationApp.update s.transformation TransformationApp.Action.UpdatePlanetInLocalRefSys m.scene.referenceSystem bbCenter)
                                 }
                             )
-                    { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = flat' }}}}
+                    let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = flat' }}}}
+                    // the annotation toolbar greys out geometries that need a real reference body
+                    // (DnS/TT/ellipses) while Planet.None is selected; drop an active one back to
+                    // Line so the drawing tool never sits on a disabled - and for ellipses crashing
+                    // - geometry. Line allows every projection, so projection is left untouched.
+                    if planet = Planet.None && Geometry.needsReferenceBody m.drawing.geometry then
+                        { m with drawing = { m.drawing with geometry = Geometry.Line } }
+                    else
+                        m
                 |_ -> m
 
             //changing the reference system also requires adaptation of angular measurement values
@@ -1875,10 +2009,24 @@ module ViewerApp =
                     |> Leaf.Annotations
                 )
             Log.stop()
-            
+
+            // Every derived value just moved — bearing, slope, dip and strike, altitudes — so
+            // a Color by Category ramp fitted to the old numbers no longer matches the data,
+            // and neither does the legend drawn from it. Refit, exactly as switching the
+            // attribute does. fitRange leaves categorical and cyclic attributes alone (a hue
+            // wheel has no bounds to fit), and a switched-off panel is not touched at all.
+            let colorByCategory =
+                if m.drawing.colorByCategory.enabled then
+                    let annotations = flat |> HashMap.toValueList |> List.map Leaf.toAnnotation
+                    ColorByCategory.update
+                        annotations m.drawing.colorByCategory ColorByCategoryAction.FitRangeToData
+                else
+                    m.drawing.colorByCategory
+
             m
-            |> Optic.set _flat flat            
-            
+            |> Optic.set _flat flat
+            |> Optic.set _colorByCategory colorByCategory
+
 
             //match a with 
             //| ReferenceSystemAction.SetUp _ | ReferenceSystemAction.SetPlanet _ ->
@@ -2478,9 +2626,20 @@ module ViewerApp =
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
                 let! state = model.navigationMode
-                let! inverseFlag = m.inverseFlag
+                let! directToolMode = m.directToolMode
                 let! ctrlFlag = m.ctrlFlag
-                match state, inverseFlag = ctrlFlag with
+
+                // The camera is live whenever *some* mouse button still drives it. In
+                // Direct Tool Mode that is middle (pan), right (orbit) and the wheel,
+                // even while the tool owns the left button - `Navigation.update` drops
+                // the left-button presses rather than unsubscribing the controller, so
+                // you can zoom and pan without letting go of the tool.
+                // The default mode is unchanged: holding Ctrl to use a tool stops the
+                // camera dead, which is what keeps a navigation drag from re-firing a
+                // pick (see docs/story-picking-during-navigation.md).
+                let cameraLive = directToolMode || not ctrlFlag
+
+                match state, cameraLive with
                 | NavigationMode.FreeFly, true ->
                     yield! FreeFlyController.extractAttributes model.camera Navigation.Action.FreeFlyAction
                 | NavigationMode.ArcBall, true ->                         
@@ -2511,7 +2670,7 @@ module ViewerApp =
                 //attribute "showFPS" "true"
                 //attribute "data-renderalways" "true"
                 Aardvark.UI.Events.onKeyDown' (fun k ->
-                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k (m.inverseFlag |> AVal.force)
+                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
                     [KeyDown k; DrawingMessage drawingAction]
                 )
                 onKeyUp   (KeyUp)        
@@ -2554,11 +2713,14 @@ module ViewerApp =
             ] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage) 
         ]     
         
-    let allowAnnotationPicking (m : AdaptiveModel) =       
-        // drawing app needs pickable stuff. however whether annotations are pickable depends on 
-        // outer application state. we consider annotations to pickable if they are visible
-        // and we are in "pick annotation" mode.
-        m.interaction |> AVal.map (function
+    let allowAnnotationPicking (m : AdaptiveModel) =
+        // Whether the annotation pick target fires at all. Needs a pick-capable interaction
+        // *and* the tool armed (Ctrl held, or not held in Direct Tool Mode) - this is the
+        // sole arm gate for annotation selection / vertex grab now that DrawingModel carries
+        // no draw/pick flags. Handle *visibility* is separate (allowVertexEditing).
+        (m.interaction, ViewerUtils.toolArmed m) ||> AVal.map2 (fun interaction armed ->
+            armed &&
+            match interaction with
             | Interactions.PickAnnotation -> true
             | Interactions.DrawLog -> true
             // editing needs the same pick target: a click on the body re-selects, and the handles
@@ -2569,7 +2731,8 @@ module ViewerApp =
 
     /// Whether the control point handles are drawn and pickable. Unlike allowAnnotationPicking,
     /// this is the *only* mode that shows them - handles on every selected annotation everywhere
-    /// would be noise, and would put every annotation's vertices in the pick buffer.
+    /// would be noise, and would put every annotation's vertices in the pick buffer. Kept
+    /// interaction-only (no toolArmed) so the handles stay visible while you reach for Ctrl.
     let allowVertexEditing (m : AdaptiveModel) =
         m.interaction |> AVal.map (function
             | Interactions.EditAnnotation -> true
@@ -2580,12 +2743,12 @@ module ViewerApp =
         // drawing app needs pickable stuff. however whether logs are pickable depends on 
         // outer application state. we consider annotations to pickable if they are visible
         // and we are in "pick annotation" mode.
-        AVal.map3 (fun ctrlPressed inverse interaction -> 
-            match ctrlPressed, inverse, interaction with
+        AVal.map3 (fun ctrlPressed directToolMode interaction ->
+            match ctrlPressed, directToolMode, interaction with
             | true, false, Interactions.PickLog -> true
             | false, true, Interactions.PickLog -> true
             | _ -> false
-        ) m.ctrlFlag m.inverseFlag m.interaction
+        ) m.ctrlFlag m.directToolMode m.interaction
 
     // overlays that occur in instrumentview + main renderview
     let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) (frustum : aval<Frustum>) =

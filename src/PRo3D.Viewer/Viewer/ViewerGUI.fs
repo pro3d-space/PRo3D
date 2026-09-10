@@ -53,8 +53,76 @@ module Gui =
     
     let dnsColorLegend (m : AdaptiveModel) =
         let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DnsLegend" m.drawing.dnsColorLegend
-        
+
         Incremental.Svg.svg falseColorAttributes falseColorSvg
+
+    /// the loaded annotations, for the attributes that need to enumerate them (surfaces)
+    let annotationSet (m : AdaptiveModel) : aset<AdaptiveAnnotation> =
+        m.drawing.annotations.flat
+        |> AMap.toASet
+        |> ASet.choose (fun (_, leaf) ->
+            match leaf with
+            | AdaptiveAnnotations a -> Some a
+            | _ -> None)
+
+    /// distinct, sorted scalar-layer labels across every loaded surface's `.opcx`; the
+    /// choices offered in Color by Category's "surface attribute" dropdown
+    let surfaceScalarLayerLabels (m : AdaptiveModel) : aval<list<string>> =
+        AVal.custom (fun t ->
+            m.scene.surfacesModel.surfaces.flat.Content.GetValue t
+            |> HashMap.toValueList
+            |> List.collect (fun leaf ->
+                match leaf with
+                | AdaptiveSurfaces s ->
+                    s.scalarLayers.Content.GetValue t
+                    |> HashMap.toValueList
+                    |> List.map (fun (l : AdaptiveScalarLayer) -> l.label.GetValue t)
+                | _ -> [])
+            |> List.distinct
+            |> List.sort)
+
+    /// true when Color by Category's cached surface samples no longer match the current
+    /// inputs (layer, planet, annotation points) — drives the "resample" button's stale style.
+    /// Comparing a live stamp catches every edit path, undo included, without hooking
+    /// individual actions.
+    ///
+    /// Reads the planet and deliberately not `referenceSystem.up`: navigating rewrites that
+    /// vector from the camera position, so depending on it here re-evaluated this aval — and
+    /// flagged the button — on every camera movement. See `ColorByCategory.stampOf`.
+    let colorByCategorySurfaceStale (m : AdaptiveModel) : aval<bool> =
+        AVal.custom (fun t ->
+            let cbc   = m.drawing.colorByCategory
+            let layer = cbc.surfaceLayer.GetValue t
+            let store = cbc.surfaceSamples.GetValue t
+            if cbc.attributeKind.GetValue t <> ColorAttributeKind.SurfaceAttribute || layer = "" then
+                false
+            elif store.layer <> layer || HashMap.isEmpty store.entries then
+                true
+            else
+                let planet = m.scene.referenceSystem.planet.GetValue t
+                let annos =
+                    (annotationSet m).Content.GetValue t
+                    |> HashSet.toList
+                    |> List.map (fun a -> a.key, a.points.Content.GetValue t |> IndexList.toArray)
+                ColorByCategory.stampOf layer planet annos <> store.stamp)
+
+    /// Same placement as falseColorAttributes, only wider: the hue wheel drawn for the
+    /// cyclic attributes captions itself, and the caption does not fit into 55px.
+    let colorByCategoryAttributes =
+        [
+                "display"               => "block";
+                "width"                 => "170px";
+                "height"                => "75%";
+                "preserveAspectRatio"   => "xMidYMid meet";
+                "viewBox"               => "0 0 5% 100%"
+                "style"                 => "position:absolute; left: 0%; top: 25%"
+                "pointer-events"        => "None"
+        ]
+        |> AttributeMap.ofList
+
+    let colorByCategoryLegend (m : AdaptiveModel) =
+        Incremental.Svg.svg colorByCategoryAttributes
+            (ColorByCategory.Draw.legend m.drawing.colorByCategory)
                             
     let scalarsColorLegend (m : AdaptiveModel) =
         Incremental.Svg.svg falseColorAttributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
@@ -263,6 +331,50 @@ module Gui =
                 ]
             ]                              
         ]
+
+    /// Accent colour per tool group. Single source of truth for the tool strip's icon
+    /// colours (Gui.ToolStrip) and the selected-tool label on the secondary toolbar
+    /// row - the label is tinted with the active tool's colour so the row visibly
+    /// belongs to whichever icon is lit in the strip.
+    module ToolColors =
+        // Held as (r, g, b) rather than a hex string so the same definition yields both
+        // the solid chip colour and a toned down translucent wash of it.
+        let navigation = (0x4a, 0xa3, 0xff)   // blue
+        let annotation = (0x3f, 0xb9, 0x50)   // green
+        let selection  = (0xe3, 0xb3, 0x41)   // amber
+        let placement  = (0xb0, 0x83, 0xf0)   // violet
+        let reference  = (0x4f, 0xd1, 0xc5)   // teal
+        /// interactions that are hidden from the UI and so belong to no group
+        let neutral    = (0xcc, 0xcc, 0xcc)
+
+        let hex ((r, g, b) : int * int * int) = sprintf "#%02x%02x%02x" r g b
+
+        /// Translucent version of a group colour. `alpha` is a CSS literal passed through
+        /// verbatim - formatting a float here would emit a decimal comma under a German
+        /// locale and silently void the declaration.
+        let rgba (alpha : string) ((r, g, b) : int * int * int) =
+            sprintf "rgba(%d, %d, %d, %s)" r g b alpha
+
+        /// Group an interaction belongs to, expressed as its colour. This is also what
+        /// defines the grouping drawn in the tool strip, so an interaction added to a
+        /// group here must be added to the matching block of `ToolStrip.view` too.
+        let ofInteraction (i : Interactions) =
+            match i with
+            | Interactions.DrawAnnotation
+            | Interactions.PickAnnotation
+            | Interactions.CutAnnotation
+            | Interactions.EditAnnotation           -> annotation
+            | Interactions.PickSurface
+            | Interactions.SelectArea               -> selection
+            | Interactions.PlaceRover
+            | Interactions.PickDistancePoint
+            | Interactions.PlaceSceneObject
+            | Interactions.PlaceScaleBar
+            | Interactions.PickPivotPoint           -> placement
+            | Interactions.PlaceCoordinateSystem
+            | Interactions.PickSurfaceRefSys
+            | Interactions.PickExploreCenter        -> reference
+            | _                                     -> neutral
 
     module TopMenu =                       
 
@@ -710,12 +822,30 @@ module Gui =
                 ]
             ]
         
+        /// The Transformations model of the single selected surface, or None when nothing
+        /// is selected (or the selection no longer exists in the group tree). Same lookup
+        /// `SurfaceApp.viewTranslationTools` does for the Transformations panel.
+        let private selectedSurfaceTransformation (m : AdaptiveModel) =
+            adaptive {
+                let! guid = m.scene.surfacesModel.surfaces.singleSelectLeaf
+                match guid with
+                | None -> return None
+                | Some id ->
+                    let! exists = (m.scene.surfacesModel.surfaces.flat |> AMap.keys) |> ASet.contains id
+                    if not exists then return None
+                    else
+                        let! leaf = m.scene.surfacesModel.surfaces.flat |> AMap.find id
+                        match leaf with
+                        | AdaptiveSurfaces surf -> return Some surf.transformation
+                        | _ -> return None
+            }
+
         let dynamicTopMenu (m:AdaptiveModel) =
             adaptive {
                 let! interaction = m.interaction
                 match interaction with
-                | Interactions.DrawAnnotation -> 
-                    return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.drawing |> UI.map DrawingMessage
+                | Interactions.DrawAnnotation ->
+                    return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.scene.referenceSystem.planet m.drawing |> UI.map DrawingMessage
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
@@ -725,6 +855,52 @@ module Gui =
                         Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ] |> UI.wrapToolTip DataPosition.Bottom measurementTooltip
                         Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ] |> UI.wrapToolTip DataPosition.Bottom visibilityTooltip                     
                         ] |> UI.map ReferenceSystemMessage 
+                | Interactions.PickSurfaceRefSys ->
+                    // Mirrors the Place Coordinate System row: a unit dropdown sizing the
+                    // cross, and an eye toggling it. Both act on the selected surface's
+                    // Transformations, so with nothing selected they render greyed and
+                    // inert rather than vanishing - the row keeps its shape either way.
+                    let measurementTooltip = "Measurement to adapt the size of the surface reference system"
+                    let visibilityTooltip  = "Toggle visibility of the surface reference system"
+                    let! trafo = selectedSurfaceTransformation m
+
+                    let sizeInMetres, isVisible =
+                        match trafo with
+                        | Some t -> t.refSysSize.value, t.showTrafoRefSys
+                        | None   -> AVal.constant 0.0, AVal.constant false
+
+                    // `refSysSize` is metres, the chart is the same unit list the global
+                    // reference system uses. Convert with the same `scaleToSize`; a size
+                    // typed into the Transformations panel that matches no entry shows as
+                    // the nearest one.
+                    let selectedScale =
+                        (sizeInMetres, m.scene.referenceSystem.scaleChart |> AList.toAVal)
+                        ||> AVal.map2 (fun size chart ->
+                            chart
+                            |> IndexList.toList
+                            |> List.sortBy (fun label -> abs (PRo3D.Core.Sg.scaleToSize label - size))
+                            |> List.tryHead
+                            |> Option.defaultValue "2m")
+
+                    let row =
+                        Html.Layout.horizontal [
+                            Html.Layout.boxH [
+                                Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart selectedScale
+                                    (fun label ->
+                                        TransformationApp.Action.SetRefSysSize
+                                            (Numeric.Action.SetValue (PRo3D.Core.Sg.scaleToSize label))) id
+                            ] |> UI.wrapToolTip DataPosition.Bottom measurementTooltip
+                            Html.Layout.boxH [
+                                GuiEx.iconToggle isVisible "unhide icon" "hide icon"
+                                    TransformationApp.Action.ToggleRefSysVisible
+                            ] |> UI.wrapToolTip DataPosition.Bottom visibilityTooltip
+                        ] |> UI.map (SurfaceAppAction.TranslationMessage >> SurfaceActions)
+
+                    match trafo with
+                    | Some _ -> return row
+                    | None ->
+                        return div [ style "opacity:0.45; pointer-events:none"
+                                     attribute "title" "select a surface to change its reference system" ] [ row ]
                 | Interactions.PickAnnotation ->
                      return Html.Layout.horizontal [
                         Html.Layout.boxH [text "eps.:"]
@@ -769,38 +945,49 @@ module Gui =
                 }        
         )
             
-        let interactionText (i : Interactions) =
-            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
-            match i with 
-            | Interactions.PickExploreCenter     -> sprintf "%s+click to place arcball center" ctrl
-            | Interactions.PlaceCoordinateSystem -> sprintf "%s+click to place coordinate cross" ctrl
-            | Interactions.DrawAnnotation        -> sprintf "%s+click to pick point on surface" ctrl
-            | Interactions.PickAnnotation        -> sprintf "%s+click on annotation to select" ctrl
-            | Interactions.PickSurface           -> sprintf "%s+click on surface to select" ctrl
-            | Interactions.PlaceRover            -> sprintf "%s+click to (1) place rover and (2) pick lookat" ctrl
+        /// How the hint lines below name the gesture that runs the active tool. Direct
+        /// Tool Mode puts the tool on a plain left click, so the modifier must drop out
+        /// of the text or every hint reads wrong.
+        let private clickGesture (directToolMode : bool) =
+            if directToolMode then "Click"
+            else
+                let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
+                sprintf "%s+click" ctrl
+
+        let interactionText (directToolMode : bool) (i : Interactions) =
+            let click = clickGesture directToolMode
+            match i with
+            | Interactions.PickExploreCenter     -> sprintf "%s to place arcball center" click
+            | Interactions.PlaceCoordinateSystem -> sprintf "%s to place coordinate cross" click
+            | Interactions.DrawAnnotation        -> sprintf "%s to pick point on surface" click
+            | Interactions.PickAnnotation        -> sprintf "%s on annotation to select" click
+            | Interactions.CutAnnotation         -> sprintf "%s to draw separating polyline" click
+            | Interactions.PickSurface           -> sprintf "%s on surface to select" click
+            | Interactions.PlaceRover            -> sprintf "%s to (1) place rover and (2) pick lookat" click
             | Interactions.TrafoControls         -> "not implemented"
             | Interactions.PlaceSurface          -> "not implemented"
-            | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
-            | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
-            | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
-            | Interactions.PickSurfaceRefSys     -> sprintf "%s+click to place additional reference system for surface" ctrl
+            | Interactions.PlaceScaleBar         -> sprintf "%s to place scale bar" click
+            | Interactions.PlaceSceneObject      -> sprintf "%s to place scene object" click
+            | Interactions.PickPivotPoint        -> sprintf "%s to place pivot point" click
+            | Interactions.PickSurfaceRefSys     -> sprintf "%s to place additional reference system for selected surface" click
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
 
         /// As interactionText, but also reflects whether a control point is currently in hand.
         /// Click-to-grab has no drag affordance to feel out, so the hint line is most of what makes
         /// the gesture discoverable.
-        let interactionTextWithState (i : Interactions) (grabbed : bool) =
-            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
+        let interactionTextWithState (directToolMode : bool) (i : Interactions) (grabbed : bool) =
+            let click = clickGesture directToolMode
             match i with
-            | Interactions.EditAnnotation when grabbed -> sprintf "%s+click to drop the point, ESC to cancel" ctrl
-            | Interactions.EditAnnotation -> sprintf "%s+click a vertex of the selected annotation to move it" ctrl
-            | _ -> interactionText i
+            | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click
+            | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it" click
+            | _ -> interactionText directToolMode i
 
         let interactionTooltip (i : Interactions) : string =
             match i with 
             | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
             | Interactions.PlaceCoordinateSystem -> "Pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
+            | Interactions.PickSurfaceRefSys     -> "Pick a point on the selected surface to give it its own reference system, and choose a unit of measurement to adapt the size of its cross."
             | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
             | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
@@ -812,45 +999,54 @@ module Gui =
             | Interactions.PickPivotPoint        -> ""
             | _ -> ""
 
-        let invertDrawingTooltip =
-            "Invert drawing: swap the Ctrl modifier - pick and draw without Ctrl, hold Ctrl to navigate."
+        /// Display name of the selected tool, shown as the secondary-toolbar chip. Covers
+        /// exactly the interactions reachable from the tool strip (`Gui.ToolStrip.view`);
+        /// hidden interactions fall back to the generic label.
+        let interactionName (i : Interactions) : string =
+            match i with
+            | Interactions.DrawAnnotation        -> "Draw Annotation"
+            | Interactions.PickAnnotation        -> "Select Annotation"
+            | Interactions.CutAnnotation         -> "Cut Annotation"
+            | Interactions.EditAnnotation        -> "Edit Annotation"
+            | Interactions.PickSurface           -> "Select Surface"
+            | Interactions.SelectArea            -> "Select Area"
+            | Interactions.PlaceRover            -> "Place Rover"
+            | Interactions.PickDistancePoint     -> "Place Distance Point"
+            | Interactions.PlaceSceneObject      -> "Place Scene Object"
+            | Interactions.PlaceScaleBar         -> "Place Scalebar"
+            | Interactions.PickPivotPoint        -> "Pick Pivot Point"
+            | Interactions.PlaceCoordinateSystem -> "Place Coordinate System"
+            | Interactions.PickSurfaceRefSys     -> "Place Surface Reference System"
+            | Interactions.PickExploreCenter     -> "Pick Explore Center"
+            | _                                  -> "Tool Settings"
+
+        let directToolModeTooltip =
+            "Direct Tool Mode: the active tool runs on the left mouse button, no Ctrl needed. \
+             Middle button pans, right button orbits, wheel zooms. Hold Ctrl to orbit with the \
+             left button as well."
 
         let topMenuItems (model : AdaptiveModel) = [
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
-            Navigation.UI.viewNavigationModes model.scene.referenceSystem.planet model.navigation |> UI.map NavigationMessage
 
-            // Interaction selector + ctrl-click hint. The mode-specific tool
-            // controls (annotation geometry, rover selector, etc.) live on the
-            // secondary toolbar row below so the planet selector and scene
-            // path stay visible on the main row at every window width.
-            Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
-                Html.Layout.boxH [
-                    div [style "font-style:italic"] [
-                        Incremental.text (
-                            (model.interaction, model.drawing.vertexGrab |> AVal.map Option.isSome)
-                            ||> AVal.map2 interactionTextWithState)
-                    ]]
-            ]
+            // The navigation-mode and interaction selectors live in the vertical tool
+            // strip overlaid on the right edge of the render view (Gui.ToolStrip), and
+            // the ctrl-click hint for the selected tool sits at the far end of the
+            // secondary toolbar row - see `secondaryToolbarRow` below.
 
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Reference System:"] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ]
 
-            // Inverts the Ctrl convention (picking = ctrlFlag <> inverseFlag). It is a global
+            // Hands the left mouse button to the active tool and moves navigation onto the
+            // middle and right buttons (picking = ctrlFlag <> directToolMode). It is a global
             // interaction-mode switch like the two items above, so it lives on the main row
-            // rather than in the Annotations dock page.
+            // rather than in the Annotations dock page. See docs/DirectToolMode.md.
             Html.Layout.horizontal [
-                Html.Layout.boxH [ GuiEx.iconToggle model.inverseFlag "toggle on icon" "toggle off icon" ViewerAction.InvertDrawing ]
-                Html.Layout.boxH [ text "Invert Drawing" ]
-            ] |> UI.wrapToolTip DataPosition.Bottom invertDrawingTooltip
-
-            Html.Layout.horizontal [
-                scenepath model
-            ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Direct Tool Mode:"] ]
+                Html.Layout.boxH [ GuiEx.iconCheckBox model.directToolMode ViewerAction.ToggleDirectToolMode ]
+            ] |> UI.wrapToolTip DataPosition.Bottom directToolModeTooltip
         ]
 
         // The secondary toolbar is always rendered (even when the active
@@ -858,23 +1054,215 @@ module Gui =
         // when switching tools. `dynamicTopMenu` returns an empty div for
         // interactions without a secondary toolbar; the row height stays
         // stable thanks to the wrapping `.ui.menu`'s min-height.
+
+        // Interactions that actually contribute controls to the secondary
+        // toolbar row (i.e. `dynamicTopMenu` returns something non-empty).
+        let private hasSecondaryTools (i : Interactions) =
+            match i with
+            | Interactions.DrawAnnotation
+            | Interactions.PlaceRover
+            | Interactions.PlaceCoordinateSystem
+            | Interactions.PickSurfaceRefSys
+            | Interactions.PickAnnotation
+            | Interactions.PlaceScaleBar
+            | Interactions.PickPivotPoint -> true
+            | _ -> false
+
         let secondaryToolbarRow (m : AdaptiveModel) =
-            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0; border:0"] [
-                div [clazz "item topmenu"] [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
+            // When the row carries no controls we drop the semantic-ui `item` class so
+            // its trailing vertical divider (`:before`) is not left as a
+            // stray tick; the row keeps its height via `.pro3d-topbar .ui.menu`.
+            let itemAttribs =
+                amap {
+                    let! interaction = m.interaction
+                    if hasSecondaryTools interaction
+                    then yield clazz "item topmenu"
+                    else yield clazz "topmenu pro3d-toolbar-empty"
+                } |> AttributeMap.ofAMap
+
+            // Row label: a white-on-colour chip in the active tool's group colour, showing
+            // the selected tool's name, so the row reads as belonging to whichever icon is
+            // lit in the tool strip.
+            let label =
+                let attribs =
+                    amap {
+                        let! interaction = m.interaction
+                        yield clazz "pro3d-toolsettings-chip"
+                        yield style (sprintf "background:%s"
+                                             (ToolColors.hex (ToolColors.ofInteraction interaction)))
+                    } |> AttributeMap.ofAMap
+                div [clazz "item topmenu pro3d-toolsettings-label"] [
+                    Incremental.div attribs (AList.ofList [
+                        Incremental.text (m.interaction |> AVal.map interactionName) ])
                 ]
+
+            // Ctrl-click hint for the selected tool, flowing straight on after that tool's
+            // settings. It is prose about the tool the strip has selected, so it belongs
+            // with the tool's settings rather than on the main row.
+            let hint =
+                div [clazz "item topmenu"; style "font-style:italic"] [
+                    Incremental.text (
+                        AVal.map3 interactionTextWithState
+                            m.directToolMode
+                            m.interaction
+                            (m.drawing.vertexGrab |> AVal.map Option.isSome))
+                ]
+
+            // The row itself is untinted. To wash it in a toned down version of the active
+            // tool's colour instead, make these attributes incremental and add
+            //   background: ToolColors.rgba "0.16" (ToolColors.ofInteraction interaction)
+            // (`ToolColors.rgba` is kept around for exactly that).
+            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0"] [
+                label
+                Incremental.div itemAttribs (AList.ofAValSingle (dynamicTopMenu m))
+                hint
             ]
 
         let getTopMenu (m:AdaptiveModel) =
             div [clazz "pro3d-topbar"] [
-                div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
+                div [clazz "ui menu"; style "padding:0; margin:0"] [
                     yield (menu m)
                     for t in (topMenuItems m) do
                         yield div [clazz "item topmenu"] [t]
+                    // scene name pinned to the right edge of the main row
+                    // (`margin-left:auto` on the flex `.ui.menu`)
+                    yield div [clazz "item topmenu"; style "margin-left:auto"] [
+                        Html.Layout.horizontal [ scenepath m ]
+                    ]
                 ]
                 secondaryToolbarRow m
             ]
         
+    /// Vertical icon strip overlaid on the right edge of the main render view. It replaces the
+    /// navigation-mode and interaction dropdowns that used to live in the top menu.
+    ///
+    /// Both selections are enum-valued model fields (`navigation.navigationMode` and
+    /// `interaction`), so "nothing selected" is not representable: exactly one navigation icon
+    /// and exactly one tool icon is highlighted at all times. The groups below therefore cover
+    /// every interaction the old dropdown offered, i.e. every `Interactions` case NOT in
+    /// `Interactions.hideSet` - keep the two in sync when un-hiding an interaction, otherwise
+    /// that interaction becomes unreachable and (if selected via F-key) shows no active icon.
+    module ToolStrip =
+
+        /// One strip button. `isEnabled` is only ever false for MapView without a reference
+        /// body; a disabled button dispatches nothing so the model cannot enter that state.
+        let private button
+            (color     : string)
+            (icon      : string)
+            (isActive  : aval<bool>)
+            (isEnabled : aval<bool>)
+            (tooltip   : string)
+            (action    : 'msg) =
+
+            let attribs =
+                amap {
+                    let! active  = isActive
+                    let! enabled = isEnabled
+                    // active and disabled are independent: MapView can be the current mode
+                    // while the scene has no reference body, and it must still read as the
+                    // one active navigation icon - just greyed out.
+                    let cls =
+                        (if active then "pro3d-tool active" else "pro3d-tool")
+                        + (if enabled then "" else " disabled")
+                    yield clazz cls
+                    yield style (sprintf "--tool-color:%s" color)
+                    if enabled then
+                        yield onClick (fun _ -> action)
+                } |> AttributeMap.ofAMap
+
+            Incremental.div attribs (AList.ofList [ i [clazz (icon + " icon")] [] ])
+            |> UI.wrapToolTip DataPosition.Left tooltip
+
+        let private navButton (icon : string) (tooltip : string) (mode : NavigationMode)
+                              (current : aval<NavigationMode>) (isEnabled : aval<bool>) =
+            button (ToolColors.hex ToolColors.navigation) icon
+                   (current |> AVal.map (fun x -> x = mode))
+                   isEnabled
+                   tooltip
+                   (NavigationMessage (Navigation.Action.SetNavigationMode mode))
+
+        /// The colour is looked up rather than passed in, so `ToolColors.ofInteraction`
+        /// stays the one place that says which group a tool belongs to.
+        let private toolButton (icon : string) (tooltip : string)
+                               (interaction : Interactions) (current : aval<Interactions>) =
+            button (ToolColors.hex (ToolColors.ofInteraction interaction)) icon
+                   (current |> AVal.map (fun x -> x = interaction))
+                   (AVal.constant true)
+                   tooltip
+                   (SetInteraction interaction)
+
+        /// A one-shot command button - it fires an action on the current selection rather
+        /// than switching the interaction mode, so it never reads as "active".
+        let private actionButton (color : string) (icon : string) (tooltip : string) (action : ViewerAction) =
+            button color icon (AVal.constant false) (AVal.constant true) tooltip action
+
+        let private divider = div [clazz "pro3d-tool-divider"] []
+
+        let view (m : AdaptiveModel) : DomNode<ViewerAction> =
+            let navMode     = m.navigation.navigationMode
+            let interaction = m.interaction
+
+            // MapView orients to the planet centre with up = north, so it needs a reference
+            // body. Same rule the old dropdown applied via `dropDownDisabled`.
+            let mapViewEnabled =
+                m.scene.referenceSystem.planet |> AVal.map (fun p -> p <> Planet.None)
+
+            let tool icon tooltip i = toolButton icon tooltip i interaction
+
+            // Clicks must not reach the render body underneath: it starts a camera drag /
+            // selection rectangle on mousedown and opens the context menu on right click.
+            // Navigation and tools sit in two separate panels with a small gap, so the
+            // blue navigation group reads as distinct from the interaction tools. Both
+            // panels share the button width and padding, so the icon columns line up.
+            onBoot "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });" (
+                div [clazz "pro3d-toolstrip"] [
+                  // --- navigation panel --------------------------------------------------
+                  div [clazz "pro3d-toolstrip-group"] [
+                    navButton "rocket" "Free fly - move the camera freely"
+                              NavigationMode.FreeFly navMode (AVal.constant true)
+                    // trailing ◎ echoes the bullseye "Pick ArcBall orbit centre" tool
+                    navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point  ◎"
+                              NavigationMode.ArcBall navMode (AVal.constant true)
+                    navButton "map" "Map view - top down, up is north, speed scales with altitude (needs a planet)"
+                              NavigationMode.MapView navMode mapViewEnabled
+                  ]
+
+                  // --- tool panel ------------------------------------------------------
+                  div [clazz "pro3d-toolstrip-group"] [
+                    // --- annotations ------------------------------------------------------
+                    tool "pencil"        "Draw annotation" Interactions.DrawAnnotation
+                    tool "mouse pointer" "Select annotation" Interactions.PickAnnotation
+                    tool "cut"           "Cut annotation - draw a stroke that cuts the selected annotation" Interactions.CutAnnotation
+                    actionButton (ToolColors.hex ToolColors.annotation) "pro3d-union"
+                                 "Union selected annotations (2 or more)"
+                                 (ViewerAction.DrawingMessage (DrawingAction.UnionSelectedAnnotations None))
+                    tool "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
+
+                    divider
+
+                    // --- selection --------------------------------------------------------
+                    tool "mouse pointer" "Select surface" Interactions.PickSurface
+                    tool "crop"  "Select area - drag a rectangle to multi-select" Interactions.SelectArea
+
+                    divider
+
+                    // --- placement --------------------------------------------------------
+                    tool "pro3d-tire" "Place rover" Interactions.PlaceRover
+                    tool "marker"   "Place distance point for the selected view plan" Interactions.PickDistancePoint
+                    tool "cube"     "Place scene object" Interactions.PlaceSceneObject
+                    tool "ruler" "Place scale bar" Interactions.PlaceScaleBar
+                    tool "anchor"   "Pick pivot point for placing / transforming" Interactions.PickPivotPoint
+
+                    divider
+
+                    // --- reference systems & camera ---------------------------------------
+                    tool "pro3d-coordinate-cross" "Place coordinate cross" Interactions.PlaceCoordinateSystem
+                    tool "pro3d-surface-ref-sys" "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
+                    tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' to set the pivot point to the body center" Interactions.PickExploreCenter
+                  ]
+                ]
+            )
+
     module Annotations =
       
         let viewAnnotationProperties (model : AdaptiveModel) =
@@ -1032,9 +1420,17 @@ module Gui =
         
             model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties    
             
-        let viewDnSColorLegendUI (model : AdaptiveModel) = 
-            model.drawing.dnsColorLegend 
-            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage 
+        let viewDnSColorLegendUI (model : AdaptiveModel) =
+            model.drawing.dnsColorLegend
+            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage
+            |> AVal.constant
+
+        /// Unlike the other Properties panels this one is global rather than per-selection,
+        /// so it does not go through GroupsApp.viewSelected.
+        let viewColorByCategory (model : AdaptiveModel) =
+            ColorByCategory.view Config.colorPaletteStore (annotationSet model)
+                (surfaceScalarLayerLabels model) (colorByCategorySurfaceStale model) model.drawing.colorByCategory
+            |> UI.map (fun a -> ViewerAction.DrawingMessage(DrawingAction.ColorByCategoryMessage a))
             |> AVal.constant
           
         let annotationLeafButtonns' (model : AdaptiveModel) = 
@@ -1450,11 +1846,56 @@ module Gui =
                                 yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
-                                yield dnsColorLegend m                                
+                                yield dnsColorLegend m
+                                yield colorByCategoryLegend m
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield projectedColorLegend m
                                 yield selectionRectangle m
+                                // navigation + interaction selector, overlaid on the right edge
+                                yield ToolStrip.view m |> UI.map ViewerMessage
+                                // axis gizmo, bottom-left corner: click an axis to look along it
+                                // onto the multi-selected surfaces; disabled with no selection,
+                                // and Up/Down disabled in MapView (nadir is its gimbal-lock axis)
+                                let gizmoHasSelection =
+                                    m.scene.surfacesModel.surfaces.selectedLeaves.Content
+                                    |> AVal.map (HashSet.isEmpty >> not)
+                                let gizmoAxisEnabled =
+                                    AVal.map2
+                                        (fun sel mode a ->
+                                            sel &&
+                                            not (mode = NavigationMode.MapView &&
+                                                 (a = NavigationGizmo.Up || a = NavigationGizmo.Down)))
+                                        gizmoHasSelection m.navigation.navigationMode
+                                // "" while the gizmo is fully usable: no tooltip, wrapper stays click-through
+                                let gizmoHint =
+                                    AVal.map2
+                                        (fun sel mode ->
+                                            if not sel then
+                                                "Select at least one surface to use the navigation gizmo."
+                                            elif mode = NavigationMode.MapView then
+                                                "Vertical (up/down) views are not available in Map View - use the horizontal axes."
+                                            else "")
+                                        gizmoHasSelection m.navigation.navigationMode
+                                // Which edges can be clicked to lock an axis: ArcBall any,
+                                // MapView only the vertical edge, FreeFly none.
+                                let gizmoEdgeLockEnabled =
+                                    m.navigation.navigationMode
+                                    |> AVal.map (fun mode a ->
+                                        match mode, a with
+                                        | NavigationMode.ArcBall, _                     -> true
+                                        | NavigationMode.MapView, NavigationAxis.UpDown -> true
+                                        | _                                            -> false)
+                                yield NavigationGizmo.view
+                                        (fun a -> OrientCameraToGizmoAxis a)
+                                        (fun a -> ToggleNavigationAxisLock a)
+                                        gizmoAxisEnabled
+                                        gizmoEdgeLockEnabled
+                                        m.navigation.lockedAxis
+                                        gizmoHint
+                                        m.navigation.camera.view
+                                        m.scene.referenceSystem
+                                      |> UI.map ViewerMessage
                                 //yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
                                 //                                                           |> UI.map ViewerMessage
                             }
@@ -1464,7 +1905,7 @@ module Gui =
             | Some "surfaces" -> 
                 require (viewerDependencies) (
                     body bodyAttributes
-                        [SurfaceApp.surfaceUI m.scene.scenePath Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage] 
+                        [SurfaceApp.surfaceUI m.scene.scenePath Config.colorPaletteStore m.scene.referenceSystem m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage]
                 )
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m
@@ -1522,6 +1963,9 @@ module Gui =
                         
                         GuiEx.accordion "Dip&Strike" "Calculator" false [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewDipAndStrike m))]
+
+                        GuiEx.accordion "Color by Category" "Theme" false [
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewColorByCategory m))]
                     ]
 
                 require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))

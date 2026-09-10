@@ -103,9 +103,15 @@ module MapViewController =
         // east axis, rotating the whole map view by 90 degrees.
         | Planet.JPL ->                                                     // NED: X north, Y east, Z down
             { up = -V3d.OOI; east = V3d.OIO; north = V3d.IOO; polarAxis = None }
-        | Planet.ENU
-        | Planet.None ->                                                    // ENU: X east, Y north, Z up
+        | Planet.ENU ->                                                     // ENU: X east, Y north, Z up
             { up = V3d.OOI; east = V3d.IOO; north = V3d.OIO; polarAxis = None }
+        | Planet.None ->
+            // Not ENU: `ReferenceSystem.updateCoordSystemAt` groups None with JPL and
+            // puts north on +X, up on +Z. This branch used to be shared with ENU, which
+            // put north on +Y - a 90 degree disagreement with the cross, the gizmo and
+            // the transformation basis, and MapView takes `north` as the camera's sky.
+            // east = north x up = -Y; nothing reads it, but keep the record consistent.
+            { up = V3d.OOI; east = -V3d.OIO; north = V3d.IOO; polarAxis = None }
         | _ ->
             let up = CooTransformation.getUpVector p planet |> Vec.Normalized
             // Body-fixed +Z is the rotation axis of every supported body, so

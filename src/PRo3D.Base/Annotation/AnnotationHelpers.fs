@@ -82,8 +82,9 @@ module Calculations =
 
     let calcResultsPoint (model:Annotation) (upVec:V3d) (planet:Planet) : AnnotationResults =
         let avg =
-            CooTransformation.tryGetAltitude model.points.[0] upVec planet
-            |> Option.defaultValue nan
+            match model.points |> IndexList.tryFirst with
+            | Some p -> CooTransformation.tryGetAltitude p upVec planet |> Option.defaultValue nan
+            | None   -> nan
         { AnnotationResults.initial with avgAltitude = avg }
     
     let getDistance (points:list<V3d>) = 
