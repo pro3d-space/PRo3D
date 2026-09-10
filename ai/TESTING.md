@@ -3,6 +3,13 @@
 Two complementary mechanisms. Use **both** when a change touches viewer
 behavior: Expecto proves the model/math, Playwright proves the pixels.
 
+| script (`.cmd` / `.sh`) | runs |
+|---|---|
+| `runTests` | Expecto, kernel-independent subset (`--skip-hera`) — what CI runs |
+| `runAllTests` | the whole Expecto suite, HERA kernel tests included |
+| `runUiTests` | builds viewer + pro3d-tool, then the Playwright specs in `tests-ui/` (needs a GPU, `PRO3D_TEST_DATA`, `PRO3D_SPICE_KERNELS`); extra args go to Playwright, e.g. `runUiTests projection-e2e` |
+| `runFullTests` | `runAllTests`, then `runUiTests`; non-zero if either fails |
+
 ## Expecto (`src/Tests`)
 
 Unit and integration tests over models, update functions, SPICE math, parsers,
@@ -50,9 +57,9 @@ debugging a spec — it documents the mechanics that are NOT guessable:
 **Touched image projection** (shaders, projector matrices, `NormalFlip`, fly-to,
 sidecar parsing)? Run `npm run test:projection` in `tests-ui`. It generates a
 frame with its sidecar, projects it through the UI and requires the render to
-reproduce the source at zero shift, on both OPC windings — see the
-`projection-e2e` section of the README for prerequisites (tool build, Python,
-a kernel tree matching its epoch).
+reproduce the source at zero shift — see the `projection-e2e` section of the
+README for prerequisites (`PRO3D_TEST_DATA`, tool build, Python, a kernel tree
+matching its epoch).
 
 For quick one-off questions (what does this page's DOM look like? what does
 the view show right now?), write a **probe** (`tests-ui/src/probe-*.ts`,

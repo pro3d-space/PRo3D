@@ -12,13 +12,19 @@ the shader cache is warm).
 
 ## Running
 
+From the repository root, `runUiTests.cmd` / `runUiTests.sh` builds the viewer and
+pro3d-tool in Release, installs the npm dependencies if needed and runs every spec
+(extra args go to Playwright, e.g. `runUiTests.cmd projection-e2e`);
+`runFullTests` runs the Expecto suite first. By hand:
+
 ```
 cd tests-ui
 npm install                       # once
 npx playwright install chromium   # once
 
-# a scene + data must exist locally; defaults target the HERA workshop set
-$env:PRO3D_IMAGE_DIR = "C:\pro3ddata\HERA\workshop3\COP\COP\2027-03-01"
+# data comes from a PRo3D.Resources.TestData checkout
+$env:PRO3D_TEST_DATA = "C:\path\to\PRo3D.Resources.TestData"
+$env:PRO3D_SPICE_KERNELS = "C:\path\to\spice"   # matching the frames' epoch, see below
 npx playwright test                       # all specs
 npx playwright test tests/stack-ui.spec.ts
 
@@ -28,14 +34,15 @@ npm run test:projection                   # projection end to end, see below
 | Env var | Meaning | Default |
 |---|---|---|
 | `PRO3D_EXE` | viewer binary | `../bin/Release/net9.0/PRo3D.Viewer.exe` |
-| `PRO3D_SCENE` | `.pro3d` scene to load | `C:\pro3ddata\HERA\workshop3\projectionScene.pro3d` |
-| `PRO3D_IMAGE_DIR` | image folder for import-driven specs | a COP date folder |
+| `PRO3D_TEST_DATA` | PRo3D.Resources.TestData checkout; the specs use `HERA/Dimorphos_opc` | — (required unless the two below are set) |
+| `PRO3D_SCENE` | `.pro3d` scene to load (`""` = empty PRo3D) | the test-data scene template, with its paths rewritten to the checkout and `PRO3D_SPICE_KERNELS` |
+| `PRO3D_IMAGE_DIR` | image folder for import-driven specs | `HERA/Dimorphos_opc/AFC_2027-03-21` in the test data |
 | `PRO3D_PORT` | HTTP port for the viewer | 54321 |
 | `PRO3D_SELECT_IMAGE` / `PRO3D_STACK_IMAGES` | specific images for the projection specs | first library row |
 | `PRO3D_AFC_DIR` | AFC frames with sidecars for `looking-at-dimorphos` | `PRO3D_IMAGE_DIR` |
-| `PRO3D_SPICE_KERNELS` | SPICE kernel tree for `projection-e2e` | the sibling `../spice/kernels` |
-| `PRO3D_E2E_OPCS` | OPC directories for `projection-e2e`, `;`-separated | both workshop3 Dimorphos exports |
-| `PRO3D_E2E_SCENE_TEMPLATE` | scene `projection-e2e` derives its own from | `PRO3D_SCENE` |
+| `PRO3D_SPICE_KERNELS` | SPICE kernel tree, written into the scene and handed to `pro3d-tool` | — |
+| `PRO3D_E2E_OPCS` | OPC directories for `projection-e2e`, `;`-separated | the test-data Dimorphos |
+| `PRO3D_E2E_SCENE_TEMPLATE` | scene `projection-e2e` derives its own from | the test-data scene template |
 | `PRO3D_E2E_DATE` / `PRO3D_E2E_EPOCH` | observation for `projection-e2e` | 2027-03-21 / 20:00:00 |
 | `PRO3D_PYTHON` | interpreter with numpy, for the data generator | `python` |
 
@@ -63,14 +70,12 @@ The regression test for image projection. Per OPC it:
    identity beating every mirror/rotation, gray staying gray — and > 90 %
    coverage from the shader's own coverage view with < 2 % spill.
 
-It runs once per OPC winding (`Dimorphos_opc` outward, `Dimorphos_0_Meridian`
-inward), because the inward one is what exercises the viewer's `NormalFlip`.
-About 2.5 minutes for both on a warm shader cache; generated data, screenshots
-and the measured numbers land in `artifacts/e2e/<OPC>/` and the test output.
+About a minute on a warm shader cache; generated data, screenshots and the
+measured numbers land in `artifacts/e2e/<OPC>/` and the test output.
 
 Prerequisites beyond the other specs: a Release build of **`PRo3D.Tool`** as
 well as the viewer (`bin/Release/net9.0/PRo3D.Tool.exe`), Python with numpy,
-the workshop3 OPCs and scene, and a kernel tree **matching the default epoch**:
+and a kernel tree **matching the default epoch**:
 it was chosen against `hera_plan_v182_20260820`, and ESA's plan kernels move
 HERA's future trajectory between releases — with an older plan the generator
 fails with "the body does not appear in the frame". Set `PRO3D_SPICE_KERNELS`
