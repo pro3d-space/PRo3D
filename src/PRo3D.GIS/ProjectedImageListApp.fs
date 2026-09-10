@@ -1,4 +1,4 @@
-namespace PRo3D.ImageMapping
+﻿namespace PRo3D.ImageMapping
 
 open System
 open System.IO
@@ -148,7 +148,14 @@ module ProjectedImageListApp =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"
                                     
-                onBoot "$('#__ID__').accordion();" (
+                // No .accordion() call here on purpose. These sections are nested inside
+                // GuiEx.accordion "Projected Images", and Semantic UI only supports
+                // nesting when the OUTERMOST accordion alone is initialised -- its
+                // selectors ('.title', '.content') resolve across all descendants, so a
+                // second call binds to the same inner titles and the inner panel never
+                // opens. Overriding the selectors with child combinators does not work
+                // either: Semantic UI leaves the widget uninitialised, silently.
+                (
                     div [styling] [
                         div [clazz "ui inverted accordion fluid"] [
                             div [clazz title; style "background-color: #282828"] [
