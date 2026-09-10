@@ -53,6 +53,9 @@ the view show right now?), write a **probe** (`tests-ui/src/probe-*.ts`,
 ceremony. Screenshots land in `tests-ui/artifacts/`; read the images yourself
 before drawing conclusions from pixel statistics.
 
+Tests are machine-local (GPU + local datasets, `PRO3D_*` env vars); they are
+not run in CI, which makes running them locally the only line of defense.
+
 ### What a probe like that CANNOT see
 
 A probe that sets values by `evaluate`-ing JS against the DOM never *uses* the
