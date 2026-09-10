@@ -51,7 +51,12 @@ function waitForHttp(url: string, timeoutMs: number): Promise<void> {
 export async function launchPro3d(): Promise<Pro3d> {
     if (!fs.existsSync(config.exe))
         throw new Error(`PRo3D exe not found: ${config.exe} (set PRO3D_EXE)`);
-    if (!fs.existsSync(config.scene))
+    // PRO3D_SCENE="" launches with no scene at all -- an empty PRo3D, which is where
+    // an end-to-end test has to start if it is going to exercise the steps a user
+    // actually performs (import a surface, bind it, set the epoch) rather than
+    // inheriting them from a scene file that already had everything right.
+    const withScene = config.scene.length > 0;
+    if (withScene && !fs.existsSync(config.scene))
         throw new Error(`scene not found: ${config.scene} (set PRO3D_SCENE)`);
 
     const logFile = path.join(__dirname, "..", "pro3d.log");
@@ -59,7 +64,9 @@ export async function launchPro3d(): Promise<Pro3d> {
 
     const proc = spawn(
         config.exe,
-        ["--server", "--port", String(config.port), "--scene", config.scene],
+        withScene
+            ? ["--server", "--port", String(config.port), "--scene", config.scene]
+            : ["--server", "--port", String(config.port)],
         {
             cwd: path.dirname(config.exe),
             // keep stdin an open pipe: server mode blocks on Console.Read()

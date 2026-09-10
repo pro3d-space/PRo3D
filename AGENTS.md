@@ -84,6 +84,8 @@ src/
 └── Tests/                 # Expecto tests (NUnit/FsUnit also referenced) + notebooks
 ```
 
+`tests-ui/` (repo root) holds the **Playwright end-to-end tests** that drive the real viewer and verify rendered screenshots — see [ai/TESTING.md](ai/TESTING.md). For any viewer-behavior change, run (or write) a spec there rather than concluding from a green build alone.
+
 Native code wrappers (instruments) live under `src/InstrumentPlatforms` (built into `lib/JR.Wrappers.dll`). See [ai/RENDERING.md](ai/RENDERING.md) and [ai/AUTOMATION.md](ai/AUTOMATION.md).
 
 ## Native Dependencies

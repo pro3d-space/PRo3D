@@ -2306,13 +2306,56 @@ module ViewerApp =
             // camera being replaced, and that is the case the animation mishandles.
             // An empty frame here is indistinguishable from a broken projection, so
             // landing correctly matters more than the 3.5 s glide.
-            let m =
+            let m, gisApp =
                 match msg with
                 | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage imageId) ->
-                    match flyToImageCamera m imageId with
-                    | Some view -> Optic.set _view view m
-                    | None -> m
-                | _ -> m
+                    // Take the scene's observation time to the image's own epoch FIRST,
+                    // then compute the camera from the updated state. The order is
+                    // load-bearing: the camera is derived from the projector pose in the
+                    // surface's body-fixed frame and carried into render space by the
+                    // surface's placement, and that placement depends on the clock. Set
+                    // the time afterwards and the body rotates out from under a camera
+                    // aimed at where it used to be -- 3 h is ~91 degrees on Dimorphos.
+                    // Measured when this was the wrong way round: flying to a frame whose
+                    // epoch matched the scene clock registered 0.9628 against its source,
+                    // while a frame 3 h away registered 0.046 with coverage down to 48.6%,
+                    // and the silhouette check still passed (IoU 0.95) because a triaxial
+                    // ellipsoid looks much the same whichever way it is turned -- which is
+                    // exactly why the orientation and content checks have to be run too.
+                    //
+                    // The projector itself does not need the clock: it is built in the
+                    // body-fixed frame at the image's own obs time, so the projection
+                    // sticks to the terrain whatever the scene time says. Everything
+                    // around it does -- the surface's placement, the sun, the spacecraft.
+                    // And flying to a 2027 image with the clock left at PRo3D's default
+                    // (2025-03-10, ObservationInfo.initial) puts every SPICE call outside
+                    // the mission kernels' coverage: the surface never gets placed, the
+                    // projection cannot resolve, and because SPICE calls serialise on a
+                    // global lock the failing calls repeat per frame and drag the UI down.
+                    // Flying to an image is the moment the user has said which epoch they
+                    // mean.
+                    let gisApp =
+                        match PRo3D.ImageMapping.ProjectedImageListModel.tryFind imageId gisApp.projectedImageList with
+                        | None -> gisApp
+                        | Some image ->
+                            match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
+                            | Some mbi, _ ->
+                                let oi = gisApp.defaultObservationInfo
+                                if oi.time.date = mbi.obs_date then gisApp
+                                else
+                                    Log.line "[Viewer] fly-to: observation time %s -> %s (the image's epoch)"
+                                        (oi.time.date.ToString "u") (mbi.obs_date.ToString "u")
+                                    { gisApp with
+                                        defaultObservationInfo =
+                                            { oi with time = { oi.time with date = mbi.obs_date } } }
+                            | _ -> gisApp
+                    let m = Optic.set _gisApp gisApp m
+                    let m =
+                        match flyToImageCamera m imageId with
+                        | Some view -> Optic.set _view view m
+                        | None -> m
+                    m, gisApp
+                | _ -> m, gisApp
 
             let m =
                 match msg with
