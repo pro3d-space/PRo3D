@@ -144,6 +144,102 @@ async function settled(page: Page, name: string): Promise<Buffer> {
         await render.waitForTimeout(3000);
     }
 
+    // PRO3D_PROBE_SCALAR picks a scalar layer in Surfaces -> "Scalars:" (e.g. "Slope"),
+    // and PRO3D_PROBE_FALSECOLOR=1 ticks that layer's false-colour box.
+    //
+    // This is the underlay for the strongest projection test available: the surface
+    // renders a garish scalar ramp that looks nothing like an instrument image, the
+    // projection overwrites it wherever it covers, and so any body pixel still carrying
+    // saturated colour is a pixel the projection missed. Coverage becomes an exact
+    // saturation test rather than a "did this pixel change" heuristic, and there is no
+    // way for a broken projection to score well by leaving the terrain alone.
+    //
+    // It has to go through the UI: `selectedScalar` written into the .pro3d file is
+    // ignored on load (measured -- the render is pixel-identical to the untouched scene).
+    const scalar = process.env.PRO3D_PROBE_SCALAR;
+    if (scalar) {
+        const surf = await context.newPage();
+        await surf.goto(app.url + "?page=surfaces");
+        await surf.waitForLoadState("networkidle");
+        // the surface tree arrives over the incremental DOM channel well after
+        // networkidle; without this the click below finds an empty list
+        await surf
+            .locator(`text=${process.env.PRO3D_PROBE_SURFACE ?? "Dimorphos"}`)
+            .first()
+            .waitFor({ state: "attached", timeout: 60_000 });
+        await surf.waitForTimeout(1500);
+        // the properties pane only renders for the SELECTED surface, so click the
+        // surface entry first -- otherwise "Scalars:" is simply not in the DOM
+        // the list renders entries as "<index>|<name>", e.g. "0|Dimorphos", so match on
+        // containment rather than equality
+        const picked = await surf.evaluate((name) => {
+            const all = Array.from(document.querySelectorAll("span, div, a")).filter(
+                (e) => {
+                    const t = (e.textContent ?? "").trim();
+                    return t.endsWith("|" + name) || t === name;
+                }
+            );
+            const deepest = all.filter(
+                (e) => !Array.from(e.children).some((c) => all.includes(c))
+            );
+            if (!deepest.length) return "surface '" + name + "' not in the list";
+            (deepest[0] as HTMLElement).click();
+            return "selected '" + (deepest[0].textContent ?? "").trim() + "'";
+        }, process.env.PRO3D_PROBE_SURFACE ?? "Dimorphos");
+        console.log(`surface: ${picked}`);
+        await surf.waitForTimeout(2500);
+        await surf
+            .locator("text=Scalars:")
+            .first()
+            .waitFor({ state: "attached", timeout: 60_000 });
+        // Playwright's selectOption, not a hand-dispatched "change": aardvark.media's
+        // UI.dropDown'' does not act on a synthetic event (measured -- the call reported
+        // "set Slope" and the render did not change one pixel), while selectOption drives
+        // the control the way a user does.
+        const sel = surf
+            .locator("tr", { has: surf.locator("text=Scalars:") })
+            .locator("select")
+            .first();
+        let r: string;
+        try {
+            await sel.selectOption({ label: scalar }, { timeout: 20_000 });
+            r = "selected";
+        } catch (e) {
+            const opts = await surf
+                .locator("select")
+                .first()
+                .evaluate((s: any) =>
+                    Array.from(s.options).map((o: any) => o.textContent).join("|")
+                )
+                .catch(() => "?");
+            r = `FAILED (${(e as Error).message.split("\n")[0]}); options seen: ${opts}`;
+        }
+        console.log(`scalar layer -> ${scalar}: ${r}`);
+        await render.waitForTimeout(5000);
+
+        if (process.env.PRO3D_PROBE_FALSECOLOR === "1") {
+            const fc = await surf.evaluate(() => {
+                const hit = Array.from(document.querySelectorAll("td, div, span, label")).filter(
+                    (e) => /false\s*colou?rs?/i.test((e.textContent ?? "").trim()) &&
+                           (e.textContent ?? "").trim().length < 40
+                );
+                for (const h of hit) {
+                    const row = h.closest("tr") ?? h.parentElement;
+                    const box = row?.querySelector("i.checkbox, input[type=checkbox], i");
+                    if (box) {
+                        (box as HTMLElement).click();
+                        return "clicked on '" + (h.textContent ?? "").trim() + "'";
+                    }
+                }
+                return "no false-colour control found";
+            });
+            console.log(`false colours: ${fc}`);
+            await render.waitForTimeout(4000);
+        }
+        const s = await render.screenshot();
+        fs.writeFileSync(path.join(artifacts, `${label}-underlay.png`), s);
+    }
+
     const gis = await context.newPage();
     await gis.goto(app.url + "?page=gis");
     await gis.waitForLoadState("networkidle");
