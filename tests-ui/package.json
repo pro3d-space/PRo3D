@@ -5,6 +5,7 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
+    "test:projection": "playwright test projection-e2e",
     "report": "playwright show-report"
   },
   "devDependencies": {

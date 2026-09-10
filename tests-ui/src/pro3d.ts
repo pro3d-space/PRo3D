@@ -47,17 +47,19 @@ function waitForHttp(url: string, timeoutMs: number): Promise<void> {
     });
 }
 
-/** Launch PRo3D.Viewer in --server mode (no Aardium) and wait until it serves. */
-export async function launchPro3d(): Promise<Pro3d> {
+/** Launch PRo3D.Viewer in --server mode (no Aardium) and wait until it serves.
+ *  `sceneOverride` replaces PRO3D_SCENE, for specs that generate their own scene. */
+export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
     if (!fs.existsSync(config.exe))
         throw new Error(`PRo3D exe not found: ${config.exe} (set PRO3D_EXE)`);
+    const scene = sceneOverride ?? config.scene;
     // PRO3D_SCENE="" launches with no scene at all -- an empty PRo3D, which is where
     // an end-to-end test has to start if it is going to exercise the steps a user
     // actually performs (import a surface, bind it, set the epoch) rather than
     // inheriting them from a scene file that already had everything right.
-    const withScene = config.scene.length > 0;
-    if (withScene && !fs.existsSync(config.scene))
-        throw new Error(`scene not found: ${config.scene} (set PRO3D_SCENE)`);
+    const withScene = scene.length > 0;
+    if (withScene && !fs.existsSync(scene))
+        throw new Error(`scene not found: ${scene} (set PRO3D_SCENE)`);
 
     const logFile = path.join(__dirname, "..", "pro3d.log");
     const log = fs.createWriteStream(logFile);
@@ -65,7 +67,7 @@ export async function launchPro3d(): Promise<Pro3d> {
     const proc = spawn(
         config.exe,
         withScene
-            ? ["--server", "--port", String(config.port), "--scene", config.scene]
+            ? ["--server", "--port", String(config.port), "--scene", scene]
             : ["--server", "--port", String(config.port)],
         {
             cwd: path.dirname(config.exe),
