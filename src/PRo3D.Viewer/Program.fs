@@ -1,4 +1,4 @@
-open System 
+﻿open System 
 
 //open System.Windows.Forms
 open System.Collections.Concurrent
@@ -44,7 +44,10 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "5.4.0"
+// Stamped from the top of PRODUCT_RELEASE_NOTES.md by Build.fs (patchViewerVersion)
+// before every published build. Anything that reports the placeholder below was not
+// produced by the release pipeline.
+let viewerVersion       = "development build"
 
 let catchDomainErrors   = false
 

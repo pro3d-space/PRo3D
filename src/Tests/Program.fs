@@ -125,6 +125,19 @@ let parseArgs (args : string array) =
 
 [<EntryPoint>]
 let main args =
+    // Fixture generation, not a test run: writes the view-plan footprint scene for
+    // issue #733 and exits. Defaults into the test-data submodule, which is where
+    // the committed fixture lives; see PRo3D.Resources.TestData/cases/viewplan-footprint.
+    match args |> Array.tryFindIndex ((=) "--make-footprint-scene") with
+    | Some i ->
+        let outDir =
+            match args |> Array.tryItem (i + 1) with
+            | Some d when not (d.StartsWith "--") -> d
+            | _ -> System.IO.Path.Combine(__SOURCE_DIRECTORY__, "resources", "cases", "viewplan-footprint")
+        PRo3D.Tests.FootprintSceneFixture.build outDir |> ignore
+        0
+    | None ->
+
     // --skip-hera is consumed by HeraSpiceTests via the process command line;
     // strip it so Expecto doesn't reject it as an unknown argument.
     let config = parseArgs (args |> Array.filter (fun a -> a <> "--skip-hera"))
