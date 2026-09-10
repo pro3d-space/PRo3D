@@ -130,7 +130,10 @@ type ViewerAction =
 | PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d> * Option<AttributeHit>
 
 
-| PickObject                      of V3d*Guid
+// PickObject is dead: nothing dispatches it (its SurfaceApp call sites were commented out
+// long ago) and its handler gated on Model.picking, which nothing writes any more. Kept
+// commented rather than deleted in case the object-pick flow is ever revived.
+//| PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
 | SetScenePath                    of string // used to set hint path in scene (e.g. to be used in top menu bar)

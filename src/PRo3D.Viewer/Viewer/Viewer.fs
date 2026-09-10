@@ -220,6 +220,14 @@ module ViewerApp =
     let mouseScheme (m : Model) : Navigation.MouseScheme =
         { directToolMode = m.directToolMode; ctrlFlag = m.ctrlFlag }
 
+    /// True when the active drawing/picking tool owns the left mouse button right now.
+    /// The classic scheme arms the tool while Ctrl is held; Direct Tool Mode inverts that,
+    /// so the tool is armed *unless* Ctrl is held. This - together with the active
+    /// interaction - is the whole arming decision: the scene-event handlers, the surface-pick
+    /// gate (`ViewerUtils.toolArmed`) and `allowAnnotationPicking` all consult it, and
+    /// `DrawingModel` no longer carries draw/pick flags. See docs/DirectToolMode.md.
+    let toolArmed (m : Model) : bool = m.ctrlFlag <> m.directToolMode
+
     let mutable cache = HashMap.Empty
 
     let updateSceneWithNewSurface (m: Model) =
@@ -522,7 +530,7 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
-    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (directToolMode : bool) =
+    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) =
         match k with
         | Aardvark.Application.Keys.Enter ->
             match interaction with
@@ -539,15 +547,9 @@ module ViewerApp =
             // working annotation to clear
             | Interactions.EditAnnotation -> DrawingAction.CancelVertexEdit
             | _ -> DrawingAction.ClearWorking
-        | Keyboard.Modifier ->
-            match interaction with
-            | Interactions.DrawAnnotation -> (if directToolMode then DrawingAction.StopDrawing else DrawingAction.StartDrawing)
-            | Interactions.PickAnnotation -> (if directToolMode then DrawingAction.StopPicking else DrawingAction.StartPicking)
-            // vertex editing dispatches on (draw = false, pick = true) like annotation selection,
-            // so without this the ctrl press never sets model.pick and nothing reaches the handlers
-            | Interactions.EditAnnotation -> (if directToolMode then DrawingAction.StopPicking else DrawingAction.StartPicking)
-            | _ -> DrawingAction.Nop
-        //| Aardvark.Application.Keys.LeftShift -> 
+        // Ctrl no longer maps to Start/Stop{Drawing,Picking} here: arming the tool is
+        // `toolArmed` (ctrlFlag <> directToolMode), evaluated at the event source.
+        //| Aardvark.Application.Keys.LeftShift ->
         //    match m.interaction with                     
         //    | Interactions.PickAnnotation -> DrawingAction.StartPickingMulti
         //    | _ -> DrawingAction.Nop
@@ -732,13 +734,9 @@ module ViewerApp =
 
             { m with drawing = drawing } |> stash
         | ToggleDirectToolMode, _ ->
-            let enabled = not m.directToolMode
-            // `picking` is set here as well as on the Ctrl key-up path below: without it
-            // the checkbox and `PickObject`'s gate disagree until the next Ctrl press.
-            { m with
-                directToolMode = enabled
-                picking        = enabled
-                drawing        = { m.drawing with draw = enabled } }
+            // No draw/pick bookkeeping to do: `toolArmed` reads directToolMode directly at
+            // every gate, so flipping it is the whole of the toggle.
+            { m with directToolMode = not m.directToolMode }
         | DrawingMessage msg,_ -> //Interactions.DrawAnnotation
             match msg with
             | Drawing.FlyToAnnotation id ->
@@ -755,7 +753,7 @@ module ViewerApp =
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with animations = a'}              
                 | None -> m
-            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.directToolMode) ->
+            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && toolArmed m ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
                     //let pickingAction, msg =
@@ -1639,16 +1637,18 @@ module ViewerApp =
                         result
                 else m
 
-        | PickObject (p,id),_ ->  
-            match m.picking with
-            | true ->
-                let hitF _ = None
-                let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
-                match (m.scene.surfacesModel.surfaces.flat.TryFind id) with
-                | Some x -> matchPickingInteraction sendQueue p observedSystem hitF (x |> Leaf.toSurface) m 
-                | None -> m
-            | false -> m
-        | SaveScene s,_ ->                 
+        // PickObject is dead - nothing dispatches it. Handler kept commented alongside the
+        // ViewerAction case in Viewer-Model.fs.
+        //| PickObject (p,id),_ ->
+        //    match m.picking with
+        //    | true ->
+        //        let hitF _ = None
+        //        let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
+        //        match (m.scene.surfacesModel.surfaces.flat.TryFind id) with
+        //        | Some x -> matchPickingInteraction sendQueue p observedSystem hitF (x |> Leaf.toSurface) m
+        //        | None -> m
+        //    | false -> m
+        | SaveScene s,_ ->
             let target = match m.scene.scenePath with | Some path -> path | None -> s
             m |> ViewerIO.saveEverything target
         | SaveAs s,_ ->
@@ -1735,12 +1735,8 @@ module ViewerApp =
           
 
             let m =
-                match k with 
-                | Keyboard.Modifier ->
-                    match m.interaction with
-                    //| Interactions.PickMinervaProduct -> 
-                    //    { m with minervaModel = { m.minervaModel with picking = true }; ctrlFlag = true}
-                    |_ -> { m with ctrlFlag = true}
+                match k with
+                | Keyboard.Modifier -> { m with ctrlFlag = true }
                 | _ -> m
 
             let m =
@@ -1819,21 +1815,9 @@ module ViewerApp =
                 | _ -> m
 
             match k with
-            | Keyboard.Modifier -> 
-                match m.interaction with
-                | Interactions.DrawAnnotation -> 
-                    let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.directToolMode then DrawingAction.StartDrawing else DrawingAction.StopDrawing)
-                    { m with drawing = d; ctrlFlag = false; picking = m.directToolMode }
-                | Interactions.PickAnnotation
-                | Interactions.EditAnnotation ->
-                    let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.directToolMode then DrawingAction.StartPicking else DrawingAction.StopPicking)
-                    { m with drawing = d; ctrlFlag = false; picking = m.directToolMode }
-                //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
-                |_-> { m with ctrlFlag = false; picking = m.directToolMode }
-            | _ -> m                                  
-        | SetInteraction t,_ -> 
+            | Keyboard.Modifier -> { m with ctrlFlag = false }
+            | _ -> m
+        | SetInteraction t,_ ->
                 
             // let feedback = sprintf "pick refrence plane; confirm with ENTER" t |> UserFeedback.create 3000
             //let feedback = "pick refrence plane \n confirm with ENTER" |> UserFeedback.create 3000
@@ -2504,7 +2488,7 @@ module ViewerApp =
                 //attribute "showFPS" "true"
                 //attribute "data-renderalways" "true"
                 Aardvark.UI.Events.onKeyDown' (fun k ->
-                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k (m.directToolMode |> AVal.force)
+                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
                     [KeyDown k; DrawingMessage drawingAction]
                 )
                 onKeyUp   (KeyUp)        
@@ -2547,11 +2531,14 @@ module ViewerApp =
             ] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage) 
         ]     
         
-    let allowAnnotationPicking (m : AdaptiveModel) =       
-        // drawing app needs pickable stuff. however whether annotations are pickable depends on 
-        // outer application state. we consider annotations to pickable if they are visible
-        // and we are in "pick annotation" mode.
-        m.interaction |> AVal.map (function
+    let allowAnnotationPicking (m : AdaptiveModel) =
+        // Whether the annotation pick target fires at all. Needs a pick-capable interaction
+        // *and* the tool armed (Ctrl held, or not held in Direct Tool Mode) - this is the
+        // sole arm gate for annotation selection / vertex grab now that DrawingModel carries
+        // no draw/pick flags. Handle *visibility* is separate (allowVertexEditing).
+        (m.interaction, ViewerUtils.toolArmed m) ||> AVal.map2 (fun interaction armed ->
+            armed &&
+            match interaction with
             | Interactions.PickAnnotation -> true
             | Interactions.DrawLog -> true
             // editing needs the same pick target: a click on the body re-selects, and the handles
@@ -2562,7 +2549,8 @@ module ViewerApp =
 
     /// Whether the control point handles are drawn and pickable. Unlike allowAnnotationPicking,
     /// this is the *only* mode that shows them - handles on every selected annotation everywhere
-    /// would be noise, and would put every annotation's vertices in the pick buffer.
+    /// would be noise, and would put every annotation's vertices in the pick buffer. Kept
+    /// interaction-only (no toolArmed) so the handles stay visible while you reach for Ctrl.
     let allowVertexEditing (m : AdaptiveModel) =
         m.interaction |> AVal.map (function
             | Interactions.EditAnnotation -> true
