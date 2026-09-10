@@ -67,7 +67,7 @@ module FalseColorsModel =
         max     = 90.0
         step    = 0.1
         format = "{0:0.00}"
-    } 
+    }
     let initMinAngle = {
         value   = 0.0
         min     = 0.0
@@ -103,20 +103,32 @@ module FalseColorsModel =
         max     = 90.0
         step    = 0.0001
         format  = "{0:0.0000}"
-    } 
+    }
 
+    /// Limit of the bound *input widgets*, not of the data. A ramp that starts below the
+    /// smallest measurement or ends above the largest is a legitimate thing to want — to hold
+    /// one fixed scale while annotations change, or to compare two scenes on the same scale —
+    /// and pinning the widget to the fitted range made that impossible: `Numeric.update`
+    /// clamps to min/max, so a wider value was silently refused.
+    ///
+    /// Kept finite rather than Double.MinValue/MaxValue: an <input type="number"> validates
+    /// `step` relative to `min`, and a near-infinite min overflows that check. 1e12 is far
+    /// beyond any planetary measurement in metres, degrees or square metres.
+    let boundLimit = 1.0e12
+
+    /// `value` is fitted to the data; the widget limits deliberately are not (see boundLimit)
     let initlb (range: Range1d) = {
         value   = range.Min
-        min     = range.Min
-        max     = range.Max
+        min     = -boundLimit
+        max     = boundLimit
         step    = 0.0001
         format  = "{0:0.0000}"
     }
 
     let initub (range: Range1d) = {
         value   = range.Max
-        min     = range.Min
-        max     = range.Max
+        min     = -boundLimit
+        max     = boundLimit
         step    = 0.0001
         format  = "{0:0.0000}"
     }
@@ -162,7 +174,7 @@ module FalseColorsModel =
         max     = 90.0
         step    = 0.1
         format = "{0:0.00}"
-    } 
+    }
     let initMinDepth = {
         value   = 0.0
         min     = 0.0

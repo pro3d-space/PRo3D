@@ -1,5 +1,5 @@
-//bd8d7700-b9da-c650-e542-94e45ff7890b
-//371e6f48-eef5-8674-0ba1-1ac11d71e97c
+//1f731282-9b66-9d1e-664a-71a6e4b0fe97
+//4b47552b-94a2-6a67-557d-f583ecccd637
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -70,6 +70,7 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     let _undoStack_ = FSharp.Data.Adaptive.cval(value.undoStack)
     let _redoStack_ = FSharp.Data.Adaptive.cval(value.redoStack)
     let _dnsColorLegend_ = PRo3D.Base.AdaptiveFalseColorsModel(value.dnsColorLegend)
+    let _colorByCategory_ = PRo3D.Base.Annotation.AdaptiveColorByCategoryModel(value.colorByCategory)
     let _haltonPoints_ = FSharp.Data.Adaptive.cval(value.haltonPoints)
     let _automaticGeoJsonExport_ = AdaptiveAutomaticGeoJsonExport(value.automaticGeoJsonExport)
     let mutable __value = value
@@ -102,6 +103,7 @@ type AdaptiveDrawingModel(value : DrawingModel) =
             _undoStack_.Value <- value.undoStack
             _redoStack_.Value <- value.redoStack
             _dnsColorLegend_.Update(value.dnsColorLegend)
+            _colorByCategory_.Update(value.colorByCategory)
             _haltonPoints_.Value <- value.haltonPoints
             _automaticGeoJsonExport_.Update(value.automaticGeoJsonExport)
     member __.Current = __adaptive
@@ -127,6 +129,7 @@ type AdaptiveDrawingModel(value : DrawingModel) =
     member __.undoStack = _undoStack_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<AnnotationsDelta>>
     member __.redoStack = _redoStack_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<AnnotationsDelta>>
     member __.dnsColorLegend = _dnsColorLegend_
+    member __.colorByCategory = _colorByCategory_
     member __.haltonPoints = _haltonPoints_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>>
     member __.automaticGeoJsonExport = _automaticGeoJsonExport_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
@@ -154,6 +157,7 @@ module DrawingModelLenses =
         static member undoStack_ = ((fun (self : DrawingModel) -> self.undoStack), (fun (value : Microsoft.FSharp.Collections.list<AnnotationsDelta>) (self : DrawingModel) -> { self with undoStack = value }))
         static member redoStack_ = ((fun (self : DrawingModel) -> self.redoStack), (fun (value : Microsoft.FSharp.Collections.list<AnnotationsDelta>) (self : DrawingModel) -> { self with redoStack = value }))
         static member dnsColorLegend_ = ((fun (self : DrawingModel) -> self.dnsColorLegend), (fun (value : PRo3D.Base.FalseColorsModel) (self : DrawingModel) -> { self with dnsColorLegend = value }))
+        static member colorByCategory_ = ((fun (self : DrawingModel) -> self.colorByCategory), (fun (value : PRo3D.Base.Annotation.ColorByCategoryModel) (self : DrawingModel) -> { self with colorByCategory = value }))
         static member haltonPoints_ = ((fun (self : DrawingModel) -> self.haltonPoints), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.Base.V3d>) (self : DrawingModel) -> { self with haltonPoints = value }))
         static member automaticGeoJsonExport_ = ((fun (self : DrawingModel) -> self.automaticGeoJsonExport), (fun (value : AutomaticGeoJsonExport) (self : DrawingModel) -> { self with automaticGeoJsonExport = value }))
 

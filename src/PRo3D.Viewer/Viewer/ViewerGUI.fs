@@ -53,8 +53,76 @@ module Gui =
     
     let dnsColorLegend (m : AdaptiveModel) =
         let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DnsLegend" m.drawing.dnsColorLegend
-        
+
         Incremental.Svg.svg falseColorAttributes falseColorSvg
+
+    /// the loaded annotations, for the attributes that need to enumerate them (surfaces)
+    let annotationSet (m : AdaptiveModel) : aset<AdaptiveAnnotation> =
+        m.drawing.annotations.flat
+        |> AMap.toASet
+        |> ASet.choose (fun (_, leaf) ->
+            match leaf with
+            | AdaptiveAnnotations a -> Some a
+            | _ -> None)
+
+    /// distinct, sorted scalar-layer labels across every loaded surface's `.opcx`; the
+    /// choices offered in Color by Category's "surface attribute" dropdown
+    let surfaceScalarLayerLabels (m : AdaptiveModel) : aval<list<string>> =
+        AVal.custom (fun t ->
+            m.scene.surfacesModel.surfaces.flat.Content.GetValue t
+            |> HashMap.toValueList
+            |> List.collect (fun leaf ->
+                match leaf with
+                | AdaptiveSurfaces s ->
+                    s.scalarLayers.Content.GetValue t
+                    |> HashMap.toValueList
+                    |> List.map (fun (l : AdaptiveScalarLayer) -> l.label.GetValue t)
+                | _ -> [])
+            |> List.distinct
+            |> List.sort)
+
+    /// true when Color by Category's cached surface samples no longer match the current
+    /// inputs (layer, planet, annotation points) — drives the "resample" button's stale style.
+    /// Comparing a live stamp catches every edit path, undo included, without hooking
+    /// individual actions.
+    ///
+    /// Reads the planet and deliberately not `referenceSystem.up`: navigating rewrites that
+    /// vector from the camera position, so depending on it here re-evaluated this aval — and
+    /// flagged the button — on every camera movement. See `ColorByCategory.stampOf`.
+    let colorByCategorySurfaceStale (m : AdaptiveModel) : aval<bool> =
+        AVal.custom (fun t ->
+            let cbc   = m.drawing.colorByCategory
+            let layer = cbc.surfaceLayer.GetValue t
+            let store = cbc.surfaceSamples.GetValue t
+            if cbc.attributeKind.GetValue t <> ColorAttributeKind.SurfaceAttribute || layer = "" then
+                false
+            elif store.layer <> layer || HashMap.isEmpty store.entries then
+                true
+            else
+                let planet = m.scene.referenceSystem.planet.GetValue t
+                let annos =
+                    (annotationSet m).Content.GetValue t
+                    |> HashSet.toList
+                    |> List.map (fun a -> a.key, a.points.Content.GetValue t |> IndexList.toArray)
+                ColorByCategory.stampOf layer planet annos <> store.stamp)
+
+    /// Same placement as falseColorAttributes, only wider: the hue wheel drawn for the
+    /// cyclic attributes captions itself, and the caption does not fit into 55px.
+    let colorByCategoryAttributes =
+        [
+                "display"               => "block";
+                "width"                 => "170px";
+                "height"                => "75%";
+                "preserveAspectRatio"   => "xMidYMid meet";
+                "viewBox"               => "0 0 5% 100%"
+                "style"                 => "position:absolute; left: 0%; top: 25%"
+                "pointer-events"        => "None"
+        ]
+        |> AttributeMap.ofList
+
+    let colorByCategoryLegend (m : AdaptiveModel) =
+        Incremental.Svg.svg colorByCategoryAttributes
+            (ColorByCategory.Draw.legend m.drawing.colorByCategory)
                             
     let scalarsColorLegend (m : AdaptiveModel) =
         Incremental.Svg.svg falseColorAttributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
@@ -1032,9 +1100,17 @@ module Gui =
         
             model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties    
             
-        let viewDnSColorLegendUI (model : AdaptiveModel) = 
-            model.drawing.dnsColorLegend 
-            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage 
+        let viewDnSColorLegendUI (model : AdaptiveModel) =
+            model.drawing.dnsColorLegend
+            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage
+            |> AVal.constant
+
+        /// Unlike the other Properties panels this one is global rather than per-selection,
+        /// so it does not go through GroupsApp.viewSelected.
+        let viewColorByCategory (model : AdaptiveModel) =
+            ColorByCategory.view Config.colorPaletteStore (annotationSet model)
+                (surfaceScalarLayerLabels model) (colorByCategorySurfaceStale model) model.drawing.colorByCategory
+            |> UI.map (fun a -> ViewerAction.DrawingMessage(DrawingAction.ColorByCategoryMessage a))
             |> AVal.constant
           
         let annotationLeafButtonns' (model : AdaptiveModel) = 
@@ -1450,7 +1526,8 @@ module Gui =
                                 yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
-                                yield dnsColorLegend m                                
+                                yield dnsColorLegend m
+                                yield colorByCategoryLegend m
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield projectedColorLegend m
@@ -1522,6 +1599,9 @@ module Gui =
                         
                         GuiEx.accordion "Dip&Strike" "Calculator" false [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewDipAndStrike m))]
+
+                        GuiEx.accordion "Color by Category" "Theme" false [
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewColorByCategory m))]
                     ]
 
                 require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))

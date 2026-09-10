@@ -101,14 +101,19 @@ module UI =
         //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
         ]
                     
-    let mkColor (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =        
+    /// Selection still wins over the category color, which in turn overrides the
+    /// annotation's own color while the Color by Category panel is enabled.
+    let mkColor (cbc : AdaptiveColorByCategoryModel) (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =
         model.selectedLeaves.Content
-            |> AVal.bind (fun selected -> 
-                if HashSet.exists (fun x -> x.id = a.key) selected then 
+            |> AVal.bind (fun selected ->
+                if HashSet.exists (fun x -> x.id = a.key) selected then
                     AVal.constant C4b.VRVisGreen
-                else 
-                    a.color.c
-            )                              
+                else
+                    cbc.enabled
+                    |> AVal.bind (function
+                        | true  -> ColorByCategory.resolveAdaptive cbc a
+                        | false -> a.color.c)
+            )
     
     let isSingleSelect (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =
         model.singleSelectLeaf |> AVal.map( fun x -> 
@@ -130,8 +135,9 @@ module UI =
             ]
         )
                      
-    let viewAnnotationsInGroup 
-        (path         : list<Index>) 
+    let viewAnnotationsInGroup
+        (cbc          : AdaptiveColorByCategoryModel)
+        (path         : list<Index>)
         (model        : AdaptiveGroupsModel)
         (singleSelect : AdaptiveAnnotation*list<Index> -> DrawingAction)
         (multiSelect  : AdaptiveAnnotation*list<Index> -> DrawingAction)
@@ -163,7 +169,7 @@ module UI =
                     yield onClick (multiSelect)
 
                     let! guh = model.selectedLeaves.Content
-                    let! c = mkColor model a
+                    let! c = mkColor cbc model a
                     let s = style (sprintf "color: %s" (Html.color c))
                     yield s
                 } |> AttributeMap.ofAMap
@@ -240,7 +246,7 @@ module UI =
         else
             i [clazz icon; onClick (fun _ -> onClickAction)] [] |> UI.wrapToolTip DataPosition.Bottom toolTipText
                 
-    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<DrawingAction> =
+    let rec viewTree (cbc : AdaptiveColorByCategoryModel) path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<DrawingAction> =
                                                   
         let setActiveAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                        
@@ -303,13 +309,13 @@ module UI =
 
         let subNodes = 
             group.subNodes 
-            |> AList.mapi (fun i v -> viewTree (i::path) v model lookup) 
+            |> AList.mapi (fun i v -> viewTree cbc (i::path) v model lookup)
                     
         let annos = 
             group.leaves 
             |> AList.filterA (fun x -> lookup |> AMap.keys |> ASet.contains x)
             |> AList.map(fun x -> lookup |> AMap.find x |> AVal.force) 
-            |> viewAnnotationsInGroup path model singleSelect multiSelect lift
+            |> viewAnnotationsInGroup cbc path model singleSelect multiSelect lift
 
         let nodes = annos |> AList.append subNodes
 
@@ -337,7 +343,7 @@ module UI =
             |> AMap.map(fun _ v -> v |> toAdaptiveAnnotation)
 
         require GuiEx.semui (
-            let tree = viewTree [] model.annotations.rootGroup model.annotations a
+            let tree = viewTree model.colorByCategory [] model.annotations.rootGroup model.annotations a
             //Incremental.div (AttributeMap.ofList [clazz "ui list"]) ([])
             div [clazz "ui list"] [tree]
         )

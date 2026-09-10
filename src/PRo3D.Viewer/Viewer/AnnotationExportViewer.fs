@@ -136,15 +136,16 @@ module AnnotationExportViewer =
         (wantsProperties   : bool)
         : SurfacePropertySampler * SampleTally =
 
-        let up = refSys.up.value.Normalized
         let mutable withProperties = 0
         let mutable withoutLonLatRad = 0
         let mutable total = 0
 
         let sample (position : V3d) =
             let result, cache =
+                // no up vector passed: sampleAt derives the body-local one at each point.
+                // Handing it refSys.up made the export depend on the camera - see its docs
                 ProfileAttributeExtraction.sampleAt
-                    up context.surfaces refSys context.observedSystem context.observerSystem
+                    context.surfaces refSys context.observedSystem context.observerSystem
                     // chasing layers into the attribute textures costs an image
                     // decode per layer per patch, so only pay for it when the
                     // surface-property columns were actually asked for
