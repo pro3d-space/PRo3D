@@ -181,148 +181,82 @@ body. The single-image path samples a mip-mapped `sampler2d`, the stack an
 un-mipmapped `sampler2dArray`, so the single path blurs slightly where the
 projected texel density falls below 1:1. Nothing here is geometric.
 
-## 3. The viewer reproduces the terrain it projects onto
+## 3. The viewer reproduces the image it projects
 
-The viewer looks at the body through its own field of view from its own
-standoff, so it cannot be compared with the source image DN for DN the way
-steps 1 and 2 were. It can be compared with **the terrain underneath it** —
-and that is the sharper test, provided both show the same thing.
+Project an image onto the body and look from the projector's own viewpoint. The
+render must **be** the image again. The terrain's own texture does not enter
+into it, which is what makes this the test to run: it needs no assumption about
+what the surface is textured with.
 
-> **They cannot, and this is the second reason the comparison below is
-> retracted.** The claim was that `--texture-only` renders the OPC's own DRACO
-> mosaic, so that the same features are on both sides. It does not. The tool
-> passes `None` for `PatchNode`'s texture getter where the viewer passes
-> `Some (getTextures …)`, so the tool always draws the patch's **default**
-> texture, and there is no option to choose a layer. The scene meanwhile sets
-> `selectedTexture = DRACO_1` (index 8).
->
-> Measured from the same camera at 8 040.7 m, correlating the tool's
-> `--texture-only` render against the viewer's terrain:
->
-> | viewer's texture layer | correlation with the tool's render |
-> |---|---|
-> | `DRACO_1` (index 8, what the scene selects) | **0.0345** |
-> | `Earth` (index 0, the patch default) | **0.8616**, identity, zero shift |
->
-> So the two sides of this comparison were showing *different layers of the same
-> OPC*. No projection, correct or not, could have made them agree. Note this is
-> independent of the broken metric described below — either fault alone would
-> have invalidated the test.
->
-> Running the DRACO case properly needs a way to tell the tool which texture
-> layer to render. Until then, the projection is validated by projecting an
-> image and viewing it from the projector, where the terrain's texture does not
-> enter into it — see [the proof](#the-proof).
+Setup: one simulated AFC-1 frame of Dimorphos, projected onto
+`Dimorphos_0_Meridian`. *Fly to image* puts the camera on that frame's projector
+axis; *Focal (mm)* = 122.563 makes the viewer's field of view AFC-1's 5.5307°;
+*Orientation Source* = MBI; *Transfer Function* off, so the layer is painted as
+its own RGB. Window 1100×1100, square, because a 16:9 window would frame the
+body by its shorter vertical fov instead of the instrument's.
 
-The original text, kept for the record: *"`--texture-only` renders the OPC's own
-DRACO mosaic as this camera sees it — no lighting, and no de-shading fit — and
-the surface is viewed with DRACO as its primary texture, so the same features
-are on both sides and a misregistration is feature doubling rather than a
-judgement call"*:
+Four checks, in this order. The order matters: every content-level number is
+meaningless if the silhouettes do not coincide, and a shift search cannot see a
+flip.
 
-```
-pro3d-tool simulate-image --opc <Dimorphos_0_Meridian> --time 2027-03-21T14:00:00Z     --texture-only --no-shadows --write-mbi ...
-```
+| # | check | result |
+|---|---|---|
+| **0** | geometric overlap — do the silhouettes coincide? | IoU **0.9720**, centroid offset **0.28 m** at 8 km, scale **+0.65%** |
+| **1** | orientation — all eight square symmetries scored | **identity wins**, margin **0.8125** over the best flip |
+| **2** | registration against the source, shared angular grid | **0.9758** at **zero** shift (±24 px searched) |
+| **3** | coverage, from the shader's own coverage view | **99.8%** |
 
-![the mosaic as the instrument sees it](images/projectionValidation/step3-source-texture.png)
+Source left, viewer right — same angular scale, no fitting:
 
-Deliberately **not** `--deshade`: that fits a light direction (r = 0.38 here),
-divides it out, clamps the result and falls back to a constant albedo where its
-confidence drops — an approximation with no place in an image being used as
-evidence. Nor plain shaded relief: this shape model is smooth, so an unlit
-constant-albedo render is a featureless disk at any phase angle. The detail
-lives in the texture, so the texture is what the reference image has to carry.
+![the viewer reproduces the frame it projects](images/projectionValidation/proof-viewer.png)
 
-Camera on that image's own axis at 250 m, *Orientation Source* = MBI,
-*Transfer Function* off:
+Silhouettes: yellow where both agree, red source-only, green render-only. The
+fringe is limb antialiasing.
 
-| terrain (DRACO mosaic) | the image projected onto it |
-|---|---|
-| ![terrain, DRACO](images/projectionValidation/step3-terrain-draco.png) | ![the image projected](images/projectionValidation/step3-projected-draco.png) |
+![silhouette overlap](images/projectionValidation/overlap-check.png)
 
-> **It is visible in the figure above, if you look at the dark side.** The
-> right-hand frame has a bright smeared crescent in the shadowed region, with
-> hard stair-stepped edges, that is simply not in the terrain frame. Split the
-> difference by brightness and the metric's blind spot is obvious:
->
-> | region | mean \|ΔDN\| | pixels differing > 6 DN |
-> |---|---|---|
-> | lit mosaic — the region the 1.0000 was measured over | 1.219 | 0.88% |
-> | dark side — excluded by that region | 8.968 | **9.89%** |
->
-> 12,007 pixels went from terrain **DN 0.0** to projected **DN 95.9**: 5.75% of
-> the frame, bright content painted onto pure-black terrain. Isolated (red):
->
-> ![the projection spilling onto the dark side](images/projectionValidation/step3-draco-spill.png)
->
-> The stretching is a projector at grazing incidence; the stair-stepping is the
-> per-triangle facing test working from a misrotated normal. Both are symptoms
-> of the double rotation — and both were sitting in the figure while the number
-> underneath it said "exact".
->
-> **This comparison was a false positive, and is kept here as a warning.** It
-> reported best correlation **1.0000** at shift **(0, 0)**, mean ΔDN **0.000**
-> over 342,635 lit pixels, 99.99% bit-identical — and concluded "the production
-> viewer's projection is exact". It was not: at that time the projector matrix
-> carried a double body rotation, and the projection covered only a fraction of
-> the frame.
->
-> The metric is what failed. Correlating *the viewer against the terrain
-> underneath it* asks "did these two frames stay the same", and the answer is
-> dominated by the pixels the projection never touched. The more the projection
-> was broken, the fewer pixels it repainted, and the *closer* to 1.0000 the
-> score got. A test whose score improves as the thing under test gets worse is
-> not a test.
->
-> The same trap sits in the `bodyCoverage` helper, which counts pixels that
-> **changed** and so cannot distinguish "not covered" from "covered by a value
-> that happens to match". On one frame it reported 8.5% where the shader's own
-> coverage view reported 41.3%.
->
-> Two rules came out of this, and the proof at the top of this page follows
-> both: **compare against the source image, never against the thing being
-> painted over**, and **measure coverage with the coverage view** (*Visibility
-> → RelativeCount*), which reports what the shader actually covered.
+And with a lit frame rather than a texture-only one — source, terrain,
+projected, silhouettes:
 
-With the projector fixed, the honest version of this test — the viewer against
-the **source frame**, at the instrument's own field of view and standoff — is
-[the proof](#the-proof): correlation **0.9758** at **zero** shift, coverage
-**99.8%**.
+![the full validation set](images/projectionValidation/validation-set.png)
 
-### Reading the right-hand side
+Two frames because they test different things. The lit render fills the disk, so
+its outline **is** the body's outline and check 0 means something. The
+texture-only render carries the surface detail that checks 1 and 2 need — the
+lit frame is nearly featureless at this phase angle (8.2° on a smooth shape
+model), so its correlation would be carried partly by the disk shape rather than
+by the surface. Trusting a number whose region does not contain the evidence is
+the mistake the rest of this page is a record of.
 
-Two things there are easy to mistake for defects.
+### Why not compare against the terrain instead
 
-**The flat bright area** is the de-shading falling back to a constant albedo
-where the DRACO mosaic has no data: its confidence weight goes to zero and the
-shader returns `AlbedoConst`. It is not lighting — `--ambient 1.0` removes the
-lighting term outright (`iOverF = albedo`). The source image is measurably flat
-there: std 16 DN, and stretching 152→240 DN reveals no structure.
+An earlier version of this section did exactly that — rendered the mosaic as the
+instrument sees it, viewed the surface with the same mosaic as its texture, and
+compared the two. The idea is sound and it would be the sharper test, because it
+checks the image is glued to the *right* terrain rather than merely reproduced
+from the viewpoint it was taken from.
 
-**The smeared, stair-stepped structure** is because we are *not looking through
-the AFC*. The camera is on the instrument's axis but at 250 m, where the
-instrument was at 8.0 km. From 32× closer it sees terrain the AFC saw at grazing
-incidence, or could not see at all behind ridges — so a handful of source texels
-stretch across hundreds of screen pixels (the radial smearing) and the
-projector's own horizon cuts across the relief (the hard edge).
+It was withdrawn because the version that ran had two independent faults, either
+of which alone invalidates it:
 
-The same effect is why a projection never repaints the *whole* visible body from
-a close viewpoint. Measured on the same image: at the instrument's own pose the
-tool covers **99.92%** of it (54,662 of 54,707 pixels); from 500 m, where the
-camera's visible cap is 80°, **86.2%**; from 220 m, cap 67°, **92.1%**. Less
-coverage when the camera sees more of the body, because the shortfall lives at
-the limb. Nothing here is a projection error — it is the geometry of looking
-from somewhere the instrument was not.
+- **The metric scored the wrong thing.** It correlated the viewer *with* the
+  projection against the viewer *without* it — "did these two frames stay the
+  same" — over a region restricted to the lit side. The score is dominated by
+  pixels the projection never touched, so the more broken the projection, the
+  fewer it repaints and the *closer to 1.0000* it scores. It reported 1.0000 at
+  (0,0), ΔDN 0.000, 99.99% bit-identical, and concluded "exact" for a projection
+  that was rotated. A test whose score improves as the subject gets worse is not
+  a test.
+- **The two sides showed different data.** `--texture-only` draws the patch's
+  default texture layer (`Earth`, index 0) and has no option to pick another,
+  while the scene selects `DRACO_1` (index 8). Measured from the same camera:
+  the tool's render correlates **0.0345** with the viewer's `DRACO_1` terrain
+  and **0.8616** with its `Earth` terrain. No projection could have made the
+  original comparison agree.
 
-### A caution about the coverage number
-
-The probe reports "% of the body repainted", which counts pixels whose colour
-*changed*. This test deliberately makes the projection reproduce the terrain, so
-almost nothing changes and it reports **22.8%** — its lowest reading yet, on its
-best result. Low coverage here is evidence of good registration, not of a
-failure. Coverage answers "did the projection land at all"; correlation answers
-"did it land in the right place", and only the second one is meaningful once the
-first is settled.
+Restoring it needs a way to tell the tool which texture layer to render — see
+*Still open*. Until then the projector-viewpoint test above is what stands, and
+it does not depend on the terrain's texture at all.
 
 ## Supporting evidence: a self-made AFC dataset
 
@@ -350,23 +284,21 @@ offset from the direction the spacecraft tracks.
 
 ### In the viewer
 
-The same dataset on an Earth-textured OPC, camera on the image's axis at 220 m
-(this OPC ships no DRACO mosaic, hence the placeholder colouring):
+Validated by the projector-viewpoint test in [step 3](#3-the-viewer-reproduces-the-image-it-projects):
+silhouettes IoU 0.9720, orientation the identity, registration 0.9758 at zero
+shift, coverage 99.8%.
 
-| terrain only | the frame projected onto it |
-|---|---|
-| ![terrain, nothing projected](images/projectionValidation/viewer-closeup-terrain.png) | ![the frame projected, raw RGB](images/projectionValidation/viewer-closeup-rawrgb.png) |
+The close-up figures that used to sit here were renders from before the
+double-rotation fix. They showed the projection reaching only part of the body,
+with a ragged edge stair-stepped along triangle boundaries — the per-triangle
+facing test working from a misrotated normal. They are not kept: a page of
+validation evidence should not carry pictures of a defect next to text
+describing the fix, which is how they were being read.
 
-| | body repainted | painted off the body |
-|---|---|---|
-| before the `NormalFlip` fix, 500 m | 17.1% | 0.01% |
-| after, 500 m | 86.2% | 0.08% |
-| after, 220 m | 92.1% | 0.23% |
-
-These are *changed-pixel* numbers, taken before the double-rotation fix, and
-they are kept only to show the direction the `NormalFlip` binding moved things.
-They understate coverage for the reason given in step 3 above. The number to
-trust is the coverage view's: **99.8%**.
+The coverage numbers that went with them (17.1% before the `NormalFlip` binding,
+86.2% and 92.1% after) were *changed-pixel* counts, which understate coverage
+because they cannot tell "not covered" from "covered by a value that matches".
+The number to trust comes from the shader's own coverage view: **99.8%**.
 
 ## Supporting evidence: real data, ASPECT at Didymos
 
@@ -563,7 +495,22 @@ further here.
 ## Still open
 
 Nothing in the ladder. The projection is correct in the shader (step 1), in the
-stack path (step 2) and in the production viewer (step 3).
+stack path (step 2) and in the production viewer (step 3): a projected image
+reproduces itself from the projector's viewpoint at zero pointing offset, with
+the silhouettes coinciding and the identity orientation winning over every flip.
+
+Future work:
+
+- **A texture-layer option for `simulate-image`.** The tool draws the patch's
+  default layer and cannot be told to draw another, so it cannot currently
+  render the same layer a PRo3D scene displays. That blocks the
+  terrain-comparison test described in step 3, which would check the image is
+  glued to the *right* terrain rather than only reproduced from the viewpoint it
+  was taken from. Wiring it means passing `SecondaryTexture.textures` to
+  `PatchNode` the way `Surface.Sg` already does, instead of `None`.
+- **Should `projectionMethod` default to `MbiBased` rather than `Spice`?** The
+  default discards the image's own measured attitude — see *The setting that
+  decides whether any of this is used*.
 
 ## Reproducing this page
 
