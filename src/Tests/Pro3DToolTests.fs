@@ -100,6 +100,7 @@ module private Fixtures =
             gain = 0.0
             noShadows = false
             noLighting = false
+            textureLayer = null
             textureOnly = false
             project = null
             projectShader = null
@@ -290,7 +291,7 @@ let private simulateImageTests =
                 let render (name : string) =
                     let path = Path.Combine(outDir, name)
                     match SimulateImageVerb.processImage runtime o "DIDYMOS" "DIDYMOS_FIXED" "MILANI"
-                              "MILANI_ASPECT_NIR1" time path HeraSpiceTests.spiceFileName hierarchies with
+                              "MILANI_ASPECT_NIR1" time path HeraSpiceTests.spiceFileName hierarchies None with
                     | Result.Error e -> failtest e
                     | Result.Ok written ->
                         Expect.isTrue (File.Exists written) "PNG written"
