@@ -192,6 +192,9 @@ function bodyBox(png: Buffer) {
             // the colour legend runs the full height of the left edge; without this the
             // box spans the whole frame and the apparent-size check is meaningless
             if (x < 130) continue;
+            // likewise the tool strip down the right edge (and the navigation gizmo
+            // bottom-left, which the legend's band already covers)
+            if (x >= img.width - 80) continue;
             const i = (img.width * y + x) * 4;
             if (Math.abs(img.data[i] - clear) > 6) {
                 if (x < x0) x0 = x;

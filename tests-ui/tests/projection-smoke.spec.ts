@@ -1,12 +1,12 @@
 import { test, expect, Page } from "@playwright/test";
-import { launchPro3d, Pro3d, config } from "../src/pro3d";
+import { launchPro3d, Pro3d, config, imageRow } from "../src/pro3d";
 import { diffPng, litFraction, streamLive } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
 
 /**
- * Smoke test for the (single-)image projection pipeline with the HERA COP
- * synthetic data: loads the Dimorphos projection scene, imports one date
+ * Smoke test for the (single-)image projection pipeline with the simulated
+ * AFC-1 frames from the test data (PRO3D_TEST_DATA): loads the Dimorphos projection scene, imports one date
  * folder of simulated AFC png images through the GIS tab, and asserts that
  * selecting an image visibly changes the rendered surface (i.e. the projection
  * actually lands on the OPC).
@@ -68,7 +68,7 @@ async function stableScreenshot(page: Page, name: string): Promise<Buffer> {
     return prev;
 }
 
-test("COP image projects onto the Dimorphos OPC", async ({ browser }) => {
+test("a simulated AFC image projects onto the Dimorphos OPC", async ({ browser }) => {
     const context = await browser.newContext();
     context.on("weberror", (e) => console.log("[page error]", e.error()));
 
@@ -79,7 +79,7 @@ test("COP image projects onto the Dimorphos OPC", async ({ browser }) => {
     await render.waitForSelector("img.rendercontrol", { timeout: 60_000 });
     const baseline = await stableScreenshot(render, "baseline.png");
 
-    // --- GIS tab: import the COP folder --------------------------------------
+    // --- GIS tab: import the image folder ------------------------------------
     const gis = await context.newPage();
     await gis.goto(app.url + "?page=gis");
     await gis.waitForLoadState("networkidle");
@@ -106,7 +106,7 @@ test("COP image projects onto the Dimorphos OPC", async ({ browser }) => {
     await gis.locator("text=Import Directory").first().click();
 
     // import lists the folder's pngs; rows carry the file names
-    const anyRow = gis.locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/").first();
+    const anyRow = gis.locator(imageRow).first();
     await expect(anyRow).toBeVisible({ timeout: 120_000 });
 
     // rendering consumes the projection STACK (the single-image path is
@@ -116,7 +116,7 @@ test("COP image projects onto the Dimorphos OPC", async ({ browser }) => {
         process.env.PRO3D_STACK_IMAGES ??
         process.env.PRO3D_SELECT_IMAGE ??
         (await gis
-            .locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/")
+            .locator(imageRow)
             .first()
             .innerText())
     )
@@ -199,7 +199,7 @@ test("COP image projects onto the Dimorphos OPC", async ({ browser }) => {
     );
     expect(
         d.changedFraction,
-        "selecting a COP image should visibly change the rendered surface " +
+        "selecting an image should visibly change the rendered surface " +
             "(projection landing on the OPC)"
     ).toBeGreaterThan(0.001);
 });

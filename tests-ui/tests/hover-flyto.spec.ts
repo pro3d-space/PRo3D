@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { launchPro3d, Pro3d, config } from "../src/pro3d";
+import { launchPro3d, Pro3d, config, imageRow, firstImage } from "../src/pro3d";
 import { diffPng, litFraction, streamLive } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
@@ -27,7 +27,7 @@ test.afterAll(async () => {
 });
 
 const image = () =>
-    process.env.PRO3D_SELECT_IMAGE ?? "HERA_AFC_2317_20270301_040000_COP.png";
+    process.env.PRO3D_SELECT_IMAGE ?? firstImage(config.imageDir);
 
 /** wait until the server stream shows the live scene (not the AARDVARK
  *  loading splash, which is rendered INTO the stream and has a bright logo
@@ -107,7 +107,7 @@ test("hover previews the image; fly-to moves the camera", async ({ browser }) =>
     );
     await gis.locator("text=Import Directory").first().click();
     await expect(
-        gis.locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/").first()
+        gis.locator(imageRow).first()
     ).toBeVisible({ timeout: 120_000 });
     await expect
         .poll(

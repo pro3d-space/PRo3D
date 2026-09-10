@@ -1,10 +1,10 @@
 import { test, expect, Page } from "@playwright/test";
-import { launchPro3d, Pro3d, config } from "../src/pro3d";
+import { launchPro3d, Pro3d, config, imageRow } from "../src/pro3d";
 
 /**
  * Drives the projection-stack UI (multi-image projection): add two library
  * images to the stack, check the count, reorder, remove. Runs against the
- * same scene + COP data as the projection smoke test.
+ * same scene + images as the projection smoke test.
  */
 
 let app: Pro3d;
@@ -107,7 +107,7 @@ test("stack add / reorder / remove through the GIS tab", async ({ browser }) => 
     }, imageDirUnix);
     await gis.locator("text=Import Directory").first().click();
 
-    const row = gis.locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/").first();
+    const row = gis.locator(imageRow).first();
     await expect(row).toBeVisible({ timeout: 120_000 });
 
     // empty stack to start with
@@ -117,7 +117,7 @@ test("stack add / reorder / remove through the GIS tab", async ({ browser }) => 
     const names: string[] = await gis.evaluate(() => {
         const all = Array.from(document.querySelectorAll("div"))
             .map((d) => (d.textContent ?? "").trim())
-            .filter((t) => /^HERA_AFC_\d+_\d+_\d+_COP\.png$/.test(t));
+            .filter((t) => /^[\w.-]+\.(png|tiff?)$/.test(t));
         return [...new Set(all)].slice(0, 2);
     });
     expect(names.length).toBe(2);

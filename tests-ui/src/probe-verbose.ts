@@ -2,14 +2,14 @@
 import { spawn } from "child_process";
 import * as http from "http";
 import { chromium } from "@playwright/test";
-import { config } from "./pro3d";
+import { config, fixture, sceneFor } from "./pro3d";
 import * as path from "path";
 
 (async () => {
     const lines: string[] = [];
     const proc = spawn(
         config.exe,
-        ["--server", "--port", "54377", "--verbose", "--scene", config.scene],
+        ["--server", "--port", "54377", "--verbose", "--scene", config.scene ?? sceneFor(fixture.sceneTemplate, fixture.opc, "artifacts/testdata-scene.pro3d")],
         { cwd: path.dirname(config.exe), stdio: ["pipe", "pipe", "pipe"] }
     );
     const collect = (b: Buffer) =>

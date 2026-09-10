@@ -117,7 +117,7 @@ def check_sidecars(folder):
     return bad
 
 
-def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso):
+def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso, kernel_root=None):
     """A scene with everything projection needs already set.
 
     From an empty PRo3D none of this is in place, and until it is, fly-to and projection
@@ -148,6 +148,11 @@ def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso
     d["cameraView"]["view"] = [fmt(sky), fmt(pos), fmt(fwd), fmt(up), fmt(right)]
 
     d["gisApp"]["defaultObservationInfo"]["time"] = epoch_iso
+    # the template names its meta-kernel by an absolute path; keep the file name, take
+    # the tree the frames were rendered with
+    if kernel_root and d["gisApp"].get("spiceKernel"):
+        root = kernel_root if os.path.isdir(os.path.join(kernel_root, "mk")) else os.path.join(kernel_root, "kernels")
+        d["gisApp"]["spiceKernel"] = os.path.join(root, "mk", d["gisApp"]["spiceKernel"].replace("\\", "/").split("/")[-1])
     # entities the loaded kernels cannot place cost a failing SPICE call per frame, and
     # SPICE calls serialise on a global lock -- a handful is enough to stall the UI
     keep = {"Dimorphos", "Didymos", "HERA"}
@@ -268,7 +273,8 @@ def main():
             out = os.path.join(a.out, "ProjectionTest.pro3d")
             write_scene(a.scene_template, out, a.opc, a.texture_layer, idx,
                         os.path.join(a.out, "AFC1_%s_%s.mbi.json" % (tag, best)),
-                        "%sT%s.0000000Z" % (date, best_epoch))
+                        "%sT%s.0000000Z" % (date, best_epoch),
+                        a.kernel_root or os.environ.get("PRO3D_SPICE_KERNELS"))
             print("\nwrote %s (texture %s index %d, camera on the %s frame's axis)"
                   % (out, a.texture_layer, idx, best_epoch))
 

@@ -28,9 +28,8 @@ open PRo3D.Core.Surface               // SurfaceUtils, SurfaceProperties -- .opc
 /// same way (see `Scene.fs`) and stores the chosen one as the surface's
 /// `selectedTexture`. The tool used to have no say and always drew the patch's default
 /// layer -- which is why an offscreen render and a viewer screenshot of the same body
-/// could show different data and never be comparable. Measured on
-/// `Dimorphos_0_Meridian`: the default is "Earth" (index 0) while a scene selects
-/// "DRACO_1" (index 8), and the two renders correlate 0.03.
+/// could show different data and never be comparable (measured: a default "Earth"
+/// render against a scene's "DRACO_1" correlates 0.03).
 module OpcTextureLayers =
 
     /// The layers an OPC declares, in the index order the renderer uses.

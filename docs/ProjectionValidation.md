@@ -139,11 +139,14 @@ an `.mbi.json` describing **the camera it actually used**.
 single-image projection shader, rendering from the same camera:
 
 ```
-pro3d-tool simulate-image --opc <TestData>/HERA/Dimorphos \
-    --project HERA_AFC_0005_20270304_140000_SIM.png \
-    --body DIMORPHOS --frame DIMORPHOS_FIXED --observer DIMORPHOS \
-    --out reprojected.png
+pro3d-tool simulate-image --opc <test data>/HERA/Dimorphos_opc/Dimorphos \
+    --project <test data>/HERA/Dimorphos_opc/AFC_2027-03-21/AFC1_DRACO2_20270321_200000.png \
+    --texture-layer DRACO_2 --body DIMORPHOS --frame DIMORPHOS_FIXED \
+    --observer HERA --instrument HERA_AFC-1 --out reprojected.png
 ```
+
+(The tables in steps 1 and 2 are from an earlier run of the same procedure on an
+earlier frame set; [the proof](#the-proof) has the numbers for the current one.)
 
 The output must *be* the input. The transfer function is switched off for this
 (`UseFalseColor` off, `DataType` float, range 0..1 makes `ColorMapping.remap`
@@ -193,7 +196,7 @@ one-layer stack — the per-patch matrices coming from `projectionUniformMap`
 exactly as in the viewer:
 
 ```
-pro3d-tool simulate-image --opc <TestData>/HERA/Dimorphos     --project HERA_AFC_0005_20270304_140000_SIM.png --project-shader stack ...
+pro3d-tool simulate-image ... --project-shader stack   # otherwise as in step 1
 ```
 
 | | |
@@ -283,22 +286,19 @@ an `.mbi.json` describing **the camera it actually used**. Project that image
 back onto the same shape model and it must land on itself — there is no
 metadata to doubt, because the render and the sidecar are the same camera.
 
-Eight AFC-1 frames of Dimorphos are committed to the test data repository as
-`HERA/SimulatedAFC` (see the README there), rendered against the OPC sitting
-next to them so the set is self-contained:
+The set this page measures is committed to the test data repository
+([PRo3D.Resources.TestData](https://github.com/pro3d-space/PRo3D.Resources.TestData)),
+together with the OPC it was rendered from:
 
-![a frame from the simulated AFC dataset](images/projectionValidation/afcset-frame.png)
-
-Three independent checks, all on the committed files:
-
-| check | result |
+| path | content |
 |---|---|
-| sidecar read back through `Visualization.projectDirect` vs the render camera | boresight **0.000000°**, worst frustum corner **0.000 px** (all 8) |
-| `unproject --method mbi`, 5 pixels per frame | **40 of 40** hit the shape model |
-| `TRG_POS` transformed into the spacecraft frame | `(0.00225, 0.00118, 0.999997)` — +Z, as the convention requires |
+| `HERA/Dimorphos_opc/Dimorphos` | the Dimorphos OPC (DRACO_1/DRACO_2 layers, outward-wound) |
+| `HERA/Dimorphos_opc/AFC_2027-03-21` | eight AFC-1 frames (texture-only and lit, four epochs), their sidecars, a README and the scene template |
 
-The residual `(0.00225, 0.00118)` is not error: it is AFC-1's real 0.145°
-offset from the direction the spacecraft tracks.
+Every sidecar passes the boresight invariant — `TRG_POS` transformed into the
+spacecraft frame comes out as +Z — which `make-projection-test-data.py` checks
+as it writes them; the round trip through the viewer's own reader is covered by
+the `mbiSidecar` Expecto tests. `tests-ui` finds the set through `PRO3D_TEST_DATA`.
 
 ### In the viewer
 
@@ -437,8 +437,7 @@ further here.
   estimated each dataset's winding; the viewer did not. `NormalWinding.estimate`
   is now shared, and the viewer binds it per patch — lazily, only once something
   is projected or hovered, since the vote reads the root patch from disk.
-  `Dimorphos_opc` is wound outward (flip 0), `Dimorphos_0_Meridian` inward
-  (flip 1); both pass the end-to-end test.
+  The test-data Dimorphos is wound outward (flip 0).
 
 - **The fly-to landed the camera in the right place pointing the wrong way**,
   180° off, through the deprecated `CameraAnimations.animateForwardAndLocation`.
@@ -462,17 +461,16 @@ windings.
 ## Reproducing this page
 
 Step 3, automated — generate a frame, project it through the UI, compare against
-the source, once per OPC winding:
+the source:
 
 ```
 cd tests-ui
-PRO3D_SPICE_KERNELS=<kernel tree> npm run test:projection
+PRO3D_TEST_DATA=<PRo3D.Resources.TestData> PRO3D_SPICE_KERNELS=<kernel tree> npm run test:projection
 ```
 
-Measured with `hera_plan_v182_20260820`: `Dimorphos_opc` correlation **0.9949**
-at zero shift, coverage 98.7%; `Dimorphos_0_Meridian` **0.9900**, coverage
-98.9%. The default epoch depends on the kernel version (the spec header says
-why); see `tests-ui/tests/projection-e2e.spec.ts` for the other variables.
+Measured with `hera_plan_v182_20260820`: correlation **0.9949** at zero shift,
+coverage 98.7%. The default epoch depends on the kernel version (the spec header
+says why); `tests-ui/README.md` lists the other variables.
 
 ### The data set
 
@@ -482,9 +480,9 @@ up so that projection works the moment it opens:
 
 ```
 python scripts/make-projection-test-data.py \
-    --opc <pro3ddata>/HERA/workshop3/Dimorphos_opc/Dimorphos \
-    --out <pro3ddata>/HERA/workshop3/"Projection Test Data"/AFC_Dimorphos_v2_2027-03-21 \
-    --texture-layer DRACO_2 --scene-template <an existing .pro3d>
+    --opc <test data>/HERA/Dimorphos_opc/Dimorphos --out <folder> \
+    --texture-layer DRACO_2 \
+    --scene-template <test data>/HERA/Dimorphos_opc/AFC_2027-03-21/ProjectionTest.pro3d
 
 python scripts/make-projection-test-data.py --opc <...> --out <...> --list-layers
 ```
@@ -498,9 +496,9 @@ The frames it produces are what this page measures: the numbers above were
 re-derived from a freshly generated set, and reproduce to the digit
 (registration 0.9705, identity, zero shift).
 
-Shape model: `<pro3ddata>/HERA/workshop3/Dimorphos_opc/Dimorphos`. The frames are
-only meaningful on the shape model they were rendered against, so keep them
-together; the README written beside them covers the viewer settings that matter.
+Shape model: `<test data>/HERA/Dimorphos_opc/Dimorphos`. The frames are only
+meaningful on the shape model they were rendered against, so keep them together;
+the README beside them covers the viewer settings that matter.
 
 ```
 # the frames (--texture-layer matters: without it the tool draws the patch's

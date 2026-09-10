@@ -1,6 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
 import { spawnSync } from "child_process";
-import { launchPro3d, Pro3d, config } from "../src/pro3d";
+import { launchPro3d, Pro3d, fixture } from "../src/pro3d";
 import { bodyCoverage, diffPng, litFraction, registration, streamLive } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
@@ -21,13 +21,13 @@ import * as path from "path";
  *    the shader's own coverage view must show the frame covering the visible body.
  *
  * There is no metadata to doubt: the frame was rendered from this shape model, so
- * any disagreement is in the projection chain. Run it once per OPC winding --
- * `Dimorphos_opc` is wound outward (NormalFlip 0), `Dimorphos_0_Meridian` inward
- * (NormalFlip 1), and the second is the only thing that exercises the flip.
+ * any disagreement is in the projection chain.
  *
- *   PRO3D_E2E_OPCS            OPC directories, ';'-separated (default: both workshop3 exports)
- *   PRO3D_E2E_SCENE_TEMPLATE  .pro3d the generated scene is derived from (default PRO3D_SCENE)
- *   PRO3D_SPICE_KERNELS       kernel tree (default: the sibling `spice/kernels` mirror)
+ *   PRO3D_TEST_DATA           PRo3D.Resources.TestData checkout: the OPC and scene template
+ *                             under HERA/Dimorphos_opc (required unless both below are set)
+ *   PRO3D_E2E_OPCS            OPC directories, ';'-separated (default: the test-data OPC)
+ *   PRO3D_E2E_SCENE_TEMPLATE  .pro3d the generated scene is derived from (default: test data)
+ *   PRO3D_SPICE_KERNELS       kernel tree, handed to pro3d-tool and written into the scene
  *   PRO3D_PYTHON              interpreter with numpy (default `python`)
  *   PRO3D_E2E_DATE / _EPOCH   observation (default 2027-03-21 20:00:00, the 6.7 km pass)
  *
@@ -40,21 +40,13 @@ import * as path from "path";
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 const artifacts = path.join(__dirname, "..", "artifacts");
-const workshop = "C:\\pro3ddata\\HERA\\workshop3";
 
-const opcs = (
-    process.env.PRO3D_E2E_OPCS ??
-    [
-        path.join(workshop, "Dimorphos_opc", "Dimorphos"),
-        path.join(workshop, "Dimorphos_0_Meridian", "Dimorphos"),
-    ].join(";")
-)
+const opcs = (process.env.PRO3D_E2E_OPCS ?? fixture.opc)
     .split(";")
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-const template = process.env.PRO3D_E2E_SCENE_TEMPLATE ?? config.scene;
-const kernels =
-    process.env.PRO3D_SPICE_KERNELS ?? path.join(repoRoot, "..", "spice", "kernels");
+const template = process.env.PRO3D_E2E_SCENE_TEMPLATE ?? fixture.sceneTemplate;
+const kernels = process.env.PRO3D_SPICE_KERNELS;
 const python = process.env.PRO3D_PYTHON ?? "python";
 const date = process.env.PRO3D_E2E_DATE ?? "2027-03-21";
 const epoch = process.env.PRO3D_E2E_EPOCH ?? "20:00:00";
@@ -145,10 +137,10 @@ for (const opc of opcs) {
     const name = path.basename(path.dirname(opc));
 
     test(`a frame rendered from ${name} projects back onto it`, async ({ browser }) => {
-        test.skip(!fs.existsSync(opc), `OPC not found: ${opc} (set PRO3D_E2E_OPCS)`);
+        test.skip(!fs.existsSync(opc), `OPC not found: ${opc} (set PRO3D_TEST_DATA, or PRO3D_E2E_OPCS)`);
         test.skip(
             !fs.existsSync(template),
-            `scene template not found: ${template} (set PRO3D_E2E_SCENE_TEMPLATE)`
+            `scene template not found: ${template} (set PRO3D_TEST_DATA, or PRO3D_E2E_SCENE_TEMPLATE)`
         );
 
         // --- 1. generate the frame and its scene --------------------------------
@@ -165,7 +157,7 @@ for (const opc of opcs) {
                 "--scene-template", template,
                 "--date", date,
                 "--epochs", epoch,
-                ...(fs.existsSync(kernels) ? ["--kernel-root", kernels] : []),
+                ...(kernels ? ["--kernel-root", kernels] : []),
             ],
             { encoding: "utf8" }
         );

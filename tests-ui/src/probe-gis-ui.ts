@@ -1,6 +1,6 @@
 // Screenshot the restructured GIS tab after an import. Run: npx tsx src/probe-gis-ui.ts
 import { chromium } from "@playwright/test";
-import { launchPro3d, config } from "./pro3d";
+import { launchPro3d, config, imageRow } from "./pro3d";
 
 (async () => {
     const app = await launchPro3d();
@@ -15,7 +15,7 @@ import { launchPro3d, config } from "./pro3d";
         `(() => { window.aardvark = window.aardvark || {}; window.aardvark.dialog = { showOpenDialog: () => Promise.resolve({ canceled: false, filePaths: [${JSON.stringify(dir)}] }) }; })()`
     );
     await gis.locator("text=Import Directory").first().click();
-    await gis.locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/").first().waitFor({ timeout: 120_000 });
+    await gis.locator(imageRow).first().waitFor({ timeout: 120_000 });
     // add one to the stack for a fuller picture
     await gis.evaluate(`(() => { const p = document.querySelector("i.plus.icon"); if (p) p.click(); })()`);
     await gis.waitForTimeout(2000);

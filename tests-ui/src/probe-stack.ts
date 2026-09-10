@@ -1,7 +1,7 @@
 // Add one image to the stack, then watch the render view for minutes:
 // does the body come back (slow path) or stay gone (hard fault)?
 import { chromium } from "@playwright/test";
-import { launchPro3d, config } from "./pro3d";
+import { launchPro3d, config, imageRow } from "./pro3d";
 import { PNG } from "pngjs";
 
 function litFractionRight(buf: Buffer): number {
@@ -47,7 +47,7 @@ function litFractionRight(buf: Buffer): number {
         `(() => { window.aardvark = window.aardvark || {}; window.aardvark.dialog = { showOpenDialog: () => Promise.resolve({ canceled: false, filePaths: [${JSON.stringify(dir)}] }) }; })()`
     );
     await gis.locator("text=Import Directory").first().click();
-    await gis.locator("text=/HERA_AFC_\\d+_\\d+_\\d+_COP\\.png/").first().waitFor({ timeout: 120_000 });
+    await gis.locator(imageRow).first().waitFor({ timeout: 120_000 });
     const added = await gis.evaluate(
         `(() => { const p = document.querySelector("i.plus.icon"); if (!p) return "no plus"; p.click(); return "clicked"; })()`
     );
