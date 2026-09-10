@@ -802,7 +802,6 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                     runtime (AVal.constant [| imagePath, 0 |]))
             |> Sg.uniform' "ProjectedImageOpacity2" 1.0f
             // same neutralisation as the single-image path, so the two are comparable
-            |> Sg.uniform' "ProjectedUseTransferFunction" false
             |> Sg.uniform' "UseFalseColor" false
             |> Sg.uniform' "DataType" 2
 
