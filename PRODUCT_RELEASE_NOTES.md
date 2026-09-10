@@ -1,3 +1,8 @@
+## 6.0.1
+- View planner: the **footprint boundary is drawn again** — creating a view plan placed the rover, let you pick an instrument and showed the instrument view, but no outline of the instrument image ever appeared on the surface. The matrix that projects each OPC patch into the instrument image stopped being computed when the per-patch OPC uniforms were generalised, so every patch was projected with the identity matrix and fell outside the image entirely. Reported as #733
+- Surfaces: **numeric controls work again** — Blend Factor, Min, Max and Color Map never appeared in surface properties, and the controls that did render were inert. `NoSemUi` kept its own semantic-ui dependency list pointing at the pre-5.7 resource paths, so all four URLs 404'd; one of them, `essentialstuff.js`, defines the jQuery `numeric` plugin the controls boot with, and its absence aborted the rest of the panel's DOM setup. The GIS entity numerics were broken the same way. Backported from 6.1.0-prerelease003
+- Builds that did not come from the release pipeline **no longer report a stale version number** — a locally built viewer's title bar read `5.4.0`, three minor lines behind the source it was built from, which is how #733 arrived quoting the wrong version. Such builds now say `development build`; published builds carry the real version, as before
+
 ## 6.0.0
 First stable release of the 6.0 line. The individual changes since 5.x are listed in the `6.0.0-prerelease*` and `6.0.0-rc*` entries below.
 
