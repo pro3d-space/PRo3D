@@ -638,7 +638,18 @@ module ViewerApp =
                             pos (Vec.length pos) (Vec.dot fwd0 toBody)
                         CameraView.lookAt pos (pos + fwd) up |> Some
         | _ ->
-            Log.warn "[Viewer] fly-to: no projection surface with an assigned entity, no image, or no observer"
+            // Name the missing precondition. Lumping three unrelated causes into one
+            // sentence is what this used to do, and starting PRo3D from empty trips all
+            // three in turn -- there is no way to tell from the old message which step of
+            // the setup is still outstanding.
+            let missing =
+                [ if Option.isNone observerSystemOpt then
+                      yield "no observed body is set (GIS tab -> Current Observation Settings -> Observed body)"
+                  if Option.isNone projectionSurface then
+                      yield "no surface is bound to a SPICE body (GIS tab -> Surfaces -> pick an Entity and a Reference Frame)"
+                  if Option.isNone image then
+                      yield "the image is not in the projected-image library" ]
+            Log.warn "[Viewer] fly-to needs: %s" (String.concat "; " missing)
             None
 
     let updateViewer
