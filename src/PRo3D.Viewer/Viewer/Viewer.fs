@@ -1637,16 +1637,18 @@ module ViewerApp =
                         result
                 else m
 
-        | PickObject (p,id),_ ->  
-            match m.picking with
-            | true ->
-                let hitF _ = None
-                let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
-                match (m.scene.surfacesModel.surfaces.flat.TryFind id) with
-                | Some x -> matchPickingInteraction sendQueue p observedSystem hitF (x |> Leaf.toSurface) m 
-                | None -> m
-            | false -> m
-        | SaveScene s,_ ->                 
+        // PickObject is dead - nothing dispatches it. Handler kept commented alongside the
+        // ViewerAction case in Viewer-Model.fs.
+        //| PickObject (p,id),_ ->
+        //    match m.picking with
+        //    | true ->
+        //        let hitF _ = None
+        //        let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
+        //        match (m.scene.surfacesModel.surfaces.flat.TryFind id) with
+        //        | Some x -> matchPickingInteraction sendQueue p observedSystem hitF (x |> Leaf.toSurface) m
+        //        | None -> m
+        //    | false -> m
+        | SaveScene s,_ ->
             let target = match m.scene.scenePath with | Some path -> path | None -> s
             m |> ViewerIO.saveEverything target
         | SaveAs s,_ ->
