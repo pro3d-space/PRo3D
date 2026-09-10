@@ -145,25 +145,8 @@ module ImageProjection =
                         // an unresolved layer's zero matrix yields NaN here and
                         // fails the range test -- the slot simply never covers
                         let inRange = Vec.allGreaterOrEqual tc V3f.OOO && Vec.allSmallerOrEqual tc V3f.III
-                        // No projector-facing test. It used to also require
-                        // normal.Z < 0, which needs the face normal oriented outward, which
-                        // needs the source data's triangle winding -- and OPC datasets are
-                        // not consistently wound, not even within one dataset. Measured on
-                        // Dimorphos_0_Meridian from the AFC's own viewpoint: the visible
-                        // disk splits into two contiguous regions of opposite winding, so
-                        // NormalFlip 1 covers 40.9% of the body and NormalFlip 0 covers
-                        // 58.0% (union 98.8%, overlap 0.2%) -- whichever way the per-dataset
-                        // vote goes, half the projection is thrown away.
-                        //
-                        // Dropping the test is sound for what the viewer shows: the far side
-                        // of the body is behind the near side, so the DEPTH BUFFER already
-                        // hides whatever gets painted there. The test only mattered for
-                        // surfaces the projector cannot see but the camera can -- concave
-                        // pockets -- and paying for those with half the body unpainted is a
-                        // bad trade. Revisit with a projector depth map (shadow-map style),
-                        // which answers "can the projector see this fragment" directly and
-                        // does not care about winding at all.
-                        if inRange then
+                        let normal = uniform.ProjectedStackTrafos.[i].TransformDir(v.localNormalNumericallyUnstable) |> Vec.normalize
+                        if inRange && normal.Z < 0.0f then
                             let sample = projectedStackTexture.Sample(V2f(tc.X, tc.Y), i)
                             let value = sample.X
                             let minMax = uniform.ProjectedStackMinMax.[i]
@@ -268,13 +251,13 @@ module ImageProjection =
                     let mutable clippedCount = 0
                     for i in 0 .. uniform.ProjectedStackCount - 1 do
                         let ndc = uniform.ProjectedStackTrafos.[i] * v.localPos
+                        let normal = uniform.ProjectedStackTrafos.[i].TransformDir(v.localNormalNumericallyUnstable).Normalized
                         let p = ndc.XYZ / ndc.W
                         let tc = V3f(0.5, 0.5, 0.5) + V3f(0.5, 0.5, 0.5) * p.XYZ
                         // tc.Z too, else geometry behind the near plane counts as covered
                         let clipped = Vec.anyGreater tc V3f.III || Vec.anySmaller tc V3f.OOO
-                        // no projector-facing test, to match stableImageProjectionStack --
-                        // this view has to report what actually gets painted
-                        if clipped then
+                        let onRightSide = normal.Z < 0.0f
+                        if not onRightSide || clipped then
                             clippedCount <- clippedCount + 1
 
                     if clippedCount < uniform.ProjectedStackCount then
