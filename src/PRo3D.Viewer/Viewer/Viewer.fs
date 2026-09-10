@@ -671,29 +671,18 @@ module ViewerApp =
                         let fullTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem observedSystem observerSystemOpt
                         let t = (fullTrafo * surface.preTransform).Forward
                         let pos = t.TransformPos posB
-                        // Belt and braces: the camera must end up LOOKING AT the body.
-                        // "-Z is the look direction" holds only for a proper camera-to-world
-                        // basis, and this pose is assembled through
-                        // InstrumentProjection.specialTrafos, which are deliberately improper
-                        // (AFC-1 is FromOrthoNormalBasis(-Y,-X,Z), det -1 -- that is what
-                        // cancels getLookAtQuat's FromBasis(-C0,-C1,-C2)). Measured on
-                        // HERA/AFC-1 the extracted axis is already correct
-                        // (dot with the direction to the body = 1.0000), so this guard does
-                        // not currently fire; it is here because the invariant is cheap to
-                        // state and an empty frame is an expensive thing to debug.
-                        let bodyCentre = t.TransformPos V3d.Zero
-                        let toBody = bodyCentre - pos |> Vec.normalize
-                        let fwd0 = t.TransformDir fwdB |> Vec.normalize
-                        let fwd = if Vec.dot fwd0 toBody < 0.0 then -fwd0 else fwd0
+                        let fwd = t.TransformDir fwdB |> Vec.normalize
+                        // `up` is the instrument's own roll, which can leave the view close
+                        // to upside down relative to the camera it replaces -- by design.
                         let up = t.TransformDir upB |> Vec.normalize
-                        // Build the CameraView here rather than leaving the caller to
-                        // assemble one, so the basis is orthonormal and right-handed by
-                        // construction. `up` is the instrument's, which through the
-                        // improper mounting comes out with up . sky = -0.64: the view is
-                        // close to upside down relative to whatever camera it replaces,
-                        // which is correct -- that IS the instrument's roll.
-                        Log.line "[Viewer] fly-to: pos %A |r| %.1f, dot(fwd,toBody) %.4f"
-                            pos (Vec.length pos) (Vec.dot fwd0 toBody)
+                        // Land where the sidecar says, even when that looks away from the
+                        // body centre (legitimate for close-range or limb frames); only say so,
+                        // since an empty view is otherwise indistinguishable from a broken
+                        // projection.
+                        let toBody = t.TransformPos V3d.Zero - pos |> Vec.normalize
+                        if Vec.dot fwd toBody < 0.0 then
+                            Log.warn "[Viewer] fly-to: %s looks away from the body centre (boresight . direction-to-body = %.3f)"
+                                image.texture (Vec.dot fwd toBody)
                         CameraView.lookAt pos (pos + fwd) up |> Some
         | _ ->
             // Name the missing precondition. Lumping three unrelated causes into one
