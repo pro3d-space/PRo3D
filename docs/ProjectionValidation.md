@@ -13,13 +13,24 @@ Projecting an AFC frame back onto the shape model it was rendered against, from
 that frame's own camera, reproduces the frame **at zero pointing offset** in all
 three — see [the proof](#the-proof) below.
 
-Two things still make images look wrong independently of the projection itself:
+Things that still make images look wrong independently of the projection itself:
 
 1. **Orientation Source** defaults to *SPICE*, which reads no pointing from the
    image at all — it aims the camera at the body centre with a fixed roll. Real
    frames then land on the body with their features out of place.
 2. A sidecar can state the pointing wrongly, and the projector will follow it
    faithfully. The HERA COP delivery does exactly this.
+3. **The scene has to be set up before any of it can work.** From an empty
+   PRo3D, projection needs an observed body, a surface bound to a SPICE body,
+   and a time inside the loaded kernels' coverage. PRo3D's default epoch is
+   2025-03-10, where HERA has no ephemeris for Dimorphos — nothing resolves, and
+   because SPICE calls serialise on a global lock the failing calls repeat every
+   frame and the interface crawls. The fly-to now names whichever precondition
+   is missing.
+4. **The texture layer is not cosmetic.** `Earth` is a placeholder world map,
+   and the two DRACO layers cover different hemispheres, so the wrong choice can
+   leave a nearly black frame that any correlation will happily score well.
+   See [the proof](#the-proof).
 
 ---
 
@@ -56,40 +67,70 @@ fly-to that lands pointing at the body, and the projector matrix fix below.
 <a name="the-proof"></a>
 ### The proof
 
-One AFC-1 frame of Dimorphos (`--texture-only`, so the comparison is of geometry
-and not of a lighting model), projected back onto `Dimorphos_0_Meridian` from
-its own camera at 8 040.7 m:
+One AFC-1 frame projected back onto the shape model it was rendered against,
+from that frame's own camera. Every number below comes from a single run over a
+single state, so the page cannot drift out of internal consistency:
 
-| rung | correlation at zero shift | best shift found | mean ΔDN over the body |
+- OPC `Dimorphos_opc` (the current export)
+- texture layer **DRACO_2**, epoch **2027-03-21T20:00**, range 6 706.8 m
+- viewer window 1100×1100, *Focal (mm)* 122.563 = AFC-1's 5.5307°
+- *Orientation Source* MBI, *Transfer Function* off
+
+| rung | correlation at zero shift | best shift found | mean ΔDN |
 |---|---|---|---|
-| **1** tool, single-image shader | **0.9999** | (0, 0) px | 0.175 |
-| **2** tool, stack shader | **1.0000** | (0, 0) px | 0.006 |
-| **3** viewer, production render | **0.9758** | (0, 0) px | 3.37 |
+| **1** tool, single-image shader | **0.9999** | (0, 0) px | 0.0995 |
+| **2** tool, stack shader | **0.9999** | (0, 0) px | 0.0077 |
+| **3** viewer, production render | **0.9705** | (0, 0) px | — |
 
-The search ranged ±24 px (±0.12°, ±17 m at that range) and found its maximum at
-zero in every case — there is no residual pointing offset to explain.
+and for the viewer, the checks that a correlation alone cannot make:
 
-Rungs 1 and 2 (offscreen, source → single shader → stack shader):
+| check | result |
+|---|---|
+| orientation — all eight square symmetries scored | **identity**, margin **0.8776** over the next best |
+| coverage — from the shader's own coverage view | **99.2%** of 49 789 body pixels |
+| silhouette overlap — lit frame | IoU **0.87**, centroid offset **6.0 m** |
 
-![the tool reproduces the frame through both shaders](images/projectionValidation/proof-tool.png)
+Rungs 1 and 2, offscreen — source, single-image shader, stack shader:
 
-Rung 3, the production viewer — source left, viewer right, same angular scale,
-*Transfer Function* off so the layer is painted as its own RGB:
+![the tool reproduces the frame through both shaders](images/projectionValidation/ladder-tool.png)
 
-![the viewer reproduces the frame](images/projectionValidation/proof-viewer.png)
+Rung 3, the production viewer — source left, render right, same angular scale,
+no fitting of any kind:
 
-The viewer's 0.9758 (0.9831 over body pixels alone) is lower than the tool's
-1.0000 for reasons that are not pointing: it resamples the image through the
-terrain's texture pipeline, it renders 95.9% of the source's lit pixels rather
-than all of them (the rest is the sliver at the limb the projector genuinely
-cannot see, plus the 1100 vs 1020 grid), and its background is DN 34 rather than
-0. Measuring ΔDN over the union of the two bodies rather than their overlap
-reports 33.6 instead of 3.37, which is the background offset and not a
-projection error — worth stating because that is a trap this page fell into.
+![the viewer reproduces the frame it projects](images/projectionValidation/ladder-viewer.png)
 
-Coverage, measured with the shader's own coverage view (*Visibility →
-RelativeCount*) rather than by diffing screenshots: **99.8%** of body pixels.
-The missing 0.2% is terrain the projector cannot see.
+Silhouettes (yellow both, red source only, green render only) and the coverage
+view (tint = how many stack layers cover a fragment):
+
+| silhouette overlap | coverage |
+|---|---|
+| ![silhouettes](images/projectionValidation/ladder-silhouette.png) | ![coverage](images/projectionValidation/ladder-coverage.png) |
+
+**Reading these honestly.** The registration and orientation numbers are
+unambiguous: the shift search ranged ±24 px (±0.12°) and peaked at zero, and the
+identity beat every flip and rotation by 0.88. The silhouette IoU is the weakest
+of the four and should not be read as a 13% error: the source frame's unlit limb
+is DN 0, indistinguishable from space, while the viewer's mask is "not the clear
+colour" and so includes it. Across the four epochs in the dataset the disk fills
+0.90–0.93 of its own bounding ellipse, which is the size of that bias. It is a
+gate — *do the outlines coincide at all* — not a precision measurement.
+
+Three choices in that setup are load-bearing, and each was got wrong at least
+once during this work:
+
+- **DRACO_2, not DRACO_1 or Earth.** `Earth` is a placeholder world map. The two
+  DRACO layers are different DART passes over different hemispheres, and at these
+  epochs HERA looks at the DRACO_2 side. Measured at 20:00: DRACO_2 mean DN 5.80
+  over 42 241 lit pixels, DRACO_1 mean 2.96 over 18 831, Earth mean 0.66. An
+  earlier version of this table was computed on DRACO_1 and reported 1.0000 /
+  1.0000 / 0.9628 — correlating two near-empty images. True, and worthless.
+- **A frame with texture, and a frame with light, for different checks.** The
+  texture-only frame carries the surface detail the registration and orientation
+  checks need; the lit frame fills the disk so its outline is the body's outline.
+  Neither does both.
+- **The viewer's field of view set to the instrument's**, and a squarish window.
+  That is what makes the two frames the same gnomonic projection of the same
+  scene, so they can be compared at zero shift instead of by fitting.
 
 ## 1. The projection shader reproduces the image it was given
 
@@ -189,7 +230,7 @@ into it, which is what makes this the test to run: it needs no assumption about
 what the surface is textured with.
 
 Setup: one simulated AFC-1 frame of Dimorphos, projected onto
-`Dimorphos_0_Meridian`. *Fly to image* puts the camera on that frame's projector
+`Dimorphos_opc`. *Fly to image* puts the camera on that frame's projector
 axis; *Focal (mm)* = 122.563 makes the viewer's field of view AFC-1's 5.5307°;
 *Orientation Source* = MBI; *Transfer Function* off, so the layer is painted as
 its own RGB. Window 1100×1100, square, because a 16:9 window would frame the
@@ -201,24 +242,34 @@ flip.
 
 | # | check | result |
 |---|---|---|
-| **0** | geometric overlap — do the silhouettes coincide? | IoU **0.9720**, centroid offset **0.28 m** at 8 km, scale **+0.65%** |
-| **1** | orientation — all eight square symmetries scored | **identity wins**, margin **0.8125** over the best flip |
-| **2** | registration against the source, shared angular grid | **0.9758** at **zero** shift (±24 px searched) |
-| **3** | coverage, from the shader's own coverage view | **99.8%** |
+| **0** | geometric overlap — do the silhouettes coincide? | IoU **0.87**, centroid offset **6.0 m** (see the caveat above) |
+| **1** | orientation — all eight square symmetries scored | **identity wins**, margin **0.8776** over the next best |
+| **2** | registration against the source, shared angular grid | **0.9705** at **zero** shift (±24 px searched) |
+| **3** | coverage, from the shader's own coverage view | **99.2%** |
 
-Source left, viewer right — same angular scale, no fitting:
+The figures are [in the proof](#the-proof), which is the same run: source
+against viewer render, the silhouette overlap, and the coverage view.
 
-![the viewer reproduces the frame it projects](images/projectionValidation/proof-viewer.png)
+Two of those four checks deserve a note on how to read them.
 
-Silhouettes: yellow where both agree, red source-only, green render-only. The
-fringe is limb antialiasing.
+**The silhouette check is a gate, not a measurement.** Its green band along the
+bottom limb is not a projection error — it is where the source frame's unlit
+limb reads as DN 0, indistinguishable from space, while the viewer's mask is
+"not the clear colour" and includes it. Across the dataset's four epochs the
+disk fills 0.90–0.93 of its own bounding ellipse, which is the scale of that
+bias. It answers *do the outlines coincide at all*, which has to be true before
+any content-level number means anything, and nothing finer.
 
-![silhouette overlap](images/projectionValidation/overlap-check.png)
+**The orientation check exists because a shift search cannot see a flip.** A
+mirrored image correlates poorly at every shift, and the search reports the
+least-bad one — which reads as "slightly misregistered" rather than "mirrored".
+So all eight square symmetries are scored and the identity has to win. Here it
+wins by 0.88, which is not a close call.
 
-And with a lit frame rather than a texture-only one — source, terrain,
-projected, silhouettes:
-
-![the full validation set](images/projectionValidation/validation-set.png)
+That both matter was shown the hard way: an intermediate build passed the
+silhouette check at IoU 0.95 while its content was uncorrelated at 0.046, because
+the body had rotated under a camera aimed at where it used to be and a triaxial
+ellipsoid looks much the same whichever way it is turned.
 
 Two frames because they test different things. The lit render fills the disk, so
 its outline **is** the body's outline and check 0 means something. The
@@ -285,8 +336,8 @@ offset from the direction the spacecraft tracks.
 ### In the viewer
 
 Validated by the projector-viewpoint test in [step 3](#3-the-viewer-reproduces-the-image-it-projects):
-silhouettes IoU 0.9720, orientation the identity, registration 0.9758 at zero
-shift, coverage 99.8%.
+silhouettes coincide, orientation is the identity, registration 0.9705 at zero
+shift, coverage 99.2%.
 
 The close-up figures that used to sit here were renders from before the
 double-rotation fix. They showed the projection reaching only part of the body,
@@ -298,7 +349,7 @@ describing the fix, which is how they were being read.
 The coverage numbers that went with them (17.1% before the `NormalFlip` binding,
 86.2% and 92.1% after) were *changed-pixel* counts, which understate coverage
 because they cannot tell "not covered" from "covered by a value that matches".
-The number to trust comes from the shader's own coverage view: **99.8%**.
+The number to trust comes from the shader's own coverage view: **99.2%**.
 
 ## Supporting evidence: real data, ASPECT at Didymos
 
@@ -443,7 +494,11 @@ further here.
   for the projection, whose facing test is relative to the **projector**. The
   heuristic now lives in `PRo3D.Core.NormalWinding.estimate` (one implementation
   for the tools and the viewer), `Surface.Sg` binds it per hierarchy, and the
-  surface effect composes `applyNormalFlip`. Measured: `Dimorphos_0_Meridian`
+  surface effect composes `applyNormalFlip`. Measured on `Dimorphos_0_Meridian`,
+  the export in use at the time — the current `Dimorphos_opc` is wound outward
+  (26 outward / 0 inward, `NormalFlip 0`) and needs no correction, so the numbers
+  in this bullet and the next are history rather than current behaviour:
+  `Dimorphos_0_Meridian`
   votes 0 outward / 26 inward (flip 1).
 
   This governs *coverage*, not alignment — it explains a crescent, not a shift.
@@ -514,43 +569,57 @@ Future work:
 
 ## Reproducing this page
 
+Data set and scene: `<pro3ddata>/HERA/workshop3/Projection Test Data/`
+`AFC_Dimorphos_v2_2027-03-21/` — eight AFC-1 frames with sidecars, a
+ready-to-open `ProjectionTest.pro3d`, and a README covering the settings that
+matter. Shape model: `<pro3ddata>/HERA/workshop3/Dimorphos_opc/Dimorphos`.
+
 ```
-# 1: the self-made dataset (already committed to the test data repo)
-pro3d-tool simulate-image --opc <TestData>/HERA/Dimorphos \
-    --time 2027-03-04T14:00:00Z --body DIMORPHOS --frame DIMORPHOS_FIXED \
-    --observer HERA --instrument HERA_AFC-1 --gain 3.7 \
-    --out HERA_AFC_0005_20270304_140000_SIM.png --write-mbi
+# the frames (--texture-layer matters: without it the tool draws the patch's
+# DEFAULT layer, which is not necessarily the one a scene displays)
+pro3d-tool simulate-image --opc <...>/Dimorphos_opc/Dimorphos \
+    --time 2027-03-21T20:00:00Z --body DIMORPHOS --frame DIMORPHOS_FIXED \
+    --observer HERA --instrument HERA_AFC-1 \
+    --texture-only --texture-layer DRACO_2 --write-mbi \
+    --out AFC1_DRACO2_20270321_200000.png
 
-pro3d-tool unproject --opc <TestData>/HERA/Dimorphos \
-    --images <TestData>/HERA/SimulatedAFC --input pixels.csv \
-    --body DIMORPHOS --frame DIMORPHOS_FIXED --observer DIMORPHOS --method mbi
+# rung 1 -- the single-image shader, what sun-angles and the testbeds compose
+pro3d-tool simulate-image --opc <...> --project <that frame> \
+    --texture-layer DRACO_2 --body DIMORPHOS --frame DIMORPHOS_FIXED \
+    --observer HERA --instrument HERA_AFC-1 --out rung1.png
 
-# 2: a real ASPECT observation through its own sidecar
-pro3d-tool simulate-image --opc <TestData>/HERA/Didymos_ASPECT --mbi <the .tif> \
-    --body DIDYMOS --frame DIDYMOS_FIXED --observer DIDYMOS --write-mbi
+# rung 2 -- the same image and camera through the viewer's stack shader
+pro3d-tool simulate-image --opc <...> --project <that frame> \
+    --project-shader stack --texture-layer DRACO_2 ... --out rung2.png
 
-# 1 (viewer half): asserts; needs a scene on the same OPC
-cd tests-ui && PRO3D_SIM_IMAGE_DIR=<dataset> npx playwright test projection-overlap
+# rung 3 -- the production viewer
+cd tests-ui
+PRO3D_SCENE=<...>/ProjectionTest.pro3d \
+PRO3D_PROBE_IMAGE_DIR=<...> PRO3D_PROBE_IMAGE=AFC1_DRACO2_20270321_200000.png \
+PRO3D_PROBE_METHOD=MbiBased PRO3D_PROBE_TRANSFER=off \
+PRO3D_PROBE_FLYTO=1 PRO3D_PROBE_FOCAL=122.563 \
+PRO3D_PROBE_VIEWPORT=1100x1100 PRO3D_PROBE_LABEL=rung3 \
+  npx tsx src/probe-projection-landing.ts
 
-# the gate the projection tests stand on: can the viewer be put where the
-# instrument was, and is the body then the right apparent size?
-PRO3D_AFC_DIR=<folder> npx playwright test looking-at-dimorphos
+# coverage rather than content: the same run with
+PRO3D_PROBE_VISIBILITY=RelativeCount
 
-# 3: look at one case, including the ones that fail (asserts nothing).
-# Screenshots and logs lit-fraction after EVERY stage -- an empty frame three
-# steps later cannot be attributed, and that is what made the fly-to bug expensive.
-PRO3D_PROBE_IMAGE_DIR=<folder> PRO3D_PROBE_METHOD=MbiBased \
-PRO3D_PROBE_LABEL=cop-mbi npx tsx src/probe-projection-landing.ts
-
-# step 2: the same image and camera through the stack shader
-pro3d-tool simulate-image --opc <opc> --project <image> --project-shader stack ...
-
-# 4: flat silhouettes for an outline comparison
-pro3d-tool simulate-image ... --no-lighting --no-shadows --out flat.png
-
-# step 1: project an image back through PRo3D's single-image projection shader
-pro3d-tool simulate-image --opc <opc> --project <image>     --body DIMORPHOS --frame DIMORPHOS_FIXED --observer DIMORPHOS     --out reprojected.png
+# does the viewer see the body from the instrument's own viewpoint at all?
+PRO3D_AFC_DIR=<...> npx playwright test looking-at-dimorphos
 ```
 
-The Playwright harness is machine-local by design (real GPU, local OPC and
-image data); `tests-ui/src/pro3d.ts` lists the `PRO3D_*` variables.
+The other probes in `tests-ui/src/`, and why they exist:
+
+| probe | question it answers |
+|---|---|
+| `probe-projection-landing.ts` | look at one case end to end, including the ones that fail; screenshots and logs lit-fraction after **every** step, because an empty frame three steps later cannot be attributed |
+| `probe-look.ts` | load a scene and screenshot it, nothing else — tells a broken scene apart from a broken harness |
+| `probe-accordion.ts` | **clicks** a UI control like a user and asserts the result is visible; the other probes reach into the DOM and so cannot see a broken widget |
+| `probe-accordion-dom.ts` | prints an accordion's DOM and what jQuery matches, for writing a selector against what is there |
+| `probe-jserrors.ts` | watches console / pageerror / requestfailed while a page loads and a control is clicked |
+| `probe-dump.ts` | dumps a page's DOM so selectors are written against reality |
+
+The Playwright harness is machine-local by design (real GPU, local OPC and image
+data); `tests-ui/src/pro3d.ts` lists the `PRO3D_*` variables, and
+[`../ai/TESTING.md`](../ai/TESTING.md) records what these tests can and cannot
+see — worth reading before trusting a green run.
