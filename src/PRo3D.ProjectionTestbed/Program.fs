@@ -242,7 +242,9 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
         AVal.constant (
             Some {
                 imageProjection = AVal.constant (Some cam.full)
-                localImageProjectionTrafos = AVal.constant [||]
+                stackProjections = AVal.constant [||]
+                stackCoverageEnabled = AVal.constant false
+                hoveredProjection = AVal.constant None
                 sunDirection = AVal.constant (match sunDir with Ok d -> Some d | Result.Error _ -> None)
                 sunLightEnabled = AVal.constant (match sunDir with Ok _ -> true | Result.Error _ -> false)
                 lightViewProj = AVal.constant None
@@ -323,6 +325,7 @@ let private run (s : Scenario) (img : ResolvedImage) (cam : ProjectorCamera) =
         // Cross-section clipping (added in releases/6.0.0) is another OPC-surface Ag
         // attribute; without it CompileRender throws "could not get inh CrossSectionData".
         |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
+        |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
         |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId
             (AVal.constant (Some { texture = TextureReference.LegacyId 0
                                    channel = ChannelReference.NoChannelSelection }))

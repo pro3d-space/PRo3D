@@ -31,10 +31,40 @@ module SgExtensions =
                 let empty : aval<Option<string>> = AVal.constant None
                 s.Child?Body <- AVal.constant empty
 
+        /// One layer of the projection stack (multi-image projection).
+        type ProjectedStackLayer =
+            {
+                /// The projector's view*proj in the surface's reference frame at
+                /// this image's own observation time. None when the projection
+                /// did not resolve (no metadata / no SPICE coverage) -- the
+                /// layer keeps its slot (a zero matrix in the uniform array, so
+                /// texture-array slices and matrices stay index-aligned) and
+                /// simply never covers a fragment.
+                trafo : Option<Trafo3d>
+                /// display min/max of this layer (the per-image false-color range)
+                minMax : V2f
+                /// image file feeding this layer's texture-array slice
+                texturePath : string
+                /// which band of a multi-band image is uploaded
+                channel : int
+            }
+
         type ProjectedImages =
             {
                 imageProjection : aval<Option<Trafo3d>>
-                localImageProjectionTrafos : aval<array<Trafo3d>>
+                /// The projection stack, bottom -> top. Bounded by
+                /// ProjectedImages.maxCount; the stack shader consumes it as
+                /// fixed-size uniform arrays (matrices + min/max) plus a count,
+                /// and layer i samples slice i of the stack texture array.
+                stackProjections : aval<array<ProjectedStackLayer>>
+                /// InstrumentVisibilityMode.RelativeCount: tint fragments by
+                /// how many stack layers cover them (projectedStackCoverage)
+                stackCoverageEnabled : aval<bool>
+                /// The hovered image's own projector (surface frame, its obs
+                /// time) -- drives the hover-only footprint outline uniform and
+                /// the frustum wireframe (D5). None when nothing is hovered or
+                /// the projection does not resolve.
+                hoveredProjection : aval<Option<Trafo3d>>
                 sunDirection : aval<Option<V3d>>
                 sunLightEnabled : aval<bool>
                 /// World -> sun-camera clip space for shadow mapping; None disables the

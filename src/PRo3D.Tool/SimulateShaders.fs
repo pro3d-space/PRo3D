@@ -38,6 +38,15 @@ type UniformScope with
     /// Strength of the normal perturbation; 0 disables.
     member x.MicroAmplitude : float32 = uniform?MicroAmplitude
     member x.AmbientFloor : float32 = uniform?AmbientFloor
+    /// Emit a flat disk instead of a shaded body: every fragment on the surface returns
+    /// the same value, so the image IS the silhouette. For geometric comparisons, where
+    /// shading only obscures the outline that carries the pointing information.
+    member x.NoLighting : bool = uniform?NoLighting
+    /// Emit the OPC's own texture, unlit and un-deshaded: the mosaic as this camera
+    /// sees it. Distinct from the de-shading, which FITS a light direction and divides
+    /// it out -- an approximation with a confidence weight and a constant-albedo
+    /// fallback, none of which belongs in an image meant as a registration reference.
+    member x.TextureOnly : bool = uniform?TextureOnly
 
 type SimVertex =
     {
@@ -128,6 +137,17 @@ let private fbm (p : V3f) : float32 =
 /// PNG is exposure-scaled anyway.
 let simulatedImage (v : SimVertex) =
     fragment {
+        // Flat mode short-circuits everything below: no normal, no albedo, no sun. The
+        // fragment exists, therefore it is body -- which is exactly what a silhouette
+        // comparison needs, and it removes the terminator, the texture and the
+        // micro-structure as sources of disagreement.
+        if uniform.NoLighting then
+            return V4f(1.0f, 1.0f, 1.0f, 1.0f)
+        elif uniform.TextureOnly then
+            let t = diffuseSampler.Sample(v.tc).X
+            return V4f(t, t, t, 1.0f)
+        else
+
         // Smooth per-face normal and position in the body-fixed frame. ModelTrafo is the
         // patch's Local2Global; evaluating the noise in body coordinates keeps it
         // continuous across patch borders regardless of per-patch local frames.

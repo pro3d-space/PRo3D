@@ -1,4 +1,4 @@
-module PRo3D.Tool.SimulateImageVerb
+﻿module PRo3D.Tool.SimulateImageVerb
 
 open System
 open System.Globalization
@@ -20,6 +20,66 @@ open PRo3D.Core
 open PRo3D.SPICE
 open PRo3D.ImageMapping
 open PRo3D.InstrumentVisualization   // VisualizationProperties
+open PRo3D.Core.Surface               // SurfaceUtils, SurfaceProperties -- .opcx layer lists
+
+/// Resolving `--texture-layer` against what an OPC actually declares.
+///
+/// An OPC's texture layers are listed in its `.opcx`; the PRo3D viewer reads them the
+/// same way (see `Scene.fs`) and stores the chosen one as the surface's
+/// `selectedTexture`. The tool used to have no say and always drew the patch's default
+/// layer -- which is why an offscreen render and a viewer screenshot of the same body
+/// could show different data and never be comparable (measured: a default "Earth"
+/// render against a scene's "DRACO_1" correlates 0.03).
+module OpcTextureLayers =
+
+    /// The layers an OPC declares, in the index order the renderer uses.
+    let read (opcDir : string) : list<int * string> =
+        let opcx =
+            [ yield! Directory.EnumerateFiles(opcDir, "*.opcx")
+              // an OPC directory sometimes holds the hierarchy one level down
+              for sub in Directory.EnumerateDirectories opcDir do
+                  yield! Directory.EnumerateFiles(sub, "*.opcx") ]
+            |> List.sort
+            |> List.tryHead
+        match opcx with
+        | None -> []
+        | Some path ->
+            try
+                SurfaceUtils.SurfaceAttributes.read path
+                |> SurfaceProperties.getTextures
+                |> IndexList.toList
+                |> List.map (fun l -> l.index, l.label)
+            with e ->
+                Log.warn "[texture] could not read %s (%s)" path e.Message
+                []
+
+    /// `wanted` is a layer name ("DRACO_1") or an index ("8"). None when it does not
+    /// resolve -- the caller decides whether that is fatal.
+    let resolve (opcDir : string) (wanted : string) : Option<int> =
+        let layers = read opcDir
+        let byName =
+            layers |> List.tryFind (fun (_, label) ->
+                String.Equals(label, wanted, StringComparison.OrdinalIgnoreCase))
+        match byName with
+        | Some (idx, label) ->
+            Log.line "[texture] layer '%s' -> index %d" label idx
+            Some idx
+        | None ->
+            match Int32.TryParse(wanted, NumberStyles.Integer, CultureInfo.InvariantCulture) with
+            | true, idx when layers |> List.exists (fun (i, _) -> i = idx) ->
+                let label = layers |> List.tryPick (fun (i, l) -> if i = idx then Some l else None)
+                Log.line "[texture] layer index %d -> '%s'" idx (defaultArg label "?")
+                Some idx
+            | true, idx when List.isEmpty layers ->
+                // no .opcx to check against: trust the caller rather than refuse
+                Log.warn "[texture] no .opcx found under %s; using index %d unchecked" opcDir idx
+                Some idx
+            | _ ->
+                Log.error "[texture] no layer '%s'. This OPC declares: %s" wanted
+                    (if List.isEmpty layers then "(none found -- no .opcx?)"
+                     else layers |> List.map (fun (i, l) -> sprintf "%d=%s" i l) |> String.concat ", ")
+                None
+
 
 // The simulate-image verb: time + SPICE kernels + OPC + instrument name in, one simulated
 // asteroid image out. Sun position, spacecraft position and body orientation come from
@@ -320,6 +380,23 @@ type SimCamera =
         aspect : float
     }
 
+/// World -> camera from an explicit camera basis, bypassing CameraView: `CameraView`
+/// re-derives `right` from `forward` and a sky vector, which silently discards the roll
+/// this is trying to preserve.
+///
+/// Aardvark's view trafo has (right, up, -forward) as its ROWS and -(R * location) as its
+/// translation -- the same layout `CameraView.viewTrafo` produces (verified against
+/// `CameraView.lookAt`).
+let private viewTrafoOfBasis (right : V3d) (up : V3d) (forward : V3d) (location : V3d) =
+    let r = M33d.FromCols(right, up, -forward).Transposed
+    let t = -(r * location)
+    let fw =
+        M44d(r.M00, r.M01, r.M02, t.X,
+             r.M10, r.M11, r.M12, t.Y,
+             r.M20, r.M21, r.M22, t.Z,
+             0.0,   0.0,   0.0,   1.0)
+    Trafo3d(fw, fw.Inverse)
+
 /// `distanceOverride` > 0 moves the camera to that range along the direction SPICE puts
 /// the spacecraft -- the viewpoint stays real, only the standoff changes. Useful when the
 /// body would otherwise be a handful of pixels, and for validation renders.
@@ -342,10 +419,43 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
         | None ->
             Result.Error (sprintf "no frustum defined for instrument '%s' (see PRo3D.Base.InstrumentProjection)" instrument)
         | Some frustum ->
-            let boresight = (-pos).Normalized
-            let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
+            // Orientation from the spacecraft's measured attitude (the CK), not from an
+            // up-vector convention: the roll around the boresight is part of what the
+            // instrument saw, and inventing it makes the render incomparable both with a
+            // real frame of the same observation and with the viewer's mbi projector.
+            //
+            // Composed the way the viewer's projector is, so the two cannot drift apart:
+            // getLookAtQuat builds the pre-mounting camera basis as (-X, -Y, +Z) of the
+            // attitude frame, and the image-axis convention is then the specialTrafos
+            // entry. That entry is what makes this instrument-specific -- hard-coding
+            // AFC's axis map works for AFC and comes out 90 degrees off for ASPECT.
+            //
+            // The attitude is read from the INSTRUMENT frame rather than the spacecraft's,
+            // so the instrument's real boresight offset (0.145 deg for AFC-1) is included
+            // rather than idealised away; for ASPECT the two coincide, its channel frames
+            // being a zero-offset TKFRAME of MILANI_SPACECRAFT.
+            let view =
+                match CooTransformation.getRotationTrafo instrument frame time,
+                      Map.tryFind instrument InstrumentProjection.specialTrafos with
+                | Some instrumentToBody, Some mounting ->
+                    let m = instrumentToBody.Forward.UpperLeftM33()
+                    Some (viewTrafoOfBasis -m.C0 -m.C1 m.C2 pos * mounting)
+                | missing ->
+                    // No attitude (or no known mounting) at this epoch: fall back, and say
+                    // so -- the roll is then an arbitrary convention again and the frame
+                    // will not match a real image.
+                    match missing with
+                    | None, _ ->
+                        Log.warn "[camera] no attitude for %s in %s at %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
+                            instrument frame (time.ToString "o")
+                    | _ ->
+                        Log.warn "[camera] no mounting trafo known for %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
+                            instrument
+                    let boresight = (-pos).Normalized
+                    let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
+                    Some (CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo)
             Ok {
-                view = CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo
+                view = view |> Option.defaultValue Trafo3d.Identity
                 proj = Frustum.projTrafo frustum
                 distance = distance
                 aspect = (frustum.right - frustum.left) / (frustum.top - frustum.bottom)
@@ -391,6 +501,75 @@ let private toneMapToPng (img : PixImage<float32>) (explicitGain : float) : Resu
     Ok (out, gain)
 
 // ---------------------------------------------------------------------------------
+// Camera from an existing observation. `cameraAt` above points the instrument at the body
+// centre with an arbitrary roll -- fine for making a picture, useless for comparing with a
+// real frame. Taking the camera from an image's own mbi sidecar instead runs the render
+// through the viewer's projection path, so the result is directly comparable with that
+// image and any disagreement is the projection's, not the camera's.
+
+/// An observation resolved from an existing image's mbi sidecar.
+///
+/// The instrument comes from the sidecar rather than `--instrument`: the sidecar knows which
+/// camera took the image, and rendering an AFC1 observation through an AFC2 frustum would be
+/// a silent 90-degree roll.
+type MbiObservation =
+    {
+        camera     : SimCamera
+        time       : DateTime
+        /// SPICE instrument frame, e.g. "HERA_AFC-1"
+        instrument : string
+        /// native size, when the statistics sidecar declares one
+        size       : Option<V2i>
+    }
+
+/// Resolve `--mbi` to the image whose sidecar carries the observation. Accepts either the
+/// image or the sidecar itself: a caller who found the geometry by reading the .mbi.json
+/// should not have to work out which image file it belongs to.
+let private imageForMbiArgument (path : string) : Result<string * string, string> =
+    let full = Path.GetFullPath path
+    let dir = Path.GetDirectoryName full
+    let name = Path.GetFileName full
+    if name.EndsWith(".mbi.json", StringComparison.OrdinalIgnoreCase) then
+        let baseName = name.Substring(0, name.Length - ".mbi.json".Length)
+        let candidates =
+            [ ".png"; ".tif"; ".tiff"; ".jpg"; ".jpeg"; ".exr" ]
+            |> List.map (fun ext -> Path.Combine(dir, baseName + ext))
+        match candidates |> List.tryFind File.Exists with
+        | Some img -> Ok (dir, Path.GetFileName img)
+        | None -> Result.Error (sprintf "no image found next to %s (looked for %s.png/.tif/.jpg/.exr)" full baseName)
+    elif File.Exists full then Ok (dir, name)
+    else Result.Error (sprintf "not found: %s" full)
+
+/// The camera an existing observation was taken with, straight out of the viewer's own
+/// projection path (`InstrumentObservation.projectorCamera` -> `Visualization.projectDirect`).
+let cameraFromMbi (observer : string) (frame : string) (body : string)
+                  (mbiPath : string) : Result<MbiObservation, string> =
+    match imageForMbiArgument mbiPath with
+    | Result.Error e -> Result.Error e
+    | Ok (folder, imageFile) ->
+        match InstrumentObservation.resolveImage folder (Some imageFile) with
+        | Result.Error e -> Result.Error e
+        | Ok img ->
+            match InstrumentObservation.projectorCamera None observer frame body ProjectionMethod.MbiBased img with
+            | Result.Error e -> Result.Error e
+            | Ok cam ->
+                match Map.tryFind img.spiceName (InstrumentProjection.instruments cam.near cam.far) with
+                | None -> Result.Error (sprintf "no frustum defined for instrument frame '%s'" img.spiceName)
+                | Some frustum ->
+                    Ok {
+                        camera =
+                            {
+                                view = cam.view
+                                proj = cam.proj
+                                distance = cam.distance
+                                aspect = (frustum.right - frustum.left) / (frustum.top - frustum.bottom)
+                            }
+                        time = img.mbi.obs_date
+                        instrument = img.spiceName
+                        size = img.size
+                    }
+
+// ---------------------------------------------------------------------------------
 
 /// Render one simulated image. Returns the written file, or why it could not.
 ///
@@ -399,11 +578,50 @@ let private toneMapToPng (img : PixImage<float32>) (explicitGain : float) : Resu
 /// active kernel, adding no kernel swaps.
 let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                  (body : string) (frame : string) (observer : string) (instrument : string)
-                 (time : DateTime) (outPath : string) (hierarchies : string[]) : Result<string, string> =
+                 (time : DateTime) (outPath : string) (kernel : string) (hierarchies : string[])
+                 (textureLayer : Option<int>) : Result<string, string> =
+
+    // --project renders an existing image projected onto the body rather than a shaded
+    // body. With no --mbi it also supplies the camera, so the render is taken from the
+    // same place the image was: the output then has to reproduce the input, which turns
+    // "does the projection line up?" into a pixel comparison.
+    let cameraSource = if String.IsNullOrWhiteSpace o.mbi then o.project else o.mbi
+
+    // --mbi replaces the look-at camera with the observation an existing image declares;
+    // the instrument then comes from that sidecar too (see MbiObservation).
+    let observation =
+        if String.IsNullOrWhiteSpace cameraSource then Ok None
+        else cameraFromMbi observer frame body cameraSource |> Result.map Some
+
+    // the image to project, and its own projector
+    let projected =
+        if String.IsNullOrWhiteSpace o.project then Ok None
+        else
+            imageForMbiArgument o.project
+            |> Result.bind (fun (dir, file) ->
+                cameraFromMbi observer frame body o.project
+                |> Result.map (fun obs -> Some (Path.Combine(dir, file), obs.camera.view * obs.camera.proj)))
+
+    let useStackShader =
+        match (if isNull o.projectShader then "single" else o.projectShader).ToLowerInvariant() with
+        | "stack" -> true
+        | _ -> false
+
+    match observation, projected with
+    | Result.Error e, _ | _, Result.Error e -> Result.Error e
+    | Ok observation, Ok projected ->
+
+    let instrument = observation |> Option.map (fun x -> x.instrument) |> Option.defaultValue instrument
+    // With --mbi the epoch is the observation's, not the command line's: sun direction,
+    // shadow map and sidecar all have to agree with the camera we are rendering through.
+    let time = observation |> Option.map (fun x -> x.time) |> Option.defaultValue time
 
     let size =
         // Each axis independently: --width alone keeps the native height, like sun-angles.
         let native =
+            match observation |> Option.bind (fun x -> x.size) with
+            | Some declared -> declared
+            | None ->
             match Map.tryFind instrument nativeSizes with
             | Some native -> native
             | None ->
@@ -414,11 +632,20 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             (if o.width  > 0 then o.width  else native.X),
             (if o.height > 0 then o.height else native.Y))
 
-    match cameraAt observer frame body instrument o.distance time with
+    let camera =
+        match observation with
+        | Some obs ->
+            if o.distance > 0.0 then
+                Log.warn "[camera] --distance is ignored with --mbi: the standoff is the observation's own"
+            Log.line "[camera] from %s (%s at %s)" (Path.GetFileName cameraSource) instrument (obs.time.ToString "o")
+            Ok obs.camera
+        | None -> cameraAt observer frame body instrument o.distance time
+
+    match camera with
     | Result.Error e -> Result.Error e
     | Ok cam ->
 
-    if o.distance > 0.0 then
+    if o.distance > 0.0 && Option.isNone observation then
         Log.warn "[camera] distance OVERRIDDEN to %.1f m -- the standoff is not the spacecraft's real range" o.distance
 
     // The frustum's aspect is fixed by the instrument; a differently-shaped viewport
@@ -466,8 +693,25 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         // the graph it wins over any outer uniform of the same name.
         AVal.constant (
             Some {
-                imageProjection = AVal.constant (Some (cam.view * cam.proj))
-                localImageProjectionTrafos = AVal.constant [||]
+                // --project supplies its own projector (the image's), which is what
+                // stableImageProjection samples through; otherwise the render camera's,
+                // as the angle shaders expect
+                imageProjection =
+                    AVal.constant (Some (projected |> Option.map snd |> Option.defaultValue (cam.view * cam.proj)))
+                // --project-shader stack drives the SAME projector through the viewer's
+                // stack path as a one-layer stack; empty otherwise, as the angle shaders
+                // and the single-image path expect
+                stackProjections =
+                    AVal.constant (
+                        match projected, useStackShader with
+                        | Some (imagePath, projector), true ->
+                            [| { Sg.ProjectedStackLayer.trafo = Some projector
+                                 minMax = V2f(0.0f, 1.0f)
+                                 texturePath = imagePath
+                                 channel = 0 } |]
+                        | _ -> [||])
+                stackCoverageEnabled = AVal.constant false
+                hoveredProjection = AVal.constant None
                 sunDirection = AVal.constant (Some sun)
                 sunLightEnabled = AVal.constant true
                 // this verb feeds its shadow map through its own shader stack
@@ -492,11 +736,14 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         let cfg =
             { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
                 // Blocking loads: reproducible offscreen output, same as sun-angles.
-                asyncLoading = false }
+                asyncLoading = false
+                // None keeps the patch default, which is what this always rendered
+                textureLayer = textureLayer }
 
-        let sg =
-            OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies
-            |> Sg.ofList
+        let opc = OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies |> Sg.ofList
+
+        let shaded =
+            opc
             |> Sg.shader {
                 // Order is load-bearing (see SunAnglesVerb.applyAngleShaders):
                 // stableImageProjectionTrafo stashes the object-space position while
@@ -509,6 +756,62 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 do! PRo3D.SPICE.Shaders.stableTrafo
                 do! SimulateShaders.simulatedImage
             }
+
+        /// PRo3D's single-image projection, composed exactly as ProjectionTestbed and
+        /// sun-angles compose it -- this verb's own shading is not involved at all, so
+        /// what comes out is the projection shader's answer and nothing else.
+        let projectedSg (imagePath : string) =
+            opc
+            |> Sg.shader {
+                do! ImageProjection.Shaders.stableImageProjectionTrafo
+                do! ImageProjection.Shaders.generateNormal
+                do! ImageProjection.Shaders.applyNormalFlip
+                do! PRo3D.SPICE.Shaders.stableTrafo
+                // black underneath: with opacity 1 the projection replaces it entirely,
+                // so any pixel that stays black is a pixel the projection did NOT cover
+                do! DefaultSurfaces.constantColor C4f.Black
+                do! ImageProjection.Shaders.stableImageProjection
+            }
+            |> Sg.texture "ProjectedTexture" (PRo3D.InstrumentProjection.Visualization.createProjectedPixTexture imagePath)
+            |> Sg.uniform' "ProjectedImageOpacity2" 1.0f
+            // neutralise the transfer function: UseFalseColor off with DataType = Float
+            // and a 0..1 range makes ColorMapping.remap the identity, so the render is
+            // comparable to the source image DN for DN instead of through a colormap
+            |> Sg.uniform' "UseFalseColor" false
+            |> Sg.uniform' "DataType" 2
+            |> Sg.uniform' "MinValue" 0.0f
+            |> Sg.uniform' "MaxValue" 1.0f
+
+        /// The same projector through the viewer's stack path, as a one-layer stack. The
+        /// per-patch matrices come from projectionUniformMap (fed by stackProjections
+        /// above), exactly as in the viewer -- only the render camera and the texture are
+        /// this verb's.
+        let projectedStackSg (imagePath : string) =
+            opc
+            |> Sg.shader {
+                do! ImageProjection.Shaders.stableImageProjectionTrafo
+                do! ImageProjection.Shaders.generateNormal
+                do! ImageProjection.Shaders.applyNormalFlip
+                do! PRo3D.SPICE.Shaders.stableTrafo
+                do! DefaultSurfaces.constantColor C4f.Black
+                do! ImageProjection.Shaders.stableImageProjectionStack
+            }
+            |> Sg.texture "ProjectedStackTextures"
+                (PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
+                    runtime (AVal.constant [| imagePath, 0 |]))
+            |> Sg.uniform' "ProjectedImageOpacity2" 1.0f
+            // same neutralisation as the single-image path, so the two are comparable
+            |> Sg.uniform' "UseFalseColor" false
+            |> Sg.uniform' "DataType" 2
+
+        let sg =
+            (match projected with
+             | Some (imagePath, _) ->
+                Log.line "[project] %s through the %s projection shader"
+                    (Path.GetFileName imagePath)
+                    (if useStackShader then "STACK" else "single-image")
+                if useStackShader then projectedStackSg imagePath else projectedSg imagePath
+             | None -> shaded)
             |> SunAnglesVerb.withOpcScaffolding
             |> Sg.uniform' "SunShadowEnabled" (not o.noShadows)
             |> Sg.uniform' "SunShadowViewProj" shadowMap.viewProj.Forward
@@ -522,6 +825,8 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             |> Sg.uniform' "MicroScale" (float32 o.microScale)
             |> Sg.uniform' "MicroAmplitude" (float32 o.microAmplitude)
             |> Sg.uniform' "AmbientFloor" (float32 o.ambient)
+            |> Sg.uniform' "NoLighting" o.noLighting
+            |> Sg.uniform' "TextureOnly" o.textureOnly
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)
 
@@ -530,13 +835,51 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         // spacecraft, needing every level the hierarchy has.
         let rendered = SunAnglesVerb.FloatTarget.render target 8 sg
 
-        match toneMapToPng rendered o.gain with
+        // --project must not auto-expose: the whole point is that the output equals the
+        // input, and a percentile stretch would rescale it into looking like it does not.
+        let gain = if Option.isSome projected && o.gain <= 0.0 then 1.0 else o.gain
+
+        match toneMapToPng rendered gain with
         | Result.Error e -> Result.Error e
         | Ok (png, gain) ->
-            if o.gain <= 0.0 then
+            if o.gain <= 0.0 && Option.isNone projected then
                 Log.line "[expose] auto gain %.3f (pass --gain %.3f to reproduce across a series)" gain gain
             png.Save(outPath)
             Log.line "[out] %s" outPath
+
+            // The sidecar is written from cam.view, the trafo the render actually used, and
+            // then read back through the viewer's own path -- so the numbers reported here
+            // are the real round-trip error, not a restatement of what we just wrote.
+            if o.writeMbi then
+                let ctx : MbiSidecar.Context =
+                    {
+                        instrument = instrument
+                        body = body
+                        frame = frame
+                        time = time
+                        kernel = kernel
+                        size = size
+                    }
+                match MbiSidecar.write ctx outPath cam.view with
+                | Result.Error e ->
+                    Log.warn "[mbi] no sidecar written: %s" e
+                | Ok sidecar ->
+                    Log.line "[mbi] %s" sidecar
+                    match MbiSidecar.writeStatistics ctx outPath png with
+                    | Result.Error e -> Log.warn "[mbi] no statistics sidecar: %s" e
+                    | Ok stats -> Log.line "[mbi] %s" stats
+                    match MbiSidecar.verify ctx outPath (cam.view * cam.proj) observer with
+                    | Result.Error e ->
+                        Log.warn "[mbi] could not verify the sidecar: %s" e
+                    | Ok r ->
+                        Log.line "[mbi] round trip: boresight %.6f deg, worst corner %.3f px, max matrix element %.3e"
+                            r.boresight r.pixels r.matrix
+                        // A tenth of a pixel is far below anything visible and still well
+                        // above the double-precision noise of the frame chain.
+                        if r.pixels > 0.1 then
+                            Log.warn "[mbi] the viewer reconstructs a DIFFERENT camera from this sidecar (%.3f px) -- projecting this image will not overlay the render"
+                                r.pixels
+
             Ok outPath
     finally
         SunAnglesVerb.FloatTarget.dispose target
@@ -550,13 +893,25 @@ let run (o : SimulateImageOptions) : int =
     let instrument = if String.IsNullOrWhiteSpace o.instrument then "HERA_AFC-1"      else o.instrument
     let outPath    = if String.IsNullOrWhiteSpace o.out        then Path.Combine(".", "simulated.png") else o.out
 
+    // --mbi carries its own epoch (the sidecar's DATE-OBS), so --time is only required
+    // without it; processImage replaces this value once the observation resolves. --project
+    // stands in for --mbi when it is the only image given, since it then supplies the
+    // camera too.
+    let cameraSource = if String.IsNullOrWhiteSpace o.mbi then o.project else o.mbi
+    let usingMbi = not (String.IsNullOrWhiteSpace cameraSource)
+
     let time =
-        match DateTime.TryParse(o.time, CultureInfo.InvariantCulture,
-                                DateTimeStyles.AdjustToUniversal ||| DateTimeStyles.AssumeUniversal) with
-        | true, t -> Some t
-        | _ -> None
+        if usingMbi && String.IsNullOrWhiteSpace o.time then Some DateTime.MinValue
+        else
+            match DateTime.TryParse(o.time, CultureInfo.InvariantCulture,
+                                    DateTimeStyles.AdjustToUniversal ||| DateTimeStyles.AssumeUniversal) with
+            | true, t -> Some t
+            | _ -> None
 
     match time with
+    | None when String.IsNullOrWhiteSpace o.time ->
+        Log.error "no observation given: pass --time <ISO-8601> or --mbi <image or sidecar>"
+        1
     | None -> Log.error "cannot parse --time '%s' (expected ISO-8601, e.g. 2027-03-15T12:00:00Z)" o.time; 1
     | Some time ->
 
@@ -569,16 +924,28 @@ let run (o : SimulateImageOptions) : int =
         1
     | Ok kernelRoot ->
 
-    // No image sidecar to declare a metakernel here, so the choice is explicit or the
-    // planning kernel: with a user-supplied time only hera_plan.tm reliably has coverage.
+    // With --mbi the image's own sidecar names the metakernel it was generated against, and
+    // reproducing that image means using it. Without one there is nothing to go on, so the
+    // choice is explicit or the planning kernel: at a user-supplied time only hera_plan.tm
+    // reliably has coverage.
+    let explicitKernel = if String.IsNullOrWhiteSpace o.kernel then None else Some o.kernel
     let kernel =
-        if not (String.IsNullOrWhiteSpace o.kernel) then
-            if File.Exists o.kernel then Ok o.kernel
-            else Result.Error (sprintf "kernel not found: %s" o.kernel)
-        else
-            let fallback = Path.Combine(kernelRoot, "mk", "hera_plan.tm")
-            if File.Exists fallback then Ok fallback
-            else Result.Error (sprintf "no metakernel: pass --kernel or provide %s" fallback)
+        let fallback () =
+            let f = Path.Combine(kernelRoot, "mk", "hera_plan.tm")
+            if File.Exists f then Ok f
+            else Result.Error (sprintf "no metakernel: pass --kernel or provide %s" f)
+        match explicitKernel with
+        | Some explicitPath ->
+            if File.Exists explicitPath then Ok explicitPath
+            else Result.Error (sprintf "kernel not found: %s" explicitPath)
+        | None when usingMbi ->
+            // resolveImage only parses the sidecar, so this is safe before SPICE is up
+            match imageForMbiArgument cameraSource |> Result.bind (fun (dir, file) -> InstrumentObservation.resolveImage dir (Some file)) with
+            | Ok img -> InstrumentObservation.resolveKernel None kernelRoot img
+            | Result.Error e ->
+                Log.warn "[spice] could not read %s to find its metakernel (%s)" cameraSource e
+                fallback ()
+        | None -> fallback ()
 
     match kernel with
     | Result.Error e -> Log.error "%s" e; 1
@@ -589,6 +956,20 @@ let run (o : SimulateImageOptions) : int =
         Log.error "no patch hierarchies (subdirectories containing 'Patches') under %s" o.opc
         1
     else
+
+    // Resolve before any GPU work, so a bad layer name fails immediately with the list of
+    // what the OPC actually has, rather than after a minute of loading.
+    let textureLayer =
+        match o.textureLayer with
+        | null | "" -> Ok None
+        | wanted ->
+            match OpcTextureLayers.resolve o.opc wanted with
+            | Some idx -> Ok (Some idx)
+            | None -> Result.Error ()
+
+    match textureLayer with
+    | Result.Error () -> 1
+    | Ok textureLayer ->
 
     let outDir = Path.GetDirectoryName(Path.GetFullPath outPath)
     Directory.CreateDirectory outDir |> ignore
@@ -608,7 +989,7 @@ let run (o : SimulateImageOptions) : int =
     // An unexpected exception (corrupt OPC, driver failure) should surface as a clean
     // error and exit code, not a raw stack trace.
     try
-        match processImage runtime o body frame observer instrument time outPath hierarchies with
+        match processImage runtime o body frame observer instrument time outPath kernel hierarchies textureLayer with
         | Ok _ -> 0
         | Result.Error e -> Log.error "%s" e; 1
     with e ->
