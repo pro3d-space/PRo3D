@@ -12,7 +12,21 @@ module ImageProjectionOpcExtensions =
 
     let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
-            "ProjectedImagesLocalTrafos", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
+            // instrument clip <- patch local, for the view plan footprint (Shader.footprintV).
+            // Composed on the CPU in double like ProjectedImageModelViewProj below; the outer
+            // Sg.uniform of this name in ViewerUtils is only a placeholder and is shadowed here.
+            //
+            // Equivalent to the patch.trafo this used to be written against: patch.trafo is
+            // flattenStack (Local2Global :: modelTrafoStack), which folds to
+            // modelTrafo.Forward * Local2Global.Forward for ViewerModality.XYZ.
+            "FootprintModelViewProj", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                (context.footprintVP, context.modelTrafo)
+                ||> AVal.map2 (fun vp (m : Trafo3d) ->
+                    vp * m.Forward * patch.info.Local2Global.Forward
+                ) :> IAdaptiveValue
+            )
+            "ProjectedImagesLocalTrafos", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 let context = scope |> unbox<OpcRenderingExtensions.Context> 
                 context.projectedImages |> AVal.bind (function 
                     | None -> AVal.constant Array.empty<M44f>

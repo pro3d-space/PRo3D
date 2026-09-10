@@ -41,11 +41,14 @@ module NoSemUi =
 
     let inline private thing a = { value = a }
 
+    // Aardvark.UI 5.7 moved these under ./resources/fomantic/ and dropped essentialstuff.js,
+    // which defines the jQuery `numeric` plugin `numeric` boots with below. essentialstuff.js
+    // is vendored from 5.6.0 (in PRo3D.Viewer, as only the entry assembly serves ./resources).
     let private semui =
         [
-            { kind = Stylesheet; name = "semui"; url = "./resources/semantic.css" }
-            { kind = Stylesheet; name = "semui-overrides"; url = "./resources/semantic-overrides.css" }
-            { kind = Script; name = "semui"; url = "./resources/semantic.js" }
+            { kind = Stylesheet; name = "semui"; url = "./resources/fomantic/semantic.css" }
+            { kind = Stylesheet; name = "semui-overrides"; url = "./resources/fomantic/semantic-overrides.css" }
+            { kind = Script; name = "semui"; url = "./resources/fomantic/semantic.js" }
             { kind = Script; name = "essential"; url = "./resources/essentialstuff.js" }
         ]
 
