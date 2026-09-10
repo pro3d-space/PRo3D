@@ -569,10 +569,33 @@ Future work:
 
 ## Reproducing this page
 
-Data set and scene: `<pro3ddata>/HERA/workshop3/Projection Test Data/`
-`AFC_Dimorphos_v2_2027-03-21/` — eight AFC-1 frames with sidecars, a
-ready-to-open `ProjectionTest.pro3d`, and a README covering the settings that
-matter. Shape model: `<pro3ddata>/HERA/workshop3/Dimorphos_opc/Dimorphos`.
+### The data set
+
+[`scripts/make-projection-test-data.py`](../scripts/make-projection-test-data.py)
+generates it — eight AFC-1 frames with sidecars and a `ProjectionTest.pro3d` set
+up so that projection works the moment it opens:
+
+```
+python scripts/make-projection-test-data.py \
+    --opc <pro3ddata>/HERA/workshop3/Dimorphos_opc/Dimorphos \
+    --out <pro3ddata>/HERA/workshop3/"Projection Test Data"/AFC_Dimorphos_v2_2027-03-21 \
+    --texture-layer DRACO_2 --scene-template <an existing .pro3d>
+
+python scripts/make-projection-test-data.py --opc <...> --out <...> --list-layers
+```
+
+It checks every sidecar it writes against the boresight invariant before
+returning, and resolves the texture layer's index from the OPC's `.opcx` rather
+than assuming one — the ordering has differed between exports, and the viewer
+needs the index while the tool takes the name.
+
+The frames it produces are what this page measures: the numbers above were
+re-derived from a freshly generated set, and reproduce to the digit
+(registration 0.9705, identity, zero shift).
+
+Shape model: `<pro3ddata>/HERA/workshop3/Dimorphos_opc/Dimorphos`. The frames are
+only meaningful on the shape model they were rendered against, so keep them
+together; the README written beside them covers the viewer settings that matter.
 
 ```
 # the frames (--texture-layer matters: without it the tool draws the patch's

@@ -76,6 +76,19 @@ Output is one 8-bit greyscale PNG at the instrument's native size.
 | `--gain <v>` | fixed I/F→DN gain; `0` (default) auto-exposes |
 | `--no-shadows` | skip the sun shadow map |
 | `--shadow-bias <v>` | shadow depth bias (default `0.002`) |
+| `--no-lighting` | flat white disk instead of a shaded body — the silhouette, for comparing pointing and shape without shading in the way |
+| `--texture-only` | the OPC's own texture as this camera sees it: no lighting, no de-shading fit |
+| `--texture-layer <name|index>` | which texture layer `--texture-only` draws, by name (`DRACO_2`) or index. **Default is the patch's own default layer, which is not necessarily the one a PRo3D scene displays** — a scene stores its own `selectedTexture`. An unmatched name lists what the OPC declares. |
+| `--project <image>` | project this image onto the body through PRo3D's projection shader instead of shading it. With no `--mbi` the camera is that image's own, so the output must reproduce the input |
+| `--project-shader <single|stack>` | which shader `--project` goes through: `single` (default, what sun-angles and the testbeds compose) or `stack` (a one-layer stack — what the viewer renders) |
+
+## Generating a projection test set
+
+[`scripts/make-projection-test-data.py`](../scripts/make-projection-test-data.py)
+drives this verb to produce a set of AFC-1 frames with sidecars plus a PRo3D scene
+set up to project them, and checks every sidecar it writes against the boresight
+invariant. See [ProjectionValidation.md](./ProjectionValidation.md) for what that
+data is used to prove.
 
 ## Example
 
