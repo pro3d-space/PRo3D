@@ -246,7 +246,9 @@ def main():
     print("\nsidecar check -- A^T*TRG_POS must be close to (0, 0, +1):")
     bad = check_sidecars(a.out)
 
-    if a.scene_template and os.path.exists(a.scene_template):
+    # the scene's camera comes from a frame's sidecar, so there is nothing to write it
+    # from when the renders failed -- report those below instead of a FileNotFoundError
+    if a.scene_template and os.path.exists(a.scene_template) and not failed:
         # index is resolved by the tool from the .opcx; the viewer needs it too, and the
         # two orderings have differed between OPC exports, so read it rather than assume
         p = run_tool(repo, ["simulate-image"] + common +
