@@ -58,8 +58,7 @@ view the instrument's, so the render is the same gnomonic projection of the same
 scene as the source frame — just on a different pixel grid. Resample by the
 width ratio and the two must agree **at zero shift**. That is a stronger claim
 than fitting each body's bounding box: a fit quietly absorbs a real pointing
-error and then reports a meaningless few-pixel residual, which is exactly what
-an earlier version of this page did.
+error and then reports a meaningless few-pixel residual.
 
 Prerequisites for step 3, all now in: the *Transfer Function* toggle (off = the
 image's own RGB, so the render is comparable to the source rather than to a
@@ -117,15 +116,13 @@ colour" and so includes it. Across the four epochs in the dataset the disk fills
 0.90–0.93 of its own bounding ellipse, which is the size of that bias. It is a
 gate — *do the outlines coincide at all* — not a precision measurement.
 
-Three choices in that setup are load-bearing, and each was got wrong at least
-once during this work:
+Three choices in that setup are load-bearing:
 
 - **DRACO_2, not DRACO_1 or Earth.** `Earth` is a placeholder world map. The two
   DRACO layers are different DART passes over different hemispheres, and at these
   epochs HERA looks at the DRACO_2 side. Measured at 20:00: DRACO_2 mean DN 5.80
-  over 42 241 lit pixels, DRACO_1 mean 2.96 over 18 831, Earth mean 0.66. An
-  earlier version of this table was computed on DRACO_1 and reported 1.0000 /
-  1.0000 / 0.9628 — correlating two near-empty images. True, and worthless.
+  over 42 241 lit pixels, DRACO_1 mean 2.96 over 18 831, Earth mean 0.66 — two
+  near-empty images correlate well and prove nothing.
 - **A frame with texture, and a frame with light, for different checks.** The
   texture-only frame carries the surface detail the registration and orientation
   checks need; the lit frame fills the disk so its outline is the body's outline.
@@ -268,48 +265,16 @@ least-bad one — which reads as "slightly misregistered" rather than "mirrored"
 So all eight square symmetries are scored and the identity has to win. Here it
 wins by 0.88, which is not a close call.
 
-That both matter was shown the hard way: an intermediate build passed the
-silhouette check at IoU 0.95 while its content was uncorrelated at 0.046, because
-the body had rotated under a camera aimed at where it used to be and a triaxial
-ellipsoid looks much the same whichever way it is turned.
-
 Two frames because they test different things. The lit render fills the disk, so
 its outline **is** the body's outline and check 0 means something. The
 texture-only render carries the surface detail that checks 1 and 2 need — the
 lit frame is nearly featureless at this phase angle (8.2° on a smooth shape
-model), so its correlation would be carried partly by the disk shape rather than
-by the surface. Trusting a number whose region does not contain the evidence is
-the mistake the rest of this page is a record of.
+model), so its correlation would be carried partly by the disk shape.
 
-### Why not compare against the terrain instead
-
-An earlier version of this section did exactly that — rendered the mosaic as the
-instrument sees it, viewed the surface with the same mosaic as its texture, and
-compared the two. The idea is sound and it would be the sharper test, because it
-checks the image is glued to the *right* terrain rather than merely reproduced
-from the viewpoint it was taken from.
-
-It was withdrawn because the version that ran had two independent faults, either
-of which alone invalidates it:
-
-- **The metric scored the wrong thing.** It correlated the viewer *with* the
-  projection against the viewer *without* it — "did these two frames stay the
-  same" — over a region restricted to the lit side. The score is dominated by
-  pixels the projection never touched, so the more broken the projection, the
-  fewer it repaints and the *closer to 1.0000* it scores. It reported 1.0000 at
-  (0,0), ΔDN 0.000, 99.99% bit-identical, and concluded "exact" for a projection
-  that was rotated. A test whose score improves as the subject gets worse is not
-  a test.
-- **The two sides showed different data.** `--texture-only` draws the patch's
-  default texture layer (`Earth`, index 0) and has no option to pick another,
-  while the scene selects `DRACO_1` (index 8). Measured from the same camera:
-  the tool's render correlates **0.0345** with the viewer's `DRACO_1` terrain
-  and **0.8616** with its `Earth` terrain. No projection could have made the
-  original comparison agree.
-
-Restoring it needs a way to tell the tool which texture layer to render — see
-*Still open*. Until then the projector-viewpoint test above is what stands, and
-it does not depend on the terrain's texture at all.
+This test does not show the image is glued to the *right* terrain, only that it
+is reproduced from the viewpoint it was taken from. Comparing against the
+terrain's own texture would show that; `simulate-image --texture-layer` now makes
+it possible (see *Still open*).
 
 ## Supporting evidence: a self-made AFC dataset
 
@@ -339,19 +304,8 @@ offset from the direction the spacecraft tracks.
 
 Validated by the projector-viewpoint test in [step 3](#3-the-viewer-reproduces-the-image-it-projects):
 silhouettes coincide, orientation is the identity, registration 0.9705 at zero
-shift, coverage 99.2%.
-
-The close-up figures that used to sit here were renders from before the
-double-rotation fix. They showed the projection reaching only part of the body,
-with a ragged edge stair-stepped along triangle boundaries — the per-triangle
-facing test working from a misrotated normal. They are not kept: a page of
-validation evidence should not carry pictures of a defect next to text
-describing the fix, which is how they were being read.
-
-The coverage numbers that went with them (17.1% before the `NormalFlip` binding,
-86.2% and 92.1% after) were *changed-pixel* counts, which understate coverage
-because they cannot tell "not covered" from "covered by a value that matches".
-The number to trust comes from the shader's own coverage view: **99.2%**.
+shift, coverage 99.2% — and, automated, by `projection-e2e.spec.ts` (see
+[Reproducing this page](#reproducing-this-page)).
 
 ## Supporting evidence: real data, ASPECT at Didymos
 
@@ -475,101 +429,50 @@ further here.
   applied pxform, body-fixed → observer frame, a *second* time.
 
   Measured on one AFC frame projected back from its own camera: correlation with
-  the source **0.028 → 0.976**. Setting the scene's observation frame to
-  `DIMORPHOS_FIXED`, which makes the model trafo identity, gives the same
-  improvement by hand — which is what confirmed the diagnosis.
+  the source **0.028 → 0.976**. The offscreen tools were never affected: they
+  place the OPC without a GIS transform, so their model trafo is identity.
 
-  The removed line carried the note *"the surface model trafo is required; it
-  only worked without while every body sat at identity"*. What it compensated
-  for is that `computeProjector` falls back to `"J2000"` when a surface has no
-  GIS reference system — and such a surface has no entity either, so
-  `getSurfaceTrafo` returns `None` and the model trafo is identity anyway.
+- **The viewer never bound `NormalFlip`.** The projector-facing test needs
+  outward normals, and OPC exports disagree on winding. The offscreen tools
+  estimated each dataset's winding; the viewer did not. `NormalWinding.estimate`
+  is now shared, and the viewer binds it per patch — lazily, only once something
+  is projected or hovered, since the vote reads the root patch from disk.
+  `Dimorphos_opc` is wound outward (flip 0), `Dimorphos_0_Meridian` inward
+  (flip 1); both pass the end-to-end test.
 
-  **This is why the offscreen tools were always right and only the viewer was
-  wrong**: the tools place the OPC without a GIS transform, so their model trafo
-  is identity and the extra rotation was the identity matrix. `sun-angles`,
-  `unproject`, `simulate-image` and both testbeds were never affected.
-
-- **The viewer never bound `NormalFlip`.** The offscreen tools estimate each
-  dataset's winding and bind it; the viewer did not, and worked around it for
-  *lighting* by orienting the face normal toward the viewer. That cannot work
-  for the projection, whose facing test is relative to the **projector**. The
-  heuristic now lives in `PRo3D.Core.NormalWinding.estimate` (one implementation
-  for the tools and the viewer), `Surface.Sg` binds it per hierarchy, and the
-  surface effect composes `applyNormalFlip`. Measured on `Dimorphos_0_Meridian`,
-  the export in use at the time — the current `Dimorphos_opc` is wound outward
-  (26 outward / 0 inward, `NormalFlip 0`) and needs no correction, so the numbers
-  in this bullet and the next are history rather than current behaviour:
-  `Dimorphos_0_Meridian`
-  votes 0 outward / 26 inward (flip 1).
-
-  This governs *coverage*, not alignment — it explains a crescent, not a shift.
-
-- **A wrong turn worth recording: the projector-facing test is fine.** Before
-  the double rotation was found, the `normal.Z < 0` test looked like the
-  culprit: forcing `NormalFlip 1` covered 40.9% of the body and forcing 0
-  covered 58.0% — union 98.8%, overlap 0.2%, which reads as "this OPC is not
-  consistently wound, so one flip per hierarchy cannot work", and the test was
-  removed.
-
-  That reading was wrong. The facing test evaluates
-  `ProjectedStackTrafos[i].TransformDir(localNormal).Z`, using the *same* matrix
-  that carried the double rotation. The normals in the test were being
-  misrotated, splitting the body along a plane set by the erroneous rotation and
-  unrelated to the triangle winding. With the rotation fixed the test covers
-  **99.8%** (against 99.7% with it removed) — it now costs 0.1%, which is the
-  terrain the projector genuinely cannot see. The test was restored.
-
-  The lesson generalises: a test that consumes a broken matrix fails in a
-  pattern that looks like a bug in the test.
-
-- **The fly-to landed the camera in the right place pointing the wrong way.**
-  *Fly to this image* put the camera at exactly the instrument's position —
-  position residual 0 m against the sidecar — and aimed it 180° away. The frame
-  came back empty, which is indistinguishable from a broken projection. Every
-  check on the *position* passed, because at the instrument's own focal length
-  the standoff equals the range and the sign error cancels out of
-  `pos = projPos + fwd * (distance - standoff)`, surviving only in the
-  orientation.
-
-  The camera handed to the animation was correct (`dot(boresight,
-  direction-to-body) = 1.0000`); `CameraAnimations.animateForwardAndLocation`
-  — the deprecated animation path — rotates forward and up out of the state it
-  is given while setting the location absolutely, and mishandles a target up
-  that is nearly opposite the current one, which the instrument's is. The fly-to
-  now **sets** the camera. `tests-ui/tests/looking-at-dimorphos.spec.ts` asserts
-  the body is in frame and the right apparent size (22.6% of frame width against
-  22.8% predicted from the sidecar's range), so it cannot regress silently.
-
-- **The transfer function was not a property.** `UseFalseColor` was bound in
-  `ColorMapping.fs` as `p.colorMapping |> AVal.map Option.isSome`, and
-  `getProjectionVisualizationProperties` always supplies a colour map for the
-  selected image — so it was effectively always on. Now a real
-  `useTransferFunction` flag on `ProjectedImageListModel`, with a checkbox in
-  *Projection Settings*; off paints the layer's own RGB. A projection cannot be
-  *checked* against its source through a colour map.
+- **The fly-to landed the camera in the right place pointing the wrong way**,
+  180° off, through the deprecated `CameraAnimations.animateForwardAndLocation`.
+  The fly-to now **sets** the camera, after first setting the scene time to the
+  image's epoch. `tests-ui/tests/looking-at-dimorphos.spec.ts` asserts the body is
+  in frame at the right apparent size.
 
 ## Still open
 
-Nothing in the ladder. The projection is correct in the shader (step 1), in the
-stack path (step 2) and in the production viewer (step 3): a projected image
-reproduces itself from the projector's viewpoint at zero pointing offset, with
-the silhouettes coinciding and the identity orientation winning over every flip.
+Nothing in the ladder: the projection is correct in the shader (step 1), in the
+stack path (step 2) and in the production viewer (step 3), for both OPC
+windings.
 
-Future work:
-
-- **A texture-layer option for `simulate-image`.** The tool draws the patch's
-  default layer and cannot be told to draw another, so it cannot currently
-  render the same layer a PRo3D scene displays. That blocks the
-  terrain-comparison test described in step 3, which would check the image is
-  glued to the *right* terrain rather than only reproduced from the viewpoint it
-  was taken from. Wiring it means passing `SecondaryTexture.textures` to
-  `PatchNode` the way `Surface.Sg` already does, instead of `None`.
-- **Should `projectionMethod` default to `MbiBased` rather than `Spice`?** The
-  default discards the image's own measured attitude — see *The setting that
-  decides whether any of this is used*.
+- **Terrain comparison.** Step 3 shows the image reproduces itself from the
+  projector's viewpoint, not that it is glued to the *right* terrain. With
+  `simulate-image --texture-layer`, a render of the scene's own texture layer can
+  now be compared against the viewer's terrain.
+- **Absolute roll for AFC** needs a real AFC frame with trustworthy metadata
+  (see step 1).
 
 ## Reproducing this page
+
+Step 3, automated — generate a frame, project it through the UI, compare against
+the source, once per OPC winding:
+
+```
+cd tests-ui
+PRO3D_SPICE_KERNELS=<kernel tree> npm run test:projection
+```
+
+Measured with `hera_plan_v182_20260820`: `Dimorphos_opc` correlation **0.9949**
+at zero shift, coverage 98.7%; `Dimorphos_0_Meridian` **0.9900**, coverage
+98.9%. The default epoch depends on the kernel version (the spec header says
+why); see `tests-ui/tests/projection-e2e.spec.ts` for the other variables.
 
 ### The data set
 

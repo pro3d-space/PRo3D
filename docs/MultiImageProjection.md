@@ -28,9 +28,16 @@ the library never changes what is projected.
 
 ![the Projected Images section: import, stack panel, library](images/multiProjection-gisTab.png)
 
-Settings (opacity, coverage view, lighting, orientation source, boresight
-registration) and the selected image's 2D preview fold away into the
-*Projection Settings* / *Selected Image* sections.
+Settings and the selected image's 2D preview fold away into the
+*Projection Settings* / *Selected Image* sections. *Projection Settings* holds:
+
+| setting | what it does |
+|---|---|
+| **Image Opacity** | blends the projected stack over the surface texture (formerly labelled *Visualization*) |
+| **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
+| **Transfer Function** | on (default): samples go through the per-image min/max remap and the colour map, which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source |
+| **Orientation Source** | where the pointing comes from — **MBI** (default) or **SPICE**; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
+| lighting, boresight registration | as before |
 
 ## 3. Find images by hovering
 
@@ -50,12 +57,24 @@ highlights its footprint without changing the rendering.
 
 ## 5. Fly to an image
 
-The paper-plane button (library and stack rows) flies the camera onto that
+The paper-plane button (library and stack rows) puts the camera onto that
 image's **projector axis**: forward along the instrument boresight, standing
 off just far enough to frame the instrument's footprint — the rendered view
 then corresponds to what the instrument saw:
 
 ![after fly-to: the camera on the image's projector axis](images/multiProjection-flyTo.png)
+
+Two things to know:
+
+- **It also sets the scene's observation time** to the image's epoch, so the
+  sun, the body's placement and everything else SPICE-driven match the moment
+  the image was taken. That changes the scene time you save with the scene.
+- **The camera jumps; it does not animate** (an animated version is planned).
+
+Setting *Focal (mm)* on the Config page to the instrument's focal length makes
+the fly-to land exactly where the instrument was. If fly-to does nothing, the
+log names the missing precondition (observed body, SPICE-bound surface, or the
+image itself).
 
 ## 6. Where do my images overlap?
 
