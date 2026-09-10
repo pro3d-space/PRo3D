@@ -220,6 +220,34 @@ module ViewerApp =
     let mouseScheme (m : Model) : Navigation.MouseScheme =
         { directToolMode = m.directToolMode; ctrlFlag = m.ctrlFlag }
 
+    /// True when the active drawing/picking tool owns the left mouse button right now.
+    /// The classic scheme arms the tool while Ctrl is held; Direct Tool Mode inverts that,
+    /// so the tool is armed *unless* Ctrl is held. Same predicate the surface-pick
+    /// scene-event gate uses in Viewer-Utils (`ViewerUtils.toolArmed`); keep them in step.
+    let toolArmed (m : Model) : bool = m.ctrlFlag <> m.directToolMode
+
+    /// The single writer for `drawing.draw` / `drawing.pick` / `picking`. Those flags carry
+    /// no state of their own - they are a pure function of (interaction, ctrlFlag,
+    /// directToolMode) - so every handler that moves one of those three inputs ends by
+    /// calling this rather than poking the flags directly. That is what keeps the classic
+    /// "hold Ctrl" scheme and Direct Tool Mode from having to agree by hand. The
+    /// (act, draw, pick) gates in DrawingApp.update stay as a safety net. See
+    /// docs/DirectToolMode.md.
+    let syncToolArm (m : Model) : Model =
+        let armed = toolArmed m
+        let draw, pick =
+            match m.interaction with
+            | Interactions.DrawAnnotation                          -> armed, false
+            | Interactions.PickAnnotation | Interactions.EditAnnotation
+            | Interactions.CutAnnotation  | Interactions.DrawLog   -> false, armed
+            | _                                                    -> false, false
+        { m with
+            picking = armed
+            drawing = { m.drawing with
+                          draw = draw
+                          pick = pick
+                          hoverPosition = (if draw then m.drawing.hoverPosition else None) } }
+
     let mutable cache = HashMap.Empty
 
     let updateSceneWithNewSurface (m: Model) =
@@ -522,7 +550,7 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
-    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) (directToolMode : bool) =
+    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) =
         match k with
         | Aardvark.Application.Keys.Enter ->
             match interaction with
@@ -539,15 +567,9 @@ module ViewerApp =
             // working annotation to clear
             | Interactions.EditAnnotation -> DrawingAction.CancelVertexEdit
             | _ -> DrawingAction.ClearWorking
-        | Keyboard.Modifier ->
-            match interaction with
-            | Interactions.DrawAnnotation -> (if directToolMode then DrawingAction.StopDrawing else DrawingAction.StartDrawing)
-            | Interactions.PickAnnotation -> (if directToolMode then DrawingAction.StopPicking else DrawingAction.StartPicking)
-            // vertex editing dispatches on (draw = false, pick = true) like annotation selection,
-            // so without this the ctrl press never sets model.pick and nothing reaches the handlers
-            | Interactions.EditAnnotation -> (if directToolMode then DrawingAction.StopPicking else DrawingAction.StartPicking)
-            | _ -> DrawingAction.Nop
-        //| Aardvark.Application.Keys.LeftShift -> 
+        // Ctrl no longer maps to Start/Stop{Drawing,Picking} here: arming the tool is
+        // `syncToolArm`'s job, driven off the KeyDown/KeyUp handlers' ctrlFlag change.
+        //| Aardvark.Application.Keys.LeftShift ->
         //    match m.interaction with                     
         //    | Interactions.PickAnnotation -> DrawingAction.StartPickingMulti
         //    | _ -> DrawingAction.Nop
@@ -732,13 +754,10 @@ module ViewerApp =
 
             { m with drawing = drawing } |> stash
         | ToggleDirectToolMode, _ ->
-            let enabled = not m.directToolMode
-            // `picking` is set here as well as on the Ctrl key-up path below: without it
-            // the checkbox and `PickObject`'s gate disagree until the next Ctrl press.
-            { m with
-                directToolMode = enabled
-                picking        = enabled
-                drawing        = { m.drawing with draw = enabled } }
+            // syncToolArm derives draw/pick/picking from the new directToolMode together
+            // with the active interaction, so this is right for every tool - not just
+            // DrawAnnotation, which the old blunt `draw = enabled` was written for.
+            { m with directToolMode = not m.directToolMode } |> syncToolArm
         | DrawingMessage msg,_ -> //Interactions.DrawAnnotation
             match msg with
             | Drawing.FlyToAnnotation id ->
@@ -755,7 +774,7 @@ module ViewerApp =
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with animations = a'}              
                 | None -> m
-            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && (m.ctrlFlag <> m.directToolMode) ->
+            | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && toolArmed m ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
                     //let pickingAction, msg =
@@ -1735,12 +1754,10 @@ module ViewerApp =
           
 
             let m =
-                match k with 
+                match k with
                 | Keyboard.Modifier ->
-                    match m.interaction with
-                    //| Interactions.PickMinervaProduct -> 
-                    //    { m with minervaModel = { m.minervaModel with picking = true }; ctrlFlag = true}
-                    |_ -> { m with ctrlFlag = true}
+                    //| Interactions.PickMinervaProduct -> arm minerva picking here too
+                    { m with ctrlFlag = true } |> syncToolArm
                 | _ -> m
 
             let m =
@@ -1819,21 +1836,11 @@ module ViewerApp =
                 | _ -> m
 
             match k with
-            | Keyboard.Modifier -> 
-                match m.interaction with
-                | Interactions.DrawAnnotation -> 
-                    let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.directToolMode then DrawingAction.StartDrawing else DrawingAction.StopDrawing)
-                    { m with drawing = d; ctrlFlag = false; picking = m.directToolMode }
-                | Interactions.PickAnnotation
-                | Interactions.EditAnnotation ->
-                    let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (if m.directToolMode then DrawingAction.StartPicking else DrawingAction.StopPicking)
-                    { m with drawing = d; ctrlFlag = false; picking = m.directToolMode }
+            | Keyboard.Modifier ->
                 //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
-                |_-> { m with ctrlFlag = false; picking = m.directToolMode }
-            | _ -> m                                  
-        | SetInteraction t,_ -> 
+                { m with ctrlFlag = false } |> syncToolArm
+            | _ -> m
+        | SetInteraction t,_ ->
                 
             // let feedback = sprintf "pick refrence plane; confirm with ENTER" t |> UserFeedback.create 3000
             //let feedback = "pick refrence plane \n confirm with ENTER" |> UserFeedback.create 3000
@@ -1844,7 +1851,9 @@ module ViewerApp =
                 | Some _ when t <> Interactions.EditAnnotation -> { m.drawing with vertexGrab = None }
                 | _ -> m.drawing
 
-            { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
+            // the new tool needs its own draw/pick arming - without this a switch out of
+            // DrawAnnotation would leave `draw = true` and block the pick-family tools
+            { m with interaction = t; drawing = drawing } |> syncToolArm //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_ ->                                
             let refsystem',_ = 
                 ReferenceSystemApp.update
@@ -2504,7 +2513,7 @@ module ViewerApp =
                 //attribute "showFPS" "true"
                 //attribute "data-renderalways" "true"
                 Aardvark.UI.Events.onKeyDown' (fun k ->
-                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k (m.directToolMode |> AVal.force)
+                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
                     [KeyDown k; DrawingMessage drawingAction]
                 )
                 onKeyUp   (KeyUp)        

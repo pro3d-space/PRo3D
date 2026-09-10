@@ -40,7 +40,13 @@ module ViewerUtils =
     let colormap =
         let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
         let pi = PixImage.Load(s)
-        PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
+        PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture
+
+    /// Adaptive sibling of `ViewerApp.toolArmed`: the active tool owns the left mouse
+    /// button right now. Classic scheme arms it while Ctrl is held; Direct Tool Mode
+    /// arms it while Ctrl is *not* held. Keep the two definitions in step.
+    let toolArmed (m : AdaptiveModel) : aval<bool> =
+        (m.ctrlFlag, m.directToolMode) ||> AVal.map2 (<>)
     
 
     let addImageCorrectionParameters (surf: AdaptiveSurface)  (isg:ISg<'a>) =
@@ -536,7 +542,7 @@ module ViewerUtils =
                             yield SceneEventKind.Move, (
                                 fun sceneHit ->
                                     let surfacePicking = surfacePicking |> AVal.force
-                                    let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.directToolMode |> AVal.force))
+                                    let surfacePickingActivated = toolArmed m |> AVal.force
                                     // only show the preview cursor while in picking mode (ctrl held,
                                     // modulo Direct Tool Mode) - no preview while navigating the camera
                                     if previewPickingEnabled.GetValue() && surfacePicking && surfacePickingActivated then
@@ -549,7 +555,7 @@ module ViewerUtils =
                            fun sceneHit -> 
                                 let name  = surf.name |> AVal.force
                                 let surfacePicking = surfacePicking |> AVal.force
-                                let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.directToolMode |> AVal.force))
+                                let surfacePickingActivated = toolArmed m |> AVal.force
                                 // Tools are on the left button only. In Direct Tool Mode the right
                                 // button orbits the camera, and a right-drag ending on a surface
                                 // would otherwise place a point where the drag happened to stop.
