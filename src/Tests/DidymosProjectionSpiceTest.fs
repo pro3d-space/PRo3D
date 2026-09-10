@@ -32,7 +32,7 @@ let private reportedTime = DateTime.Parse("2027-03-03T03:05:00", CultureInfo.Inv
 // corrupting whichever test happens to run afterward. Use the same tracked mechanism
 // InstrumentProjectionComparisonTest.fs already uses instead.
 let private planKernelPath =
-    Path.Combine(HeraSpiceTests.spiceRoot, "spice", "kernels", "mk", "former_versions", "hera_plan_v180_20250616_001.tm")
+    Path.Combine(HeraSpiceTests.mkDir, "former_versions", "hera_plan_v180_20250616_001.tm")
     |> Path.GetFullPath
 
 let private ensurePlanKernel () : unit =

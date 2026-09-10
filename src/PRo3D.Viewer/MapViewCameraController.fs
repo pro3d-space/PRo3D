@@ -76,33 +76,92 @@ module MapViewController =
         let v = Math.Pow(Math.E, x)        
         v
 
-    let setCameraViewCenter (north : V3d) (view : CameraView) = 
+    let setCameraViewCenter (north : V3d) (view : CameraView) =
         let p = V3d.OOO
         CameraView.lookAt view.Location p north
-                
+
+    /// The local east/north/up frame MapView orients the camera by.
+    ///
+    /// `polarAxis` is the body axis `north` is derived from, i.e. the axis on
+    /// which the frame degenerates (north is undefined over a pole). It is
+    /// `None` for frames whose up is a fixed axis convention rather than a
+    /// function of position - those have no singularity at all.
+    type MapFrame =
+        {
+            up        : V3d
+            east      : V3d
+            north     : V3d
+            polarAxis : Option<V3d>
+        }
+
+    let mapFrame (planet : Planet) (p : V3d) : MapFrame =
+        match planet with
+        // Non-planetary frames fix up to a constant axis, so the generic
+        // "east = pole x up" construction degenerates for *every* position.
+        // Name the axes directly instead - deriving them from the degenerate
+        // fallback happens to be right for JPL but puts ENU's north on its
+        // east axis, rotating the whole map view by 90 degrees.
+        | Planet.JPL ->                                                     // NED: X north, Y east, Z down
+            { up = -V3d.OOI; east = V3d.OIO; north = V3d.IOO; polarAxis = None }
+        | Planet.ENU
+        | Planet.None ->                                                    // ENU: X east, Y north, Z up
+            { up = V3d.OOI; east = V3d.IOO; north = V3d.OIO; polarAxis = None }
+        | _ ->
+            let up = CooTransformation.getUpVector p planet |> Vec.Normalized
+            // Body-fixed +Z is the rotation axis of every supported body, so
+            // east = Z x up and north = up x east.
+            let pole = V3d.OOI
+            let east = pole.Cross(up)
+            if east.LengthSquared > 1e-12 then
+                let east = east.Normalized
+                { up = up; east = east; north = up.Cross(east).Normalized; polarAxis = Some pole }
+            else
+                // Directly over a pole: north is genuinely undefined. Pick an
+                // arbitrary but stable frame; `blocksPole` below keeps the
+                // camera from reaching this configuration in the first place.
+                let east = V3d.IOO.Cross(up).Normalized
+                { up = up; east = east; north = up.Cross(east).Normalized; polarAxis = Some pole }
+
+    /// True when a camera motion would drive the view direction into the
+    /// body's polar axis, where the north-up frame is undefined (gimbal lock).
+    /// Motion *away* from the pole always passes, so the camera can never get
+    /// stuck at the singularity.
+    let private blocksPole (frame : MapFrame) (oldForward : V3d) (newForward : V3d) =
+        match frame.polarAxis with
+        | None -> false                                                     // constant-up frame: no singularity
+        | Some axis ->
+            let n = Vec.dot newForward axis
+            let o = Vec.dot oldForward axis
+            (n > 0.999 && n > o) || (n < -0.999 && n < o)
+
+    /// Camera height above the body's reference surface, floored to a small
+    /// positive value.
+    ///
+    /// Pan speed, zoom step and the zoom-in limit all scale with this, so it
+    /// must never reach zero or go negative. Terrain below the reference
+    /// surface makes that routine - common in Martian basins, and permanent on
+    /// a body like Dimorphos whose mean radius (77 m) exceeds its polar radius
+    /// (57.5 m) - and a non-positive height freezes the controls outright.
+    let private heightAboveSurface (model : CameraControllerState) =
+        let radius = model.rotationFactor
+        let distanceToCentre = Vec.Length model.view.Location
+        max (distanceToCentre - radius) (max (radius * 1e-5) 1.0)
+
     let updateCameraForMapView (planet : Planet) (model : CameraControllerState) =
-        let point = model.view.Location
-        let up = CooTransformation.getUpVector point planet |> Vec.Normalized
-        // World Z is the usual "north pole" reference, but degenerates when
-        // the camera lies on the world-Z axis (V3d.OOI × up ≈ 0); fall back
-        // to world X in that case so `east` stays well-defined.
-        let referenceAxis =
-            if V3d.OOI.Cross(up).LengthSquared > 1e-6 then V3d.OOI else V3d.IOO
-        let east = referenceAxis.Cross(up).Normalized
-        let north = up.Cross(east).Normalized
+        let frame = mapFrame planet model.view.Location
         let view =
             model.view
-            |> CameraView.withUp north
-            |> setCameraViewCenter north
+            |> CameraView.withUp frame.north
+            |> setCameraViewCenter frame.north
 
-        { model with view = view}        
+        { model with view = view}
 
-    let switchToMapViewController (planet : Planet) (model : CameraControllerState)  = 
+    let switchToMapViewController (planet : Planet) (model : CameraControllerState)  =
         { model with orbitCenter = Some(V3d.OOO) }
         |> updateCameraForMapView planet
 
-   
-    let update (model : CameraControllerState) (message : Message) =
+
+    let update (planet : Planet) (model : CameraControllerState) (message : Message) =
         match message with
             | Nop -> model
             | Blur ->
@@ -145,10 +204,10 @@ module MapViewController =
                       //    cam, model.orbitCenter
                       
                       if model.isWheel then
-                          let distancetoSurface = (Vec.distance model.view.Location V3d.OOO) - model.rotationFactor
+                          let distancetoSurface = heightAboveSurface model
                           let sensitivity = ((model.sensitivity + 2.0) * 5.0) / 100.0
-                          let step = (Math.Max(distancetoSurface, 10.0)) * (model.moveVec.Z * cam.Forward * sensitivity * dt)
-                          
+                          let step = distancetoSurface * (model.moveVec.Z * cam.Forward * sensitivity * dt)
+
                           if step.Length > distancetoSurface && (model.moveVec.Z > 0.0)then
                               cam, model.orbitCenter
                           else
@@ -156,21 +215,22 @@ module MapViewController =
                               cam.WithLocation(loc'), model.orbitCenter
 
 
-                          
+
                       else if model.orbitCenter.IsSome then
-                          let distanceToCenter = Vec.distance model.view.Location V3d.OOO
-                          let distanceBetweenCameraSurface = Math.Abs(distanceToCenter - model.rotationFactor)
-                          
+                          let distanceBetweenCameraSurface = heightAboveSurface model
+
                           let angle = model.panFactor
                           let windowSize = model.targetPhiTheta
                           let aspect = windowSize.X / windowSize.Y
-                          
+
                           let halfVisibleSurfaceSizeX = tan (angle / 2.0) * distanceBetweenCameraSurface
                           let halfVisibleSurfaceSizeY = halfVisibleSurfaceSizeX / aspect
-                          
-                          let visibleAngleX = (tanh (halfVisibleSurfaceSizeX / model.rotationFactor) * 2.0)
-                          let visibleAngleY = (tanh (halfVisibleSurfaceSizeY / model.rotationFactor) * 2.0)
-                          
+
+                          // Angle subtended at the body centre by the visible
+                          // ground patch: 2 * atan(halfSize / radius).
+                          let visibleAngleX = (atan (halfVisibleSurfaceSizeX / model.rotationFactor) * 2.0)
+                          let visibleAngleY = (atan (halfVisibleSurfaceSizeY / model.rotationFactor) * 2.0)
+
                           let sensitivity = ((model.sensitivity + 5.0) * 4.0) / 100.0 //(exp model.sensitivity) * (distanceBetweenCameraSurface / distanceToCenter)
 
                           let movingDistance = (V2d(visibleAngleX, visibleAngleY)) * sensitivity
@@ -203,9 +263,9 @@ module MapViewController =
                           
                           //tempcam.WithForward newForward
                           let newForward = model.orbitCenter.Value - newLocation |> Vec.normalize
-                          if (newForward.Z > 0.999 && newForward.Z > cam.Forward.Z) || (newForward.Z < -0.999 && newForward.Z < cam.Forward.Z) then 
+                          if blocksPole (mapFrame planet cam.Location) cam.Forward newForward then
                               cam, model.orbitCenter
-                          else  
+                          else
                               CameraView(cam.Sky, newLocation, newForward, newUp, newRight), model.orbitCenter
                       else
                           cam, model.orbitCenter
@@ -296,26 +356,26 @@ module MapViewController =
                 
                 let delta = pos - model.dragStart
 
-                let distanceToCenter = Vec.distance model.view.Location V3d.OOO
-                let distanceBetweenCameraSurface = Math.Abs(distanceToCenter - model.rotationFactor)
-                //let sensitivity = 0.01 * (exp model.sensitivity) * (distanceBetweenCameraSurface / distanceToCenter)
-
-                //let distanceToCenter = Vec.distance model.view.Location V3d.OOO
-                //let sensitivity = -0.01 * model.sensitivity * (model.rotationFactor / distanceToCenter)
+                let distanceBetweenCameraSurface = heightAboveSurface model
 
                 let relDistance = V2d(delta) / windowSize
 
                 let halfVisibleSurfaceSizeX = tan (angle / 2.0) * distanceBetweenCameraSurface
                 let halfVisibleSurfaceSizeY = halfVisibleSurfaceSizeX / aspect
 
-                let visibleAngleX = (tanh (halfVisibleSurfaceSizeX / model.rotationFactor) * 2.0)
-                let visibleAngleY = (tanh (halfVisibleSurfaceSizeY / model.rotationFactor) * 2.0)
-                
+                // Angle subtended at the body centre by the visible ground
+                // patch: 2 * atan(halfSize / radius).
+                let visibleAngleX = (atan (halfVisibleSurfaceSizeX / model.rotationFactor) * 2.0)
+                let visibleAngleY = (atan (halfVisibleSurfaceSizeY / model.rotationFactor) * 2.0)
+
                 let movingDistance = (V2d(visibleAngleX, visibleAngleY)) * relDistance
 
                 //orientation
+                // Middle-drag pans with the same gesture as left-drag: in a
+                // body-centred map view the camera always looks at the centre,
+                // so "pan" and "orbit" are the same motion over the ground.
                 let cam =
-                    if model.look && model.orbitCenter.IsSome then
+                    if (model.look || model.pan) && model.orbitCenter.IsSome then
                         let trafo = 
                             M44d.Translation (model.orbitCenter.Value) *
                             M44d.Rotation (cam.Right, -movingDistance.Y) * 
@@ -333,11 +393,11 @@ module MapViewController =
 
                         //tempcam.WithForward newForward
                         let newForward = model.orbitCenter.Value - newLocation |> Vec.normalize
-                        if (newForward.Z > 0.999 && newForward.Z > cam.Forward.Z) || (newForward.Z < -0.999 && newForward.Z < cam.Forward.Z) then 
+                        if blocksPole (mapFrame planet cam.Location) cam.Forward newForward then
                             cam
-                        else  
+                        else
                             CameraView(cam.Sky, newLocation, newForward, newUp, newRight)
-                        
+
                         //CameraView(cam.Sky, newLocation, newForward, newUp, newRight)
                     else
                         cam
@@ -345,7 +405,7 @@ module MapViewController =
 
                 // zoom and pan
                 let cam =
-                    if model.zoom then
+                    if model.zoom && model.orbitCenter.IsSome then
                         let step = -model.zoomFactor * (exp model.sensitivity) * (cam.Forward * float delta.Y)
 
                         let loc' = cam.Location + step
@@ -353,20 +413,15 @@ module MapViewController =
 
                         if direction > 0 then
                           cam.WithLocation(loc')
-                        else 
+                        else
                           cam
                     else
                         cam
 
-                let cam, center =
-                    if model.pan && model.orbitCenter.IsSome then
-                        let step = model.panFactor * (exp model.sensitivity) * (cam.Down * float delta.Y + cam.Right * float delta.X)
-                        let center = model.orbitCenter.Value + step
-                        cam.WithLocation(cam.Location + step), Some center
-                    else
-                        cam, model.orbitCenter            
-
-                { model with view = cam; dragStart = pos; orbitCenter = center }
+                // The orbit centre is the body centre and stays there - moving
+                // it (the old translate-pan) only fought `updateCameraForMapView`,
+                // which re-aims at the centre on the very next frame.
+                { model with view = cam; dragStart = pos; orbitCenter = model.orbitCenter }
 
     let attributes (state : AdaptiveCameraControllerState) (f : Message -> 'msg) =
         AttributeMap.ofListCond [
@@ -429,7 +484,7 @@ module MapViewController =
             unpersist = Unpersist.instance
             view = view
             threads = threads
-            update = update
+            update = update Planet.None
             initial = initial
         }
 

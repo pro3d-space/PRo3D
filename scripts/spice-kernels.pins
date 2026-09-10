@@ -1,0 +1,12 @@
+# HERA SPICE meta-kernels the test suite loads, pinned to exact ESA SKD releases, as
+#   <versioned meta-kernel file name>[ -> <name to also write into mk/>]
+#
+# Why they are pinned, why two of them have no alias, and how to bump one:
+# docs/tests/SpiceKernels.md. Kept lean on purpose -- this file is the CI cache key, so
+# editing even a comment costs a fresh 1.2 GB cache entry (not a refetch: the fetch
+# script hashes the pin lines alone, so a restored tree still verifies as complete).
+
+hera_ops_v182_20260527_001.tm -> hera_ops.tm
+hera_plan_v182_20260527_001.tm -> hera_plan.tm
+hera_ops_v172_20250312_001.tm
+hera_plan_v180_20250616_001.tm
