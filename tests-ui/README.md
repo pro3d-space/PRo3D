@@ -21,6 +21,8 @@ npx playwright install chromium   # once
 $env:PRO3D_IMAGE_DIR = "C:\pro3ddata\HERA\workshop3\COP\COP\2027-03-01"
 npx playwright test                       # all specs
 npx playwright test tests/stack-ui.spec.ts
+
+npm run test:projection                   # projection end to end, see below
 ```
 
 | Env var | Meaning | Default |
@@ -30,11 +32,49 @@ npx playwright test tests/stack-ui.spec.ts
 | `PRO3D_IMAGE_DIR` | image folder for import-driven specs | a COP date folder |
 | `PRO3D_PORT` | HTTP port for the viewer | 54321 |
 | `PRO3D_SELECT_IMAGE` / `PRO3D_STACK_IMAGES` | specific images for the projection specs | first library row |
+| `PRO3D_AFC_DIR` | AFC frames with sidecars for `looking-at-dimorphos` | `PRO3D_IMAGE_DIR` |
+| `PRO3D_SPICE_KERNELS` | SPICE kernel tree for `projection-e2e` | the sibling `../spice/kernels` |
+| `PRO3D_E2E_OPCS` | OPC directories for `projection-e2e`, `;`-separated | both workshop3 Dimorphos exports |
+| `PRO3D_E2E_SCENE_TEMPLATE` | scene `projection-e2e` derives its own from | `PRO3D_SCENE` |
+| `PRO3D_E2E_DATE` / `PRO3D_E2E_EPOCH` | observation for `projection-e2e` | 2027-03-21 / 20:00:00 |
+| `PRO3D_PYTHON` | interpreter with numpy, for the data generator | `python` |
 
-Current specs: `projection-smoke` (import → stack → the projection visibly
-lands on the surface), `stack-ui` (add/toggle/reorder/remove through the GIS
-tab), `hover-flyto` (hover preview + footprint, exact reversion, fly-to camera
-move).
+Current specs:
+
+| spec | what it proves |
+|---|---|
+| `projection-e2e` | **the projection is correct**: generates a frame of the OPC with its sidecar, projects it through the UI, and requires the render to reproduce it (details below) |
+| `projection-smoke` | import → stack → the projection visibly lands on the surface |
+| `stack-ui` | add/toggle/reorder/remove through the GIS tab |
+| `hover-flyto` | hover preview + footprint, exact reversion, fly-to camera move |
+| `looking-at-dimorphos` | fly-to lands looking at the body, at the size the sidecar's range predicts |
+
+### `projection-e2e` — generate, project, compare
+
+The regression test for image projection. Per OPC it:
+
+1. runs `scripts/make-projection-test-data.py`, which renders one HERA/AFC-1
+   frame with `pro3d-tool simulate-image --write-mbi` (the sidecar describes the
+   camera the render actually used) and writes a scene set up for projection;
+2. opens that scene, imports the frame, sets *Orientation Source* MBI and
+   *Transfer Function* off, flies to the frame and adds it to the stack;
+3. requires the render to reproduce the frame (`registration` in `src/image.ts`):
+   correlation > 0.9 at zero shift, the peak within 2 px of zero shift, the
+   identity beating every mirror/rotation, gray staying gray — and > 90 %
+   coverage from the shader's own coverage view with < 2 % spill.
+
+It runs once per OPC winding (`Dimorphos_opc` outward, `Dimorphos_0_Meridian`
+inward), because the inward one is what exercises the viewer's `NormalFlip`.
+About 2.5 minutes for both on a warm shader cache; generated data, screenshots
+and the measured numbers land in `artifacts/e2e/<OPC>/` and the test output.
+
+Prerequisites beyond the other specs: a Release build of **`PRo3D.Tool`** as
+well as the viewer (`bin/Release/net9.0/PRo3D.Tool.exe`), Python with numpy,
+the workshop3 OPCs and scene, and a kernel tree **matching the default epoch**:
+it was chosen against `hera_plan_v182_20260820`, and ESA's plan kernels move
+HERA's future trajectory between releases — with an older plan the generator
+fails with "the body does not appear in the frame". Set `PRO3D_SPICE_KERNELS`
+(or change `PRO3D_E2E_EPOCH`).
 
 ## How it works — read this before writing a spec
 

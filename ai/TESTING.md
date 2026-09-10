@@ -47,6 +47,13 @@ debugging a spec — it documents the mechanics that are NOT guessable:
   which surfaces are absent with no log output** — budget for it, and do not
   misdiagnose it as "my shader broke rendering".
 
+**Touched image projection** (shaders, projector matrices, `NormalFlip`, fly-to,
+sidecar parsing)? Run `npm run test:projection` in `tests-ui`. It generates a
+frame with its sidecar, projects it through the UI and requires the render to
+reproduce the source at zero shift, on both OPC windings — see the
+`projection-e2e` section of the README for prerequisites (tool build, Python,
+a kernel tree matching its epoch).
+
 For quick one-off questions (what does this page's DOM look like? what does
 the view show right now?), write a **probe** (`tests-ui/src/probe-*.ts`,
 `npx tsx src/<probe>.ts`) instead of a spec — same launcher, no test
