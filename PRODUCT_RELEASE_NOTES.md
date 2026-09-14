@@ -1,3 +1,15 @@
+## 6.2.0-prerelease002
+Collects the work merged since `6.2.0-prerelease001`.
+
+- GIS: **multi-image projection** — an ordered stack of up to 32 same-instrument images projected onto OPC surfaces (top wins), with a stack panel, hover footprints, fly-to and a coverage view. Each image is projected at its own observation time, and the same shader now runs on macOS
+- GIS: **pre-transformed surfaces (pre-transformation, Flip Z, SketchFab) get no image projection** instead of a misplaced one; winding correction is opt-in; observation times are UTC
+- Annotations: **Outcrop Traces** — the mean attitude of the annotation selection (orientation tensor), repeated at a constant bed thickness, traced where that bedding would crop out on the terrain. Dip&Strike gains a *Selection average* row
+- Surfaces: **LatLon graticule overlay** — 1° / 5° / 15° parallels and meridians plus equator and prime meridian, per surface, on reference bodies. Costs nothing while switched off; meridians can break up at rover-scale zoom (#748)
+- Annotations: **merge annotations moved to the main view**, and a **reverse flag** for annotation editing and picking
+- View planner: the **footprint boundary is drawn again** (as in `6.1.0-prerelease005`)
+- Region operations: **merging two regions no longer returns an area larger than their union**
+- Development builds **report "development build"** instead of a stale version number
+
 ## 6.2.0-prerelease001
 First prerelease of the 6.2 line. Collects the work merged since `6.1.0-prerelease004`.
 
