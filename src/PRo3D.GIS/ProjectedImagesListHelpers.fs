@@ -105,17 +105,20 @@ module ProjectedImagesListAppHelper =
                 Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
             )
         let boresightAdjustment = computeBoresight g.projectedImageList.boresightAdjustment
-        let imageTrafo = 
-            AVal.custom (fun t -> 
+        // Hoisted on purpose: a map built inside an AVal.custom is owned by nothing and
+        // stops propagating once collected (src/Tests/AdaptiveNestingTests.fs).
+        let surfaceReferenceFrameA =
+            surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
+        let imageTrafo =
+            AVal.custom (fun t ->
                 match observer.GetValue(t) with
                 | None -> None
-                | Some o -> 
+                | Some o ->
                     let (EntitySpiceName observer) = o.body
-                    let surfaceReferenceFrame = surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
 
                     let borsight = boresightAdjustment.GetValue(t)
                     let img = currentProjectedImage.GetValue(t)
-                    let surfaceReferenceFrame = surfaceReferenceFrame.GetValue(t)
+                    let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
                     let projectionMethod = g.projectedImageList.projectionMethod.GetValue(t)
 
                     match img with
@@ -138,12 +141,6 @@ module ProjectedImagesListAppHelper =
         // by texture path (sidecars do not change during a session).
         let metadataCache = System.Collections.Generic.Dictionary<string, InstrumentMetadata.ParsedMetadata>()
         let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string, Option<Trafo3d>>()
-        // created ONCE, outside the evaluations: building a fresh AVal.map
-        // inside AVal.custom and pulling it with the token adds a new
-        // out-of-date dependency on every pass -- the custom never settles
-        // and dependent patch uniforms never complete (surfaces vanish)
-        let surfaceReferenceFrameA =
-            surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
 
         /// one image's projector in the surface frame at its own obs time,
         /// memoized (D8: SPICE is single-threaded behind a global lock)
