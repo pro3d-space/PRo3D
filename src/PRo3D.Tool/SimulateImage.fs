@@ -712,6 +712,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                         | _ -> [||])
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None
+                windingCorrection = AVal.constant false
                 sunDirection = AVal.constant (Some sun)
                 sunLightEnabled = AVal.constant true
                 // this verb feeds its shadow map through its own shader stack

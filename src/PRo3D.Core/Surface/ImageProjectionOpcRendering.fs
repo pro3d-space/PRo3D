@@ -18,8 +18,10 @@ open Aardvark.SceneGraph.Semantics
 /// dataset -- the projection then survives only near the limb.
 ///
 /// Lives here rather than next to the offscreen tools' scene graph because both the tools
-/// (PRo3D.GIS.OpcSg) and the viewer (Surface.Sg) must bind the same value, and PRo3D.Core
-/// is what they share.
+/// (PRo3D.GIS.OpcSg, which flip the normal in the shader via NormalFlip) and the viewer
+/// (Surface.Sg, which negates the projector matrices instead, opt-in -- see
+/// ImageProjectionOpcExtensions.projectionUniformMap') use it, and PRo3D.Core is what
+/// they share.
 module NormalWinding =
 
     open Aardvark.Rendering
@@ -68,31 +70,78 @@ module NormalWinding =
             Log.warn "[opc]   could not estimate winding (%s); NormalFlip 0" e.Message
             0.0
 
+/// Surfaces the image projection refuses to paint (#741).
+///
+/// The projector is built in the OPC's own coordinates, taken as the surface's SPICE
+/// body-fixed frame. A pre-transformation, Flip Z or the SketchFab axis swap changes what
+/// those coordinates mean, so a projection would land in the wrong place; the viewer
+/// paints none on such a surface and names it in the Projected Images panel instead. The
+/// user Transformation does not count: it moves terrain and image together, which is a
+/// documented limitation rather than a wrong result (docs/MultiImageProjection.md).
+module ProjectionPreconditions =
+
+    open PRo3D.Core.Surface
+
+    [<Literal>]
+    let issueUrl = "https://github.com/pro3d-space/PRo3D/issues/741"
+
+    /// Why the projection is refused on a surface with these settings, if it is.
+    let refusal (preTransform : Trafo3d) (flipZ : bool) (sketchFab : bool) : Option<string> =
+        if flipZ then Some "Flip Z is on"
+        elif sketchFab then Some "SketchFab is on"
+        elif preTransform.Forward <> M44d.Identity then Some "it has a pre-transformation"
+        else None
+
+    /// `refusal` for a surface in the model. None for meshes: only OPC surfaces receive
+    /// the projection at all.
+    let refusalOf (s : AdaptiveSurface) : aval<Option<string>> =
+        match s.surfaceType with
+        | SurfaceType.SurfaceOPC ->
+            adaptive {
+                let! preTransform = s.preTransform
+                let! flipZ = s.transformation.flipZ
+                let! sketchFab = s.transformation.isSketchFab
+                return refusal preTransform flipZ sketchFab
+            }
+        | _ ->
+            AVal.constant None
+
+    /// `p` with every image-projection input off while `refused`: nothing projected, no
+    /// hover footprint, no coverage tint. Sun lighting and shadows are left alone, they
+    /// do not depend on the OPC's coordinates meaning the body-fixed frame.
+    let withoutProjection (refused : aval<bool>) (p : Sg.ProjectedImages) : Sg.ProjectedImages =
+        let gate (off : 'a) (value : aval<'a>) =
+            refused |> AVal.bind (fun r -> if r then AVal.constant off else value)
+        { p with
+            imageProjection = gate None p.imageProjection
+            stackProjections = gate Array.empty p.stackProjections
+            hoveredProjection = gate None p.hoveredProjection
+            stackCoverageEnabled = gate false p.stackCoverageEnabled }
+
 module ImageProjectionOpcExtensions =
 
-    /// The viewer's per-patch "NormalFlip": 0 while nothing is projected or hovered, the
-    /// hierarchy's winding vote otherwise. `flip` is forced on first use, so a scene that
-    /// never projects never loads a patch to vote on. (The offscreen tools bind the vote
-    /// eagerly instead: their shading reads the flipped normal on every render.)
-    let normalFlipUniform (flip : Lazy<float>) : obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue =
-        fun scope _ ->
-            let context = scope |> unbox<OpcRenderingExtensions.Context>
-            context.projectedImages |> AVal.bind (function
-                | None -> AVal.constant 0.0f
-                | Some p ->
-                    (p.stackProjections, p.hoveredProjection) ||> AVal.map2 (fun layers hovered ->
-                        if layers.Length = 0 && Option.isNone hovered then 0.0f
-                        else float32 flip.Value)
-            ) :> IAdaptiveValue
+    /// Patch-local -> projector clip space, composed on the CPU in double.
+    ///
+    /// vp * Local2Global and deliberately NOT vp * modelTrafo * Local2Global: the matrix
+    /// applies to the raw patch-local position, Local2Global already lands in the
+    /// surface's body-fixed frame, and that is the frame computeProjector builds vp in.
+    /// The model trafo would apply the body's orientation a second time. Leaving it out
+    /// is also what keeps the projection on the terrain when the scene time changes.
+    ///
+    /// Negated for an inward-wound hierarchy while winding correction is on. That
+    /// negation IS the correction: the shaders place a fragment at (M p).xyz / (M p).w,
+    /// which -M leaves unchanged, and accept it when M.TransformDir(normal).Z < 0, which
+    /// -M flips. So the correction costs no shader instruction, and with it off
+    /// `inwardWound` is never forced -- no patch is loaded to vote on.
+    let toProjector (inwardWound : Lazy<bool>) (correctWinding : bool)
+                    (local2Global : Trafo3d) (vp : Trafo3d) : M44d =
+        let m = vp.Forward * local2Global.Forward
+        if correctWinding && inwardWound.Value then -m else m
 
-    let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
+    /// `inwardWound`: this hierarchy's winding vote (NormalWinding.estimate), forced
+    /// only when ProjectedImages.windingCorrection is on and a projector is resolved.
+    let projectionUniformMap' (inwardWound : Lazy<bool>) : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
-            // The projector matrices below are vp * Local2Global and deliberately NOT
-            // vp * modelTrafo * Local2Global: they apply to the raw patch-local position,
-            // Local2Global already lands in the surface's body-fixed frame, and that is
-            // the frame computeProjector builds vp in. The model trafo would apply the
-            // body's orientation a second time. Leaving it out is also what keeps the
-            // projection on the terrain when the scene time changes.
             // hover footprint (D5): the hovered image's projector, same
             // double-precision per-patch composition as the stack matrices
             "HoveredProjectionTrafo", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
@@ -100,9 +149,9 @@ module ImageProjectionOpcExtensions =
                 context.projectedImages |> AVal.bind (function
                     | None -> AVal.constant M44d.Identity
                     | Some p ->
-                        p.hoveredProjection |> AVal.map (fun vp ->
+                        (p.hoveredProjection, p.windingCorrection) ||> AVal.map2 (fun vp correct ->
                             match vp with
-                            | Some vp -> vp.Forward * patch.info.Local2Global.Forward
+                            | Some vp -> toProjector inwardWound correct patch.info.Local2Global vp
                             | None -> M44d.Identity
                         )
                 ) :> IAdaptiveValue
@@ -132,11 +181,11 @@ module ImageProjectionOpcExtensions =
                 context.projectedImages |> AVal.bind (function
                     | None -> AVal.constant Array.empty<M44f>
                     | Some p ->
-                        p.stackProjections
-                        |> AVal.map (fun layers ->
+                        (p.stackProjections, p.windingCorrection)
+                        ||> AVal.map2 (fun layers correct ->
                             layers |> Array.map (fun layer ->
                                 match layer.trafo with
-                                | Some vp -> vp.Forward * patch.info.Local2Global.Forward |> M44f
+                                | Some vp -> toProjector inwardWound correct patch.info.Local2Global vp |> M44f
                                 // unresolved layer: the zero matrix maps every
                                 // vertex to (0,0,0,0), whose NaN NDC fails the
                                 // coverage test -- the slot stays, paints nothing
@@ -178,12 +227,12 @@ module ImageProjectionOpcExtensions =
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
                 context.projectedImages |> AVal.bind (function 
                     | None -> AVal.constant M44d.Identity
-                    | Some p -> 
-                        p.imageProjection |> AVal.map (fun vp ->
+                    | Some p ->
+                        (p.imageProjection, p.windingCorrection) ||> AVal.map2 (fun vp correct ->
                             match vp with
                             | Some vp ->
-                                vp.Forward * patch.info.Local2Global.Forward
-                            | None -> 
+                                toProjector inwardWound correct patch.info.Local2Global vp
+                            | None ->
                                 M44d.Identity
                         ) 
                 ) :> IAdaptiveValue
@@ -233,8 +282,12 @@ module ImageProjectionOpcExtensions =
             )
         ]
 
+    /// Without a winding vote: for scene graphs that never turn winding correction on
+    /// (the offscreen tools flip the normal in the shader instead, see NormalFlip).
+    let projectionUniformMap = projectionUniformMap' (lazy false)
 
-    //let projectionUniformMap (imageProjection : aval<Option<Trafo3d>>) 
+
+    //let projectionUniformMap (imageProjection : aval<Option<Trafo3d>>)
     //                         (localImageProjectionTrafos : aval<array<Trafo3d>>)
     //                         (sunLightDirection : aval<Option<V3d>>) 
     //                         (sunLightingEnabled : aval<bool>) =

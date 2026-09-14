@@ -139,13 +139,15 @@ module Tiff_Mbi_Json =
             None
 
 
-    let parseDate (s : JsonValue) : Option<DateTime> = 
+    /// FITS dates are UTC; the result is DateTimeKind.Utc (PRo3D.Base.Calendar.toUtc says
+    /// why the kind matters). Plain AssumeUniversal would convert it to local time.
+    let parseDate (s : JsonValue) : Option<DateTime> =
         match s with
-        | JsonValue.String s -> 
-            match DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal) with
+        | JsonValue.String s ->
+            match DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal ||| DateTimeStyles.AdjustToUniversal) with
             | (true, v) -> Some v
             | _ -> None
-        | _ -> 
+        | _ ->
             None
 
     let parseFloat' (s : string) : Option<float> = 
@@ -168,12 +170,11 @@ module Tiff_Mbi_Json =
     let tryParseTimestampFromFileName (fileName : string) : Option<DateTime> =
         let m = System.Text.RegularExpressions.Regex.Match(fileName, @"_(\d{8})_(\d{6})_")
         if m.Success then
-            // AssumeUniversal WITHOUT AdjustToUniversal, exactly like parseDate
-            // above: obs_date carries the same DateTime kind regardless of
-            // which fallback produced it
+            // UTC kind, exactly like parseDate above: obs_date carries the same
+            // DateTime kind regardless of which fallback produced it
             match DateTime.TryParseExact(m.Groups.[1].Value + m.Groups.[2].Value,
                                          "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
-                                         DateTimeStyles.AssumeUniversal) with
+                                         DateTimeStyles.AssumeUniversal ||| DateTimeStyles.AdjustToUniversal) with
             | (true, d) -> Some d
             | _ -> None
         else None

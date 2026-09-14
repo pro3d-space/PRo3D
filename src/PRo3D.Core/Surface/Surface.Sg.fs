@@ -447,22 +447,19 @@ module Sg =
         // "LightViewProj"/"HasLightViewProj" uniform map sat here unused (and unsound:
         // its capture function was never installed, so it would have unboxed the wrong
         // scope type); removed when the working path landed.
-        let allUniforms = ImageProjectionOpcExtensions.projectionUniformMap
 
         // create level of detail hierarchy (Sg)
-        let g = 
-            patchHierarchies 
+        let g =
+            patchHierarchies
             |> Array.map (fun h ->
-                // Winding vote for the projection shaders' projector-facing test; it
-                // reads the root patch from disk, so it is only taken once something is
-                // projected onto this hierarchy (see normalFlipUniform).
-                let normalFlip =
+                // Winding vote for the projection shaders' projector-facing test. It
+                // reads the root patch from disk, so it is only taken once winding
+                // correction is on and a projector resolves (see toProjector).
+                let inwardWound =
                     lazy (match h.tree with
                           | QTree.Node (p, _) | QTree.Leaf p ->
-                              NormalWinding.estimate h.opcPaths.Opc_DirAbsPath p)
-                let uniforms =
-                    allUniforms
-                    |> Map.add "NormalFlip" (ImageProjectionOpcExtensions.normalFlipUniform normalFlip)
+                              NormalWinding.estimate h.opcPaths.Opc_DirAbsPath p > 0.5)
+                let uniforms = ImageProjectionOpcExtensions.projectionUniformMap' inwardWound
 
                 let patchLodWithTextures =
 

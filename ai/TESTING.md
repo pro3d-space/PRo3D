@@ -54,7 +54,7 @@ debugging a spec — it documents the mechanics that are NOT guessable:
   which surfaces are absent with no log output** — budget for it, and do not
   misdiagnose it as "my shader broke rendering".
 
-**Touched image projection** (shaders, projector matrices, `NormalFlip`, fly-to,
+**Touched image projection** (shaders, projector matrices, winding correction, fly-to,
 sidecar parsing)? Run `npm run test:projection` in `tests-ui`. It generates a
 frame with its sidecar, projects it through the UI and requires the render to
 reproduce the source at zero shift — see the `projection-e2e` section of the

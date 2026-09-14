@@ -36,6 +36,7 @@ Settings and the selected image's 2D preview fold away into the
 | **Image Opacity** | blends the projected stack over the surface texture (formerly labelled *Visualization*) |
 | **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
 | **Transfer Function** | on (default): samples go through the per-image min/max remap and the colour map, which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source |
+| **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
 | **Orientation Source** | where the pointing comes from — **MBI** (default) or **SPICE**; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
 | lighting, boresight registration | as before |
 
@@ -147,21 +148,45 @@ Worked through with pictures, both modes side by side:
 ## Known limitation: surface transformations do not reach the projection
 
 The projector is computed in the OPC's own coordinates, taken as the body-fixed
-frame of the surface's SPICE reference frame. A surface's **Transformation**
-(translation, yaw/pitch/roll, scaling, pivot) and its pre-transformation are not
-part of that: they move the terrain and the projected image together, so an
-image stays on the same terrain points however the surface is transformed.
+frame of the surface's SPICE reference frame. Nothing a surface is transformed
+by afterwards is part of that. What this means depends on the transformation
+([#741](https://github.com/pro3d-space/PRo3D/issues/741)):
 
-The consequence: if you transform a surface to **correct its registration** —
-for example to align an OPC with other data — the projection does not see the
-correction. Images land where they would on the untransformed OPC. For surfaces
-that are placed by SPICE alone, with an identity Transformation, this makes no
-difference.
+- **Pre-transformation, Flip Z, SketchFab**: these change what the OPC's
+  coordinates *mean*, so a projection would land in the wrong place. PRo3D
+  therefore **projects nothing onto such a surface**, and *Projected Images*
+  says so in red, naming the surface. Sun lighting and shadows on it are
+  unaffected. Other surfaces in the scene still receive the projection.
+- **Transformation** (translation, yaw/pitch/roll, scaling, pivot): moves the
+  terrain and the projected image together, so an image stays on the same
+  terrain points however the surface is transformed. If you transform a surface
+  to **correct its registration** (for example to align an OPC with other data),
+  the projection does not see the correction. Images land where they would on
+  the untransformed OPC. For surfaces placed by SPICE alone, with an identity
+  Transformation, this makes no difference.
 
-(Technically: the per-patch projector matrices are `projector * Local2Global`;
-the surface model trafo, which carries both the SPICE placement and the user
+(Technically: the per-patch projector matrices are `projector * Local2Global`.
+The surface model trafo, which carries both the SPICE placement and the user
 Transformation, is deliberately left out, because including it applied the
 body's rotation twice. Separating the user part from the SPICE part is the fix.)
+
+## Known limitation: hidden terrain is painted too
+
+An image is painted onto every fragment inside its footprint whose face points
+towards the projector. That is not a visibility test:
+
+- **No occlusion.** Terrain the instrument could not see because other terrain
+  is in front of it (behind a ridge, in the lee of a boulder) receives the image
+  anyway, as if it had been visible.
+- **Facing is judged against the boresight**, not against the ray to each
+  fragment. Faces near the image edge that are nearly edge-on can be classified
+  wrongly, by up to half the field of view (about 2.8° for AFC-1, more for wider
+  instruments).
+
+So near steep relief, check what an image actually covers before reading its
+pixels as belonging to that terrain. A depth map rendered from each projector
+would make both exact
+([#741](https://github.com/pro3d-space/PRo3D/issues/741)).
 
 # Under the hood
 
@@ -172,7 +197,10 @@ platform split. Each projector is computed by SPICE in the surface's
 body-fixed frame at that image's own observation time (projections stick to
 the terrain regardless of scene time) and memoized per
 (image, method, boresight, observer, frame). The fragment loop walks the stack
-top-down and stops at the first covering, projector-facing layer.
+top-down and stops at the first covering, projector-facing layer. *Winding
+Correction* costs nothing in the shader: for an inward-wound hierarchy the
+per-patch projector matrix is negated on the CPU, which leaves every projected
+position where it is and flips the facing test.
 
 Not yet: persistence of stack and per-image settings in the scene, drag & drop
 reordering, projector-side occlusion. First start after a release that changed

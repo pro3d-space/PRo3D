@@ -151,6 +151,12 @@ type ProjectedImageListModel =
         /// a projection at all: only untransformed pixels can be compared with
         /// the source image.
         useTransferFunction  : bool
+        /// Estimate each OPC hierarchy's triangle winding and correct inward-wound
+        /// ones, so the projector-facing test does not reject the terrain that faces
+        /// the projector. Off by default: current OPC exports are wound outward, the
+        /// vote loads a patch per hierarchy, and it is unreliable for near-vertical
+        /// terrain (see NormalWinding). Off costs nothing.
+        windingCorrection    : bool
     }
 
 module ProjectedImageListModel =
@@ -191,6 +197,7 @@ module ProjectedImageListModel =
         // SC_QUAT + TRG_POS. Not persisted in a scene, so every session starts here.
         projectionMethod = ProjectionMethod.MbiBased
         useTransferFunction = true
+        windingCorrection = false
     }
 
 type ImageMessage =
@@ -232,6 +239,7 @@ type ProjectedImageListMessage =
     | SetLightingMode of LightingMode
     | SetProjectionMethod of ProjectionMethod
     | ToggleTransferFunction
+    | ToggleWindingCorrection
     /// User picked a SPICE kernel root folder to load the kernel (and
     /// observation time) the selected image's mbi sidecar was generated
     /// against. Handled by GisApp.update (needs the mbi + spice state that

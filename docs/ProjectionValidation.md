@@ -435,9 +435,13 @@ further here.
 - **The viewer never bound `NormalFlip`.** The projector-facing test needs
   outward normals, and OPC exports disagree on winding. The offscreen tools
   estimated each dataset's winding; the viewer did not. `NormalWinding.estimate`
-  is now shared, and the viewer binds it per patch — lazily, only once something
-  is projected or hovered, since the vote reads the root patch from disk.
-  The test-data Dimorphos is wound outward (flip 0).
+  is now shared. In the viewer it is opt-in (*Winding Correction*, off by
+  default, since current exports are wound outward): an inward-wound hierarchy
+  gets its projector matrices negated on the CPU, which flips the facing test
+  and leaves the footprint where it is, so there is no shader cost, and nothing
+  is loaded while the setting is off. The test-data Dimorphos is wound outward
+  (flip 0). The flip path was validated once with an inward-wound dataset
+  (`Dimorphos_0_Meridian`, since retired) and has no end-to-end test now.
 
 - **The fly-to landed the camera in the right place pointing the wrong way**,
   180° off, through the deprecated `CameraAnimations.animateForwardAndLocation`.
@@ -448,8 +452,8 @@ further here.
 ## Still open
 
 Nothing in the ladder: the projection is correct in the shader (step 1), in the
-stack path (step 2) and in the production viewer (step 3), for both OPC
-windings.
+stack path (step 2) and in the production viewer (step 3). An inward-wound OPC
+needs *Winding Correction* on in the viewer.
 
 - **Terrain comparison.** Step 3 shows the image reproduces itself from the
   projector's viewpoint, not that it is glued to the *right* terrain. With

@@ -44,33 +44,49 @@ module Calendar =
         time : string
     }
 
+    /// Observation times are UTC (SPICE epochs are), and the model holds them as
+    /// DateTimeKind.Utc. That matters beyond display: DateTime equality and subtraction
+    /// compare ticks and ignore the kind, so a local 16:00 and a UTC 14:00 -- the same
+    /// instant in UTC+2 -- compare unequal. Local converts; Unspecified is read as UTC.
+    let toUtc (d : DateTime) : DateTime =
+        match d.Kind with
+        | DateTimeKind.Utc -> d
+        | DateTimeKind.Local -> d.ToUniversalTime()
+        | _ -> DateTime.SpecifyKind(d, DateTimeKind.Utc)
+
+    /// Parse an observation time: a string without a zone is UTC, and the result is
+    /// DateTimeKind.Utc (plain AssumeUniversal would convert it to local time).
+    let tryParseUtc (s : string) : Option<DateTime> =
+        match DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal ||| DateTimeStyles.AdjustToUniversal) with
+        | (true, date) -> Some date
+        | _ -> None
+
     let parseDate (dateString : string) : System.DateTime =
-        match DateTime.TryParse(dateString, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal) with
-        | (true, date) -> 
+        match tryParseUtc dateString with
+        | Some date ->
             date
-        | _ -> 
+        | None ->
             let dateString = dateString.Trim '"'
-            match DateTime.TryParse(dateString, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal) with
-            | (true, date) -> 
+            match tryParseUtc dateString with
+            | Some date ->
                 date
-            | _ -> 
+            | None ->
                 Log.error "[Calendar] Could not parse date %s" dateString
-                DateTime.Now
-        
+                DateTime.UtcNow
+
     let update (m : Calendar) (msg : CalendarAction) =
         Log.warn "[Calendar] %s" (string msg)
         match msg with
         | SetDateString str ->
-            let result = DateTime.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal)
-            match result with
-            | true, date ->
+            match tryParseUtc str with
+            | Some date ->
                 Log.line "setting date %s" str
                 {m with date = date}
-            | _ ->
+            | None ->
                 Log.error "[Calendar] Could not parse date %s" str
                 m
         | SetDate date ->
-            {m with date = date}
+            {m with date = toUtc date}
         | SetDateJs lst ->
             match lst with
             | [] ->
@@ -126,7 +142,7 @@ module Calendar =
         
     let init =
         {
-            date = DateTime.Now
+            date = DateTime.UtcNow
             minDate = None
             maxDate = None
             label   = None
@@ -134,7 +150,7 @@ module Calendar =
 
     let fromDate date =
         {
-            date = date
+            date = toUtc date
             minDate = None
             maxDate = None
             label   = None

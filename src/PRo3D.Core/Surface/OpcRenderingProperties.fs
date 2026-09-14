@@ -65,6 +65,10 @@ module SgExtensions =
                 /// the frustum wireframe (D5). None when nothing is hovered or
                 /// the projection does not resolve.
                 hoveredProjection : aval<Option<Trafo3d>>
+                /// Correct inward-wound OPC hierarchies for the projector-facing test
+                /// (see NormalWinding). Off: no patch is loaded to vote on, and the
+                /// projector matrices are exactly vp * Local2Global.
+                windingCorrection : aval<bool>
                 sunDirection : aval<Option<V3d>>
                 sunLightEnabled : aval<bool>
                 /// World -> sun-camera clip space for shadow mapping; None disables the

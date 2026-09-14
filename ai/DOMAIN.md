@@ -106,6 +106,7 @@ Key types:
 - **`Entity`** — a SPICE body: `spiceName : EntitySpiceName`, label, color, radius, trajectory length, draw/trajectory toggles, default frame.
 - **`ReferenceFrame`** — a SPICE frame: label, description, `spiceName : FrameSpiceName`.
 - **`ObservationInfo`** — `target`, `observer`, `time` (calendar), `referenceFrame` — the observation geometry used to place/orient things.
+  - **Observation times are UTC, held as `DateTimeKind.Utc`** — the scene time, `Mbi.obs_date`, mission-time entries, interpolated bookmark times. Parse with `Calendar.tryParseUtc` (`AssumeUniversal ||| AdjustToUniversal`; plain `AssumeUniversal` yields *local* time), normalise with `Calendar.toUtc`, and set the scene time through `ObservationInfoAction.SetTime`. Mixing kinds breaks silently: `DateTime` equality and subtraction compare ticks and ignore the kind, and SPICE (`Time.toUtcFormat` → `ToUniversalTime()`) reads an `Unspecified` value as local time. A `DateTime` built from bare ticks is `Unspecified`, so pass `DateTimeKind.Utc`.
 - **`GisSurface`** — binds a `SurfaceId` to an optional entity + reference frame.
 - **`GisApp`** — default observation info, `entities`/`referenceFrames`/`gisSurfaces` maps, the active `spiceKernel`, a projected-image list, marker visibility, and mission-time entries (`MissionTimeEntry` for rover ops timelines).
 
