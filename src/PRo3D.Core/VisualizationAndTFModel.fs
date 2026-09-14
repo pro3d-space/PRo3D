@@ -222,7 +222,7 @@ module LatLonShaderModel =
             lon1        = false
             lon5        = true
             lon15       = true
-            lineColor   = { c = C4b(0uy, 0uy, 0uy, 255uy) }   // amber - visible on Mars terrain
+            lineColor   = { c = C4b(0uy, 0uy, 0uy, 255uy) }   // black
         }
 
     let private readLineColor =

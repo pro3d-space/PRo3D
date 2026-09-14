@@ -503,9 +503,11 @@ module Sg =
 
                         // LatLon graticule: per-vertex (sinφ,cosφ,sinλ,cosλ) computed on
                         // the CPU in double, so the shader never transforms a world-scale
-                        // position through float32. Built for every planetary OPC patch
-                        // (gated on the body, not the enable flag) so toggling the overlay
-                        // is a pure uniform change; only a planet change reloads patches.
+                        // position through float32. latLonGridPlanet is Some only while the
+                        // overlay is enabled on this surface and the scene sits on a body
+                        // (applied per surface in ViewerUtils.viewSingleSurfaceSg), so a
+                        // surface without the overlay never reaches the second
+                        // Patch.load below (#747). Enabling it recomputes the loaded patches.
                         let latLonBuf : aval<IBuffer> =
                             context.latLonGridPlanet
                             |> AVal.bind (fun planetOpt ->
@@ -521,8 +523,8 @@ module Sg =
                                     AVal.constant (ArrayBuffer(arr) :> IBuffer)
                                 | None ->
                                     // Placeholder (see InsideOutsideV4 note). latLonLines
-                                    // guards on LatLonGridParams so this is never sampled
-                                    // for a non-planetary surface.
+                                    // guards on LatLonLatLevels.X, which is <= 0 whenever
+                                    // this branch is taken, so it is never sampled.
                                     SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
                             )
 
