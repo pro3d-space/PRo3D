@@ -823,15 +823,18 @@ module Shader =
             let latLev = uniform.LatLonLatLevels
             let lonLev = uniform.LatLonLonLevels
 
-            let sc  = v.latLonSinCos
-            let lat = atan2 sc.X sc.Y * deg
-            let lon = atan2 sc.Z sc.W * deg
-            let wLat = abs (ddx lat) + abs (ddy lat)
-            let wLon = abs (ddx lon) + abs (ddy lon)
-
             let mutable rgb = v.c.XYZ
 
+            // Everything below is gated on a uniform, so a disabled overlay costs no
+            // atan2/derivatives per fragment (#747). ddx/ddy stay well-defined here:
+            // the branch condition is uniform across the draw call.
             if latLev.X > 0.5f then
+                let sc  = v.latLonSinCos
+                let lat = atan2 sc.X sc.Y * deg
+                let lon = atan2 sc.Z sc.W * deg
+                let wLat = abs (ddx lat) + abs (ddy lat)
+                let wLon = abs (ddx lon) + abs (ddy lon)
+
                 let g = uniform.LatLonLineColor.XYZ
                 // Fine to coarse: wider (coarser) lines paint over narrower ones.
                 if latLev.Y > 0.5f then rgb <- overlayLine rgb (latLonCoverage lat 1.0f  wLat 0.5f) g

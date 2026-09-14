@@ -418,6 +418,16 @@ module ViewerUtils =
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.applyBody (observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value))
+                    // LatLon graticule: the per-vertex lat/lon attribute (Surface.Sg) is
+                    // built only while the overlay is enabled on this surface and the
+                    // scene sits on a body, so a surface without it pays no second patch
+                    // load, per-vertex loop or buffer (#747). Enabling it recomputes the
+                    // attribute for the loaded patches.
+                    |> Sg.applyLatLonGrid (
+                        (surf.latLonModel.enabled, refsys.planet) ||> AVal.map2 (fun enabled planet ->
+                            if enabled && CooTransformation.getConvention planet <> CooTransformation.NonPlanetary
+                            then Some planet else None)
+                    )
                     |> Sg.noEvents
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
@@ -494,8 +504,7 @@ module ViewerUtils =
                     // LatLon graticule overlay. LatLevels.X <= 0 disables everything
                     // (off, or a non-planetary body); LatLevels.YZW / LonLevels.XYZ
                     // are 1/0 flags for the 1°/5°/15° parallels and meridians. The
-                    // per-vertex lat/lon attribute is supplied by Surface.Sg via
-                    // Sg.applyLatLonGrid at the group level.
+                    // per-vertex lat/lon attribute comes from Sg.applyLatLonGrid above.
                     |> Sg.uniform "LatLonLatLevels" (
                         (surf.latLonModel.Current, refsys.planet) ||> AVal.map2 (fun m planet ->
                             let usable =
@@ -1383,15 +1392,6 @@ module ViewerUtils =
                 |> Sg.texture "ShadowMap" sunShadow.texture
                 |> Sg.uniform "ShadowMapBias" (sunShadow.bias |> AVal.map float32)
                 |> Sg.applyCrossSection crossSectionData
-                // Bake the per-vertex lat/lon attribute for the LatLon graticule
-                // whenever the scene sits on a planetary body. Gated on the body,
-                // not the per-surface enable flag, so toggling the overlay is a
-                // pure uniform change (see LatLonLatLevels).
-                |> Sg.applyLatLonGrid (
-                    m.scene.referenceSystem.planet |> AVal.map (fun p ->
-                        if CooTransformation.getConvention p <> CooTransformation.NonPlanetary
-                        then Some p else None)
-                )
                 |> Sg.noEvents
 
             Sg.ofList [surfaces; depthComposed]

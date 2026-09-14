@@ -108,7 +108,8 @@ module SgExtensions =
             CrossSectionApplicator(sg, data) :> ISg
 
         /// Carries the body whose graticule (LatLon shader) should be baked into the
-        /// per-vertex lat/lon attribute. `None` -> non-planetary surface, skip.
+        /// per-vertex lat/lon attribute. `None` -> overlay disabled on the surface, or a
+        /// non-planetary frame: the attribute is not computed (placeholder only).
         type LatLonGridApplicator(child : ISg, planet : aval<Option<PRo3D.Base.Planet>>) =
             inherit Sg.AbstractApplicator(child)
             member x.LatLonGridPlanet = planet

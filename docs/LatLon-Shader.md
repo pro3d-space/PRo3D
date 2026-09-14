@@ -24,7 +24,7 @@ latlon shader"* instead. The controls reappear as soon as a body is selected
 | enabled | Draw the graticule on this surface. |
 | lat lines | Three checkboxes — **1°**, **5°**, **15°** parallels. Independent; any combination can be on. Each level has a fixed screen line width: 1° → 0.5 px, 5° → 1.0 px, 15° → 2.0 px. |
 | lon lines | Same three checkboxes for the meridians, independent of the parallels. |
-| line color | Colour blended into the surface along the 1°/5°/15° grid lines (default amber, readable on Mars terrain). |
+| line color | Colour blended into the surface along the 1°/5°/15° grid lines (default black). |
 
 The **equator** (yellow) and **prime meridian** (red) are always drawn at 2.5 px
 whenever the shader is enabled on a body, regardless of the checkboxes and the
@@ -59,11 +59,19 @@ meridian paint last and sit on top.
   Latitude is corrected from planetocentric to **planetographic** with a closed-form
   oblate-spheroid term `latG = atan(tan latC / (1 - f)²)`, where the body flattening
   `f` is derived once per body from `CooTransformation.tryGetBodyRadius` — this matches
-  the latitude PRo3D's coordinate readout shows without a per-vertex native SPICE call.
-  The attribute is baked for every planetary OPC surface (`Sg.applyLatLonGrid`,
-  [src/PRo3D.Core/Surface/OpcRenderingProperties.fs](../src/PRo3D.Core/Surface/OpcRenderingProperties.fs)),
-  gated on the body rather than the enable flag, so toggling the overlay or changing
-  its parameters is a pure uniform change with no patch reload.
+  the latitude PRo3D's coordinate readout shows (on the reference spheroid) without a
+  per-vertex native SPICE call.
+- **No cost while disabled** (#747). The attribute is built only for surfaces that have
+  the overlay **enabled** on a body: `viewSingleSurfaceSg` applies `Sg.applyLatLonGrid`
+  ([src/PRo3D.Core/Surface/OpcRenderingProperties.fs](../src/PRo3D.Core/Surface/OpcRenderingProperties.fs))
+  per surface with `Some planet` only when `latLonModel.enabled` and the reference
+  system has a body. Otherwise the patch gets a constant placeholder: no second patch
+  load, no per-vertex loop, no extra GPU buffer. The shader's `atan2`/derivative work
+  sits inside the `LatLonLatLevels.X > 0` branch, so a disabled overlay costs no
+  per-fragment work either. Trade-off: **enabling** the overlay (or changing the body
+  while enabled) recomputes the attribute for every loaded patch, which re-reads the
+  patch from disk on the render thread and causes a one-off hitch. Changing levels or
+  line colour is a pure uniform change.
 - Shader: `Shader.latLonLines` in
   [src/PRo3D.Base/Utilities.fs](../src/PRo3D.Base/Utilities.fs), added to `surfaceEffect`
   in [src/PRo3D.Viewer/Viewer/Viewer-Utils.fs](../src/PRo3D.Viewer/Viewer/Viewer-Utils.fs)
@@ -91,3 +99,7 @@ meridian paint last and sit on top.
 - The grid follows the planet frame, not a per-surface Transformation offset — it
   stays consistent with the coordinate readout.
 - OBJ surfaces are not supported (they use `objEffect`), same as Contours.
+- Known follow-ups (#748): meridians break up at rover-scale zoom (absolute angles in
+  float32); planetographic latitude is exact only on the reference spheroid (off by
+  ≈ (h/R)·f·sin 2φ for terrain at height h — negligible on Mars, degrees on Phobos);
+  enabling the overlay hitches (see above).
