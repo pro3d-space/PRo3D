@@ -70,7 +70,9 @@ Weigh every megabyte: anyone who initialises the submodule downloads all of it.
 
 - `src/Tests/data/` holds the small, text-based fixtures that are checked into PRo3D
   directly (instrument metadata sidecars, annotation files). These need no submodule.
-- The SPICE tests need the non-public HERA kernels and self-skip without them;
-  `runTests.cmd` / `runTests.sh` pass `--skip-hera` so they skip deterministically.
+- The SPICE tests need ESA's HERA mission kernels — public, but ~1.3 GB, so they are
+  fetched rather than committed. See [SpiceKernels.md](SpiceKernels.md). They self-skip
+  without them; `runTests.cmd` / `runTests.sh` pass `--skip-hera` so they skip
+  deterministically even where the kernels are present.
 - `ProfileAttributeExtractionTest` takes its data from `--testdatasource <path>` instead,
   and is only added to the run when that argument is given.

@@ -17,6 +17,9 @@ PRo3D is built on top of the [Aardvark Platform](https://github.com/aardvark-pla
 | `adapt.cmd` / `adapt.sh` | Run Adaptify code generation for all projects (regenerates `*.g.fs`) |
 | `dotnet run --project src/PRo3D.Viewer` | Run the main viewer directly |
 | `dotnet fantomas src/` | Format F# source |
+| `runTests.cmd` / `runTests.sh` | Run the tests without SPICE kernels (`--skip-hera`) |
+| `runAllTests.cmd` / `runAllTests.sh` | Run everything, including the HERA kernel tests |
+| `scripts/fetch-spice-kernels.sh [dest]` | Download the HERA kernels those tests need, then set `PRO3D_SPICE_KERNELS` — see [docs/tests/SpiceKernels.md](docs/tests/SpiceKernels.md) |
 
 ## Technology Stack
 
