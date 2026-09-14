@@ -440,6 +440,10 @@ module ViewerUtils =
                     |> addRadiometryParameters surf
                     |> Sg.uniform "DepthVisible" depthVisible //(AVal.constant(true)) //
                     |> Sg.uniform "FootprintVisible" footprintVisible
+                    // Placeholder for non-PatchNode geometry under this scope (e.g. mesh
+                    // surfaces), which never draws a footprint. OPC patches shadow it with
+                    // the per-patch matrix from projectionUniformMap; identity here would
+                    // put every patch-local vertex outside footPrintF's [-1,1] test.
                     |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
                     |> Sg.applyFootprint footprintViewProj
                     |> Sg.noEvents

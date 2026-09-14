@@ -95,6 +95,14 @@ module InstrumentProjection =
     // per-thread reentrant, so nesting (projectOnto* calls getLookAt*) is safe.
     let private spiceCallLock = obj()
 
+    /// Runs `f` as one unit against every SPICE call in this module.
+    ///
+    /// For callers that replace the kernel pool rather than read it -- switchKernel is
+    /// DeInit + Init + furnsh. A swap landing between the getRelState and getRotationTrafo
+    /// of one projection answers it from two kernel sets; a swap landing inside a native
+    /// call is an access violation. Reentrant, so a whole load-then-project sequence fits.
+    let withSpiceLock (f : unit -> 'a) : 'a = lock spiceCallLock f
+
     let getLookAt (viewerBody : string) (observer : string) (referenceFrame : string) (supportBody : string) (time : DateTime) =
         lock spiceCallLock (fun () ->
             let afc1Pos = CooTransformation.getRelState viewerBody supportBody observer time referenceFrame

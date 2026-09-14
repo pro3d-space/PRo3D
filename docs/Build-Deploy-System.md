@@ -108,6 +108,18 @@ all resources should be embedded using dotnet embedded resources to allow "singl
 
 - title bar version is fixed up by "publish" target using string replace
 
+The literal in `src/PRo3D.Viewer/Program.fs` is **`"development build"`**, not a version
+number. `patchViewerVersion` in `Build.fs` rewrites that line from `notes.NugetVersion` at
+the top of both `CopyToElectron` (→ `PublishToElectron`, the installers) and `Publish`
+(→ `UploadStandalone`, the standalone zip), before each target's own `DotNet.publish`
+rebuilds — so every published artifact carries the real version and only unstamped builds
+(`dotnet run`, the IDE, a plain `build.cmd`) show the placeholder.
+
+Keeping a version number there instead was actively harmful: it goes stale silently, and
+[#733](https://github.com/pro3d-space/PRo3D/issues/733) was filed against a build that
+reported `5.4.0` while running 6.0.0 code. `patchViewerVersion` fails the build if the
+`let viewerVersion` line ever moves, rather than shipping the placeholder.
+
 # Manual build and upload to github release
 
 - prepare the github_token env variable https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token, 

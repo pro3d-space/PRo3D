@@ -39,6 +39,7 @@ module ViewerLenses =
     let _drawing         = Model.drawing_
     let _annotations     = _drawing >-> DrawingModel.annotations_
     let _dnsColorLegend  = _drawing >-> DrawingModel.dnsColorLegend_
+    let _colorByCategory = _drawing >-> DrawingModel.colorByCategory_
     let _flat            = _annotations  >-> GroupsModel.flat_
     let _lookUp          = _annotations  >-> GroupsModel.groupsLookup_
     let _groups          = _annotations  >-> GroupsModel.rootGroup_ >-> Node.subNodes_
