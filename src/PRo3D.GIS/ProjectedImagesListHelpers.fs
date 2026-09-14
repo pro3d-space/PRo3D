@@ -105,12 +105,8 @@ module ProjectedImagesListAppHelper =
                 Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
             )
         let boresightAdjustment = computeBoresight g.projectedImageList.boresightAdjustment
-        // Created once, outside the evaluations, and shared by imageTrafo and the
-        // stack below. Never build it inside an AVal.custom: dependency edges are weak
-        // and a custom holds only its compute function, so a node created during the
-        // evaluation is owned by nothing -- once it is collected, a changed reference
-        // frame no longer reaches the custom and the projector silently goes stale
-        // (see src/Tests/AdaptiveNestingTests.fs).
+        // Hoisted on purpose: a map built inside an AVal.custom is owned by nothing and
+        // stops propagating once collected (src/Tests/AdaptiveNestingTests.fs).
         let surfaceReferenceFrameA =
             surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
         let imageTrafo =
