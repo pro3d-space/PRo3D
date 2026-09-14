@@ -99,6 +99,26 @@ button [ onClick (fun _ ->
 
 **Inside a custom `Sg`/`RenderObject`** you are handed an `AdaptiveToken` — use it: `someAval.GetValue(token)` (e.g. `annoSet.Content.GetValue(t)`). That registers the dependency against the render evaluation, so it is *not* the same mistake as rule 1. Never substitute `AVal.force` for the provided token.
 
+#### …but only on nodes that outlive the evaluation
+
+Reading with the token is only correct for a node that **someone else keeps alive**. Never *create* an adaptive node inside an `AVal.custom` (or `ASet`/`AList`/`AMap.custom`, a `Compute(token)` override, or a custom `Sg`/`RenderObject` evaluation) and read it there with the token:
+
+```fsharp
+// ❌ goes stale after the next GC
+let bad =
+    AVal.custom (fun t ->
+        let frame = surface.referenceSystem |> AVal.map frameName   // created per evaluation
+        frame.GetValue t)
+
+// ✅ created once, owned by the closure
+let frame = surface.referenceSystem |> AVal.map frameName
+let good = AVal.custom (fun t -> frame.GetValue t)
+```
+
+Why: dependency edges are **weak and point forward only** (`Outputs : IWeakOutputSet`, no inputs list). A consumer keeps its inputs alive only through references it holds itself. `AVal.map`/`bind` and `adaptive {}` hold their input or inner node in a field; `AVal.custom` holds only its compute function. A node built during the evaluation is owned by nothing. It works until the GC collects it, and then the edge *input → node → custom* is gone. **The custom silently keeps its old value and is not even marked out of date.** It never fails in a quick test and misbehaves on a user's machine. `src/Tests/AdaptiveNestingTests.fs` pins the mechanism (it once kept edited annotations from redrawing).
+
+Node-creating calls are easy to miss: `AVal.map`/`map2`/`bind`, `adaptive { }`, `AMap.tryFind`/`map`/`toASet`, `ASet.contains`/`map`, `AList.map`, `.Content` of a collection built on the spot — and any **helper that returns an `aval`/`aset`/`amap`** (e.g. `GisApp.getObserverSystemAdaptive`, `TransformationApp.fullTrafo`). Inside a custom, either read long-lived nodes (model fields, cvals, values built outside the closure) or call a helper of the `getXAt (m) (t : AdaptiveToken)` shape that does exactly that (`Drawing.Sg.getPolylinePointsAt`). Creating nodes inside `AVal.bind`'s lambda or under `let!` in a CE is fine: those combinators own what they created.
+
 ### 5. Model collection types decide the adaptive mapping — choose deliberately
 
 The decision in rules 2–3 is actually made **when you pick the field type in the immutable model**: Adaptify maps each model type to a specific adaptive type in the generated `Adaptive*` record (`*-Model.g.fs`). The collection type you write *is* the per-element-vs-whole-value choice.
@@ -230,6 +250,7 @@ shape is worse here: it re-fires on every edit in the collection, subset or not.
 |---------|-------------------|
 | Inside `AVal.map`/`bind`, `aval`/`alist`/`aset`/`amap` CE | `let!` / `and!` / combinators — **never** `AVal.force` |
 | Inside a custom `Sg` / `RenderObject` (has a token `t`) | `x.GetValue(t)` |
+| Inside `AVal.custom` / any token-driven evaluation | `x.GetValue(t)` **only** on nodes created outside it — never build a node there (rule 4) |
 | UI event / imperative callback | `AVal.force x` is OK |
 | Choosing collection representation | ask: adaptive collection vs `aval<collection>` (rules 2–3) |
 | Reducing a collection to one value | one `AMap.filter`, not `AMap.tryFind` per key; sizes and change rates are load characteristics — ask, don't assume (rule 6) |
