@@ -125,9 +125,10 @@ module ViewerIO =
          {   
             m with                    
                 drawing = {
-                    m.drawing with 
-                        annotations    = annotations.annotations
-                        dnsColorLegend = annotations.dnsColorLegend 
+                    m.drawing with
+                        annotations     = annotations.annotations
+                        dnsColorLegend  = annotations.dnsColorLegend
+                        colorByCategory = annotations.colorByCategory
                 }
          }  
 

@@ -826,6 +826,13 @@ module DrawingApp =
 
             | DnsColorLegendMessage msg,_, _ ->
                 { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
+            | ColorByCategoryMessage msg,_, _ ->
+                // the annotations are needed because FitRangeToData - and SetAttribute,
+                // which auto-fits - scan them for the attribute's min/max
+                let annotations =
+                    model.annotations.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
+                { model with
+                    colorByCategory = ColorByCategory.update annotations model.colorByCategory msg }
             | FlyToAnnotation msg, _, _ ->               
                 model        
 
@@ -1057,8 +1064,8 @@ module DrawingApp =
             Log.startTimed "[Drawing] creating finished annotation geometry"
             let annotations =              
                 annoSet 
-                |> ASet.map(fun (_,(a, t)) -> 
-                    let c = UI.mkColor model.annotations a
+                |> ASet.map(fun (_,(a, t)) ->
+                    let c = UI.mkColor model.colorByCategory model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
                         a.geometry 
@@ -1081,8 +1088,8 @@ module DrawingApp =
             // one cached ordering shared by every packed draw that writes an object id, so the
             // ids the pick target reads back agree across lines, fills and handles by construction
             let ordered = PackedRendering.orderedAnnotations (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s)))
-            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) ordered viewMatrix
-            let fillGeometry = PackedRendering.fills config.offset ordered viewMatrix
+            let lines, pickIds, bb = PackedRendering.linesNoIndirect model.colorByCategory config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) ordered viewMatrix
+            let fillGeometry = PackedRendering.fills model.colorByCategory config.offset ordered viewMatrix
 
             // handles exist only for the single selected annotation, and only in edit mode
             let handleTarget =
@@ -1158,7 +1165,7 @@ module DrawingApp =
                        )
                 ]
             let packedPoints =
-                PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
+                PackedRendering.points model.colorByCategory (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
                 |> Sg.noEvents
 
             // listed before the lines so outlines draw on top of their own fill. The fill writes
@@ -1202,7 +1209,7 @@ module DrawingApp =
             let annotations =
                 annoSet
                 |> ASet.map(fun (g,(a,t)) ->
-                    let c = UI.mkColor model.annotations a
+                    let c = UI.mkColor model.colorByCategory model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints =
                         a.geometry
@@ -1217,7 +1224,7 @@ module DrawingApp =
                             // fill first, so the outline draws over it
                             // no pick target in this branch, so the ids are unused - but the
                             // ordering is how fills takes its input
-                            PackedRendering.fills config.offset (PackedRendering.orderedAnnotations (ASet.single (g, a))) viewMatrix
+                            PackedRendering.fills model.colorByCategory config.offset (PackedRendering.orderedAnnotations (ASet.single (g, a))) viewMatrix
                             |> PackedRendering.packedFillRender
                             |> Sg.noEvents
                             Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
