@@ -106,8 +106,11 @@ module ProjectedImagesListAppHelper =
             )
         let boresightAdjustment = computeBoresight g.projectedImageList.boresightAdjustment
         // Created once, outside the evaluations, and shared by imageTrafo and the
-        // stack below: an AVal.map built inside an AVal.custom is a new node, subscribed
-        // to surfaceReferenceSystem, on every evaluation.
+        // stack below. Never build it inside an AVal.custom: dependency edges are weak
+        // and a custom holds only its compute function, so a node created during the
+        // evaluation is owned by nothing -- once it is collected, a changed reference
+        // frame no longer reaches the custom and the projector silently goes stale
+        // (see src/Tests/AdaptiveNestingTests.fs).
         let surfaceReferenceFrameA =
             surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
         let imageTrafo =
