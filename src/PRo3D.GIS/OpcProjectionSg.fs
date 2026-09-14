@@ -79,6 +79,11 @@ module OpcSg =
             body            : string
 
             useCompressedTextures : bool
+
+            /// Which texture layer of the OPC to draw, by index into the layers the
+            /// `.opcx` declares (see `OpcTextureLayers.read`). None draws the patch's
+            /// default, which is not necessarily the `selectedTexture` a PRo3D scene shows.
+            textureLayer : Option<int>
         }
 
     let defaultConfig signature runner lodDecider body =
@@ -89,6 +94,7 @@ module OpcSg =
             asyncLoading = true
             body = body
             useCompressedTextures = true
+            textureLayer = None
         }
 
     /// Build one LOD node per OPC hierarchy, wired up with the projection uniforms.
@@ -96,44 +102,12 @@ module OpcSg =
     /// `projectedImages` supplies the projector trafos, sun direction and lighting flag;
     /// the per-patch uniforms themselves (including the local->projector matrices) are
     /// computed by ImageProjectionOpcExtensions.projectionUniformMap.
-    /// WORKAROUND (2026-07-22, investigation ongoing): OPC datasets are inconsistently
-    /// wound, so generateNormal's `cross edge1 edge2` points outward on one and inward on
-    /// another. Until the cause is understood, estimate each hierarchy's winding on the
-    /// CPU: sample up to ~100 faces of the coarse root patch and vote whether they point
-    /// away from the body-fixed origin (the barycenter). Majority inward -> the shader
-    /// must flip (returns 1.0), else 0.0. Valid for star-shaped bodies.
+    /// The dataset's winding, which decides whether generateNormal's face normal has to be
+    /// flipped before anything tests it against the projector. The heuristic itself lives
+    /// in PRo3D.Core (NormalWinding) because the viewer's scene graph must bind the same
+    /// value and cannot reference this assembly.
     let private estimateNormalFlip (basePath : string) (rootPatch : Patch) : float =
-        try
-            let ig, _ = Patch.load (OpcPaths.OpcPaths basePath) ViewerModality.XYZ rootPatch.info
-            let l2g = rootPatch.info.Local2Global.Forward
-            match ig.IndexedAttributes.[DefaultSemantic.Positions], ig.IndexArray with
-            | (:? array<V3f> as pos), (:? array<int> as idx) ->
-                let triCount = idx.Length / 3
-                let stride = max 1 (triCount / 100)   // ~100 samples spread across the patch
-                let mutable outward = 0
-                let mutable inward = 0
-                let mutable t = 0
-                while t < triCount do
-                    let i = t * 3
-                    let a = pos.[idx.[i]]
-                    let b = pos.[idx.[i + 1]]
-                    let c = pos.[idx.[i + 2]]
-                    if not (a.IsNaN || b.IsNaN || c.IsNaN) then
-                        let n = l2g.TransformDir (V3d (Vec.cross (b - a) (c - a)))
-                        let centroid = l2g.TransformPos (V3d ((a + b + c) / 3.0f))
-                        if Vec.dot n centroid > 0.0 then outward <- outward + 1
-                        else inward <- inward + 1
-                    t <- t + stride
-                if outward + inward = 0 then 0.0
-                else
-                    let flip = if inward > outward then 1.0 else 0.0
-                    Log.line "[opc]   winding: %d outward / %d inward -> NormalFlip %.0f"
-                        outward inward flip
-                    flip
-            | _ -> 0.0
-        with e ->
-            Log.warn "[opc]   could not estimate winding (%s); NormalFlip 0" e.Message
-            0.0
+        PRo3D.Core.NormalWinding.estimate basePath rootPatch
 
     /// Area-weighted centroid of the coarse root patch, in the body-fixed (global) frame:
     /// an estimate of the shape model's centre of figure that -- unlike a plain vertex
@@ -222,13 +196,44 @@ module OpcSg =
 
             let tree = PatchLod.toRoseTree h.tree
 
+            // Texture getters only when a layer was asked for: passing them
+            // unconditionally would change what every existing caller renders, and the
+            // patch default is what they have always got.
+            //
+            // The getters have to unwrap OpcRenderingExtensions.Context to reach the
+            // secondary-texture scope, exactly as Surface.Sg does -- captureContext (which
+            // this shares with the viewer) hands the LOD scope over as that record, not as
+            // the raw scope SecondaryTexture expects.
+            let paths = OpcPaths.OpcPaths basePath
+            let withScope f (lodScope : obj) (r : PatchLod.RenderPatch) =
+                let context = unbox<OpcRenderingExtensions.Context> lodScope
+                f paths context.texturesScope r
+            let textures, attributes =
+                match cfg.textureLayer with
+                | None -> None, None
+                | Some _ ->
+                    Some (withScope SecondaryTexture.textures),
+                    Some (withScope SecondaryTexture.vertexAttributes)
+
             PatchLod.PatchNode(
                 cfg.signature, cfg.runner, basePath, cfg.lodDecider,
                 cfg.useCompressedTextures, true, ViewerModality.XYZ,
                 PatchLod.CoordinatesMapping.Local, cfg.asyncLoading,
                 OpcRenderingExtensions.captureContext,
                 ImageProjectionOpcExtensions.projectionUniformMap,
-                tree, None, None, PixImagePfim.Loader)
+                tree, textures, attributes, PixImagePfim.Loader)
+            |> fun sg ->
+                match cfg.textureLayer with
+                | None -> sg :> ISg
+                | Some idx ->
+                    let attr : AttributeParameters =
+                        {
+                            selectedTexture =
+                                Some { texture = TextureReference.LegacyId idx
+                                       channel = ChannelReference.NoChannelSelection }
+                            selectedScalar = None
+                        }
+                    sg |> Sg.AttributeParameters (AVal.constant attr)
             |> Sg.applyBody (AVal.constant (Some cfg.body))
             |> Sg.applyProjectedImages' (fun _ -> projectedImages)
             |> InstrumentImageVisualization.applyProperties imageSettings

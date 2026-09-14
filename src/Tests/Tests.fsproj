@@ -34,6 +34,7 @@
     <None Include="data\HSH_0CR7B2_250312T062000_1B_Stacked.tif" />
     <None Include="data\HSH_0CR7B2_250312T062000_1B_Stacked.tif.json" />
     <Compile Include="ProjectedImageMetadataTest.fs" />
+    <Compile Include="ProjectedImageStackTest.fs" />
     <Compile Include="InstrumentProjectionComparisonTest.fs" />
     <Compile Include="DidymosProjectionSpiceTest.fs" />
     <None Include="RemoteApi.rest" />
@@ -70,6 +71,7 @@
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
     <Compile Include="Features\Section20_BooleanOperations.fs" />
     <Compile Include="Pro3DToolTests.fs" />
+    <Compile Include="MbiSidecarTest.fs" />
     <Compile Include="Features\SnapshotSunLightingTest.fs" />
     <!-- after Features\TestHelpers.fs: these drive the real DrawingApp through the Draw harness -->
     <Compile Include="AdaptiveNestingTests.fs" />

@@ -92,8 +92,14 @@ type SimulateImageOptions =
         [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
         opc : string
 
-        [<Option("time", HelpText = "Observation time, ISO-8601 UTC (e.g. 2027-03-15T12:00:00Z)", Required = true)>]
+        [<Option("time", HelpText = "Observation time, ISO-8601 UTC (e.g. 2027-03-15T12:00:00Z). Required unless --mbi supplies the observation.")>]
         time : string
+
+        [<Option("mbi", HelpText = "Render the camera an existing image's .mbi.json sidecar defines, instead of a SPICE look-at camera at --time. Takes the image file or the sidecar; the epoch, instrument and pointing all come from it, so the result is directly comparable with that image.")>]
+        mbi : string
+
+        [<Option("write-mbi", HelpText = "Also write <out>.mbi.json and <out>.json describing the camera used, so the render can be imported into the PRo3D viewer and projected back onto the same body")>]
+        writeMbi : bool
 
         [<Option("out", HelpText = "Output PNG path (default: ./simulated.png)")>]
         out : string
@@ -148,6 +154,21 @@ type SimulateImageOptions =
 
         [<Option("no-shadows", HelpText = "Skip the sun shadow map; shading then comes from the local sun angle alone")>]
         noShadows : bool
+
+        [<Option("no-lighting", HelpText = "Render a flat white disk instead of a shaded body: the image is then the silhouette, for comparing pointing and shape against a real frame without shading in the way")>]
+        noLighting : bool
+
+        [<Option("texture-layer", HelpText = "Which texture layer of the OPC to draw, by name ('DRACO_1') or index ('8'); the names come from the .opcx and are listed if the one given does not match. Default: the patch's own default layer, which is NOT necessarily what a PRo3D scene shows -- a scene stores its own selectedTexture, so the same OPC can render as 'Earth' here and 'DRACO_1' in the viewer. Match this to the scene's selectedTexture before comparing a render against a viewer screenshot.")>]
+        textureLayer : string
+
+        [<Option("texture-only", HelpText = "Render the OPC's own texture as this camera sees it: no lighting, and no de-shading fit. Unlike --deshade, which fits a light direction, clamps the result and falls back to a constant albedo where it has no confidence. Use --texture-layer to choose which layer.")>]
+        textureOnly : bool
+
+        [<Option("project", HelpText = "Project this image onto the body instead of shading it, through PRo3D's projection shader, and render the result. With no --mbi the camera is that image's own, so the output must reproduce the input image -- which is what makes the projection checkable rather than merely plausible.")>]
+        project : string
+
+        [<Option("project-shader", HelpText = "Which projection shader --project goes through: 'single' (default, stableImageProjection -- what sun-angles and the testbeds use) or 'stack' (stableImageProjectionStack, a one-layer stack -- what the viewer renders). Rendering the same image both ways isolates the stack path.")>]
+        projectShader : string
 
         [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002); raise against acne, lower against peter-panning")>]
         shadowBias : float

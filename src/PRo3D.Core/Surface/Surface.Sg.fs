@@ -452,8 +452,19 @@ module Sg =
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
-            |> Array.map (fun h ->      
-                let patchLodWithTextures = 
+            |> Array.map (fun h ->
+                // Winding vote for the projection shaders' projector-facing test; it
+                // reads the root patch from disk, so it is only taken once something is
+                // projected onto this hierarchy (see normalFlipUniform).
+                let normalFlip =
+                    lazy (match h.tree with
+                          | QTree.Node (p, _) | QTree.Leaf p ->
+                              NormalWinding.estimate h.opcPaths.Opc_DirAbsPath p)
+                let uniforms =
+                    allUniforms
+                    |> Map.add "NormalFlip" (ImageProjectionOpcExtensions.normalFlipUniform normalFlip)
+
+                let patchLodWithTextures =
 
                     let extractTextureScope f (p : OpcPaths) (lodScope : obj) (r : RenderPatch) =
                         let context = unbox<OpcRenderingExtensions.Context> lodScope
@@ -541,14 +552,14 @@ module Sg =
                         PatchLod.CoordinatesMapping.Local, 
                         useAsyncLoading, 
                         OpcRenderingExtensions.captureContext, 
-                        allUniforms,
+                        uniforms,
                         PatchLod.toRoseTree h.tree,
                         Some (getTextures h.opcPaths), 
                         Some (getVertexAttributes h.opcPaths), 
                         Aardvark.Data.PixImagePfim.Loader
                     )
                 //plainPatchLod
-                patchLodWithTextures
+                (patchLodWithTextures :> ISg)
             )
             |> Aardvark.SceneGraph.SgFSharp.Sg.ofArray
                                                                       

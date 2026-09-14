@@ -11,7 +11,13 @@ Part of [`pro3d-tool`](./Pro3DTool.md) — see there for installation, test data
 
 ```
 pro3d-tool simulate-image --opc <body-opc> --time <iso8601-utc> [options]
+pro3d-tool simulate-image --opc <body-opc> --mbi <image-or-sidecar> [options]
 ```
+
+The second form renders through the camera an existing image's `.mbi.json`
+sidecar describes, instead of a look-at camera at `--time`. Together with
+`--write-mbi` (below) that turns the verb into a way to *check* the projection
+chain rather than only to picture it.
 
 ## What goes into the image
 
@@ -49,7 +55,9 @@ Output is one 8-bit greyscale PNG at the instrument's native size.
 | Option | Effect |
 |---|---|
 | `--opc <dir>` | OPC directory of the body (required) |
-| `--time <iso8601>` | observation time, UTC, e.g. `2027-03-15T19:00:00Z` (required) |
+| `--time <iso8601>` | observation time, UTC, e.g. `2027-03-15T19:00:00Z` (required unless `--mbi` is given) |
+| `--mbi <file>` | render the camera an existing image's `.mbi.json` declares; takes the image or the sidecar. Epoch, instrument and pointing all come from it |
+| `--write-mbi` | also write `<out>.mbi.json` and `<out>.json`, so the render can be imported into the viewer and projected back |
 | `--out <file>` | output PNG (default `./simulated.png`) |
 | `--instrument <frame>` | SPICE instrument frame (default `HERA_AFC-1`) |
 | `--observer <name>` | spacecraft carrying the instrument (default `HERA`) |
@@ -68,6 +76,19 @@ Output is one 8-bit greyscale PNG at the instrument's native size.
 | `--gain <v>` | fixed I/F→DN gain; `0` (default) auto-exposes |
 | `--no-shadows` | skip the sun shadow map |
 | `--shadow-bias <v>` | shadow depth bias (default `0.002`) |
+| `--no-lighting` | flat white disk instead of a shaded body — the silhouette, for comparing pointing and shape without shading in the way |
+| `--texture-only` | the OPC's own texture as this camera sees it: no lighting, no de-shading fit |
+| `--texture-layer <name|index>` | which texture layer `--texture-only` draws, by name (`DRACO_2`) or index. **Default is the patch's own default layer, which is not necessarily the one a PRo3D scene displays** — a scene stores its own `selectedTexture`. An unmatched name lists what the OPC declares. |
+| `--project <image>` | project this image onto the body through PRo3D's projection shader instead of shading it. With no `--mbi` the camera is that image's own, so the output must reproduce the input |
+| `--project-shader <single|stack>` | which shader `--project` goes through: `single` (default, what sun-angles and the testbeds compose) or `stack` (a one-layer stack — what the viewer renders) |
+
+## Generating a projection test set
+
+[`scripts/make-projection-test-data.py`](../scripts/make-projection-test-data.py)
+drives this verb to produce a set of AFC-1 frames with sidecars plus a PRo3D scene
+set up to project them, and checks every sidecar it writes against the boresight
+invariant. See [ProjectionValidation.md](./ProjectionValidation.md) for what that
+data is used to prove.
 
 ## Example
 
@@ -130,11 +151,46 @@ carried by the constant albedo plus micro-structure. Since micro-structure below
 scale (≈ 0.85 m/px at 9 km for AFC) averages out, raise `--micro-scale` when rendering
 from far away — or move closer with `--distance`.
 
+## Writing an mbi sidecar
+
+`--write-mbi` writes two files next to the PNG:
+
+- `<out>.mbi.json` — the observation, in the convention PRo3D reads
+  (see [COP-sidecar-issues.md](./COP-sidecar-issues.md#pointing--issues-5-6-and-7)):
+  `SC_QUAT0..3` is the **spacecraft → J2000** quaternion, `TRG_POSX/Y/Z` is
+  **target minus spacecraft** in km, J2000 axes, centred on `TARGET`.
+- `<out>.json` — the statistics sidecar, whose only load-bearing content is the
+  pixel size that `unproject` needs to turn a pixel into a ray.
+
+Drop the pair into a folder, import it in the viewer's GIS tab and project it
+onto the same OPC: the image lands exactly on the terrain it was rendered from.
+Anything else is a real disagreement — a wrong texture layer, a shifted OPC, or
+a projection bug — and no longer a question of whether the metadata was right.
+
+The geometry is not asserted, it is measured. The sidecar is derived by
+inverting the viewer's own projector chain, then read straight back through
+`Visualization.projectDirect` — the same call the viewer makes — and the
+disagreement is reported:
+
+```
+[mbi] round trip: boresight 0.000001 deg, worst corner 0.000 px, max matrix element 1.648e-011
+```
+
+Anything past a tenth of a pixel is a warning: the viewer would reconstruct a
+different camera than the one the image was rendered with, and the projection
+would not overlay. (`src/Tests/MbiSidecarTest.fs` asserts the same round trip,
+and pins the convention against the three real HERA sidecars in the fixtures.)
+
+Because the sidecar states the convention in a file that demonstrably works, it
+also serves as the reference to hand to a data generator whose own sidecars do
+not project.
+
 ## Caveats
 
 - **Pointing is look-at, not CK.** The boresight is aimed at the body centre and the roll
   around it follows an up-vector convention. Real AFC pointing (and its jitter) would come
-  from a CK; the frame edge and rotation of a real image will differ.
+  from a CK; the frame edge and rotation of a real image will differ. `--mbi` sidesteps
+  this where a real observation exists: it takes the measured attitude from the sidecar.
 - **De-shading is approximate.** The baked illumination is divided out with a Lambert
   term of a *fitted* light direction, while the true baked radiance is Lommel-Seeliger
   under an unknown acquisition geometry (and the mosaic blends several frames). Residual
@@ -167,7 +223,8 @@ from far away — or move closer with `--distance`.
   low-phase realism (opposition surge) beyond Lommel-Seeliger.
 - **Tessellation-based displacement** so micro-structure gains silhouettes and cast
   shadows, instead of normal perturbation.
-- **Real CK pointing** (`--pointing ck`) for epochs with attitude coverage.
+- **Real CK pointing** (`--pointing ck`) for epochs with attitude coverage. `--mbi` already
+  covers the case where a sidecar carries the measured attitude.
 - **Detector chain**: PSF convolution, Poisson/read noise, 12-bit quantisation.
 - **Float I/F output + provenance sidecar** for quantitative consumers, mirroring
   `sun-angles`.

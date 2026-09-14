@@ -104,6 +104,7 @@ module SunShadowMap =
         |> Sg.uniform' "LodVisEnabled" false
         |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
         |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
+        |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
         |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId
             (AVal.constant (Some { texture = TextureReference.LegacyId 0
                                    channel = ChannelReference.NoChannelSelection }))

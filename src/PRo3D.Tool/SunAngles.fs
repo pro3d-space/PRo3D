@@ -144,6 +144,7 @@ let withOpcScaffolding (sg : ISg) =
     |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
     // Cross-section clipping (releases/6.0.0) is another OPC-surface Ag attribute.
     |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
+    |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
     |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId
         (AVal.constant (Some { texture = TextureReference.LegacyId 0
                                channel = ChannelReference.NoChannelSelection }))
@@ -261,7 +262,9 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
         AVal.constant (
             Some {
                 imageProjection = AVal.constant (Some cam.full)
-                localImageProjectionTrafos = AVal.constant [||]
+                stackProjections = AVal.constant [||]
+                stackCoverageEnabled = AVal.constant false
+                hoveredProjection = AVal.constant None
                 sunDirection = AVal.constant (Some sun)
                 sunLightEnabled = AVal.constant true
                 lightViewProj = AVal.constant None

@@ -20,6 +20,8 @@ Start at [../AGENTS.md](../AGENTS.md) for build/dependency/project-structure bas
 | Add a custom shader/effect (outline, multitexture) | [RENDERING.md](RENDERING.md#shaders--effects) |
 | Coordinate transforms / planetary reference systems | [DOMAIN.md](DOMAIN.md#reference-systems--spice) |
 | GIS entities / SPICE observation setup | [DOMAIN.md](DOMAIN.md#gis) |
+| Verify a change (Expecto unit tests, Playwright UI/rendering tests) | [TESTING.md](TESTING.md) |
+| Drive the real app's UI in a test / take verified screenshots | [TESTING.md](TESTING.md) + [../tests-ui/README.md](../tests-ui/README.md) |
 | Drive PRo3D from the command line | [AUTOMATION.md](AUTOMATION.md#command-line) |
 | Control PRo3D remotely (HTTP API) | [AUTOMATION.md](AUTOMATION.md#remote-api) |
 | Headless / batch rendering (snapshots) | [AUTOMATION.md](AUTOMATION.md#snapshots--headless-rendering) |
@@ -51,6 +53,7 @@ Start at [../AGENTS.md](../AGENTS.md) for build/dependency/project-structure bas
 - **[DOMAIN.md](DOMAIN.md)** — The planetary-science domain: surfaces, the shared groups hierarchy, drawing/annotations, reference systems & SPICE coordinate transforms, GIS, bookmarks, scale bars, geologic surfaces, scene objects, traverses, transformations/false-color, and queries.
 - **[RENDERING.md](RENDERING.md)** — OPC terrain data and level-of-detail, scene-graph construction for surfaces, custom shaders/effects, and KdTree-based picking/intersection. Points at the external `Aardvark.GeoSpatial.Opc` / `OPCViewer.Base` repos.
 - **[AUTOMATION.md](AUTOMATION.md)** — Non-interactive use: command-line arguments, the remote HTTP API, headless snapshot/batch rendering, and provenance recording/replay.
+- **[TESTING.md](TESTING.md)** — How to verify changes: the Expecto suite (`src/Tests`) for models/math, and the Playwright harness (`tests-ui/`) that drives the real viewer and judges rendered screenshots — use it for any viewer-behavior change instead of declaring victory from a green build.
 
 ## See Also
 

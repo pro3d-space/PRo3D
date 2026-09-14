@@ -32,6 +32,7 @@
     <Compile Include="Spice.fs" />
     <Compile Include="KdTree.fs" />
     <Compile Include="SunAngles.fs" />
+    <Compile Include="MbiSidecar.fs" />
     <Compile Include="Unproject.fs" />
     <Compile Include="SimulateShaders.fs" />
     <Compile Include="SimulateImage.fs" />

@@ -56,6 +56,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         SbmtImportAlignmentTest.tests parameters
 
         ProjectedImageMetadataTest.tests()
+        ProjectedImageStackTest.tests()
 
         // *.opc.json sidecars; the fixture-backed case self-skips without the data
         OpcSidecarTests.tests()
@@ -75,6 +76,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // than doing its own Init/DeInit, so it adds no swap of its own. Its kdtree
         // cases need neither kernels nor a GPU and always run.
         Pro3DToolTests.tests()
+        MbiSidecarTest.tests()
 
         // unproject: the pixel addressing and table cases need no data; the shape-model
         // cross-check reuses the same kernel tracking and self-skips without kernels.
