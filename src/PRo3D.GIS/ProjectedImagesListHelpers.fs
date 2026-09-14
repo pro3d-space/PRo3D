@@ -222,6 +222,7 @@ module ProjectedImagesListAppHelper =
                 imageProjection = imageTrafo
                 stackProjections = stackProjections
                 hoveredProjection = hoveredProjection
+                windingCorrection = g.projectedImageList.windingCorrection
                 // coverage view: tint by how many stack layers cover a fragment
                 stackCoverageEnabled =
                     g.projectedImageList.instrumentVisibility

@@ -23,7 +23,7 @@ module ObservationInfo =
         | ObservationInfoAction.SetObserver observer ->
             {m with observer = observer}
         | ObservationInfoAction.SetTime time ->
-            {m with time = {m.time with date = time}}
+            {m with time = {m.time with date = Calendar.toUtc time}}
         | ObservationInfoAction.SetReferenceFrame frame ->
             {m with referenceFrame = frame}
         | ObservationInfoAction.Reset -> 
@@ -86,7 +86,10 @@ module ObservationInfo =
         {
             target         = None
             observer       = None
-            time           = { Calendar.init with date = System.DateTime.Parse("2025-03-10 19:08:12.60") }
+            // UTC, like every observation time. It used to be parsed without a zone,
+            // which SPICE then read as local time: the default epoch moved with the
+            // machine's time zone.
+            time           = { Calendar.init with date = System.DateTime(2025, 3, 10, 19, 8, 12, 600, System.DateTimeKind.Utc) }
             referenceFrame = None
         }
 

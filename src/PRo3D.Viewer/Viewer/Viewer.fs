@@ -2439,26 +2439,9 @@ module ViewerApp =
             let m, gisApp =
                 match msg with
                 | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage imageId) ->
-                    // Set the scene time to the image's epoch FIRST, then compute the
-                    // camera: the camera is carried into render space by the surface's
-                    // placement, which depends on the clock -- the other order leaves the
-                    // body rotated out from under it. The projector itself is independent of
-                    // the scene time; the sun, the placement and kernel coverage are not.
-                    let gisApp =
-                        match PRo3D.ImageMapping.ProjectedImageListModel.tryFind imageId gisApp.projectedImageList with
-                        | None -> gisApp
-                        | Some image ->
-                            match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
-                            | Some mbi, _ ->
-                                let oi = gisApp.defaultObservationInfo
-                                if oi.time.date = mbi.obs_date then gisApp
-                                else
-                                    Log.line "[Viewer] fly-to: observation time %s -> %s (the image's epoch)"
-                                        (oi.time.date.ToUniversalTime().ToString "u") (mbi.obs_date.ToUniversalTime().ToString "u")
-                                    { gisApp with
-                                        defaultObservationInfo =
-                                            { oi with time = { oi.time with date = mbi.obs_date } } }
-                            | _ -> gisApp
+                    // GisApp.update has already moved the scene time to the image's
+                    // epoch; the camera must be computed from that time, because the
+                    // surface's placement that carries it into render space depends on it.
                     let m = Optic.set _gisApp gisApp m
                     let m =
                         match flyToImageCamera m imageId with

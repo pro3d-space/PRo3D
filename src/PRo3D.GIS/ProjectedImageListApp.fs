@@ -20,22 +20,7 @@ module ProjectedImageListApp =
 
     let loadDirMessage (dir : string) = ProjectedImageListMessage.LoadImagesDir dir
 
-    let initial : ProjectedImageListModel = {
-        images = IndexList.Empty;
-        stack = IndexList.Empty;
-        hoveredImage = None;
-        selectedImage = None;
-        editImages = HashSet.empty;
-        projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
-        boresightAdjustment = BoresightAdjustment.identity
-        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
-        instrumentVisibility = InstrumentVisibilityMode.Off
-        lightingMode = LightingMode.Off
-        // see the note on ProjectedImageListModel.initial -- Spice throws away the
-        // image's own attitude and aims at the body centre with a fixed roll
-        projectionMethod = ProjectionMethod.MbiBased
-        useTransferFunction = true
-    }
+    let initial : ProjectedImageListModel = ProjectedImageListModel.initial
 
     let update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) =
         match msg with
@@ -48,6 +33,8 @@ module ProjectedImageListApp =
             { m with projectionMethod = method }
         | ToggleTransferFunction ->
             { m with useTransferFunction = not m.useTransferFunction }
+        | ToggleWindingCorrection ->
+            { m with windingCorrection = not m.windingCorrection }
         | LoadSpiceAndTime _ ->
             // handled by GisApp.update, which owns the spice kernel + observation time state
             m
@@ -346,6 +333,17 @@ module ProjectedImageListApp =
                             div [] [text "Transfer Function:"]
                             div [style "margin-left: auto;"] [
                                 GuiEx.iconCheckBox m.useTransferFunction ToggleTransferFunction
+                            ]
+                        ]
+
+                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                            // for OPCs whose triangles are wound inward: without it the
+                            // projection only survives near the limb
+                            div [attribute "title" "Estimate each OPC hierarchy's triangle winding and correct inward-wound ones. Only needed when a projection survives only near the limb. Off costs nothing."] [
+                                text "Winding Correction:"
+                            ]
+                            div [style "margin-left: auto;"] [
+                                GuiEx.iconCheckBox m.windingCorrection ToggleWindingCorrection
                             ]
                         ]
 

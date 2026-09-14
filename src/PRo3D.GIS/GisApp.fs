@@ -119,27 +119,44 @@ module GisApp =
 
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
         let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
+        // UTC, like every observation time (see Calendar.toUtc)
+        let utc (y, mo, d) (h, mi, s) = DateTime(y, mo, d, h, mi, s, DateTimeKind.Utc)
         [
             {
-                minDate = DateTime.Parse("2025-03-12 12:07:08.00Z")
-                maxDate = DateTime.Parse("2025-03-12 12:10:08.00Z")
+                minDate = utc (2025, 3, 12) (12, 7, 8)
+                maxDate = utc (2025, 3, 12) (12, 10, 8)
                 value = getNumericInput 0.5 // 12 March 2025, 12:07
                 name    = "Deimos Flyby"
             };
             {
-                minDate = DateTime(2025, 3, 10)
-                maxDate = DateTime(2025, 3, 14)
+                minDate = utc (2025, 3, 10) (0, 0, 0)
+                maxDate = utc (2025, 3, 14) (0, 0, 0)
                 value = getNumericInput 0.6338 // 12 March 2025, 12:51
                 name    = "Mars Flyby"
             };
             {
-                minDate = DateTime(2026, 12, 12)
-                maxDate = DateTime(2026, 12, 16)
+                minDate = utc (2026, 12, 12) (0, 0, 0)
+                maxDate = utc (2026, 12, 16) (0, 0, 0)
                 value = getNumericInput 0.5
                 name    = "Didymos Orbital Insertion"
             }
         ]    
         
+    /// Every update that sets the scene time goes through here, and so through
+    /// ObservationInfoAction.SetTime (which holds it as UTC).
+    let private setObservationTime (date : DateTime) (m : GisApp) =
+        { m with defaultObservationInfo = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime date) }
+
+    /// Scene time := the image's observation time (fly-to, Load Spice and Time).
+    let private setObservationTimeToImage (mbi : InstrumentMetadata.Tiff_Mbi_Json.Mbi) (m : GisApp) =
+        let current = Calendar.toUtc m.defaultObservationInfo.time.date
+        let epoch = Calendar.toUtc mbi.obs_date
+        if current = epoch then m
+        else
+            Log.line "[GisApp] observation time %s -> %s (the image's epoch)"
+                (current.ToString "u") (epoch.ToString "u")
+            setObservationTime epoch m
+
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
                (viewer : 'viewer)
@@ -272,6 +289,17 @@ module GisApp =
             viewer, {m with cameraInObserver = not m.cameraInObserver}
         | GisAppAction.ToggleDrawMarkers -> 
             viewer, {m with showMarkers = not m.showMarkers }
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.FlyToImage imageId) ->
+            // The scene time goes to the image's epoch here, so the sun, the body's
+            // placement and kernel coverage match the image. The camera is the Viewer's:
+            // it frames the image after this returns, from the new time -- the other order
+            // leaves the body rotated out from under the camera.
+            match ProjectedImageListModel.tryFind imageId m.projectedImageList with
+            | None -> viewer, m
+            | Some image ->
+                match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
+                | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
+                | None, _ -> viewer, m
         | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.LoadSpiceAndTime directory) ->
             if String.IsNullOrEmpty directory then
                 viewer, m // user cancelled the folder dialog
@@ -290,8 +318,7 @@ module GisApp =
                         Log.warn "[GisApp] selected image has no mbi sidecar metadata"
                         viewer, m
                     | Some mbi, _ ->
-                        let info = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime mbi.obs_date)
-                        let m = {m with defaultObservationInfo = info}
+                        let m = setObservationTimeToImage mbi m
                         match mbi.spiceMk with
                         | None ->
                             Log.warn "[GisApp] selected image's mbi sidecar does not declare a SPICE_MK kernel name"
@@ -310,17 +337,16 @@ module GisApp =
              viewer, {m with missionTimesEntries = Some (IndexList.ofList data) }
         | GisAppAction.SetMissionTimesRowAndSetDate (entry, rowIdx) ->
             let date = entry.minDate + (entry.maxDate - entry.minDate) * entry.value.value
-            let defaultObservationInfo = {m.defaultObservationInfo with time = {m.defaultObservationInfo.time with date = date}}
-            viewer, {m with selectedMissionTimeRow = Some rowIdx; defaultObservationInfo = defaultObservationInfo}
+            viewer, {setObservationTime date m with selectedMissionTimeRow = Some rowIdx}
         | GisAppAction.SetTime (entry, idx, sliderValue) ->
             let date = entry.minDate + (entry.maxDate - entry.minDate) * sliderValue
-            let defaultObservationInfo = {m.defaultObservationInfo with time = {m.defaultObservationInfo.time with date = date}}
-            let missionTimesEntries = 
+            let m = setObservationTime date m
+            let missionTimesEntries =
                 m.missionTimesEntries
                 |> Option.map (fun entries ->
                     entries |> IndexList.update idx (fun e -> { e with value = { e.value with value = sliderValue }})
                 )
-            viewer, {m with missionTimesEntries = missionTimesEntries; defaultObservationInfo = defaultObservationInfo}
+            viewer, {m with missionTimesEntries = missionTimesEntries}
         | GisAppAction.Empty ->
             viewer, m
             
@@ -697,9 +723,29 @@ module GisApp =
             }
         Incremental.div AttributeMap.empty info
 
+    /// The OPC surfaces the image projection refuses to paint, and why (#741). Empty,
+    /// and invisible, while there are none.
+    let private viewProjectionRefusals (surfaces : AdaptiveSurfaceModel) =
+        let refused =
+            surfaces.surfaces.flat
+            |> AMap.chooseA (fun _ leaf ->
+                match leaf with
+                | AdaptiveSurfaces s ->
+                    (s.name, ProjectionPreconditions.refusalOf s)
+                    ||> AVal.map2 (fun name why -> why |> Option.map (fun why -> name, why))
+                | _ -> AVal.constant None)
+            |> AMap.toASetValues
+            |> ASet.sortBy fst
+        Incremental.div AttributeMap.empty (
+            refused |> AList.map (fun (name, why) ->
+                div [clazz "ui inverted red segment"; style "padding: 5px; margin: 4px 0"
+                     attribute "title" ProjectionPreconditions.issueUrl] [
+                    text (sprintf "No image projection on %s: %s, and the projection cannot follow it yet (issue #741)." name why)
+                ]))
+
     let view (m : AdaptiveGisApp)
              (surfaces : AdaptiveSurfaceModel)
-             (bookmarks : SequencedBookmarks.AdaptiveSequencedBookmarks) =  
+             (bookmarks : SequencedBookmarks.AdaptiveSequencedBookmarks) =
         let bookmarkGisInfo =
             alist {
                 let! (id : option<System.Guid>) = bookmarks.selectedBookmark 
@@ -743,6 +789,7 @@ module GisApp =
             ]
 
             GuiEx.accordion "Projected Images" "Images" false [
+                viewProjectionRefusals surfaces
                 ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative |> UI.map GisAppAction.ProjectedImageListMessage
             ]
             

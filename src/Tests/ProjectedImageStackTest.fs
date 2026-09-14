@@ -3,6 +3,7 @@ module ProjectedImageStackTest
 open System
 open Expecto
 open Aardvark.Base
+open Aardvark.Rendering
 open FSharp.Data.Adaptive
 
 open PRo3D.ImageMapping
@@ -201,6 +202,19 @@ let tests () =
                 | Result.Error e -> failtestf "parse failed: %A" e
             }
 
+            test "obs_date is held as UTC, whichever fallback produced it" {
+                // DateTime equality ignores the kind: a Local obs_date compared against
+                // a UTC scene time is off by the machine's UTC offset (#741)
+                match InstrumentMetadata.Tiff_Mbi_Json.tryParseJsonForFile (Some "HERA_AFC_2317_20270301_040000_COP.png") copSidecar,
+                      InstrumentMetadata.Tiff_Mbi_Json.tryParseJson copSidecar with
+                | Result.Ok fromName, Result.Ok fromDate ->
+                    Expect.equal fromName.obs_date.Kind DateTimeKind.Utc "file-name timestamp: UTC kind"
+                    Expect.equal fromName.obs_date (DateTime(2027, 3, 1, 4, 0, 0, DateTimeKind.Utc)) "file-name timestamp: 04:00 UTC without conversion"
+                    Expect.equal fromDate.obs_date.Kind DateTimeKind.Utc "DATE: UTC kind"
+                    Expect.equal fromDate.obs_date (DateTime(2027, 2, 5, 1, 0, 0, DateTimeKind.Utc)) "DATE: 01:00 UTC without conversion"
+                | r -> failtestf "parse failed: %A" r
+            }
+
             test "file names without a timestamp yield no time" {
                 Expect.isNone
                     (InstrumentMetadata.Tiff_Mbi_Json.tryParseTimestampFromFileName "HSH_0CR7B2_250312T062000_1B_Stacked.tif")
@@ -210,6 +224,77 @@ let tests () =
                      |> Option.map (fun d -> d.ToUniversalTime()))
                     (Some (DateTime(2027, 3, 1, 4, 0, 0, DateTimeKind.Utc)))
                     "the _yyyyMMdd_HHmmss_ convention parses"
+            }
+        ]
+
+        testList "windingCorrection" [
+            // A projector somewhere off the body looking at a patch whose Local2Global
+            // is a plain translation; the numbers only need to be generic.
+            let vp =
+                (CameraView.lookAt (V3d(0.0, -50.0, 20.0)) V3d.Zero V3d.OOI |> CameraView.viewTrafo)
+                * (Frustum.perspective 30.0 1.0 1000.0 1.0 |> Frustum.projTrafo)
+            let l2g = Trafo3d.Translation(1.5, -2.0, 0.5)
+            let notForced = lazy (failwith "the winding vote must not be taken")
+
+            test "off: the vote is never taken, the matrix is vp * Local2Global" {
+                let m = ImageProjectionOpcExtensions.toProjector notForced false l2g vp
+                Expect.equal m (vp.Forward * l2g.Forward) "plain composition"
+            }
+
+            test "on, outward-wound: unchanged" {
+                let m = ImageProjectionOpcExtensions.toProjector (lazy false) true l2g vp
+                Expect.equal m (vp.Forward * l2g.Forward) "no correction for an outward-wound hierarchy"
+            }
+
+            test "on, inward-wound: the footprint stays, the facing test flips" {
+                let plain = vp.Forward * l2g.Forward
+                let corrected = ImageProjectionOpcExtensions.toProjector (lazy true) true l2g vp
+                // what the shaders compute: position -> NDC, normal -> projector-space z
+                let ndc (m : M44d) (p : V3d) = let h = m * V4d(p, 1.0) in h.XYZ / h.W
+                let facingZ (m : M44d) (n : V3d) = (m * V4d(n, 0.0)).Z
+                for p in [ V3d.Zero; V3d(0.3, 0.1, -0.2); V3d(-1.0, 2.0, 0.5) ] do
+                    Expect.isLessThan (ndc corrected p - ndc plain p).Length 1e-12
+                        (sprintf "NDC of %A must not move" p)
+                for n in [ V3d.OOI; V3d.OIO; V3d(0.2, -0.7, 0.4).Normalized ] do
+                    Expect.equal (sign (facingZ corrected n)) (-(sign (facingZ plain n)))
+                        (sprintf "the facing test for %A must flip" n)
+            }
+        ]
+
+        testList "projectionPreconditions" [
+            // #741: what makes the viewer refuse to project onto a surface
+            test "an untransformed surface is projectable" {
+                Expect.isNone (ProjectionPreconditions.refusal Trafo3d.Identity false false) "identity, no axis swap"
+            }
+
+            test "a pre-transformation, Flip Z or SketchFab refuses the projection" {
+                Expect.isSome (ProjectionPreconditions.refusal (Trafo3d.Translation(0.0, 0.0, 1.0)) false false) "pre-transformation"
+                Expect.isSome (ProjectionPreconditions.refusal Trafo3d.Identity true false) "Flip Z"
+                Expect.isSome (ProjectionPreconditions.refusal Trafo3d.Identity false true) "SketchFab"
+            }
+
+            test "a refused surface loses the projection but keeps its sun lighting" {
+                let p : Sg.ProjectedImages =
+                    {
+                        imageProjection = AVal.constant (Some Trafo3d.Identity)
+                        stackProjections =
+                            AVal.constant [| ({ trafo = Some Trafo3d.Identity; minMax = V2f.OI; texturePath = "a"; channel = 0 } : Sg.ProjectedStackLayer) |]
+                        stackCoverageEnabled = AVal.constant true
+                        hoveredProjection = AVal.constant (Some Trafo3d.Identity)
+                        windingCorrection = AVal.constant false
+                        sunDirection = AVal.constant (Some V3d.OOI)
+                        sunLightEnabled = AVal.constant true
+                        lightViewProj = AVal.constant None
+                    }
+                let refused = cval true
+                let gated = ProjectionPreconditions.withoutProjection refused p
+                Expect.isEmpty (AVal.force gated.stackProjections) "no stack layer"
+                Expect.isNone (AVal.force gated.hoveredProjection) "no hover footprint"
+                Expect.isNone (AVal.force gated.imageProjection) "no single-image projector"
+                Expect.isFalse (AVal.force gated.stackCoverageEnabled) "no coverage tint"
+                Expect.isTrue (AVal.force gated.sunLightEnabled) "sun lighting untouched"
+                transact (fun () -> refused.Value <- false)
+                Expect.equal (AVal.force gated.stackProjections).Length 1 "the projection returns with the surface's transformation"
             }
         ]
     ]

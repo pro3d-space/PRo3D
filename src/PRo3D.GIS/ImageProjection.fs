@@ -301,9 +301,11 @@ module ImageProjection =
 
         // Per-dataset winding correction, composed AFTER generateNormal: OPC exports
         // disagree on triangle winding, and the projector-facing test needs outward
-        // normals. NormalFlip comes from NormalWinding.estimate -- bound eagerly by the
-        // offscreen tools, and per patch (lazily, only while projecting) by the viewer.
+        // normals. NormalFlip comes from NormalWinding.estimate, bound per hierarchy by
+        // the offscreen tools (OpcSg.build), whose shading reads the flipped normal too.
         // Every scene graph composing this must bind NormalFlip; an unbound uniform throws.
+        // The viewer does not compose this: it corrects the projector matrices instead
+        // (ImageProjectionOpcExtensions.toProjector), opt-in and free when off.
         let applyNormalFlip (v : NormalVertex) =
             vertex {
                 return { v with localNormal = if uniform.NormalFlip > 0.5f then -v.localNormal else v.localNormal }

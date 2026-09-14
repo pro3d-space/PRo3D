@@ -265,6 +265,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
                 stackProjections = AVal.constant [||]
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None
+                windingCorrection = AVal.constant false
                 sunDirection = AVal.constant (Some sun)
                 sunLightEnabled = AVal.constant true
                 lightViewProj = AVal.constant None

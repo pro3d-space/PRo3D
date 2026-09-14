@@ -1007,12 +1007,11 @@ module ViewerUtils =
             Shader.stableTrafo       |> toEffect
             Shader.triangleSizeFilter   |> toEffect
             
+            // No applyNormalFlip here: inward-wound OPCs are corrected by negating the
+            // projector matrices on the CPU (ImageProjectionOpcExtensions.toProjector),
+            // which the projector-facing tests below read. Terrain lighting does not
+            // care either way: solarShadingLS orients the normal itself.
             ImageProjection.Shaders.generateNormal |> toEffect
-            // Must follow generateNormal and precede anything that tests the normal
-            // against the PROJECTOR (stableImageProjectionStack, projectedStackCoverage,
-            // hoveredProjectionOutline). NormalFlip is bound per patch in Surface.Sg.
-            // Terrain lighting does not care: solarShadingLS orients the normal itself.
-            ImageProjection.Shaders.applyNormalFlip |> toEffect
 
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
@@ -1223,14 +1222,16 @@ module ViewerUtils =
                 (PRo3D.GIS.ProjectedImagesListAppHelper.getStackTextureLayers m.scene.gisApp)
 
 
-        let wrapGisData (surfaceId : Guid) (surfaceTrafo : aval<Trafo3d>) (sg : ISg<_>) =
+        let wrapGisData (surfaceId : Guid) (surfaceTrafo : aval<Trafo3d>) (projectionRefused : aval<bool>) (sg : ISg<_>) =
             let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
             let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
             let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
 
             // per surface, shared by the per-patch applicator and the frustum
             // wireframe (does not depend on the body value)
-            let projData = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
+            let projData =
+                PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
+                |> Option.map (ProjectionPreconditions.withoutProjection projectionRefused)
 
             let wrapped =
                 sg
@@ -1323,10 +1324,12 @@ module ViewerUtils =
                             |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
 
+                    let surfaceModel = AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
+
                     // the surface's placement, for overlays that live outside
                     // the surface's own Sg subtree (the hovered-frustum lines)
                     let surfaceTrafo =
-                        AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
+                        surfaceModel
                         |> AVal.bind (function
                             | Some (AdaptiveSurfaces s) ->
                                 adaptive {
@@ -1336,8 +1339,16 @@ module ViewerUtils =
                                 }
                             | _ -> AVal.constant Trafo3d.Identity)
 
+                    // #741: no image projection where the OPC's coordinates are not
+                    // the body-fixed frame (GisApp.view names such surfaces)
+                    let projectionRefused =
+                        surfaceModel
+                        |> AVal.bind (function
+                            | Some (AdaptiveSurfaces s) -> ProjectionPreconditions.refusalOf s |> AVal.map Option.isSome
+                            | _ -> AVal.constant false)
+
                     surfaceSg
-                    |> wrapGisData guid surfaceTrafo
+                    |> wrapGisData guid surfaceTrafo projectionRefused
                 )
 
             let depthComposed = 

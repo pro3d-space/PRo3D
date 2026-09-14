@@ -59,14 +59,13 @@ type ObservationInfo = {
         json {
             let! target         = Json.read    "target"        
             let! observer       = Json.read    "observer"      
-            let! time           = Json.read    "time"     
-            let success, time =
-                DateTime.TryParse time
-            let time = 
-                if success then
-                    Calendar.fromDate time
-                else
-                    Calendar.fromDate DateTime.Now
+            // written as UTC with a "Z" (Chiron's DateTime codec), read back as
+            // DateTimeKind.Utc -- the same instant as before, only no longer local
+            let! time           = Json.read    "time"
+            let time =
+                match Calendar.tryParseUtc time with
+                | Some time -> Calendar.fromDate time
+                | None -> Calendar.fromDate DateTime.UtcNow
             let! referenceFrame = Json.tryRead "referenceFrame"
             
             return {
@@ -173,6 +172,7 @@ module GisAppJson =
             let! (lightingMode : Option<int>) = Json.tryRead "lightingMode"
             let lightingMode =
                 lightingMode |> Option.map enum<LightingMode> |> Option.defaultValue LightingMode.Off
+            let! (windingCorrection : Option<bool>) = Json.tryRead "windingCorrection"
 
             return {
                 version                = GisApp.current
@@ -185,7 +185,10 @@ module GisAppJson =
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
-                projectedImageList        = { ProjectedImageListModel.initial with lightingMode = lightingMode }
+                projectedImageList        =
+                    { ProjectedImageListModel.initial with
+                        lightingMode = lightingMode
+                        windingCorrection = Option.defaultValue false windingCorrection }
                 showMarkers            = Option.defaultValue false showMarkers
 
                 selectedMissionTimeRow = None
@@ -207,6 +210,9 @@ type GisApp with
             // the scene through this codec, so an unserialized mode would silently reset
             // to Off in every batch render.
             do! Json.write "lightingMode"            (int x.projectedImageList.lightingMode)
+            // a property of the scene's OPCs, so it travels with the scene (and into
+            // PRo3D.Snapshots) like the lighting mode
+            do! Json.write "windingCorrection"       x.projectedImageList.windingCorrection
         }
     static member FromJson (_ : GisApp) =
         json {

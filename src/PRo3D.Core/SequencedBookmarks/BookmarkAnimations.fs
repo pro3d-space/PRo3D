@@ -74,12 +74,14 @@ module BookmarkAnimations =
         let interpObservationInfo (src : Gis.ObservationInfo) (dst : Gis.ObservationInfo) =
             match src.valuesIfComplete, dst.valuesIfComplete with
             | Some (t1, o1, r1), Some (t2, o2, r2) -> 
-                let timeAnimation = 
-                    lerp src.time.date.Ticks dst.time.date.Ticks
+                // UTC ticks in, UTC kind out: a DateTime built from bare ticks is
+                // Unspecified, which SPICE reads as local time
+                let timeAnimation =
+                    lerp (Calendar.toUtc src.time.date).Ticks (Calendar.toUtc dst.time.date).Ticks
                     |> Animation.create
                     |> Animation.seconds 1 // necessary?
                     |> Animation.map (fun ticks ->
-                        let newCalendar =  {dst.time with date = new DateTime(ticks)}
+                        let newCalendar =  {dst.time with date = DateTime(ticks, DateTimeKind.Utc)}
                         let info : Gis.ObservationInfo = 
                             {
                                 target   = Some t2
