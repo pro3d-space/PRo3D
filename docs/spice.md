@@ -25,6 +25,9 @@ The components are:
  Caveats:
   - A legacy library for working with instruments is still handled directly via pro3d (JR.Wrappers provides the wrapper). This can be subsumed by SPICE the functionality is ready.
 
+ See also:
+  - [tests/SpiceKernels.md](tests/SpiceKernels.md) — getting ESA's HERA mission kernels for the test suite and for CI (`PRO3D_SPICE_KERNELS`). Those are the mission data files, distinct from the small default kernel set PRo3D itself ships and unpacks at startup.
+
 
 ## Details
 

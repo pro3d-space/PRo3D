@@ -15,18 +15,37 @@ open Aardvark.Base
 
 open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
+open PRo3D.SPICE
 
 module Coo = PRo3D.Base.CooTransformation
 
 let logDir = Path.Combine(".", "logs")
-let spiceRoot = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..")
-let spiceFileName = Path.Combine(spiceRoot, "spice", "kernels", "mk", "hera_ops.tm")
-let private mkDir = Path.Combine(spiceRoot, "spice", "kernels", "mk")
 
-// HERA tests need the (non-public) HERA mission kernels. They self-skip when
-// those are absent (e.g. in CI), or when --skip-hera is passed (runTests uses
-// this for a deterministic kernel-free run). Kernel-independent SPICE coverage
-// lives in SpiceTests.fs and always runs. (Adopted from releases/6.0.0.)
+/// The `kernels` directory of a HERA dataset -- the one holding `mk`, `ck`, `spk`, ... .
+///
+/// From $PRO3D_SPICE_KERNELS, which may name either the dataset root or `kernels` itself
+/// (as PRo3D.Tool reads it); otherwise a `spice` mirror next to the PRo3D clone. Not
+/// found means `hasHera` is false and the kernel tests skip.
+/// See docs/tests/SpiceKernels.md.
+let kernelsDir =
+    let sibling = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", "spice", "kernels")
+    let fromEnv =
+        match Environment.GetEnvironmentVariable "PRO3D_SPICE_KERNELS" with
+        | null | "" -> []
+        | value -> [ value; Path.Combine(value, "kernels") ]
+    fromEnv @ [ sibling ]
+    |> List.tryFind (fun dir -> Directory.Exists(Path.Combine(dir, "mk")))
+    |> Option.defaultValue sibling
+
+/// Directory holding the meta-kernels (`hera_ops.tm`, `hera_plan.tm`, `former_versions/...`).
+let mkDir = Path.Combine(kernelsDir, "mk")
+
+let spiceFileName = Path.Combine(mkDir, "hera_ops.tm")
+
+// The HERA mission kernels are ~1.3 GB, too large to commit. These tests self-skip
+// without them, and on --skip-hera even with them (runTests passes it, for a
+// deterministic kernel-free run). Kernel-independent SPICE coverage is in SpiceTests.fs.
+// CI gets them via scripts/fetch-spice-kernels.sh; see docs/tests/SpiceKernels.md.
 /// Public so other kernel-using tests can honour the flag too: --skip-hera promises a
 /// deterministic kernel-free run even on a machine that has the kernels.
 let skipHeraRequested =
@@ -35,31 +54,42 @@ let hasHera = File.Exists spiceFileName && not skipHeraRequested
 
 do Aardvark.Base.Aardvark.UnpackNativeDependencies(typeof<CooTransformation.RelState>.Assembly)
 
+let private spiceLock = obj()
+let private activeKernel : string option ref = ref None
+
 let init () =
     if not (Directory.Exists(logDir)) then
         Directory.CreateDirectory(logDir) |> ignore
 
     let r = CooTransformation.Init(true, Path.Combine(logDir, "CooTrafo.log"), 4, 4)
     if r <> 0 then failwith "init failed."
-    { new IDisposable with member x.Dispose() = CooTransformation.DeInit()}
+    { new IDisposable with
+        member x.Dispose() =
+            CooTransformation.DeInit()
+            // DeInit empties the pool, so the record of what is loaded has to go too --
+            // otherwise the next ensureKernelAt for that kernel decides it need not act.
+            lock spiceLock (fun () -> activeKernel.Value <- None) }
 
-// Different scenarios need different kernels: an mbi sidecar's own SPICE_MK field
-// names the exact meta-kernel it was generated against (e.g. HSH/AFC2 fixtures say
-// "hera_ops_v172_...", the ASPECT fixture says "hera_plan_v180_..."). Loading two
-// meta-kernels *on top of* each other was tried and breaks things: two ops
-// snapshots define conflicting CK segments for the same frame (HERA_HSH started
-// failing). There's also no native kernel-unload/kclear export to reach for
-// (checked PRo3D.SPICE-2's CooTransformation.dll exports directly -- only
-// AddSpiceKernel/DeInit/Init/GetRelState/GetPositionTransformationMatrix/etc,
-// nothing to unload a single kernel). So: track which single kernel is active,
-// and swap via DeInit+Init+AddSpiceKernel whenever a scenario needs a different
-// one -- verified empirically that a fresh Init with just the target kernel
-// resolves correctly (both for an isolated hera_ops_v172 and an isolated
-// hera_plan). Every caller (fixture-driven or generic) must re-request its
-// kernel immediately before making SPICE calls, since anyone could have swapped
-// it since the caller last checked.
-let private spiceLock = obj()
-let private activeKernel : string option ref = ref None
+// One meta-kernel at a time: there is no per-kernel unload, and layering two of them
+// makes conflicting CK segments for the same frame silently win over each other. So track
+// which one is active and reset the pool (DeInit + Init + furnsh) when a scenario needs a
+// different one. An mbi sidecar's SPICE_MK field says which that is. Every caller has to
+// re-request its kernel immediately before its SPICE calls, since anyone may have swapped
+// it since.
+//
+// Switching goes through CooTransformation.switchKernel, as the viewer does, for two
+// reasons documented in docs/tests/SpiceKernels.md: it rewrites PATH_VALUES to an absolute
+// path before the furnsh, so nothing SPICE stores depends on the working directory (this
+// used to chdir instead, which broke once a swap crossed from mk/ to mk/former_versions/),
+// and the swap has to hold the projection lock, because it empties the pool.
+let private cooTrafoInitialized =
+    lazy (
+        // switchKernel reinitializes with the log directory initCooTrafo recorded, so the
+        // suite has to have been through initCooTrafo at least once -- it has, unless
+        // someone runs only these tests.
+        let appData =
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Pro3D")
+        Coo.initCooTrafo None appData)
 
 let ensureKernelAt (candidates : string list) : unit =
     lock spiceLock (fun () ->
@@ -68,18 +98,13 @@ let ensureKernelAt (candidates : string list) : unit =
         | Some path ->
             let fullPath = Path.GetFullPath(path)
             if activeKernel.Value <> Some fullPath then
-                CooTransformation.DeInit()
-                let r = CooTransformation.Init(true, Path.Combine(logDir, "CooTrafo.log"), 4, 4)
-                if r <> 0 then failwith "init failed."
-                // Deliberately not restored: some binary kernels (e.g. CK data for
-                // instrument frames) get reopened by CSPICE on later queries, not
-                // just at furnsh_c time, and that reopen fails with FILEOPENFAIL if
-                // the CWD has since moved away from the kernel's own directory.
-                // Leave CWD parked here for as long as this kernel stays active.
-                System.Environment.CurrentDirectory <- Path.GetDirectoryName(fullPath)
-                let addResult = CooTransformation.AddSpiceKernel(fullPath)
-                if addResult <> 0 then
-                    printfn "[HeraSpiceTests] failed to add kernel %s (result %d)" fullPath addResult
+                cooTrafoInitialized.Force()
+                // The projection lock, not just this module's: a swap during another
+                // thread's SPICE call mixes two kernel sets, or crashes it.
+                InstrumentProjection.withSpiceLock (fun () ->
+                    match Coo.switchKernel (Path.GetDirectoryName fullPath) (Path.GetFileName fullPath) with
+                    | Some _ -> ()
+                    | None -> printfn "[HeraSpiceTests] failed to load kernel %s" fullPath)
                 activeKernel.Value <- Some fullPath)
 
 let ensureOpsKernel () : unit =

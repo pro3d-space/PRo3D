@@ -75,6 +75,9 @@ testbed-output/
 /__pycache__
 /profileDrawing/__pycache__
 
+# SPICE kernels fetched by scripts/fetch-spice-kernels.sh (~1.3 GB of ESA data)
+/spice/
+
 # test run artifacts
 /Aardvark.log
 /logs/
