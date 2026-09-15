@@ -56,6 +56,7 @@ Current specs:
 | `stack-ui` | add/toggle/reorder/remove through the GIS tab |
 | `hover-flyto` | hover preview + footprint, exact reversion, fly-to camera move |
 | `looking-at-dimorphos` | fly-to lands looking at the body, at the size the sidecar's range predicts |
+| `scene-body` | the planet and the GIS observed body are one setting (#758): a GIS-only scene gets its planet on load and map view navigates; a J2000 scene loads unchanged and switches to body-fixed on request; picking the planet sets up the GIS |
 
 ### `projection-e2e` — generate, project, compare
 
@@ -74,7 +75,10 @@ The regression test for image projection. Per OPC it:
 It runs twice: once with the scene already at the frame's epoch, and once with
 the scene 6 h earlier (`PRO3D_E2E_SCENE_EPOCH`, default 14:00), where fly-to has to
 move the scene time to the frame's epoch *before* computing the camera — the other
-order leaves the body rotated half a turn out from under it. About two minutes on a
+order leaves the body rotated half a turn out from under it. Both run again with the
+scene set up the single-body way (docs/SceneBody.md): the observed body in its fixed
+frame, the surface not bound in the GIS Surfaces list, no planet saved -- the frame has
+to land through the inherited scene body in a body-fixed world. About two minutes on a
 warm shader cache; generated data, screenshots and the measured numbers land in
 `artifacts/e2e/<label>/` and the test output.
 
@@ -166,4 +170,7 @@ probes bypass Playwright's reporting entirely.
 5. Keep data paths behind `PRO3D_*` env vars with sensible local defaults.
 6. When a spec fails, look at the artifacts before theorizing:
    `artifacts/*.png`, `test-results/**/test-failed-*.png`, and the app log
-   `pro3d.log` (in this directory).
+   `pro3d.log` (in this directory; the latest launch only) or, for any earlier
+   launch of the run, `artifacts/logs/pro3d-<start time>.log`. A render view
+   stuck on the loading splash is a hang or a crash, not slowness: check the log
+   and take a thread dump of the viewer (`dotnet-stack report -p <pid>`).

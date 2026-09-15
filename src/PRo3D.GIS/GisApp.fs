@@ -385,14 +385,28 @@ module GisApp =
                 surfaces
                 |> AList.choose(function | AdaptiveSurfaces s -> Some s | _-> None )
             
+            let! sceneBody =
+                (m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame)
+                ||> AVal.map2 SceneBody.tryReferenceSystem
+
             for s in surfaces do 
                 let headerText = 
                     AVal.map (fun a -> sprintf "%s" a) s.name
                 let! key = s.guid
 
-                let entity = 
+                let entity =
                     currentlyAssociatedEntity key m.gisSurfaces m.entities
-                    
+                let frame =
+                    currentlyAssociatedFrame key m.gisSurfaces m.referenceFrames
+
+                // a surface with neither body nor frame inherits the scene body (#758): say
+                // so in the empty entries. A half assignment does not inherit - no hint there.
+                let! inherited =
+                    (entity, frame) ||> AVal.map2 (fun e f ->
+                        match e, f, sceneBody with
+                        | None, None, Some b -> Some b
+                        | _ -> None)
+
                 let entitySelectionGui =
                     UI.dropDownWithEmptyText
                         (m.entities 
@@ -402,9 +416,9 @@ module GisApp =
                         entity 
                         (fun x -> AssignBody (key, x))  
                         (fun x -> x.Value)
-                        "Select Entity"
-                let frame = 
-                    currentlyAssociatedFrame key m.gisSurfaces m.referenceFrames
+                        (match inherited with
+                         | Some b -> sprintf "Scene body (%s)" b.body.Value
+                         | None -> "Select Entity")
                 let refFramesSelectionGui =
                     UI.dropDownWithEmptyText
                         (m.referenceFrames 
@@ -414,7 +428,9 @@ module GisApp =
                         frame
                         (fun x -> AssignReferenceFrame (key, x))  
                         (fun x -> x.Value)
-                        "Select Frame"
+                        (match inherited with
+                         | Some b -> sprintf "Scene frame (%s)" b.referenceFrame.Value
+                         | None -> "Select Frame")
                 let! c = SurfaceApp.mkColor model s
                 let infoc = sprintf "color: %s" (Html.color C4b.White)
                 let bgc = sprintf "color: %s" (Html.color c)
@@ -715,7 +731,7 @@ module GisApp =
                 let! info = bookmark.observationInfo
                 match info with
                 | AdaptiveSome info ->
-                    yield (ObservationInfo.view info m.entities m.referenceFrames
+                    yield (ObservationInfo.view false info m.entities m.referenceFrames
                             |> UI.map (fun msg -> 
                         GisAppAction.BookmarkObservationInfoMessage (bookmark.bookmark.key, msg)))
                 | AdaptiveNone ->
@@ -743,7 +759,28 @@ module GisApp =
                     text (sprintf "No image projection on %s: %s, and the projection cannot follow it yet (issue #741)." name why)
                 ]))
 
+    /// A planet that is a body, with the GIS observing nothing: the scene is not a scene
+    /// body yet (#758) - no projection, no sun. Offer the one click that makes it one; the
+    /// planet does not do it on its own, a plain Mars scene stays as it is.
+    let private viewObservePlanet (planet : aval<Planet>) (m : AdaptiveGisApp) =
+        Incremental.div AttributeMap.empty (
+            alist {
+                let! planet = planet
+                let! observer = m.defaultObservationInfo.observer
+                match observer, SceneBody.trySpice planet with
+                | None, Some (body, frame) ->
+                    yield div [clazz "ui inverted segment"; style "padding: 5px; margin: 4px 0"] [
+                        text (sprintf "The planet is %s, but the GIS observes no body: no image projection or sun. " body.Value)
+                        button [clazz "ui mini button"
+                                onClick (fun _ -> ObservationInfoMessage (ObservationInfoAction.SetObserver (Some body)))] [
+                            text (sprintf "Observe %s as scene body (%s)" body.Value frame.Value)
+                        ]
+                    ]
+                | _ -> ()
+            })
+
     let view (m : AdaptiveGisApp)
+             (planet : aval<Planet>)
              (surfaces : AdaptiveSurfaceModel)
              (bookmarks : SequencedBookmarks.AdaptiveSequencedBookmarks) =
         let bookmarkGisInfo =
@@ -774,7 +811,8 @@ module GisApp =
                 h5 [clazz "ui inverted horizontal divider header"
                     style "padding-top: 1rem"] 
                    [text "Current Observation Settings"]
-                ObservationInfo.view m.defaultObservationInfo 
+                viewObservePlanet planet m
+                ObservationInfo.view true m.defaultObservationInfo
                                      m.entities m.referenceFrames
                 |> UI.map ObservationInfoMessage
                 Incremental.div AttributeMap.empty bookmarkGisInfo
@@ -1059,35 +1097,85 @@ module GisApp =
         Sg.ofList [bodies; markers]
 
 
-    let getSpiceReferenceSystemFromSurfaces (s : SurfaceId) (m : HashMap<SurfaceId, GisSurface>)  = 
+    /// A surface's SPICE body and frame: its own GIS assignment, or - with no assignment
+    /// at all - the scene body (#758), so a single-body scene needs no per-surface setup.
+    /// A half assignment (body without frame or vice versa) stays unplaced, as before.
+    let getSpiceReferenceSystemFromSurfaces (sceneBody : Option<SpiceReferenceSystem>) (s : SurfaceId) (m : HashMap<SurfaceId, GisSurface>)  =
         match HashMap.tryFind s m with
-        | None -> None
+        | None -> sceneBody
         | Some r -> 
             match r.referenceFrame, r.entity with
             | Some referenceFrame, Some entity -> 
                 Some { referenceFrame = referenceFrame; body = entity;  }
+            | None, None -> sceneBody
             | _ -> None
 
-    let getSpiceReferenceSystem (m : GisApp) (s : SurfaceId) = 
-        getSpiceReferenceSystemFromSurfaces s m.gisSurfaces 
+    /// The scene body as surfaces inherit it: only while the scene is body-fixed. A scene
+    /// in another frame (J2000) leaves unassigned surfaces unplaced, as it always did.
+    let sceneBodyOf (info : ObservationInfo) =
+        SceneBody.tryReferenceSystem info.observer info.referenceFrame
+
+    /// The planet the GIS observation makes the scene body, see SceneBody.tryBodyFixedPlanet.
+    let scenePlanet (m : GisApp) =
+        SceneBody.tryBodyFixedPlanet m.defaultObservationInfo.observer m.defaultObservationInfo.referenceFrame
+
+    /// The global planet choice, mirrored into the GIS observation (#758): its body in its
+    /// fixed frame. A planet that is no body (None, ENU, JPL) ends a body-fixed observation;
+    /// any other observation - a spacecraft, a scene saved in J2000 - is not the planet's to
+    /// end: explicitly bound surfaces are placed by it.
+    let withScenePlanet (planet : Planet) (m : GisApp) =
+        let info = m.defaultObservationInfo
+        let observer, frame =
+            match SceneBody.trySpice planet with
+            | Some (body, frame) -> Some body, Some frame
+            | None when Option.isSome (scenePlanet m) -> None, None
+            | None -> info.observer, info.referenceFrame
+        if info.observer = observer && info.referenceFrame = frame then m
+        else { m with defaultObservationInfo = { info with observer = observer; referenceFrame = frame } }
+
+    let getSpiceReferenceSystem (m : GisApp) (s : SurfaceId) =
+        getSpiceReferenceSystemFromSurfaces (sceneBodyOf m.defaultObservationInfo) s m.gisSurfaces
+
+    // one scene-body aval per adaptive GIS model, shared by every surface that asks
+    let private sceneBodyAvals =
+        System.Runtime.CompilerServices.ConditionalWeakTable<AdaptiveGisApp, aval<Option<SpiceReferenceSystem>>>()
+
+    /// The scene body as surfaces inherit it (sceneBodyOf), adaptively. Reads observer and
+    /// frame only: the observation time must not re-evaluate every surface.
+    let sceneBodyAdaptive (m : AdaptiveGisApp) : aval<Option<SpiceReferenceSystem>> =
+        sceneBodyAvals.GetValue(m, fun m ->
+            (m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame)
+            ||> AVal.map2 SceneBody.tryReferenceSystem)
 
     let getSpiceReferenceSystemAdaptive (m : AdaptiveGisApp) (s : SurfaceId) =
-        m.gisSurfaces.Content |> AVal.map (getSpiceReferenceSystemFromSurfaces s)
+        (sceneBodyAdaptive m, m.gisSurfaces.Content)
+        ||> AVal.map2 (fun sceneBody surfaces -> getSpiceReferenceSystemFromSurfaces sceneBody s surfaces)
 
+    /// Towards the sun from the surface's body, in the observer's frame. None without a
+    /// complete observation: there is no scene frame to express it in (this used to guess
+    /// Mars in IAU_MARS). None while the lighting mode is Off, where nothing reads it:
+    /// every surface of a scene body inherits a reference system (#758), and a SPICE query
+    /// per surface and time step is neither free nor quiet without an ephemeris kernel.
     let getSunDirection (m: AdaptiveGisApp) (s : SurfaceId) =
         let observer = m.defaultObservationInfo.observer 
-        let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
         let time = m.defaultObservationInfo.time.date
-        let targetReferenceFrame = m.defaultObservationInfo.referenceFrame |> AVal.map (Option.defaultValue (FrameSpiceName "IAU_MARS"))
-        getSpiceReferenceSystemAdaptive m s 
+        let targetReferenceFrame = m.defaultObservationInfo.referenceFrame
+        let lit =
+            m.projectedImageList.lightingMode
+            |> AVal.map (fun mode -> mode <> PRo3D.ImageMapping.LightingMode.Off)
+        (lit, getSpiceReferenceSystemAdaptive m s)
+        ||> AVal.map2 (fun lit r -> if lit then r else None)
         |> AVal.bind (function
             | None -> AVal.constant None
             | Some r -> 
-                (observerWithDefault, targetReferenceFrame, time) |||> AVal.map3 (fun observer targetReferenceFrame time -> 
-                    let bodyPos = CooTransformation.transformBody r.body (Some r.referenceFrame) observer targetReferenceFrame time 
-                    let sunPos = CooTransformation.transformBody (EntitySpiceName "SUN") (Some r.referenceFrame) observer targetReferenceFrame time 
-                    match sunPos, bodyPos with
-                    | Some sunPos, Some bodyPos -> sunPos.position - bodyPos.position |> Vec.normalize |> Some
+                (observer, targetReferenceFrame, time) |||> AVal.map3 (fun observer targetReferenceFrame time ->
+                    match observer, targetReferenceFrame with
+                    | Some observer, Some targetReferenceFrame ->
+                        let bodyPos = CooTransformation.transformBody r.body (Some r.referenceFrame) observer targetReferenceFrame time
+                        let sunPos = CooTransformation.transformBody (EntitySpiceName "SUN") (Some r.referenceFrame) observer targetReferenceFrame time
+                        match sunPos, bodyPos with
+                        | Some sunPos, Some bodyPos -> sunPos.position - bodyPos.position |> Vec.normalize |> Some
+                        | _ -> None
                     | _ -> None
                 )
         )
@@ -1104,8 +1192,14 @@ module GisApp =
         m.defaultObservationInfo.Current |> AVal.map getObserver
 
 
+    /// The camera looking from the camera source body at the observed body. None when
+    /// either is unset - and when they are the same body: there is no viewpoint "from the
+    /// body at itself", and transformBody's identity answer for it has only a stand-in
+    /// camera, which would teleport the view into the body on every time change.
     let lookAtObserver' (observationInfo : ObservationInfo)  =
         match observationInfo.observer, observationInfo.referenceFrame, observationInfo.target with
+        | Some (EntitySpiceName observer), _, Some (EntitySpiceName target) when SpiceName.same observer target ->
+            None
         | Some observer, Some observerFrame, Some target ->
             Log.line "look at. target: %A, observer: %A, frame: %A" target observer observerFrame
             match CooTransformation.transformBody target (Some observerFrame) observer observerFrame observationInfo.time.date with

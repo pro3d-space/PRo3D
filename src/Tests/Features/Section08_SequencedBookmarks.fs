@@ -211,4 +211,23 @@ let tests =
             | None ->
                 failtest "observationInfo was dropped by ToJson (the pre-fix behaviour)"
         }
+
+        // TC-8.5 A bookmark contributes its time and camera source only (#758): the time
+        // animates even when the bookmark names no camera source. It used to need target,
+        // observer and frame, and without them gave Animation.empty - a null record.
+        test "TC-8.5 the observation time animates without a camera source" {
+            let t0 = DateTime(2027, 3, 21, 14, 0, 0, DateTimeKind.Utc)
+            let t1 = DateTime(2027, 3, 21, 20, 0, 0, DateTimeKind.Utc)
+            let at (t : DateTime) = { ObservationInfo.initial with time = { ObservationInfo.initial.time with date = t } }
+            let anim : IAnimation<unit, ObservationInfo> = Primitives.interpObservationInfo (at t0) (at t1)
+            let instance = anim.Create (Sym.ofString "test")
+            instance.Perform (Action.Start LocalTime.zero)
+            instance.Commit((), GlobalTime.zero) |> ignore
+            instance.Perform (Action.Update (LocalTime.ofNormalizedPosition instance.Duration 0.5, false))
+            instance.Commit((), GlobalTime.zero) |> ignore
+            let mid = instance.Value
+            Expect.isFalse (obj.ReferenceEquals(mid, null)) "a value, not the empty animation's null"
+            Expect.equal mid.time.date (DateTime(2027, 3, 21, 17, 0, 0, DateTimeKind.Utc)) "halfway in time"
+            Expect.equal mid.time.date.Kind DateTimeKind.Utc "UTC"
+        }
     ]
