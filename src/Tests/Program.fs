@@ -24,6 +24,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section18_KeyboardShortcuts.tests
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
         PRo3D.Tests.Section20_BooleanOperations.tests
+        PRo3D.Tests.Section21_OutcropTraces.tests
     ]
 
 let allTests (parameters : TestUtils.TestParameters) : Test =
@@ -42,6 +43,8 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         TriangleSetTests.tests()
         BulkAnnotationRoseTest.tests()
         BulkAnnotationRoseTest.largeTests()
+        OutcropTraceAttitudeTest.tests()
+        OutcropTraceShaderTest.tests()
         PolygonFillTests.tests()
         RegionOpsTests.tests()
         RegionFixtureTests.tests()
@@ -56,6 +59,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         SbmtImportAlignmentTest.tests parameters
 
         ProjectedImageMetadataTest.tests()
+        ProjectedImageStackTest.tests()
 
         // *.opc.json sidecars; the fixture-backed case self-skips without the data
         OpcSidecarTests.tests()
@@ -75,6 +79,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // than doing its own Init/DeInit, so it adds no swap of its own. Its kdtree
         // cases need neither kernels nor a GPU and always run.
         Pro3DToolTests.tests()
+        MbiSidecarTest.tests()
 
         // unproject: the pixel addressing and table cases need no data; the shape-model
         // cross-check reuses the same kernel tracking and self-skips without kernels.

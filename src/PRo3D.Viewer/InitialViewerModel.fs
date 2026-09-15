@@ -129,7 +129,7 @@ module Viewer =
             picking         = false
             pivotType       = PickPivot.SurfacePivot
             ctrlFlag        = false
-            inverseFlag     = false
+            directToolMode  = false
 
             messagingMailbox = msgBox
             mailboxState     = MailboxState.empty
@@ -188,6 +188,7 @@ module Viewer =
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()
+            outcropTraces   = OutcropTraceModel.initial
             roseEnabled     = false
             roseUsePolyline = false
             roseUseDnS      = true

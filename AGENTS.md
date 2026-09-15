@@ -87,6 +87,8 @@ src/
 └── Tests/                 # Expecto tests (NUnit/FsUnit also referenced) + notebooks
 ```
 
+`tests-ui/` (repo root) holds the **Playwright end-to-end tests** that drive the real viewer and verify rendered screenshots — see [ai/TESTING.md](ai/TESTING.md). For any viewer-behavior change, run (or write) a spec there rather than concluding from a green build alone.
+
 Native code wrappers (instruments) live under `src/InstrumentPlatforms` (built into `lib/JR.Wrappers.dll`). See [ai/RENDERING.md](ai/RENDERING.md) and [ai/AUTOMATION.md](ai/AUTOMATION.md).
 
 ## Native Dependencies
@@ -104,7 +106,7 @@ Native code wrappers (instruments) live under `src/InstrumentPlatforms` (built i
 5. **Sub-app composition** — each domain (surfaces, drawing, …) is an ELM sub-app with its own Model/Update/View, composed by the viewer's root update via lenses. See [ai/ARCHITECTURE.md](ai/ARCHITECTURE.md).
 6. **Serialization is versioned** — `Scene` carries a `version` int with per-version readers. **Adding a field needs no version bump** if the reader uses `Json.tryRead` + a default; bump `current` and add a `readN` only for breaking changes (rename/remove/retype/changed semantics). See [ai/ARCHITECTURE.md](ai/ARCHITECTURE.md#scene-persistence--versioning).
 7. **Document every feature** — each feature ships with a technical doc page under [`docs/`](docs/) (one `.md` per feature). Add/update it as part of the same change. (`docs/` = human feature docs; `ai/` = agent docs.)
-8. **Follow [ai/CONVENTIONS.md](ai/CONVENTIONS.md)** — adaptive usage (never `AVal.force` inside an adaptive computation; choose model collection types deliberately), **total functions only** (no `List.find`/`Option.get`/etc.), prefix generic syntax (`Option<int>`, not `int option`), and performance rules (no `Seq`/LINQ or O(n) ops like `List.length`/`List.append` on large/hot data — discuss asymptotically slow choices first).
+8. **Follow [ai/CONVENTIONS.md](ai/CONVENTIONS.md)** — adaptive usage (never `AVal.force` inside an adaptive computation; never create a node inside `AVal.custom` and read it with the token; choose model collection types deliberately), **total functions only** (no `List.find`/`Option.get`/etc.), prefix generic syntax (`Option<int>`, not `int option`), and performance rules (no `Seq`/LINQ or O(n) ops like `List.length`/`List.append` on large/hot data — discuss asymptotically slow choices first).
 
 ## Contribution Workflow
 

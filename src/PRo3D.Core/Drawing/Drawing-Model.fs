@@ -128,10 +128,11 @@ type AutomaticGeoJsonExport =
 [<ModelType>]
 type DrawingModel = {
 
-    draw          : bool
-    pick          : bool
+    // `draw` / `pick` used to gate the drawing/picking tool here; that decision now lives
+    // entirely at the event source (`ViewerApp.toolArmed` + the interaction), so the flags
+    // are gone. See docs/DirectToolMode.md.
     multi         : bool
-    hoverPosition : option<Trafo3d>    
+    hoverPosition : option<Trafo3d>
 
     working    : Option<Annotation>
 
@@ -207,8 +208,6 @@ module DrawingModel =
 
     let initialdrawing : DrawingModel = {
         hoverPosition = None
-        draw          = false  
-        pick          = false
         multi         = false
         thickness     = Annotation.Initial.thickness
 

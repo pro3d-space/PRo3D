@@ -1,5 +1,5 @@
-//2f5da3f0-6e33-0c2a-91ce-7f9ad38df387
-//1c7f3826-31bc-3fd5-e093-b79b3c3a4b06
+//e9b0ad77-1aff-2a9a-d329-0660b7178ebf
+//7069481c-0139-0cc3-07de-bcc546e1e2e9
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -86,4 +86,54 @@ module ContourLineModelLenses =
         static member distance_ = ((fun (self : ContourLineModel) -> self.distance), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ContourLineModel) -> { self with distance = value }))
         static member width_ = ((fun (self : ContourLineModel) -> self.width), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ContourLineModel) -> { self with width = value }))
         static member border_ = ((fun (self : ContourLineModel) -> self.border), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ContourLineModel) -> { self with border = value }))
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type AdaptiveLatLonShaderModel(value : LatLonShaderModel) =
+    let _version_ = FSharp.Data.Adaptive.cval(value.version)
+    let _enabled_ = FSharp.Data.Adaptive.cval(value.enabled)
+    let _lat1_ = FSharp.Data.Adaptive.cval(value.lat1)
+    let _lat5_ = FSharp.Data.Adaptive.cval(value.lat5)
+    let _lat15_ = FSharp.Data.Adaptive.cval(value.lat15)
+    let _lon1_ = FSharp.Data.Adaptive.cval(value.lon1)
+    let _lon5_ = FSharp.Data.Adaptive.cval(value.lon5)
+    let _lon15_ = FSharp.Data.Adaptive.cval(value.lon15)
+    let _lineColor_ = Aardvark.UI.AdaptiveColorInput(value.lineColor)
+    let mutable __value = value
+    let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
+    static member Create(value : LatLonShaderModel) = AdaptiveLatLonShaderModel(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : LatLonShaderModel) -> AdaptiveLatLonShaderModel(value)) (fun (adaptive : AdaptiveLatLonShaderModel) (value : LatLonShaderModel) -> adaptive.Update(value))
+    member __.Update(value : LatLonShaderModel) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<LatLonShaderModel>.ShallowEquals(value, __value))) then
+            __value <- value
+            __adaptive.MarkOutdated()
+            _version_.Value <- value.version
+            _enabled_.Value <- value.enabled
+            _lat1_.Value <- value.lat1
+            _lat5_.Value <- value.lat5
+            _lat15_.Value <- value.lat15
+            _lon1_.Value <- value.lon1
+            _lon5_.Value <- value.lon5
+            _lon15_.Value <- value.lon15
+            _lineColor_.Update(value.lineColor)
+    member __.Current = __adaptive
+    member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
+    member __.enabled = _enabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.lat1 = _lat1_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.lat5 = _lat5_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.lat15 = _lat15_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.lon1 = _lon1_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.lon5 = _lon5_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.lon15 = _lon15_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.lineColor = _lineColor_
+[<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+module LatLonShaderModelLenses = 
+    type LatLonShaderModel with
+        static member version_ = ((fun (self : LatLonShaderModel) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : LatLonShaderModel) -> { self with version = value }))
+        static member enabled_ = ((fun (self : LatLonShaderModel) -> self.enabled), (fun (value : Microsoft.FSharp.Core.bool) (self : LatLonShaderModel) -> { self with enabled = value }))
+        static member lat1_ = ((fun (self : LatLonShaderModel) -> self.lat1), (fun (value : Microsoft.FSharp.Core.bool) (self : LatLonShaderModel) -> { self with lat1 = value }))
+        static member lat5_ = ((fun (self : LatLonShaderModel) -> self.lat5), (fun (value : Microsoft.FSharp.Core.bool) (self : LatLonShaderModel) -> { self with lat5 = value }))
+        static member lat15_ = ((fun (self : LatLonShaderModel) -> self.lat15), (fun (value : Microsoft.FSharp.Core.bool) (self : LatLonShaderModel) -> { self with lat15 = value }))
+        static member lon1_ = ((fun (self : LatLonShaderModel) -> self.lon1), (fun (value : Microsoft.FSharp.Core.bool) (self : LatLonShaderModel) -> { self with lon1 = value }))
+        static member lon5_ = ((fun (self : LatLonShaderModel) -> self.lon5), (fun (value : Microsoft.FSharp.Core.bool) (self : LatLonShaderModel) -> { self with lon5 = value }))
+        static member lon15_ = ((fun (self : LatLonShaderModel) -> self.lon15), (fun (value : Microsoft.FSharp.Core.bool) (self : LatLonShaderModel) -> { self with lon15 = value }))
+        static member lineColor_ = ((fun (self : LatLonShaderModel) -> self.lineColor), (fun (value : Aardvark.UI.ColorInput) (self : LatLonShaderModel) -> { self with lineColor = value }))
 

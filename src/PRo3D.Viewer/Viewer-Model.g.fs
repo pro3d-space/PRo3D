@@ -1,5 +1,5 @@
-//688f9ae3-9807-edbb-fc48-6a25961e19f1
-//faeec3cf-918b-9352-69a7-f6791c961f77
+//d37d31da-ba28-88d4-e100-f8dfc5207ec2
+//a01cc08b-687f-a85a-0fcc-f9a674f24ebe
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -206,7 +206,7 @@ type AdaptiveModel(value : Model) =
     let _picking_ = FSharp.Data.Adaptive.cval(value.picking)
     let _pivotType_ = FSharp.Data.Adaptive.cval(value.pivotType)
     let _ctrlFlag_ = FSharp.Data.Adaptive.cval(value.ctrlFlag)
-    let _inverseFlag_ = FSharp.Data.Adaptive.cval(value.inverseFlag)
+    let _directToolMode_ = FSharp.Data.Adaptive.cval(value.directToolMode)
     let _frustum_ = FSharp.Data.Adaptive.cval(value.frustum)
     let _viewPortSizes_ = FSharp.Data.Adaptive.cmap(value.viewPortSizes)
     let _overlayFrustum_ = FSharp.Data.Adaptive.cval(value.overlayFrustum)
@@ -233,6 +233,7 @@ type AdaptiveModel(value : Model) =
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Viewer.EllipseModel, PRo3D.Viewer.AdaptiveEllipseModel, PRo3D.Viewer.AdaptiveEllipseModel>(value.ellipseModel, (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o), (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o))
     let _pickPreviewRequested_ = FSharp.Data.Adaptive.cval(value.pickPreviewRequested)
+    let _outcropTraces_ = PRo3D.Core.AdaptiveOutcropTraceModel(value.outcropTraces)
     let _roseEnabled_ = FSharp.Data.Adaptive.cval(value.roseEnabled)
     let _roseUsePolyline_ = FSharp.Data.Adaptive.cval(value.roseUsePolyline)
     let _roseUseDnS_ = FSharp.Data.Adaptive.cval(value.roseUseDnS)
@@ -269,7 +270,7 @@ type AdaptiveModel(value : Model) =
             _picking_.Value <- value.picking
             _pivotType_.Value <- value.pivotType
             _ctrlFlag_.Value <- value.ctrlFlag
-            _inverseFlag_.Value <- value.inverseFlag
+            _directToolMode_.Value <- value.directToolMode
             _frustum_.Value <- value.frustum
             _viewPortSizes_.Value <- value.viewPortSizes
             _overlayFrustum_.Value <- value.overlayFrustum
@@ -289,6 +290,7 @@ type AdaptiveModel(value : Model) =
             _cursorAttributes_.Value <- value.cursorAttributes
             _ellipseModel_.Update(value.ellipseModel)
             _pickPreviewRequested_.Value <- value.pickPreviewRequested
+            _outcropTraces_.Update(value.outcropTraces)
             _roseEnabled_.Value <- value.roseEnabled
             _roseUsePolyline_.Value <- value.roseUsePolyline
             _roseUseDnS_.Value <- value.roseUseDnS
@@ -318,7 +320,7 @@ type AdaptiveModel(value : Model) =
     member __.picking = _picking_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.pivotType = _pivotType_ :> FSharp.Data.Adaptive.aval<PickPivot>
     member __.ctrlFlag = _ctrlFlag_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
-    member __.inverseFlag = _inverseFlag_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.directToolMode = _directToolMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.frustum = _frustum_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.Frustum>
     member __.viewPortSizes = _viewPortSizes_ :> FSharp.Data.Adaptive.amap<Microsoft.FSharp.Core.string, Aardvark.Base.V2i>
     member __.overlayFrustum = _overlayFrustum_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Rendering.Frustum>>
@@ -339,6 +341,7 @@ type AdaptiveModel(value : Model) =
     member __.cursorAttributes = _cursorAttributes_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<CursorAttributes>>
     member __.ellipseModel = _ellipseModel_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<EllipseModel, AdaptiveEllipseModel, AdaptiveEllipseModel>>
     member __.pickPreviewRequested = _pickPreviewRequested_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>>
+    member __.outcropTraces = _outcropTraces_
     member __.roseEnabled = _roseEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.roseUsePolyline = _roseUsePolyline_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.roseUseDnS = _roseUseDnS_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -370,7 +373,7 @@ module ModelLenses =
         static member picking_ = ((fun (self : Model) -> self.picking), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with picking = value }))
         static member pivotType_ = ((fun (self : Model) -> self.pivotType), (fun (value : PickPivot) (self : Model) -> { self with pivotType = value }))
         static member ctrlFlag_ = ((fun (self : Model) -> self.ctrlFlag), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with ctrlFlag = value }))
-        static member inverseFlag_ = ((fun (self : Model) -> self.inverseFlag), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with inverseFlag = value }))
+        static member directToolMode_ = ((fun (self : Model) -> self.directToolMode), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with directToolMode = value }))
         static member frustum_ = ((fun (self : Model) -> self.frustum), (fun (value : Aardvark.Rendering.Frustum) (self : Model) -> { self with frustum = value }))
         static member viewPortSizes_ = ((fun (self : Model) -> self.viewPortSizes), (fun (value : FSharp.Data.Adaptive.HashMap<Microsoft.FSharp.Core.string, Aardvark.Base.V2i>) (self : Model) -> { self with viewPortSizes = value }))
         static member overlayFrustum_ = ((fun (self : Model) -> self.overlayFrustum), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Rendering.Frustum>) (self : Model) -> { self with overlayFrustum = value }))
@@ -391,6 +394,7 @@ module ModelLenses =
         static member cursorAttributes_ = ((fun (self : Model) -> self.cursorAttributes), (fun (value : Microsoft.FSharp.Core.Option<CursorAttributes>) (self : Model) -> { self with cursorAttributes = value }))
         static member ellipseModel_ = ((fun (self : Model) -> self.ellipseModel), (fun (value : Microsoft.FSharp.Core.Option<EllipseModel>) (self : Model) -> { self with ellipseModel = value }))
         static member pickPreviewRequested_ = ((fun (self : Model) -> self.pickPreviewRequested), (fun (value : Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>) (self : Model) -> { self with pickPreviewRequested = value }))
+        static member outcropTraces_ = ((fun (self : Model) -> self.outcropTraces), (fun (value : PRo3D.Core.OutcropTraceModel) (self : Model) -> { self with outcropTraces = value }))
         static member roseEnabled_ = ((fun (self : Model) -> self.roseEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseEnabled = value }))
         static member roseUsePolyline_ = ((fun (self : Model) -> self.roseUsePolyline), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseUsePolyline = value }))
         static member roseUseDnS_ = ((fun (self : Model) -> self.roseUseDnS), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseUseDnS = value }))

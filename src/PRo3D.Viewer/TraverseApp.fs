@@ -644,7 +644,9 @@ module TraverseApp =
             
             let up = refSystem.up.value
             let north = refSystem.northO
-            let east = AVal.map2(Vec.cross) up north
+            // east = north x up, the convention in Sg.view / TransformationApp.
+            // `Vec.cross up north` is -east, which drew this green axis pointing west.
+            let east = AVal.map2 (fun (up : V3d) (n : V3d) -> n.Cross(up)) up north
 
             [
                 Sg.drawSingleLine ~~V3d.Zero up    ~~C4b.Blue  ~~2.0 trafo
@@ -763,7 +765,11 @@ module TraverseApp =
                     |> Sg.withEvents [
                         SceneEventKind.Click, (
                             fun (sceneHit : SceneHit) ->
-                                true, Seq.ofList [PickRimfaxSurface (surface.surface, traverseId, solNumber)])
+                                // left button only - the others navigate the camera
+                                if sceneHit.event.evtButtons = Aardvark.Application.MouseButtons.Left then
+                                    true, Seq.ofList [PickRimfaxSurface (surface.surface, traverseId, solNumber)]
+                                else
+                                    true, Seq.empty)
                         ]
                     // imported RIMFAX surfaces always discard their white bands automatically
                     |> Sg.uniform "WhiteDiscardEnabled"   (AVal.constant true)

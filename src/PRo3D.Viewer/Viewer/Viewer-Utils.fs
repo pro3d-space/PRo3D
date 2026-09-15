@@ -40,7 +40,13 @@ module ViewerUtils =
     let colormap =
         let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
         let pi = PixImage.Load(s)
-        PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
+        PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture
+
+    /// Adaptive sibling of `ViewerApp.toolArmed`: the active tool owns the left mouse
+    /// button right now. Classic scheme arms it while Ctrl is held; Direct Tool Mode
+    /// arms it while Ctrl is *not* held. Keep the two definitions in step.
+    let toolArmed (m : AdaptiveModel) : aval<bool> =
+        (m.ctrlFlag, m.directToolMode) ||> AVal.map2 (<>)
     
 
     let addImageCorrectionParameters (surf: AdaptiveSurface)  (isg:ISg<'a>) =
@@ -412,6 +418,16 @@ module ViewerUtils =
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.applyBody (observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value))
+                    // LatLon graticule: the per-vertex lat/lon attribute (Surface.Sg) is
+                    // built only while the overlay is enabled on this surface and the
+                    // scene sits on a body, so a surface without it pays no second patch
+                    // load, per-vertex loop or buffer (#747). Enabling it recomputes the
+                    // attribute for the loaded patches.
+                    |> Sg.applyLatLonGrid (
+                        (surf.latLonModel.enabled, refsys.planet) ||> AVal.map2 (fun enabled planet ->
+                            if enabled && CooTransformation.getConvention planet <> CooTransformation.NonPlanetary
+                            then Some planet else None)
+                    )
                     |> Sg.noEvents
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
@@ -485,8 +501,33 @@ module ViewerUtils =
                         surf.transferFunction |> AVal.map (fun tf -> tf.textureCombiner)
                     )
                     |> Sg.uniform "SecondaryTextureContour"(
-                        surf.contourModel.Current |> AVal.map (fun m -> 
+                        surf.contourModel.Current |> AVal.map (fun m ->
                             V4d((if m.enabled then m.distance.value else -1.0), m.width.value, m.border.value, 0.0)
+                        )
+                    )
+                    // LatLon graticule overlay. LatLevels.X <= 0 disables everything
+                    // (off, or a non-planetary body); LatLevels.YZW / LonLevels.XYZ
+                    // are 1/0 flags for the 1°/5°/15° parallels and meridians. The
+                    // per-vertex lat/lon attribute comes from Sg.applyLatLonGrid above.
+                    |> Sg.uniform "LatLonLatLevels" (
+                        (surf.latLonModel.Current, refsys.planet) ||> AVal.map2 (fun m planet ->
+                            let usable =
+                                m.enabled &&
+                                CooTransformation.getConvention planet <> CooTransformation.NonPlanetary
+                            let b v = if v then 1.0 else 0.0
+                            V4d((if usable then 1.0 else -1.0), b m.lat1, b m.lat5, b m.lat15)
+                        )
+                    )
+                    |> Sg.uniform "LatLonLonLevels" (
+                        surf.latLonModel.Current |> AVal.map (fun m ->
+                            let b v = if v then 1.0 else 0.0
+                            V4d(b m.lon1, b m.lon5, b m.lon15, 0.0)
+                        )
+                    )
+                    |> Sg.uniform "LatLonLineColor" (
+                        surf.latLonModel.Current |> AVal.map (fun m ->
+                            let c = m.lineColor.c
+                            V4d(float c.R / 255.0, float c.G / 255.0, float c.B / 255.0, 1.0)
                         )
                     )
                     |> Sg.uniform "TransferFunctionMode" (
@@ -514,9 +555,9 @@ module ViewerUtils =
                             yield SceneEventKind.Move, (
                                 fun sceneHit ->
                                     let surfacePicking = surfacePicking |> AVal.force
-                                    let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
+                                    let surfacePickingActivated = toolArmed m |> AVal.force
                                     // only show the preview cursor while in picking mode (ctrl held,
-                                    // modulo invert) - no preview while navigating the camera
+                                    // modulo Direct Tool Mode) - no preview while navigating the camera
                                     if previewPickingEnabled.GetValue() && surfacePicking && surfacePickingActivated then
                                         let name  = surf.name |> AVal.force
                                         true, Seq.ofList [PreviewPickSurface (sceneHit, name, true)]
@@ -525,10 +566,16 @@ module ViewerUtils =
                             )
                         yield SceneEventKind.Click, (
                            fun sceneHit -> 
-                                let name  = surf.name |> AVal.force        
+                                let name  = surf.name |> AVal.force
                                 let surfacePicking = surfacePicking |> AVal.force
-                                let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
-                                if surfacePicking && surfacePickingActivated then
+                                let surfacePickingActivated = toolArmed m |> AVal.force
+                                // Tools are on the left button only. In Direct Tool Mode the right
+                                // button orbits the camera, and a right-drag ending on a surface
+                                // would otherwise place a point where the drag happened to stop.
+                                // This is the master gate feeding `matchPickingInteraction`, so it
+                                // covers every place/pick interaction at once.
+                                let leftButton = (sceneHit.event.evtButtons = Aardvark.Application.MouseButtons.Left)
+                                if surfacePicking && surfacePickingActivated && leftButton then
                                     true, Seq.ofList [PickSurface (sceneHit, name, true)]
                                 else 
                                     true, Seq.ofList []
@@ -863,6 +910,107 @@ module ViewerUtils =
                 return v
             }
 
+    module OutcropTraceShader =
+        open FShade
+
+        /// Only what the test needs: the interpolated colour so far, and the view-space
+        /// position `Shader.stableTrafo` writes into the ViewSpacePos semantic.
+        type OutcropTraceVertex = {
+            [<Color>]                        c  : V4f
+            [<Semantic("ViewSpacePos")>]     vp : V4f
+        }
+
+        type UniformScope with
+            member x.OutcropTraceEnabled : bool = x?OutcropTraceEnabled
+            /// xyz = view-space unit normal, w = view-space plane offset d
+            member x.OutcropTracePlane   : V4f  = x?OutcropTracePlane
+            /// xyz = view-space anchor, w = projection radius (metres)
+            member x.OutcropTraceExtent  : V4f  = x?OutcropTraceExtent
+            /// x = trace width, y = trace smoothing, z = bed thickness (<= 0 = single
+            /// plane), w = phase offset along the normal
+            member x.OutcropTraceParams  : V4f  = x?OutcropTraceParams
+            member x.OutcropTraceColor   : V4f  = x?OutcropTraceColor
+
+        /// Marks the fragments where a modelled bedding sequence meets the terrain.
+        ///
+        /// One attitude, uploaded as a single view-space plane; the whole sequence comes from
+        /// folding the signed distance into one bed-thickness interval. That is why there is
+        /// no uniform array and no per-fragment loop however many beds are on screen.
+        ///
+        /// Everything is view space: `v.vp` is camera-relative, so at 10 km a float32 still
+        /// resolves ~1 mm. The same test in world space would be a float32 dot product
+        /// against ~3.4e6 m on Mars, about 0.25 m of resolution - noise next to a 0.25 m
+        /// trace. The plane is composed on the CPU in double (OutcropTrace.viewSpaceAttitude).
+        ///
+        /// OutcropTraceEnabled gates the whole thing and the uniforms are always bound, zero
+        /// filled when off - see the crossSectionClip note above for why reading an unbound
+        /// value per fragment is not safe on every platform.
+        let outcropTrace (v : OutcropTraceVertex) =
+            fragment {
+                if not uniform.OutcropTraceEnabled then
+                    return v.c
+                else
+                    let p         = v.vp.XYZ
+                    let pl        = uniform.OutcropTracePlane
+                    let ext       = uniform.OutcropTraceExtent
+                    let par       = uniform.OutcropTraceParams
+                    let halfWidth = par.X * 0.5f
+                    let smooth    = max par.Y 1e-4f
+                    let bedThk    = par.Z
+
+                    // signed distance to the reference plane, view space, metres, shifted
+                    // along the normal by the phase offset. Sliding the whole sequence is
+                    // how you line a modelled bed up with a marker bed you can actually see;
+                    // the pattern repeats every bed thickness, so one bed of travel reaches
+                    // every possible phase.
+                    let signed = Vec.dot pl.XYZ p - pl.W - par.W
+
+                    // a sequence folds that distance into one bed-thickness interval
+                    let d =
+                        if bedThk > 0.0f then
+                            let m = signed - bedThk * floor (signed / bedThk)
+                            min m (bedThk - m)               // distance to the nearest bed
+                        else
+                            abs signed
+
+                    // How much the signed distance changes across one pixel. This is what
+                    // makes a *sequence* survivable: trace width and bed thickness are both
+                    // in metres, so once a bed is thinner than a couple of pixels of terrain
+                    // the traces shimmer, moire against the LOD and crawl as the camera
+                    // moves. At 500 m on a 1080-tall viewport with a 60 deg vertical FOV one
+                    // pixel already covers ~0.5 m face-on, and several times that at grazing
+                    // incidence, so a 1 m bed thickness is at the Nyquist limit before the
+                    // terrain tilts at all.
+                    // ddx/ddy, NOT ddxFine/ddyFine: the Fine variants emit dFdxFine/dFdyFine,
+                    // which need GLSL 4.50 or GL_ARB_derivative_control. macOS caps OpenGL at
+                    // 4.1, so they fail to compile there and take the whole surface shader
+                    // down with them. Plain dFdx/dFdy have been core since GLSL 1.10 and the
+                    // coarse/fine distinction is invisible at this scale anyway.
+                    let w = max (V2f(ddx signed, ddy signed) |> Vec.length) 1e-6f
+
+                    // Never let a trace fall below about a pixel and a half, or it
+                    // disappears and reappears between frames instead of getting fainter.
+                    let halfWidth = max halfWidth (w * 0.75f)
+                    let smooth    = max smooth w
+
+                    // band: 1 inside halfWidth, smoothstep out over `smooth`
+                    let band = 1.0f - Fun.Smoothstep(d, halfWidth, halfWidth + smooth)
+
+                    // Dissolve an over-dense sequence into a flat tint rather than a
+                    // shimmering mess: below ~3 pixels per bed there is no longer a pattern
+                    // to resolve, so fade the whole thing out instead of aliasing it.
+                    let density =
+                        if bedThk > 0.0f then Fun.Smoothstep(bedThk / w, 2.0f, 4.0f)
+                        else 1.0f
+
+                    // fade out away from the selection the attitude was measured on
+                    let r    = Vec.distance ext.XYZ p
+                    let fade = 1.0f - Fun.Smoothstep(r, ext.W, ext.W * 1.15f)
+
+                    let a = Fun.Clamp(band * fade * density, 0.0f, 1.0f)
+                    return V4f(v.c.XYZ * (1.0f - a) + uniform.OutcropTraceColor.XYZ * a, v.c.W)
+            }
+
     module CurtainShader =
         open FShade
 
@@ -957,6 +1105,9 @@ module ViewerUtils =
             Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
+
+            // last, so the trace colour is not modulated by lighting
+            OutcropTraceShader.outcropTrace |> toEffect
         ]
 
     let surfaceEffect =
@@ -973,8 +1124,12 @@ module ViewerUtils =
             Shader.stableTrafo       |> toEffect
             Shader.triangleSizeFilter   |> toEffect
             
+            // No applyNormalFlip here: inward-wound OPCs are corrected by negating the
+            // projector matrices on the CPU (ImageProjectionOpcExtensions.toProjector),
+            // which the projector-facing tests below read. Terrain lighting does not
+            // care either way: solarShadingLS orients the normal itself.
             ImageProjection.Shaders.generateNormal |> toEffect
-           
+
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
             PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
@@ -992,6 +1147,9 @@ module ViewerUtils =
             Shader.secondaryTexture |> toEffect 
 
             Shader.contourLines |> toEffect
+            // additive latitude/longitude graticule; composites over the colour
+            // produced by the stages above, like contourLines.
+            Shader.latLonLines |> toEffect
             Shaders.donutFragment |> toEffect
 
             CrossSectionShader.crossSectionClip |> toEffect
@@ -1001,17 +1159,36 @@ module ViewerUtils =
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
 
-            // TODO HERA: make this optional
-            ImageProjection.Shaders.stableImageProjection |> toEffect
+            // The projection stack (multi-image projection). Subsumes the old
+            // single-image stableImageProjection: a stack of one behaves
+            // identically, and hovering a library image previews it as the top
+            // layer (effectiveStack).
+            // The projection stack (multi-image projection). Subsumes the old
+            // single-image stableImageProjection: a stack of one behaves
+            // identically, and hovering a library image previews it as the top
+            // layer (effectiveStack).
+            ImageProjection.Shaders.stableImageProjectionStack |> toEffect
 
-            if not Config.limitedShaderCapabilities then
-                ImageProjection.Shaders.localImageProjections |> toEffect
+            // stack-coverage view (RelativeCount); uniform-gated, and on the
+            // same bounded uniform arrays as the stack shader -- the old
+            // storage-buffer variant and its limitedShaderCapabilities macOS
+            // split are gone
+            ImageProjection.Shaders.projectedStackCoverage |> toEffect
+
+            // hover footprint: green outline of the hovered image's frustum
+            // footprint on the surface (D5)
+            ImageProjection.Shaders.hoveredProjectionOutline |> toEffect
 
             // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
             // sphere-normal predecessor made relief invisible under sun lighting.
             PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
             // Cast shadows (LightingMode.SunShadow); per-patch gated, no-op otherwise.
             PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
+
+            // Last in the stack on purpose: outcrop traces are an interpretive overlay, so
+            // their colour must survive lighting and shadowing. contourLines sits earlier
+            // and is shaded, which is right for a terrain property and wrong for this.
+            OutcropTraceShader.outcropTrace |> toEffect
         ]
         //Effect.compose [
             
@@ -1062,7 +1239,9 @@ module ViewerUtils =
                             surfaces 
                             m.frustum 
                             selected 
-                            (AVal.map2 (&&) m.ctrlFlag m.inverseFlag)
+                            // picking mode, same predicate as the interactive path. Offscreen
+                            // scene-event handlers never fire, so this is consistency only.
+                            (AVal.map2 (<>) m.ctrlFlag m.directToolMode)
                             m.scene.config.showPreviewIntersection
                             sf.globalBB 
                             refSystem 
@@ -1100,6 +1279,88 @@ module ViewerUtils =
             
             }                              
         sgs
+
+    /// The annotations the outcrop-trace attitude is measured on: the green multi-selection,
+    /// falling back to the single selected annotation when that is empty. One expression
+    /// covers both "a selection" and "a group's Select All", which is what fills
+    /// `selectedLeaves`.
+    let private outcropTraceSelection (annotations : AdaptiveGroupsModel) =
+        adaptive {
+            let! multi = annotations.selectedLeaves.Content
+            if HashSet.isEmpty multi then
+                let! single = annotations.singleSelectLeaf
+                return single |> Option.toList |> HashSet.ofList
+            else
+                return multi |> HashSet.map (fun ts -> ts.id)
+        }
+
+    /// Mean attitude of the current selection, or None when there is nothing usable.
+    ///
+    /// The aggregate is built the way the rose panel's is (see ViewerGUI, `angles`): one
+    /// AMap.filter reader over `flat` rather than N AMap.tryFind calls - tryFind
+    /// re-evaluates on *every* change of the map, so N lookups would turn one annotation
+    /// edit into N invalidations - and AMap.chooseA to cache the per-annotation read, so
+    /// editing one annotation re-reads that one. The source toggles are applied at the leaf,
+    /// filtering the already-collected map, so clicking a checkbox does not tear the
+    /// per-annotation subtree down and rebuild it.
+    let outcropTraceAttitude (m : AdaptiveModel) : aval<Option<MeanAttitude>> =
+        let annotations = m.drawing.annotations
+        // deliberately not gated on `enabled`: the Dip&Strike panel shows this same
+        // selection average with outcrop traces switched off. The draw gate lives in
+        // outcropTraceUniforms.
+        adaptive {
+                let! ids = outcropTraceSelection annotations
+                let perAnnotation =
+                    annotations.flat
+                    |> AMap.filter (fun annoId _ -> ids |> HashSet.contains annoId)
+                    |> AMap.chooseA (fun _ leaf ->
+                        match leaf with
+                        | AdaptiveAnnotations a ->
+                            // annotations with no dip and strike surface as the degenerate
+                            // zero-normal plane, which OutcropTrace.includes rejects
+                            let planeAndCenter =
+                                AVal.bindAdaptiveOption a.dnsResults (Plane3d(V3d.Zero, 0.0), V3d.Zero) (fun d ->
+                                    AVal.map2 (fun p c -> (p, c)) d.plane d.centerOfMass)
+                            AVal.map2
+                                (fun geo (plane, com) -> Some (geo, plane, com))
+                                a.geometry
+                                planeAndCenter
+                        | _ -> AVal.constant None)
+                    |> AMap.toAVal
+
+                let! perAnno = perAnnotation
+                let! usePolyline = m.outcropTraces.usePolyline
+                let! useDnS = m.outcropTraces.useDnS
+
+                let contributions =
+                    perAnno
+                    |> HashMap.fold (fun acc _ (geo, plane, com) ->
+                        if OutcropTrace.includes usePolyline useDnS geo plane
+                        then { OutcropTrace.plane = plane; OutcropTrace.center = com } :: acc
+                        else acc) []
+                    |> List.toArray
+
+                return OutcropTrace.meanAttitude contributions
+        }
+
+    /// View-space plane and extent for the shader, or None when nothing should be drawn.
+    ///
+    /// Folds together disabled, nothing selected, no usable planes, no dominant attitude and
+    /// girdle into one gate, so the shader can never be reached with a half-valid plane.
+    /// `view` is the view actually rendering the pass, not m.navigation.camera.view: taking
+    /// the latter would draw the main camera's plane into the instrument view.
+    let outcropTraceUniforms (view : aval<CameraView>) (m : AdaptiveModel) : aval<Option<V4f * V4f>> =
+        adaptive {
+            let! enabled = m.outcropTraces.enabled
+            if not enabled then return None else
+            match! outcropTraceAttitude m with
+            | Some attitude when attitude.shape = Cluster ->
+                let! radius = m.outcropTraces.projectionRadius.value
+                let! view' = view
+                return Some (OutcropTrace.viewSpaceAttitude (CameraView.viewTrafo view') radius attitude)
+            | _ ->
+                return None
+        }
 
     let createGroupedSgs
         (runtime        : IRuntime)
@@ -1156,25 +1417,50 @@ module ViewerUtils =
         // interactive viewer and PRo3D.Snapshots, which both assemble surfaces here.
         let sunShadow = SunShadowMap.get runtime m
 
-        let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
+        // one stack texture array for all surfaces: slice i = stack layer i's
+        // image band, index-aligned with each surface's per-patch matrix array
+        // (both derive from the same filtered effectiveStack)
+        let projectedStackTextures =
+            PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
+                runtime
+                (PRo3D.GIS.ProjectedImagesListAppHelper.getStackTextureLayers m.scene.gisApp)
+
+
+        let wrapGisData (surfaceId : Guid) (surfaceTrafo : aval<Trafo3d>) (projectionRefused : aval<bool>) (sg : ISg<_>) =
             let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
             let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
             let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
 
-            sg
-            |> Sg.applyProjectedImages (fun body -> 
-                body 
-                |> AVal.map (function 
-                    | Some b -> 
-                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
-                        r
-                    | _ -> None 
+            // per surface, shared by the per-patch applicator and the frustum
+            // wireframe (does not depend on the body value)
+            let projData =
+                PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
+                |> Option.map (ProjectionPreconditions.withoutProjection projectionRefused)
+
+            let wrapped =
+                sg
+                |> Sg.applyProjectedImages (fun body ->
+                    body
+                    |> AVal.map (function
+                        | Some b -> projData
+                        | _ -> None
+                    )
                 )
-            )
-            |> Sg.texture "ProjectedTexture" projectedTexture
-            |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
-            |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
-            |> Sg.noEvents
+                |> Sg.texture "ProjectedStackTextures" projectedStackTextures
+                |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
+                |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
+                |> Sg.noEvents
+
+            // hovered image's frustum wireframe (D5), in the surface's frame;
+            // appears/disappears with hoveredImage
+            let frustum =
+                match projData with
+                | Some p ->
+                    PRo3D.InstrumentProjection.Visualization.hoveredFrustumSg p.hoveredProjection surfaceTrafo
+                    |> Sg.noEvents
+                | None -> Sg.empty
+
+            Sg.ofList [wrapped; frustum]
 
 
         // Compute cross-section clipping data from scene-level cross section model
@@ -1242,8 +1528,31 @@ module ViewerUtils =
                             |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
 
+                    let surfaceModel = AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
+
+                    // the surface's placement, for overlays that live outside
+                    // the surface's own Sg subtree (the hovered-frustum lines)
+                    let surfaceTrafo =
+                        surfaceModel
+                        |> AVal.bind (function
+                            | Some (AdaptiveSurfaces s) ->
+                                adaptive {
+                                    let! fullTrafo = TransformationApp.fullTrafo s.transformation refSystem observationSystem observerSystem
+                                    let! preTransform = s.preTransform
+                                    return fullTrafo * preTransform
+                                }
+                            | _ -> AVal.constant Trafo3d.Identity)
+
+                    // #741: no image projection where the OPC's coordinates are not
+                    // the body-fixed frame (GisApp.view names such surfaces)
+                    let projectionRefused =
+                        surfaceModel
+                        |> AVal.bind (function
+                            | Some (AdaptiveSurfaces s) -> ProjectionPreconditions.refusalOf s |> AVal.map Option.isSome
+                            | _ -> AVal.constant false)
+
                     surfaceSg
-                    |> wrapGisData guid
+                    |> wrapGisData guid surfaceTrafo projectionRefused
                 )
 
             let depthComposed = 
@@ -1264,11 +1573,27 @@ module ViewerUtils =
                 )
                 |> Sg.dynamic
 
+            let outcropTrace = outcropTraceUniforms view m
+            let outcropTraceParams =
+                adaptive {
+                    let! width  = m.outcropTraces.traceWidth.value
+                    let! smooth = m.outcropTraces.traceSmoothing.value
+                    let! bedThk = m.outcropTraces.bedThickness.value
+                    let! phase  = m.outcropTraces.phaseOffset.value
+                    return V4f(float32 width, float32 smooth, float32 bedThk, float32 phase)
+                }
+
             let surfaces =
                 surfaces
                 |> AMap.toASet
                 |> ASet.map snd
                 |> Sg.set
+                |> Sg.uniform "OutcropTraceEnabled" (outcropTrace |> AVal.map Option.isSome)
+                // always bound, zero filled when off - never left unbound; see outcropTrace
+                |> Sg.uniform "OutcropTracePlane"  (outcropTrace |> AVal.map (function Some (p, _) -> p | None -> V4f.Zero))
+                |> Sg.uniform "OutcropTraceExtent" (outcropTrace |> AVal.map (function Some (_, e) -> e | None -> V4f.Zero))
+                |> Sg.uniform "OutcropTraceParams" outcropTraceParams
+                |> Sg.uniform "OutcropTraceColor"  (m.outcropTraces.color.c |> AVal.map (fun c -> c.ToC4f().ToV4f()))
                 |> Sg.uniform "CrossSectionClippingEnabled" m.scene.crossSectionModel.clippingEnabled
                 // Whether there is a cross-section at all. See crossSectionClip.
                 |> Sg.uniform "CrossSectionDefined" (crossSectionData |> AVal.map Option.isSome)

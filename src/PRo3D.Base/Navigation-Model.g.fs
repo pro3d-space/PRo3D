@@ -1,5 +1,5 @@
-//d8ae6f07-ce8a-c23e-d6b8-469b9eab59dc
-//cf2ae5e8-00b6-7f3d-cebd-1cccb25df45c
+//ae04a1ae-527b-e27e-d1d0-c3e2d4cc86eb
+//6dcd4dc8-9877-63ac-7023-ffc2c248198e
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -16,6 +16,7 @@ type AdaptiveNavigationModel(value : NavigationModel) =
     let _navigationMode_ = FSharp.Data.Adaptive.cval(value.navigationMode)
     let _exploreCenter_ = FSharp.Data.Adaptive.cval(value.exploreCenter)
     let _updatePerFrame_ = FSharp.Data.Adaptive.cval(value.updatePerFrame)
+    let _lockedAxis_ = FSharp.Data.Adaptive.cval(value.lockedAxis)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : NavigationModel) = AdaptiveNavigationModel(value)
@@ -28,11 +29,13 @@ type AdaptiveNavigationModel(value : NavigationModel) =
             _navigationMode_.Value <- value.navigationMode
             _exploreCenter_.Value <- value.exploreCenter
             _updatePerFrame_.Value <- value.updatePerFrame
+            _lockedAxis_.Value <- value.lockedAxis
     member __.Current = __adaptive
     member __.camera = _camera_
     member __.navigationMode = _navigationMode_ :> FSharp.Data.Adaptive.aval<NavigationMode>
     member __.exploreCenter = _exploreCenter_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V3d>
     member __.updatePerFrame = _updatePerFrame_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.lockedAxis = _lockedAxis_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<NavigationAxis>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module NavigationModelLenses = 
     type NavigationModel with
@@ -40,4 +43,5 @@ module NavigationModelLenses =
         static member navigationMode_ = ((fun (self : NavigationModel) -> self.navigationMode), (fun (value : NavigationMode) (self : NavigationModel) -> { self with navigationMode = value }))
         static member exploreCenter_ = ((fun (self : NavigationModel) -> self.exploreCenter), (fun (value : Aardvark.Base.V3d) (self : NavigationModel) -> { self with exploreCenter = value }))
         static member updatePerFrame_ = ((fun (self : NavigationModel) -> self.updatePerFrame), (fun (value : Microsoft.FSharp.Core.bool) (self : NavigationModel) -> { self with updatePerFrame = value }))
+        static member lockedAxis_ = ((fun (self : NavigationModel) -> self.lockedAxis), (fun (value : Microsoft.FSharp.Core.Option<NavigationAxis>) (self : NavigationModel) -> { self with lockedAxis = value }))
 

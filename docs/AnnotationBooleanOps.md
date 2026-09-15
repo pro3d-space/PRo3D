@@ -7,8 +7,9 @@ Union (merge) and cutting of annotations in the viewer. Design in
 ## Union
 
 Select two or more closed annotations (shift+click while ctrl-picking in *PickAnnotation* mode,
-or via the annotations tree), then press the **union** icon (object-group symbol) in the
-annotations panel header, next to the recalculate icon.
+or via the annotations tree), then press the **union** icon (two overlapping circles) in the
+[tool strip](ToolStrip.md) on the right edge of the render view, directly below the green
+*Cut annotation* scissors.
 
 The selected annotations are replaced by their union:
 

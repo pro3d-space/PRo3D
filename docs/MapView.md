@@ -5,7 +5,11 @@ viewer into a top-down map of the body: **the camera always looks straight at
 the frame origin, with north pointing up the screen**, and every navigation step
 is scaled by how high the camera is above the ground.
 
-Pick it from the navigation dropdown (the location-arrow icon in the top bar).
+Pick it from the [tool strip](ToolStrip.md) on the right edge of the main view (the blue map
+icon, third in the navigation group).
+
+For the frame and camera state MapView shares with the other two modes, see
+[Camera & Navigation](Navigation.md).
 
 | File | Role |
 |------|------|
@@ -52,10 +56,13 @@ frame is derived from:
   `east = Z × up`, `north = up × east`.
 - **Non-planetary frames** — `up` is a fixed axis convention rather than a
   function of position, so the `Z × up` construction degenerates everywhere.
-  These frames name their axes directly:
-  `Planet.JPL` is NED (X north, Y east, Z **down**), `Planet.ENU` and
-  `Planet.None` are ENU (X east, Y north, Z up). This matches the reference
-  system's own definition of north (see TC-2.4).
+  These frames name their axes directly, each matching what
+  `ReferenceSystem.updateCoordSystemAt` defines for that planet:
+  `Planet.JPL` is NED (north `+X`, up `−Z`), `Planet.ENU` is ENU
+  (north `+Y`, up `+Z`), and `Planet.None` takes JPL's north (`+X`) with ENU's
+  up (`+Z`). None used to share the ENU branch, putting its north 90° out from
+  the reference system, the cross and the gizmo. TC-2.5 asserts the agreement
+  against `ReferenceSystemApp` directly, so neither side can drift.
 
 Right over a pole, north is genuinely undefined. `blocksPole` rejects camera
 motion that would drive the view direction into the polar axis, so the camera
@@ -131,6 +138,17 @@ from a ground-level FreeFly pose therefore gives a nadir view from a couple of
 metres up — correct, but rarely what the user wants. Framing the loaded surface
 on entry would need the scene bounding box, which the navigation layer currently
 has no access to.
+
+The [navigation axis gizmo](NavigationGizmo.md) keeps its four horizontal snaps in
+MapView but disables the vertical (Up / Down) ones: looking along the polar axis is
+the north-up singularity `blocksPole` guards against.
+
+Its [axis lock](NavigationGizmo.md#lock-a-navigation-axis) is available in MapView
+for the **vertical edge only**: clicking it constrains a drag to a constant-latitude
+orbit about the body spin axis (`mapFrame.polarAxis`), i.e. longitude-only motion.
+The two horizontal edges are not lockable in MapView. The lock is a post-filter on
+the camera in `Navigation.update` and is transient (see NavigationGizmo.md for the
+clearing rules).
 
 ## Tests
 

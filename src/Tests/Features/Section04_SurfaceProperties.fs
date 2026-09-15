@@ -88,6 +88,19 @@ let tests =
             Expect.isTrue t'.trafoChanged "the transform should be flagged as changed"
         }
 
+        test "TC-4.4 SetPickedReferenceSystem places the frame and makes it visible" {
+            // `showTrafoRefSys` is whatever the surface was loaded with, and read6 defaults
+            // it to false when the scene JSON has no such field - so placing a reference
+            // system could store it correctly and draw nothing. Placing one shows it.
+            let t  = { (makeSurface "surf").transformation with showTrafoRefSys = false }
+            let p  = V3d(1.0, 2.0, 3.0)
+            let t' = TransformationApp.update t (TransformationApp.Action.SetPickedReferenceSystem p) ReferenceSystem.initial V3d.Zero
+            match t'.refSys with
+            | None -> failtest "a picked reference system should be stored"
+            | Some af -> Expect.equal af.Trans p "the frame should sit at the picked point"
+            Expect.isTrue t'.showTrafoRefSys "placing a reference system should make it visible"
+        }
+
         // TC-4.5 Surface FillMode (Wireframe)
 
         test "TC-4.5 SetFillMode switches the surface to wireframe" {

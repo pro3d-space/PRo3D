@@ -13,7 +13,7 @@ removing points build on the same machinery and are not implemented yet — see
 
 ## Using it
 
-1. Choose **Edit Annotation** in the interaction dropdown in the top toolbar.
+1. Choose **Edit Annotation** (the green move icon) in the [tool strip](ToolStrip.md) on the right edge of the main view.
 2. Select an annotation — Ctrl+click it in the 3D view, or pick it in the annotation tree. Its
    control points appear as white discs.
 3. **Ctrl+click a handle** to pick it up. It turns green, and a green line runs from the cursor to
@@ -25,13 +25,13 @@ removing points build on the same machinery and are not implemented yet — see
 **Escape** at any time puts a picked-up point back where it was. **Ctrl+Z** undoes a completed
 move.
 
-The hint line beside the interaction dropdown says which of the two states you are in.
+The hint line at the right of the Tool Settings row says which of the two states you are in.
 
 ### Notes
 
 - **Ctrl is what separates picking from navigating**, here as everywhere else in PRo3D. Without it
-  the mouse drives the camera. If you have the "invert drawing" toggle on, it is the other way
-  round.
+  the mouse drives the camera. With [Direct Tool Mode](DirectToolMode.md) on it is the other way
+  round — plain click grabs, Ctrl hands the button back to the camera.
 - **The 3D cursor is switched on for you** while you are in this mode, whatever the scene's
   "preview intersection" setting says — the drop needs a live surface hit. Your setting is read,
   never overwritten, and applies again as soon as you leave the mode.
@@ -67,7 +67,7 @@ The moved point is written into the annotation, and then:
 - **Annotations that carry no segments keep none.** Every tool except the two ellipse ones defaults
   to `Projection.Linear`, which draws straight lines between points and generates no terrain
   samples at all. An edit does not silently promote such an annotation to a terrain-following one —
-  it keeps the shape it was drawn with. (Set the projection to Viewpoint, Sky or Bookmark *before*
+  it keeps the shape it was drawn with. (Set the projection to Viewpoint or Sky *before*
   drawing to get terrain-following segments.)
 - **Measurements are recomputed** — length, area, height, dip and strike.
 - **One undo entry is pushed** for the whole drop.

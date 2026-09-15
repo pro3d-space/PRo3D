@@ -57,7 +57,7 @@ Interactive measurement/markup placed on surfaces.
 
 Key types:
 - **`Geometry`** — `Point` | `Line` | `Polyline` | `Polygon` | `DnS` (dip & strike) | `TT` (true thickness) | `Ellipse` | `AxisEllipse` | `Axis4PEllipse`.
-- **`Projection`** — `Linear` | `Viewpoint` | `Sky` | `Bookmark` (how sampled points are projected).
+- **`Projection`** — `Linear` | `Viewpoint` | `Sky` (how sampled points are projected). Persisted as an int; legacy value `3` (a removed "Bookmark" mode) loads as `Linear` via `Projection.ofInt`.
 - **`Semantic`** — geological semantics (`Horizon0..4`, `Crossbed`, `GrainSize`, `None`).
 - **`Segment`** — a span between two picked points plus intermediate sampled points (`IndexList<V3d>`).
 - **`Annotation`** — the full markup: geometry, segments, style (color/thickness), projection/semantic, and computed results.
@@ -106,6 +106,7 @@ Key types:
 - **`Entity`** — a SPICE body: `spiceName : EntitySpiceName`, label, color, radius, trajectory length, draw/trajectory toggles, default frame.
 - **`ReferenceFrame`** — a SPICE frame: label, description, `spiceName : FrameSpiceName`.
 - **`ObservationInfo`** — `target`, `observer`, `time` (calendar), `referenceFrame` — the observation geometry used to place/orient things.
+  - **Observation times are UTC, held as `DateTimeKind.Utc`** — the scene time, `Mbi.obs_date`, mission-time entries, interpolated bookmark times. Parse with `Calendar.tryParseUtc` (`AssumeUniversal ||| AdjustToUniversal`; plain `AssumeUniversal` yields *local* time), normalise with `Calendar.toUtc`, and set the scene time through `ObservationInfoAction.SetTime`. Mixing kinds breaks silently: `DateTime` equality and subtraction compare ticks and ignore the kind, and SPICE (`Time.toUtcFormat` → `ToUniversalTime()`) reads an `Unspecified` value as local time. A `DateTime` built from bare ticks is `Unspecified`, so pass `DateTimeKind.Utc`.
 - **`GisSurface`** — binds a `SurfaceId` to an optional entity + reference frame.
 - **`GisApp`** — default observation info, `entities`/`referenceFrames`/`gisSurfaces` maps, the active `spiceKernel`, a projected-image list, marker visibility, and mission-time entries (`MissionTimeEntry` for rover ops timelines).
 
@@ -143,6 +144,37 @@ Actions cover assigning bodies/frames to surfaces, observing (positioning at a t
 | **Traverses** | `src/PRo3D.Core/Traverse-Model.fs` | Rover paths and related data. `TraverseType` = `Rover` (SLAM/RMC) \| `Rimfax` (ground-penetrating radar surfaces) \| `WayPoints`. Carries per-sol metrics, distances, and (for RIMFAX) image-mode surfaces. See `docs/RIMFAXTraverse.md`, `docs/TraversePriorities.md`. |
 
 ---
+
+## Outcrop Traces
+
+`OutcropTraceModel` / `OutcropTraceApp` (`src/PRo3D.Core/`). Marks where a modelled bedding
+sequence — one attitude, repeated at a constant bed thickness — would crop out on the terrain.
+User docs: [docs/OutcropTraces.md](../docs/OutcropTraces.md).
+
+Two things here are easy to get wrong and are pinned by tests:
+
+- **Poles are axial data.** `OutcropTrace.meanAttitude` combines the selection's fitted normals
+  with the orientation tensor (principal eigenvector of `Σ nᵢnᵢᵀ`, via `SVD.Decompose`, the same
+  call `LinearRegression3d.TryGetRegressionInfo` makes). Do **not** replace this with a mean of
+  unit normals: `DipAndStrikeResults.plane` is stored exactly as the regression produced it, so
+  its normal may point either way, and a near-vertical bed cancels itself out. `n nᵀ = (-n)(-n)ᵀ`
+  is what makes the tensor immune. Do not replace it with a circular mean of dip azimuth plus a
+  mean of dip angle either — that biases dip high when azimuths scatter, and returns a zero
+  resultant for two shallow beds dipping in opposite directions, whose mean plane is perfectly
+  well defined.
+- **Shape classification is ordered.** Cluster, else girdle, else no dominant attitude. A girdle
+  necessarily has a *low* `S₁`, because its poles spread around a great circle, so testing the
+  `S₁` floor first reports a fold as "no dominant attitude" instead of naming it. `S₃/S₂`
+  separates a girdle from plain scatter.
+
+The attitude aggregate (`ViewerUtils.outcropTraceAttitude`) is deliberately **not** gated on
+`enabled`: the Dip&Strike panel shows the same selection average with traces switched off. The
+draw gate lives in `outcropTraceUniforms`, which folds every "do not draw" case into one `None`.
+
+Rendering notes are in [RENDERING.md](RENDERING.md#shaders--effects) territory: one view-space
+plane uniform plus `d mod bedThickness` in the fragment shader, added last to the effect stacks,
+with screen-space-derivative antialiasing that is load-bearing rather than cosmetic once a whole
+sequence is on screen.
 
 ## Queries
 

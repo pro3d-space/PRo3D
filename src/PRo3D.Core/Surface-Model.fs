@@ -721,6 +721,7 @@ type Surface = {
     radiometry      : Radiometry
 
     contourModel    : ContourLineModel
+    latLonModel     : LatLonShaderModel
 
     highlightSelected : bool
     highlightAlways   : bool
@@ -831,6 +832,7 @@ module Surface =
                     filterDistance   = Initial.filterDistance 10.0
 
                     contourModel = ContourLineModel.initial
+                    latLonModel = LatLonShaderModel.initial
 
                     highlightSelected     = true
                     highlightAlways       = false
@@ -870,6 +872,7 @@ module Surface =
             let! transferFunction = Json.readOrDefault "transferFunction" TransferFunction.empty
             let! opcxPath = Json.readOrDefault "opcxPath" None
             let! contourModel = Json.readOrDefault "contourModel" ContourLineModel.initial
+            let! latLonModel = Json.readOrDefault "latLonModel" LatLonShaderModel.initial
 
             let! surfaceType     = Json.read "surfaceType"    
             let! colorCorrection = Json.read "colorCorrection"
@@ -927,6 +930,7 @@ module Surface =
                     transferFunction = transferFunction
                     opcxPath        = opcxPath
                     contourModel = contourModel
+                    latLonModel = latLonModel
 
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
@@ -985,6 +989,7 @@ type Surface with
             do! Json.write "transferFunction" x.transferFunction
             do! Json.write "opcxPath" x.opcxPath
             do! Json.write "contourModel" x.contourModel
+            do! Json.write "latLonModel" x.latLonModel
 
             do! Json.write "surfaceType" (x.surfaceType |> int)
             do! Json.write "colorCorrection" x.colorCorrection

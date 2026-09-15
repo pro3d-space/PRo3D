@@ -39,6 +39,48 @@ let private contourTests =
         }
     ]
 
+// TC-13.4 LatLon Shader (graticule overlay)
+let private latLonTests =
+    testList "LatLon shader" [
+
+        test "TC-13.4 the graticule starts disabled" {
+            Expect.isFalse LatLonShaderModel.initial.enabled "the LatLon shader should be off by default"
+        }
+
+        test "TC-13.4 ToggleEnabled turns the graticule on" {
+            let m = LatLonShaderApp.update LatLonShaderModel.initial LatLonShaderApp.Action.ToggleEnabled
+            Expect.isTrue m.enabled "the graticule should be enabled after toggling"
+        }
+
+        test "TC-13.4 ToggleLat flips the parallel granularity it names" {
+            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.ToggleLat 1)
+            Expect.isTrue m.lat1 "the 1° parallels should be on after toggling"
+            let m2 = LatLonShaderApp.update m (LatLonShaderApp.Action.ToggleLat 15)
+            Expect.isFalse m2.lat15 "the 15° parallels should be off after toggling (on by default)"
+            Expect.isTrue m2.lat1 "toggling 15° must not touch the 1° flag"
+        }
+
+        test "TC-13.4 ToggleLon flips the meridian granularity it names" {
+            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.ToggleLon 5)
+            Expect.isFalse m.lon5 "the 5° meridians should be off after toggling (on by default)"
+            Expect.equal m.lon1 LatLonShaderModel.initial.lon1 "toggling 5° must not touch the 1° flag"
+        }
+
+        test "TC-13.4 ToggleLat ignores an unknown granularity" {
+            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.ToggleLat 7)
+            Expect.equal m LatLonShaderModel.initial "7° is not an offered level, model unchanged"
+        }
+
+        test "TC-13.4 the offered levels are 1, 5 and 15" {
+            Expect.equal LatLonShaderApp.levels [ 1; 5; 15 ] "the graticule granularities are 1°, 5° and 15°"
+        }
+
+        test "TC-13.4 SetLineColor changes the line colour" {
+            let m = LatLonShaderApp.update LatLonShaderModel.initial (LatLonShaderApp.Action.SetLineColor (ColorPicker.Action.SetColor C4b.Red))
+            Expect.equal m.lineColor.c C4b.Red "the line colour should be red"
+        }
+    ]
+
 // TC-13.2 Multitexturing
 let private multiTextureTests =
     testList "Multitexturing" [
@@ -92,6 +134,7 @@ let private crossSectionTests =
 let tests =
     testList "Section 13 — Contour Lines and Multitexturing" [
         contourTests
+        latLonTests
         multiTextureTests
         crossSectionTests
     ]

@@ -623,26 +623,14 @@ module GroupsApp =
             return if (activeGroup.id = group) then "circle icon" else "circle outline icon"
         }
 
-    /// css color for a group in the tree view: green if it is the active group, white otherwise.
-    /// (the tree renders on a dark background, hence white rather than the semantic ui default)
-    let activeGroupColor (model : AdaptiveGroupsModel)
-                         (group : AdaptiveNode) : aval<string> =
-        adaptive {
-            let! activeGroup = model.activeGroup
-            let! key = group.key
-            let c = if activeGroup.id = key then C4b.VRVisGreen else C4b.White
-            return sprintf "color: %s" (Html.color c)
-        }
+    /// css color fragment for group labels / folder icons in the tree view: always white
+    /// (the tree renders on a dark background, hence white rather than the semantic ui default).
+    /// the active group is highlighted only on its "set active" circle icon, see setActiveGroupAttributeMap.
+    let treeItemColorStyle = sprintf "color: %s" (Html.color C4b.White)
 
-    /// style attributes highlighting the active group; use with Incremental.div/i so that
-    /// switching the active group only updates the style instead of rebuilding the tree node
-    let activeGroupColorAttributes (model : AdaptiveGroupsModel)
-                                   (group : AdaptiveNode)
-                                   (additionalStyle : string) =
-        amap {
-            let! color = activeGroupColor model group
-            yield style (additionalStyle + color)
-        } |> AttributeMap.ofAMap
+    /// static style attributes for a group label, prefixed with additionalStyle
+    let treeItemColorAttributes (additionalStyle : string) =
+        AttributeMap.ofList [ style (additionalStyle + treeItemColorStyle) ]
 
     let setActiveGroupAttributeMap (path : list<Index>)
                                    (model : AdaptiveGroupsModel)
@@ -651,6 +639,12 @@ module GroupsApp =
         amap {
             let! icon = activeIcon model group
             yield clazz icon
+            // only the circle icon that triggers SetActiveGroup is coloured, not the whole tree line:
+            // green while this group is active, white otherwise (dark background)
+            let! activeGroup = model.activeGroup
+            let! key = group.key
+            let c = if activeGroup.id = key then C4b.VRVisGreen else C4b.White
+            yield style (sprintf "color: %s" (Html.color c))
             yield onClick (fun _ ->
                 let setActive =
                     GroupsAppAction.SetActiveGroup (AVal.force group.key, path, AVal.force group.name)

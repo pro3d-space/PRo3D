@@ -8,9 +8,139 @@ open Aardvark.SceneGraph.Semantics
 
         
 
-module ImageProjectionOpcExtensions = 
+/// Which way `ImageProjection.Shaders.generateNormal`'s face normal points for a given
+/// dataset.
+///
+/// OPC datasets are inconsistently wound, so `cross edge1 edge2` points outward on one and
+/// inward on another. Anything that tests a normal against a direction OTHER than the
+/// render camera therefore needs to know: the projection shaders' "is this fragment facing
+/// the projector" test is exactly that, and gets the answer backwards on an inward-wound
+/// dataset -- the projection then survives only near the limb.
+///
+/// Lives here rather than next to the offscreen tools' scene graph because both the tools
+/// (PRo3D.GIS.OpcSg, which flip the normal in the shader via NormalFlip) and the viewer
+/// (Surface.Sg, which negates the projector matrices instead, opt-in -- see
+/// ImageProjectionOpcExtensions.projectionUniformMap') use it, and PRo3D.Core is what
+/// they share.
+module NormalWinding =
 
-    let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
+    open Aardvark.Rendering
+    open Aardvark.Data.Opc
+    open Aardvark.SceneGraph.Opc
+
+    /// Sample up to ~100 faces of the coarse root patch and vote whether they point away
+    /// from the body-fixed origin. Majority inward -> the shader must flip (1.0), else 0.0.
+    /// Valid for star-shaped bodies, which is what this projection is for.
+    let estimate (basePath : string) (rootPatch : Patch) : float =
+        try
+            let ig, _ = Patch.load (OpcPaths.OpcPaths basePath) ViewerModality.XYZ rootPatch.info
+            let l2g = rootPatch.info.Local2Global.Forward
+            match ig.IndexedAttributes.[DefaultSemantic.Positions], ig.IndexArray with
+            | (:? array<V3f> as pos), (:? array<int> as idx) ->
+                let triCount = idx.Length / 3
+                let stride = max 1 (triCount / 100)   // ~100 samples spread across the patch
+                let mutable outward = 0
+                let mutable inward = 0
+                let mutable t = 0
+                while t < triCount do
+                    let i = t * 3
+                    let a = pos.[idx.[i]]
+                    let b = pos.[idx.[i + 1]]
+                    let c = pos.[idx.[i + 2]]
+                    if not (a.IsNaN || b.IsNaN || c.IsNaN) then
+                        let n = l2g.TransformDir (V3d (Vec.cross (b - a) (c - a)))
+                        let centroid = l2g.TransformPos (V3d ((a + b + c) / 3.0f))
+                        if Vec.dot n centroid > 0.0 then outward <- outward + 1
+                        else inward <- inward + 1
+                    t <- t + stride
+                if outward + inward = 0 then
+                    Log.warn "[opc]   winding: no usable face in the root patch of %s; NormalFlip 0" basePath
+                    0.0
+                else
+                    let flip = if inward > outward then 1.0 else 0.0
+                    Log.line "[opc]   winding: %d outward / %d inward -> NormalFlip %.0f"
+                        outward inward flip
+                    flip
+            | p, i ->
+                Log.warn "[opc]   winding: unexpected geometry layout in %s (positions %s, indices %s); NormalFlip 0"
+                    basePath (if isNull p then "none" else p.GetType().Name)
+                    (if isNull i then "none" else i.GetType().Name)
+                0.0
+        with e ->
+            Log.warn "[opc]   could not estimate winding (%s); NormalFlip 0" e.Message
+            0.0
+
+/// Surfaces the image projection refuses to paint (#741).
+///
+/// The projector is built in the OPC's own coordinates, taken as the surface's SPICE
+/// body-fixed frame. A pre-transformation, Flip Z or the SketchFab axis swap changes what
+/// those coordinates mean, so a projection would land in the wrong place; the viewer
+/// paints none on such a surface and names it in the Projected Images panel instead. The
+/// user Transformation does not count: it moves terrain and image together, which is a
+/// documented limitation rather than a wrong result (docs/MultiImageProjection.md).
+module ProjectionPreconditions =
+
+    open PRo3D.Core.Surface
+
+    [<Literal>]
+    let issueUrl = "https://github.com/pro3d-space/PRo3D/issues/741"
+
+    /// Why the projection is refused on a surface with these settings, if it is.
+    let refusal (preTransform : Trafo3d) (flipZ : bool) (sketchFab : bool) : Option<string> =
+        if flipZ then Some "Flip Z is on"
+        elif sketchFab then Some "SketchFab is on"
+        elif preTransform.Forward <> M44d.Identity then Some "it has a pre-transformation"
+        else None
+
+    /// `refusal` for a surface in the model. None for meshes: only OPC surfaces receive
+    /// the projection at all.
+    let refusalOf (s : AdaptiveSurface) : aval<Option<string>> =
+        match s.surfaceType with
+        | SurfaceType.SurfaceOPC ->
+            adaptive {
+                let! preTransform = s.preTransform
+                let! flipZ = s.transformation.flipZ
+                let! sketchFab = s.transformation.isSketchFab
+                return refusal preTransform flipZ sketchFab
+            }
+        | _ ->
+            AVal.constant None
+
+    /// `p` with every image-projection input off while `refused`: nothing projected, no
+    /// hover footprint, no coverage tint. Sun lighting and shadows are left alone, they
+    /// do not depend on the OPC's coordinates meaning the body-fixed frame.
+    let withoutProjection (refused : aval<bool>) (p : Sg.ProjectedImages) : Sg.ProjectedImages =
+        let gate (off : 'a) (value : aval<'a>) =
+            refused |> AVal.bind (fun r -> if r then AVal.constant off else value)
+        { p with
+            imageProjection = gate None p.imageProjection
+            stackProjections = gate Array.empty p.stackProjections
+            hoveredProjection = gate None p.hoveredProjection
+            stackCoverageEnabled = gate false p.stackCoverageEnabled }
+
+module ImageProjectionOpcExtensions =
+
+    /// Patch-local -> projector clip space, composed on the CPU in double.
+    ///
+    /// vp * Local2Global and deliberately NOT vp * modelTrafo * Local2Global: the matrix
+    /// applies to the raw patch-local position, Local2Global already lands in the
+    /// surface's body-fixed frame, and that is the frame computeProjector builds vp in.
+    /// The model trafo would apply the body's orientation a second time. Leaving it out
+    /// is also what keeps the projection on the terrain when the scene time changes.
+    ///
+    /// Negated for an inward-wound hierarchy while winding correction is on. That
+    /// negation IS the correction: the shaders place a fragment at (M p).xyz / (M p).w,
+    /// which -M leaves unchanged, and accept it when M.TransformDir(normal).Z < 0, which
+    /// -M flips. So the correction costs no shader instruction, and with it off
+    /// `inwardWound` is never forced -- no patch is loaded to vote on.
+    let toProjector (inwardWound : Lazy<bool>) (correctWinding : bool)
+                    (local2Global : Trafo3d) (vp : Trafo3d) : M44d =
+        let m = vp.Forward * local2Global.Forward
+        if correctWinding && inwardWound.Value then -m else m
+
+    /// `inwardWound`: this hierarchy's winding vote (NormalWinding.estimate), forced
+    /// only when ProjectedImages.windingCorrection is on and a projector is resolved.
+    let projectionUniformMap' (inwardWound : Lazy<bool>) : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
             // instrument clip <- patch local, for the view plan footprint (Shader.footprintV).
             // Composed on the CPU in double like ProjectedImageModelViewProj below; the outer
@@ -26,28 +156,77 @@ module ImageProjectionOpcExtensions =
                     vp * m.Forward * patch.info.Local2Global.Forward
                 ) :> IAdaptiveValue
             )
-            "ProjectedImagesLocalTrafos", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
-                let context = scope |> unbox<OpcRenderingExtensions.Context> 
-                context.projectedImages |> AVal.bind (function 
+            // hover footprint (D5): the hovered image's projector, same
+            // double-precision per-patch composition as the stack matrices
+            "HoveredProjectionTrafo", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant M44d.Identity
+                    | Some p ->
+                        (p.hoveredProjection, p.windingCorrection) ||> AVal.map2 (fun vp correct ->
+                            match vp with
+                            | Some vp -> toProjector inwardWound correct patch.info.Local2Global vp
+                            | None -> M44d.Identity
+                        )
+                ) :> IAdaptiveValue
+            )
+            "HoveredProjectionValid", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant false
+                    | Some p -> p.hoveredProjection |> AVal.map Option.isSome
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackCoverageEnabled", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant false
+                    | Some p -> p.stackCoverageEnabled
+                ) :> IAdaptiveValue
+            )
+            // The projection stack (multi-image projection), bottom -> top.
+            // Same double-precision composition as ProjectedImageModelViewProj
+            // below; the stack shader binds these as fixed-size uniform arrays
+            // (Arr<N<32>, _>, see ProjectedImages.maxCount) -- a plain array
+            // source binds to a UBO array field, short arrays are zero-filled
+            // (UniformWriters.ArrayWriter), and StackCount bounds the loop.
+            "ProjectedStackTrafos", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
                     | None -> AVal.constant Array.empty<M44f>
                     | Some p ->
-                        (p.localImageProjectionTrafos, context.modelTrafo)
-                        ||> AVal.map2 (fun arr modelTrafo ->  
-                            arr |> Array.map (fun (vp : Trafo3d) ->
-                                // first to body space, then through projection.
-                                // modelTrafo included for the same reason as in
-                                // ProjectedImageModelViewProj below.
-                                vp.Forward * modelTrafo.Forward * patch.info.Local2Global.Forward |> M44f
+                        (p.stackProjections, p.windingCorrection)
+                        ||> AVal.map2 (fun layers correct ->
+                            layers |> Array.map (fun layer ->
+                                match layer.trafo with
+                                | Some vp -> toProjector inwardWound correct patch.info.Local2Global vp |> M44f
+                                // unresolved layer: the zero matrix maps every
+                                // vertex to (0,0,0,0), whose NaN NDC fails the
+                                // coverage test -- the slot stays, paints nothing
+                                | None -> M44f.Zero
                             )
                         )
                 ) :> IAdaptiveValue
             )
-            "ProjectedImagesLocalTrafosCount", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
+            "ProjectedStackMinMax", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
                 context.projectedImages |> AVal.bind (function
-                    | None -> AVal.constant 0 
-                    | Some p -> 
-                        (p.localImageProjectionTrafos |> AVal.map Array.length)
+                    | None -> AVal.constant Array.empty<V2f>
+                    | Some p -> p.stackProjections |> AVal.map (Array.map (fun l -> l.minMax))
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackCount", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant 0
+                    | Some p ->
+                        // clamped to the Arr<N<32>> size (= ProjectedImages.maxCount,
+                        // not referencable here -- this file compiles before the
+                        // model): UniformWriters truncates an over-long matrix
+                        // array, and the shader loop must not index past what was
+                        // written (effectiveStack already caps the viewer's
+                        // stack; the testbeds can hand over more)
+                        p.stackProjections |> AVal.map (fun l -> min l.Length 32)
                 ) :> IAdaptiveValue
             )
             "ProjectedImageModelViewProjValid", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
@@ -62,14 +241,12 @@ module ImageProjectionOpcExtensions =
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
                 context.projectedImages |> AVal.bind (function 
                     | None -> AVal.constant M44d.Identity
-                    | Some p -> 
-                        (p.imageProjection, context.modelTrafo) ||> AVal.map2 (fun vp m ->
+                    | Some p ->
+                        (p.imageProjection, p.windingCorrection) ||> AVal.map2 (fun vp correct ->
                             match vp with
                             | Some vp ->
-                                // m.Forward (the surface model trafo) is required; it only
-                                // worked without while every body sat at identity.
-                                vp.Forward * m.Forward * patch.info.Local2Global.Forward
-                            | None -> 
+                                toProjector inwardWound correct patch.info.Local2Global vp
+                            | None ->
                                 M44d.Identity
                         ) 
                 ) :> IAdaptiveValue
@@ -119,8 +296,12 @@ module ImageProjectionOpcExtensions =
             )
         ]
 
+    /// Without a winding vote: for scene graphs that never turn winding correction on
+    /// (the offscreen tools flip the normal in the shader instead, see NormalFlip).
+    let projectionUniformMap = projectionUniformMap' (lazy false)
 
-    //let projectionUniformMap (imageProjection : aval<Option<Trafo3d>>) 
+
+    //let projectionUniformMap (imageProjection : aval<Option<Trafo3d>>)
     //                         (localImageProjectionTrafos : aval<array<Trafo3d>>)
     //                         (sunLightDirection : aval<Option<V3d>>) 
     //                         (sunLightingEnabled : aval<bool>) =
