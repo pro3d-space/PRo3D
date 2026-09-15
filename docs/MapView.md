@@ -11,6 +11,12 @@ icon, third in the navigation group).
 For the frame and camera state MapView shares with the other two modes, see
 [Camera & Navigation](Navigation.md).
 
+MapView needs a body: it is unavailable while the planet is `None`. The planet is the
+[scene body](SceneBody.md), so choosing the observed body in the GIS view enables MapView
+just as choosing the planet in the top bar does. A GIS scene observed in a frame other
+than the body's fixed frame (e.g. `J2000`) has no planet, because MapView's pole (+Z)
+would be the wrong axis there.
+
 | File | Role |
 |------|------|
 | [`src/PRo3D.Viewer/MapViewCameraController.fs`](../src/PRo3D.Viewer/MapViewCameraController.fs) | The controller: map frame, camera constraint, pan/zoom integration |

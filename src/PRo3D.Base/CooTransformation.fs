@@ -49,6 +49,11 @@ module Planet =
         | (Planet.None, Planet.None)   -> Planet.None
         | (Planet.None, Planet.JPL)    -> Planet.JPL
         | (Planet.None, Planet.ENU)    -> Planet.ENU
+        // The radius test only recognises Mars and Earth. Any other body was chosen on
+        // purpose (globally or as the GIS scene body, #758) - "not recognised" is no
+        // evidence against it, so do not overwrite it with None.
+        | (Planet.None, (Planet.Moon | Planet.Phobos | Planet.Deimos | Planet.Didymos | Planet.Dimorphos)) ->
+            currentSystem
         | _ ->
             Log.warn "[Scene] found reference system does not align with suggested system"
             Log.warn "[Scene] changing to %A" inferredSystem
@@ -548,6 +553,20 @@ module CooTransformation =
         | "didymos" -> Some Planet.Didymos
         | "dimorphos" -> Some Planet.Dimorphos
         | _       -> None
+
+    /// xyz -> lat/lon/alt on the SPICE body `bodyName` (a GIS surface's body). Uses the
+    /// body's own convention when `Planet` knows it - PGRREC is invalid for Dimorphos, see
+    /// getConvention - and planetographic by name for any other body.
+    let tryGetLatLonAltOfBody (bodyName : string) (p : V3d) : SphericalCoo option =
+        match planetFromString (bodyName.Trim()) with
+        | Some planet -> tryGetLatLonAlt planet p
+        | None        -> tryGetLatLonAltPlanet bodyName p
+
+    /// lat/lon/alt -> xyz on the SPICE body `bodyName`; inverse of tryGetLatLonAltOfBody.
+    let tryGetXYZFromLatLonAltOfBody (sc : SphericalCoo) (bodyName : string) : V3d option =
+        match planetFromString (bodyName.Trim()) with
+        | Some planet -> tryGetXYZFromLatLonAlt sc planet
+        | None        -> tryGetXYZFromLatLonAltPlanet sc bodyName
 
     module SphericalCoo =
         let toV3d (spherical : SphericalCoo) =

@@ -164,13 +164,14 @@ module SnapshotGenerator =
                     // is complete, matching interactive semantics. Ordered AFTER
                     // SetCamera so that override wins; with incomplete info the handler
                     // leaves the camera alone and the bookmark's own view stands.
+                    //
+                    // Time and camera source only: the observed body and frame are the
+                    // scene body (#758) and stay the scene's, as in interactive playback.
                     let observationActions =
                         match bookmark.observationInfo with
                         | Some info ->
                             [
                                 PRo3D.Core.Gis.ObservationInfoAction.SetTarget info.target
-                                PRo3D.Core.Gis.ObservationInfoAction.SetObserver info.observer
-                                PRo3D.Core.Gis.ObservationInfoAction.SetReferenceFrame info.referenceFrame
                                 PRo3D.Core.Gis.ObservationInfoAction.SetTime info.time.date
                             ]
                             |> List.map (PRo3D.Core.Gis.GisAppAction.ObservationInfoMessage >> ViewerAction.GisAppMessage)

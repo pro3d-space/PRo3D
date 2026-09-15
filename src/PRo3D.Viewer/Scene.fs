@@ -348,6 +348,16 @@ module SceneLoader =
         let cam' = { cam with view = view' }
         Optic.set _camera cam' m
 
+    /// Scene load step: a scene whose GIS observation is body-fixed gets that body as its
+    /// planet (#758, SceneBodySync.reconcileOnLoad). Runs after the annotations are loaded -
+    /// a planet change recomputes their measurements - and before the scale bars, which
+    /// are built for the planet.
+    let reconcileSceneBody (m : Model) =
+        let sky (m : Model) = ReferenceSystem.bodyAwareSky m.scene.referenceSystem.planet m.scene.referenceSystem.up.value
+        let skyBefore = sky m
+        let m = SceneBodySync.reconcileOnLoad m
+        if Vec.distance skyBefore (sky m) > 1e-9 then updateCameraUp m else m
+
         
     let updateGisApp (m : Model) =
         let gisApp = PRo3D.Core.Gis.GisApp.loadSpiceKernelForced m.scene.gisApp

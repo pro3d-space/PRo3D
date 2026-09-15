@@ -230,46 +230,35 @@ module ViewerLenses =
                     | None -> m
                 let m = updateSceneState sb m            
 
-                let m = 
-                    match sb.observationInfo with
-                    | Some info ->
-                        match info.valuesIfComplete with
-                        | Some (t, o, r) ->
-                            // call spice function and transform surfaces here!
-                            Log.line "[debug] call to spice function with 
-                                        target: %s observer: %s reference frame:  %s 
-                                        time: %s" 
-                                     t.Value o.Value r.Value (string info.time.date)
-                            let observationInfo =
-                                {
-                                    target         = Some t
-                                    observer       = Some o
-                                    time           = {m.scene.gisApp.defaultObservationInfo.time with
-                                                            date = info.time.date}
-                                    referenceFrame = Some r
-                                }
-                            let m = Optic.set _observationInfo observationInfo m
-                            let c = GisApp.lookAtObserver' observationInfo
-                            let m = 
-                                match c with 
-                                | Some c -> 
-                                    Optic.set _view c m
-                                | _ -> m
-                            m
-                        | None ->
-                            m
-                    | None ->
-                        //update camera to bookmark's camera
-                        // guard against a null CameraView (reference type): a zero-duration
-                        // animation segment can emit Unchecked.defaultof<CameraView>, which
-                        // would otherwise null out navigation.camera.view -> NRE
-                        if obj.ReferenceEquals(sb.cameraView, null) then
-                            Log.warn "[SequencedBookmarks] null cameraView for bookmark %A - skipping view update" sb.bookmark.key
-                            m
-                        else
-                            Optic.set _view sb.cameraView m
+                //update camera to bookmark's camera
+                // guard against a null CameraView (reference type): a zero-duration
+                // animation segment can emit Unchecked.defaultof<CameraView>, which
+                // would otherwise null out navigation.camera.view -> NRE
+                let setBookmarkCamera (m : Model) =
+                    if obj.ReferenceEquals(sb.cameraView, null) then
+                        Log.warn "[SequencedBookmarks] null cameraView for bookmark %A - skipping view update" sb.bookmark.key
+                        m
+                    else
+                        Optic.set _view sb.cameraView m
 
-                m
+                match sb.observationInfo with
+                | Some info ->
+                    // A bookmark contributes its time and camera source body. The observed
+                    // body and frame are the scene body (#758) and stay the scene's: a
+                    // bookmark's own are ignored. With a camera source the camera looks from
+                    // it at the scene body; without one the bookmark's camera stands and only
+                    // the time (the sun) moves - as in PRo3D.Snapshots.
+                    let scene = m.scene.gisApp.defaultObservationInfo
+                    let observationInfo =
+                        { scene with
+                            target = info.target
+                            time   = { scene.time with date = info.time.date } }
+                    let m = Optic.set _observationInfo observationInfo m
+                    match GisApp.lookAtObserver' observationInfo with
+                    | Some c -> Optic.set _view c m
+                    | None -> setBookmarkCamera m
+                | None ->
+                    setBookmarkCamera m
 
             match sb with
             | SequencedBookmark.LoadedBookmark loaded ->

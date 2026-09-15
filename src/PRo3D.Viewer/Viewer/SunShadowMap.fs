@@ -64,13 +64,16 @@ module SunShadowMap =
         |> AVal.map (fun l -> l = PRo3D.ImageMapping.LightingMode.SunShadow)
 
     /// Direction towards the sun in scene space, from the first GIS-registered surface
-    /// (v1: one sun for the whole scene).
+    /// (v1: one sun for the whole scene) - or, with none registered, from any surface:
+    /// unassigned surfaces inherit the scene body (#758).
     let private sunDirection (m : AdaptiveModel) : aval<Option<V3d>> =
-        m.scene.gisApp.gisSurfaces
-        |> AMap.toAVal
-        |> AVal.bind (fun surfs ->
-            match surfs |> HashMap.toSeq |> Seq.tryHead with
-            | Some (surfaceId, _) -> Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
+        (m.scene.gisApp.gisSurfaces |> AMap.toAVal, m.scene.surfacesModel.surfaces.flat |> AMap.toAVal)
+        ||> AVal.map2 (fun registered surfaces ->
+            match registered |> HashMap.toSeq |> Seq.tryHead with
+            | Some (surfaceId, _) -> Some surfaceId
+            | None -> surfaces |> HashMap.toSeq |> Seq.tryHead |> Option.map fst)
+        |> AVal.bind (function
+            | Some surfaceId -> Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
             | None -> AVal.constant None)
 
     /// The same placement the main render applies to a surface (viewSingleSurfaceSg):
