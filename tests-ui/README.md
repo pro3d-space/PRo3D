@@ -170,4 +170,7 @@ probes bypass Playwright's reporting entirely.
 5. Keep data paths behind `PRO3D_*` env vars with sensible local defaults.
 6. When a spec fails, look at the artifacts before theorizing:
    `artifacts/*.png`, `test-results/**/test-failed-*.png`, and the app log
-   `pro3d.log` (in this directory).
+   `pro3d.log` (in this directory; the latest launch only) or, for any earlier
+   launch of the run, `artifacts/logs/pro3d-<start time>.log`. A render view
+   stuck on the loading splash is a hang or a crash, not slowness: check the log
+   and take a thread dump of the viewer (`dotnet-stack report -p <pid>`).

@@ -118,6 +118,14 @@ export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
 
     const logFile = path.join(__dirname, "..", "pro3d.log");
     const log = fs.createWriteStream(logFile);
+    // pro3d.log is the latest launch only - the next spec truncates it. Every launch
+    // also keeps its own copy, so a hang or crash in an early spec is still readable
+    // after the whole suite has run.
+    const logDir = path.join(artifacts, "logs");
+    fs.mkdirSync(logDir, { recursive: true });
+    const keptLog = fs.createWriteStream(
+        path.join(logDir, `pro3d-${new Date().toISOString().replace(/[:.]/g, "-")}.log`)
+    );
 
     const proc = spawn(
         config.exe,
@@ -133,6 +141,8 @@ export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
     );
     proc.stdout!.pipe(log);
     proc.stderr!.pipe(log);
+    proc.stdout!.pipe(keptLog);
+    proc.stderr!.pipe(keptLog);
 
     const url = `http://localhost:${config.port}/`;
 
