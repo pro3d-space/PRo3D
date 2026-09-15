@@ -91,4 +91,10 @@ stored point (annotations, reference system, pivots, bookmarks) goes through —
 
 ## Tests
 
-`src/Tests/Features/Section12_GisView.fs`, TC-12.4.
+- `src/Tests/Features/Section12_GisView.fs`, TC-12.4 — the table, the identity shortcut,
+  frame snapping, planet ↔ observation mirroring, surface inheritance, first-import inference.
+- `tests-ui/tests/scene-body.spec.ts` (Playwright, real viewer) — a GIS-only scene gets its
+  planet on load and map view navigates; a J2000 scene loads unchanged and switches on the
+  button; picking the planet in the top bar sets up the GIS.
+- `tests-ui/tests/projection-e2e.spec.ts`, the *scene body* cases — a generated frame projects
+  back through an unbound surface in a body-fixed world, also across epochs.

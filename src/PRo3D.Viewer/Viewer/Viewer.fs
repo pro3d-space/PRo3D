@@ -624,12 +624,22 @@ module ViewerApp =
     let flyToImageCamera (m : Model) (imageId : System.Guid) : Option<CameraView> =
         let gis = m.scene.gisApp
         let projectionSurface =
-            gis.gisSurfaces
-            |> HashMap.toSeq
-            |> Seq.tryPick (fun (sid, gs) ->
-                match gs.entity, gs.referenceFrame with
-                | Some entity, Some frame -> Some (sid, entity, frame)
-                | _ -> None)
+            let bound =
+                gis.gisSurfaces
+                |> HashMap.toSeq
+                |> Seq.tryPick (fun (sid, gs) ->
+                    match gs.entity, gs.referenceFrame with
+                    | Some entity, Some frame -> Some (sid, entity, frame)
+                    | _ -> None)
+            match bound with
+            | Some _ -> bound
+            | None ->
+                // no explicit binding: a surface that inherits the scene body (#758)
+                m.scene.surfacesModel.surfaces.flat
+                |> HashMap.toSeq
+                |> Seq.tryPick (fun (sid, _) ->
+                    Gis.GisApp.getSpiceReferenceSystem gis sid
+                    |> Option.map (fun r -> sid, r.body, r.referenceFrame))
         let image = PRo3D.ImageMapping.ProjectedImageListModel.tryFind imageId gis.projectedImageList
         let observerSystemOpt = Gis.GisApp.getObserverSystem gis
 
@@ -703,7 +713,7 @@ module ViewerApp =
                 [ if Option.isNone observerSystemOpt then
                       yield "no observed body is set (GIS tab -> Current Observation Settings -> Observed body)"
                   if Option.isNone projectionSurface then
-                      yield "no surface is bound to a SPICE body (GIS tab -> Surfaces -> pick an Entity and a Reference Frame)"
+                      yield "no surface is bound to a SPICE body (set the planet / Observed body, or GIS tab -> Surfaces -> pick an Entity and a Reference Frame)"
                   if Option.isNone image then
                       yield "the image is not in the projected-image library" ]
             Log.warn "[Viewer] fly-to needs: %s" (String.concat "; " missing)
