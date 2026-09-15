@@ -18,6 +18,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section09_ViewerConfiguration.tests
         PRo3D.Tests.Section10_Grouping.tests
         PRo3D.Tests.Section12_GisView.tests
+        PRo3D.Tests.Section12_SceneBody.tests
         PRo3D.Tests.Section13_ContourMultitexturing.tests
         PRo3D.Tests.Section14_SurfaceComparison.tests
         PRo3D.Tests.Section16_CommandLine.tests

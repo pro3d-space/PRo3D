@@ -348,15 +348,26 @@ module SceneLoader =
         let cam' = { cam with view = view' }
         Optic.set _camera cam' m
 
+    /// Runs `f` and re-aims the camera only when the sky it would be built from actually
+    /// moved. `updateCameraUp` keeps the position and viewing direction but replaces the
+    /// sky vector, which *rolls* the camera about its own view axis - so running it on every
+    /// reference-system action snapped the roll on purely cosmetic edits (toggling the
+    /// cross, its text size or colour, nudging the north offset) and on re-picking the
+    /// planet that was already selected. Only `planet` and `up` feed `bodyAwareSky`, so
+    /// comparing it across `f` is the exact precondition, and it leaves a camera the user
+    /// deliberately rolled alone.
+    let withCameraSkyFollowing (f : Model -> Model) (m : Model) =
+        let skyOf (rs : ReferenceSystem) = ReferenceSystem.bodyAwareSky rs.planet rs.up.value
+        let skyBefore = skyOf m.scene.referenceSystem
+        let m = f m
+        if Vec.distance skyBefore (skyOf m.scene.referenceSystem) > 1e-9 then updateCameraUp m else m
+
     /// Scene load step: a scene whose GIS observation is body-fixed gets that body as its
     /// planet (#758, SceneBodySync.reconcileOnLoad). Runs after the annotations are loaded -
     /// a planet change recomputes their measurements - and before the scale bars, which
     /// are built for the planet.
     let reconcileSceneBody (m : Model) =
-        let sky (m : Model) = ReferenceSystem.bodyAwareSky m.scene.referenceSystem.planet m.scene.referenceSystem.up.value
-        let skyBefore = sky m
-        let m = SceneBodySync.reconcileOnLoad m
-        if Vec.distance skyBefore (sky m) > 1e-9 then updateCameraUp m else m
+        withCameraSkyFollowing SceneBodySync.reconcileOnLoad m
 
         
     let updateGisApp (m : Model) =

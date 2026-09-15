@@ -329,20 +329,6 @@ module ViewerApp =
 
         { m with scene = { m.scene with referenceSystem = refSystem' }}
 
-    /// Runs `f` and re-aims the camera only when the sky it would be built from actually
-    /// moved. `updateCameraUp` keeps the position and viewing direction but replaces the
-    /// sky vector, which *rolls* the camera about its own view axis - so running it on every
-    /// reference-system action snapped the roll on purely cosmetic edits (toggling the
-    /// cross, its text size or colour, nudging the north offset) and on re-picking the
-    /// planet that was already selected. Only `planet` and `up` feed `bodyAwareSky`, so
-    /// comparing it across `f` is the exact precondition, and it leaves a camera the user
-    /// deliberately rolled alone.
-    let private withCameraSkyFollowing (f : Model -> Model) (m : Model) =
-        let skyOf (rs : ReferenceSystem) = ReferenceSystem.bodyAwareSky rs.planet rs.up.value
-        let skyBefore = skyOf m.scene.referenceSystem
-        let m = f m
-        if Vec.distance skyBefore (skyOf m.scene.referenceSystem) > 1e-9 then SceneLoader.updateCameraUp m else m
-
     /// places the reference system at pos - moves the coordinate cross there
     let private updateUpNorthForPosition (pos : V3d) (m : Model) =
         updateReferenceSystemAt ReferenceSystemAction.UpdateUpNorth pos m
@@ -1800,6 +1786,8 @@ module ViewerApp =
             
         | LoadSerializedScene json, _ -> // serialized scene file (content of .pro3d)
             SceneLoading.loadSceneFromJson m runtime signature json
+            // like every other scene load (#758); the drawing arrives separately here
+            |> SceneLoader.reconcileSceneBody
 
         | LoadSerializedDrawingModel json, _ -> 
             let annotations = DrawingUtilities.IO.loadAnnotationsFromJson json 
@@ -1958,7 +1946,7 @@ module ViewerApp =
             { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_ ->                                
             // the planet is the scene body: picking it also points the GIS at that body (#758)
-            m |> withCameraSkyFollowing (fun m ->
+            m |> SceneLoader.withCameraSkyFollowing (fun m ->
                 match a with
                 | ReferenceSystemAction.SetPlanet planet -> SceneBodySync.setPlanet planet m
                 | _ -> SceneBodySync.applyReferenceSystemAction a m)
@@ -2443,7 +2431,7 @@ module ViewerApp =
             match msg with
             | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetObserver _)
             | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetReferenceFrame _) ->
-                m |> withCameraSkyFollowing SceneBodySync.followObservation
+                m |> SceneLoader.withCameraSkyFollowing SceneBodySync.followObservation
             | _ -> m
         | unknownAction, _ ->
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)

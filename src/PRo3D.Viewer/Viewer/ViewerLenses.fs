@@ -242,7 +242,8 @@ module ViewerLenses =
                         Optic.set _view sb.cameraView m
 
                 match sb.observationInfo with
-                | Some info ->
+                // an animation that samples before its start can hand over a null record
+                | Some info when not (obj.ReferenceEquals(info, null)) ->
                     // A bookmark contributes its time and camera source body. The observed
                     // body and frame are the scene body (#758) and stay the scene's: a
                     // bookmark's own are ignored. With a camera source the camera looks from
@@ -257,7 +258,7 @@ module ViewerLenses =
                     match GisApp.lookAtObserver' observationInfo with
                     | Some c -> Optic.set _view c m
                     | None -> setBookmarkCamera m
-                | None ->
+                | _ ->
                     setBookmarkCamera m
 
             match sb with

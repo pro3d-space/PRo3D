@@ -1,6 +1,7 @@
 import { test, expect, Page, Browser } from "@playwright/test";
 import { launchPro3d, Pro3d, fixture, sceneFor } from "../src/pro3d";
 import { diffPng, litFraction, streamLive } from "../src/image";
+import { overlayPlanet } from "../src/viewer";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -79,14 +80,6 @@ async function openGis(context: import("@playwright/test").BrowserContext, app: 
     await gis.goto(app.url + "?page=gis");
     await gis.waitForLoadState("networkidle");
     return gis;
-}
-
-/** the planet row of the render overlay (textOverlays: first cell of the table) */
-async function overlayPlanet(render: Page): Promise<string> {
-    return render.evaluate(() => {
-        const td = document.querySelector("table td");
-        return (td?.textContent ?? "").trim();
-    });
 }
 
 /** the map view button of the tool strip: "" when enabled, "disabled" otherwise,
@@ -257,6 +250,15 @@ test("picking the planet in the top bar sets up the GIS observation", async ({ b
         await settled(render, "planet-only-loaded.png");
         await expect.poll(() => overlayPlanet(render), { timeout: 30_000 }).toContain("Mars");
 
+        // a planet with the GIS observing nothing is not a scene body yet: the GIS panel
+        // offers the one click that makes it one (and the scene stays as it is otherwise)
+        const gisBefore = await openGis(context, app);
+        await expect(
+            gisBefore.locator("button", { hasText: "Observe Mars as scene body (IAU_MARS)" }).first()
+        ).toBeVisible({ timeout: 30_000 });
+        await gisBefore.screenshot({ path: path.join(artifacts, "planet-only-offer.png"), fullPage: true });
+        await gisBefore.close();
+
         // the main page carries the top bar with the reference-system dropdown
         const main = await context.newPage();
         await main.goto(app.url);
@@ -284,6 +286,7 @@ test("picking the planet in the top bar sets up the GIS observation", async ({ b
         const gis = await openGis(context, app);
         await expect.poll(() => selectedBeside(gis, "Observed body:"), { timeout: 30_000 }).toBe("Dimorphos");
         await expect.poll(() => besideLabel(gis, "Reference Frame:")).toBe("DIMORPHOS_FIXED (body-fixed)");
+        await expect(gis.locator("button", { hasText: "as scene body" })).toHaveCount(0);
         await gis.locator("text=Surfaces").first().click();
         await expect(gis.locator("option", { hasText: "Scene body (Dimorphos)" }).first()).toBeAttached({ timeout: 30_000 });
         await gis.waitForTimeout(1500); // the accordion animates open

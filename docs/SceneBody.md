@@ -30,7 +30,8 @@ The two agree exactly when the GIS observes the body **in its own fixed frame**.
 of the scene body is placed at the identity, and every planet-based computation is correct as
 written. With two independent settings they could disagree — e.g. a scene observed in `J2000`
 rotated the surfaces into J2000 while the planet still read them as body-fixed, which showed as
-a broken up vector and a wrongly oriented MapView. With one setting that cannot happen.
+a broken up vector and a wrongly oriented MapView. With one setting that cannot happen
+through the UI.
 
 ## Bodies and frames
 
@@ -43,14 +44,20 @@ a broken up vector and a wrongly oriented MapView. With one setting that cannot 
 | Deimos | `deimos` | `IAU_DEIMOS` |
 | Didymos | `Didymos` | `DIDYMOS_FIXED` |
 | Dimorphos | `Dimorphos` | `DIMORPHOS_FIXED` |
-| None, ENU, JPL | — | — (no body: the GIS observation is cleared) |
+| None, ENU, JPL | — | — (no body: a body-fixed GIS observation is cleared) |
 
 SPICE names are compared ignoring case (`DIMORPHOS` = `Dimorphos`).
 
 ## Behaviour
 
 **Picking the planet** (top bar) sets the GIS observed body and its fixed frame. A planet that
-is no body clears the GIS observation.
+is no body ends a body-fixed GIS observation; any other observation (a spacecraft, a scene saved
+in J2000) is left alone, since explicitly bound surfaces are placed by it.
+
+**A planet with the GIS observing nothing** is a legitimate state — every new scene starts as
+Mars without an observation, and plain Mars scenes never touch the GIS. Nothing mirrors the
+planet into an empty observation on its own; instead the GIS view offers **Observe Mars as scene
+body (IAU_MARS)** (for whatever the planet is), one click to make the scene a scene body.
 
 **Picking the observed body** (GIS view) sets the reference frame to that body's fixed frame and
 the planet to that body. The frame is shown, not offered as a choice. Observing a body PRo3D has
@@ -63,7 +70,9 @@ in a Dimorphos scene. A half assignment (body without frame) stays unplaced, as 
 **Sequenced bookmarks** contribute their observation *time* and *camera source body* only. The
 observed body and frame they carry are ignored, interactively and in `PRo3D.Snapshots` alike: a
 tour cannot switch the scene body. A bookmark with a camera source looks from it at the scene
-body; without one its own camera stands and only the time (sun) moves.
+body; without one its own camera stands and only the time (sun) moves — also while the tour
+animates between two bookmarks. A camera source equal to the observed body is ignored (there is
+no view from a body at itself).
 
 **First import** does not second-guess a body the GIS already observes, and the radius-based
 inference no longer resets a body it cannot recognise (anything but Mars and Earth) to `None`.
@@ -93,8 +102,13 @@ stored point (annotations, reference system, pivots, bookmarks) goes through —
 
 - `src/Tests/Features/Section12_GisView.fs`, TC-12.4 — the table, the identity shortcut,
   frame snapping, planet ↔ observation mirroring, surface inheritance, first-import inference.
+- `src/Tests/Features/Section12_SceneBody.fs`, TC-12.5 — the same through the real viewer update,
+  scene-load reconciliation and bookmark playback (headless model).
+- `src/Tests/Features/Section08_SequencedBookmarks.fs`, TC-8.5 — the bookmark time animates
+  without a camera source.
 - `tests-ui/tests/scene-body.spec.ts` (Playwright, real viewer) — a GIS-only scene gets its
   planet on load and map view navigates; a J2000 scene loads unchanged and switches on the
-  button; picking the planet in the top bar sets up the GIS.
+  button; a plain Mars scene is offered the switch, and picking the planet in the top bar sets
+  up the GIS.
 - `tests-ui/tests/projection-e2e.spec.ts`, the *scene body* cases — a generated frame projects
   back through an unbound surface in a body-fixed world, also across epochs.

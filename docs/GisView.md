@@ -199,7 +199,7 @@ unassigned surface inherits it ([SceneBody.md](SceneBody.md)).
 
 **2. The batch file** (`--asnap`): to move the sun per frame, each bookmark carries an
 `"observationInfo"` — a bookmark without one renders with the scene's static default.
-All four keys must be present (`null` for unset; a missing key fails the parse):
+`target`, `observer` and `time` must be present (`null` for unset; a missing one fails the parse); `referenceFrame` may be left out:
 
 ```jsonc
 {

@@ -95,7 +95,7 @@ module ObservationInfo =
                         | _ ->
                             let current = frame |> Option.map (fun f -> f.Value) |> Option.defaultValue "No frame"
                             yield div [clazz "ui inverted orange segment"; style "padding: 5px; margin: 0"] [
-                                text (sprintf "%s is not the body-fixed frame of %s: map view and planet-based measurements are off. " current body.Value)
+                                text (sprintf "%s is not the body-fixed frame of %s: the planet-based features (map view, lat/lon, up/north) cannot read this scene correctly. " current body.Value)
                                 button [clazz "ui mini button"; onClick (fun _ -> ObservationInfoAction.SetReferenceFrame (Some fixedFrame))] [
                                     text (sprintf "Use %s" fixedFrame.Value)
                                 ]

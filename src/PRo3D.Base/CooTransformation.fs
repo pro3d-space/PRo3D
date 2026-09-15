@@ -557,13 +557,13 @@ module CooTransformation =
     /// xyz -> lat/lon/alt on the SPICE body `bodyName` (a GIS surface's body). Uses the
     /// body's own convention when `Planet` knows it - PGRREC is invalid for Dimorphos, see
     /// getConvention - and planetographic by name for any other body.
-    let tryGetLatLonAltOfBody (bodyName : string) (p : V3d) : SphericalCoo option =
+    let tryGetLatLonAltOfBody (bodyName : string) (p : V3d) : Option<SphericalCoo> =
         match planetFromString (bodyName.Trim()) with
         | Some planet -> tryGetLatLonAlt planet p
         | None        -> tryGetLatLonAltPlanet bodyName p
 
     /// lat/lon/alt -> xyz on the SPICE body `bodyName`; inverse of tryGetLatLonAltOfBody.
-    let tryGetXYZFromLatLonAltOfBody (sc : SphericalCoo) (bodyName : string) : V3d option =
+    let tryGetXYZFromLatLonAltOfBody (sc : SphericalCoo) (bodyName : string) : Option<V3d> =
         match planetFromString (bodyName.Trim()) with
         | Some planet -> tryGetXYZFromLatLonAlt sc planet
         | None        -> tryGetXYZFromLatLonAltPlanet sc bodyName

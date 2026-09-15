@@ -94,7 +94,8 @@ module SceneBodySync =
 
     /// The global planet choice: the planet, and the GIS observing its body in its fixed
     /// frame - which is what makes image projection and the sun work without further setup.
-    /// A planet that is no body (None, ENU, JPL) clears the GIS observation.
+    /// A planet that is no body (None, ENU, JPL) ends a body-fixed observation and leaves
+    /// any other alone (GisApp.withScenePlanet).
     let setPlanet (planet : Planet) (m : Model) =
         let m = setPlanetOnly planet m
         let gisApp = PRo3D.Core.Gis.GisApp.withScenePlanet planet m.scene.gisApp

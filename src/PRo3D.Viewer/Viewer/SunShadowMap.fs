@@ -63,15 +63,20 @@ module SunShadowMap =
         m.scene.gisApp.projectedImageList.lightingMode
         |> AVal.map (fun l -> l = PRo3D.ImageMapping.LightingMode.SunShadow)
 
-    /// Direction towards the sun in scene space, from the first GIS-registered surface
-    /// (v1: one sun for the whole scene) - or, with none registered, from any surface:
-    /// unassigned surfaces inherit the scene body (#758).
+    /// Direction towards the sun in scene space (v1: one sun for the whole scene), from
+    /// the first surface that has a body: explicitly bound, or inheriting the scene body
+    /// (#758). A half-bound surface (entity without frame) has none and is skipped.
     let private sunDirection (m : AdaptiveModel) : aval<Option<V3d>> =
-        (m.scene.gisApp.gisSurfaces |> AMap.toAVal, m.scene.surfacesModel.surfaces.flat |> AMap.toAVal)
-        ||> AVal.map2 (fun registered surfaces ->
-            match registered |> HashMap.toSeq |> Seq.tryHead with
-            | Some (surfaceId, _) -> Some surfaceId
-            | None -> surfaces |> HashMap.toSeq |> Seq.tryHead |> Option.map fst)
+        // bindings and scene body only - not the observation time
+        (Gis.GisApp.sceneBodyAdaptive m.scene.gisApp,
+         m.scene.gisApp.gisSurfaces.Content,
+         m.scene.surfacesModel.surfaces.flat |> AMap.toAVal)
+        |||> AVal.map3 (fun sceneBody bound surfaces ->
+            let withBody (sid : Guid) =
+                Gis.GisApp.getSpiceReferenceSystemFromSurfaces sceneBody sid bound |> Option.map (fun _ -> sid)
+            match bound |> HashMap.toSeq |> Seq.tryPick (fst >> withBody) with
+            | Some sid -> Some sid
+            | None -> surfaces |> HashMap.toSeq |> Seq.tryPick (fst >> withBody))
         |> AVal.bind (function
             | Some surfaceId -> Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
             | None -> AVal.constant None)

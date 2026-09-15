@@ -170,6 +170,11 @@ module SnapshotGenerator =
                     let observationActions =
                         match bookmark.observationInfo with
                         | Some info ->
+                            // batch files written for older PRo3D set these to switch the
+                            // scene's body; say that they no longer do
+                            if info.observer.IsSome || info.referenceFrame.IsSome then
+                                Log.line "[SnapshotGenerator] %s: the bookmark's observer %A / frame %A are ignored - the scene's observed body is used (docs/SceneBody.md)"
+                                    filename (info.observer |> Option.map (fun o -> o.Value)) (info.referenceFrame |> Option.map (fun f -> f.Value))
                             [
                                 PRo3D.Core.Gis.ObservationInfoAction.SetTarget info.target
                                 PRo3D.Core.Gis.ObservationInfoAction.SetTime info.time.date
