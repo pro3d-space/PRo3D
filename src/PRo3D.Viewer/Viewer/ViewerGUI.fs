@@ -329,6 +329,14 @@ module Gui =
                         td [style style'] [Incremental.text m.userFeedback]
                     ]
                 ]
+                // for UI tests (tests-ui surfaceShadersReady): "ready" once linked
+                yield Incremental.div (
+                    AttributeMap.ofListCond [
+                        always <| style "display: none"
+                        "data-surface-shaders",
+                            ViewerUtils.SharedEffectPool.ready
+                            |> AVal.map (fun r -> Some (AttributeValue.String (if r then "ready" else "compiling")))
+                    ]) AList.empty
             ]                              
         ]
 
@@ -2248,8 +2256,9 @@ module Gui =
             | Some "gis" ->
                 require (viewerDependencies) (
                     body bodyAttributes 
-                         [GisApp.view m.scene.gisApp 
-                                      m.scene.surfacesModel 
+                         [GisApp.view m.scene.gisApp
+                                      m.scene.referenceSystem.planet
+                                      m.scene.surfacesModel
                                       m.scene.sequencedBookmarks
                             |> UI.map GisAppMessage
                             |> UI.map ViewerMessage]

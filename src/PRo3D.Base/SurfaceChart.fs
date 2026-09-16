@@ -99,12 +99,12 @@ module SurfaceChart =
 
         let toSpherical (p : V3d) =
             match referenceSystem with
-            | Some r -> CooTransformation.tryGetLatLonAltPlanet r.body.Value p
+            | Some r -> CooTransformation.tryGetLatLonAltOfBody r.body.Value p
             | None   -> CooTransformation.tryGetLatLonAlt planet p
 
         let fromSpherical (sc : CooTransformation.SphericalCoo) =
             match referenceSystem with
-            | Some r -> CooTransformation.tryGetXYZFromLatLonAltPlanet sc r.body.Value
+            | Some r -> CooTransformation.tryGetXYZFromLatLonAltOfBody sc r.body.Value
             | None   -> CooTransformation.tryGetXYZFromLatLonAlt sc planet
 
         match toSpherical basePoint with

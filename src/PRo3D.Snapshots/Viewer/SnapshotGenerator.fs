@@ -164,13 +164,19 @@ module SnapshotGenerator =
                     // is complete, matching interactive semantics. Ordered AFTER
                     // SetCamera so that override wins; with incomplete info the handler
                     // leaves the camera alone and the bookmark's own view stands.
+                    //
+                    // Time and camera source only: the observed body and frame are the
+                    // scene body (#758) and stay the scene's, as in interactive playback.
                     let observationActions =
                         match bookmark.observationInfo with
                         | Some info ->
+                            // batch files written for older PRo3D set these to switch the
+                            // scene's body; say that they no longer do
+                            if info.observer.IsSome || info.referenceFrame.IsSome then
+                                Log.line "[SnapshotGenerator] %s: the bookmark's observer %A / frame %A are ignored - the scene's observed body is used (docs/SceneBody.md)"
+                                    filename (info.observer |> Option.map (fun o -> o.Value)) (info.referenceFrame |> Option.map (fun f -> f.Value))
                             [
                                 PRo3D.Core.Gis.ObservationInfoAction.SetTarget info.target
-                                PRo3D.Core.Gis.ObservationInfoAction.SetObserver info.observer
-                                PRo3D.Core.Gis.ObservationInfoAction.SetReferenceFrame info.referenceFrame
                                 PRo3D.Core.Gis.ObservationInfoAction.SetTime info.time.date
                             ]
                             |> List.map (PRo3D.Core.Gis.GisAppAction.ObservationInfoMessage >> ViewerAction.GisAppMessage)

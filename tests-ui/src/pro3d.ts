@@ -2,6 +2,7 @@ import { ChildProcess, spawn } from "child_process";
 import * as http from "http";
 import * as path from "path";
 import * as fs from "fs";
+import type { Page } from "@playwright/test";
 
 // Local test data + binaries; override via environment for other machines.
 // The tests are inherently machine-local (real GPU, big OPC data sets) and are
@@ -118,6 +119,14 @@ export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
 
     const logFile = path.join(__dirname, "..", "pro3d.log");
     const log = fs.createWriteStream(logFile);
+    // pro3d.log is the latest launch only - the next spec truncates it. Every launch
+    // also keeps its own copy, so a hang or crash in an early spec is still readable
+    // after the whole suite has run.
+    const logDir = path.join(artifacts, "logs");
+    fs.mkdirSync(logDir, { recursive: true });
+    const keptLog = fs.createWriteStream(
+        path.join(logDir, `pro3d-${new Date().toISOString().replace(/[:.]/g, "-")}.log`)
+    );
 
     const proc = spawn(
         config.exe,
@@ -133,6 +142,8 @@ export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
     );
     proc.stdout!.pipe(log);
     proc.stderr!.pipe(log);
+    proc.stdout!.pipe(keptLog);
+    proc.stderr!.pipe(keptLog);
 
     const url = `http://localhost:${config.port}/`;
 
@@ -160,4 +171,15 @@ export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
                 }, 5000).unref();
             }),
     };
+}
+
+/**
+ * Waits until the viewer has linked its OPC surface effect (#719) - the seconds-long
+ * step that has to finish before any surface can be drawn. Call it on the render page
+ * after `img.rendercontrol` appears, and still wait for the render itself afterwards:
+ * this resolves once the shared input layout exists, while generating the GL program for
+ * the variant a surface actually uses happens on the render thread just after.
+ */
+export async function surfaceShadersReady(page: Page, timeoutMs = 270_000): Promise<void> {
+    await page.waitForSelector('[data-surface-shaders="ready"]', { state: "attached", timeout: timeoutMs });
 }

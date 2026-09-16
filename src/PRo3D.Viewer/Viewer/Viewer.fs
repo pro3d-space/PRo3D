@@ -247,7 +247,12 @@ module ViewerApp =
             // useful default viewpoint after 2nd import
             match m.scene.firstImport with                  
             | true -> 
-                let refAction = ReferenceSystemAction.InferCoordSystem(fullBb.Center)
+                // A scene body the GIS already observes was declared, not guessed: do not
+                // second-guess it from the data's radius, only place the cross (#758).
+                let refAction =
+                    match m.scene.gisApp.defaultObservationInfo.observer with
+                    | Some _ -> ReferenceSystemAction.UpdateUpNorth(fullBb.Center)
+                    | None   -> ReferenceSystemAction.InferCoordSystem(fullBb.Center)
                 let (refSystem',_)= 
                     ReferenceSystemApp.update 
                         m.scene.config 
@@ -605,12 +610,22 @@ module ViewerApp =
     let flyToImageCamera (m : Model) (imageId : System.Guid) : Option<CameraView> =
         let gis = m.scene.gisApp
         let projectionSurface =
-            gis.gisSurfaces
-            |> HashMap.toSeq
-            |> Seq.tryPick (fun (sid, gs) ->
-                match gs.entity, gs.referenceFrame with
-                | Some entity, Some frame -> Some (sid, entity, frame)
-                | _ -> None)
+            let bound =
+                gis.gisSurfaces
+                |> HashMap.toSeq
+                |> Seq.tryPick (fun (sid, gs) ->
+                    match gs.entity, gs.referenceFrame with
+                    | Some entity, Some frame -> Some (sid, entity, frame)
+                    | _ -> None)
+            match bound with
+            | Some _ -> bound
+            | None ->
+                // no explicit binding: a surface that inherits the scene body (#758)
+                m.scene.surfacesModel.surfaces.flat
+                |> HashMap.toSeq
+                |> Seq.tryPick (fun (sid, _) ->
+                    Gis.GisApp.getSpiceReferenceSystem gis sid
+                    |> Option.map (fun r -> sid, r.body, r.referenceFrame))
         let image = PRo3D.ImageMapping.ProjectedImageListModel.tryFind imageId gis.projectedImageList
         let observerSystemOpt = Gis.GisApp.getObserverSystem gis
 
@@ -684,7 +699,7 @@ module ViewerApp =
                 [ if Option.isNone observerSystemOpt then
                       yield "no observed body is set (GIS tab -> Current Observation Settings -> Observed body)"
                   if Option.isNone projectionSurface then
-                      yield "no surface is bound to a SPICE body (GIS tab -> Surfaces -> pick an Entity and a Reference Frame)"
+                      yield "no surface is bound to a SPICE body (set the planet / Observed body, or GIS tab -> Surfaces -> pick an Entity and a Reference Frame)"
                   if Option.isNone image then
                       yield "the image is not in the projected-image library" ]
             Log.warn "[Viewer] fly-to needs: %s" (String.concat "; " missing)
@@ -1771,6 +1786,8 @@ module ViewerApp =
             
         | LoadSerializedScene json, _ -> // serialized scene file (content of .pro3d)
             SceneLoading.loadSceneFromJson m runtime signature json
+            // like every other scene load (#758); the drawing arrives separately here
+            |> SceneLoader.reconcileSceneBody
 
         | LoadSerializedDrawingModel json, _ -> 
             let annotations = DrawingUtilities.IO.loadAnnotationsFromJson json 
@@ -1928,106 +1945,11 @@ module ViewerApp =
 
             { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_ ->                                
-            let refsystem',_ = 
-                ReferenceSystemApp.update
-                    m.scene.config 
-                    LenseConfigs.referenceSystemConfig 
-                    m.scene.referenceSystem 
-                    a
-                    
-            // Re-aim the camera only when the sky it would be built from actually moved.
-            // `updateCameraUp` keeps the position and viewing direction but replaces the
-            // sky vector, which *rolls* the camera about its own view axis - so running it
-            // on every reference-system action snapped the roll on purely cosmetic edits
-            // (toggling the cross, its text size or colour, nudging the north offset) and
-            // on re-picking the planet that was already selected. Only `planet` and `up`
-            // feed `bodyAwareSky`, so comparing it across the update is the exact
-            // precondition, and it leaves a camera the user deliberately rolled alone.
-            let skyOf (rs : ReferenceSystem) = ReferenceSystem.bodyAwareSky rs.planet rs.up.value
-            let skyMoved = Vec.distance (skyOf m.scene.referenceSystem) (skyOf refsystem') > 1e-9
-
-            let _refSystem = (Model.scene_ >-> Scene.referenceSystem_)
-            let m = 
-                let m = m |> Optic.set _refSystem refsystem'
-                if skyMoved then SceneLoader.updateCameraUp m else m
-                
-            //changing the planet requires update of local reference systems
-            let m = 
+            // the planet is the scene body: picking it also points the GIS at that body (#758)
+            m |> SceneLoader.withCameraSkyFollowing (fun m ->
                 match a with
-                | ReferenceSystemAction.SetPlanet planet ->
-                    let flat' =
-                        m.scene.surfacesModel.surfaces.flat
-                        |> HashMap.map (fun k v ->
-                            let s = Leaf.toSurface v
-                            let sgSurface = m.scene.surfacesModel.sgSurfaces |> HashMap.find k
-                            let bbCenter = sgSurface.globalBB.Center
-                            Leaf.Surfaces {
-                                s with transformation =
-                                            (TransformationApp.update s.transformation TransformationApp.Action.UpdatePlanetInLocalRefSys m.scene.referenceSystem bbCenter)
-                                }
-                            )
-                    let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = flat' }}}}
-                    // the annotation toolbar greys out geometries that need a real reference body
-                    // (DnS/TT/ellipses) while Planet.None is selected; drop an active one back to
-                    // Line so the drawing tool never sits on a disabled - and for ellipses crashing
-                    // - geometry. Line allows every projection, so projection is left untouched.
-                    if planet = Planet.None && Geometry.needsReferenceBody m.drawing.geometry then
-                        { m with drawing = { m.drawing with geometry = Geometry.Line } }
-                    else
-                        m
-                |_ -> m
-
-            //changing the reference system also requires adaptation of angular measurement values
-            Log.startTimed "[Viewer.fs] recalculating angular values in annos"
-            let flat = 
-                m.drawing.annotations.flat
-                |> HashMap.map(fun _ v ->
-                    let a = v |> Leaf.toAnnotation
-                    let results = Calculations.calculateAnnotationResults a refsystem'.up.value refsystem'.northO refsystem'.planet
-                    
-                    //Calculations.reCalcBearing a refsystem'.up.value refsystem'.northO                   
-                    let dnsResults = DipAndStrike.reCalculateDipAndStrikeResults refsystem'.up.value refsystem'.northO a
-                    { a with results = Some results; dnsResults = dnsResults } 
-                    |> Leaf.Annotations
-                )
-            Log.stop()
-
-            // Every derived value just moved — bearing, slope, dip and strike, altitudes — so
-            // a Color by Category ramp fitted to the old numbers no longer matches the data,
-            // and neither does the legend drawn from it. Refit, exactly as switching the
-            // attribute does. fitRange leaves categorical and cyclic attributes alone (a hue
-            // wheel has no bounds to fit), and a switched-off panel is not touched at all.
-            let colorByCategory =
-                if m.drawing.colorByCategory.enabled then
-                    let annotations = flat |> HashMap.toValueList |> List.map Leaf.toAnnotation
-                    ColorByCategory.update
-                        annotations m.drawing.colorByCategory ColorByCategoryAction.FitRangeToData
-                else
-                    m.drawing.colorByCategory
-
-            m
-            |> Optic.set _flat flat
-            |> Optic.set _colorByCategory colorByCategory
-
-
-            //match a with 
-            //| ReferenceSystemAction.SetUp _ | ReferenceSystemAction.SetPlanet _ ->
-            //    m' 
-            //    |> SceneLoader.updateCameraUp
-            //| ReferenceSystemAction.SetNOffset _ -> //update annotation results
-            //    let flat = 
-            //        m'.drawing.annotations.flat
-            //        |> HashMap.map(fun _ v ->
-            //            let a = v |> Leaf.toAnnotation
-            //            let results    = Calculations.reCalcBearing a refsystem'.up.value refsystem'.northO                         
-            //            let dnsResults = DipAndStrike.reCalculateDipAndStrikeResults refsystem'.up.value refsystem'.northO a
-            //            { a with results = results; dnsResults = dnsResults } 
-            //            |> Leaf.Annotations
-            //        )
-            //    m' 
-            //    |> Optic.set _flat flat                     
-            //| _ -> 
-            //    m'
+                | ReferenceSystemAction.SetPlanet planet -> SceneBodySync.setPlanet planet m
+                | _ -> SceneBodySync.applyReferenceSystemAction a m)
         | ConfigPropertiesMessage a,_ -> 
             //Log.line "config message %A" a
             let c' = ConfigProperties.update m.scene.config a
@@ -2501,8 +2423,16 @@ module ViewerApp =
                         m.animations
                 | _ ->
                     m.animations
-            (Optic.set _gisApp gisApp m)
-            |> Optic.set ViewerLenses._animation animations
+            let m =
+                (Optic.set _gisApp gisApp m)
+                |> Optic.set ViewerLenses._animation animations
+
+            // the observed body and frame are the scene body: the planet follows (#758)
+            match msg with
+            | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetObserver _)
+            | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetReferenceFrame _) ->
+                m |> SceneLoader.withCameraSkyFollowing SceneBodySync.followObservation
+            | _ -> m
         | unknownAction, _ ->
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m
@@ -3152,6 +3082,7 @@ module ViewerApp =
                 |> ViewerIO.loadSequencedBookmarks
                 //|> ViewerIO.loadMinerva dumpFile cacheFile
                 //|> ViewerIO.loadLinking
+                |> SceneLoader.reconcileSceneBody
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             | LoadScene path ->
@@ -3166,6 +3097,7 @@ module ViewerApp =
                 |> ViewerIO.loadSequencedBookmarks
                 //|> ViewerIO.loadMinerva dumpFile cacheFile
                 //|> ViewerIO.loadLinking
+                |> SceneLoader.reconcileSceneBody
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
                 

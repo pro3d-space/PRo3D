@@ -1,3 +1,22 @@
+## 6.2.0-prerelease003
+Collects the work merged since `6.2.0-prerelease002`.
+
+- Surfaces: **OPC rendering pays only for the features a surface actually uses.** The two parts that cost even while switched off — the geometry shader stage (triangle-size filtering and face normals) and the cross-section clip, the only `discard` in the stack — are now composed only for surfaces that need them, and switched in at runtime when one is enabled. The geometry stage alone dominated OPC frame time on Apple Silicon
+- Surfaces: **the terrain shader is ~27× smaller and starts far faster.** Every `if … then return … else return …` in a shader stage made FShade duplicate the whole rest of the stack, so the generated code grew as the *product* of those branches: 21971 lines, with the last stage inlined 861 times. Written with a single return each, the same shader is ~800 lines with no duplication left. Start-up shader work went from minutes to ~6 s on the first start after an update, and nothing at all on every start after that (reported upstream as FShade#39)
+- GIS: **the global planet and the GIS observation are one setting, the scene body.** Picking *Dimorphos* in either place, loading a kernel and adding an image is enough for projection, sun lighting, MapView, lat/lon and measurements to work — no per-surface setup. Scenes observed in a body's own fixed frame get the identity placement, so nothing is transformed twice; surfaces with no body of their own inherit the scene body. Bookmarks contribute time and camera only. *Multi-body scenes and scenes observed in another frame (e.g. `J2000`) are not covered yet (#761)*
+
+## 6.2.0-prerelease002
+Collects the work merged since `6.2.0-prerelease001`.
+
+- GIS: **multi-image projection** — an ordered stack of up to 32 same-instrument images projected onto OPC surfaces (top wins), with a stack panel, hover footprints, fly-to and a coverage view. Each image is projected at its own observation time, and the same shader now runs on macOS
+- GIS: **pre-transformed surfaces (pre-transformation, Flip Z, SketchFab) get no image projection** instead of a misplaced one; winding correction is opt-in; observation times are UTC
+- Annotations: **Outcrop Traces** — the mean attitude of the annotation selection (orientation tensor), repeated at a constant bed thickness, traced where that bedding would crop out on the terrain. Dip&Strike gains a *Selection average* row
+- Surfaces: **LatLon graticule overlay** — 1° / 5° / 15° parallels and meridians plus equator and prime meridian, per surface, on reference bodies. Costs nothing while switched off; meridians can break up at rover-scale zoom (#748)
+- Annotations: **merge annotations moved to the main view**, and a **reverse flag** for annotation editing and picking
+- View planner: the **footprint boundary is drawn again** (as in `6.1.0-prerelease005`)
+- Region operations: **merging two regions no longer returns an area larger than their union**
+- Development builds **report "development build"** instead of a stale version number
+
 ## 6.2.0-prerelease001
 First prerelease of the 6.2 line. Collects the work merged since `6.1.0-prerelease004`.
 

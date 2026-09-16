@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { launchPro3d, Pro3d, config, imageRow } from "../src/pro3d";
+import { launchPro3d, Pro3d, config, imageRow, surfaceShadersReady } from "../src/pro3d";
 import { diffPng, litFraction, streamLive } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
@@ -77,6 +77,7 @@ test("a simulated AFC image projects onto the Dimorphos OPC", async ({ browser }
     await render.goto(app.url + "?page=render");
     // the render control streams frames into an img (mapping mode), no canvas
     await render.waitForSelector("img.rendercontrol", { timeout: 60_000 });
+    await surfaceShadersReady(render);
     const baseline = await stableScreenshot(render, "baseline.png");
 
     // --- GIS tab: import the image folder ------------------------------------
