@@ -29,30 +29,36 @@ module LayoutApp =
             activeName  = name
             activeShape = LayoutOps.shape layout }
 
-    let private create (dir : string) (name : string) (layout : WindowLayout) (notices : list<string>) =
+    let private create (dir : string) (name : string) (layout : WindowLayout) (dialog : LayoutDialog) =
         let layout = LayoutOps.sanitize layout
         {
-            golden         = GoldenLayout.create LayoutConfig.Default layout
-            current        = layout
-            pushConfirmed  = true
-            activeName     = name
-            activeShape    = LayoutOps.shape layout
-            library        = libraryNames dir
-            dialog         = LayoutDialog.None
-            nameInput      = ""
-            startupNotices = notices
+            golden        = GoldenLayout.create LayoutConfig.Default layout
+            current       = layout
+            pushConfirmed = true
+            activeName    = name
+            activeShape   = LayoutOps.shape layout
+            library       = libraryNames dir
+            dialog        = dialog
+            nameInput     = ""
         }
 
-    /// The layout the user left last time, or the default dashboard.
+    /// The layout the user left last time, or the default dashboard. A last layout that
+    /// cannot be read is reported in a dialog: a toast would be gone before the window shows.
     let initial (dir : string) : LayoutModel =
         let fallback = DashboardModes.defaultDashboard
         match LayoutLibrary.tryLoadCurrent dir with
-        | Ok (Some file) -> create dir file.name file.layout []
-        | Ok None -> create dir fallback.name fallback.layout []
+        | Ok (Some file) -> create dir file.name file.layout LayoutDialog.None
+        | Ok None -> create dir fallback.name fallback.layout LayoutDialog.None
         | Result.Error e ->
-            let notice =
-                sprintf "Your last window layout could not be read (%s) and was replaced by '%s'. The file was kept as current.json.corrupt." e fallback.name
-            create dir fallback.name fallback.layout [notice]
+            let message =
+                sprintf "Your last window layout could not be read (%s). PRo3D starts with the '%s' layout instead; the unreadable file was kept as current.json.corrupt in %s." e fallback.name dir
+            create dir fallback.name fallback.layout (LayoutDialog.Notice(message, LayoutDialog.None))
+
+    /// Opens `dialog`, behind a notice that is still waiting to be read.
+    let private openDialog (dialog : LayoutDialog) (m : LayoutModel) =
+        match m.dialog with
+        | LayoutDialog.Notice (message, _) -> { m with dialog = LayoutDialog.Notice(message, dialog) }
+        | _ -> { m with dialog = dialog }
 
     /// Name shown for the active layout; marks a layout whose arrangement the user changed.
     let displayName (m : AdaptiveLayoutModel) =
@@ -85,7 +91,7 @@ module LayoutApp =
                     importIntoLibrary = false
                     apply             = true
                 }
-                { m with dialog = LayoutDialog.SceneLayout pending }, []
+                openDialog (LayoutDialog.SceneLayout pending) m, []
 
     /// A library name derived from `name` that is not taken yet.
     let private freeName (names : list<string>) (name : string) =
@@ -150,7 +156,9 @@ module LayoutApp =
             { m with dialog = dialog; nameInput = input; library = libraryNames dir }, []
 
         | LayoutAction.CloseDialog ->
-            { m with dialog = LayoutDialog.None }, []
+            match m.dialog with
+            | LayoutDialog.Notice (_, next) -> { m with dialog = next }, []
+            | _ -> { m with dialog = LayoutDialog.None }, []
 
         | LayoutAction.SetNameInput s ->
             { m with nameInput = s }, []
@@ -312,6 +320,13 @@ module LayoutApp =
                     let! dialog = m.dialog
                     match dialog with
                     | LayoutDialog.None -> ()
+
+                    | LayoutDialog.Notice (message, _) ->
+                        yield window "Window Layout" [
+                            div [ attribute "data-test" "layout-notice"; style "max-width:480px; word-break:break-word" ] [ text message ]
+                        ] [
+                            button [ clazz "primary"; attribute "data-test" "layout-notice-ok"; onClick (fun _ -> LayoutAction.CloseDialog) ] "OK"
+                        ]
 
                     | LayoutDialog.SaveAs ->
                         yield window "Save Current Layout" [

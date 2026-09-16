@@ -297,8 +297,19 @@ let private libraryTests =
                 Expect.equal m.activeName DashboardModes.defaultDashboard.name "default layout"
                 Expect.isTrue (File.Exists (LayoutLibrary.currentPath dir + ".corrupt")) "kept aside"
                 Expect.isFalse (File.Exists (LayoutLibrary.currentPath dir)) "moved away"
-                Expect.equal (List.length m.startupNotices) 1 "the user is told at start"
-                Expect.isEmpty (LayoutApp.initial dir).startupNotices "and only once"
+                match m.dialog with
+                | LayoutDialog.Notice (message, LayoutDialog.None) -> Expect.stringContains message "could not be read" "the user is told at start"
+                | other -> failtestf "expected a notice, got %A" other
+                Expect.equal (LayoutApp.initial dir).dialog LayoutDialog.None "and only once"
+
+                // a scene layout question opened meanwhile waits behind the notice
+                let scene = Path.Combine(dir, "s.pro3d")
+                Fixture.ok (SceneLayoutSidecar.tryWrite scene (LayoutOps.sanitize DashboardModes.core.layout)) "sidecar"
+                let m, _ = LayoutApp.sceneOpened dir scene m
+                let m, _ = LayoutApp.update dir LayoutAction.CloseDialog m
+                match m.dialog with
+                | LayoutDialog.SceneLayout _ -> ()
+                | other -> failtestf "expected the scene layout question after the notice, got %A" other
             )
         }
 
@@ -307,7 +318,7 @@ let private libraryTests =
                 let m = LayoutApp.initial dir
                 Expect.equal m.activeName "M2020" "M2020"
                 Expect.contains (LayoutOps.panelIds m.current) "gis" "GIS view included"
-                Expect.isEmpty m.startupNotices "nothing to report"
+                Expect.equal m.dialog LayoutDialog.None "nothing to report"
             )
         }
 

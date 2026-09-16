@@ -1,5 +1,5 @@
-//c5272a2d-0ed6-dd08-b4ce-b4ad7c36513d
-//b15a7ec3-a626-c2a8-59cd-2a36e0d77999
+//7c6c87b0-b308-6a0c-c204-b904cbbd8f07
+//b500188f-9daa-04d3-593c-af8dad90c98c
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -20,7 +20,6 @@ type AdaptiveLayoutModel(value : LayoutModel) =
     let _library_ = FSharp.Data.Adaptive.cval(value.library)
     let _dialog_ = FSharp.Data.Adaptive.cval(value.dialog)
     let _nameInput_ = FSharp.Data.Adaptive.cval(value.nameInput)
-    let _startupNotices_ = FSharp.Data.Adaptive.cval(value.startupNotices)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : LayoutModel) = AdaptiveLayoutModel(value)
@@ -37,7 +36,6 @@ type AdaptiveLayoutModel(value : LayoutModel) =
             _library_.Value <- value.library
             _dialog_.Value <- value.dialog
             _nameInput_.Value <- value.nameInput
-            _startupNotices_.Value <- value.startupNotices
     member __.Current = __adaptive
     member __.golden = _golden_
     member __.current = _current_ :> FSharp.Data.Adaptive.aval<Aardvark.UI.Primitives.Golden.WindowLayout>
@@ -47,7 +45,6 @@ type AdaptiveLayoutModel(value : LayoutModel) =
     member __.library = _library_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.string>>
     member __.dialog = _dialog_ :> FSharp.Data.Adaptive.aval<LayoutDialog>
     member __.nameInput = _nameInput_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
-    member __.startupNotices = _startupNotices_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.string>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module LayoutModelLenses = 
     type LayoutModel with
@@ -59,5 +56,4 @@ module LayoutModelLenses =
         static member library_ = ((fun (self : LayoutModel) -> self.library), (fun (value : Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.string>) (self : LayoutModel) -> { self with library = value }))
         static member dialog_ = ((fun (self : LayoutModel) -> self.dialog), (fun (value : LayoutDialog) (self : LayoutModel) -> { self with dialog = value }))
         static member nameInput_ = ((fun (self : LayoutModel) -> self.nameInput), (fun (value : Microsoft.FSharp.Core.string) (self : LayoutModel) -> { self with nameInput = value }))
-        static member startupNotices_ = ((fun (self : LayoutModel) -> self.startupNotices), (fun (value : Microsoft.FSharp.Collections.list<Microsoft.FSharp.Core.string>) (self : LayoutModel) -> { self with startupNotices = value }))
 

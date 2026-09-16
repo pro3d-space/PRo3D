@@ -42,12 +42,13 @@ async function poll<T>(what: string, f: () => Promise<T> | T, ok: (v: T) => bool
     return v;
 }
 
-async function openMain(browser: Browser, app: Pro3d): Promise<{ context: BrowserContext; page: Page }> {
+async function openMain(browser: Browser, app: Pro3d, handshake = true): Promise<{ context: BrowserContext; page: Page }> {
     const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
     context.on("weberror", (e) => console.log("[page error]", e.error()));
     const page = await context.newPage();
     await page.goto(app.url);
     await page.waitForSelector(".lm_tab", { timeout: 120_000 });
+    if (!handshake) return { context, page };
     // events clicked before the page's socket is up are lost: prove a round trip first
     await poll("the page talks to the server", async () => {
         if (!(await exists(page, '[data-test="layout-dialog"]'))) {
@@ -162,9 +163,26 @@ async function feedbackShown(page: Page, text: string) {
     );
 }
 
-async function api(app: Pro3d, route: string, body: object) {
-    const res = await fetch(app.url + "api/" + route, { method: "POST", body: JSON.stringify(body) });
-    expect(res.status, `api ${route}`).toBe(200);
+/** clicks a Scene menu entry with the Electron file dialog stubbed to answer `file` */
+async function sceneMenu(page: Page, entry: "Save as" | "Open", file: string) {
+    const r = await page.evaluate(
+        ([entry, file]) => {
+            const w = window as any;
+            w.aardvark = w.aardvark || {};
+            w.aardvark.dialog = {
+                showSaveDialog: () => Promise.resolve({ canceled: false, filePath: file }),
+                showOpenDialog: () => Promise.resolve({ canceled: false, filePaths: [file] }),
+            };
+            const item = Array.from(document.querySelectorAll(".ui.inverted.item")).find(
+                (e) => (e.textContent ?? "").trim() === entry
+            ) as HTMLElement | undefined;
+            if (!item) return "no menu entry";
+            item.click();
+            return "clicked";
+        },
+        [entry, file] as const
+    );
+    expect(r, `Scene > ${entry}`).toBe("clicked");
 }
 
 test("built-in layouts, closing and reopening panels, reload and restart", async ({ browser }) => {
@@ -243,7 +261,7 @@ test("the layout library: save as, load, rename, delete", async ({ browser }) =>
         await page.waitForSelector('[data-test="layout-name"]', { state: "attached" });
         await setInput(page, '[data-test="layout-name"]', "Workshop");
         await poll("name input reached the model", async () => {
-            await click(page, '[data-test="layout-save"]');
+            if (await exists(page, '[data-test="layout-save"]')) await click(page, '[data-test="layout-save"]');
             return fs.existsSync(path.join(dir, "library", "Workshop.json"));
         }, (v) => v, 10_000);
         await poll("dialog closed", () => exists(page, '[data-test="layout-dialog"]'), (v) => !v);
@@ -292,7 +310,7 @@ test("saving a scene writes its layout beside it, and a blocked sidecar does not
 
         const saved = path.join(artifacts, "layouts-saved.pro3d");
         for (const f of [saved, saved + ".layout"]) fs.rmSync(f, { force: true, recursive: true });
-        await api(app, "saveScene", { sceneFile: saved });
+        await sceneMenu(page, "Save as", saved);
         const sidecar = await poll("sidecar", () => readJson(saved + ".layout"), (f) => !!f);
         expect(sidecar.format).toBe("pro3d-layout");
         expect(panelIds(sidecar)).toContain("config");
@@ -306,7 +324,7 @@ test("saving a scene writes its layout beside it, and a blocked sidecar does not
         fs.rmSync(blocked, { force: true });
         fs.rmSync(blocked + ".layout", { force: true, recursive: true });
         fs.mkdirSync(blocked + ".layout"); // a directory where the sidecar goes
-        await api(app, "saveScene", { sceneFile: blocked });
+        await sceneMenu(page, "Save as", blocked);
         const blockedScene = await poll("scene saved despite the blocked sidecar", () => readJson(blocked), (f) => !!f);
         expect(blockedScene.dockConfig).toBe(templateDockConfig);
         await poll(
@@ -336,17 +354,21 @@ test("opening a scene with a different layout asks whether to import and to appl
     fs.writeFileSync(atStart + ".layout", JSON.stringify(renderOnly));
     const app = await launchPro3d(atStart, { PRO3D_LAYOUT_DIR: dir });
     try {
-        const { context, page } = await openMain(browser, app);
-        await page.waitForSelector('[data-test="layout-dialog"]', { state: "attached", timeout: 60_000 });
-        await click(page, '[data-test="layout-scene-ignore"]');
-        await poll("dialog closed", () => exists(page, '[data-test="layout-dialog"]'), (v) => !v);
+        // no handshake: the dialog is already open; clicking Ignore until it closes is the round trip
+        const { context, page } = await openMain(browser, app, false);
+        await page.waitForSelector('[data-test="layout-scene-ignore"]', { state: "attached", timeout: 60_000 });
+        await poll("dialog closed", async () => {
+            await page.evaluate(() => (document.querySelector('[data-test="layout-scene-ignore"]') as HTMLElement | null)?.click());
+            await page.waitForTimeout(500);
+            return exists(page, '[data-test="layout-dialog"]');
+        }, (v) => !v, 60_000);
         await waitTabs(page, "layout unchanged", (t) => JSON.stringify(t) === JSON.stringify(M2020));
         expect(fs.existsSync(path.join(dir, "library"))).toBe(false);
 
         // opened later: import and apply
         const shared = scene("layouts-shared");
         fs.writeFileSync(shared + ".layout", JSON.stringify(renderOnly));
-        await api(app, "loadScene", { sceneFile: shared });
+        await sceneMenu(page, "Open", shared);
         await page.waitForSelector('[data-test="layout-scene-import"]', { state: "attached", timeout: 60_000 });
         await click(page, '[data-test="layout-scene-import"]');
         await poll("import checked", () => page.evaluate(() => (document.querySelector('[data-test="layout-scene-import"] input') as HTMLInputElement | null)?.checked ?? false), (v) => v);
@@ -356,14 +378,14 @@ test("opening a scene with a different layout asks whether to import and to appl
         await poll("status", () => status(page), (s) => s === "Layout: layouts-shared");
 
         // same arrangement as the current one: nothing to ask
-        await api(app, "loadScene", { sceneFile: shared });
+        await sceneMenu(page, "Open", shared);
         await page.waitForTimeout(5000);
         expect(await exists(page, '[data-test="layout-dialog"]')).toBe(false);
 
         // a broken sidecar is ignored, the scene still loads
         const broken = scene("layouts-broken");
         fs.writeFileSync(broken + ".layout", '{"format":"pro3d-layout","version":1,"layout":{"root":');
-        await api(app, "loadScene", { sceneFile: broken });
+        await sceneMenu(page, "Open", broken);
         await poll("broken sidecar logged", () => fs.readFileSync(app.logFile, "utf-8"), (log) => log.includes("ignoring the layout beside"));
         await feedbackShown(page, "layout stored beside the scene could not be read");
         await poll("scene loaded", () => fs.readFileSync(app.logFile, "utf-8"), (log) => log.includes("loaded scene: " + broken) || log.includes("loaded scene: " + broken.replace(/\//g, "\\")));
@@ -383,8 +405,19 @@ test("broken layout files: the user is told, PRo3D keeps working", async ({ brow
 
     const app = await launchPro3d(scene("layouts-broken-files"), { PRO3D_LAYOUT_DIR: dir });
     try {
-        const { context, page } = await openMain(browser, app);
-        await feedbackShown(page, "last window layout could not be read");
+        // a notice that stays until read (a toast would be gone before the window shows);
+        // no handshake: acknowledging it is the round trip
+        const { context, page } = await openMain(browser, app, false);
+        await page.waitForSelector('[data-test="layout-notice"]', { state: "attached", timeout: 60_000 });
+        const notice = await page.evaluate(() => document.querySelector('[data-test="layout-notice"]')?.textContent ?? "");
+        expect(notice).toContain("last window layout could not be read");
+        expect(notice).toContain("current.json.corrupt");
+        await page.screenshot({ path: path.join(artifacts, "broken-current-notice.png") });
+        await poll("notice acknowledged", async () => {
+            await page.evaluate(() => (document.querySelector('[data-test="layout-notice-ok"]') as HTMLElement | null)?.click());
+            await page.waitForTimeout(500);
+            return exists(page, '[data-test="layout-dialog"]');
+        }, (v) => !v, 60_000);
         await waitTabs(page, "the default layout instead", (t) => JSON.stringify(t) === JSON.stringify(M2020));
         expect(fs.existsSync(path.join(dir, "current.json.corrupt")), "kept aside").toBe(true);
         await poll("a fresh current layout", () => readJson(path.join(dir, "current.json")), (f) => f?.name === "M2020");
@@ -439,7 +472,11 @@ test("a popped out stack is part of the layout and docks back when its window cl
         walk(withPopout.layout.openPopouts[0].root);
         expect(popoutIds).toContain("surfaces");
 
-        await window.close();
+        await page.screenshot({ path: path.join(artifacts, "popout-main.png") });
+        await window.screenshot({ path: path.join(artifacts, "popout-window.png") });
+        // as the user closing it: the window closes itself, which runs its unload handlers
+        // (Playwright's page.close skips them, and Golden Layout docks back on unload)
+        await Promise.all([window.waitForEvent("close"), window.evaluate(() => window.close())]);
         await waitTabs(page, "docked back", (t) => t.includes("Surfaces"));
         await poll("no popout stored", () => readJson(current), (f) => !!f && (f.layout.openPopouts ?? []).length === 0 && panelIds(f).includes("surfaces"));
         await context.close();

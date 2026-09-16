@@ -21,6 +21,9 @@ type LayoutDialog =
     | Manage
     | Rename      of name : string
     | SceneLayout of PendingSceneLayout
+    /// A message that must not go unseen (toasts vanish before a starting viewer shows),
+    /// followed by the dialog that was pending behind it.
+    | Notice      of message : string * next : LayoutDialog
 
 /// The viewer's window layout. Runtime state of the local user, deliberately not part of
 /// `Scene`: it is restored from AppData, and only written beside a scene as a sidecar.
@@ -55,10 +58,6 @@ type LayoutModel =
 
         /// Text of the name field of the save-as and rename dialogs.
         nameInput  : string
-
-        /// Problems found while restoring the layout at start, shown once the viewer runs.
-        [<TreatAsValue>]
-        startupNotices : list<string>
     }
 
 [<RequireQualifiedAccess>]
