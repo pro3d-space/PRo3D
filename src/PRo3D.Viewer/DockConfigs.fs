@@ -75,6 +75,7 @@ module DockConfigs =
                         element { id "annotations";    title "Annotations" }
                         element { id "scalebars";      title "ScaleBars" }
                         element { id "instrumentview"; title "Instrument View" }
+                        element { id "gis";            title "GIS View" }
                     }
                     stack {
                         weight 5

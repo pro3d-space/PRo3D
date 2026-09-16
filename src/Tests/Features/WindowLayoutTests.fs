@@ -269,22 +269,45 @@ let private libraryTests =
             )
         }
 
-        test "unreadable library entries are skipped" {
+        test "an unreadable library entry is listed, and opening it tells the user why it fails" {
             Fixture.withLayoutDir (fun dir ->
                 Directory.CreateDirectory(LayoutLibrary.libraryDir dir) |> ignore
                 File.WriteAllText(Path.Combine(LayoutLibrary.libraryDir dir, "broken.json"), "{ not json")
                 Fixture.ok (LayoutLibrary.trySave dir { name = "fine"; layout = LayoutOps.sanitize DashboardModes.core.layout }) "save"
-                Expect.equal (LayoutLibrary.list dir |> List.map (fun f -> f.name)) ["fine"] "broken entry ignored"
+                Expect.equal (LayoutLibrary.list dir |> List.map (fun e -> e.name)) ["broken"; "fine"] "both listed"
+
+                let m = LayoutApp.initial dir
+                Expect.equal m.library ["broken"; "fine"] "in the menu"
+                let m', feedback = LayoutApp.update dir (LayoutAction.ApplyLibrary "broken") m
+                Expect.equal m'.current m.current "layout unchanged"
+                match feedback with
+                | [text] -> Expect.stringContains text "cannot be read" "feedback"
+                | other -> failtestf "expected one feedback message, got %A" other
+
+                Fixture.isError (LayoutLibrary.tryRename dir "broken" "renamed") "a broken entry cannot be renamed"
+                Fixture.ok (LayoutLibrary.tryDelete dir "broken") "but deleted"
+                Expect.equal (LayoutLibrary.list dir |> List.map (fun e -> e.name)) ["fine"] "gone"
             )
         }
 
-        test "a corrupt current layout falls back to the default and is kept aside" {
+        test "a corrupt current layout falls back to the default, is kept aside and reported" {
             Fixture.withLayoutDir (fun dir ->
                 File.WriteAllText(LayoutLibrary.currentPath dir, "{\"format\":\"pro3d-layout\",\"version\":1,\"layo")
                 let m = LayoutApp.initial dir
                 Expect.equal m.activeName DashboardModes.defaultDashboard.name "default layout"
                 Expect.isTrue (File.Exists (LayoutLibrary.currentPath dir + ".corrupt")) "kept aside"
                 Expect.isFalse (File.Exists (LayoutLibrary.currentPath dir)) "moved away"
+                Expect.equal (List.length m.startupNotices) 1 "the user is told at start"
+                Expect.isEmpty (LayoutApp.initial dir).startupNotices "and only once"
+            )
+        }
+
+        test "the default layout is M2020 with the GIS view" {
+            Fixture.withLayoutDir (fun dir ->
+                let m = LayoutApp.initial dir
+                Expect.equal m.activeName "M2020" "M2020"
+                Expect.contains (LayoutOps.panelIds m.current) "gis" "GIS view included"
+                Expect.isEmpty m.startupNotices "nothing to report"
             )
         }
 
@@ -323,7 +346,30 @@ let private appTests =
                 let m', _ = LayoutApp.update dir (LayoutAction.Changed json) m
                 Expect.equal (LayoutOps.shape m'.current) "s[render;]" "current"
                 Expect.equal m'.golden.DefaultLayout m'.current "reload boots into it"
-                Expect.equal m'.golden.SetLayout m.golden.SetLayout "not sent back to the browser"
+                Expect.equal m'.golden.SetLayout m.golden.SetLayout "nothing pending: nothing sent"
+
+                // after an applied layout, the pending message is replayed to clients that
+                // connect later; once the browser shows the pushed arrangement, it must carry
+                // the browser's layout, under the same version
+                let serialized (l : WindowLayout) = GoldenLayout.Json.serialize LayoutConfig.Default l
+                let core = LayoutOps.sanitize DashboardModes.core.layout
+                let applied, _ = LayoutApp.update dir (LayoutAction.ApplyDashboard DashboardModes.core.name) m
+                let pushed = applied.golden.SetLayout
+
+                // an event from before the push arrives late: the push must not be replaced
+                let stale, _ = LayoutApp.update dir (LayoutAction.Changed json) applied
+                Expect.equal stale.golden.SetLayout pushed "a stale event leaves the push alone"
+                Expect.isFalse stale.pushConfirmed "not confirmed"
+
+                let shown, _ = LayoutApp.update dir (LayoutAction.Changed (serialized core)) stale
+                Expect.isTrue shown.pushConfirmed "the browser shows the push"
+                let changed, _ = LayoutApp.update dir (LayoutAction.Changed json) shown
+                match pushed, changed.golden.SetLayout with
+                | Some (_, v0), Some (layout, v1) ->
+                    Expect.equal v1 v0 "connected clients do not get it again"
+                    Expect.equal layout changed.current "a reloaded page gets the current layout"
+                    Expect.equal (LayoutOps.shape layout) "s[render;]" "the user's change"
+                | other -> failtestf "unexpected SetLayout %A" other
             )
         }
 
@@ -397,8 +443,8 @@ let private sidecarTests =
                 let same, _ = LayoutApp.sceneOpened dir scene m
                 Expect.equal same.dialog LayoutDialog.None "same arrangement: nothing to ask"
 
-                let gis = LayoutOps.sanitize DashboardModes.gis.layout
-                Fixture.ok (SceneLayoutSidecar.tryWrite scene gis) "write"
+                let other = LayoutOps.sanitize DashboardModes.core.layout
+                Fixture.ok (SceneLayoutSidecar.tryWrite scene other) "write"
                 let offered, _ = LayoutApp.sceneOpened dir scene m
                 match offered.dialog with
                 | LayoutDialog.SceneLayout p ->
@@ -418,15 +464,15 @@ let private sidecarTests =
         test "confirming imports under a free name and applies" {
             Fixture.withLayoutDir (fun dir ->
                 let scene = Path.Combine(dir, "shared.pro3d")
-                let gis = LayoutOps.sanitize DashboardModes.gis.layout
-                Fixture.ok (SceneLayoutSidecar.tryWrite scene gis) "write"
-                Fixture.ok (LayoutLibrary.trySave dir { name = "shared"; layout = LayoutOps.sanitize DashboardModes.core.layout }) "name taken"
+                let other = LayoutOps.sanitize DashboardModes.core.layout
+                Fixture.ok (SceneLayoutSidecar.tryWrite scene other) "write"
+                Fixture.ok (LayoutLibrary.trySave dir { name = "shared"; layout = LayoutOps.sanitize DashboardModes.provenance.layout }) "name taken"
 
                 let m = LayoutApp.initial dir
                 let m, _ = LayoutApp.sceneOpened dir scene m
                 let m = [ LayoutAction.SetImportSceneLayout true; LayoutAction.ConfirmSceneLayout ] |> List.fold (fun m a -> LayoutApp.update dir a m |> fst) m
                 Expect.equal m.library ["shared"; "shared (2)"] "imported under a free name"
-                Expect.equal (LayoutOps.shape m.current) (LayoutOps.shape gis) "applied"
+                Expect.equal (LayoutOps.shape m.current) (LayoutOps.shape other) "applied"
                 Expect.equal m.activeName "shared (2)" "active"
                 Expect.equal m.dialog LayoutDialog.None "closed"
 
@@ -442,7 +488,7 @@ let private sidecarTests =
         test "ignoring changes nothing" {
             Fixture.withLayoutDir (fun dir ->
                 let scene = Path.Combine(dir, "s.pro3d")
-                Fixture.ok (SceneLayoutSidecar.tryWrite scene (LayoutOps.sanitize DashboardModes.gis.layout)) "write"
+                Fixture.ok (SceneLayoutSidecar.tryWrite scene (LayoutOps.sanitize DashboardModes.core.layout)) "write"
                 let m = LayoutApp.initial dir
                 let offered, _ = LayoutApp.sceneOpened dir scene m
                 let m', _ = LayoutApp.update dir LayoutAction.CloseDialog offered

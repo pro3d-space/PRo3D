@@ -391,70 +391,86 @@ module LayoutLibrary =
         try File.Move(path, path + ".corrupt", true)
         with e -> Log.warn "[Layouts] could not move unreadable %s aside: %s" path e.Message
 
-    let tryLoadCurrent (dir : string) : Option<LayoutFile.LayoutFile> =
+    /// The last used layout. A file that cannot be read is moved aside and reported.
+    let tryLoadCurrent (dir : string) : Result<Option<LayoutFile.LayoutFile>, string> =
         let path = currentPath dir
         match LayoutFile.tryRead path with
-        | Ok file -> file
+        | Ok file -> Ok file
         | Result.Error e ->
             Log.warn "[Layouts] ignoring unreadable %s: %s" path e
             quarantine path
-            None
+            Result.Error e
 
-    /// Library entries by display name, sorted; unreadable files are skipped.
-    let list (dir : string) : list<LayoutFile.LayoutFile> =
+    type Entry =
+        {
+            /// display name: the name stored in the file, or the file name if it cannot be read
+            name   : string
+            path   : string
+            /// the stored layout, or why it cannot be read
+            layout : Result<WindowLayout, string>
+        }
+
+    /// Library entries sorted by name. Unreadable files are listed too, so opening one
+    /// can tell the user what is wrong with it.
+    let list (dir : string) : list<Entry> =
         try
             let lib = libraryDir dir
             if Directory.Exists lib then
                 Directory.GetFiles(lib, "*.json")
                 |> Array.toList
                 |> List.choose (fun path ->
+                    let fileName = Path.GetFileNameWithoutExtension path
                     match LayoutFile.tryRead path with
                     | Ok (Some f) ->
-                        let name =
-                            if String.IsNullOrWhiteSpace f.name then Path.GetFileNameWithoutExtension path
-                            else f.name
-                        Some { f with name = name }
+                        let name = if String.IsNullOrWhiteSpace f.name then fileName else f.name
+                        Some { name = name; path = path; layout = Ok f.layout }
                     | Ok None -> None
                     | Result.Error e ->
-                        Log.warn "[Layouts] skipping unreadable library entry %s: %s" path e
-                        None
+                        Log.warn "[Layouts] unreadable library entry %s: %s" path e
+                        Some { name = fileName; path = path; layout = Result.Error e }
                 )
-                |> List.sortBy (fun f -> f.name.ToLowerInvariant())
+                |> List.sortBy (fun e -> e.name.ToLowerInvariant())
             else []
         with e ->
             Log.warn "[Layouts] could not list %s: %s" dir e.Message
             []
 
+    let tryFind (dir : string) (name : string) =
+        list dir |> List.tryFind (fun e -> e.name = name)
+
     let trySave (dir : string) (file : LayoutFile.LayoutFile) : Result<unit, string> =
         match entryPath dir file.name with
-        | Some path -> LayoutFile.tryWrite path file
+        | Some path -> LayoutFile.tryWrite path { file with name = file.name.Trim() }
         | None -> Result.Error "a layout needs a name"
 
     let tryDelete (dir : string) (name : string) : Result<unit, string> =
         try
-            match entryPath dir name with
-            | Some path ->
-                if File.Exists path then File.Delete path
+            match tryFind dir name with
+            | Some entry ->
+                File.Delete entry.path
                 Ok ()
-            | None -> Result.Error "a layout needs a name"
+            | None -> Result.Error (sprintf "no layout named '%s'" name)
         with e ->
             Result.Error e.Message
 
     let tryRename (dir : string) (oldName : string) (newName : string) : Result<unit, string> =
-        match entryPath dir oldName, entryPath dir newName with
-        | Some oldPath, Some newPath ->
-            match LayoutFile.tryRead oldPath with
-            | Ok (Some file) ->
-                if oldPath <> newPath && File.Exists newPath then
-                    Result.Error (sprintf "a layout named '%s' already exists" newName)
-                else
-                    LayoutFile.tryWrite newPath { file with name = newName.Trim() }
-                    |> Result.bind (fun () ->
-                        if oldPath <> newPath then tryDelete dir oldName else Ok ()
-                    )
-            | Ok None -> Result.Error (sprintf "no layout named '%s'" oldName)
-            | Result.Error e -> Result.Error e
-        | _ -> Result.Error "a layout needs a name"
+        match tryFind dir oldName, entryPath dir newName with
+        | None, _ -> Result.Error (sprintf "no layout named '%s'" oldName)
+        | _, None -> Result.Error "a layout needs a name"
+        | Some { layout = Result.Error e }, _ -> Result.Error e
+        | Some ({ layout = Ok layout } as entry), Some newPath ->
+            let samePath = String.Equals(Path.GetFullPath entry.path, Path.GetFullPath newPath, StringComparison.OrdinalIgnoreCase)
+            let taken = tryFind dir (newName.Trim()) |> Option.exists (fun e -> e.path <> entry.path)
+            if taken || (not samePath && File.Exists newPath) then
+                Result.Error (sprintf "a layout named '%s' already exists" (newName.Trim()))
+            else
+                LayoutFile.tryWrite newPath { name = newName.Trim(); layout = layout }
+                |> Result.bind (fun () ->
+                    try
+                        if not samePath then File.Delete entry.path
+                        Ok ()
+                    with e -> Result.Error e.Message
+                )
 
     /// Persists the current layout off the update thread. Layout changes arrive in
     /// bursts (dragging a splitter); only the last one of a burst is written.

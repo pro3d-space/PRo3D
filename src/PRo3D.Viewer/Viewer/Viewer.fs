@@ -3078,6 +3078,11 @@ module ViewerApp =
                 |> SceneLoader.addGeologicSurfaces
                 |> sceneOpened
                 
+        // problems restoring the window layout, e.g. a corrupt current.json
+        let m =
+            m.layout.startupNotices
+            |> List.fold (fun m text -> shortFeedback text m) { m with layout = { m.layout with startupNotices = [] } }
+
         let app = {
             unpersist = Unpersist.instance
             threads   = threadPool

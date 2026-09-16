@@ -25,26 +25,34 @@ module LayoutApp =
         { m with
             golden      = { (GoldenLayout.update (GoldenLayout.Message.SetWindowLayout layout) m.golden) with DefaultLayout = layout }
             current     = layout
+            pushConfirmed = false
             activeName  = name
             activeShape = LayoutOps.shape layout }
 
-    let private create (dir : string) (name : string) (layout : WindowLayout) =
+    let private create (dir : string) (name : string) (layout : WindowLayout) (notices : list<string>) =
         let layout = LayoutOps.sanitize layout
         {
-            golden      = GoldenLayout.create LayoutConfig.Default layout
-            current     = layout
-            activeName  = name
-            activeShape = LayoutOps.shape layout
-            library     = libraryNames dir
-            dialog      = LayoutDialog.None
-            nameInput   = ""
+            golden         = GoldenLayout.create LayoutConfig.Default layout
+            current        = layout
+            pushConfirmed  = true
+            activeName     = name
+            activeShape    = LayoutOps.shape layout
+            library        = libraryNames dir
+            dialog         = LayoutDialog.None
+            nameInput      = ""
+            startupNotices = notices
         }
 
     /// The layout the user left last time, or the default dashboard.
     let initial (dir : string) : LayoutModel =
+        let fallback = DashboardModes.defaultDashboard
         match LayoutLibrary.tryLoadCurrent dir with
-        | Some file -> create dir file.name file.layout
-        | None -> create dir DashboardModes.defaultDashboard.name DashboardModes.defaultDashboard.layout
+        | Ok (Some file) -> create dir file.name file.layout []
+        | Ok None -> create dir fallback.name fallback.layout []
+        | Result.Error e ->
+            let notice =
+                sprintf "Your last window layout could not be read (%s) and was replaced by '%s'. The file was kept as current.json.corrupt." e fallback.name
+            create dir fallback.name fallback.layout [notice]
 
     /// Name shown for the active layout; marks a layout whose arrangement the user changed.
     let displayName (m : AdaptiveLayoutModel) =
@@ -64,7 +72,12 @@ module LayoutApp =
             let shape = LayoutOps.shape file.layout
             if shape = LayoutOps.shape m.current then m, []
             else
-                let inLibrary = LayoutLibrary.list dir |> List.exists (fun f -> LayoutOps.shape f.layout = shape)
+                let inLibrary =
+                    LayoutLibrary.list dir |> List.exists (fun e ->
+                        match e.layout with
+                        | Ok l -> LayoutOps.shape l = shape
+                        | Result.Error _ -> false
+                    )
                 let pending = {
                     sceneName         = Path.GetFileNameWithoutExtension scenePath
                     layout            = file.layout
@@ -90,8 +103,25 @@ module LayoutApp =
             match LayoutFile.tryParseGolden json with
             | Ok layout ->
                 LayoutLibrary.storeCurrent dir { name = m.activeName; layout = layout }
-                // no SetLayout: the browser already shows it
-                { m with current = layout; golden = { m.golden with DefaultLayout = layout } }, []
+                // Not pushed back: the browser already shows it. But the Golden Layout channel
+                // replays its last SetLayout to every client that connects, so a reloaded page
+                // would boot into this layout and then be reset to the last applied one. The
+                // replayed payload therefore becomes the current layout, under the same version
+                // so connected clients do not receive it again -- but only once the browser has
+                // shown the pushed arrangement: an event still on its way from before the push
+                // would otherwise replace the push before it is sent.
+                let confirmed =
+                    m.pushConfirmed ||
+                    match m.golden.SetLayout with
+                    | Some (pushed, _) -> LayoutOps.shape pushed = LayoutOps.shape layout
+                    | None -> true
+                let setLayout =
+                    if confirmed then m.golden.SetLayout |> Option.map (fun (_, version) -> layout, version)
+                    else m.golden.SetLayout
+                { m with
+                    current       = layout
+                    pushConfirmed = confirmed
+                    golden        = { m.golden with DefaultLayout = layout; SetLayout = setLayout } }, []
             | Result.Error e ->
                 Log.warn "[Layouts] ignoring a layout reported by the browser: %s" e
                 m, []
@@ -102,9 +132,11 @@ module LayoutApp =
             | None -> m, [sprintf "Unknown layout '%s'." name]
 
         | LayoutAction.ApplyLibrary name ->
-            match LayoutLibrary.list dir |> List.tryFind (fun f -> f.name = name) with
-            | Some file -> { apply dir file.name file.layout m with library = libraryNames dir }, []
-            | None -> { m with library = libraryNames dir }, [sprintf "The layout '%s' could not be loaded." name]
+            match LayoutLibrary.tryFind dir name with
+            | Some { layout = Ok layout } -> { apply dir name layout m with library = libraryNames dir }, []
+            | Some { layout = Result.Error e } ->
+                { m with library = libraryNames dir }, [sprintf "The layout '%s' cannot be read: %s" name e]
+            | None -> { m with library = libraryNames dir }, [sprintf "The layout '%s' no longer exists." name]
 
         | LayoutAction.ReopenPanel panelId ->
             apply dir m.activeName (LayoutOps.addPanel panelId m.current) m, []

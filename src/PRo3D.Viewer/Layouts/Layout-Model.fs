@@ -36,6 +36,10 @@ type LayoutModel =
         [<TreatAsValue>]
         current    : WindowLayout
 
+        /// The browser has reported the arrangement last pushed to it. Until then, reported
+        /// layouts may be stale events from before the push.
+        pushConfirmed : bool
+
         /// Name of the dashboard or library layout that was applied last.
         activeName : string
 
@@ -51,6 +55,10 @@ type LayoutModel =
 
         /// Text of the name field of the save-as and rename dialogs.
         nameInput  : string
+
+        /// Problems found while restoring the layout at start, shown once the viewer runs.
+        [<TreatAsValue>]
+        startupNotices : list<string>
     }
 
 [<RequireQualifiedAccess>]
