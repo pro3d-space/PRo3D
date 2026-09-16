@@ -1119,181 +1119,106 @@ module ViewerUtils =
             OutcropTraceShader.outcropTrace |> toEffect
         ]
 
-    /// Surface.effectPool (Aardvark.Rendering) with the linking shared and cached (#719).
+    /// Surface.effectPool (Aardvark.Rendering) with the linking shared across surfaces (#719).
     ///
-    /// All variants must share one input layout (FShade.EffectInputLayout), and building
-    /// it forces FShade to link every variant, which takes tens of seconds for the OPC
-    /// effect stack. effectPool redoes that on every start (and per surface). This pool
-    /// links once per (framebuffer layout, topology) for all surfaces, and stores the
-    /// layout on disk next to the GL shader cache. With it, a warm start links nothing:
-    /// GL finds each variant's program by effect id + layout hash, and the modules stay
-    /// lazy. Switching variants swaps the GL program; render objects are not rebuilt.
+    /// All variants must share one FShade.EffectInputLayout. effectPool builds it from every
+    /// variant, which links them all, on every start and once per surface. This pool builds
+    /// it from the LAST variant alone -- the one that uses everything the others use, so its
+    /// layout covers them (SurfaceEffectVariantTest pins that) -- and shares the result per
+    /// (framebuffer layout, topology). The other variants stay lazy: applying a layout does
+    /// not link, and on a warm start GL finds each program on disk by effect id + layout
+    /// hash, so they are never linked at all. Switching variants swaps the GL program;
+    /// render objects are not rebuilt.
     module SharedEffectPool =
-        type private Linked =
-            {
-                layout  : FShade.EffectInputLayout
-                modules : FShade.Imperative.Module[]
-                /// per variant: did its GL program compile (see precompile)
-                working : bool[]
-            }
 
-        /// The layout as plain arrays, so the file does not depend on how MapExt pickles.
-        type private StoredLayout =
-            {
-                inputs   : (string * System.Type)[]
-                uniforms : (string * FShade.UniformLayout)[]
-            }
-
-        let private pickler = MBrace.FsPickler.FsPickler.CreateBinarySerializer()
-
-        /// The layout cache's file format (public for the round-trip test).
-        let serialize (layout : FShade.EffectInputLayout) : byte[] =
-            pickler.Pickle { inputs = MapExt.toArray layout.Inputs; uniforms = MapExt.toArray layout.Uniforms }
-
-        let deserialize (bytes : byte[]) : FShade.EffectInputLayout =
-            let stored = pickler.UnPickle<StoredLayout> bytes
-            { Inputs = MapExt.ofArray stored.inputs; Uniforms = MapExt.ofArray stored.uniforms }
-
-        module private LayoutCache =
-
-            /// Effect ids change with the shader code, so a stale file simply misses, like
-            /// the GL shader cache. None when the runtime's shader cache is disabled.
-            let private file (effects : FShade.Effect[]) (signature : IFramebufferSignature) (topology : IndexedGeometryMode) =
-                let shaderCache =
-                    match signature.Runtime with
-                    | :? IRuntime as r -> r.ShaderCachePath
-                    | _ -> None
-                shaderCache |> Option.map (fun dir ->
-                    let key =
-                        String.concat "|" [
-                            yield! effects |> Array.map (fun e -> e.Id)
-                            sprintf "%A" signature.Layout
-                            string topology
-                            string (typeof<FShade.Effect>.Assembly.GetName().Version)
-                            string (typeof<IFramebufferSignature>.Assembly.GetName().Version)
-                        ]
-                    use sha = System.Security.Cryptography.SHA1.Create()
-                    let hash =
-                        sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes key)
-                        |> Array.map (sprintf "%02x") |> String.concat ""
-                    System.IO.Path.Combine(dir, "PRo3D.EffectInputLayouts", hash + ".bin")
-                )
-
-            let tryLoad effects signature topology : Option<FShade.EffectInputLayout> =
-                file effects signature topology |> Option.bind (fun path ->
-                    try
-                        if System.IO.File.Exists path then Some (deserialize (System.IO.File.ReadAllBytes path))
-                        else None
-                    with e ->
-                        Log.warn "[SharedEffectPool] ignoring unreadable layout cache %s: %s" path e.Message
-                        None
-                )
-
-            let store effects signature topology (layout : FShade.EffectInputLayout) =
-                file effects signature topology |> Option.iter (fun path ->
-                    try
-                        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName path) |> ignore
-                        System.IO.File.WriteAllBytes(path, serialize layout)
-                    with e ->
-                        Log.warn "[SharedEffectPool] could not write layout cache %s: %s" path e.Message
-                )
-
-        /// Shown on the render view while surface shaders are linked and compiled: on a
-        /// cold start (first start after a shader change) the surfaces stay empty for
-        /// minutes, and without a notice PRo3D looks broken. Set from the patch loader
-        /// thread.
-        let status = cval ""
-
-        /// True once the surface shaders have been compiled for the first time. Marked in
-        /// the render view's DOM (data-surface-shaders) so UI tests can wait for it.
+        /// True once the surface shaders are ready. Marked in the render view's DOM
+        /// (data-surface-shaders) so UI tests can wait for it instead of for a pixel.
         let ready = cval false
 
-        /// Compiles every variant's GL program now, on the calling (patch loader) thread,
-        /// under the cache key the variant switch uses later. A variant compiled at its
-        /// first switch would instead link and compile on the render thread, freezing the
-        /// view for a minute on e.g. the first hover of a projected image.
-        ///
-        /// Returns which variants compiled. A variant that does not (a driver refusing this
-        /// stack is a real possibility: the generated GLSL is ~22k lines) must not take the
-        /// surfaces down with it, so `create` falls back to one that did.
-        let private precompile (signature : IFramebufferSignature) (topology : IndexedGeometryMode) (l : Linked) : bool[] =
-            match signature.Runtime with
-            | :? Aardvark.Rendering.GL.Runtime as gl ->
-                l.modules |> Array.mapi (fun i m ->
-                    try
-                        let variant (_ : IFramebufferSignature) (_ : IndexedGeometryMode) : DynamicSurface =
-                            l.layout, AVal.constant m
-                        gl.Context.CreateProgram(signature, Aardvark.Rendering.Surface.Dynamic variant, topology) |> ignore
-                        true
-                    with e ->
-                        Log.warn "[SharedEffectPool] surface effect variant %d does not compile, falling back: %s" i e.Message
-                        false
-                )
-            | _ ->
-                Log.warn "[SharedEffectPool] not a GL runtime, variants compile on first use"
-                Array.create l.modules.Length true
+        /// Linking the effect takes ~15 s, and would do so on EVERY start: the layout is
+        /// what GL keys its on-disk programs by, so nothing can be reused without it. Keep
+        /// it next to that shader cache and every later start links nothing at all.
+        module private LayoutCache =
+            type private Stored =
+                { inputs : (string * System.Type)[]; uniforms : (string * FShade.UniformLayout)[] }
 
-        /// `effects`: the variants; the LAST must use everything the others use (see compile).
+            let private pickler = MBrace.FsPickler.FsPickler.CreateBinarySerializer()
+
+            /// plain arrays, so the file does not depend on how MapExt pickles
+            let serialize (layout : FShade.EffectInputLayout) =
+                pickler.Pickle { inputs = MapExt.toArray layout.Inputs; uniforms = MapExt.toArray layout.Uniforms }
+
+            let deserialize (bytes : byte[]) : FShade.EffectInputLayout =
+                let s = pickler.UnPickle<Stored> bytes
+                { Inputs = MapExt.ofArray s.inputs; Uniforms = MapExt.ofArray s.uniforms }
+
+            /// The effect id changes with the shader code, so a stale file simply misses,
+            /// like the GL shader cache. None when the runtime's shader cache is disabled.
+            let private file (effect : FShade.Effect) (signature : IFramebufferSignature) topology =
+                match signature.Runtime with
+                | :? IRuntime as r -> r.ShaderCachePath
+                | _ -> None
+                |> Option.map (fun dir ->
+                    let key = sprintf "%s|%A|%A|%A" effect.Id signature.Layout topology typeof<FShade.Effect>.Assembly.FullName
+                    use sha = System.Security.Cryptography.SHA1.Create()
+                    let hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes key) |> Array.map (sprintf "%02x") |> String.concat ""
+                    Path.combine [ dir; "PRo3D.EffectInputLayouts"; hash + ".bin" ])
+
+            let tryLoad effect signature topology =
+                file effect signature topology |> Option.bind (fun path ->
+                    try if File.Exists path then Some (deserialize (File.readAllBytes path)) else None
+                    with e -> Log.warn "[SharedEffectPool] ignoring layout cache: %s" e.Message; None)
+
+            let store effect signature topology layout =
+                file effect signature topology |> Option.iter (fun path ->
+                    try
+                        Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+                        File.writeAllBytes path (serialize layout)
+                    with e -> Log.warn "[SharedEffectPool] could not write layout cache: %s" e.Message)
+
+        /// `effects`: the variants; the LAST must use everything the others use.
         let create (effects : FShade.Effect[]) : aval<int> -> Aardvark.Rendering.Surface =
-            let linked = System.Collections.Generic.Dictionary<FramebufferLayout * IndexedGeometryMode, Linked>()
-            // compiled from the patch loader thread and the render thread
+            let linked =
+                System.Collections.Generic.Dictionary<FramebufferLayout * IndexedGeometryMode, FShade.EffectInputLayout * FShade.Imperative.Module[]>()
+            // reached from the patch loader thread and the render thread
             let link (signature : IFramebufferSignature) (topology : IndexedGeometryMode) =
                 lock linked (fun () ->
                     let key = (signature.Layout, topology)
                     match linked.TryGetValue key with
                     | true, l -> l
                     | _ ->
-                        transact (fun () -> status.Value <- "Preparing surface shaders... (the first start after an update can take a few minutes)")
-                        // lazy: nothing is linked until an entry is needed
                         let modules = effects |> Array.map (Effect.link signature topology false)
+                        let full = effects.[effects.Length - 1]
                         let layout =
-                            match LayoutCache.tryLoad effects signature topology with
+                            match LayoutCache.tryLoad full signature topology with
                             | Some layout -> layout
                             | None ->
-                                // cold start: link every variant, in parallel (each takes
-                                // tens of seconds, see #719), then remember the layout
-                                Log.startTimed "[SharedEffectPool] linking %d surface effect variants" modules.Length
-                                modules |> Array.Parallel.iter (fun m -> m.Entries |> ignore)
-                                let layout = FShade.EffectInputLayout.ofModules modules
+                                // the only link ever forced here, and only on a cold start;
+                                // the other variants follow lazily on first use
+                                Log.startTimed "[SharedEffectPool] linking the surface effect"
+                                let layout = FShade.EffectInputLayout.ofModules [ modules.[modules.Length - 1] ]
                                 Log.stop ()
-                                LayoutCache.store effects signature topology layout
+                                LayoutCache.store full signature topology layout
                                 layout
-                        let applied = modules |> Array.map (FShade.EffectInputLayout.apply layout)
-                        let l = { layout = layout; modules = applied; working = Array.create applied.Length true }
-                        let l =
-                            try
-                                Log.startTimed "[SharedEffectPool] compiling %d surface effect variants" applied.Length
-                                let working = precompile signature topology l
-                                Log.stop ()
-                                { l with working = working }
-                            finally
-                                transact (fun () ->
-                                    status.Value <- ""
-                                    ready.Value <- true)
+                        let l = layout, modules |> Array.map (FShade.EffectInputLayout.apply layout)
                         linked.[key] <- l
+                        transact (fun () -> ready.Value <- true)
                         l
                 )
-            // the full variant if it compiled, else any that did, else the requested one
-            let fallback (l : Linked) =
-                if l.working.[l.working.Length - 1] then l.working.Length - 1
-                else
-                    match l.working |> Array.tryFindIndex id with
-                    | Some i -> i
-                    | None -> 0
             fun (active : aval<int>) ->
                 let compile (signature : IFramebufferSignature) (topology : IndexedGeometryMode) : DynamicSurface =
-                    let l = link signature topology
-                    // GL creates a render object's resources (bound textures, uniform
-                    // buffers, vertex attributes) from the interface of the program this
-                    // aval yields FIRST. A lean variant lacks what only the full one uses
-                    // (the projection stack sampler, the clip attribute, the filter
-                    // uniforms), and a render object prepared with it stays without them
-                    // after switching up: the projection silently does not appear. So the
-                    // full variant, the last effect and a superset of the others, comes
-                    // first; the shared input layout keeps locations and bindings equal, so
-                    // a lean program simply ignores what it does not use.
+                    let layout, modules = link signature topology
+                    // GL creates a render object's resources (bound textures, uniform buffers,
+                    // vertex attributes) from the interface of the program this aval yields
+                    // FIRST. A lean variant lacks what only the full one uses (the projection
+                    // stack sampler, the clip attribute, the filter uniforms), and a render
+                    // object prepared with it stays without them after switching up: the
+                    // projection silently does not appear. So the full variant, the last
+                    // effect and a superset of the others, comes first; the shared layout
+                    // keeps locations and bindings equal, so a lean program simply ignores
+                    // what it does not use.
                     let bootstrap = cval true
-                    let full = l.modules.[fallback l]
+                    let full = modules.[modules.Length - 1]
                     let current =
                         AVal.custom (fun t ->
                             if bootstrap.GetValue t then
@@ -1301,13 +1226,8 @@ module ViewerUtils =
                                     transact (fun () -> bootstrap.Value <- false)) |> ignore
                                 full
                             else
-                                let i = active.GetValue t % l.modules.Length
-                                // a variant whose program did not compile would throw on the
-                                // render thread; the full variant (or any that did) draws the
-                                // same scene, only without the saving
-                                let i = if l.working.[i] then i else fallback l
-                                l.modules.[i])
-                    l.layout, current
+                                modules.[active.GetValue t % modules.Length])
+                    layout, current
                 Aardvark.Rendering.Surface.Dynamic compile
 
     /// The OPC surface effect. Two parts cost even while their uniforms switch them off,

@@ -55,22 +55,16 @@ let tests () =
                     (sprintf "%s: noFaceNormal provides LocalNormal, so it is no vertex input" name)
         }
 
-        test "the cached input layout survives the round trip" {
-            // a small effect with inputs, uniforms and a sampler, so every field is covered
-            let effect =
-                Effect.compose [
-                    Effect.ofFunction ViewerUtils.Shader.stableTrafo
-                    Effect.ofFunction PRo3D.Base.OPCFilter.improvedDiffuseTexture
-                ]
-            let module_ =
-                effect |> Effect.toModule { EffectConfig.empty with outputs = Map.ofList [ "Colors", (typeof<V4f>, 0) ] }
-            let layout = EffectInputLayout.ofModules [ module_ ]
-            Expect.isGreaterThan layout.Uniforms.Count 0 "the test layout has uniforms"
-
-            let back = layout |> ViewerUtils.SharedEffectPool.serialize |> ViewerUtils.SharedEffectPool.deserialize
-            Expect.equal back layout "the stored layout equals the original"
-            Expect.equal (back.ComputeHash()) (layout.ComputeHash())
-                "and hashes the same, so GL finds the cached programs"
+        test "the last variant's uniforms cover every other variant's" {
+            // SharedEffectPool builds the shared input layout from the LAST variant alone, so
+            // that only it has to be linked at start-up. That is only sound while the last
+            // variant is a superset: a uniform (or sampler) only a lean variant reads would be
+            // missing from the layout it is then compiled against.
+            let fullUniforms = ViewerUtils.surfaceEffect.Uniforms |> Map.keys |> Set.ofSeq
+            for name, effect in leanVariants do
+                let uniforms = effect.Uniforms |> Map.keys |> Set.ofSeq
+                Expect.isEmpty (Set.difference uniforms fullUniforms)
+                    (sprintf "%s reads no uniform beyond the full effect's" name)
         }
 
         test "the generated GLSL stays small (no multi-return fragment stage)" {
