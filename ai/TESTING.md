@@ -118,6 +118,60 @@ is the shape to copy.
   also owns an inner one's titles and the inner panel never opens. Only
   initialise the outermost; overriding the selectors with child combinators does
   not work.
+- **Never `locator.click()` on the 3D view — it hangs forever.** The render
+  control's parent (`div.mainrendercontrol.aardvark`) intercepts pointer events,
+  so Playwright's actionability check never settles, and `click()` has *no*
+  default timeout: it retries until the whole spec times out, with a call log
+  that says "element is visible, enabled and stable" each time. Use raw
+  `page.mouse` (as `scene-body.spec.ts`'s `drag()` does).
+- **Ctrl+click needs a beat after the mouse move.** PRo3D reads the modifier from
+  *key* events on the focused element, not `MouseEvent.ctrlKey`, and the control
+  focuses itself on `mouseenter`. Pressing Control in the same tick as the move
+  sends the keydown to whatever was focused before (typically the other page), so
+  the click is taken as navigation: no pick, no annotation, no error anywhere.
+- **Neither `litFraction` nor `streamLive` rejects the loading splash.**
+  `litFraction` measures the centre of the frame, which is exactly where the bright
+  AARDVARK banner sits. `streamLive` samples three corners expecting the splash to
+  be pure black, but the render div's CSS background is `#222222` (`Viewer.fs:2530`)
+  = 34, above its threshold of 15 — so it reports "live" as soon as the DOM exists,
+  whatever the stream shows. An unloaded view therefore scores as "lit and stable"
+  and the spec reads a half-loaded model. If a spec waits for the surface, gate on
+  the splash colour too (`annotation-profile-export.spec.ts:splashFraction`).
+  (`image.ts` says the viewer clears to `#2A2A2A`; measured it is `#222222`.)
+- **Don't pace picking with fixed sleeps.** The first pick on a patch loads its
+  KdTree from disk (~4.5 s each), later ones hit the cache and cost milliseconds.
+  PRo3D ignores input while intersecting, so a click sent too early is silently
+  dropped and the annotation simply never completes. Wait for the log to go quiet
+  (`annotation-profile-export.spec.ts:awaitIdle`).
+- **Address tool-strip buttons by `title`, not by icon.** `wrapToolTip` puts the
+  tooltip on the button div itself, and icons repeat — `mouse pointer` is both
+  *Select annotation* and *Select surface*. `.pro3d-tool[title="Draw annotation"]`
+  is exact. It does depend on tooltips being on: `UI.wrapToolTip` returns the node
+  unchanged when `UI.enabletoolTips` is false, so a viewer launched with
+  `-notooltips` (`Program.fs:232`) has no `title` at all and every such locator
+  fails with "not found".
+- **Playwright's text engine cannot see `<option>` text.** `filter({ has:
+  'option:text-is("Sky")' })` matches nothing. Find the select's index in an
+  `evaluate` and then drive it with `selectOption`, which sends the real events.
+- **The shared test scene carries the HERA AFC *instrument* camera — override it
+  unless you are testing projection.** `fixture.sceneTemplate` is
+  `AFC_2027-03-21/ProjectionTest.pro3d`, and `sceneFor` only re-points its paths,
+  so every spec silently inherits `config.frustumModel.focal = 122.563`, i.e.
+  **hfov 5.53°** instead of PRo3D's 60°. `Scene.applyScene` recomputes the frustum
+  unconditionally from `focal`/`nearPlane`/`farPlane`/`aspect` (`Scene.fs:305-310`,
+  `:393`), so the frustum stored in the scene — and `toggleFocal`, which only the
+  interactive handler reads — are both ignored: set `focal = 10.25` (and adjust the
+  camera distance, since the body then looks ~12x smaller).
+  This matters beyond framing: a selected annotation's outline spheres are scaled
+  by `dist * size / viewportWidth` (`Utilities.drawSpheresFast`), which omits the
+  field of view. At 60° that is 13% off and invisible; at the AFC's 5.53° it is
+  **10.35x**, and the annotation renders as a giant red blob. See issue #770.
+- **When a measurement disagrees with what the app does in front of you, instrument
+  the app — do not keep theorising.** Hours went into that blob from the outside
+  (zoom-invariance tests, viewport hypotheses, server-vs-desktop comparisons), and
+  every conclusion was wrong, including a confident "it is the harness". Three
+  `Log.line` calls on the actual scale computation, plus an env-var kill switch to
+  bisect the draw, settled it in two runs. Print the numbers the renderer uses.
 
 ### Do not let the metric reward the bug
 
