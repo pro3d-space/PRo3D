@@ -1,5 +1,5 @@
-//d37d31da-ba28-88d4-e100-f8dfc5207ec2
-//a01cc08b-687f-a85a-0fcc-f9a674f24ebe
+//4f13acb4-0e30-1c87-53a9-f865d13e106e
+//8756d366-d68a-333a-9d2f-64a1139cfa1b
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -25,8 +25,7 @@ type AdaptiveScene(value : Scene) =
     let _scaleBars_ = PRo3D.Core.AdaptiveScaleBarsModel(value.scaleBars)
     let _traverses_ = PRo3D.Core.AdaptiveTraverseModel(value.traverses)
     let _viewPlans_ = PRo3D.SimulatedViews.AdaptiveViewPlanModel(value.viewPlans)
-    let _dockConfig_ = FSharp.Data.Adaptive.cval(value.dockConfig)
-    let _closedPages_ = FSharp.Data.Adaptive.cval(value.closedPages)
+    let _legacyDockConfig_ = FSharp.Data.Adaptive.cval(value.legacyDockConfig)
     let _firstImport_ = FSharp.Data.Adaptive.cval(value.firstImport)
     let _userFeedback_ = FSharp.Data.Adaptive.cval(value.userFeedback)
     let _feedbackThreads_ = FSharp.Data.Adaptive.cval(value.feedbackThreads)
@@ -58,8 +57,7 @@ type AdaptiveScene(value : Scene) =
             _scaleBars_.Update(value.scaleBars)
             _traverses_.Update(value.traverses)
             _viewPlans_.Update(value.viewPlans)
-            _dockConfig_.Value <- value.dockConfig
-            _closedPages_.Value <- value.closedPages
+            _legacyDockConfig_.Value <- value.legacyDockConfig
             _firstImport_.Value <- value.firstImport
             _userFeedback_.Value <- value.userFeedback
             _feedbackThreads_.Value <- value.feedbackThreads
@@ -84,8 +82,7 @@ type AdaptiveScene(value : Scene) =
     member __.scaleBars = _scaleBars_
     member __.traverses = _traverses_
     member __.viewPlans = _viewPlans_
-    member __.dockConfig = _dockConfig_ :> FSharp.Data.Adaptive.aval<Aardvark.UI.Primitives.DockConfig>
-    member __.closedPages = _closedPages_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.UI.Primitives.DockElement>>
+    member __.legacyDockConfig = _legacyDockConfig_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
     member __.firstImport = _firstImport_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.userFeedback = _userFeedback_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.feedbackThreads = _feedbackThreads_ :> FSharp.Data.Adaptive.aval<FSharp.Data.Adaptive.ThreadPool<ViewerAction>>
@@ -112,8 +109,7 @@ module SceneLenses =
         static member scaleBars_ = ((fun (self : Scene) -> self.scaleBars), (fun (value : PRo3D.Core.ScaleBarsModel) (self : Scene) -> { self with scaleBars = value }))
         static member traverses_ = ((fun (self : Scene) -> self.traverses), (fun (value : PRo3D.Core.TraverseModel) (self : Scene) -> { self with traverses = value }))
         static member viewPlans_ = ((fun (self : Scene) -> self.viewPlans), (fun (value : PRo3D.SimulatedViews.ViewPlanModel) (self : Scene) -> { self with viewPlans = value }))
-        static member dockConfig_ = ((fun (self : Scene) -> self.dockConfig), (fun (value : Aardvark.UI.Primitives.DockConfig) (self : Scene) -> { self with dockConfig = value }))
-        static member closedPages_ = ((fun (self : Scene) -> self.closedPages), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.UI.Primitives.DockElement>) (self : Scene) -> { self with closedPages = value }))
+        static member legacyDockConfig_ = ((fun (self : Scene) -> self.legacyDockConfig), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : Scene) -> { self with legacyDockConfig = value }))
         static member firstImport_ = ((fun (self : Scene) -> self.firstImport), (fun (value : Microsoft.FSharp.Core.bool) (self : Scene) -> { self with firstImport = value }))
         static member userFeedback_ = ((fun (self : Scene) -> self.userFeedback), (fun (value : Microsoft.FSharp.Core.string) (self : Scene) -> { self with userFeedback = value }))
         static member feedbackThreads_ = ((fun (self : Scene) -> self.feedbackThreads), (fun (value : FSharp.Data.Adaptive.ThreadPool<ViewerAction>) (self : Scene) -> { self with feedbackThreads = value }))
@@ -184,7 +180,7 @@ module EllipseModelLenses =
 type AdaptiveModel(value : Model) =
     let _viewerVersion_ = FSharp.Data.Adaptive.cval(value.viewerVersion)
     let _startupArgs_ = FSharp.Data.Adaptive.cval(value.startupArgs)
-    let _dashboardMode_ = FSharp.Data.Adaptive.cval(value.dashboardMode)
+    let _layout_ = AdaptiveLayoutModel(value.layout)
     let _scene_ = AdaptiveScene(value.scene)
     let _drawing_ = PRo3D.Core.Drawing.AdaptiveDrawingModel(value.drawing)
     let _interaction_ = FSharp.Data.Adaptive.cval(value.interaction)
@@ -248,7 +244,7 @@ type AdaptiveModel(value : Model) =
             __adaptive.MarkOutdated()
             _viewerVersion_.Value <- value.viewerVersion
             _startupArgs_.Value <- value.startupArgs
-            _dashboardMode_.Value <- value.dashboardMode
+            _layout_.Update(value.layout)
             _scene_.Update(value.scene)
             _drawing_.Update(value.drawing)
             _interaction_.Value <- value.interaction
@@ -298,7 +294,7 @@ type AdaptiveModel(value : Model) =
     member __.Current = __adaptive
     member __.viewerVersion = _viewerVersion_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.startupArgs = _startupArgs_ :> FSharp.Data.Adaptive.aval<PRo3D.StartupArgs>
-    member __.dashboardMode = _dashboardMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.layout = _layout_
     member __.scene = _scene_
     member __.drawing = _drawing_
     member __.interaction = _interaction_ :> FSharp.Data.Adaptive.aval<PRo3D.Core.Interactions>
@@ -351,7 +347,7 @@ module ModelLenses =
     type Model with
         static member viewerVersion_ = ((fun (self : Model) -> self.viewerVersion), (fun (value : Microsoft.FSharp.Core.string) (self : Model) -> { self with viewerVersion = value }))
         static member startupArgs_ = ((fun (self : Model) -> self.startupArgs), (fun (value : PRo3D.StartupArgs) (self : Model) -> { self with startupArgs = value }))
-        static member dashboardMode_ = ((fun (self : Model) -> self.dashboardMode), (fun (value : Microsoft.FSharp.Core.string) (self : Model) -> { self with dashboardMode = value }))
+        static member layout_ = ((fun (self : Model) -> self.layout), (fun (value : LayoutModel) (self : Model) -> { self with layout = value }))
         static member scene_ = ((fun (self : Model) -> self.scene), (fun (value : Scene) (self : Model) -> { self with scene = value }))
         static member drawing_ = ((fun (self : Model) -> self.drawing), (fun (value : PRo3D.Core.Drawing.DrawingModel) (self : Model) -> { self with drawing = value }))
         static member interaction_ = ((fun (self : Model) -> self.interaction), (fun (value : PRo3D.Core.Interactions) (self : Model) -> { self with interaction = value }))

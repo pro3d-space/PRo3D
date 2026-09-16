@@ -101,8 +101,9 @@ function waitForHttp(url: string, timeoutMs: number): Promise<void> {
 }
 
 /** Launch PRo3D.Viewer in --server mode (no Aardium) and wait until it serves.
- *  `sceneOverride` replaces PRO3D_SCENE, for specs that generate their own scene. */
-export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
+ *  `sceneOverride` replaces PRO3D_SCENE, for specs that generate their own scene;
+ *  `env` adds environment variables for this launch (e.g. PRO3D_LAYOUT_DIR). */
+export async function launchPro3d(sceneOverride?: string, env?: Record<string, string>): Promise<Pro3d> {
     if (!fs.existsSync(config.exe))
         throw new Error(`PRo3D exe not found: ${config.exe} (set PRO3D_EXE)`);
     const scene =
@@ -135,6 +136,7 @@ export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
             : ["--server", "--port", String(config.port)],
         {
             cwd: path.dirname(config.exe),
+            env: { ...process.env, ...(env ?? {}) },
             // keep stdin an open pipe: server mode blocks on Console.Read()
             // and exits immediately when stdin is EOF (Program.fs)
             stdio: ["pipe", "pipe", "pipe"],

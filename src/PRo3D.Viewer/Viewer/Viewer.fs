@@ -43,7 +43,8 @@ open PRo3D.SimulatedViews
 //open PRo3D.Linking
 open PRo3D.ViewerLenses
 
- 
+open Aardvark.UI.Primitives.Golden
+
 open Aether
 open Aether.Operators
 open Chiron 
@@ -281,42 +282,6 @@ module ViewerApp =
         |> AnimationAction.PushAnimation 
         |> AnimationApp.update animationsOld
 
-    //TODO TO refactor ... move docking manipulation somewhere else... check what works and what doesn't
-    let rec getAllDockElements (dnc: DockNodeConfig) : (list<DockElement>) = 
-        match dnc with
-        | DockNodeConfig.Vertical (weight,children) -> 
-            let test = children |> List.map(fun x -> getAllDockElements x )
-            test |> List.concat  
-        | DockNodeConfig.Horizontal (weight,children) -> 
-            let test = children |> List.map(fun x -> getAllDockElements x )
-            test |> List.concat 
-        | DockNodeConfig.Stack (weight,activeId,children) -> children 
-        | DockNodeConfig.Element element -> [element] 
-    
-    let updateClosedPages (m: Model) (dncUpdated: DockNodeConfig) =
-        let de = getAllDockElements m.scene.dockConfig.content
-        let deUpdated = getAllDockElements dncUpdated
-        let diff = ((Set.ofList de) - (Set.ofList deUpdated)) |> Set.toList
-        // diff contains all changed elements (not only the deleted)
-        match diff with
-            | [] -> m.scene.closedPages
-            | _ -> 
-                let test = 
-                    diff 
-                    |> List.choose (fun x -> 
-                        match deUpdated |> List.filter(fun y -> y.id = x.id) with
-                        | [] -> Some x
-                        | _  -> None)                
-                List.append m.scene.closedPages test 
-                   
-    let private addDockElement (dnc: DockNodeConfig) (de: DockElement) = 
-        match dnc with
-        | DockNodeConfig.Vertical (weight,children) -> let add = List.append children [(Stack(weight, None, [de]))]
-                                                       Horizontal(weight,add)
-        | DockNodeConfig.Horizontal (weight,children) -> let add = List.append children [(Stack(weight, None, [de]))]
-                                                         Horizontal(weight,add) 
-        | DockNodeConfig.Stack (weight,activeId,children) -> Stack(weight, activeId, List.append [de] children)
-        | DockNodeConfig.Element element ->  Stack(0.2, None, List.append [de] [element]) 
 
     let private updateReferenceSystemAt (action : V3d -> ReferenceSystemAction) (pos : V3d) (m : Model) =
         let (refSystem',_) =
@@ -534,6 +499,21 @@ module ViewerApp =
             msg     = ViewerAction.NoAction ""
         }
         m |> UserFeedback.queueFeedback feedback
+
+    /// Saves the scene and writes its window layout beside it. The layout sidecar can
+    /// never fail the save; if it could not be written the user is told.
+    let private saveScene (path : string) (m : Model) =
+        match ViewerIO.saveEverythingWithLayout path m with
+        | m, None -> m
+        | m, Some _ -> m |> shortFeedback "Scene saved, but its window layout could not be stored beside it (see log)."
+
+    /// A scene was opened: offer the window layout stored beside it (docs/WindowLayouts.md).
+    let sceneOpened (m : Model) =
+        match m.scene.scenePath with
+        | Some path ->
+            let layout, feedback = LayoutApp.sceneOpened (LayoutLibrary.directory ()) path m.layout
+            feedback |> List.fold (fun m text -> shortFeedback text m) { m with layout = layout }
+        | None -> m
 
     let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) =
         match k with
@@ -1215,7 +1195,7 @@ module ViewerApp =
                     | _ -> "snapshotScene.pro3d" 
                 let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
                 Log.line "[Snapshots] Saving scene as %s." scenePath
-                let m = m |> ViewerIO.saveEverything scenePath
+                let m = m |> saveScene scenePath
                 m, scenePath
 
             let m =
@@ -1763,9 +1743,9 @@ module ViewerApp =
         //    | false -> m
         | SaveScene s,_ ->
             let target = match m.scene.scenePath with | Some path -> path | None -> s
-            m |> ViewerIO.saveEverything target
+            m |> saveScene target
         | SaveAs s,_ ->
-            ViewerIO.saveEverything s m
+            saveScene s m
             |> ViewerIO.loadLastFootPrint
         | ViewerAction.SetScenePath s, _ -> 
             let scene = { m.scene with scenePath      = Some s }
@@ -1776,7 +1756,7 @@ module ViewerApp =
             match SceneLoading.loadSceneFromFile m runtime signature path with
             | SceneLoading.SceneLoadResult.Loaded(newModel,converted,path) -> 
                 Log.line "[PRo3D] loaded scene: %s" path
-                newModel
+                newModel |> sceneOpened
             | SceneLoading.SceneLoadResult.Error(msg,exn) -> 
                 Log.error "[PRo3D] could not load file: %s, error: %s" path msg
                 m
@@ -1830,7 +1810,9 @@ module ViewerApp =
                     _animator
                     m.viewerVersion
 
-            { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
+            // the layout belongs to the user, not the scene; a fresh Golden Layout model would also
+            // reset the version its browser channel compares against and swallow the next change
+            { initialModel with recent = m.recent; layout = m.layout } |> ViewerIO.loadRoverData
 
         | KeyDown k, _ ->
             let m =
@@ -1857,7 +1839,7 @@ module ViewerApp =
             let m =
                 match (m.ctrlFlag, k, m.scene.scenePath) with
                 | true, Aardvark.Application.Keys.S, Some path ->
-                    { (ViewerIO.saveEverything path m) with ctrlFlag = false } |> shortFeedback "scene saved"
+                    { (saveScene path m) with ctrlFlag = false } |> shortFeedback "scene saved"
                 | true, Aardvark.Application.Keys.S, None ->
                     { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene"
                     // (saveSceneAndAnnotations p m)
@@ -2034,17 +2016,10 @@ module ViewerApp =
             if s.IsEmptyOrNull() |> not then 
                 Log.line "[Viewer.fs] No Action %A" s
             m                   
-        | UpdateDockConfig dcf,_ ->
-            let closedPages = updateClosedPages m dcf.content
-            { m with scene = { m.scene with dockConfig = dcf; closedPages = closedPages } }
-        | AddPage de,_ -> 
-            let closedPages = m.scene.closedPages |> List.filter(fun x -> x.id <> de.id)                
-            let cont = addDockElement m.scene.dockConfig.content de
-            let dockconfig = config {content(cont);appName "PRo3D"; useCachedConfig false }
-            { m with scene = { m.scene with dockConfig = dockconfig; closedPages = closedPages } }
+        | LayoutMessage msg, _ ->
+            let layout, feedback = LayoutApp.update (LayoutLibrary.directory ()) msg m.layout
+            feedback |> List.fold (fun m text -> shortFeedback text m) { m with layout = layout }
         | UpdateUserFeedback s,_ ->   { m with scene = { m.scene with userFeedback = s } }
-        | ChangeDashboardMode mode, _ -> 
-            { m with scene = { m.scene with dockConfig = mode.dockConfig }; dashboardMode = mode.name }
         //| StartImportMessaging sl,_,_ -> 
         //    sl |> ImportDiscoveredSurfaces |> ViewerAction |> mailbox.Post
         //    { m with scene = { m.scene with userFeedback = "Import OPCs..." } }
@@ -3085,6 +3060,7 @@ module ViewerApp =
                 |> SceneLoader.reconcileSceneBody
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+                |> sceneOpened
             | LoadScene path ->
                 viewerInitial
                 |> ProvenanceApp.emptyWithModel enableProvenance
@@ -3100,6 +3076,7 @@ module ViewerApp =
                 |> SceneLoader.reconcileSceneBody
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+                |> sceneOpened
                 
         let app = {
             unpersist = Unpersist.instance

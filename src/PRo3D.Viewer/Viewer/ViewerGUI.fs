@@ -12,6 +12,7 @@ open Aardvark.Rendering
 open Aardvark.UI
 open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
@@ -691,15 +692,7 @@ module Gui =
                             
                                 //annotations menu
                                 annotationMenu;   
-                                subMenu "Change Mode"
-                                        [
-                                          menuItem "M2020" (ChangeDashboardMode DashboardModes.m2020)
-                                          menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
-                                          menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
-                                          menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
-                                          menuItem "Provenance" (ChangeDashboardMode DashboardModes.provenance)
-                                          menuItem "GIS" (ChangeDashboardMode DashboardModes.gis)
-                                        ]   
+                                LayoutApp.UI.menu m.layout |> UI.map LayoutMessage
                                 
                                 //scene objects
                                 div [ clazz "ui dropdown item"; style "width: 150px"] importSCeneObject
@@ -1035,7 +1028,7 @@ module Gui =
 
         let topMenuItems (model : AdaptiveModel) = [
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
-                [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
+                [Incremental.text (LayoutApp.displayName model.layout |> AVal.map (sprintf "Layout: %s"))]
 
             // The navigation-mode and interaction selectors live in the vertical tool
             // strip overlaid on the right edge of the render view (Gui.ToolStrip), and
@@ -2270,17 +2263,17 @@ module Gui =
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [
-                                m.scene.dockConfig
-                                |> docking [
-                                    style "width:100%; height:100%; background:#F00"
-                                    onLayoutChanged UpdateDockConfig
-                                    |> ViewerUtils.mapAttribute ViewerMessage
-                                ]
+                                GoldenLayout.view
+                                    [ style "width:100%; height:100%"
+                                      onLayoutChangedRaw (LayoutAction.Changed >> LayoutMessage >> ViewerMessage) ]
+                                    m.layout.golden
                             ]
                             // Overlay window; absent from the DOM while closed,
                             // so there is no JS modal state to keep in sync.
                             AnnotationExport.exportWindow m
                             |> UI.map ViewerMessage
+                            LayoutApp.UI.dialogs m.layout
+                            |> UI.map (LayoutMessage >> ViewerMessage)
                         ]
                     )
                 )

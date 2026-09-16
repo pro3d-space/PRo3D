@@ -95,6 +95,10 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // PRo3D.Snapshots.exe. Uses its own kernel tree (the env var), not the suite's.
         PRo3D.Tests.SnapshotSunLightingTest.tests()
 
+        // window layouts: pure, file-system (temp dirs) and headless viewer cases; relies on
+        // the Startup.init that featureTests performs while this list is built
+        PRo3D.Tests.WindowLayoutTests.tests()
+
         // Sections whose OPC-backed lists self-skip when the test-data submodule
         // (src/Tests/resources) or a GL context is unavailable.
         featureTests ()
