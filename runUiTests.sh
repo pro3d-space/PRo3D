@@ -10,6 +10,7 @@ if [ -z "$PRO3D_TEST_DATA" ] && [ -z "${PRO3D_SCENE+x}" ]; then
     echo "PRO3D_TEST_DATA is not set: point it at a PRo3D.Resources.TestData checkout (see tests-ui/README.md)" >&2
     exit 1
 fi
+bash ./adapt.sh
 dotnet build src/PRo3D.Viewer/PRo3D.Viewer.fsproj -c Release
 dotnet build src/PRo3D.Tool/PRo3D.Tool.fsproj -c Release
 cd tests-ui

@@ -128,7 +128,7 @@ The dispatch chain in `src/PRo3D.Viewer/Viewer/Viewer.fs`:
 3. Add a wrapper case to `ViewerAction`.
 4. Handle that case in `updateViewer`, delegating to the sub-app and writing back.
 5. Mount the sub-app's `view` in the dock layout (see below) and surface it in a `DockConfig`.
-6. Run `adapt.cmd` to regenerate `*.g.fs`, and extend `Scene` versioning if persisted.
+6. Run `adapt.cmd` / `adapt.sh` to regenerate `*.g.fs` (a new model file also needs its `X.g.fs` `<Compile>` entry in the `.fsproj`; the generated files are not checked in), and extend `Scene` versioning if persisted.
 
 ---
 

@@ -102,6 +102,16 @@ let patchViewerVersion (version : string) =
 //    run dotnet "build" "src"
 //)
 
+// The Adaptify *.g.fs files are not checked in: generate the missing or stale ones before
+// anything compiles the solution. See docs/ModelTypes.md.
+Target.create "Adapt" (fun _ ->
+    let ret =
+        CreateProcess.fromRawCommand "dotnet" ["fsi"; "utilities/Adapt.fsx"]
+        |> Proc.run
+    if ret.ExitCode <> 0 then
+        failwith "generating the Adaptify *.g.fs files failed (utilities/Adapt.fsx)"
+)
+
 
 Target.create "Compile" (fun _ ->
     let debug = false
@@ -848,6 +858,13 @@ Target.create "Version" (fun _ ->
 "Credits" ==> "PublishToElectron" |> ignore
 "Compile" ==> "Pack" |> ignore
 "Pack" ==> "Push" |> ignore
+
+// every target that builds, publishes or tests the solution
+"Adapt" ==> "Compile" |> ignore
+"Adapt" ==> "CompileDebug" |> ignore
+"Adapt" ==> "Tests" |> ignore
+"Adapt" ==> "CopyToElectron" |> ignore
+"Adapt" ==> "Publish" |> ignore
 
 [<EntryPoint>]
 let main args = 

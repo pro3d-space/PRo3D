@@ -6,4 +6,5 @@ REM   set PRO3D_SPICE_KERNELS=%CD%\spice
 REM (or leave a full mirror in a 'spice' directory next to the PRo3D clone, which is
 REM the fallback). See docs\tests\SpiceKernels.md. For the kernel-independent subset
 REM use runTests.cmd instead. Extra args are passed through to the Expecto runner.
+call "%~dp0adapt.cmd" || exit /b 1
 dotnet run --project src/Tests/Tests.fsproj -c Release -- %*
