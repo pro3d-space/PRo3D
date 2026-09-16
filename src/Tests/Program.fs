@@ -135,6 +135,42 @@ let main args =
     // Fixture generation, not a test run: writes the view-plan footprint scene for
     // issue #733 and exits. Defaults into the test-data submodule, which is where
     // the committed fixture lives; see PRo3D.Resources.TestData/cases/viewplan-footprint.
+    // Is a GL context obtainable at all in this process, and on which thread? On macOS
+    // GLFW drives an NSApplication run loop, so where the context is created decides
+    // whether the process makes progress or sits in the Cocoa event loop forever.
+    // Short-circuits before Expecto so the main thread is still ours.
+    if args |> Array.contains "--gl-probe" then
+        printfn "[probe] thread=%d isMain(approx)=%b"
+            System.Threading.Thread.CurrentThread.ManagedThreadId
+            (System.Threading.Thread.CurrentThread.ManagedThreadId = 1)
+        printfn "[probe] Aardvark.Init()..."
+        Aardvark.Base.Aardvark.Init()
+        printfn "[probe] new OpenGlApplication()..."
+        let app = new Aardvark.Application.Slim.OpenGlApplication()
+        printfn "[probe] runtime = %s | %s" app.Runtime.Context.Driver.vendor app.Runtime.Context.Driver.renderer
+        printfn "[probe] OK"
+        exit 0
+
+    // macOS: GLFW drives an NSApplication run loop, so a context created on an Expecto
+    // worker thread sits in the Cocoa event loop forever instead of returning. Forcing the
+    // lazy here, while the main thread is still ours, makes the GL-dependent tests runnable
+    // on macOS at all; they otherwise hang rather than skip.
+    if args |> Array.contains "--gl-init-main" then
+        match PRo3D.Tests.Render.context.Value with
+        | Some _ -> printfn "[gl-init-main] GL runtime created on the main thread"
+        | None -> printfn "[gl-init-main] WARNING: no GL runtime"
+
+    // Performance measurement, not a correctness test: runs on the main thread, outside
+    // Expecto, and exits. See SurfaceEffectBenchmark.
+    if args |> Array.contains "--bench" then
+        // unpacks the native deps (glvm et al) that OpenGlApplication needs; Render.context
+        // swallows the failure and reports "no GL runtime" if this has not run
+        Aardvark.Base.Aardvark.Init()
+        match PRo3D.Tests.Render.context.Value with
+        | Some _ -> printfn "[bench] GL runtime created on the main thread"
+        | None -> printfn "[bench] WARNING: no GL runtime"
+        exit (PRo3D.Tests.SurfaceEffectBenchmark.run ())
+
     match args |> Array.tryFindIndex ((=) "--make-footprint-scene") with
     | Some i ->
         let outDir =
