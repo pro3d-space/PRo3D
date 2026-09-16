@@ -36,6 +36,7 @@ let allTests () : Test =
         GeoJsonRework.Tests.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
+        PRo3D.Tests.TriangleFilterTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()

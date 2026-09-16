@@ -19,6 +19,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- <Compile Include="InteropHelpers.fs" /> -->
+    <Compile Include="TriangleFilter.fs" />
     <Compile Include="PatchOverrides.fs" />
     <!--<Compile Include="KdTrees.fs" />-->
     <Compile Include="WebClientDeprecation.fs" />
