@@ -70,10 +70,7 @@ module Viewer =
         (viewerVerson        : string)
         : Model = 
 
-        // default to the M2020 layout (includes the Traverse menu)
-        let defaultDashboard = DashboardModes.m2020
-        
-        let viewConfigModel = 
+        let viewConfigModel =
             { ViewConfigModel.initial with showExplorationPointGui = startupArgs.showExplorationPoint }
 
         let applyProvenaceIfEnabled (m : Model) =
@@ -95,7 +92,7 @@ module Viewer =
                     referenceSystem       = { ReferenceSystem.initial with isVisible = startupArgs.showReferenceSystem }
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
-                    goldenLayout          = GoldenLayout.create LayoutConfig.Default defaultDashboard.layout
+                    legacyDockConfig      = None
                     firstImport           = true
                     userFeedback          = ""
                     feedbackThreads       = ThreadPool.empty
@@ -112,7 +109,7 @@ module Viewer =
                 }
 
             viewerVersion   = viewerVerson
-            dashboardMode   = defaultDashboard.name
+            layout          = LayoutApp.initial (LayoutLibrary.directory ())
             navigation      = navInit
 
             startupArgs     = startupArgs            

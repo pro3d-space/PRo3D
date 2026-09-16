@@ -6,7 +6,6 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.UI.Primitives.Golden
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI.Trafos
@@ -28,8 +27,6 @@ open PRo3D.Navigation2
 open PRo3D.Comparison
 
 open Chiron
-
-// ---------------------------------------------------------------------------
 
 open Adaptify
 
@@ -172,9 +169,7 @@ type ViewerAction =
 | SetTabMenu                      of TabMenu
 | NoAction                        of string
 | OrientationCube                 of ISg
-| GoldenLayoutMessage             of GoldenLayout.Message
-| StoreCurrentLayout              of string
-| ChangeDashboardMode             of DashboardMode
+| LayoutMessage                   of LayoutAction
 | ToggleOrientationCube
 | UpdateUserFeedback              of string
 | StartImportMessaging            of list<string>
@@ -238,7 +233,10 @@ type Scene = {
     traverses         : TraverseModel
 
     viewPlans         : ViewPlanModel
-    goldenLayout      : GoldenLayout
+    /// The docking layout of PRo3D <= 6.2 exactly as read from the scene file, written
+    /// back unchanged so older versions keep opening the scene. The viewer no longer uses
+    /// it: window layouts live in AppData and beside the scene (docs/WindowLayouts.md).
+    legacyDockConfig  : Option<string>
     firstImport       : bool
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
@@ -268,29 +266,25 @@ module Scene =
             let! scenePath       = Json.read "scenePath"
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
-            let! _               = Json.tryRead<string> "dockConfig"
-            let! goldenLayoutJson = Json.tryRead<string> "goldenLayout"
+            let! dockConfig      = Json.tryRead<string> "dockConfig"
 
-            return
+            return 
                 {
                     version               = current
-
+                                          
                     cameraView            = cameraView
                     navigationMode        = navigationMode |> enum<NavigationMode>
                     exploreCenter         = exploreCenter  |> V3d.Parse
-
+                                          
                     interaction           = interactionMode |> enum<InteractionMode>
                     surfacesModel         = surfaceModel
                     config                = config
                     scenePath             = scenePath
                     referenceSystem       = referenceSystem
                     bookmarks             = bookmarks
-
+                                          
                     viewPlans             = ViewPlanModel.initial
-                    goldenLayout          =
-                        let layout = goldenLayoutJson |> Option.map GoldenLayout.Json.deserialize
-                                                      |> Option.defaultValue DockConfigs.m2020
-                        GoldenLayout.create LayoutConfig.Default layout
+                    legacyDockConfig      = dockConfig
                     firstImport           = false
                     userFeedback          = String.Empty
                     feedbackThreads       = ThreadPool.empty
@@ -321,21 +315,20 @@ module Scene =
             let! scenePath              = Json.read "scenePath"
             let! referenceSystem        = Json.read "referenceSystem"
             let! bookmarks              = Json.read "bookmarks"
-            let! _                      = Json.tryRead<string> "dockConfig"
-            let! goldenLayoutJson       = Json.tryRead<string> "goldenLayout"
+            let! dockConfig             = Json.tryRead<string> "dockConfig"
             let! comparisonApp          = Json.tryRead "comparisonApp"
-            let! scaleBars              = Json.read "scaleBars"
-            let! sceneObjectsModel      = Json.read "sceneObjectsModel"
+            let! scaleBars              = Json.read "scaleBars" 
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
 
-            return
+            return 
                 {
                     version                 = current
 
                     cameraView              = cameraView
                     navigationMode          = navigationMode |> enum<NavigationMode>
                     exploreCenter           = exploreCenter  |> V3d.Parse
-
+            
                     interaction             = interactionMode |> enum<InteractionMode>
                     surfacesModel           = surfaceModel
                     config                  = config
@@ -344,10 +337,7 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = ViewPlanModel.initial
-                    goldenLayout            =
-                        let layout = goldenLayoutJson |> Option.map GoldenLayout.Json.deserialize
-                                                      |> Option.defaultValue DockConfigs.m2020
-                        GoldenLayout.create LayoutConfig.Default layout
+                    legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -377,24 +367,25 @@ module Scene =
             let! scenePath              = Json.read "scenePath"
             let! referenceSystem        = Json.read "referenceSystem"
             let! bookmarks              = Json.read "bookmarks"
-            let! _                      = Json.tryRead<string> "dockConfig"
-            let! goldenLayoutJson       = Json.tryRead<string> "goldenLayout"
+            let! dockConfig             = Json.tryRead<string> "dockConfig"
             let! comparisonApp          = Json.tryRead "comparisonApp"
-            let! scaleBars              = Json.read "scaleBars"
-            let! sceneObjectsModel      = Json.read "sceneObjectsModel"
+            let! scaleBars              = Json.read "scaleBars" 
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
             let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
+
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
 
-            return
+
+            return 
                 {
                     version                 = current
 
                     cameraView              = cameraView
                     navigationMode          = navigationMode |> enum<NavigationMode>
                     exploreCenter           = exploreCenter  |> V3d.Parse
-
+            
                     interaction             = interactionMode |> enum<InteractionMode>
                     surfacesModel           = surfaceModel
                     config                  = config
@@ -402,11 +393,8 @@ module Scene =
                     referenceSystem         = referenceSystem
                     bookmarks               = bookmarks
 
-                    viewPlans               = ViewPlanModel.initial
-                    goldenLayout            =
-                        let layout = goldenLayoutJson |> Option.map GoldenLayout.Json.deserialize
-                                                      |> Option.defaultValue DockConfigs.m2020
-                        GoldenLayout.create LayoutConfig.Default layout
+                    viewPlans               = ViewPlanModel.initial //if viewplans.IsSome then viewplans.Value else ViewPlanModel.initial
+                    legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -438,8 +426,7 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! viewPlans       = Json.read "viewPlans"
-            let! _               = Json.tryRead<string> "dockConfig"
-            let! goldenLayoutJson = Json.tryRead<string> "goldenLayout"
+            let! dockConfig      = Json.tryRead<string> "dockConfig"
             let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
             let! scaleBars       = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
@@ -470,10 +457,7 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = viewPlans
-                    goldenLayout            =
-                        let layout = goldenLayoutJson |> Option.map GoldenLayout.Json.deserialize
-                                                      |> Option.defaultValue DockConfigs.m2020
-                        GoldenLayout.create LayoutConfig.Default layout
+                    legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -521,7 +505,7 @@ type Scene with
             do! Json.write "bookmarks" x.bookmarks    
             do! Json.write "viewPlans" x.viewPlans    
             do! Json.write "comparisonApp" (x.comparisonApp)
-            do! Json.write "goldenLayout" (GoldenLayout.Json.serialize x.goldenLayout.Config x.goldenLayout.DefaultLayout)
+            do! Json.write "dockConfig" (x.legacyDockConfig |> Option.defaultWith LegacyDockConfig.pickled)
             do! Json.write "scaleBars" x.scaleBars
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
@@ -614,7 +598,8 @@ module EllipseModel =
 type Model = { 
     viewerVersion        : string
     startupArgs          : StartupArgs
-    dashboardMode        : string
+    /// Window layout of this viewer; per user, not part of the scene.
+    layout               : LayoutModel
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
     interaction          : Interactions    

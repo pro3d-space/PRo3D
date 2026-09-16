@@ -56,6 +56,11 @@
     <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
     <Compile Include="DashboardModes.fs" />
+    <Compile Include="Layouts\LegacyDockConfig.fs" />
+    <Compile Include="Layouts\LayoutFiles.fs" />
+    <Compile Include="Layouts\Layout-Model.fs" />
+    <Compile Include="Layouts\Layout-Model.g.fs" />
+    <Compile Include="Layouts\LayoutApp.fs" />
     <Compile Include="ProvenanceModel.fs" />
     <Compile Include="ProvenanceModel.g.fs" />
     <Compile Include="Viewer-Model.fs" />

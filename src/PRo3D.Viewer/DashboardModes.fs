@@ -2,6 +2,7 @@ namespace PRo3D.Viewer
 
 open Aardvark.UI.Primitives.Golden
 
+/// A built-in window layout, offered in the Layout menu.
 type DashboardMode =
     {
         layout : WindowLayout
@@ -9,17 +10,17 @@ type DashboardMode =
     }
 
 module DashboardModes =
-    let comparison =
-        { name = "Comparison"; layout = DockConfigs.comparison }
+    let m2020 =
+        { name = "M2020"; layout = DockConfigs.m2020 }
 
     let core =
-        { name = "Core"; layout = DockConfigs.core }
+        { name = "PRo3D Core"; layout = DockConfigs.core }
+
+    let comparison =
+        { name = "Surface Comparison"; layout = DockConfigs.comparison }
 
     let renderOnly =
-        { name = "3D-View Only"; layout = DockConfigs.renderOnly }
-
-    let defaultDashboard =
-        { name = "default"; layout = DockConfigs.m2020 }
+        { name = "Render Only"; layout = DockConfigs.renderOnly }
 
     let provenance =
         { name = "Provenance"; layout = DockConfigs.provenance }
@@ -27,5 +28,8 @@ module DashboardModes =
     let gis =
         { name = "GIS"; layout = DockConfigs.gis }
 
-    let m2020 =
-        { name = "M2020"; layout = DockConfigs.m2020 }
+    /// the layout of a first start, and of a broken or missing current layout
+    let defaultDashboard = m2020
+
+    /// in menu order
+    let all = [ m2020; core; comparison; renderOnly; provenance; gis ]

@@ -500,6 +500,21 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
+    /// Saves the scene and writes its window layout beside it. The layout sidecar can
+    /// never fail the save; if it could not be written the user is told.
+    let private saveScene (path : string) (m : Model) =
+        match ViewerIO.saveEverythingWithLayout path m with
+        | m, None -> m
+        | m, Some _ -> m |> shortFeedback "Scene saved, but its window layout could not be stored beside it (see log)."
+
+    /// A scene was opened: offer the window layout stored beside it (docs/WindowLayouts.md).
+    let sceneOpened (m : Model) =
+        match m.scene.scenePath with
+        | Some path ->
+            let layout, feedback = LayoutApp.sceneOpened (LayoutLibrary.directory ()) path m.layout
+            feedback |> List.fold (fun m text -> shortFeedback text m) { m with layout = layout }
+        | None -> m
+
     let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) =
         match k with
         | Aardvark.Application.Keys.Enter ->
@@ -1180,7 +1195,7 @@ module ViewerApp =
                     | _ -> "snapshotScene.pro3d" 
                 let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
                 Log.line "[Snapshots] Saving scene as %s." scenePath
-                let m = m |> ViewerIO.saveEverything scenePath
+                let m = m |> saveScene scenePath
                 m, scenePath
 
             let m =
@@ -1728,9 +1743,9 @@ module ViewerApp =
         //    | false -> m
         | SaveScene s,_ ->
             let target = match m.scene.scenePath with | Some path -> path | None -> s
-            m |> ViewerIO.saveEverything target
+            m |> saveScene target
         | SaveAs s,_ ->
-            ViewerIO.saveEverything s m
+            saveScene s m
             |> ViewerIO.loadLastFootPrint
         | ViewerAction.SetScenePath s, _ -> 
             let scene = { m.scene with scenePath      = Some s }
@@ -1741,7 +1756,7 @@ module ViewerApp =
             match SceneLoading.loadSceneFromFile m runtime signature path with
             | SceneLoading.SceneLoadResult.Loaded(newModel,converted,path) -> 
                 Log.line "[PRo3D] loaded scene: %s" path
-                newModel
+                newModel |> sceneOpened
             | SceneLoading.SceneLoadResult.Error(msg,exn) -> 
                 Log.error "[PRo3D] could not load file: %s, error: %s" path msg
                 m
@@ -1795,7 +1810,9 @@ module ViewerApp =
                     _animator
                     m.viewerVersion
 
-            { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
+            // the layout belongs to the user, not the scene; a fresh Golden Layout model would also
+            // reset the version its browser channel compares against and swallow the next change
+            { initialModel with recent = m.recent; layout = m.layout } |> ViewerIO.loadRoverData
 
         | KeyDown k, _ ->
             let m =
@@ -1822,7 +1839,7 @@ module ViewerApp =
             let m =
                 match (m.ctrlFlag, k, m.scene.scenePath) with
                 | true, Aardvark.Application.Keys.S, Some path ->
-                    { (ViewerIO.saveEverything path m) with ctrlFlag = false } |> shortFeedback "scene saved"
+                    { (saveScene path m) with ctrlFlag = false } |> shortFeedback "scene saved"
                 | true, Aardvark.Application.Keys.S, None ->
                     { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene"
                     // (saveSceneAndAnnotations p m)
@@ -1999,16 +2016,10 @@ module ViewerApp =
             if s.IsEmptyOrNull() |> not then 
                 Log.line "[Viewer.fs] No Action %A" s
             m                   
-        | GoldenLayoutMessage msg, _ ->
-            let golden = m.scene.goldenLayout |> GoldenLayout.update msg
-            { m with scene = { m.scene with goldenLayout = golden } }
-        | StoreCurrentLayout jsonStr, _ ->
-            let layout = GoldenLayout.Json.deserialize jsonStr
-            { m with scene = { m.scene with goldenLayout = { m.scene.goldenLayout with DefaultLayout = layout } } }
+        | LayoutMessage msg, _ ->
+            let layout, feedback = LayoutApp.update (LayoutLibrary.directory ()) msg m.layout
+            feedback |> List.fold (fun m text -> shortFeedback text m) { m with layout = layout }
         | UpdateUserFeedback s,_ ->   { m with scene = { m.scene with userFeedback = s } }
-        | ChangeDashboardMode mode, _ ->
-            let golden = m.scene.goldenLayout |> GoldenLayout.update (GoldenLayout.Message.SetWindowLayout mode.layout)
-            { m with scene = { m.scene with goldenLayout = golden }; dashboardMode = mode.name }
         //| StartImportMessaging sl,_,_ -> 
         //    sl |> ImportDiscoveredSurfaces |> ViewerAction |> mailbox.Post
         //    { m with scene = { m.scene with userFeedback = "Import OPCs..." } }
@@ -3049,6 +3060,7 @@ module ViewerApp =
                 |> SceneLoader.reconcileSceneBody
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+                |> sceneOpened
             | LoadScene path ->
                 viewerInitial
                 |> ProvenanceApp.emptyWithModel enableProvenance
@@ -3064,6 +3076,7 @@ module ViewerApp =
                 |> SceneLoader.reconcileSceneBody
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+                |> sceneOpened
                 
         let app = {
             unpersist = Unpersist.instance
