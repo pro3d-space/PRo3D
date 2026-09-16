@@ -174,10 +174,11 @@ export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
 }
 
 /**
- * Waits until the viewer has linked and compiled its OPC surface shaders (#719). Until
- * then the surfaces are absent and a "Preparing surface shaders..." notice sits in the
- * render view, so any screenshot taken earlier is wrong. Call it on the render page after
- * `img.rendercontrol` appears. A cold shader cache takes minutes, a warm one seconds.
+ * Waits until the viewer has linked its OPC surface effect (#719) - the seconds-long
+ * step that has to finish before any surface can be drawn. Call it on the render page
+ * after `img.rendercontrol` appears, and still wait for the render itself afterwards:
+ * this resolves once the shared input layout exists, while generating the GL program for
+ * the variant a surface actually uses happens on the render thread just after.
  */
 export async function surfaceShadersReady(page: Page, timeoutMs = 270_000): Promise<void> {
     await page.waitForSelector('[data-surface-shaders="ready"]', { state: "attached", timeout: timeoutMs });

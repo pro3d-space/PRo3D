@@ -25,7 +25,6 @@ open PRo3D.SimulatedViews
 open Adaptify.FSharp.Core
 open Aardvark.GeoSpatial.Opc
 open PRo3D.InstrumentVisualization
-open Aardvark.Rendering.GL.ProgramExtensions // Context.CreateProgram, for SharedEffectPool.precompile
 
 module ViewerUtils =    
     type Self = Self
@@ -1153,13 +1152,20 @@ module ViewerUtils =
                 { Inputs = MapExt.ofArray s.inputs; Uniforms = MapExt.ofArray s.uniforms }
 
             /// The effect id changes with the shader code, so a stale file simply misses,
-            /// like the GL shader cache. None when the runtime's shader cache is disabled.
+            /// like the GL shader cache. Both assembly versions belong in the key: Effect.link
+            /// reads more of the runtime than the effect id covers (device count, layered
+            /// inputs), so an Aardvark upgrade can change the linked uniform set while the
+            /// effect id stays the same, and a layout that no longer matches the modules
+            /// throws when a variant is first used. None when the shader cache is disabled.
             let private file (effect : FShade.Effect) (signature : IFramebufferSignature) topology =
                 match signature.Runtime with
                 | :? IRuntime as r -> r.ShaderCachePath
                 | _ -> None
                 |> Option.map (fun dir ->
-                    let key = sprintf "%s|%A|%A|%A" effect.Id signature.Layout topology typeof<FShade.Effect>.Assembly.FullName
+                    let key =
+                        sprintf "%s|%A|%A|%A|%A" effect.Id signature.Layout topology
+                            typeof<FShade.Effect>.Assembly.FullName
+                            (typeof<IFramebufferSignature>.Assembly.GetName().Version)
                     use sha = System.Security.Cryptography.SHA1.Create()
                     let hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes key) |> Array.map (sprintf "%02x") |> String.concat ""
                     Path.combine [ dir; "PRo3D.EffectInputLayouts"; hash + ".bin" ])
@@ -1173,7 +1179,11 @@ module ViewerUtils =
                 file effect signature topology |> Option.iter (fun path ->
                     try
                         Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
-                        File.writeAllBytes path (serialize layout)
+                        // via a temp file: two instances writing at once must not leave a
+                        // half-written file for the next start to read
+                        let tmp = path + "." + string (System.Guid.NewGuid()) + ".tmp"
+                        File.writeAllBytes tmp (serialize layout)
+                        File.Move(tmp, path, true)
                     with e -> Log.warn "[SharedEffectPool] could not write layout cache: %s" e.Message)
 
         /// `effects`: the variants; the LAST must use everything the others use.
@@ -1196,15 +1206,20 @@ module ViewerUtils =
                                 // the only link ever forced here, and only on a cold start;
                                 // the other variants follow lazily on first use
                                 Log.startTimed "[SharedEffectPool] linking the surface effect"
-                                let layout = FShade.EffectInputLayout.ofModules [ modules.[modules.Length - 1] ]
-                                Log.stop ()
-                                LayoutCache.store full signature topology layout
-                                layout
+                                try
+                                    let layout = FShade.EffectInputLayout.ofModules [ modules.[modules.Length - 1] ]
+                                    LayoutCache.store full signature topology layout
+                                    layout
+                                finally Log.stop ()
                         let l = layout, modules |> Array.map (FShade.EffectInputLayout.apply layout)
                         linked.[key] <- l
-                        transact (fun () -> ready.Value <- true)
                         l
                 )
+            // outside the lock: marking propagation has no business inside it
+            let link signature topology =
+                let l = link signature topology
+                if not ready.Value then transact (fun () -> ready.Value <- true)
+                l
             fun (active : aval<int>) ->
                 let compile (signature : IFramebufferSignature) (topology : IndexedGeometryMode) : DynamicSurface =
                     let layout, modules = link signature topology
@@ -1273,7 +1288,9 @@ module ViewerUtils =
             // Shader.selectionColor          |> toEffect
             //PRo3D.Base.Shader.differentColor   |> toEffect
 
-            OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect
+            // PRo3D's own copy, not OpcViewer.Base's: same shader with one return instead of
+            // two, which keeps it from duplicating everything after it (#719, FShade#39)
+            PRo3D.Core.Shader.LoDColor |> toEffect
             //PRo3D.Base.Shader.falseColorsScalars |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect

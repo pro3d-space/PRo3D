@@ -55,6 +55,27 @@ let tests () =
                     (sprintf "%s: noFaceNormal provides LocalNormal, so it is no vertex input" name)
         }
 
+        test "every variant survives the layout the pool builds from the last one" {
+            // The property SharedEffectPool actually rests on. It builds the shared layout from
+            // the LAST variant alone and applies it to the others -- and applying is LAZY, so a
+            // variant that does not fit throws only when it is first used, on the render thread,
+            // mid-session ("[FShade] shader requests uniform X which is not part of layout").
+            // Forcing Entries here is what turns that into a test failure.
+            //
+            // The subset assertions below work on Effect.Inputs/Uniforms, FShade's PRE-link
+            // view; the layout comes from the linked module. This one uses the real thing.
+            let cfg = { EffectConfig.empty with outputs = Map.ofList [ "Colors", (typeof<V4f>, 0) ] }
+            let modules =
+                [ for geometryStage in [ false; true ] do
+                    for crossSectionClip in [ false; true ] do
+                        yield sprintf "geometryStage=%b crossSectionClip=%b" geometryStage crossSectionClip,
+                              Effect.toModule cfg (ViewerUtils.surfaceEffectVariant geometryStage crossSectionClip) ]
+            let layout = EffectInputLayout.ofModules [ snd (List.last modules) ]
+            for name, m in modules do
+                let applied = EffectInputLayout.apply layout m
+                Expect.isGreaterThan applied.Entries.Length 0 (sprintf "%s links against the shared layout" name)
+        }
+
         test "the last variant's uniforms cover every other variant's" {
             // SharedEffectPool builds the shared input layout from the LAST variant alone, so
             // that only it has to be linked at start-up. That is only sound while the last
@@ -79,11 +100,14 @@ let tests () =
             // Both variants, because the geometry stage multiplies its own downstream chain.
             for name, code in [ "lean", lean.Value; "full", full.Value ] do
                 let lines = code.Split('\n').Length
+                // printed, not just asserted: the number is the thing worth watching
+                printfn "surface effect, %s variant: %d lines of GLSL" name lines
                 Expect.isLessThan lines 3000
                     (sprintf "%s variant: %d lines of GLSL - some fragment stage grew a second return" name lines)
 
             // and directly: the last stage must appear once per shader stage that runs it
             let copies = (full.Value.Split([| "OutcropTraceColor" |], System.StringSplitOptions.None)).Length - 1
+            printfn "surface effect: the last stage is inlined %d times" copies
             Expect.isLessThan copies 20 (sprintf "the last stage is inlined %d times" copies)
         }
 
