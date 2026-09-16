@@ -14,6 +14,7 @@
   <ItemGroup>
     <Compile Include="MultiTexturingViewer.fs" />
     <Compile Include="TestViewer.fs" />
+    <Compile Include="ScreenshotViewer.fs" />
     <Compile Include="AnnotationViewer.fs" />
     <Compile Include="Solarsystem.fs" />
     <Compile Include="Program.fs" />
@@ -28,6 +29,9 @@
     <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+    <!-- ScreenshotViewer's effect ladder renders the viewer's own lighting and
+         normal-generation shaders, which live here. -->
+    <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

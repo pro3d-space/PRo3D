@@ -119,6 +119,101 @@ module OPCFilter =
         let EffectOPCFilter =
             toEffect improvedDiffuseTexture
 
+/// The first two stages of the OPC surface effect: the stable local -> view/clip
+/// transform and the view-space triangle filter that consumes it. They live here rather
+/// than next to the rest of the viewer's surface effects so that the headless harness
+/// (src/OpcViewer, `ScreenshotViewer`) renders the exact shaders the viewer runs instead
+/// of copies that drift out of sync.
+module OpcSurfaceShader =
+
+    /// Must carry every varying the surface fragment stages read: a geometry shader only
+    /// emits the fields of its own vertex type, so anything missing here is dropped
+    /// before the fragment stage sees it.
+    type Vertex = {
+        [<Position>]        pos     : V4f
+        [<Color>]           c       : V4f
+        [<TexCoord>]        tc      : V2f
+
+        [<Semantic("ViewSpacePos")>]
+        vp : V4f
+
+        [<Semantic("FootPrintProj")>]
+        tc0     : V4f
+
+        [<Normal>]
+        n : V3f
+
+        [<SourceVertexIndex>]  sourceVertexIndex : int
+    }
+
+    type UniformScope with
+        // size filter stuff
+        member x.MaxTriangleSize : float = x?MaxTriangleSize
+        member x.FilterTriangleEnabled : bool = x?FilterTriangleEnabled
+
+        // filter for distance to home position
+        member x.FilterByDistance : bool = x?FilterByDistance
+        member x.FilterDistance : float32 = x?FilterDistance
+        member x.HomePositionViewSpace : V3f = x?HomePositionViewSpace
+
+    /// local -> clip via the CPU-composed double-precision MVP, keeping view space
+    /// around for everything downstream that must not touch world space.
+    let stableTrafo (v : Vertex) =
+        vertex {
+            let p = uniform.ModelViewProjTrafo * v.pos
+
+            return
+                { v with
+                    pos = p
+                    c = v.c
+                    vp = uniform.ModelViewTrafo * v.pos
+                }
+        }
+
+    // performs all checks in view space
+    let triangleSizeFilter (input : Triangle<Vertex>) =
+        triangle {
+            let p0 = input.P0.vp.XYZ
+            let p1 = input.P1.vp.XYZ
+            let p2 = input.P2.vp.XYZ
+
+            // TriangleSize
+            let maxSize = uniform?MaxTriangleSize
+
+            let a = (p1 - p0)
+            let b = (p2 - p1)
+            let c = (p0 - p2)
+
+            let alpha = a.Length < maxSize
+            let beta  = b.Length < maxSize
+            let gamma = c.Length < maxSize
+
+            let filterDistanceActive : bool = uniform.FilterByDistance
+            let disabled = not uniform.FilterTriangleEnabled
+            let smallTriangle = alpha && beta && gamma
+            // if disabled, let all trianlges pass
+            let validTriangle = disabled || smallTriangle
+
+            if filterDistanceActive then
+                let filterRange : float32 = uniform.FilterDistance
+                let homePositionVSp : V3f = uniform.HomePositionViewSpace
+
+                let inRange =
+                    (Vec.distance homePositionVSp p0) < filterRange &&
+                    (Vec.distance homePositionVSp p1) < filterRange &&
+                    (Vec.distance homePositionVSp p2) < filterRange
+
+                if validTriangle && inRange then
+                    yield { input.P0 with sourceVertexIndex = 0 }
+                    yield { input.P1 with sourceVertexIndex = 1 }
+                    yield { input.P2 with sourceVertexIndex = 2 }
+            else
+                if validTriangle then
+                    yield { input.P0 with sourceVertexIndex = 0 }
+                    yield { input.P1 with sourceVertexIndex = 1 }
+                    yield { input.P2 with sourceVertexIndex = 2 }
+        }
+
 module Utilities =
     type ClientStatistics =
       {
