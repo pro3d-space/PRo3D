@@ -67,6 +67,7 @@
     <Compile Include="Viewer\Shaders.fs" />
     <Compile Include="Viewer\SunShadowMap.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
+    <Compile Include="Viewer\SurfaceEffectHarness.fs" />
     <Compile Include="Scene.fs" />
     <Compile Include="Viewer\RoseDiagram.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />

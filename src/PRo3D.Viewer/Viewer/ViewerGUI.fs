@@ -328,7 +328,20 @@ module Gui =
                     tr [] [
                         td [style style'] [Incremental.text m.userFeedback]
                     ]
+                    // surface shaders being linked/compiled (#719): the surfaces stay empty
+                    // meanwhile, which otherwise looks like PRo3D rendering nothing
+                    tr [] [
+                        td [style style'] [Incremental.text ViewerUtils.SharedEffectPool.status]
+                    ]
                 ]
+                // for UI tests (tests-ui surfaceShadersReady): "ready" once compiled
+                yield Incremental.div (
+                    AttributeMap.ofListCond [
+                        always <| style "display: none"
+                        "data-surface-shaders",
+                            ViewerUtils.SharedEffectPool.ready
+                            |> AVal.map (fun r -> Some (AttributeValue.String (if r then "ready" else "compiling")))
+                    ]) AList.empty
             ]                              
         ]
 

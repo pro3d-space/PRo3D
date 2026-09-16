@@ -299,6 +299,20 @@ module ImageProjection =
                 yield { t.P2 with localNormal = normal; i = 2 }
             }
 
+        type LocalNormalOnly = {
+            [<Semantic("LocalNormal")>] localNormal : V3f
+        }
+
+        /// Stand-in for generateNormal in the surface-effect variant without a geometry
+        /// stage (#719). It writes a constant LocalNormal, so the stages that read it do
+        /// not turn it into a vertex attribute the OPC patches cannot provide. Those
+        /// stages are uniform-gated off whenever that variant is active, so the value is
+        /// never used.
+        let noFaceNormal (_ : LocalNormalOnly) =
+            vertex {
+                return { localNormal = V3f.Zero }
+            }
+
         // Per-dataset winding correction, composed AFTER generateNormal: OPC exports
         // disagree on triangle winding, and the projector-facing test needs outward
         // normals. NormalFlip comes from NormalWinding.estimate, bound per hierarchy by

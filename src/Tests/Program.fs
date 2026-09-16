@@ -45,6 +45,8 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         BulkAnnotationRoseTest.largeTests()
         OutcropTraceAttitudeTest.tests()
         OutcropTraceShaderTest.tests()
+        SurfaceEffectVariantTest.tests()
+        PRo3D.Tests.SurfaceEffectSwitchTest.tests()
         PolygonFillTests.tests()
         RegionOpsTests.tests()
         RegionFixtureTests.tests()

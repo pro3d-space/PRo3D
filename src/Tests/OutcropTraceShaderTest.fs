@@ -35,7 +35,8 @@ let private glslBackend =
         useInOut                    = true
     }
 
-let private compile (name : string) (effect : Effect) =
+/// Also used by SurfaceEffectVariantTest.
+let compile (name : string) (effect : Effect) =
     let signature =
         effect
         |> Effect.toModule {
@@ -45,6 +46,10 @@ let private compile (name : string) (effect : Effect) =
     let glsl = ModuleCompiler.compileGLSL glslBackend signature
     Expect.isGreaterThan glsl.code.Length 0 (sprintf "%s should produce GLSL" name)
     glsl.code
+
+/// GLSL of the full surface effect, generated once (it takes about a minute) and shared
+/// with SurfaceEffectVariantTest.
+let surfaceEffectGlsl = lazy (compile "surfaceEffect" ViewerUtils.surfaceEffect)
 
 let tests () =
     testList "outcrop trace shader" [
@@ -66,7 +71,7 @@ let tests () =
         test "the full surface effect stack generates GLSL" {
             // catches an incompatible varying or a duplicated semantic introduced by adding
             // a stage to the stack, which is otherwise only visible as a blank render
-            compile "surfaceEffect" ViewerUtils.surfaceEffect |> ignore
+            surfaceEffectGlsl.Value |> ignore
         }
 
         test "the obj effect stack generates GLSL" {

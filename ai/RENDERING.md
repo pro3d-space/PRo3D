@@ -61,6 +61,17 @@ This is a hard rule for any new geometry/shader work. The full statement and the
 
 PRo3D mixes Aardvark `DefaultSurfaces` with custom FShade effects. Notable PRo3D-specific ones: false-color/transfer-function shading for scalar layers (see [DOMAIN.md](DOMAIN.md#transformations--false-color)), multitexturing, outline/selection via stencil modes, and contour-line shading (`docs/Contour-Lines.md`, `docs/Feature-Multitexture.md`).
 
+### OPC surface effect variants (#719)
+
+A stage that is switched off by a uniform still costs if its *kind* is expensive. Two parts of the OPC surface effect are therefore composed only when a surface needs them (`ViewerUtils.surfaceEffectVariant geometryStage crossSectionClip`):
+
+- **`geometryStage`**: `triangleSizeFilter` + `generateNormal`, the only geometry shaders. FShade merges them into one stage, and that stage alone dominated OPC frame time on Apple Silicon (#719). Surfaces with projection data (a SPICE body) keep it from the start, because its face normal (`LocalNormal`) feeds the projection stack, hover outline, sun shading and shadows; switching it in when a projection appears did not show the projection (tests-ui `hover-flyto`). Other surfaces start without it and switch it in only for triangle-size or distance filtering (`SurfaceEffectSwitchTest`). Without the stage, `ImageProjection.Shaders.noFaceNormal` writes a constant `LocalNormal` so it never becomes a vertex attribute.
+- **`crossSectionClip`**: the stack's only `discard`, which defeats hidden-surface removal on tile-based GPUs. Composed while clipping is enabled and a cross-section exists.
+
+Each surface picks its variant through `ViewerUtils.surfaceEffectPool`, an Aardvark `Surface.Dynamic`: switching swaps the GL program without rebuilding render objects. All variants share one FShade input layout, and building it forces FShade to **link** every variant, tens of seconds each for this stack. `SharedEffectPool` therefore links once for all surfaces and stores the layout next to the GL shader cache (`<ShaderCachePath>/PRo3D.EffectInputLayouts`, keyed by the variants' effect ids). A warm start links nothing; a cold start (first start after a shader change) links all variants in parallel.
+
+**Adding a stage to the surface effect:** if it reads `LocalNormal`, it only works on surfaces that keep the geometry stage. If it adds a new vertex input, check `SurfaceEffectVariantTest`. The effect's composition time grows faster than its stage count, so measure a cold start.
+
 ---
 
 ## Picking

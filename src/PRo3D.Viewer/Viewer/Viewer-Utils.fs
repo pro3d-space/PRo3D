@@ -25,6 +25,7 @@ open PRo3D.SimulatedViews
 open Adaptify.FSharp.Core
 open Aardvark.GeoSpatial.Opc
 open PRo3D.InstrumentVisualization
+open Aardvark.Rendering.GL.ProgramExtensions // Context.CreateProgram, for SharedEffectPool.precompile
 
 module ViewerUtils =    
     type Self = Self
@@ -247,8 +248,23 @@ module ViewerUtils =
     }
 
         
-    let viewSingleSurfaceSg 
-        (surface         : AdaptiveSgSurface) 
+    /// The SPICE body a surface is observed as (Sg.applyBody); None without a SPICE
+    /// reference system. Also gates whether the surface gets projection data at all.
+    let observedBody (observedSystem : aval<Option<SpiceReferenceSystem>>) : aval<Option<string>> =
+        observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value)
+
+    /// Distance-to-home filtering is on only when there is a home position to filter
+    /// against. Feeds the FilterByDistance uniform and the surface-effect variant switch.
+    let surfaceFilterByDistance (surf : AdaptiveSurface) : aval<bool> =
+        adaptive {
+            let! homePosition = surf.homePosition
+            match homePosition with
+            | Some _ -> return! surf.filterByDistance
+            | None -> return false
+        }
+
+    let viewSingleSurfaceSg
+        (surface         : AdaptiveSgSurface)
         (m               : AdaptiveModel) 
         (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>) 
@@ -391,16 +407,7 @@ module ViewerUtils =
                             return V3f bb.Center
                     }
                     
-                let filterByDistance =
-                    adaptive {
-                        let! homePosition = surf.homePosition 
-                        
-                        match homePosition with
-                        | Some _ ->
-                            return! surf.filterByDistance
-                        | None ->
-                            return false
-                    }  
+                let filterByDistance = surfaceFilterByDistance surf
                     
                 let cusorViewSpace = 
                     (view, cursorWorldSpace) ||> AVal.map2 (fun view p -> 
@@ -417,7 +424,7 @@ module ViewerUtils =
                     |> Sg.dynamic
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
-                    |> Sg.applyBody (observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value))
+                    |> Sg.applyBody (observedBody observedSystem)
                     // LatLon graticule: the per-vertex lat/lon attribute (Surface.Sg) is
                     // built only while the overlay is enabled on this surface and the
                     // scene sits on a body, so a surface without it pays no second patch
@@ -1110,41 +1117,219 @@ module ViewerUtils =
             OutcropTraceShader.outcropTrace |> toEffect
         ]
 
-    let surfaceEffect =
+    /// Surface.effectPool (Aardvark.Rendering) with the linking shared and cached (#719).
+    ///
+    /// All variants must share one input layout (FShade.EffectInputLayout), and building
+    /// it forces FShade to link every variant, which takes tens of seconds for the OPC
+    /// effect stack. effectPool redoes that on every start (and per surface). This pool
+    /// links once per (framebuffer layout, topology) for all surfaces, and stores the
+    /// layout on disk next to the GL shader cache. With it, a warm start links nothing:
+    /// GL finds each variant's program by effect id + layout hash, and the modules stay
+    /// lazy. Switching variants swaps the GL program; render objects are not rebuilt.
+    module SharedEffectPool =
+        type private Linked =
+            {
+                layout  : FShade.EffectInputLayout
+                modules : FShade.Imperative.Module[]
+            }
+
+        /// The layout as plain arrays, so the file does not depend on how MapExt pickles.
+        type private StoredLayout =
+            {
+                inputs   : (string * System.Type)[]
+                uniforms : (string * FShade.UniformLayout)[]
+            }
+
+        let private pickler = MBrace.FsPickler.FsPickler.CreateBinarySerializer()
+
+        /// The layout cache's file format (public for the round-trip test).
+        let serialize (layout : FShade.EffectInputLayout) : byte[] =
+            pickler.Pickle { inputs = MapExt.toArray layout.Inputs; uniforms = MapExt.toArray layout.Uniforms }
+
+        let deserialize (bytes : byte[]) : FShade.EffectInputLayout =
+            let stored = pickler.UnPickle<StoredLayout> bytes
+            { Inputs = MapExt.ofArray stored.inputs; Uniforms = MapExt.ofArray stored.uniforms }
+
+        module private LayoutCache =
+
+            /// Effect ids change with the shader code, so a stale file simply misses, like
+            /// the GL shader cache. None when the runtime's shader cache is disabled.
+            let private file (effects : FShade.Effect[]) (signature : IFramebufferSignature) (topology : IndexedGeometryMode) =
+                let shaderCache =
+                    match signature.Runtime with
+                    | :? IRuntime as r -> r.ShaderCachePath
+                    | _ -> None
+                shaderCache |> Option.map (fun dir ->
+                    let key =
+                        String.concat "|" [
+                            yield! effects |> Array.map (fun e -> e.Id)
+                            sprintf "%A" signature.Layout
+                            string topology
+                            string (typeof<FShade.Effect>.Assembly.GetName().Version)
+                            string (typeof<IFramebufferSignature>.Assembly.GetName().Version)
+                        ]
+                    use sha = System.Security.Cryptography.SHA1.Create()
+                    let hash =
+                        sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes key)
+                        |> Array.map (sprintf "%02x") |> String.concat ""
+                    System.IO.Path.Combine(dir, "PRo3D.EffectInputLayouts", hash + ".bin")
+                )
+
+            let tryLoad effects signature topology : Option<FShade.EffectInputLayout> =
+                file effects signature topology |> Option.bind (fun path ->
+                    try
+                        if System.IO.File.Exists path then Some (deserialize (System.IO.File.ReadAllBytes path))
+                        else None
+                    with e ->
+                        Log.warn "[SharedEffectPool] ignoring unreadable layout cache %s: %s" path e.Message
+                        None
+                )
+
+            let store effects signature topology (layout : FShade.EffectInputLayout) =
+                file effects signature topology |> Option.iter (fun path ->
+                    try
+                        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName path) |> ignore
+                        System.IO.File.WriteAllBytes(path, serialize layout)
+                    with e ->
+                        Log.warn "[SharedEffectPool] could not write layout cache %s: %s" path e.Message
+                )
+
+        /// Shown on the render view while surface shaders are linked and compiled: on a
+        /// cold start (first start after a shader change) the surfaces stay empty for
+        /// minutes, and without a notice PRo3D looks broken. Set from the patch loader
+        /// thread.
+        let status = cval ""
+
+        /// True once the surface shaders have been compiled for the first time. Marked in
+        /// the render view's DOM (data-surface-shaders) so UI tests can wait for it.
+        let ready = cval false
+
+        /// Compiles every variant's GL program now, on the calling (patch loader) thread,
+        /// under the cache key the variant switch uses later. A variant compiled at its
+        /// first switch would instead link and compile on the render thread, freezing the
+        /// view for a minute on e.g. the first hover of a projected image.
+        let private precompile (signature : IFramebufferSignature) (topology : IndexedGeometryMode) (l : Linked) =
+            match signature.Runtime with
+            | :? Aardvark.Rendering.GL.Runtime as gl ->
+                for i in 0 .. l.modules.Length - 1 do
+                    let variant (_ : IFramebufferSignature) (_ : IndexedGeometryMode) : DynamicSurface =
+                        l.layout, AVal.constant l.modules.[i]
+                    gl.Context.CreateProgram(signature, Aardvark.Rendering.Surface.Dynamic variant, topology) |> ignore
+            | _ ->
+                Log.warn "[SharedEffectPool] not a GL runtime, variants compile on first use"
+
+        /// `effects`: the variants; the LAST must use everything the others use (see compile).
+        let create (effects : FShade.Effect[]) : aval<int> -> Aardvark.Rendering.Surface =
+            let linked = System.Collections.Generic.Dictionary<FramebufferLayout * IndexedGeometryMode, Linked>()
+            // compiled from the patch loader thread and the render thread
+            let link (signature : IFramebufferSignature) (topology : IndexedGeometryMode) =
+                lock linked (fun () ->
+                    let key = (signature.Layout, topology)
+                    match linked.TryGetValue key with
+                    | true, l -> l
+                    | _ ->
+                        transact (fun () -> status.Value <- "Preparing surface shaders... (the first start after an update can take a few minutes)")
+                        // lazy: nothing is linked until an entry is needed
+                        let modules = effects |> Array.map (Effect.link signature topology false)
+                        let layout =
+                            match LayoutCache.tryLoad effects signature topology with
+                            | Some layout -> layout
+                            | None ->
+                                // cold start: link every variant, in parallel (each takes
+                                // tens of seconds, see #719), then remember the layout
+                                Log.startTimed "[SharedEffectPool] linking %d surface effect variants" modules.Length
+                                modules |> Array.Parallel.iter (fun m -> m.Entries |> ignore)
+                                let layout = FShade.EffectInputLayout.ofModules modules
+                                Log.stop ()
+                                LayoutCache.store effects signature topology layout
+                                layout
+                        let l = { layout = layout; modules = modules |> Array.map (FShade.EffectInputLayout.apply layout) }
+                        linked.[key] <- l
+                        try
+                            Log.startTimed "[SharedEffectPool] compiling %d surface effect variants" l.modules.Length
+                            precompile signature topology l
+                            Log.stop ()
+                        finally
+                            transact (fun () ->
+                                status.Value <- ""
+                                ready.Value <- true)
+                        l
+                )
+            fun (active : aval<int>) ->
+                let compile (signature : IFramebufferSignature) (topology : IndexedGeometryMode) : DynamicSurface =
+                    let l = link signature topology
+                    // GL creates a render object's resources (bound textures, uniform
+                    // buffers, vertex attributes) from the interface of the program this
+                    // aval yields FIRST. A lean variant lacks what only the full one uses
+                    // (the projection stack sampler, the clip attribute, the filter
+                    // uniforms), and a render object prepared with it stays without them
+                    // after switching up: the projection silently does not appear. So the
+                    // full variant, the last effect and a superset of the others, comes
+                    // first; the shared input layout keeps locations and bindings equal, so
+                    // a lean program simply ignores what it does not use.
+                    let bootstrap = cval true
+                    let full = l.modules.[l.modules.Length - 1]
+                    let current =
+                        AVal.custom (fun t ->
+                            if bootstrap.GetValue t then
+                                System.Threading.Tasks.Task.Run(fun () ->
+                                    transact (fun () -> bootstrap.Value <- false)) |> ignore
+                                full
+                            else
+                                let i = active.GetValue t
+                                l.modules.[i % l.modules.Length])
+                    l.layout, current
+                Aardvark.Rendering.Surface.Dynamic compile
+
+    /// The OPC surface effect. Two parts cost even while their uniforms switch them off,
+    /// so they are composed only when a surface needs them (#719):
+    /// - `geometryStage`: triangleSizeFilter and generateNormal, the only geometry
+    ///   shaders. FShade merges them into one stage, and that stage alone dominated OPC
+    ///   frame time on Apple Silicon (64 -> 4.6 ms/frame without it, #719). Without it,
+    ///   noFaceNormal stands in for the face normal. Surfaces with projection data keep
+    ///   the stage (see createGroupedSgs), so the normal's readers are off whenever it is
+    ///   missing.
+    /// - `crossSectionClip`: the only discard in the stack. A shader that may discard
+    ///   defeats hidden-surface removal on tile-based (Apple) GPUs even when it never does.
+    let surfaceEffectVariant (geometryStage : bool) (crossSectionClip : bool) =
         Effect.compose [
 
             // image projection
             PRo3D.SPICE.Shaders.planetLocalLightingViewSpace   |> toEffect
             ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect
             PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect
-            
-            
+
+
             Shaders.donutVertex |> toEffect
-            Shader.footprintV        |> toEffect 
+            Shader.footprintV        |> toEffect
             Shader.stableTrafo       |> toEffect
-            Shader.triangleSizeFilter   |> toEffect
-            
-            // No applyNormalFlip here: inward-wound OPCs are corrected by negating the
-            // projector matrices on the CPU (ImageProjectionOpcExtensions.toProjector),
-            // which the projector-facing tests below read. Terrain lighting does not
-            // care either way: solarShadingLS orients the normal itself.
-            ImageProjection.Shaders.generateNormal |> toEffect
+
+            if geometryStage then
+                Shader.triangleSizeFilter   |> toEffect
+
+                // No applyNormalFlip here: inward-wound OPCs are corrected by negating the
+                // projector matrices on the CPU (ImageProjectionOpcExtensions.toProjector),
+                // which the projector-facing tests below read. Terrain lighting does not
+                // care either way: solarShadingLS orients the normal itself.
+                ImageProjection.Shaders.generateNormal |> toEffect
+            else
+                ImageProjection.Shaders.noFaceNormal |> toEffect
 
             Shader.fixAlpha |> toEffect
-            PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
-            PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
-           
-            
+            PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect
+            PRo3D.Base.OPCFilter.markPatchBorders |> toEffect
+
+
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
             // Shader.selectionColor          |> toEffect
             //PRo3D.Base.Shader.differentColor   |> toEffect
-                        
-            OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
+
+            OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect
             //PRo3D.Base.Shader.falseColorsScalars |> toEffect
-            PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
+            PRo3D.Base.Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
-            Shader.secondaryTexture |> toEffect 
+            Shader.secondaryTexture |> toEffect
 
             Shader.contourLines |> toEffect
             // additive latitude/longitude graticule; composites over the colour
@@ -1152,17 +1337,14 @@ module ViewerUtils =
             Shader.latLonLines |> toEffect
             Shaders.donutFragment |> toEffect
 
-            CrossSectionShader.crossSectionClip |> toEffect
+            if crossSectionClip then
+                CrossSectionShader.crossSectionClip |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
 
-            // The projection stack (multi-image projection). Subsumes the old
-            // single-image stableImageProjection: a stack of one behaves
-            // identically, and hovering a library image previews it as the top
-            // layer (effectiveStack).
             // The projection stack (multi-image projection). Subsumes the old
             // single-image stableImageProjection: a stack of one behaves
             // identically, and hovering a library image previews it as the top
@@ -1190,6 +1372,23 @@ module ViewerUtils =
             // and is shaded, which is right for a terrain property and wrong for this.
             OutcropTraceShader.outcropTrace |> toEffect
         ]
+
+    /// Everything composed: what every OPC surface used before #719.
+    let surfaceEffect = surfaceEffectVariant true true
+
+    /// Index of a surface's variant in surfaceEffectPool.
+    let surfaceEffectIndex (geometryStage : bool) (crossSectionClip : bool) =
+        (if geometryStage then 1 else 0) + (if crossSectionClip then 2 else 0)
+
+    /// All four variants, indexed by surfaceEffectIndex. Built once: the shared linking
+    /// cache lives in this value.
+    let surfaceEffectPool : aval<int> -> Aardvark.Rendering.Surface =
+        SharedEffectPool.create [|
+            surfaceEffectVariant false false
+            surfaceEffectVariant true  false
+            surfaceEffectVariant false true
+            surfaceEffectVariant true  true
+        |]
         //Effect.compose [
             
         //    Shader.stableTrafo       |> toEffect
@@ -1426,16 +1625,15 @@ module ViewerUtils =
                 (PRo3D.GIS.ProjectedImagesListAppHelper.getStackTextureLayers m.scene.gisApp)
 
 
-        let wrapGisData (surfaceId : Guid) (surfaceTrafo : aval<Trafo3d>) (projectionRefused : aval<bool>) (sg : ISg<_>) =
+        // per surface, shared by the per-patch applicator, the frustum wireframe and
+        // the surface-effect variant switch (does not depend on the body value)
+        let projectedImageData (surfaceId : Guid) (projectionRefused : aval<bool>) =
+            PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
+            |> Option.map (ProjectionPreconditions.withoutProjection projectionRefused)
+
+        let wrapGisData (surfaceTrafo : aval<Trafo3d>) (projData : Option<Sg.ProjectedImages>) (sg : ISg<_>) =
             let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
             let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
-            let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
-
-            // per surface, shared by the per-patch applicator and the frustum
-            // wireframe (does not depend on the body value)
-            let projData =
-                PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
-                |> Option.map (ProjectionPreconditions.withoutProjection projectionRefused)
 
             let wrapped =
                 sg
@@ -1485,6 +1683,12 @@ module ViewerUtils =
                     )
             )
 
+        // crossSectionClip only discards while both of its uniforms (below) are on;
+        // otherwise the surface effect is composed without it (#719)
+        let crossSectionClipActive =
+            (m.scene.crossSectionModel.clippingEnabled, crossSectionData |> AVal.map Option.isSome)
+            ||> AVal.map2 (&&)
+
         sgGrouped
         |> AList.map (fun group ->
 
@@ -1516,18 +1720,6 @@ module ViewerUtils =
                             view
 
 
-                    let surfaceSg =
-                        match surface.isObj with
-                        | true ->
-                            s
-                            |> Sg.effect [objEffect]
-                        | false ->
-                            s
-                            |> Sg.effect [surfaceEffect] 
-                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-
-
                     let surfaceModel = AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
 
                     // the surface's placement, for overlays that live outside
@@ -1551,8 +1743,55 @@ module ViewerUtils =
                             | Some (AdaptiveSurfaces s) -> ProjectionPreconditions.refusalOf s |> AVal.map Option.isSome
                             | _ -> AVal.constant false)
 
+                    let projData = projectedImageData guid projectionRefused
+
+                    // #719: compose the geometry stage only while one of its consumers can
+                    // run - the triangle / distance filters (FilterTriangleEnabled,
+                    // FilterByDistance) or a shader reading its face normal. The per-patch
+                    // uniforms get the projection data only when the surface has a body
+                    // (Sg.applyProjectedImages), so the switch applies the same gate.
+                    let geometryStage =
+                        let filters =
+                            surfaceModel
+                            |> AVal.bind (function
+                                | Some (AdaptiveSurfaces s) ->
+                                    (s.filterByTriangleSize, surfaceFilterByDistance s) ||> AVal.map2 (||)
+                                | _ -> AVal.constant false)
+                        let faceNormal =
+                            match projData with
+                            | Some p ->
+                                // the gates of every shader reading the face normal: projection
+                                // stack (+ coverage), hover outline, sun shading, shadows
+                                let needed =
+                                    adaptive {
+                                        let! stack  = p.stackProjections
+                                        let! hover  = p.hoveredProjection
+                                        let! sun    = p.sunLightEnabled
+                                        let! dir    = p.sunDirection
+                                        let! shadow = p.lightViewProj
+                                        return stack.Length > 0 || hover.IsSome || (sun && dir.IsSome) || shadow.IsSome
+                                    }
+                                observedBody observationSystem
+                                |> AVal.bind (function Some _ -> needed | None -> AVal.constant false)
+                            | None -> AVal.constant false
+                        (filters, faceNormal) ||> AVal.map2 (||)
+
+                    let surfaceSg =
+                        match surface.isObj with
+                        | true ->
+                            s
+                            |> Sg.effect [objEffect]
+                        | false ->
+                            s
+                            |> Sg.surface (
+                                (geometryStage, crossSectionClipActive)
+                                ||> AVal.map2 surfaceEffectIndex
+                                |> surfaceEffectPool)
+                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+
                     surfaceSg
-                    |> wrapGisData guid surfaceTrafo projectionRefused
+                    |> wrapGisData surfaceTrafo projData
                 )
 
             let depthComposed = 

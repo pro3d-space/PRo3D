@@ -2,6 +2,7 @@ import { ChildProcess, spawn } from "child_process";
 import * as http from "http";
 import * as path from "path";
 import * as fs from "fs";
+import type { Page } from "@playwright/test";
 
 // Local test data + binaries; override via environment for other machines.
 // The tests are inherently machine-local (real GPU, big OPC data sets) and are
@@ -160,4 +161,14 @@ export async function launchPro3d(sceneOverride?: string): Promise<Pro3d> {
                 }, 5000).unref();
             }),
     };
+}
+
+/**
+ * Waits until the viewer has linked and compiled its OPC surface shaders (#719). Until
+ * then the surfaces are absent and a "Preparing surface shaders..." notice sits in the
+ * render view, so any screenshot taken earlier is wrong. Call it on the render page after
+ * `img.rendercontrol` appears. A cold shader cache takes minutes, a warm one seconds.
+ */
+export async function surfaceShadersReady(page: Page, timeoutMs = 270_000): Promise<void> {
+    await page.waitForSelector('[data-surface-shaders="ready"]', { state: "attached", timeout: timeoutMs });
 }

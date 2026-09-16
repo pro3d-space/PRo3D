@@ -1,6 +1,6 @@
 import { test, expect, Page, Browser } from "@playwright/test";
 import { spawnSync } from "child_process";
-import { launchPro3d, Pro3d, fixture } from "../src/pro3d";
+import { launchPro3d, Pro3d, fixture, surfaceShadersReady } from "../src/pro3d";
 import { bodyCoverage, diffPng, litFraction, registration, streamLive } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
@@ -186,6 +186,7 @@ async function projectBack(browser: Browser, opc: string, label: string, sceneEp
             const render = await context.newPage();
             await render.goto(app.url + "?page=render");
             await render.waitForSelector("img.rendercontrol", { timeout: 60_000 });
+            await surfaceShadersReady(render);
             await settled(render, "loaded.png", out);
 
             const gis = await context.newPage();
