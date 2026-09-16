@@ -1131,6 +1131,8 @@ module ViewerUtils =
             {
                 layout  : FShade.EffectInputLayout
                 modules : FShade.Imperative.Module[]
+                /// per variant: did its GL program compile (see precompile)
+                working : bool[]
             }
 
         /// The layout as plain arrays, so the file does not depend on how MapExt pickles.
@@ -1208,15 +1210,26 @@ module ViewerUtils =
         /// under the cache key the variant switch uses later. A variant compiled at its
         /// first switch would instead link and compile on the render thread, freezing the
         /// view for a minute on e.g. the first hover of a projected image.
-        let private precompile (signature : IFramebufferSignature) (topology : IndexedGeometryMode) (l : Linked) =
+        ///
+        /// Returns which variants compiled. A variant that does not (a driver refusing this
+        /// stack is a real possibility: the generated GLSL is ~22k lines) must not take the
+        /// surfaces down with it, so `create` falls back to one that did.
+        let private precompile (signature : IFramebufferSignature) (topology : IndexedGeometryMode) (l : Linked) : bool[] =
             match signature.Runtime with
             | :? Aardvark.Rendering.GL.Runtime as gl ->
-                for i in 0 .. l.modules.Length - 1 do
-                    let variant (_ : IFramebufferSignature) (_ : IndexedGeometryMode) : DynamicSurface =
-                        l.layout, AVal.constant l.modules.[i]
-                    gl.Context.CreateProgram(signature, Aardvark.Rendering.Surface.Dynamic variant, topology) |> ignore
+                l.modules |> Array.mapi (fun i m ->
+                    try
+                        let variant (_ : IFramebufferSignature) (_ : IndexedGeometryMode) : DynamicSurface =
+                            l.layout, AVal.constant m
+                        gl.Context.CreateProgram(signature, Aardvark.Rendering.Surface.Dynamic variant, topology) |> ignore
+                        true
+                    with e ->
+                        Log.warn "[SharedEffectPool] surface effect variant %d does not compile, falling back: %s" i e.Message
+                        false
+                )
             | _ ->
                 Log.warn "[SharedEffectPool] not a GL runtime, variants compile on first use"
+                Array.create l.modules.Length true
 
         /// `effects`: the variants; the LAST must use everything the others use (see compile).
         let create (effects : FShade.Effect[]) : aval<int> -> Aardvark.Rendering.Surface =
@@ -1243,18 +1256,28 @@ module ViewerUtils =
                                 Log.stop ()
                                 LayoutCache.store effects signature topology layout
                                 layout
-                        let l = { layout = layout; modules = modules |> Array.map (FShade.EffectInputLayout.apply layout) }
+                        let applied = modules |> Array.map (FShade.EffectInputLayout.apply layout)
+                        let l = { layout = layout; modules = applied; working = Array.create applied.Length true }
+                        let l =
+                            try
+                                Log.startTimed "[SharedEffectPool] compiling %d surface effect variants" applied.Length
+                                let working = precompile signature topology l
+                                Log.stop ()
+                                { l with working = working }
+                            finally
+                                transact (fun () ->
+                                    status.Value <- ""
+                                    ready.Value <- true)
                         linked.[key] <- l
-                        try
-                            Log.startTimed "[SharedEffectPool] compiling %d surface effect variants" l.modules.Length
-                            precompile signature topology l
-                            Log.stop ()
-                        finally
-                            transact (fun () ->
-                                status.Value <- ""
-                                ready.Value <- true)
                         l
                 )
+            // the full variant if it compiled, else any that did, else the requested one
+            let fallback (l : Linked) =
+                if l.working.[l.working.Length - 1] then l.working.Length - 1
+                else
+                    match l.working |> Array.tryFindIndex id with
+                    | Some i -> i
+                    | None -> 0
             fun (active : aval<int>) ->
                 let compile (signature : IFramebufferSignature) (topology : IndexedGeometryMode) : DynamicSurface =
                     let l = link signature topology
@@ -1268,7 +1291,7 @@ module ViewerUtils =
                     // first; the shared input layout keeps locations and bindings equal, so
                     // a lean program simply ignores what it does not use.
                     let bootstrap = cval true
-                    let full = l.modules.[l.modules.Length - 1]
+                    let full = l.modules.[fallback l]
                     let current =
                         AVal.custom (fun t ->
                             if bootstrap.GetValue t then
@@ -1276,8 +1299,12 @@ module ViewerUtils =
                                     transact (fun () -> bootstrap.Value <- false)) |> ignore
                                 full
                             else
-                                let i = active.GetValue t
-                                l.modules.[i % l.modules.Length])
+                                let i = active.GetValue t % l.modules.Length
+                                // a variant whose program did not compile would throw on the
+                                // render thread; the full variant (or any that did) draws the
+                                // same scene, only without the saving
+                                let i = if l.working.[i] then i else fallback l
+                                l.modules.[i])
                     l.layout, current
                 Aardvark.Rendering.Surface.Dynamic compile
 
