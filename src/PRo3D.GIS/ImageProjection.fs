@@ -180,7 +180,10 @@ module ImageProjection =
         /// (the old single-image shader's always-on green border is subsumed
         /// by this hover-only outline).
         let hoveredProjectionOutline (v : Vertex) =
+            // one return on purpose (#719, FShade#39): every return path duplicates the
+            // whole rest of the effect in the generated GLSL
             fragment {
+                let mutable c = v.c
                 if uniform.HoveredProjectionValid then
                     let ndc = uniform.HoveredProjectionTrafo * v.localPos
                     let p = ndc.XYZ / ndc.W
@@ -193,12 +196,8 @@ module ImageProjection =
                         let yBorder = (smoothstep 0.0f borderWidth tc.Y) * smoothstep 1.0f (1.0f - borderWidth) tc.Y
                         let borderFactor = xBorder * yBorder
                         let borderColor = V3f(0.0f, 1.0f, 0.0f)
-                        let c = v.c.XYZ * borderFactor + borderColor * (1.0f - borderFactor)
-                        return { v with c = V4f(c, 1.0f) }
-                    else
-                        return v
-                else
-                    return v
+                        c <- V4f(v.c.XYZ * borderFactor + borderColor * (1.0f - borderFactor), 1.0f)
+                return { v with c = c }
             }
 
         [<ReflectedDefinition>]
@@ -246,7 +245,9 @@ module ImageProjection =
         /// library, and no SSBO, so it runs on GL 4.1/macOS and the
         /// limitedShaderCapabilities platform split is gone.
         let projectedStackCoverage (v : Vertex) =
+            // one return on purpose (#719, FShade#39)
             fragment {
+                let mutable result = v.c
                 if uniform.ProjectedStackCoverageEnabled && uniform.ProjectedStackCount > 0 then
                     let mutable clippedCount = 0
                     for i in 0 .. uniform.ProjectedStackCount - 1 do
@@ -262,12 +263,8 @@ module ImageProjection =
 
                     if clippedCount < uniform.ProjectedStackCount then
                         let color = mapClippedProjectionsToColor2 (uniform.ProjectedStackCount - clippedCount) uniform.ProjectedStackCount
-                        let c = v.c.XYZ * 0.8f + color * 0.2f
-                        return V4f(c, 1.0f)
-                    else
-                        return v.c
-                else
-                    return v.c
+                        result <- V4f(v.c.XYZ * 0.8f + color * 0.2f, 1.0f)
+                return result
             }
 
         type NormalVertex = {

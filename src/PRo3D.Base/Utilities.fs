@@ -102,18 +102,19 @@ module OPCFilter =
                 return texColor
             }
 
+        /// One return on purpose: every return path of a fragment stage duplicates the whole
+        /// rest of the effect in the generated GLSL, and this stage sits near its start
+        /// (#719 -- it alone multiplied everything after it by five).
         let markPatchBorders (v : Effects.Vertex) =
             fragment { 
-            //if uniform.HasDiffuseColorTexture then
+                let mutable c = v.c
                 if uniform.selected then
-                    if (v.tc.X >= 0.99f) && (v.tc.X <= 1.0f) || (v.tc.X >= 0.0f) && (v.tc.X <= 0.01f) then
-                        return V4f(0.69f, 0.85f, 0.0f, 1.0f)
-                    elif (v.tc.Y >= 0.99f) && (v.tc.Y <= 1.0f) || (v.tc.Y >= 0.0f) && (v.tc.Y <= 0.01f) then
-                        return V4f(0.69f, 0.85f, 0.0f, 1.0f)
-                    else
-                        return v.c
-                else return v.c
-            //else return v.c
+                    let onBorder =
+                        ((v.tc.X >= 0.99f) && (v.tc.X <= 1.0f)) || ((v.tc.X >= 0.0f) && (v.tc.X <= 0.01f)) ||
+                        ((v.tc.Y >= 0.99f) && (v.tc.Y <= 1.0f)) || ((v.tc.Y >= 0.0f) && (v.tc.Y <= 0.01f))
+                    if onBorder then
+                        c <- V4f(0.69f, 0.85f, 0.0f, 1.0f)
+                return c
             }
 
         let EffectOPCFilter =
@@ -583,7 +584,10 @@ module Shader =
         }
 
     let mapRadiometry (v : Effects.Vertex) =
+        // one return on purpose (#719, FShade#39): every return path duplicates the
+        // whole rest of the effect in the generated GLSL
         fragment { 
+            let mutable color = v.c
             if (uniform?useRadiometry) then
                 let abR : V3f =  uniform?abR
                 let abG : V3f =  uniform?abG
@@ -599,9 +603,8 @@ module Shader =
                 let bClamped = clamp abB.X abB.Y nc.Z 
                 let blue = ((bClamped - abB.X) / (abB.Y - abB.X))
 
-                return V4f(red, green, blue, 1.0f)
-            else
-                return v.c
+                color <- V4f(red, green, blue, 1.0f)
+            return color
         }
 
     let private colormap =

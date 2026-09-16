@@ -73,6 +73,26 @@ let tests () =
                 "and hashes the same, so GL finds the cached programs"
         }
 
+        test "the generated GLSL stays small (no multi-return fragment stage)" {
+            // FShade inlines a fragment stage once per return path of the stage before it, so
+            // the generated code is the PRODUCT of the return counts down the whole stack, not
+            // the sum (krauthaufen/FShade#39). PRo3D once had 21971 lines and 861 copies of the
+            // last stage here; every stage was rewritten to a single return with a mutable
+            // accumulator, which brought it to ~1000. A single new `if ... then return ... else
+            // return ...` doubles it again, and the cost is invisible until start-up gets slow
+            // (and, on macOS, until the driver chokes on it) - so pin the size.
+            //
+            // Both variants, because the geometry stage multiplies its own downstream chain.
+            for name, code in [ "lean", lean.Value; "full", full.Value ] do
+                let lines = code.Split('\n').Length
+                Expect.isLessThan lines 3000
+                    (sprintf "%s variant: %d lines of GLSL - some fragment stage grew a second return" name lines)
+
+            // and directly: the last stage must appear once per shader stage that runs it
+            let copies = (full.Value.Split([| "OutcropTraceColor" |], System.StringSplitOptions.None)).Length - 1
+            Expect.isLessThan copies 20 (sprintf "the last stage is inlined %d times" copies)
+        }
+
         test "the variant index enumerates the pool in order" {
             Expect.equal (ViewerUtils.surfaceEffectIndex false false) 0 "lean"
             Expect.equal (ViewerUtils.surfaceEffectIndex true  false) 1 "geometry stage"

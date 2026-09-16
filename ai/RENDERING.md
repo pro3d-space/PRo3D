@@ -70,7 +70,24 @@ A stage that is switched off by a uniform still costs if its *kind* is expensive
 
 Each surface picks its variant through `ViewerUtils.surfaceEffectPool`, an Aardvark `Surface.Dynamic`: switching swaps the GL program without rebuilding render objects. All variants share one FShade input layout, and building it forces FShade to **link** every variant, tens of seconds each for this stack. `SharedEffectPool` therefore links once for all surfaces and stores the layout next to the GL shader cache (`<ShaderCachePath>/PRo3D.EffectInputLayouts`, keyed by the variants' effect ids). A warm start links nothing; a cold start (first start after a shader change) links all variants in parallel.
 
-**Adding a stage to the surface effect:** if it reads `LocalNormal`, it only works on surfaces that keep the geometry stage. If it adds a new vertex input, check `SurfaceEffectVariantTest`. The effect's composition time grows faster than its stage count, so measure a cold start.
+**Adding a stage to the surface effect:** if it reads `LocalNormal`, it only works on surfaces that keep the geometry stage. If it adds a new vertex input, check `SurfaceEffectVariantTest`.
+
+### One return per fragment stage
+
+**Write every fragment stage with a single `return` and a mutable accumulator**, never `if cond then return a else return b`:
+
+```fsharp
+fragment {
+    let mutable c = v.c
+    if uniform.SomethingEnabled then
+        c <- ...
+    return c
+}
+```
+
+FShade inlines the *rest of the effect* once per return path of a stage, so the generated GLSL is the **product** of the return counts down the stack, not their sum ([krauthaufen/FShade#39](https://github.com/krauthaufen/FShade/issues/39)). The OPC surface effect has ~28 stages; with a handful of two-return stages it generated **21971 lines with 861 copies of the last stage**, taking tens of seconds per variant to compile and producing a fragment shader no driver is happy with. Rewriting every stage to a single return brought the same effect to **~1000 lines**, cold codegen for all four variants from minutes to **8 s**, and GL compile to **3 s** (warm: 0.1 s).
+
+`SurfaceEffectVariantTest` pins the GLSL size so a reintroduced second return fails a test instead of quietly halving start-up speed.
 
 ---
 

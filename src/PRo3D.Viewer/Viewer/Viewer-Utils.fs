@@ -953,10 +953,11 @@ module ViewerUtils =
         /// filled when off - see the crossSectionClip note above for why reading an unbound
         /// value per fragment is not safe on every platform.
         let outcropTrace (v : OutcropTraceVertex) =
+            // one return on purpose (#719, FShade#39): every return path duplicates the
+            // whole rest of the effect in the generated GLSL
             fragment {
-                if not uniform.OutcropTraceEnabled then
-                    return v.c
-                else
+                let mutable color = v.c
+                if uniform.OutcropTraceEnabled then
                     let p         = v.vp.XYZ
                     let pl        = uniform.OutcropTracePlane
                     let ext       = uniform.OutcropTraceExtent
@@ -1015,7 +1016,8 @@ module ViewerUtils =
                     let fade = 1.0f - Fun.Smoothstep(r, ext.W, ext.W * 1.15f)
 
                     let a = Fun.Clamp(band * fade * density, 0.0f, 1.0f)
-                    return V4f(v.c.XYZ * (1.0f - a) + uniform.OutcropTraceColor.XYZ * a, v.c.W)
+                    color <- V4f(v.c.XYZ * (1.0f - a) + uniform.OutcropTraceColor.XYZ * a, v.c.W)
+                return color
             }
 
     module CurtainShader =
