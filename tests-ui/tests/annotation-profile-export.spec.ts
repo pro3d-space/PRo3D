@@ -1,4 +1,4 @@
-import { test, expect, Page, Browser, BrowserContext } from "@playwright/test";
+import { test, expect, Page, BrowserContext } from "@playwright/test";
 import { launchPro3d, Pro3d, fixture, sceneFor, surfaceShadersReady } from "../src/pro3d";
 import { diffPng, litFraction, streamLive } from "../src/image";
 import { overlayPlanet } from "../src/viewer";
@@ -37,8 +37,7 @@ const EXPECTED_LAYERS = ["Elevation", "Gravity", "Slope"];
  *  on it without magnifying the 1.96 m/px texture into a blur. */
 const CAMERA_DISTANCE = 350;
 
-test.setTimeout(20 * 60_000);
-test.describe.configure({ mode: "serial" });
+test.setTimeout(30 * 60_000);
 
 /** the projection test scene, re-pointed at this machine's data and edited by `edit` */
 function derivedScene(name: string, edit: (d: any) => void): string {
@@ -51,11 +50,13 @@ function derivedScene(name: string, edit: (d: any) => void): string {
     return out;
 }
 
-/** Saves into artifacts/, and into docs/images as well under PRO3D_DOC_SHOTS=1. */
+/** Saves into artifacts/, and into docs/images as well under PRO3D_DOC_SHOTS=1.
+ *  `1-loaded.png` is the bare surface before anything is drawn -- useful when a run fails,
+ *  but the documentation does not use it, so it stays out of docs/. */
 function save(name: string, png: Buffer) {
     fs.mkdirSync(artifacts, { recursive: true });
     fs.writeFileSync(path.join(artifacts, name), png);
-    if (writeDocShots) {
+    if (writeDocShots && name !== "1-loaded.png") {
         fs.mkdirSync(docImages, { recursive: true });
         fs.writeFileSync(path.join(docImages, `multiAttributeProfile-${name}`), png);
     }
@@ -64,12 +65,13 @@ function save(name: string, png: Buffer) {
 /**
  * Fraction of the frame taken by the AARDVARK loading banner's yellow-green.
  *
- * The shared gate (`streamLive` + `litFraction`) does not reject that splash here:
- * `litFraction` measures the centre of the frame, which is exactly where the bright
- * banner sits, and the tool strip down the right edge keeps a corner pixel above
- * `streamLive`'s threshold. So an unloaded view scored as "lit and stable" and the test
- * went on to read a model that had not finished loading. Rejecting the splash by its own
- * colour is what makes "the surface is up" mean that.
+ * The shared gate (`streamLive` + `litFraction`) does not reject that splash here.
+ * `litFraction` measures the centre of the frame, which is exactly where the bright banner
+ * sits. And `streamLive` samples three corners expecting the splash to be pure black, but
+ * the render div's own CSS background is #222222 (Viewer.fs:2530) = 34, over its threshold
+ * of 15, so it reports "live" as soon as the DOM exists. An unloaded view therefore scored
+ * as lit and stable, and the test read a model that had not finished loading. Rejecting the
+ * splash by its own colour is what makes "the surface is up" mean that.
  */
 function splashFraction(buf: Buffer): number {
     const { PNG } = require("pngjs");
@@ -92,7 +94,7 @@ async function settled(page: Page, name: string): Promise<Buffer> {
     const loading = (b: Buffer) =>
         !streamLive(b) || litFraction(b) < 0.003 || splashFraction(b) > 0.002;
     let shot = await page.screenshot();
-    while (loading(shot) && Date.now() - started < 900_000) {
+    while (loading(shot) && Date.now() - started < 420_000) {
         await page.waitForTimeout(3000);
         shot = await page.screenshot();
     }
@@ -214,7 +216,7 @@ async function menu(main: Page, dropdown: string, item: string) {
  * and cost milliseconds. PRo3D ignores input while it intersects, so a click sent too
  * early is silently dropped and the annotation simply never completes.
  */
-async function awaitIdle(page: Page, app: Pro3d, quietMs = 4000, timeoutMs = 300_000) {
+async function awaitIdle(page: Page, app: Pro3d, quietMs = 4000, timeoutMs = 120_000) {
     const size = () => {
         try {
             return fs.statSync(app.logFile).size;
@@ -294,15 +296,12 @@ test("a sky-projected line exports as a multi-attribute profile CSV", async ({ b
         // omitting the field of view -- correct only near hfov 53 deg (issue #770). A profile workflow is not an instrument
         // simulation, so use PRo3D's normal 60 deg frustum and the harness then renders what
         // the viewer renders.
-        // toggleFocal must go off as well: with it on, PRo3D recomputes the frustum from
-        // `focal` (122.563 mm, the AFC lens) on load and overwrites whatever frustum the
-        // scene stores.
-        const fm = d.config?.frustumModel;
-        if (fm?.frustumOld) {
-            fm.frustum = { ...fm.frustumOld, far: fm.frustum.far };
-            fm.toggleFocal = false;
-            fm.focal = 10.25; // FrustumModel.focal default -> hfov 2*atan(11.84/(2*focal)) = 60 deg
-        }
+        // Only `focal` matters: Scene.applyScene recomputes the frustum unconditionally as
+        // calculateFrustum'(focal, nearPlane, farPlane, aspect) (Scene.fs:305-310, :393), so
+        // the frustum stored in the scene -- and `toggleFocal`, which is only read by the
+        // interactive FrustumMessage handler -- are both ignored at load.
+        // 10.25 mm is FrustumModel's default: hfov = 2*atan(11.84/(2*focal)) = 60 deg.
+        if (d.config?.frustumModel) d.config.frustumModel.focal = 10.25;
         // cameraView.view is [Sky, Location, Forward, Up, Right]; Forward already points
         // at the body centre, so scaling Location moves in without re-aiming.
         const loc = JSON.parse(d.cameraView.view[1]) as number[];
@@ -325,11 +324,11 @@ test("a sky-projected line exports as a multi-attribute profile CSV", async ({ b
         // the OPC surface effect links before anything can be drawn; on a cold shader
         // cache this is minutes of silence rather than a failure (ai/TESTING.md)
         await surfaceShadersReady(render);
-        await settled(render, "1-loaded.png");
+        await settled(render, "1-loaded.png"); // artifacts only; the docs do not use it
 
         // the geographic columns depend on this, so fail here rather than on empty cells
         await expect
-            .poll(() => overlayPlanet(render), { timeout: 300_000, intervals: [5000] })
+            .poll(() => overlayPlanet(render), { timeout: 180_000, intervals: [5000] })
             .toBe("Dimorphos");
 
         // the main page carries the top menu, the annotation toolbar and the export window
@@ -371,7 +370,7 @@ test("a sky-projected line exports as a multi-attribute profile CSV", async ({ b
         await awaitIdle(render, app);
 
         await expect
-            .poll(() => annotationCount(context!, app), { timeout: 180_000, intervals: [5000] })
+            .poll(() => annotationCount(context!, app), { timeout: 120_000, intervals: [5000] })
             .toBe(1);
         await settled(render, "3-annotation.png");
 
@@ -438,7 +437,7 @@ test("a sky-projected line exports as a multi-attribute profile CSV", async ({ b
         // rather than milliseconds, and PRo3D is unresponsive while it runs
         try {
             await expect
-                .poll(() => fs.existsSync(csv), { timeout: 300_000, intervals: [1000] })
+                .poll(() => fs.existsSync(csv), { timeout: 240_000, intervals: [1000] })
                 .toBe(true);
         } catch (e) {
             // the window stays open with a warning when it refuses to write -- that text
@@ -471,12 +470,22 @@ test("a sky-projected line exports as a multi-attribute profile CSV", async ({ b
         for (const layer of EXPECTED_LAYERS)
             expect(surfaceCols, `the OPC ships a ${layer} layer`).toContain(`surface_${layer}`);
 
-        // A column of empty cells would satisfy "the column exists" while proving nothing:
-        // the sampling is what this test is for, so require values to have arrived.
+        // A column of empty cells would satisfy "the column exists" while proving nothing, so
+        // require a value on every row -- a real run samples all of them, and accepting half
+        // would wave through a regression that loses the rest.
         const cell = (row: string, col: string) => row.split(",")[header.indexOf(col)] ?? "";
         for (const layer of EXPECTED_LAYERS) {
             const filled = rows.filter((r) => cell(r, `surface_${layer}`).trim() !== "").length;
-            expect(filled, `surface_${layer} was sampled under the points, not left empty`)
+            expect(filled, `surface_${layer} sampled under every point`).toBe(rows.length);
+        }
+
+        // ...and that the values DIFFER along the line. Everything above still passes if the
+        // sampler is stuck on one patch or texel and returns one constant per column, which
+        // is exactly the failure this test exists to catch: the profile would be flat while
+        // every column, row count and provenance check stayed green.
+        for (const col of ["surface_Elevation", "surface_Slope", "x", "alt"]) {
+            const distinct = new Set(rows.map((r) => cell(r, col))).size;
+            expect(distinct, `${col} varies along the profile rather than being constant`)
                 .toBeGreaterThan(rows.length / 2);
         }
 
@@ -490,7 +499,6 @@ test("a sky-projected line exports as a multi-attribute profile CSV", async ({ b
         const d = Number(cell(last, "distance"));
         const g = Number(cell(last, "groundDistance"));
         expect(d, "the profile has a length").toBeGreaterThan(0);
-        expect(d, "distance includes the climb groundDistance drops").toBeGreaterThanOrEqual(g - 1e-6);
 
         // KNOWN DEFECT, asserted as it currently behaves so that fixing it trips this line.
         //

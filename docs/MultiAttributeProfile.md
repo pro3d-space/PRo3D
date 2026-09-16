@@ -90,6 +90,7 @@ fresh one per annotation, so re-running this will not reproduce that column.)*
 | `x, y, z` | body-fixed metres |
 | `lat, lon, alt` | `Coordinates: Both` writes both sets. On Dimorphos `alt` is a **radial distance from the body centre** (~85 m), not a height above a spheroid — see below |
 | `body`, `latLonAltSource` | provenance: `Dimorphos` / `spice_reclat`, recorded per row |
+| | *Note:* the Profile preset leaves the longitude convention on **Flipped** (`360 − lon`), so `lon` and the raw `surface_LonLatRad` layer disagree by design — 102.12 against 257.88 in the excerpt above. Neither is broken. |
 | `stepLength` | distance to the previous point (~1 m here — the sampling amount) |
 | `segmentLength` | total length of the segment, repeated on each of its rows (43.39 m) |
 | `distance` | running length from the first point, through 3D space — **the x-axis of the profile** |
@@ -101,10 +102,11 @@ The ten `surface_` columns are the whole point: `surface_Elevation`, `surface_Gr
 `surface_Normal`, `surface_DRACO_1`, `surface_DRACO_2` and `surface_Earth` — every layer
 this OPC ships, sampled at each point of the line.
 
-Multi-channel layers stay in **one** cell, semicolon-separated: `surface_Normal` above is
-a three-component vector, and `surface_DRACO_1` a grey value repeated across three
-channels. Splitting them would make the column count depend on which texture a point landed
-on.
+Multi-channel layers stay in **one** cell, semicolon-separated. In this dataset
+`surface_DRACO_2`, `surface_Earth`, `surface_Gravity`, `surface_LonLatRad` and
+`surface_Normal` have three components, while `surface_DRACO_1`, `surface_Elevation`,
+`surface_Magnitude`, `surface_Potential` and `surface_Slope` are single values. Splitting
+them would make the column count depend on which texture a point landed on.
 
 ### ⚠ `groundDistance` is 0 on Dimorphos
 
@@ -138,17 +140,17 @@ df = pd.read_csv("dimorphos-profile.csv")
 df.plot(x="distance", y=["surface_Elevation", "surface_Slope"])
 ```
 
-Single-channel layers (`surface_Elevation`, `surface_Slope`, `surface_Gravity`,
-`surface_Potential`, `surface_Magnitude`) read straight into a plot. The semicolon-separated
-ones need splitting first.
+The single-valued layers — `surface_Elevation`, `surface_Slope`, `surface_Potential`,
+`surface_Magnitude` and `surface_DRACO_1` — read straight into a plot. The rest are
+semicolon-separated vectors and need splitting first; `surface_Gravity` is one of them.
 
 ## If something is missing
 
 | Symptom | Cause |
 |---|---|
 | Only two rows | The annotation is `Linear` — it has no draped points. Redraw with *Sky*. |
-| No `surface_` columns at all | *Surface properties* is not ticked, or the granularity is per-annotation. |
-| `surface_` columns present but empty | The surface is hidden or inactive — only visible, active OPC surfaces are picked. Mesh surfaces have no layers. |
+| No `surface_` columns at all | Nothing was sampled: *Surface properties* is off, the granularity is per-annotation, or the surface is hidden/inactive — only visible, active OPC surfaces are picked, and mesh surfaces have no layers. The schema only contains columns some row produced. |
+| `surface_` columns present but empty on **some** rows | Those points missed the surface — the line runs off it, or onto a patch without that layer. |
 | `lat`/`lon`/`alt` empty | No reference body: the scene is `None`, `JPL` or `ENU`. Set it under *Coordinate System*. |
 | Nothing written, window stays open with a warning | The scope matched no annotation — *Selected* needs one selected. The warning says which. |
 
