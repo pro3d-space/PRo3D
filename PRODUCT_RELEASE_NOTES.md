@@ -1,3 +1,11 @@
+## 6.3.0-prerelease001
+First prerelease of the 6.3.0 line, based on `6.2.0-prerelease003`.
+
+- UI: **the window uses Golden Layout.** Panels can be resized, moved between stacks, maximised and popped out into their own windows; closing a popout docks its panels back. The main view cannot be closed, and closed panels come back via *Layout → Reopen Panel*. The top bar follows the dark panel theme (#614, based on work by Thomas Ortner in #618)
+- UI: **window layouts belong to the user, not the scene.** The layout you leave is restored at the next start (`%APPDATA%/Pro3D/layouts`). Built-in layouts (M2020, now with the GIS view, is the default) and *My Layouts* (save as, load, rename, delete) are in the *Layout* menu
+- Scenes: **saving a scene also stores its layout beside it** (`<scene>.pro3d.layout`), and opening a scene with a different layout asks whether to add it to *My Layouts* and whether to use it. The sidecar can never fail a save; unreadable layout files are reported and ignored
+- Scenes: **the scene format is unchanged.** Scenes keep their `dockConfig`, so PRo3D 6.2 and older still open scenes saved by this version
+
 ## 6.2.0-prerelease003
 Collects the work merged since `6.2.0-prerelease002`.
 
