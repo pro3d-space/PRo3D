@@ -1,5 +1,7 @@
 ﻿open Expecto
 open NUnit
+open Aardvark.Base
+open Aardvark.Data.Opc
 
 
 // Feature tests, one list per protocol section (docs/Test_Protocol). New section
@@ -162,6 +164,90 @@ let main args =
 
     // Performance measurement, not a correctness test: runs on the main thread, outside
     // Expecto, and exits. See SurfaceEffectBenchmark.
+    // Why did #719 measure "drop generateNormal alone" SLOWER than composing both
+    // geometry shaders (146 ms vs 64 ms)? Hypothesis: with no writer for LocalNormal, the
+    // stages that read it turn it into a vertex INPUT, which the OPC patches do not
+    // provide. Prints the inputs so the claim is checkable rather than asserted.
+    // What would computing normals on the CPU at patch load actually cost? Loads every
+    // patch of an OPC and times the two candidate strategies against the load itself, so
+    // the trade-off is measured rather than guessed. PRO3D_BENCH_OPC selects the dataset.
+    if args |> Array.contains "--normal-cost" then
+        Aardvark.Base.Aardvark.Init()
+        let root =
+            match System.Environment.GetEnvironmentVariable "PRO3D_BENCH_OPC" with
+            | null | "" -> failwith "set PRO3D_BENCH_OPC"
+            | d -> d
+        let opcs =
+            if System.IO.Directory.Exists (System.IO.Path.Combine(root, "patches")) then [ root ]
+            else System.IO.Directory.GetDirectories root |> Array.toList
+                 |> List.filter (fun d -> System.IO.Directory.Exists (System.IO.Path.Combine(d, "patches")))
+        let ser = MBrace.FsPickler.FsPickler.CreateBinarySerializer()
+        let mutable totalVerts = 0L
+        let mutable totalTris = 0L
+        let mutable loadMs = 0.0
+        let mutable faceMs = 0.0
+        let mutable vertMs = 0.0
+        let sw = System.Diagnostics.Stopwatch()
+        for opc in opcs do
+            let h = PatchHierarchy.load ser.Pickle ser.UnPickle (OpcPaths.OpcPaths opc)
+            let rec patches t =
+                match t with
+                | QTree.Node (p, cs) -> p :: (cs |> Array.toList |> List.collect patches)
+                | QTree.Leaf p -> [ p ]
+            let ps = patches h.tree
+            printfn "[normals] %s: %d patches" (System.IO.Path.GetFileName opc) ps.Length
+            for p in ps do
+                sw.Restart()
+                let (g, _) = Aardvark.Data.Opc.Patch.load h.opcPaths ViewerModality.XYZ p.info
+                sw.Stop(); loadMs <- loadMs + sw.Elapsed.TotalMilliseconds
+                let pos = g.IndexedAttributes.[Aardvark.Rendering.DefaultSemantic.Positions] |> unbox<V3f[]>
+                let index = match g.IndexArray with | :? (int[]) as a -> a | _ -> [||]
+                let triCount = index.Length / 3
+                totalVerts <- totalVerts + int64 pos.Length
+                totalTris <- totalTris + int64 triCount
+
+                // (a) per-FACE normals: one cross product per triangle
+                sw.Restart()
+                let faceN : V3f[] = Array.zeroCreate triCount
+                for t in 0 .. triCount - 1 do
+                    let a = pos.[index.[3*t]]
+                    let b = pos.[index.[3*t+1]]
+                    let c = pos.[index.[3*t+2]]
+                    faceN.[t] <- Vec.cross (b - a) (c - a) |> Vec.normalize
+                sw.Stop(); faceMs <- faceMs + sw.Elapsed.TotalMilliseconds
+
+                // (b) per-VERTEX normals: accumulate face normals, then normalize
+                sw.Restart()
+                let vertN : V3f[] = Array.zeroCreate pos.Length
+                for t in 0 .. triCount - 1 do
+                    let i0, i1, i2 = index.[3*t], index.[3*t+1], index.[3*t+2]
+                    let n = Vec.cross (pos.[i1] - pos.[i0]) (pos.[i2] - pos.[i0])
+                    vertN.[i0] <- vertN.[i0] + n
+                    vertN.[i1] <- vertN.[i1] + n
+                    vertN.[i2] <- vertN.[i2] + n
+                for i in 0 .. vertN.Length - 1 do vertN.[i] <- Vec.normalize vertN.[i]
+                sw.Stop(); vertMs <- vertMs + sw.Elapsed.TotalMilliseconds
+        printfn "[normals] vertices %d  triangles %d" totalVerts totalTris
+        printfn "[normals] patch load (geometry only) %8.1f ms" loadMs
+        printfn "[normals] per-face   normals         %8.1f ms  (%+.1f%% of load)  %.1f MB" faceMs (100.0*faceMs/loadMs) (float totalTris * 12.0 / 1048576.0)
+        printfn "[normals] per-vertex normals         %8.1f ms  (%+.1f%% of load)  %.1f MB" vertMs (100.0*vertMs/loadMs) (float totalVerts * 12.0 / 1048576.0)
+        exit 0
+
+    if args |> Array.contains "--effect-inputs" then
+        Aardvark.Base.Aardvark.Init()
+        let show name (e : FShade.Effect) =
+            let ins = e.Inputs |> Map.toList |> List.map fst |> List.sort
+            printfn "[inputs] %-34s %s" name (String.concat ", " ins)
+            printfn "[inputs] %-34s LocalNormal present: %b" "" (ins |> List.contains "LocalNormal")
+        let trafo = FShade.Effect.ofFunction PRo3D.ViewerUtils.Shader.stableTrafo
+        let sun   = FShade.Effect.ofFunction PRo3D.SPICE.Shaders.solarShadingLS
+        let gen   = FShade.Effect.ofFunction PRo3D.Core.ImageProjection.Shaders.generateNormal
+        let noFN  = FShade.Effect.ofFunction PRo3D.Core.ImageProjection.Shaders.noFaceNormal
+        show "reader alone (no writer)"        (FShade.Effect.compose [ trafo; sun ])
+        show "reader + generateNormal (GS)"    (FShade.Effect.compose [ trafo; gen; sun ])
+        show "reader + noFaceNormal (no GS)"   (FShade.Effect.compose [ trafo; noFN; sun ])
+        exit 0
+
     if args |> Array.contains "--bench" then
         // unpacks the native deps (glvm et al) that OpenGlApplication needs; Render.context
         // swallows the failure and reports "no GL runtime" if this has not run

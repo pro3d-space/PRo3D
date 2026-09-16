@@ -190,6 +190,16 @@ let private withSurfaces (f : Surface -> Surface) (m : Model) =
 let private triangleFilter (maxSize : float) =
     withSurfaces (fun s -> { s with filterByTriangleSize = true; triangleSize = { s.triangleSize with value = maxSize } })
 
+/// Geometry stage forced by the DISTANCE filter instead of the size filter, with a range
+/// nothing exceeds. Same stage, different arithmetic inside it: separates "the stage exists"
+/// from "the stage computes something".
+let private distanceFilter (bb : Box3d) (range : float) =
+    withSurfaces (fun s ->
+        { s with
+            filterByDistance = true
+            homePosition = Some (CameraView.lookAt bb.Center (bb.Center + V3d.IOO) bb.Center.Normalized)
+            filterDistance = { s.filterDistance with value = range } })
+
 /// The cross-section variant, clipping nothing.
 ///
 /// Note the convention, which is the opposite of what the name suggests: Surface.Sg writes
@@ -340,15 +350,28 @@ let run () : int =
         let rounds = envInt "PRO3D_BENCH_ROUNDS" 4
         let warmup = envInt "PRO3D_BENCH_WARMUP" 2
         let bbox = surface.globalBB
+        // PRO3D_BENCH_MODE=anatomy: is the geometry stage expensive because it EXISTS, or
+        // because of what it computes and emits? Arms vary the work and the emission count
+        // while keeping the stage identical. `sizeFilter drops all` deliberately changes the
+        // output, so output-changing arms are exempt from the same-pixels check.
+        let anatomy = Environment.GetEnvironmentVariable "PRO3D_BENCH_MODE" = "anatomy"
         let arms =
-            [ "lean",            framed
-              "geometryStage",   triangleFilter 1e9 framed
-              "crossSection",    crossSectionCovering bbox framed
-              "both",            (triangleFilter 1e9 >> crossSectionCovering bbox) framed ]
-        let results = arms |> List.map (fun (n, _) -> n, ResizeArray<Measured>()) |> dict
+            if anatomy then
+                [ "lean(noGS)",        framed,                            true
+                  "GS emit all",       triangleFilter 1e9 framed,         true
+                  "GS emit none",      triangleFilter 1e-9 framed,        false
+                  "GS distance all",   distanceFilter bbox 1e9 framed,    true
+                  "GS distance none",  distanceFilter bbox 1e-9 framed,   false
+                  "GS both filters",   (triangleFilter 1e9 >> distanceFilter bbox 1e9) framed, true ]
+            else
+                [ "lean",            framed,                                                true
+                  "geometryStage",   triangleFilter 1e9 framed,                             true
+                  "crossSection",    crossSectionCovering bbox framed,                      true
+                  "both",            (triangleFilter 1e9 >> crossSectionCovering bbox) framed, true ]
+        let results = arms |> List.map (fun (n, _, _) -> n, ResizeArray<Measured>()) |> dict
 
         for r in 1 .. rounds do
-            for name, model in arms do
+            for name, model, _ in arms do
                 say "[bench]   round %d/%d: %s" r rounds name
                 switchTo name model
                 results.[name].Add(bench.Measure(frames, repeats, warmup))
@@ -356,19 +379,24 @@ let run () : int =
         let wallOf name = results.[name] |> Seq.collect (fun m -> m.wallMs) |> Array.ofSeq
         let gpuOf  name = results.[name] |> Seq.collect (fun m -> m.gpuMs)  |> Array.ofSeq
         let lastOf name = let xs = results.[name] in xs.[xs.Count - 1]
-        let leanWall = median (wallOf "lean")
+        // the baseline is whichever arm is first, not a hardcoded name: the anatomy set
+        // calls it "lean(noGS)"
+        let baseName =
+            match arms with
+            | (n, _, _) :: _ -> n
+            | [] -> failwith "no arms"
+        let leanWall = median (wallOf baseName)
 
-        say "[bench] --- %dx%d, %d batches per arm ---" size.X size.Y (wallOf "lean").Length
-        for name, _ in arms do
+        say "[bench] --- %dx%d, %d batches per arm ---" size.X size.Y (wallOf baseName).Length
+        for name, _, _ in arms do
             let w = wallOf name
             say "[bench]   %-14s wall %7.3f ms  (min %7.3f max %7.3f)  %+7.3f vs lean  %.2fx"
                 name (median w) (Array.min w) (Array.max w) (median w - leanWall) (median w / leanWall)
-        if Array.forall ((=) 0.0) (gpuOf "lean") then
+        if Array.forall ((=) 0.0) (gpuOf baseName) then
             say "[bench]   (GPU timer query returns 0 on this driver: wall clock only)"
 
-        let lean1 = lastOf "lean"
-        let gs    = lastOf "geometryStage"
-        let lean2 = results.["lean"].[0]
+        let lean1 = lastOf baseName
+        let lean2 = results.[baseName].[0]
 
         // A fast render that draws the wrong thing is worthless, so every arm is written
         // out for inspection, not merely compared numerically.
@@ -376,21 +404,24 @@ let run () : int =
             let f = Path.Combine(outDir, sprintf "%dx%d-%s.png" size.X size.Y n)
             img.Save f
             say "[bench]   wrote %s (lit %.3f)" f (SurfaceEffectHarness.litFraction img)
-        for name, _ in arms do save name (lastOf name).image
+        for name, _, _ in arms do save name (lastOf name).image
 
         // lean measured first vs last: if these disagree the run drifted and the deltas
         // above are suspect, interleaving notwithstanding
-        let leanFirst = median (results.["lean"].[0].wallMs)
-        let leanLast  = median (lastOf "lean").wallMs
-        say "[bench]   lean drift across the run: %.3f -> %.3f ms (%+.1f%%)"
+        let leanFirst = median (results.[baseName].[0].wallMs)
+        let leanLast  = median (lastOf baseName).wallMs
+        say "[bench]   baseline drift across the run: %.3f -> %.3f ms (%+.1f%%)"
             leanFirst leanLast (100.0 * (leanLast - leanFirst) / leanFirst)
 
         // correctness is a precondition for any of the timing meaning anything
-        for name, _ in arms do
+        for name, _, samePixels in arms do
             let m = lastOf name
-            check (SurfaceEffectHarness.litFraction m.image > 0.02) (sprintf "%s actually draws the OPC" name)
-            check (meanDifference lean1.image m.image < 2.0)
-                (sprintf "%s draws the same pixels as lean (so its delta is the stage, not the work)" name)
+            if samePixels then
+                check (SurfaceEffectHarness.litFraction m.image > 0.02) (sprintf "%s actually draws the OPC" name)
+                check (meanDifference lean1.image m.image < 2.0)
+                    (sprintf "%s draws the same pixels as lean (so its delta is the stage, not the work)" name)
+            else
+                say "[bench]   (%s deliberately changes the output; lit %.3f)" name (SurfaceEffectHarness.litFraction m.image)
             check (m.drawCalls = lean1.drawCalls) (sprintf "%s submits the same draw calls as lean" name)
         check (meanDifference lean1.image lean2.image < 2.0) "lean renders the same at the end as at the start"
         // if the arms submit different geometry, no timing result means anything

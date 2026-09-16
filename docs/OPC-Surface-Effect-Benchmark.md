@@ -64,6 +64,16 @@ readout prints it), `PRO3D_BENCH_SIZES`, `PRO3D_BENCH_FRAMES`, `PRO3D_BENCH_REPE
 | 1024×768  | 0.655 | 1.697 (2.59×) | 1.037 (1.58×) | 1.817 (2.77×) |
 | 1920×1200 | 1.501 | 3.033 (2.02×) | 1.998 (1.33×) | 3.113 (2.07×) |
 
+## Other modes
+
+- `PRO3D_BENCH_MODE=anatomy` — decomposes the geometry stage into existence, emission and
+  computation by varying what the shader emits and which filter it runs. Arms that
+  deliberately change the output are exempt from the same-pixels check.
+- `--normal-cost` (with `PRO3D_BENCH_OPC`) — loads every patch of a hierarchy and times
+  per-face and per-vertex normal generation against the geometry load, with memory totals.
+- `--effect-inputs` — prints `Effect.Inputs` for a normal reader composed with and without a
+  writer, to check whether `LocalNormal` becomes a vertex attribute.
+
 ## Findings
 
 - **#719's 13.9× reproduces on the viewer's own path**: 13.74× at 1024×768 on Victoria.
@@ -88,5 +98,16 @@ readout prints it), `PRO3D_BENCH_SIZES`, `PRO3D_BENCH_FRAMES`, `PRO3D_BENCH_REPE
   `if poly.Contains q2 then -d else d` and `crossSectionClip` discards on `< 0`. A polygon
   containing the terrain discards all of it — which first showed up here as a fully black
   frame that still measured "faster than lean".
+- **The geometry stage's cost is existence + emission; the arithmetic inside it is free.**
+  A GS that consumes every primitive and emits nothing still costs +15.9 ms (3.6x) over no
+  GS; emitting every triangle adds a further +64.9 ms. The size filter and the distance
+  filter cost the same to within 0.1%, and running both costs the same again. Optimising the
+  shader body cannot help; only removing the stage can. See issue #763.
+- **CPU normal generation is cheap in time, expensive in memory**: 82 ms / 191 MB (per-face)
+  or 98 ms / 96 MB (per-vertex) for all of Victoria's 16.7 M triangles; ~4x less with
+  oct-encoding. Time is negligible next to texture loading; memory is the deciding factor.
+- **macOS: the benchmark needs an awake display.** With the screen asleep GLFW's primary
+  monitor is NULL and `glfwGetVideoMode` segfaults during GL init (`EXC_BAD_ACCESS at 0x100`).
+  Run under `caffeinate -dis`.
 - `crossSectionClip` does **not** need a curtain texture: `curtainEnabled` is independent of
   `clippingEnabled`.
