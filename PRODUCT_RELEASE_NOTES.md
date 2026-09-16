@@ -1,3 +1,9 @@
+## 6.3.0-prerelease002
+Collects the work merged since `6.3.0-prerelease001`.
+
+- UI: **popouts work in the installed app.** Popping out a stack opened the system browser instead of a window, and its panels vanished from the main window; running from a build worked. The desktop shell treated the viewer's own address as external (pro3d-space/aardium#1). Popouts now open as windows, dock back when closed, and reopen where they were, also on a second display
+- UI: the title bar credits everyone behind PRo3D: *powered by Aardvark and the PRo3D community, led by VRVis*
+
 ## 6.3.0-prerelease001
 First prerelease of the 6.3.0 line, based on `6.2.0-prerelease003`.
 
