@@ -104,7 +104,9 @@ module Shaders =
     /// the face normal is oriented toward the viewer instead -- correct for every facet
     /// the camera actually sees.
     let solarShadingLS (v : TerrainLitVertex) =
+        // one return on purpose (#719, FShade#39)
         fragment {
+            let mutable c = v.c
             if uniform.SunLightEnabled then
                 let n0 = uniform.ModelViewTrafo.TransformDir v.localNormal |> Vec.normalize
                 let viewPos = uniform.ModelViewTrafo * v.localPos
@@ -118,9 +120,8 @@ module Shaders =
                 let disk = 0.95f * (2.0f * mu0 / (mu0 + mu)) + 0.05f * mu0
                 let ambient = 0.01f
                 let i = ambient + (1.0f - ambient) * disk
-                return V4f(v.c.XYZ * i, v.c.W)
-            else
-                return v.c
+                c <- V4f(v.c.XYZ * i, v.c.W)
+            return c
         }
 
 
@@ -304,14 +305,15 @@ module Shaders =
     /// (too large) or stripes sun-grazing surfaces with acne (too small).
     let terrainSunShadow (v : ShadowReceiverVertex) =
         fragment {
+            // one return on purpose (#719): a second one would duplicate every stage after
+            // this in the generated GLSL
+            let mutable c = v.c
             if uniform.HasShadowMap then
                 let p = v.viewProjPos.XYZ / v.viewProjPos.W
                 let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
                 // outside the map counts as lit; the ortho frustum covers the casters,
                 // so this only happens off the covered volume
-                if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f then
-                    return v.c
-                else
+                if not (tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f) then
                     let baseBias : float32 = uniform?ShadowMapBias
                     let n = uniform.ModelViewTrafo.TransformDir v.localNormal |> Vec.normalize
                     let l = uniform.ViewTrafo.TransformDir uniform.SunDirectionWorld |> Vec.normalize
@@ -325,7 +327,6 @@ module Shaders =
                         shadow <- shadow + shadowSampler.Sample(tc.XY + offsets[i] * sampleRadius, tc.Z - bias)
                     // 0.2 floor: fully-shadowed terrain stays readable instead of black
                     let d = min 1.0f (max 0.2f (shadow / float32 offsets.Length))
-                    return V4f(v.c.XYZ * d, v.c.W)
-            else
-                return v.c
+                    c <- V4f(v.c.XYZ * d, v.c.W)
+            return c
         }

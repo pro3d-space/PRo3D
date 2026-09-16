@@ -13,7 +13,7 @@
 // the camera landed in exactly the right place pointing exactly the wrong way, and the
 // frame came back empty.
 import { test, expect } from "@playwright/test";
-import { launchPro3d, config } from "../src/pro3d";
+import { launchPro3d, config, surfaceShadersReady } from "../src/pro3d";
 import { litFraction, streamLive, diffPng } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
@@ -59,6 +59,7 @@ test("the viewer can look at Dimorphos from where the AFC was", async ({ browser
     try {
         await page.goto(app.url + "?page=render");
         await page.waitForSelector("img.rendercontrol", { timeout: 60_000 });
+        await surfaceShadersReady(page);
 
         const settle = async (name: string) => {
             const until = Date.now() + 120_000;

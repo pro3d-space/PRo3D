@@ -1,6 +1,6 @@
 import { test, expect, Page, Browser } from "@playwright/test";
 import { spawnSync } from "child_process";
-import { launchPro3d, Pro3d, fixture } from "../src/pro3d";
+import { launchPro3d, Pro3d, fixture, surfaceShadersReady } from "../src/pro3d";
 import { bodyCoverage, diffPng, litFraction, registration, streamLive } from "../src/image";
 import { overlayPlanet } from "../src/viewer";
 import * as fs from "fs";
@@ -208,6 +208,7 @@ async function projectBack(
             const render = await context.newPage();
             await render.goto(app.url + "?page=render");
             await render.waitForSelector("img.rendercontrol", { timeout: 60_000 });
+            await surfaceShadersReady(render);
             await settled(render, "loaded.png", out);
             if (sceneBody) {
                 // loading a body-fixed GIS observation fills in the planet (SceneBodySync)

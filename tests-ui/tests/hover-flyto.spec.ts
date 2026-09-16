@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { launchPro3d, Pro3d, config, imageRow, firstImage } from "../src/pro3d";
+import { launchPro3d, Pro3d, config, imageRow, firstImage, surfaceShadersReady } from "../src/pro3d";
 import { diffPng, litFraction, streamLive } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
@@ -93,6 +93,7 @@ test("hover previews the image; fly-to moves the camera", async ({ browser }) =>
     const render = await context.newPage();
     await render.goto(app.url + "?page=render");
     await render.waitForSelector("img.rendercontrol", { timeout: 60_000 });
+    await surfaceShadersReady(render);
 
     const gis = await context.newPage();
     await gis.goto(app.url + "?page=gis");
