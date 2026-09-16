@@ -2,6 +2,7 @@ import { test, expect, Page, Browser } from "@playwright/test";
 import { spawnSync } from "child_process";
 import { launchPro3d, Pro3d, fixture, surfaceShadersReady } from "../src/pro3d";
 import { bodyCoverage, diffPng, litFraction, registration, streamLive } from "../src/image";
+import { overlayPlanet } from "../src/viewer";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -135,12 +136,32 @@ async function selectBeside(gis: Page, label: string, option: string) {
 }
 
 /**
+ * The generated scene as a single-body user sets it up (#758, docs/SceneBody.md): the
+ * observed body in its own fixed frame, the surface NOT bound in the GIS Surfaces list
+ * (it inherits the scene body), and no planet saved -- loading has to fill it in.
+ */
+function asSceneBodyScene(scene: string) {
+    const d = JSON.parse(fs.readFileSync(scene, "utf-8").replace(/^﻿/, ""));
+    d.gisApp.gisSurfaces = [];
+    d.gisApp.defaultObservationInfo.observer = { EntitySpiceName: "Dimorphos" };
+    d.gisApp.defaultObservationInfo.referenceFrame = { FrameSpiceName: "DIMORPHOS_FIXED" };
+    d.referenceSystem.planet = 2; // Planet.None
+    fs.writeFileSync(scene, JSON.stringify(d, null, 2));
+}
+
+/**
  * Generate, project, compare. The scene is set to `sceneEpoch`, the projected frame is
  * from `frameEpoch`; when they differ, fly-to has to move the scene time to the frame's
  * epoch BEFORE it computes the camera, or the body rotates out from under it (Dimorphos
  * turns ~90 degrees in 3 h) and the frame no longer lands.
+ *
+ * `sceneBody`: rewrite the scene with asSceneBodyScene first -- the same frame then has
+ * to land with no surface binding, in a body-fixed world.
  */
-async function projectBack(browser: Browser, opc: string, label: string, sceneEpoch: string, frameEpoch: string) {
+async function projectBack(
+    browser: Browser, opc: string, label: string, sceneEpoch: string, frameEpoch: string,
+    sceneBody = false
+) {
         test.skip(!fs.existsSync(opc), `OPC not found: ${opc} (set PRO3D_TEST_DATA, or PRO3D_E2E_OPCS)`);
         test.skip(
             !fs.existsSync(template),
@@ -175,6 +196,7 @@ async function projectBack(browser: Browser, opc: string, label: string, sceneEp
         const frame = `AFC1_${layer.replace("_", "")}_${date.replace(/-/g, "")}_${frameEpoch.replace(/:/g, "")}.png`;
         expect(fs.existsSync(scene), "the generator must write the scene").toBe(true);
         expect(fs.existsSync(path.join(out, frame)), `the generator must render ${frame}`).toBe(true);
+        if (sceneBody) asSceneBodyScene(scene);
 
         // --- 2. project it in the viewer ----------------------------------------
         let app: Pro3d | undefined;
@@ -188,6 +210,11 @@ async function projectBack(browser: Browser, opc: string, label: string, sceneEp
             await render.waitForSelector("img.rendercontrol", { timeout: 60_000 });
             await surfaceShadersReady(render);
             await settled(render, "loaded.png", out);
+            if (sceneBody) {
+                // loading a body-fixed GIS observation fills in the planet (SceneBodySync)
+                await expect.poll(() => overlayPlanet(render), { timeout: 30_000 }).toBe("Dimorphos");
+                expect(fs.readFileSync(app.logFile, "utf-8")).toContain("[SceneBodySync] scene observes");
+            }
 
             const gis = await context.newPage();
             await gis.goto(app.url + "?page=gis");
@@ -226,6 +253,10 @@ async function projectBack(browser: Browser, opc: string, label: string, sceneEp
             await clickRowIcon(gis, frame, "i.location.icon");
             await render.waitForTimeout(5000);
             const baseline = await settled(render, "baseline.png", out);
+            expect(
+                fs.readFileSync(app.logFile, "utf-8"),
+                "fly-to must find a projection surface (an inheriting one, in the scene-body case)"
+            ).not.toContain("fly-to needs:");
             if (frameEpoch !== sceneEpoch)
                 expect(
                     fs.readFileSync(app.logFile, "utf-8"),
@@ -287,4 +318,13 @@ for (const opc of opcs) {
 
     test(`fly-to a frame from another epoch than the scene's still lands (${name})`, async ({ browser }) =>
         projectBack(browser, opc, `${name}-epoch`, otherEpoch, epoch));
+
+    // #758: set up the single-body way -- no surface binding, body-fixed world
+    test(`a frame projects back onto ${name} as the scene body, with no surface binding`, async ({ browser }) =>
+        projectBack(browser, opc, `${name}-scenebody`, epoch, epoch, true));
+
+    // ...and across epochs: in a body-fixed world the surface does not move with the
+    // scene time, so fly-to must still land after moving the time
+    test(`fly-to across epochs lands on ${name} as the scene body`, async ({ browser }) =>
+        projectBack(browser, opc, `${name}-scenebody-epoch`, otherEpoch, epoch, true));
 }

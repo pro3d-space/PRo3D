@@ -71,33 +71,19 @@ module BookmarkAnimations =
                                 |> Optic.set focal_   focal
                                 )
 
+        /// The observation time from `src` to `dst`; everything else is `dst`'s. A bookmark
+        /// contributes its time and camera source only (#758, docs/SceneBody.md), so the time
+        /// animates whether or not the bookmark names a camera source, observer or frame. (It
+        /// used to require all three, and an incomplete one yielded Animation.empty - whose
+        /// value is a null ObservationInfo.)
         let interpObservationInfo (src : Gis.ObservationInfo) (dst : Gis.ObservationInfo) =
-            match src.valuesIfComplete, dst.valuesIfComplete with
-            | Some (t1, o1, r1), Some (t2, o2, r2) -> 
-                // UTC ticks in, UTC kind out: a DateTime built from bare ticks is
-                // Unspecified, which SPICE reads as local time
-                let timeAnimation =
-                    lerp (Calendar.toUtc src.time.date).Ticks (Calendar.toUtc dst.time.date).Ticks
-                    |> Animation.create
-                    |> Animation.seconds 1 // necessary?
-                    |> Animation.map (fun ticks ->
-                        let newCalendar =  {dst.time with date = DateTime(ticks, DateTimeKind.Utc)}
-                        let info : Gis.ObservationInfo = 
-                            {
-                                target   = Some t2
-                                observer = Some o2
-                                referenceFrame = Some r2
-                                time     = newCalendar
-                            }                    
-                        info
-                    )
-
-                    
-                
-                timeAnimation
-            | _ -> 
-                Log.warn "[BookmarkAnimation] Incomplete observation info."
-                Animation.empty
+            // UTC ticks in, UTC kind out: a DateTime built from bare ticks is
+            // Unspecified, which SPICE reads as local time
+            lerp (Calendar.toUtc src.time.date).Ticks (Calendar.toUtc dst.time.date).Ticks
+            |> Animation.create
+            |> Animation.seconds 1 // necessary?
+            |> Animation.map (fun ticks ->
+                { dst with time = { dst.time with date = DateTime(ticks, DateTimeKind.Utc) } } : Gis.ObservationInfo)
 
 
         /// Creates an animation that interpolates between two bookmarks

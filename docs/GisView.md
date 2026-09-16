@@ -40,18 +40,18 @@ A green check mark appears below the path if loading the kernel was successful. 
 
 ### Current Observation Settings
 
-At the top of the GIS tab there is a section entitled "Current Observation Settings". This is used to define an observer, a target, a point in time, and a reference frame.
+At the top of the GIS tab there is a section entitled "Current Observation Settings". This is used to define the observed body, a camera source body, a point in time, and a reference frame.
 
 ![](images/currentObservationSettings.png)
 
-* Observer: The entity from which we want to observe a specific target. The camera will be placed at the location of the observer.
-* Target: The entity we want to look at. The camera will look in the direction of the target.
-* Time: The point of time at which we want to observe. The loaded spice kernel needs to have data for observer and target at the selected point in time!
-* Reference Frame: The reference frame into which all other frames will be converted. Which frame is selected here should not change the visual result.
+* Observed body: the **scene body** — the body at the origin of the scene. It is the same setting as the planet in the top bar: choosing one sets the other (see [SceneBody.md](SceneBody.md)).
+* Camera source Body: the entity the camera looks from. When set, the camera is placed at its position and looks at the observed body.
+* Time: The point of time at which we want to observe. The loaded spice kernel needs to have data for the bodies involved at the selected point in time!
+* Reference Frame: the frame the scene is expressed in. For a body PRo3D knows (Mars, Earth, Moon, Phobos, Deimos, Didymos, Dimorphos) this is the body's fixed frame (e.g. `DIMORPHOS_FIXED`) and is set automatically — that is what lets map view and the planet-based measurements work. A scene saved in another frame (e.g. `J2000`) keeps it and shows a note with a button to switch.
 
 ### Surfaces
 
-To use a surface with PRo3D's GIS functionality, it has to be associated with a reference frame, and can be associated with an entity. This reference frame in which the surface is defined is needed to transform the surface to the global reference system used by PRo3D.
+To use a surface with PRo3D's GIS functionality, it needs a body and a reference frame. A surface with no assignment at all belongs to the scene body (the dropdowns show "Scene body (…)"), so a single-body scene needs no per-surface setup. Assign a body and frame explicitly for surfaces of other bodies; this is needed to transform the surface into the scene.
 Assigning a reference frame and entity to a loaded surfaces is done in the "Surfaces" tab. 
 
 ![](images/surfaces.png)
@@ -192,12 +192,14 @@ or patching them by hand.
 }
 ```
 
-Without a registered `gisSurfaces` entry, a kernel and a valid time there is no sun
-direction, and the lit modes silently render like `Off`.
+Without a kernel, a valid time and a surface with a body there is no sun direction, and
+the lit modes silently render like `Off`. The `gisSurfaces` entry may be left out when the
+surface belongs to the scene body (`observer` above, observed in its fixed frame): an
+unassigned surface inherits it ([SceneBody.md](SceneBody.md)).
 
 **2. The batch file** (`--asnap`): to move the sun per frame, each bookmark carries an
 `"observationInfo"` — a bookmark without one renders with the scene's static default.
-All four keys must be present (`null` for unset; a missing key fails the parse):
+`target`, `observer` and `time` must be present (`null` for unset; a missing one fails the parse); `referenceFrame` may be left out:
 
 ```jsonc
 {
@@ -236,8 +238,9 @@ All four keys must be present (`null` for unset; a missing key fails the parse):
 
 The `observationInfo` fields follow the GIS observation dropdowns:
 
-- `observer` is the **Observed body** — the scene anchor at the origin; using the body
-  the surface belongs to keeps the surface where the bookmark camera expects it.
+- `observer` and `referenceFrame` are **ignored** for a bookmark: the observed body is the
+  scene body, set once in the scene file (`defaultObservationInfo` above), and a bookmark
+  cannot switch it ([SceneBody.md](SceneBody.md)). The keys must still be present.
 - `target` is the **Camera source Body**. With `"target": null` (as above) the
   bookmark's own `cameraView` is used and only the sun moves between frames — the usual
   choice for hand-placed cameras. Setting it (e.g.
