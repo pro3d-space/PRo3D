@@ -105,6 +105,37 @@ async function clickButton(page: Page, label: string) {
     expect(r).toBe("clicked");
 }
 
+/** The test-data Dimorphos scene, observed in DIMORPHOS_FIXED: world coordinates are body-fixed
+ *  and loading sets the planet (#758). Unbound surfaces inherit the scene body, like the
+ *  scene-body spec's GIS-only scene. */
+function bodyFixedScene() {
+    return derivedScene("map-projection-body-fixed", (d) => {
+        d.gisApp.gisSurfaces = [];
+        d.gisApp.defaultObservationInfo.observer = { EntitySpiceName: "Dimorphos" };
+        d.gisApp.defaultObservationInfo.referenceFrame = { FrameSpiceName: "DIMORPHOS_FIXED" };
+        d.referenceSystem.planet = 2; // Planet.None, as saved by a GIS-only setup
+    });
+}
+
+async function poll<T>(what: string, f: () => Promise<T>, ok: (v: T) => boolean, timeoutMs = 60_000): Promise<T> {
+    const until = Date.now() + timeoutMs;
+    let v = await f();
+    while (!ok(v)) {
+        if (Date.now() > until) throw new Error(`timed out: ${what} (last: ${JSON.stringify(v)})`);
+        await page_wait(500);
+        v = await f();
+    }
+    return v;
+}
+const page_wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** A fresh per-user layout directory: window layouts persist per user, so a panel opened by an
+ *  earlier run would no longer be offered under Reopen Panel -- and the tests must not touch the
+ *  developer's own layouts. */
+function freshLayouts() {
+    return { PRO3D_LAYOUT_DIR: fs.mkdtempSync(path.join(require("os").tmpdir(), "pro3d-map-layouts-")) };
+}
+
 test.describe("map projection view (#772)", () => {
     test.skip(!fs.existsSync(fixture.opc), `no Dimorphos OPC at ${fixture.opc} (set PRO3D_TEST_DATA)`);
 
@@ -154,15 +185,7 @@ test.describe("map projection view (#772)", () => {
     });
 
     test("in PRo3D: the mapprojection page shows the same map for a body-fixed scene", async ({ browser }) => {
-        // observed in DIMORPHOS_FIXED: world coordinates are body-fixed, loading sets the planet (#758)
-        const scene = derivedScene("map-projection-body-fixed", (d) => {
-            // unbound surfaces inherit the scene body, like the scene-body spec's GIS-only scene
-            d.gisApp.gisSurfaces = [];
-            d.gisApp.defaultObservationInfo.observer = { EntitySpiceName: "Dimorphos" };
-            d.gisApp.defaultObservationInfo.referenceFrame = { FrameSpiceName: "DIMORPHOS_FIXED" };
-            d.referenceSystem.planet = 2; // Planet.None, as saved by a GIS-only setup
-        });
-        const app = await launchPro3d(scene);
+        const app = await launchPro3d(bodyFixedScene(), freshLayouts());
         const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
         try {
             await page.goto(app.url + "?page=mapprojection");
@@ -176,10 +199,87 @@ test.describe("map projection view (#772)", () => {
         }
     });
 
+    test("in PRo3D: Layout > Reopen Panel > Map Projection opens the map as a panel", async ({ browser }) => {
+        const app = await launchPro3d(bodyFixedScene(), freshLayouts());
+        const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+        const page = await context.newPage();
+        try {
+            await page.goto(app.url);
+            await page.waitForSelector(".lm_tab", { timeout: 120_000 });
+
+            // the main menu (top-left) -> Layout -> Reopen Panel lists the panel...
+            const entry = '[data-test="layout-reopen"] [data-panel="mapprojection"]';
+            await poll("Map Projection is offered under Layout > Reopen Panel",
+                () => page.evaluate((sel) => document.querySelector(sel)?.textContent?.trim() ?? "", entry),
+                (t) => t === "Map Projection", 120_000);
+
+            // ...and clicking it adds the tab. Events clicked before the page's socket is up are
+            // lost, so click until the tab is there (single-shot DOM click, see tests-ui/README.md).
+            const tabTitles = () => page.evaluate(() =>
+                Array.from(document.querySelectorAll(".lm_tab .lm_title")).map((t) => (t.textContent ?? "").trim()));
+            await poll("the Map Projection tab appears", async () => {
+                const titles = await tabTitles();
+                if (!titles.includes("Map Projection"))
+                    await page.evaluate((sel) => (document.querySelector(sel) as HTMLElement | null)?.click(), entry);
+                return titles;
+            }, (t) => t.includes("Map Projection"), 60_000);
+
+            // select the tab and maximise its stack. Dispatched events, not a click at the tab's
+            // coordinates: in a narrow stack the new tab sits behind Golden Layout's overflow chevron
+            const shown = await page.evaluate(() => {
+                const tab = Array.from(document.querySelectorAll(".lm_tab")).find(
+                    (e) => (e.querySelector(".lm_title")?.textContent ?? "").trim() === "Map Projection") as HTMLElement | undefined;
+                if (!tab) return "no tab";
+                for (const type of ["mousedown", "mouseup", "click"])
+                    tab.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, buttons: 1 }));
+                const maximise = tab.closest(".lm_stack")?.querySelector(".lm_controls .lm_maximise") as HTMLElement | null;
+                if (!maximise) return "no maximise button";
+                maximise.click();
+                return "shown";
+            });
+            expect(shown).toBe("shown");
+
+            // the panel is an iframe on ?page=mapprojection; wait until it is laid out
+            const frameBox = await poll("the Map Projection panel is visible", () => page.evaluate(() => {
+                const f = document.querySelector('iframe[src*="page=mapprojection"]');
+                const r = f?.getBoundingClientRect();
+                return r ? { x: r.x, y: r.y, width: r.width, height: r.height } : { x: 0, y: 0, width: 0, height: 0 };
+            }), (b) => b.width > 200 && b.height > 150, 60_000);
+            const frame = page.frameLocator('iframe[src*="page=mapprojection"]');
+            await frame.locator("img.rendercontrol").waitFor({ timeout: 120_000 });
+
+            // the map inside the panel: texture drawn, graticule where the projection puts it.
+            // Equirectangular fits the panel with its 2:1 aspect, centred.
+            const until = Date.now() + 180_000;
+            let img: Img;
+            for (;;) {
+                const png = await page.screenshot({ clip: frameBox });
+                img = PNG.sync.read(png);
+                let anyRed = false;
+                for (let o = 0; o < img.data.length && !anyRed; o += 4) anyRed = isRed(img.data, o);
+                if ((anyRed && textured(img) > 0.05) || Date.now() > until) {
+                    fs.mkdirSync(artifacts, { recursive: true });
+                    fs.writeFileSync(path.join(artifacts, "map-pro3d-panel.png"), png);
+                    break;
+                }
+                await page.waitForTimeout(1500);
+            }
+            const w = img.width, h = img.height;
+            const mapW = Math.min(w, 2 * h), mapH = mapW / 2;
+            const top = Math.round((h - mapH) / 2), left = Math.round((w - mapW) / 2);
+            expect(textured(img), "the surface texture is on the map").toBeGreaterThan(0.05);
+            expect(redColumn(img, Math.round(w / 2), top + 50, top + mapH - 10), "prime meridian is the middle column").toBeGreaterThan(0.8);
+            expect(yellowRow(img, Math.round(h / 2), left + 10, left + mapW - 10), "equator is the middle row").toBeGreaterThan(0.8);
+        } finally {
+            await context.close();
+            await app.stop();
+        }
+    });
+
     test("in PRo3D: a scene observed in J2000 has no planet, so no map", async ({ browser }) => {
         // the unmodified test-data scene: Dimorphos observed in J2000, planet None. Its world axes
         // are not body-fixed, so longitude and latitude would be rotated -- MapView refuses it too.
-        const app = await launchPro3d();
+        const app = await launchPro3d(undefined, freshLayouts());
         const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
         try {
             await page.goto(app.url + "?page=mapprojection");

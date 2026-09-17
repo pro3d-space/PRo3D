@@ -11,7 +11,11 @@ Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [
 
 ## Using it
 
-- **In PRo3D:** *Layout → Reopen Panel → Map Projection*, or open `?page=mapprojection`.
+- **In PRo3D:** main menu (**☰**, top left) → *Layout* → *Reopen Panel* → *Map Projection*.
+  - The panel is added as a tab to the largest side stack; that tab is not selected and may
+    sit behind the stack's overflow chevron, so select it or maximise the stack.
+  - Layouts are saved per user, so from then on it stays in your layout.
+  - Or open `?page=mapprojection` directly.
 - **Standalone:**
 
   ```
@@ -127,7 +131,7 @@ A testing ladder: each rung is green before the next.
 | 2. Shader codegen | `src/Tests/MapProjectionShaderTest.fs` | Every map effect generates GLSL with its geometry stage and reads only attributes an OPC patch has. No GPU |
 | 3. Headless render | `src/Tests/MapProjectionRenderTest.fs` | The Dimorphos OPC rendered through `MapSg`. For every pixel, the interpolated surface position must lie at the lon/lat the pixel means (independent of the shader's own lon/lat) |
 | 4. Benchmark | `Tests.dll --bench-map` (`src/Tests/MapProjectionBenchmark.fs`) | Frame time per projection × LoD (finest vs root) × size, on the #719 harness |
-| 5. Playwright | `tests-ui/tests/map-projection.spec.ts` | Standalone app: the surface texture is drawn, the graticule sits where the projection says, drag moves the map by exactly the drag, polar north puts the prime meridian below the pole, a planet gets the hint. PRo3D's `mapprojection` page shows the same map for a body-fixed Dimorphos scene, and the hint for the J2000 test scene |
+| 5. Playwright | `tests-ui/tests/map-projection.spec.ts` | Standalone app: the surface texture is drawn, the graticule sits where the projection says, drag moves the map by exactly the drag, polar north puts the prime meridian below the pole, a planet gets the hint. In PRo3D, *Layout → Reopen Panel → Map Projection* opens the map as a panel, the `mapprojection` page shows the same map for a body-fixed Dimorphos scene, and the J2000 test scene gets the hint. The PRo3D cases use a fresh `PRO3D_LAYOUT_DIR` |
 
 Notes on rung 3:
 - It runs a flipped control: with mirrored rows the error must be large, proving the metric
