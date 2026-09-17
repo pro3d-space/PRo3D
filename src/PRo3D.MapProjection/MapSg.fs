@@ -44,6 +44,70 @@ module MapSg =
     /// patches), so phase 1 draws everything at full detail; a map-space decider is phase 1.5.
     let finestLod : PatchLod.LodDecider = fun _ _ _ _ _ _ -> true
 
+    /// Map-space level of detail (phase 1.5): refine a patch only while it is on the map
+    /// window and its triangles (`RenderPatch.triangleSize`, the level's average size in
+    /// metres) still cover more than `targetPixels` map pixels.
+    ///
+    /// A deliberately coarse heuristic, conservative where it cannot be exact: the patch is a
+    /// bounding sphere (centre direction +- angular radius); longitude stretch toward the poles
+    /// (equirectangular, capped) and the stereographic scale sec^2(colatitude/2) (polar) are
+    /// taken at the patch's far edge; a patch around a pole or wider than half the map counts as
+    /// visible, and one wrapping around the body centre is judged by triangle size alone. Not
+    /// refining only means the coarser parent is drawn: nothing disappears.
+    let mapLod (kind : aval<MapProjectionKind>) (viewProj : aval<Trafo3d>) (viewport : aval<V2i>)
+               (maxColatitude : aval<float>) (targetPixels : float) : PatchLod.LodDecider =
+        fun self _ _ patch _ _ ->
+            let kind = kind.GetValue self
+            let vp = (viewProj.GetValue self).Forward
+            let size = viewport.GetValue self
+            let colatMax = maxColatitude.GetValue self
+
+            let bb = patch.info.GlobalBoundingBox
+            let centre = bb.Center
+            let dist = centre.Length
+            let halfDiagonal = 0.5 * bb.Size.Length
+            let pixelsPerUnit = 0.5 * float size.X * vp.M00
+            if dist <= 1.01 * halfDiagonal then
+                // the patch wraps around the body centre (on a small body most coarse patches do):
+                // no direction to cull by, so only the triangle size decides, at its outer radius
+                let outer = bb.ComputeCorners() |> Array.fold (fun m c -> max m c.Length) 1e-6
+                (patch.triangleSize / outer) * pixelsPerUnit > targetPixels
+            else
+                let a = asin (halfDiagonal / dist)
+                let ll = Projection.lonLatR centre
+                // the map-space box [c - e, c + e] on screen?
+                let onScreen (c : V2d) (e : V2d) =
+                    let lo = vp.TransformPos(V3d(c - e, 0.0))
+                    let hi = vp.TransformPos(V3d(c + e, 0.0))
+                    min lo.X hi.X <= 1.0 && max lo.X hi.X >= -1.0 && min lo.Y hi.Y <= 1.0 && max lo.Y hi.Y >= -1.0
+                let stretch, visible =
+                    match kind with
+                    | MapProjectionKind.Equirectangular ->
+                        let latFar = abs ll.Y + a
+                        if latFar >= Projection.halfPi then 20.0, true
+                        else
+                            let s = min 20.0 (1.0 / cos latFar)
+                            let e = V2d(a * s, a)
+                            if e.X >= Projection.pi then s, true
+                            else
+                                let c = V2d(ll.X, ll.Y)
+                                s, (onScreen c e || onScreen (c + V2d(Projection.twoPi, 0.0)) e || onScreen (c - V2d(Projection.twoPi, 0.0)) e)
+                    | _ ->
+                        let sign = Projection.polarSign kind
+                        let colat = Projection.colatitude sign ll.Y
+                        if colat - a > colatMax then 1.0, false
+                        else
+                            let far = min (colat + a) colatMax
+                            let s = 1.0 / (cos (0.5 * far) ** 2.0)
+                            s, onScreen (Projection.polar sign ll.X ll.Y) (V2d(a * s, a * s))
+                if not visible then false
+                else
+                    let trianglePixels = (patch.triangleSize / dist) * stretch * pixelsPerUnit
+                    trianglePixels > targetPixels
+
+    /// Default for `mapLod`: refine while triangles cover more than this many map pixels.
+    let defaultTargetPixels = 2.0
+
     /// The hierarchies of an OPC directory: its subdirectories that contain `Patches`.
     let hierarchiesOf (opcDirectory : string) =
         Directory.GetDirectories opcDirectory

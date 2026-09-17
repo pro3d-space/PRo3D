@@ -63,14 +63,25 @@ module Shaders =
             return { v with llr = V3f(lon, lat, r); bp = p }
         }
 
+    /// Whether a map-space shape, shifted by `shift` in longitude, can reach the viewport:
+    /// its x range [min, max] and y range, conservatively, through `MapViewProj`.
+    [<ReflectedDefinition>]
+    let private onScreen (shift : float32) (x0 : float32) (x1 : float32) (x2 : float32) (y0 : float32) (y1 : float32) (y2 : float32) =
+        let lo = uniform.MapViewProj * V4f(min x0 (min x1 x2) + shift, min y0 (min y1 y2), 0.0f, 1.0f)
+        let hi = uniform.MapViewProj * V4f(max x0 (max x1 x2) + shift, max y0 (max y1 y2), 0.0f, 1.0f)
+        min lo.X hi.X <= 1.0f && max lo.X hi.X >= -1.0f && min lo.Y hi.Y <= 1.0f && max lo.Y hi.Y >= -1.0f
+
     /// Equirectangular: x = longitude, y = latitude (radians).
     ///
-    /// Longitudes are unwrapped relative to the first corner (`Projection.unwrap`):
-    /// - no seam: drawn once;
-    /// - crossing +-180 degrees: drawn unwrapped, plus a copy shifted by 2 pi into the map
-    ///   (the viewport clips the overhang);
-    /// - containing a pole (the unwrapped longitudes wind once around): drawn as a cap — a
-    ///   strip from the pole row to the three corners — plus its shifted copy.
+    /// Longitudes are unwrapped relative to the first corner (`Projection.unwrap`), so a
+    /// triangle crossing +-180 degrees stays contiguous. The map repeats every 2 pi: each
+    /// triangle is drawn at the copies -2 pi, 0, +2 pi that can reach the viewport, which covers
+    /// both the seam and a view panned past +-180 degrees. A triangle **containing a pole** (its
+    /// unwrapped longitudes wind once around) is drawn as a cap instead -- a strip from the pole
+    /// row to its three corners -- at the same copies.
+    ///
+    /// The copies are written out rather than looped: FShade does not generate a geometry stage
+    /// for a `for` loop around yields ("input has conflicting types").
     let equirectangular (t : Triangle<MapVertex>) =
         triangle {
             let a = t.P0.llr
@@ -85,46 +96,54 @@ module Shaders =
             let xc = xb + dbc
 
             if abs winding < Pi then
-                let minX = min xa (min xb xc)
-                let maxX = max xa (max xb xc)
-
-                yield { t.P0 with pos = clip xa a.Y a.Z; llr = V3f(xa, a.Y, a.Z) }
-                yield { t.P1 with pos = clip xb b.Y b.Z; llr = V3f(xb, b.Y, b.Z) }
-                yield { t.P2 with pos = clip xc c.Y c.Z; llr = V3f(xc, c.Y, c.Z) }
-                restartStrip()
-
-                if maxX > Pi || minX < -Pi then
-                    let s = if maxX > Pi then -TwoPi else TwoPi
-                    yield { t.P0 with pos = clip (xa + s) a.Y a.Z; llr = V3f(xa + s, a.Y, a.Z) }
-                    yield { t.P1 with pos = clip (xb + s) b.Y b.Z; llr = V3f(xb + s, b.Y, b.Z) }
-                    yield { t.P2 with pos = clip (xc + s) c.Y c.Z; llr = V3f(xc + s, c.Y, c.Z) }
+                if onScreen 0.0f xa xb xc a.Y b.Y c.Y then
+                    yield { t.P0 with pos = clip xa a.Y a.Z; llr = V3f(xa, a.Y, a.Z) }
+                    yield { t.P1 with pos = clip xb b.Y b.Z; llr = V3f(xb, b.Y, b.Z) }
+                    yield { t.P2 with pos = clip xc c.Y c.Z; llr = V3f(xc, c.Y, c.Z) }
+                    restartStrip()
+                if onScreen (-TwoPi) xa xb xc a.Y b.Y c.Y then
+                    yield { t.P0 with pos = clip (xa + -TwoPi) a.Y a.Z; llr = V3f((xa + -TwoPi), a.Y, a.Z) }
+                    yield { t.P1 with pos = clip (xb + -TwoPi) b.Y b.Z; llr = V3f((xb + -TwoPi), b.Y, b.Z) }
+                    yield { t.P2 with pos = clip (xc + -TwoPi) c.Y c.Z; llr = V3f((xc + -TwoPi), c.Y, c.Z) }
+                    restartStrip()
+                if onScreen TwoPi xa xb xc a.Y b.Y c.Y then
+                    yield { t.P0 with pos = clip (xa + TwoPi) a.Y a.Z; llr = V3f((xa + TwoPi), a.Y, a.Z) }
+                    yield { t.P1 with pos = clip (xb + TwoPi) b.Y b.Z; llr = V3f((xb + TwoPi), b.Y, b.Z) }
+                    yield { t.P2 with pos = clip (xc + TwoPi) c.Y c.Z; llr = V3f((xc + TwoPi), c.Y, c.Z) }
                     restartStrip()
             else
                 let poleY = if a.Y + b.Y + c.Y > 0.0f then HalfPi else -HalfPi
                 let xa2 = xa + winding
-                // the cap spans [xa, xa + winding]; the copy brings the part outside [-pi, pi] back in
-                let s = if winding > 0.0f then -TwoPi else TwoPi
-                // one strip zig-zagging between the pole row and the corners A, B, C, A+winding;
-                // written out twice (unshifted, shifted) -- FShade does not generate a geometry
-                // stage for a `for` loop around these yields ("input has conflicting types")
-                yield { t.P0 with pos = clip xa poleY a.Z; llr = V3f(xa, poleY, a.Z) }
-                yield { t.P0 with pos = clip xa a.Y a.Z; llr = V3f(xa, a.Y, a.Z) }
-                yield { t.P1 with pos = clip xb poleY b.Z; llr = V3f(xb, poleY, b.Z) }
-                yield { t.P1 with pos = clip xb b.Y b.Z; llr = V3f(xb, b.Y, b.Z) }
-                yield { t.P2 with pos = clip xc poleY c.Z; llr = V3f(xc, poleY, c.Z) }
-                yield { t.P2 with pos = clip xc c.Y c.Z; llr = V3f(xc, c.Y, c.Z) }
-                yield { t.P0 with pos = clip xa2 poleY a.Z; llr = V3f(xa2, poleY, a.Z) }
-                yield { t.P0 with pos = clip xa2 a.Y a.Z; llr = V3f(xa2, a.Y, a.Z) }
-                restartStrip()
-                yield { t.P0 with pos = clip (xa + s) poleY a.Z; llr = V3f(xa + s, poleY, a.Z) }
-                yield { t.P0 with pos = clip (xa + s) a.Y a.Z; llr = V3f(xa + s, a.Y, a.Z) }
-                yield { t.P1 with pos = clip (xb + s) poleY b.Z; llr = V3f(xb + s, poleY, b.Z) }
-                yield { t.P1 with pos = clip (xb + s) b.Y b.Z; llr = V3f(xb + s, b.Y, b.Z) }
-                yield { t.P2 with pos = clip (xc + s) poleY c.Z; llr = V3f(xc + s, poleY, c.Z) }
-                yield { t.P2 with pos = clip (xc + s) c.Y c.Z; llr = V3f(xc + s, c.Y, c.Z) }
-                yield { t.P0 with pos = clip (xa2 + s) poleY a.Z; llr = V3f(xa2 + s, poleY, a.Z) }
-                yield { t.P0 with pos = clip (xa2 + s) a.Y a.Z; llr = V3f(xa2 + s, a.Y, a.Z) }
-                restartStrip()
+                if onScreen 0.0f xa xa2 xb poleY a.Y b.Y then
+                    yield { t.P0 with pos = clip xa poleY a.Z; llr = V3f(xa, poleY, a.Z) }
+                    yield { t.P0 with pos = clip xa a.Y a.Z; llr = V3f(xa, a.Y, a.Z) }
+                    yield { t.P1 with pos = clip xb poleY b.Z; llr = V3f(xb, poleY, b.Z) }
+                    yield { t.P1 with pos = clip xb b.Y b.Z; llr = V3f(xb, b.Y, b.Z) }
+                    yield { t.P2 with pos = clip xc poleY c.Z; llr = V3f(xc, poleY, c.Z) }
+                    yield { t.P2 with pos = clip xc c.Y c.Z; llr = V3f(xc, c.Y, c.Z) }
+                    yield { t.P0 with pos = clip xa2 poleY a.Z; llr = V3f(xa2, poleY, a.Z) }
+                    yield { t.P0 with pos = clip xa2 a.Y a.Z; llr = V3f(xa2, a.Y, a.Z) }
+                    restartStrip()
+                if onScreen (-TwoPi) xa xa2 xb poleY a.Y b.Y then
+                    yield { t.P0 with pos = clip (xa + -TwoPi) poleY a.Z; llr = V3f((xa + -TwoPi), poleY, a.Z) }
+                    yield { t.P0 with pos = clip (xa + -TwoPi) a.Y a.Z; llr = V3f((xa + -TwoPi), a.Y, a.Z) }
+                    yield { t.P1 with pos = clip (xb + -TwoPi) poleY b.Z; llr = V3f((xb + -TwoPi), poleY, b.Z) }
+                    yield { t.P1 with pos = clip (xb + -TwoPi) b.Y b.Z; llr = V3f((xb + -TwoPi), b.Y, b.Z) }
+                    yield { t.P2 with pos = clip (xc + -TwoPi) poleY c.Z; llr = V3f((xc + -TwoPi), poleY, c.Z) }
+                    yield { t.P2 with pos = clip (xc + -TwoPi) c.Y c.Z; llr = V3f((xc + -TwoPi), c.Y, c.Z) }
+                    yield { t.P0 with pos = clip (xa2 + -TwoPi) poleY a.Z; llr = V3f((xa2 + -TwoPi), poleY, a.Z) }
+                    yield { t.P0 with pos = clip (xa2 + -TwoPi) a.Y a.Z; llr = V3f((xa2 + -TwoPi), a.Y, a.Z) }
+                    restartStrip()
+                if onScreen TwoPi xa xa2 xb poleY a.Y b.Y then
+                    yield { t.P0 with pos = clip (xa + TwoPi) poleY a.Z; llr = V3f((xa + TwoPi), poleY, a.Z) }
+                    yield { t.P0 with pos = clip (xa + TwoPi) a.Y a.Z; llr = V3f((xa + TwoPi), a.Y, a.Z) }
+                    yield { t.P1 with pos = clip (xb + TwoPi) poleY b.Z; llr = V3f((xb + TwoPi), poleY, b.Z) }
+                    yield { t.P1 with pos = clip (xb + TwoPi) b.Y b.Z; llr = V3f((xb + TwoPi), b.Y, b.Z) }
+                    yield { t.P2 with pos = clip (xc + TwoPi) poleY c.Z; llr = V3f((xc + TwoPi), poleY, c.Z) }
+                    yield { t.P2 with pos = clip (xc + TwoPi) c.Y c.Z; llr = V3f((xc + TwoPi), c.Y, c.Z) }
+                    yield { t.P0 with pos = clip (xa2 + TwoPi) poleY a.Z; llr = V3f((xa2 + TwoPi), poleY, a.Z) }
+                    yield { t.P0 with pos = clip (xa2 + TwoPi) a.Y a.Z; llr = V3f((xa2 + TwoPi), a.Y, a.Z) }
+                    restartStrip()
         }
 
     /// Polar stereographic (`Projection.polar`). Triangles entirely beyond the cutoff

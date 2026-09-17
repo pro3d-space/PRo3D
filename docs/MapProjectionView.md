@@ -5,9 +5,9 @@ Synopsis: a panel showing a small body's OPC surfaces as a 2D map, **equirectang
 Issue: [#772](https://github.com/pro3d-space/PRo3D/issues/772).
 Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [Window Layouts](WindowLayouts.md).
 
-> **Phase 1 (proof of concept).** OPC surfaces with their primary texture, plus the
-> graticule, pan and zoom. Not yet: annotations (phase 2), a map LoD decider (phase 1.5),
-> picking or cursor readout, OBJ meshes, planets.
+> **Phases 1 and 1.5.** OPC surfaces with their primary texture, the graticule, pan and zoom,
+> and a map-space LoD decider. Not yet: annotations (phase 2), picking or cursor readout, OBJ
+> meshes, planets.
 
 ## Using it
 
@@ -84,12 +84,15 @@ have to resample annotations (smearing pixel-width lines), would see the body fr
 1. **Vertex stage** (`lonLatRadius`): body-centred position `ModelTrafo * pos` → (lon, lat, r).
 2. **Geometry stage**, one per projection:
    - `equirectangular`:
-     - Unwraps each triangle's longitudes relative to its first corner.
-     - A triangle crossing ±180° is drawn unwrapped, plus a copy shifted by 2π; the viewport
-       clips the overhang.
-     - A triangle **containing a pole** (its longitudes wind once around) is drawn as a
-       strip from its corners to the pole row, plus its shifted copy.
-     - The cap is written out twice instead of looping: FShade does not generate a geometry
+     - Unwraps each triangle's longitudes relative to its first corner, so a triangle
+       crossing ±180° stays contiguous.
+     - The map repeats every 2π: each triangle is drawn at whichever of the copies −2π, 0
+       and +2π can reach the viewport (`onScreen`). This covers the seam and a view panned
+       or zoomed past ±180°. Phase 1 only copied triangles straddling the seam and left the
+       part of a view beyond ±180° empty; the zoomed-seam LoD render test found it.
+     - A triangle **containing a pole** (its longitudes wind once around) is drawn as a strip
+       from its corners to the pole row, at the same copies.
+     - The copies are written out instead of looping: FShade does not generate a geometry
        stage for a `for` loop around those yields.
    - `polarStereographic`: drops triangles that lie entirely beyond the cutoff or reach
      near the opposite pole, where ρ runs to infinity. There is no seam, because longitude
@@ -112,10 +115,23 @@ at most ~1 mm. Planets would need a per-patch double anchor with float32 offsets
 
 `MapSg.surfaces` builds the map's **own** PatchNodes with `OpcSg.build`, the path the
 pro3d-tool render verbs and the sun shadow map use. It does not reuse the main view's nodes:
-the LoD decider is a constructor argument, and the map needs a different one.
-- **Phase 1** uses `MapSg.finestLod` (always refine), because level 0 of a small body fits
-  in memory: the Dimorphos test OPC has 6 leaf patches.
-- **Cost:** opening the panel loads the patches a second time.
+the LoD decider is a constructor argument, and the map needs a different one. Opening the
+panel loads patches a second time.
+
+**Map LoD (phase 1.5):** `MapSg.mapLod`, a small per-patch heuristic in map space. A patch
+refines while its average triangle size (`RenderPatch.triangleSize`, from the hierarchy's
+`AvgGeometrySizes`) covers more than `defaultTargetPixels` (2) map pixels.
+- **Patches with a direction:** the patch is treated as a bounding sphere, and must also
+  overlap the map window (including the ±2π copies, and the polar cutoff).
+- **Stretch:** the longitude stretch toward the poles (equirectangular, capped at 20) and the
+  stereographic scale sec²(colatitude/2) are taken at the patch's far edge.
+- **Patches wrapping the body centre:** they have no direction to cull by, so triangle size
+  alone decides, at their outer radius. On a small body most coarse patches are like this;
+  in the Dimorphos test OPC both level-1 patches are, so zooming in loads all six leaves
+  rather than only the visible ones.
+- **Nothing disappears:** not refining only means the coarser parent is drawn.
+
+`MapSg.finestLod` (always refine) remains for comparisons and benchmarks.
 
 The host places each surface with `SunShadowMap.surfacePlacement`, the same placement the
 main render uses. It passes only OPC surfaces of the scene body, so a Didymos surface in a
@@ -140,27 +156,37 @@ Notes on rung 3:
   (`DRACO_1`) is the raw DRACO frame stored as a 2:1 map raster, so the correct map shows that
   photo undistorted.
 
-### Benchmark (phase 1, Windows desktop GPU)
+Phase 1.5 adds to rung 3:
+- a CPU walk of the Dimorphos hierarchy through `mapLod`: only the root at zoom 1, leaves when
+  zoomed in;
+- renders with `mapLod`: whole map, zoom 16 across the seam, polar zoom 4. Each must still
+  cover the view and put every surface point at its pixel's lon/lat.
 
-Median GPU ms per frame, Dimorphos test OPC (`g_01960mm`), zoom 1:
+### Benchmark (Windows laptop, NVIDIA RTX 500 Ada)
 
-| Size | Equirect finest | Equirect root | Polar finest | Polar root |
-|---|---|---|---|---|
-| 1024×768 | ≈ 22 | 3.9 | 9.8 | 1.6 |
-| 1920×1080 | 22.8 | 4.0 | 9.5 | 1.8 |
+Median GPU ms per frame (draw calls), Dimorphos test OPC (`g_01960mm`), zoom 1, with the
+all-copies geometry stage:
 
-Full detail costs about 6× the root level, which is the most a map LoD decider (phase 1.5)
-could save on this dataset.
-- The first arm of a run includes warm-up (37 ms once); the steady value is ≈ 22 ms.
-- A render control only renders on change, so this is the cost of a pan or zoom frame, not
-  a continuous load.
+| Size | Equirect finest | Equirect **map LoD** | Equirect root | Polar finest | Polar **map LoD** | Polar root |
+|---|---|---|---|---|---|---|
+| 1024×768 | 15.0 (7) | **2.4 (2)** | 2.4 (2) | 9.5 (7) | **1.6 (2)** | 1.6 (2) |
+| 1920×1080 | 19.3 (7) | **2.5 (2)** | 2.6 (2) | 9.5 (7) | **1.6 (2)** | 1.6 (2) |
+
+At zoom 1 the map LoD costs what the root costs, about 6× less than full detail.
+
+In the app (`tests-ui/src/probe-smoothness.ts`, `probe-map-pan.ts`; frames timestamped as
+they arrive in the browser):
+
+| Situation | Before phase 1.5 | With map LoD |
+|---|---|---|
+| Main view camera drag, no map panel | 75–87 fps | 89 fps |
+| Main view camera drag, map panel visible | 35–86 fps, gaps up to 868 ms | mostly 72–85 fps, gaps ~55 ms (one 36 fps segment) |
+| Panning the map | 21 fps (478×393, in PRo3D) | one frame per mouse event: 60 fps at 60 events/s (standalone) |
+
+A render control only renders on change, so these are costs while something moves.
 
 ## Later phases
 
-- **1.5 — map LoD decider**, time-boxed:
-  - Cull a patch's conservative lon/lat rectangle against the map window.
-  - Refine by projected size in map pixels.
-  - Always refine patches that cross the seam or contain a pole.
 - **2 — annotations:**
   - The packed annotation buffers already take a view matrix, so call them with identity to
     get body-centred positions.

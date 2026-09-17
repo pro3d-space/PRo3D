@@ -20,6 +20,8 @@ open Aardvark.Rendering
 open Aardvark.SceneGraph
 open FSharp.Data.Adaptive
 open Aardvark.GeoSpatial.Opc.Load
+open Aardvark.Data.Opc
+open Aardvark.GeoSpatial.Opc
 
 open PRo3D.Core
 open PRo3D.MapProjection
@@ -66,14 +68,24 @@ type private Rendered =
         maxR     : float
     }
 
-let private render (runtime : IRuntime) (opc : string) (kind : MapProjectionKind) (effects : FShade.Effect[]) (size : V2i) =
+/// Which LoD decider a render uses: always finest (phase 1), or the map-space heuristic (1.5).
+type private Lod = Finest | MapLod
+
+let private renderAt (runtime : IRuntime) (opc : string) (kind : MapProjectionKind) (effects : FShade.Effect[])
+                     (size : V2i) (lod : Lod) (center : V2d) (zoom : float) =
     let hierarchies = MapSg.hierarchiesOf opc
     let maxR = MapSg.maxRadius hierarchies
-    let viewProj = Projection.viewProj kind Projection.defaultMaxColatitude V2d.Zero 1.0 size
+    let viewProj = Projection.viewProj kind Projection.defaultMaxColatitude center zoom size
     let target = FloatTarget.create runtime size
     try
         let runner = runtime.CreateLoadRunner 1
-        let cfg = { OpcSg.defaultConfig target.signature runner MapSg.finestLod "DIMORPHOS" with asyncLoading = false }
+        let decider =
+            match lod with
+            | Finest -> MapSg.finestLod
+            | MapLod ->
+                MapSg.mapLod (AVal.constant kind) (AVal.constant viewProj) (AVal.constant size)
+                             (AVal.constant Projection.defaultMaxColatitude) MapSg.defaultTargetPixels
+        let cfg = { OpcSg.defaultConfig target.signature runner decider "DIMORPHOS" with asyncLoading = false }
         let view : MapSg.MapView =
             {
                 kind          = AVal.constant kind
@@ -92,6 +104,8 @@ let private render (runtime : IRuntime) (opc : string) (kind : MapProjectionKind
         { image = FloatTarget.render target 4 sg; viewProj = viewProj; size = size; maxR = maxR }
     finally
         FloatTarget.dispose target
+
+let private render runtime opc kind effects size = renderAt runtime opc kind effects size Finest V2d.Zero 1.0
 
 /// Map-space position of pixel (x, y) of a readback.
 let private mapPos (r : Rendered) (top : bool) (x : int) (y : int) =
@@ -223,6 +237,66 @@ let tests () =
                 Expect.isLessThan a.worstPixels 1.5 (sprintf "%A: every pixel shows the surface point at its position" kind)
                 Expect.isGreaterThan flipped.worstPixels 20.0 (sprintf "%A: the check would catch a mirrored map" kind)
                 Expect.equal a.badRadius 0 (sprintf "%A: radii within the body" kind)
+        }
+
+        test "map LoD (phase 1.5) draws the root at zoom 1 and refines where the view zooms in" {
+            match dimorphosOpc () with
+            | None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos)"
+            | Some opc ->
+            let serializer = MBrace.FsPickler.FsPickler.CreateBinarySerializer()
+            let hierarchy = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths (MapSg.hierarchiesOf opc).[0])
+            let size = V2i(1024, 512)
+            /// the patches drawn: RoseTree.filter keeps descending while the decider says so
+            let drawn (kind : MapProjectionKind) (center : V2d) (zoom : float) =
+                let vp = Projection.viewProj kind Projection.defaultMaxColatitude center zoom size
+                let lod = MapSg.mapLod (AVal.constant kind) (AVal.constant vp) (AVal.constant size) (AVal.constant Projection.defaultMaxColatitude) MapSg.defaultTargetPixels
+                let decide (p : Patch) =
+                    let rp : PatchLod.RenderPatch =
+                        { info = p.info; level = p.level; triangleSize = p.triangleSize; trafo = AVal.constant p.info.Local2Global
+                          modality = ViewerModality.XYZ; coordinates = PatchLod.CoordinatesMapping.Local }
+                    lod AdaptiveToken.Top (AVal.constant Trafo3d.Identity) (AVal.constant Trafo3d.Identity) rp (AVal.constant Unchecked.defaultof<_>) (AVal.constant true)
+                let rec walk (t : QTree<Patch>) =
+                    match t with
+                    | QTree.Leaf p -> [ p.info.Name ]
+                    | QTree.Node (p, children) ->
+                        if decide p then children |> Array.toList |> List.collect walk else [ p.info.Name ]
+                walk hierarchy.tree
+            let whole = drawn MapProjectionKind.Equirectangular V2d.Zero 1.0
+            let zoomed = drawn MapProjectionKind.Equirectangular (V2d(0.3, 0.2)) 16.0
+            let polarZoomed = drawn MapProjectionKind.PolarNorth (V2d(0.3, -0.2)) 8.0
+            printfn "map LoD patches: zoom 1 %A; zoom 16 %A; polar zoom 8 %A" whole zoomed polarZoomed
+            Expect.equal whole [ "2_0_0" ] "the whole map at 1024 px needs only the root"
+            Expect.isTrue (zoomed |> List.exists (fun n -> n.StartsWith "0_")) "zoomed in, leaves are drawn"
+            // No off-screen culling to expect here: both level-1 patches of this OPC wrap around the
+            // body centre, so they have no direction to cull by and refine by triangle size alone.
+            Expect.isTrue (polarZoomed |> List.exists (fun n -> n.StartsWith "0_")) "polar zoomed in, leaves are drawn"
+        }
+
+        test "map LoD (phase 1.5): whole map and zoomed-in window still show every surface point exactly" {
+            match Render.context.Value, dimorphosOpc () with
+            | None, _ -> skiptest "no OpenGL runtime in this environment"
+            | _, None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos)"
+            | Some (runtime, _), Some opc ->
+
+            Startup.init ()
+            let top = rowZeroIsTop runtime
+            let size = V2i(1024, 512)
+            let everyPixel (_ : V2d) (ll : V2d) = abs ll.Y < Projection.halfPi - Projection.pi / 180.0
+            for name, kind, center, zoom in
+                    [ "whole equirectangular map", MapProjectionKind.Equirectangular, V2d.Zero, 1.0
+                      "zoom 16 across the seam", MapProjectionKind.Equirectangular, V2d(Projection.pi - 0.05, 0.3), 16.0
+                      "polar north zoom 4", MapProjectionKind.PolarNorth, V2d(0.3, -0.2), 4.0 ] do
+                let r = renderAt runtime opc kind MapSg.bodyPositionEffects size MapLod center zoom
+                savePng (Path.Combine(outputDir (), sprintf "lod-%s.png" (name.Replace(' ', '-')))) r.image positionColor top
+                // a map pixel spans 1/pixelsPerUnit map units; in radians that bounds the angle
+                let pixelAngle = 2.0 / (float size.X * r.viewProj.Forward.M00)
+                let consider (m : V2d) (ll : V2d) =
+                    everyPixel m ll && (kind = MapProjectionKind.Equirectangular || m.Length < 1.97)
+                let a = agreement r kind top false consider pixelAngle
+                printfn "map LoD, %s: coverage %.4f, worst %.2f px" name a.coverage a.worstPixels
+                Expect.isGreaterThan a.coverage 0.999 (sprintf "%s: covered" name)
+                // coarser patches are chords of the surface: allow a little more than finest
+                Expect.isLessThan a.worstPixels 2.0 (sprintf "%s: surface points where the pixels say" name)
         }
 
         // What the texture looks like is the data's business: the test OPC's default layer

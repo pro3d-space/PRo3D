@@ -91,25 +91,28 @@ module MapProjectionApp =
         match PRo3D.Core.Surface.Sg.hackRunner with
         | None -> Sg.empty
         | Some runner ->
-            // interactive: patches stream in, the map fills as they arrive
-            let cfg = { OpcSg.defaultConfig values.signature runner MapSg.finestLod "map" with asyncLoading = true }
             let maxRadius =
                 inputs.surfaces.Content
                 |> AVal.map (fun surfaces -> surfaces |> Seq.collect (fun s -> s.hierarchies) |> MapSg.maxRadius)
+            let viewProj =
+                adaptive {
+                    let! kind = m.kind
+                    let! center = m.center
+                    let! zoom = m.zoom
+                    let! size = values.size
+                    return Projection.viewProj kind Projection.defaultMaxColatitude center zoom size
+                }
+            let maxColatitude = AVal.constant Projection.defaultMaxColatitude
             let view : MapSg.MapView =
                 {
                     kind          = m.kind
-                    viewProj      =
-                        adaptive {
-                            let! kind = m.kind
-                            let! center = m.center
-                            let! zoom = m.zoom
-                            let! size = values.size
-                            return Projection.viewProj kind Projection.defaultMaxColatitude center zoom size
-                        }
-                    maxColatitude = AVal.constant Projection.defaultMaxColatitude
+                    viewProj      = viewProj
+                    maxColatitude = maxColatitude
                     radiusRange   = maxRadius |> AVal.map Projection.radiusRange
                 }
+            // interactive: patches stream in, detail follows the map window (phase 1.5)
+            let lod = MapSg.mapLod m.kind viewProj values.size maxColatitude MapSg.defaultTargetPixels
+            let cfg = { OpcSg.defaultConfig values.signature runner lod "map" with asyncLoading = true }
             MapSg.map cfg view inputs.surfaces |> Sg.noEvents
 
     let private toolbar (m : AdaptiveMapProjectionModel) =

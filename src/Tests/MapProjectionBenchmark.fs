@@ -88,7 +88,12 @@ let run () : int =
     let results = Collections.Generic.List<string * V2i * float * float>()
     for size in sizes do
         for kind in [ MapProjectionKind.Equirectangular; MapProjectionKind.PolarNorth ] do
-            for lodName, decider in [ "finest", MapSg.finestLod; "root", rootOnly ] do
+            let lods =
+                [ "finest", MapSg.finestLod
+                  "maplod", MapSg.mapLod (AVal.constant kind) (AVal.constant (Projection.viewProj kind Projection.defaultMaxColatitude V2d.Zero 1.0 size))
+                                         (AVal.constant size) (AVal.constant Projection.defaultMaxColatitude) MapSg.defaultTargetPixels
+                  "root", rootOnly ]
+            for lodName, decider in lods do
                 let name = sprintf "%A/%s" kind lodName
                 say "[bench-map] %dx%d %s" size.X size.Y name
                 let sw = Stopwatch.StartNew()
