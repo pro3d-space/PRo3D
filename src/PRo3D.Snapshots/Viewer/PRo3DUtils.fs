@@ -47,6 +47,7 @@ open System.Collections.Concurrent
                     |> ViewerIO.loadLastFootPrint
                     //|> ViewerIO.loadMinerva dumpFile cacheFile
                     //|> ViewerIO.loadLinking
+                    |> SceneLoader.reconcileSceneBody
                     |> SceneLoader.addScaleBarSegments
                     |> SceneLoader.addGeologicSurfaces
                 else

@@ -416,6 +416,12 @@ type TransformedBody =
 module TransformedBody =
     let trafo (o : TransformedBody) = o.Trafo
 
+module SpiceName =
+    /// SPICE matches body and frame names ignoring case and surrounding blanks, so
+    /// "Dimorphos" in a scene and "DIMORPHOS" in a batch file are the same body.
+    let same (a : string) (b : string) =
+        String.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase)
+
 module CooTransformation =
     open PRo3D.Extensions
     open PRo3D.Extensions.FSharp
@@ -427,6 +433,19 @@ module CooTransformation =
             match bodyFrame with
             | Some (FrameSpiceName bodyFrame) -> bodyFrame
             | None -> observerFrame
+
+        // A body observed from itself in its own frame sits at the origin, unrotated, at
+        // every time - that is the whole placement of a single-body scene (#758). Answer it
+        // without SPICE: it holds even with no ephemeris loaded, where getRelState would
+        // fail and log once per surface. lookAtBody has no meaningful value here (camera
+        // and target coincide); it gets a finite stand-in instead of lookAt's NaNs.
+        if SpiceName.same body observer && SpiceName.same bodyFrame observerFrame then
+            Some {
+                lookAtBody = CameraView.lookAt V3d.OOI V3d.Zero V3d.OIO
+                position = V3d.Zero
+                alignBodyToObserverFrame = M33d.Identity
+            }
+        else
 
         let suportBody = "sun"
         let relState = PRo3D.SPICE.CooTransformation.getRelState body suportBody observer time observerFrame 
@@ -452,3 +471,59 @@ module CooTransformation =
 
 type SpiceReferenceSystem = { referenceFrame : FrameSpiceName; body : EntitySpiceName } 
 type ObserverSystem = { referenceFrame : FrameSpiceName; body : EntitySpiceName; time : DateTime }
+
+/// The scene body (#758): the one body a single-body scene is expressed in. The global
+/// planet (`ReferenceSystem.planet`) and the GIS observation (observed body + reference
+/// frame) are two views of it.
+///
+/// Every planet-based computation - up/north, lat/lon, bearing, MapView's pole and radius
+/// - reads world coordinates as that planet's body-fixed coordinates. That holds exactly
+/// when the GIS observes the body in the body's own fixed frame: the scene body's surfaces
+/// then get the identity placement. A scene observed in another frame (e.g. J2000) is not
+/// body-fixed; it keeps working as before, without the planet-based features, until the
+/// scene frame can be chosen freely.
+module SceneBody =
+
+    /// The SPICE body and body-fixed frame of the bodies `Planet` knows. None for the
+    /// frames that are no body (ENU, JPL, None). Body names are the default entities'
+    /// (GisApp.initial), so they are keys of the GIS entity map.
+    let trySpice (planet : PRo3D.Base.Planet) : Option<EntitySpiceName * FrameSpiceName> =
+        match planet with
+        | PRo3D.Base.Planet.Mars      -> Some (Entity.mars.spiceName,      ReferenceFrame.iauMars.spiceName)
+        | PRo3D.Base.Planet.Earth     -> Some (Entity.earth.spiceName,     ReferenceFrame.iauEarth.spiceName)
+        | PRo3D.Base.Planet.Moon      -> Some (Entity.moon.spiceName,      ReferenceFrame.iauMoon.spiceName)
+        | PRo3D.Base.Planet.Phobos    -> Some (Entity.phobos.spiceName,    ReferenceFrame.iauPhobos.spiceName)
+        | PRo3D.Base.Planet.Deimos    -> Some (Entity.deimos.spiceName,    ReferenceFrame.iauDeimos.spiceName)
+        | PRo3D.Base.Planet.Didymos   -> Some (Entity.didymos.spiceName,   ReferenceFrame.didymosFixed.spiceName)
+        | PRo3D.Base.Planet.Dimorphos -> Some (Entity.dimorphos.spiceName, ReferenceFrame.dimorphosFixed.spiceName)
+        | _ -> None
+
+    /// The Planet a SPICE body stands for, if it is one `Planet` knows.
+    let tryPlanet (EntitySpiceName name) : Option<PRo3D.Base.Planet> =
+        PRo3D.Base.CooTransformation.planetFromString (name.Trim())
+
+    /// The body-fixed frame of a body `Planet` knows.
+    let tryFixedFrame (body : EntitySpiceName) : Option<FrameSpiceName> =
+        tryPlanet body |> Option.bind trySpice |> Option.map snd
+
+    /// Whether `frame` is the body-fixed frame of `body`.
+    let isFixedFrameOf (body : EntitySpiceName) (FrameSpiceName frame) =
+        match tryFixedFrame body with
+        | Some (FrameSpiceName fixedFrame) -> SpiceName.same frame fixedFrame
+        | None -> false
+
+    /// The planet of a GIS observation that is body-fixed: `observer` is a body `Planet`
+    /// knows and `frame` is its fixed frame. None otherwise - no observation, a body such
+    /// as a spacecraft, or a scene in another frame.
+    let tryBodyFixedPlanet (observer : Option<EntitySpiceName>) (frame : Option<FrameSpiceName>) : Option<PRo3D.Base.Planet> =
+        match observer, frame with
+        | Some observer, Some frame when isFixedFrameOf observer frame -> tryPlanet observer
+        | _ -> None
+
+    /// The scene body as a surface reference system (body + its fixed frame), for a
+    /// body-fixed observation; see `tryBodyFixedPlanet`.
+    let tryReferenceSystem (observer : Option<EntitySpiceName>) (frame : Option<FrameSpiceName>) : Option<SpiceReferenceSystem> =
+        match observer, frame with
+        | Some body, Some referenceFrame when isFixedFrameOf body referenceFrame ->
+            Some { body = body; referenceFrame = referenceFrame }
+        | _ -> None

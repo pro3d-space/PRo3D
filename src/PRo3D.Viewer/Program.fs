@@ -27,6 +27,7 @@ open Chiron
 
 open Aardvark.UI
 open Aardvark.UI.Giraffe
+open Aardvark.UI.Primitives.Golden
 
 open FSharp.Data.Adaptive
 
@@ -201,8 +202,8 @@ let main argv =
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
         let titlestr = 
                 match startupArgs.port with
-                | Some p -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH - listening: http://localhost:" + p
-                | None -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
+                | Some p -> "PRo3D Viewer - " + viewerVersion + " - powered by Aardvark and the PRo3D community, led by VRVis - listening: http://localhost:" + p
+                | None -> "PRo3D Viewer - " + viewerVersion + " - powered by Aardvark and the PRo3D community, led by VRVis"
 
         Config.title <- titlestr
     
@@ -378,6 +379,7 @@ let main argv =
                 http.subRoute "/api" remoteApi
                 WebPart.ofType<EmbeddedRessource>
                 WebPart.ofType<Primitives.EmbeddedResources>
+                GoldenLayout.toWebPart http
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 

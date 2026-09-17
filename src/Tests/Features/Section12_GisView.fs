@@ -1,5 +1,6 @@
 /// Section 12 — GIS View
-///   TC-12.1 (Load SPICE Kernel), TC-12.2 (Observation Settings)
+///   TC-12.1 (Load SPICE Kernel), TC-12.2 (Observation Settings),
+///   TC-12.4 (Scene body: global planet = GIS observation, #758)
 ///
 ///   Kernel loading goes through the real GisApp.loadSpiceKernel; observation
 ///   settings through ObservationInfo.update.
@@ -11,7 +12,8 @@ open System.IO
 open Chiron
 open Expecto
 
-open PRo3D.Base.Gis                       // EntitySpiceName, FrameSpiceName
+open PRo3D.Base                          // Planet, CooTransformation (lat/lon)
+open PRo3D.Base.Gis                       // EntitySpiceName, FrameSpiceName, SceneBody, CooTransformation.transformBody
 open PRo3D.Core.Gis                       // GisApp, ObservationInfo, ObservationInfoAction
 open PRo3D.Tests
 
@@ -111,6 +113,107 @@ let tests =
             Expect.isFalse (old.Contains "windingCorrection") "the field is gone from the old scene"
             let restoredOld : GisApp = old |> Json.parse |> Json.deserialize
             Expect.isFalse restoredOld.projectedImageList.windingCorrection "old scenes: off"
+        }
+
+        // TC-12.4 Scene body (#758) — the global planet and the GIS observation are one
+        // setting. A body PRo3D knows, observed in its own fixed frame, is what lets the
+        // planet-based features (MapView, lat/lon, up/north) read world coordinates.
+
+        test "TC-12.4 every body Planet knows has a SPICE body and fixed frame that map back" {
+            for planet in [ Planet.Mars; Planet.Earth; Planet.Moon; Planet.Phobos; Planet.Deimos; Planet.Didymos; Planet.Dimorphos ] do
+                match SceneBody.trySpice planet with
+                | Some (body, frame) ->
+                    Expect.equal (SceneBody.tryPlanet body) (Some planet) (sprintf "%A: body maps back" planet)
+                    Expect.equal (SceneBody.tryFixedFrame body) (Some frame) (sprintf "%A: fixed frame" planet)
+                    Expect.equal (SceneBody.tryBodyFixedPlanet (Some body) (Some frame)) (Some planet) (sprintf "%A: body-fixed" planet)
+                | None -> failtestf "%A has no SPICE body" planet
+            for planet in [ Planet.None; Planet.ENU; Planet.JPL ] do
+                Expect.isNone (SceneBody.trySpice planet) (sprintf "%A is no body" planet)
+            Expect.equal (SceneBody.trySpice Planet.Dimorphos)
+                (Some (EntitySpiceName "Dimorphos", FrameSpiceName "DIMORPHOS_FIXED")) "Dimorphos is observed in DIMORPHOS_FIXED"
+        }
+
+        test "TC-12.4 a body-fixed observation is recognised regardless of name case, any other is not" {
+            let bodyFixed o f = SceneBody.tryBodyFixedPlanet (Some (EntitySpiceName o)) (Some (FrameSpiceName f))
+            Expect.equal (bodyFixed "DIMORPHOS" "dimorphos_fixed") (Some Planet.Dimorphos) "SPICE names ignore case"
+            Expect.isNone (bodyFixed "Dimorphos" "J2000") "a scene in J2000 is not body-fixed"
+            Expect.isNone (bodyFixed "Dimorphos" "DIDYMOS_FIXED") "another body's frame is not body-fixed"
+            Expect.isNone (bodyFixed "HERA" "HERA_SPACECRAFT") "a spacecraft is no scene body"
+            Expect.isNone (SceneBody.tryBodyFixedPlanet None (Some (FrameSpiceName "IAU_MARS"))) "no observed body"
+        }
+
+        test "TC-12.4 a body observed from itself in its own frame is placed at the identity, without SPICE" {
+            // no kernel needed: the answer does not depend on any ephemeris
+            let t = DateTime(2027, 3, 21, 20, 0, 0, DateTimeKind.Utc)
+            match CooTransformation.transformBody (EntitySpiceName "Dimorphos") (Some (FrameSpiceName "DIMORPHOS_FIXED"))
+                                                  (EntitySpiceName "DIMORPHOS") (FrameSpiceName "dimorphos_fixed") t with
+            | Some placed ->
+                Expect.equal placed.position Aardvark.Base.V3d.Zero "at the origin"
+                Expect.equal placed.alignBodyToObserverFrame Aardvark.Base.M33d.Identity "unrotated"
+                Expect.equal placed.Trafo.Forward Aardvark.Base.M44d.Identity "identity placement"
+            | None -> failtest "a body observed from itself must always resolve"
+        }
+
+        test "TC-12.4 observing a known body snaps the frame to its fixed frame; other bodies keep it" {
+            let m = ObservationInfo.update ObservationInfo.initial (ObservationInfoAction.SetReferenceFrame (Some (FrameSpiceName "J2000")))
+            let dimorphos = ObservationInfo.update m (ObservationInfoAction.SetObserver (Some (EntitySpiceName "Dimorphos")))
+            Expect.equal dimorphos.referenceFrame (Some (FrameSpiceName "DIMORPHOS_FIXED")) "the scene body's fixed frame"
+            let hera = ObservationInfo.update m (ObservationInfoAction.SetObserver (Some (EntitySpiceName "HERA")))
+            Expect.equal hera.referenceFrame (Some (FrameSpiceName "J2000")) "a spacecraft keeps the chosen frame"
+        }
+
+        test "TC-12.4 the global planet is mirrored into the GIS observation and back" {
+            let gis = GisApp.initial None |> GisApp.withScenePlanet Planet.Dimorphos
+            Expect.equal gis.defaultObservationInfo.observer (Some (EntitySpiceName "Dimorphos")) "observes Dimorphos"
+            Expect.equal gis.defaultObservationInfo.referenceFrame (Some (FrameSpiceName "DIMORPHOS_FIXED")) "in its fixed frame"
+            Expect.equal (GisApp.scenePlanet gis) (Some Planet.Dimorphos) "and reads back as the planet"
+            let cleared = gis |> GisApp.withScenePlanet Planet.None
+            Expect.isNone cleared.defaultObservationInfo.observer "no body, no observation"
+            Expect.isNone (GisApp.scenePlanet cleared) "and no scene planet"
+        }
+
+        test "TC-12.4 unassigned surfaces inherit the scene body, only while the scene is body-fixed" {
+            let unassigned = Guid.NewGuid()
+            let halfAssigned = Guid.NewGuid()
+            let assigned = Guid.NewGuid()
+            let gis =
+                let m = GisApp.initial None |> GisApp.withScenePlanet Planet.Dimorphos
+                let surfaces =
+                    [
+                        halfAssigned, GisSurface.fromBody halfAssigned (Some (EntitySpiceName "Didymos"))
+                        assigned, { surfaceId = assigned; entity = Some (EntitySpiceName "Didymos"); referenceFrame = Some (FrameSpiceName "DIDYMOS_FIXED") }
+                    ]
+                { m with gisSurfaces = FSharp.Data.Adaptive.HashMap.ofList surfaces }
+
+            let dimorphos : Option<SpiceReferenceSystem> = Some { body = EntitySpiceName "Dimorphos"; referenceFrame = FrameSpiceName "DIMORPHOS_FIXED" }
+            let didymos : Option<SpiceReferenceSystem> = Some { body = EntitySpiceName "Didymos"; referenceFrame = FrameSpiceName "DIDYMOS_FIXED" }
+            Expect.equal (GisApp.getSpiceReferenceSystem gis unassigned) dimorphos "inherits the scene body"
+            Expect.equal (GisApp.getSpiceReferenceSystem gis assigned) didymos "its own assignment wins"
+            Expect.isNone (GisApp.getSpiceReferenceSystem gis halfAssigned) "a half assignment stays unplaced, as before"
+
+            // a scene saved in J2000 loads as it always did: nothing is inherited
+            let j2000 =
+                { gis with defaultObservationInfo = { gis.defaultObservationInfo with referenceFrame = Some (FrameSpiceName "J2000") } }
+            Expect.isNone (GisApp.getSpiceReferenceSystem j2000 unassigned) "no inheritance outside a body-fixed scene"
+        }
+
+        test "TC-12.4 first-import inference keeps a scene body it cannot recognise" {
+            let dimorphosSized = Aardvark.Base.V3d(80.0, 0.0, 0.0)
+            Expect.equal (Planet.suggestedSystem dimorphosSized Planet.Dimorphos) Planet.Dimorphos "Dimorphos is kept"
+            Expect.equal (Planet.suggestedSystem dimorphosSized Planet.Mars) Planet.None "Mars at 80 m is still corrected"
+            let marsSized = Aardvark.Base.V3d(3390000.0, 0.0, 0.0)
+            Expect.equal (Planet.suggestedSystem marsSized Planet.Dimorphos) Planet.Mars "Mars-sized data is recognised"
+        }
+
+        test "TC-12.4 lat/lon on a GIS body uses that body's convention (Dimorphos is spherical)" {
+            // Dimorphos has no PGRREC pole (see CooTransformation.getConvention); by name it
+            // used to go through PGRREC. Spherical needs no SPICE at all.
+            match CooTransformation.tryGetLatLonAltOfBody "Dimorphos" (Aardvark.Base.V3d(0.0, 100.0, 0.0)) with
+            | Some sc ->
+                Expect.floatClose Accuracy.high sc.latitude 0.0 "latitude"
+                Expect.floatClose Accuracy.high sc.longitude 90.0 "longitude"
+                Expect.floatClose Accuracy.high sc.altitude 100.0 "radial distance"
+            | None -> failtest "spherical lat/lon cannot fail"
         }
 
         // TC-12.3 Persistence — the sun/lighting mode is part of the scene: the batch

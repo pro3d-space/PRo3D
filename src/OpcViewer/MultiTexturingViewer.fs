@@ -33,13 +33,16 @@ module private MultiTexturingShader =
     open FShade
 
     let LoDColor  (v : Vertex) =
+        // one return on purpose (#719, FShade#39): every return path duplicates the
+        // whole rest of the effect in the generated GLSL
         fragment {
+            let mutable color = v.c
             if uniform?LodVisEnabled then
                 let c : V4f = uniform?LoDColor
                 let gamma = 1.0f
                 let grayscale = 0.2126f * v.c.X ** gamma + 0.7152f * v.c.Y ** gamma  + 0.0722f * v.c.Z ** gamma
-                return grayscale * c
-            else return v.c
+                color <- grayscale * c
+            return color
         }
 
     let stableTrafo (v : Vertex) =
@@ -89,16 +92,18 @@ module private MultiTexturingShader =
         member x.SecondaryMinMax : V2f = uniform?SecondaryMinMax
 
     let secondaryTexture (v : WeightedVertex) =
+        // one return on purpose (#719, FShade#39): every return path duplicates the
+        // whole rest of the effect in the generated GLSL
         fragment {
+            let mutable color = v.c
             let useSecondary = uniform.UseSecondary
             let opacity : float32 = uniform.SecondaryOpacity
             if useSecondary then
                 let range = uniform.SecondaryMinMax.Y - uniform.SecondaryMinMax.X
                 let e = (secondaryTextureSampler.Sample(v.tc) - uniform.SecondaryMinMax.X) / range
                 let c = transferFunctionSampler.Sample(V2f(e.X, 0.0f))
-                return V4f(Fun.Lerp(min v.weight opacity, v.c.XYZ, c.XYZ), 1.0f)
-            else
-                return v.c
+                color <- V4f(Fun.Lerp(min v.weight opacity, v.c.XYZ, c.XYZ), 1.0f)
+            return color
         }
 
 

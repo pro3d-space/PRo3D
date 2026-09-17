@@ -345,6 +345,20 @@ module ViewerIO =
                 scene        = scene 
                 //correlationPlot = { m.correlationPlot with semanticApp = m.correlationPlot.semanticApp }
                 drawing      = drawing }
-                //minervaModel = minerva } 
+                //minervaModel = minerva }
             |> Model.stashAndSaveRecent path
+
+    /// `saveEverything`, then the window layout beside the scene (docs/WindowLayouts.md).
+    /// The sidecar is written only once the scene is saved and cannot fail the save: a
+    /// failure is logged and returned for user feedback.
+    let saveEverythingWithLayout (path : string) (m : Model) : Model * Option<string> =
+        let m = saveEverything path m
+        match m.scene.scenePath with
+        | Some scenePath when not (path.IsEmptyOrNull()) ->
+            match SceneLayoutSidecar.tryWrite scenePath m.layout.current with
+            | Result.Ok () -> m, None
+            | Result.Error e ->
+                Log.warn "[Layouts] scene saved, but not the layout beside it (%s): %s" (SceneLayoutSidecar.path scenePath) e
+                m, Some e
+        | _ -> m, None
 

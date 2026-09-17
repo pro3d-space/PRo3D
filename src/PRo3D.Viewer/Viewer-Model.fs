@@ -169,9 +169,7 @@ type ViewerAction =
 | SetTabMenu                      of TabMenu
 | NoAction                        of string
 | OrientationCube                 of ISg
-| UpdateDockConfig                of DockConfig
-| ChangeDashboardMode             of DashboardMode
-| AddPage                         of DockElement    
+| LayoutMessage                   of LayoutAction
 | ToggleOrientationCube
 | UpdateUserFeedback              of string
 | StartImportMessaging            of list<string>
@@ -235,8 +233,10 @@ type Scene = {
     traverses         : TraverseModel
 
     viewPlans         : ViewPlanModel
-    dockConfig        : DockConfig
-    closedPages       : list<DockElement>
+    /// The docking layout of PRo3D <= 6.2 exactly as read from the scene file, written
+    /// back unchanged so older versions keep opening the scene. The viewer no longer uses
+    /// it: window layouts live in AppData and beside the scene (docs/WindowLayouts.md).
+    legacyDockConfig  : Option<string>
     firstImport       : bool
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
@@ -266,7 +266,7 @@ module Scene =
             let! scenePath       = Json.read "scenePath"
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
-            let! dockConfig      = Json.read "dockConfig"            
+            let! dockConfig      = Json.tryRead<string> "dockConfig"
 
             return 
                 {
@@ -284,8 +284,7 @@ module Scene =
                     bookmarks             = bookmarks
                                           
                     viewPlans             = ViewPlanModel.initial
-                    dockConfig            = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages           = List.empty
+                    legacyDockConfig      = dockConfig
                     firstImport           = false
                     userFeedback          = String.Empty
                     feedbackThreads       = ThreadPool.empty
@@ -316,7 +315,7 @@ module Scene =
             let! scenePath              = Json.read "scenePath"
             let! referenceSystem        = Json.read "referenceSystem"
             let! bookmarks              = Json.read "bookmarks"
-            let! dockConfig             = Json.read "dockConfig"  
+            let! dockConfig             = Json.tryRead<string> "dockConfig"
             let! comparisonApp          = Json.tryRead "comparisonApp"
             let! scaleBars              = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
@@ -338,8 +337,7 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = ViewPlanModel.initial
-                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages             = List.empty
+                    legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -369,7 +367,7 @@ module Scene =
             let! scenePath              = Json.read "scenePath"
             let! referenceSystem        = Json.read "referenceSystem"
             let! bookmarks              = Json.read "bookmarks"
-            let! dockConfig             = Json.read "dockConfig"  
+            let! dockConfig             = Json.tryRead<string> "dockConfig"
             let! comparisonApp          = Json.tryRead "comparisonApp"
             let! scaleBars              = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
@@ -396,8 +394,7 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = ViewPlanModel.initial //if viewplans.IsSome then viewplans.Value else ViewPlanModel.initial
-                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages             = List.empty
+                    legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -429,7 +426,7 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! viewPlans       = Json.read "viewPlans"
-            let! dockConfig      = Json.read "dockConfig"  
+            let! dockConfig      = Json.tryRead<string> "dockConfig"
             let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
             let! scaleBars       = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
@@ -460,8 +457,7 @@ module Scene =
                     bookmarks               = bookmarks
 
                     viewPlans               = viewPlans
-                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages             = List.empty
+                    legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -509,7 +505,7 @@ type Scene with
             do! Json.write "bookmarks" x.bookmarks    
             do! Json.write "viewPlans" x.viewPlans    
             do! Json.write "comparisonApp" (x.comparisonApp)
-            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString) 
+            do! Json.write "dockConfig" (x.legacyDockConfig |> Option.defaultWith LegacyDockConfig.pickled)
             do! Json.write "scaleBars" x.scaleBars
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
@@ -602,7 +598,8 @@ module EllipseModel =
 type Model = { 
     viewerVersion        : string
     startupArgs          : StartupArgs
-    dashboardMode        : string
+    /// Window layout of this viewer; per user, not part of the scene.
+    layout               : LayoutModel
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
     interaction          : Interactions    

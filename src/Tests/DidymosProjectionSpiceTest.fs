@@ -111,15 +111,21 @@ let tests () =
             Expect.isSome result "transformBody should resolve Didymos's own placement with the correct body-fixed frame name"
         }
 
-        // Reproduces the user's second attempt, bodyFrame switched to J2000.
-        test "transformBody DIDYMOS (bodyFrame J2000) observed from DIDYMOS in J2000" {
-            ensurePlanKernel ()
+        // Reproduces the user's second attempt, bodyFrame switched to J2000. Body and
+        // observer are the same and so are the frames: since #758 transformBody answers this
+        // with the identity without asking SPICE (a body seen from itself in its own frame),
+        // so this no longer exercises SPICE - the getRelState and DIDYMOS_FIXED cases above do.
+        test "transformBody DIDYMOS (bodyFrame J2000) observed from DIDYMOS in J2000 is the identity, without SPICE" {
             let result =
                 CooTransformation.transformBody
                     (EntitySpiceName "DIDYMOS") (Some (FrameSpiceName "J2000"))
                     (EntitySpiceName "DIDYMOS") (FrameSpiceName "J2000") reportedTime
             printfn "[didymosProjectionSpice] transformBody (J2000) = %A" result
-            Expect.isSome result "transformBody should resolve Didymos's own placement with an explicit J2000 bodyFrame too"
+            match result with
+            | Some t ->
+                Expect.equal t.position V3d.Zero "at the origin"
+                Expect.equal t.alignBodyToObserverFrame M33d.Identity "unrotated"
+            | None -> failtest "a body seen from itself in its own frame always resolves"
         }
 
         // The instrument side: same time, the SPICE calls projectOnto/projectOntoQuat
