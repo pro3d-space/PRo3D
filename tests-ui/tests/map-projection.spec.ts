@@ -94,6 +94,45 @@ async function settle(page: Page, name: string, minTextured = 0.05): Promise<Img
     return PNG.sync.read(shot);
 }
 
+/** The synthetic annotations (src/Tests/MapProjectionAnnotationFixture.fs, written with
+ *  Tests.dll --write-map-annotations). */
+const annotationFixture = path.join(__dirname, "..", "fixtures", "map-projection-annotations.pro3d.ann");
+
+type Rgb = (r: number, g: number, b: number) => boolean;
+const annotationColours: { name: string; lon: number; lat: number; is: Rgb }[] = [
+    // polyline at 70 N, vertex at lon 0
+    { name: "cyan polyline", lon: 0, lat: 70, is: (r, g, b) => r < 90 && g > 170 && b > 170 },
+    // polyline across the seam: between its vertices at 160 and 170 E, and at -170 and -160
+    { name: "magenta seam polyline (east edge)", lon: 165, lat: 10, is: (r, g, b) => r > 170 && g < 90 && b > 170 },
+    { name: "magenta seam polyline (west edge)", lon: -165, lat: 10, is: (r, g, b) => r > 170 && g < 90 && b > 170 },
+    // 50 % green fill over whatever lies beneath
+    { name: "green polygon fill", lon: 50, lat: -20, is: (r, g, b) => g > r + 40 && g > b + 40 },
+    // points, drawn over the equator and the prime meridian
+    { name: "orange point", lon: -90, lat: 0, is: (r, g, b) => r > 200 && g > 80 && g < 180 && b < 90 },
+    { name: "blue point", lon: 0, lat: -45, is: (r, g, b) => b > 150 && r < 110 && g < 110 },
+];
+
+/** some pixel within `radius` of (x, y) satisfies `is` */
+function colourNear(img: Img, x: number, y: number, radius: number, is: Rgb) {
+    for (let dy = -radius; dy <= radius; dy++)
+        for (let dx = -radius; dx <= radius; dx++) {
+            const px = Math.round(x + dx), py = Math.round(y + dy);
+            if (px < 0 || py < 0 || px >= img.width || py >= img.height) continue;
+            const o = (py * img.width + px) * 4;
+            if (is(img.data[o], img.data[o + 1], img.data[o + 2])) return true;
+        }
+    return false;
+}
+
+/** checks every fixture annotation on an equirectangular map filling a 2:1 view at zoom 1 */
+function expectAnnotationsOnEquirectangular(img: Img) {
+    for (const a of annotationColours) {
+        const x = (a.lon / 180 + 1) / 2 * img.width;
+        const y = (1 - a.lat / 90) / 2 * img.height;
+        expect(colourNear(img, x, y, 4, a.is), `${a.name} at pixel (${Math.round(x)}, ${Math.round(y)})`).toBe(true);
+    }
+}
+
 async function clickButton(page: Page, label: string) {
     // single-shot DOM click: Playwright's actionability loop starves against the incremental UI
     const r = await page.evaluate((l) => {
@@ -172,6 +211,19 @@ test.describe("map projection view (#772)", () => {
         }
     });
 
+    test("standalone: annotations from a file land at their longitude and latitude", async ({ browser }) => {
+        const app = await launchMap([fixture.opc], ["--annotations", annotationFixture], 54334);
+        const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
+        try {
+            await page.goto(app.url);
+            await page.waitForSelector("img.rendercontrol", { timeout: 60_000 });
+            const img = await settle(page, "map-standalone-annotations.png");
+            expectAnnotationsOnEquirectangular(img);
+        } finally {
+            await app.stop();
+        }
+    });
+
     test("standalone: a planet gets the hint, not a map", async ({ browser }) => {
         const app = await launchMap([fixture.opc], ["--planet", "Mars"], 54332);
         const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
@@ -181,6 +233,23 @@ test.describe("map projection view (#772)", () => {
             expect(await page.locator("img.rendercontrol").count()).toBe(0);
         } finally {
             await app.stop();
+        }
+    });
+
+    test("in PRo3D: the scene's annotations are on the map", async ({ browser }) => {
+        const scene = bodyFixedScene();
+        // PRo3D reads a scene's annotations from <scene>.ann beside it
+        fs.copyFileSync(annotationFixture, scene + ".ann");
+        const app = await launchPro3d(scene, freshLayouts());
+        const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
+        try {
+            await page.goto(app.url + "?page=mapprojection");
+            await page.waitForSelector("img.rendercontrol", { timeout: 120_000 });
+            const img = await settle(page, "map-pro3d-annotations.png");
+            expectAnnotationsOnEquirectangular(img);
+        } finally {
+            await app.stop();
+            fs.rmSync(scene + ".ann", { force: true });
         }
     });
 

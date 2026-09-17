@@ -58,7 +58,7 @@ Current specs:
 | `hover-flyto` | hover preview + footprint, exact reversion, fly-to camera move |
 | `looking-at-dimorphos` | fly-to lands looking at the body, at the size the sidecar's range predicts |
 | `window-layouts` | window layouts (docs/WindowLayouts.md): built-in layouts, close/reopen, reload and restart restore, the layout library, the sidecar beside saved scenes (a failing sidecar never fails the save), the offer when opening a scene with another layout, broken layout files reported to the user, popouts. Each case uses its own `PRO3D_LAYOUT_DIR` |
-| `map-projection` | the map projection panel (#772, docs/MapProjectionView.md): the standalone `PRo3D.MapProjection.exe` draws the graticule where the projection puts it, dragging moves the map by the drag, polar north puts the prime meridian below the pole, a planet gets the hint; PRo3D's `?page=mapprojection` shows the same map. Needs `dotnet build src/PRo3D.MapProjection -c Release` |
+| `map-projection` | the map projection panel (#772, docs/MapProjectionView.md): the standalone `PRo3D.MapProjection.exe` draws the synthetic annotations (`fixtures/map-projection-annotations.pro3d.ann`) and the graticule where the projection puts it, dragging moves the map by the drag, polar north puts the prime meridian below the pole, a planet gets the hint; PRo3D's `?page=mapprojection` shows the same map. Needs `dotnet build src/PRo3D.MapProjection -c Release` |
 | `scene-body` | the planet and the GIS observed body are one setting (#758): a GIS-only scene gets its planet on load and map view navigates; a J2000 scene loads unchanged and switches to body-fixed on request; picking the planet sets up the GIS |
 
 ### `projection-e2e` — generate, project, compare

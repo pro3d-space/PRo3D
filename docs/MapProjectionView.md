@@ -5,9 +5,9 @@ Synopsis: a panel showing a small body's OPC surfaces as a 2D map, **equirectang
 Issue: [#772](https://github.com/pro3d-space/PRo3D/issues/772).
 Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [Window Layouts](WindowLayouts.md).
 
-> **Phases 1 and 1.5.** OPC surfaces with their primary texture, the graticule, pan and zoom,
-> and a map-space LoD decider. Not yet: annotations (phase 2), picking or cursor readout, OBJ
-> meshes, planets.
+> **Phases 1, 1.5 and 2.** OPC surfaces with their primary texture, the graticule, pan and zoom,
+> a map-space LoD decider, and annotations (lines, fills, points, ellipses). Not yet: annotation
+> labels, dip-and-strike glyphs, picking or cursor readout, OBJ meshes, planets.
 
 ## Using it
 
@@ -19,11 +19,13 @@ Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [
 - **Standalone:**
 
   ```
-  PRo3D.MapProjection.exe --opc <dir> [--opc <dir> ...] [--planet Dimorphos] [--port 4330] [--server]
+  PRo3D.MapProjection.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
+                          [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--port 4330] [--server]
   ```
 
   `--opc` takes an OPC directory (its patch hierarchies are found below it) or a single
-  hierarchy. Without `--server` it opens an Aardium window. With `--server` it only serves
+  hierarchy. `--annotations` takes a PRo3D annotation file, or an SBMT structure file with points,
+  ellipses or circles, read in `--frame` (SBMT lines and polygons aren't imported yet). Without `--server` it opens an Aardium window. With `--server` it only serves
   `http://localhost:<port>/` and runs until stdin closes; this is what the Playwright spec uses.
 
 | Input | Effect |
@@ -70,6 +72,7 @@ bound to the scene body, or unbound surfaces inheriting it.
 | [`src/PRo3D.MapProjection/Projection.fs`](../src/PRo3D.MapProjection/Projection.fs) | Double-precision math: lon/lat/radius, forward and inverse, seam/pole classification, view matrix. The source of truth the tests check pixels against |
 | [`src/PRo3D.MapProjection/Shaders.fs`](../src/PRo3D.MapProjection/Shaders.fs) | Map shader stages mirroring `Projection` |
 | [`src/PRo3D.MapProjection/MapSg.fs`](../src/PRo3D.MapProjection/MapSg.fs) | Scene graphs. **The single composition the panel and the tests share** |
+| [`src/PRo3D.MapProjection/MapAnnotations.fs`](../src/PRo3D.MapProjection/MapAnnotations.fs) | Annotations on the map: PRo3D's packed annotation buffers with the map shader stages; loading annotation files for the standalone app |
 | [`src/PRo3D.MapProjection/MapProjectionApp.fs`](../src/PRo3D.MapProjection/MapProjectionApp.fs) | Model update (pan, zoom, projection), view, and `app` for standalone use |
 | [`src/PRo3D.MapProjection/Program.fs`](../src/PRo3D.MapProjection/Program.fs) | `PRo3D.MapProjection.exe` |
 | [`src/PRo3D.Viewer/Viewer/MapProjectionHost.fs`](../src/PRo3D.Viewer/Viewer/MapProjectionHost.fs) | Everything the viewer knows about the panel: which surfaces it draws and where they sit |
@@ -137,6 +140,35 @@ The host places each surface with `SunShadowMap.surfacePlacement`, the same plac
 main render uses. It passes only OPC surfaces of the scene body, so a Didymos surface in a
 Dimorphos scene is left out.
 
+### Annotations (phase 2)
+
+The map reuses PRo3D's packed annotation buffers (`PackedRendering.linesNoIndirect`, `fills`,
+`pointsGeometry`) and only swaps their shader stages.
+- **Identity view:** each packer's `MV` uniform is then the annotation pivot, so `MV × pos` is
+  the body-centred position (the same float32 exception as the surfaces). Points are
+  view-transformed on the CPU, so their positions already are body-centred.
+- **Fills:** body position, then the surfaces' projection stage (seam copies, pole caps, polar
+  cutoff).
+  - That stage carries a `SourceVertexIndex`, which is how FShade passes values it doesn't name
+    through a geometry stage: fill colours here, texture coordinates for the surfaces.
+- **Lines:** body position, then a line seam stage (unwrap from the first end, emit the −2π, 0 and
+  +2π copies on screen; polar: drop segments beyond the cutoff), then PRo3D's own
+  `LineShader.thickLine` for pixel widths.
+- **Points:** a map vertex stage and a round-dot fragment. A dot exactly on ±180° shows on one
+  edge only.
+- **Ellipses** are sampled polylines already (SBMT import: 60 samples, drawn ellipses: 200), so
+  they need nothing extra.
+- **No densification:** a straight annotation segment stays straight in lon/lat. Draped
+  annotations are densely sampled anyway; long "Linear" chords bend slightly wrong, most visibly
+  near a pole.
+- **Overlay:** annotations are drawn after the surfaces and the graticule, without a depth test,
+  so an annotation under an overhang still shows.
+- **Colours:** colour-by-category and the selection highlight work as in the 3D view.
+- **Not yet:** labels, dip-and-strike glyphs, vertex handles and picking.
+
+The only change to shared code: `PackedRendering.points` is split into `pointsGeometry` plus its
+shader.
+
 ## Tests
 
 A testing ladder: each rung is green before the next.
@@ -156,6 +188,28 @@ Notes on rung 3:
   (`DRACO_1`) is the raw DRACO frame stored as a 2:1 map raster, so the correct map shows that
   photo undistorted.
 
+Phase 2 adds:
+- **Rung 1:** a synthetic annotation fixture (`src/Tests/MapProjectionAnnotationFixture.fs`)
+  with a round trip through a PRo3D annotation file. The fixture has:
+  - a polyline across ±180°;
+  - a polyline at 70° N;
+  - a filled polygon;
+  - two points;
+  - an ellipse parsed from an SBMT row.
+
+  Each has its own colour. `Tests.dll --write-map-annotations <file>` writes it; the committed
+  `tests-ui/fixtures/map-projection-annotations.pro3d.ann` came from there. Synthetic on purpose:
+  no real catalog gets into a test.
+- **Rung 2:** the six annotation effects (fills, lines, points × projection) generate GLSL and read
+  nothing the packed buffers don't provide.
+- **Rung 3:** the fixture rendered headless, equirectangular, zoomed across the seam, and polar
+  north. At every CPU-projected check point (along each segment, each point, inside the fill) the
+  pixel must have that annotation's colour; a flipped control must fail.
+- **Rung 4:** `--bench-map` adds `maplod+boulders` arms when the non-public boulder catalog is on the
+  machine (`PRO3D_PRIVATE_TESTDATA/shapemodels/testdata`). It measures only and writes no image.
+- **Rung 5:** Playwright checks each fixture annotation's colour at its lon/lat, in the standalone app
+  (`--annotations`) and in PRo3D, with the fixture as the scene's `.ann` file.
+
 Phase 1.5 adds to rung 3:
 - a CPU walk of the Dimorphos hierarchy through `mapLod`: only the root at zoom 1, leaves when
   zoomed in;
@@ -174,6 +228,15 @@ all-copies geometry stage:
 
 At zoom 1 the map LoD costs what the root costs, about 6× less than full detail.
 
+With the non-public boulder catalog (4,757 SBMT ellipses) drawn over the map LoD surface:
+
+| Size | Equirect map LoD + boulders | Polar map LoD + boulders |
+|---|---|---|
+| 1024×768 | 3.3 | 2.1 |
+| 1920×1080 | 3.4 | 2.1 |
+
+So annotations add about 0.9 ms (equirectangular) and 0.5 ms (polar) for ~290 k line segments.
+
 In the app (`tests-ui/src/probe-smoothness.ts`, `probe-map-pan.ts`; frames timestamped as
 they arrive in the browser):
 
@@ -187,11 +250,10 @@ A render control only renders on change, so these are costs while something move
 
 ## Later phases
 
-- **2 — annotations:**
-  - The packed annotation buffers already take a view matrix, so call them with identity to
-    get body-centred positions.
-  - Parameterise their shaders with the map vertex/geometry stages (lines through a
-    `mapThickLine` that densifies and seam-splits).
-  - Picking reuses `pickRenderTarget` with the same stages.
+- **Annotations, next steps:**
+  - picking via `pickRenderTarget` with the same stages;
+  - labels;
+  - chord densification: on the CPU, or with tessellation isolines, which set their subdivision
+    level per segment at runtime.
 - **Planets:** a per-patch double anchor, the LoD decider, planetographic/west-positive
   conventions.

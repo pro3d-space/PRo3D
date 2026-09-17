@@ -122,6 +122,47 @@ let run () : int =
                     (sprintf "%s: the map is drawn (coverage %.3f of expected %.3f)" name (covered settled) expected)
                 results.Add((name, size, g, w))
 
+    // Annotation load: the non-public boulder catalog (~4,800 SBMT ellipses) when it is on this
+    // machine (PRO3D_PRIVATE_TESTDATA/shapemodels/testdata). Measured only; no image is written.
+    let catalog =
+        TestUtils.Roots.privateDir [ "shapemodels"; "testdata" ]
+        |> Option.map (fun d -> Path.Combine(d, "Dimo_Bould_Glob_7_Maurizio"))
+        |> Option.filter File.Exists
+    match catalog with
+    | None -> say "[bench-map] no private boulder catalog: annotation arms skipped"
+    | Some file ->
+        let annotations = MapAnnotations.load "DIMORPHOS_SHM" file
+        say "[bench-map] %d annotations from the private boulder catalog" annotations.Length
+        let inputs = { MapAnnotations.none with annotations = MapAnnotations.ofList annotations }
+        for size in sizes do
+            for kind in [ MapProjectionKind.Equirectangular; MapProjectionKind.PolarNorth ] do
+                let name = sprintf "%A/maplod+boulders" kind
+                say "[bench-map] %dx%d %s" size.X size.Y name
+                let viewProj = Projection.viewProj kind Projection.defaultMaxColatitude V2d.Zero 1.0 size
+                let lod = MapSg.mapLod (AVal.constant kind) (AVal.constant viewProj) (AVal.constant size) (AVal.constant Projection.defaultMaxColatitude) MapSg.defaultTargetPixels
+                let cfg = { OpcSg.defaultConfig signature (runtime.CreateLoadRunner 1) lod "DIMORPHOS" with asyncLoading = false }
+                let view : MapSg.MapView =
+                    {
+                        kind          = AVal.constant kind
+                        viewProj      = AVal.constant viewProj
+                        maxColatitude = AVal.constant Projection.defaultMaxColatitude
+                        radiusRange   = AVal.constant (Projection.radiusRange maxR)
+                    }
+                let surface : MapSg.MapSurface =
+                    { hierarchies = hierarchies; placement = AVal.constant Trafo3d.Identity; visible = AVal.constant true }
+                let sw = Stopwatch.StartNew()
+                let sg =
+                    MapAnnotations.mapWithAnnotations cfg view (ASet.single surface) inputs
+                    |> Sg.uniform "ViewportSize" (AVal.constant size)
+                    |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
+                    |> Sg.projTrafo (AVal.constant Trafo3d.Identity)
+                use bench = new Bench(runtime, signature, sg, size, background)
+                bench.Settle 200 |> ignore
+                say "[bench-map]   packed and settled in %.1f s" sw.Elapsed.TotalSeconds
+                let m = bench.Measure(frames, repeats, warmup)
+                let g, w = report name m
+                results.Add((name, size, g, w))
+
     say "[bench-map] summary (median ms/frame, gpu | wall):"
     for (name, size, g, w) in results do
         say "[bench-map]   %4dx%-4d %-28s %7.3f | %7.3f" size.X size.Y name g w
