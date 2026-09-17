@@ -49,7 +49,12 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         OutcropTraceAttitudeTest.tests()
         OutcropTraceShaderTest.tests()
         SurfaceEffectVariantTest.tests()
+        // map projection view (#772): math and shader codegen, no GPU
+        MapProjectionMathTests.tests()
+        MapProjectionShaderTest.tests()
         PRo3D.Tests.SurfaceEffectSwitchTest.tests()
+        // map projection view (#772): Dimorphos OPC rendered headless; self-skips without GPU/data
+        MapProjectionRenderTest.tests()
         PolygonFillTests.tests()
         RegionOpsTests.tests()
         RegionFixtureTests.tests()
@@ -261,6 +266,14 @@ let main args =
         | Some _ -> printfn "[bench] GL runtime created on the main thread"
         | None -> printfn "[bench] WARNING: no GL runtime"
         exit (PRo3D.Tests.SurfaceEffectBenchmark.run ())
+
+    if args |> Array.contains "--bench-map" then
+        // map projection view (#772); same main-thread GL requirement as --bench
+        Aardvark.Base.Aardvark.Init()
+        match PRo3D.Tests.Render.context.Value with
+        | Some _ -> printfn "[bench-map] GL runtime created on the main thread"
+        | None -> printfn "[bench-map] WARNING: no GL runtime"
+        exit (PRo3D.Tests.MapProjectionBenchmark.run ())
 
     match args |> Array.tryFindIndex ((=) "--make-footprint-scene") with
     | Some i ->
