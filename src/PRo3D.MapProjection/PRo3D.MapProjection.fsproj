@@ -17,6 +17,7 @@
     <Compile Include="Projection.fs" />
     <Compile Include="Shaders.fs" />
     <Compile Include="MapSg.fs" />
+    <Compile Include="MapAnnotations.fs" />
     <Compile Include="MapProjection-Model.fs" />
     <Compile Include="MapProjection-Model.g.fs" />
     <Compile Include="MapProjectionApp.fs" />

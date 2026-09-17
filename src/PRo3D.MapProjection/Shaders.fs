@@ -16,7 +16,9 @@ module Shaders =
     type MapVertex =
         {
             [<Position>]              pos : V4f
-            [<TexCoord>]              tc  : V2f
+            /// which input corner an emitted vertex copies: lets FShade pass through everything
+            /// the stage does not name (texture coordinates of surfaces, colours of fills)
+            [<SourceVertexIndex>]     svi : int
             /// (longitude, latitude, radius) — longitude unwrapped per triangle by the geometry
             /// stage, so interpolation never runs across the +-180 degree seam.
             [<Semantic("MapLonLatR")>] llr : V3f
@@ -54,13 +56,16 @@ module Shaders =
 
     /// Body-centred (longitude, latitude, radius). The clip position is written by the
     /// geometry stage, which needs all three corners to handle the seam and the poles.
+    /// (longitude, latitude, radius) of a body-centred position; mirrors `Projection.lonLatR`.
+    [<ReflectedDefinition>]
+    let lonLatRadiusOf (p : V3f) =
+        let r = p.Length
+        V3f(atan2 p.Y p.X, asin (clamp -1.0f 1.0f (p.Z / r)), r)
+
     let lonLatRadius (v : MapVertex) =
         vertex {
             let p = (uniform.ModelTrafo * v.pos).XYZ
-            let r = p.Length
-            let lon = atan2 p.Y p.X
-            let lat = asin (clamp -1.0f 1.0f (p.Z / r))
-            return { v with llr = V3f(lon, lat, r); bp = p }
+            return { v with llr = lonLatRadiusOf p; bp = p }
         }
 
     /// Whether a map-space shape, shifted by `shift` in longitude, can reach the viewport:
@@ -97,52 +102,52 @@ module Shaders =
 
             if abs winding < Pi then
                 if onScreen 0.0f xa xb xc a.Y b.Y c.Y then
-                    yield { t.P0 with pos = clip xa a.Y a.Z; llr = V3f(xa, a.Y, a.Z) }
-                    yield { t.P1 with pos = clip xb b.Y b.Z; llr = V3f(xb, b.Y, b.Z) }
-                    yield { t.P2 with pos = clip xc c.Y c.Z; llr = V3f(xc, c.Y, c.Z) }
+                    yield { t.P0 with svi = 0; pos = clip xa a.Y a.Z; llr = V3f(xa, a.Y, a.Z) }
+                    yield { t.P1 with svi = 1; pos = clip xb b.Y b.Z; llr = V3f(xb, b.Y, b.Z) }
+                    yield { t.P2 with svi = 2; pos = clip xc c.Y c.Z; llr = V3f(xc, c.Y, c.Z) }
                     restartStrip()
                 if onScreen (-TwoPi) xa xb xc a.Y b.Y c.Y then
-                    yield { t.P0 with pos = clip (xa + -TwoPi) a.Y a.Z; llr = V3f((xa + -TwoPi), a.Y, a.Z) }
-                    yield { t.P1 with pos = clip (xb + -TwoPi) b.Y b.Z; llr = V3f((xb + -TwoPi), b.Y, b.Z) }
-                    yield { t.P2 with pos = clip (xc + -TwoPi) c.Y c.Z; llr = V3f((xc + -TwoPi), c.Y, c.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa + -TwoPi) a.Y a.Z; llr = V3f((xa + -TwoPi), a.Y, a.Z) }
+                    yield { t.P1 with svi = 1; pos = clip (xb + -TwoPi) b.Y b.Z; llr = V3f((xb + -TwoPi), b.Y, b.Z) }
+                    yield { t.P2 with svi = 2; pos = clip (xc + -TwoPi) c.Y c.Z; llr = V3f((xc + -TwoPi), c.Y, c.Z) }
                     restartStrip()
                 if onScreen TwoPi xa xb xc a.Y b.Y c.Y then
-                    yield { t.P0 with pos = clip (xa + TwoPi) a.Y a.Z; llr = V3f((xa + TwoPi), a.Y, a.Z) }
-                    yield { t.P1 with pos = clip (xb + TwoPi) b.Y b.Z; llr = V3f((xb + TwoPi), b.Y, b.Z) }
-                    yield { t.P2 with pos = clip (xc + TwoPi) c.Y c.Z; llr = V3f((xc + TwoPi), c.Y, c.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa + TwoPi) a.Y a.Z; llr = V3f((xa + TwoPi), a.Y, a.Z) }
+                    yield { t.P1 with svi = 1; pos = clip (xb + TwoPi) b.Y b.Z; llr = V3f((xb + TwoPi), b.Y, b.Z) }
+                    yield { t.P2 with svi = 2; pos = clip (xc + TwoPi) c.Y c.Z; llr = V3f((xc + TwoPi), c.Y, c.Z) }
                     restartStrip()
             else
                 let poleY = if a.Y + b.Y + c.Y > 0.0f then HalfPi else -HalfPi
                 let xa2 = xa + winding
                 if onScreen 0.0f xa xa2 xb poleY a.Y b.Y then
-                    yield { t.P0 with pos = clip xa poleY a.Z; llr = V3f(xa, poleY, a.Z) }
-                    yield { t.P0 with pos = clip xa a.Y a.Z; llr = V3f(xa, a.Y, a.Z) }
-                    yield { t.P1 with pos = clip xb poleY b.Z; llr = V3f(xb, poleY, b.Z) }
-                    yield { t.P1 with pos = clip xb b.Y b.Z; llr = V3f(xb, b.Y, b.Z) }
-                    yield { t.P2 with pos = clip xc poleY c.Z; llr = V3f(xc, poleY, c.Z) }
-                    yield { t.P2 with pos = clip xc c.Y c.Z; llr = V3f(xc, c.Y, c.Z) }
-                    yield { t.P0 with pos = clip xa2 poleY a.Z; llr = V3f(xa2, poleY, a.Z) }
-                    yield { t.P0 with pos = clip xa2 a.Y a.Z; llr = V3f(xa2, a.Y, a.Z) }
+                    yield { t.P0 with svi = 0; pos = clip xa poleY a.Z; llr = V3f(xa, poleY, a.Z) }
+                    yield { t.P0 with svi = 0; pos = clip xa a.Y a.Z; llr = V3f(xa, a.Y, a.Z) }
+                    yield { t.P1 with svi = 1; pos = clip xb poleY b.Z; llr = V3f(xb, poleY, b.Z) }
+                    yield { t.P1 with svi = 1; pos = clip xb b.Y b.Z; llr = V3f(xb, b.Y, b.Z) }
+                    yield { t.P2 with svi = 2; pos = clip xc poleY c.Z; llr = V3f(xc, poleY, c.Z) }
+                    yield { t.P2 with svi = 2; pos = clip xc c.Y c.Z; llr = V3f(xc, c.Y, c.Z) }
+                    yield { t.P0 with svi = 0; pos = clip xa2 poleY a.Z; llr = V3f(xa2, poleY, a.Z) }
+                    yield { t.P0 with svi = 0; pos = clip xa2 a.Y a.Z; llr = V3f(xa2, a.Y, a.Z) }
                     restartStrip()
                 if onScreen (-TwoPi) xa xa2 xb poleY a.Y b.Y then
-                    yield { t.P0 with pos = clip (xa + -TwoPi) poleY a.Z; llr = V3f((xa + -TwoPi), poleY, a.Z) }
-                    yield { t.P0 with pos = clip (xa + -TwoPi) a.Y a.Z; llr = V3f((xa + -TwoPi), a.Y, a.Z) }
-                    yield { t.P1 with pos = clip (xb + -TwoPi) poleY b.Z; llr = V3f((xb + -TwoPi), poleY, b.Z) }
-                    yield { t.P1 with pos = clip (xb + -TwoPi) b.Y b.Z; llr = V3f((xb + -TwoPi), b.Y, b.Z) }
-                    yield { t.P2 with pos = clip (xc + -TwoPi) poleY c.Z; llr = V3f((xc + -TwoPi), poleY, c.Z) }
-                    yield { t.P2 with pos = clip (xc + -TwoPi) c.Y c.Z; llr = V3f((xc + -TwoPi), c.Y, c.Z) }
-                    yield { t.P0 with pos = clip (xa2 + -TwoPi) poleY a.Z; llr = V3f((xa2 + -TwoPi), poleY, a.Z) }
-                    yield { t.P0 with pos = clip (xa2 + -TwoPi) a.Y a.Z; llr = V3f((xa2 + -TwoPi), a.Y, a.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa + -TwoPi) poleY a.Z; llr = V3f((xa + -TwoPi), poleY, a.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa + -TwoPi) a.Y a.Z; llr = V3f((xa + -TwoPi), a.Y, a.Z) }
+                    yield { t.P1 with svi = 1; pos = clip (xb + -TwoPi) poleY b.Z; llr = V3f((xb + -TwoPi), poleY, b.Z) }
+                    yield { t.P1 with svi = 1; pos = clip (xb + -TwoPi) b.Y b.Z; llr = V3f((xb + -TwoPi), b.Y, b.Z) }
+                    yield { t.P2 with svi = 2; pos = clip (xc + -TwoPi) poleY c.Z; llr = V3f((xc + -TwoPi), poleY, c.Z) }
+                    yield { t.P2 with svi = 2; pos = clip (xc + -TwoPi) c.Y c.Z; llr = V3f((xc + -TwoPi), c.Y, c.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa2 + -TwoPi) poleY a.Z; llr = V3f((xa2 + -TwoPi), poleY, a.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa2 + -TwoPi) a.Y a.Z; llr = V3f((xa2 + -TwoPi), a.Y, a.Z) }
                     restartStrip()
                 if onScreen TwoPi xa xa2 xb poleY a.Y b.Y then
-                    yield { t.P0 with pos = clip (xa + TwoPi) poleY a.Z; llr = V3f((xa + TwoPi), poleY, a.Z) }
-                    yield { t.P0 with pos = clip (xa + TwoPi) a.Y a.Z; llr = V3f((xa + TwoPi), a.Y, a.Z) }
-                    yield { t.P1 with pos = clip (xb + TwoPi) poleY b.Z; llr = V3f((xb + TwoPi), poleY, b.Z) }
-                    yield { t.P1 with pos = clip (xb + TwoPi) b.Y b.Z; llr = V3f((xb + TwoPi), b.Y, b.Z) }
-                    yield { t.P2 with pos = clip (xc + TwoPi) poleY c.Z; llr = V3f((xc + TwoPi), poleY, c.Z) }
-                    yield { t.P2 with pos = clip (xc + TwoPi) c.Y c.Z; llr = V3f((xc + TwoPi), c.Y, c.Z) }
-                    yield { t.P0 with pos = clip (xa2 + TwoPi) poleY a.Z; llr = V3f((xa2 + TwoPi), poleY, a.Z) }
-                    yield { t.P0 with pos = clip (xa2 + TwoPi) a.Y a.Z; llr = V3f((xa2 + TwoPi), a.Y, a.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa + TwoPi) poleY a.Z; llr = V3f((xa + TwoPi), poleY, a.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa + TwoPi) a.Y a.Z; llr = V3f((xa + TwoPi), a.Y, a.Z) }
+                    yield { t.P1 with svi = 1; pos = clip (xb + TwoPi) poleY b.Z; llr = V3f((xb + TwoPi), poleY, b.Z) }
+                    yield { t.P1 with svi = 1; pos = clip (xb + TwoPi) b.Y b.Z; llr = V3f((xb + TwoPi), b.Y, b.Z) }
+                    yield { t.P2 with svi = 2; pos = clip (xc + TwoPi) poleY c.Z; llr = V3f((xc + TwoPi), poleY, c.Z) }
+                    yield { t.P2 with svi = 2; pos = clip (xc + TwoPi) c.Y c.Z; llr = V3f((xc + TwoPi), c.Y, c.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa2 + TwoPi) poleY a.Z; llr = V3f((xa2 + TwoPi), poleY, a.Z) }
+                    yield { t.P0 with svi = 0; pos = clip (xa2 + TwoPi) a.Y a.Z; llr = V3f((xa2 + TwoPi), a.Y, a.Z) }
                     restartStrip()
         }
 
@@ -168,9 +173,9 @@ module Shaders =
                 let ra = 2.0f * tan (0.5f * ca)
                 let rb = 2.0f * tan (0.5f * cb)
                 let rc = 2.0f * tan (0.5f * cc)
-                yield { t.P0 with pos = clip (ra * sin a.X) (-sign * ra * cos a.X) a.Z; llr = V3f(a.X, a.Y, a.Z) }
-                yield { t.P1 with pos = clip (rb * sin b.X) (-sign * rb * cos b.X) b.Z; llr = V3f(xb, b.Y, b.Z) }
-                yield { t.P2 with pos = clip (rc * sin c.X) (-sign * rc * cos c.X) c.Z; llr = V3f(xc, c.Y, c.Z) }
+                yield { t.P0 with svi = 0; pos = clip (ra * sin a.X) (-sign * ra * cos a.X) a.Z; llr = V3f(a.X, a.Y, a.Z) }
+                yield { t.P1 with svi = 1; pos = clip (rb * sin b.X) (-sign * rb * cos b.X) b.Z; llr = V3f(xb, b.Y, b.Z) }
+                yield { t.P2 with svi = 2; pos = clip (rc * sin c.X) (-sign * rc * cos c.X) c.Z; llr = V3f(xc, c.Y, c.Z) }
                 restartStrip()
         }
 
@@ -186,6 +191,115 @@ module Shaders =
     let mapSpaceLine (v : Effects.Vertex) =
         vertex {
             return { v with pos = uniform.MapViewProj * V4f(v.pos.X, v.pos.Y, 0.0f, 1.0f) }
+        }
+
+
+    // ---- annotations (phase 2) --------------------------------------------------------------
+    //
+    // The packed annotation buffers of PRo3D.Core.PackedRendering, drawn with an identity view:
+    // their `MV` uniform is then the pivot, so `MV * pos` is the body-centred position (float32,
+    // the same small-body exception as the surfaces). Points are view-transformed on the CPU, so
+    // with an identity view their positions already are body-centred.
+
+    /// Fills: body position through `MV`, then the surfaces' projection stage. The fill colour
+    /// passes through that stage by `SourceVertexIndex`.
+    let annotationFillVertex (v : MapVertex) =
+        vertex {
+            let mv : M44f = uniform?MV
+            let p = (mv * v.pos).XYZ
+            return { v with llr = lonLatRadiusOf p; bp = p }
+        }
+
+    /// Lines: body position through `MV`; colour and width as `LineShader.noIndirectLineVertex`
+    /// sets them (the hovered annotation red and twice as wide).
+    let annotationLineVertex (v : PRo3D.Core.PackedRendering.LineShader.ThickLineVertex) =
+        vertex {
+            let mv : M44f = uniform?MV
+            let selectedId : int = uniform?SelectedId
+            let isSelected = v.obId = selectedId
+            return
+                { v with
+                    pos = V4f((mv * v.pos).XYZ, 1.0f)
+                    c = if isSelected then V4f.IOOI else v.c
+                    w = if isSelected then v.width * 2.0f else v.width
+                    id = v.obId }
+        }
+
+    /// Equirectangular line segment: longitude unwrapped from the first end, drawn at the copies
+    /// -2 pi, 0, +2 pi that reach the viewport. `LineShader.thickLine` widens it afterwards.
+    let annotationLineEquirectangular (l : Line<PRo3D.Core.PackedRendering.LineShader.ThickLineVertex>) =
+        line {
+            let a = lonLatRadiusOf l.P0.pos.XYZ
+            let b = lonLatRadiusOf l.P1.pos.XYZ
+            let xa = a.X
+            let xb = a.X + wrapPi (b.X - a.X)
+            if onScreen 0.0f xa xb xb a.Y b.Y b.Y then
+                yield { l.P0 with i = 0; pos = clip xa a.Y a.Z }
+                yield { l.P1 with i = 1; pos = clip xb b.Y b.Z }
+                restartStrip()
+            if onScreen (-TwoPi) xa xb xb a.Y b.Y b.Y then
+                yield { l.P0 with i = 0; pos = clip (xa - TwoPi) a.Y a.Z }
+                yield { l.P1 with i = 1; pos = clip (xb - TwoPi) b.Y b.Z }
+                restartStrip()
+            if onScreen TwoPi xa xb xb a.Y b.Y b.Y then
+                yield { l.P0 with i = 0; pos = clip (xa + TwoPi) a.Y a.Z }
+                yield { l.P1 with i = 1; pos = clip (xb + TwoPi) b.Y b.Z }
+                restartStrip()
+        }
+
+    /// Polar stereographic line segment; dropped like triangles beyond the cutoff.
+    let annotationLinePolar (l : Line<PRo3D.Core.PackedRendering.LineShader.ThickLineVertex>) =
+        line {
+            let sign = uniform.MapPolarSign
+            let a = lonLatRadiusOf l.P0.pos.XYZ
+            let b = lonLatRadiusOf l.P1.pos.XYZ
+            let ca = HalfPi - sign * a.Y
+            let cb = HalfPi - sign * b.Y
+            if min ca cb <= uniform.MapMaxColatitude && max ca cb < 0.9f * Pi then
+                let ra = 2.0f * tan (0.5f * ca)
+                let rb = 2.0f * tan (0.5f * cb)
+                yield { l.P0 with i = 0; pos = clip (ra * sin a.X) (-sign * ra * cos a.X) a.Z }
+                yield { l.P1 with i = 1; pos = clip (rb * sin b.X) (-sign * rb * cos b.X) b.Z }
+                restartStrip()
+        }
+
+    /// What a map point sprite needs of `PackedRendering.pointsGeometry` -- no more, or FShade
+    /// asks the buffers for attributes they do not have.
+    type MapPointVertex =
+        {
+            [<Position>]            pos       : V4f
+            [<Semantic("Sizes")>]   size      : float32
+            [<PointSize>]           pointSize : float32
+            [<Color>]               c         : V4f
+            [<PointCoord>]          tc        : V2f
+        }
+
+    /// Point sprites, equirectangular. A dot on the +-180 degree meridian shows on one edge only.
+    let annotationPointEquirectangular (v : MapPointVertex) =
+        vertex {
+            let l = lonLatRadiusOf v.pos.XYZ
+            return { v with pos = clip l.X l.Y l.Z; pointSize = v.size }
+        }
+
+    /// Point sprites, polar stereographic; a dot near the opposite pole is moved off screen.
+    let annotationPointPolar (v : MapPointVertex) =
+        vertex {
+            let sign = uniform.MapPolarSign
+            let l = lonLatRadiusOf v.pos.XYZ
+            let c = HalfPi - sign * l.Y
+            let r = 2.0f * tan (0.5f * c)
+            let mutable p = clip (r * sin l.X) (-sign * r * cos l.X) l.Z
+            if c >= 0.9f * Pi then p <- V4f(4.0f, 4.0f, 0.0f, 1.0f)
+            return { v with pos = p; pointSize = v.size }
+        }
+
+    /// A round dot in the annotation colour.
+    let annotationPointFragment (v : MapPointVertex) =
+        fragment {
+            let c = 2.0f * v.tc - V2f.II
+            if c.Length > 1.0f then
+                discard()
+            return v.c
         }
 
     let private projectionStage (kind : MapProjectionKind) =
@@ -213,4 +327,29 @@ module Shaders =
         Effect.compose [
             toEffect mapSpaceLine
             toEffect DefaultSurfaces.vertexColor
+        ]
+
+    let annotationFillEffect (kind : MapProjectionKind) =
+        Effect.compose [
+            toEffect annotationFillVertex
+            projectionStage kind
+            toEffect PRo3D.Base.Shader.DepthOffset.depthOffsetFS
+        ]
+
+    let annotationLineEffect (kind : MapProjectionKind) =
+        Effect.compose [
+            toEffect annotationLineVertex
+            (match kind with
+             | MapProjectionKind.Equirectangular -> toEffect annotationLineEquirectangular
+             | _ -> toEffect annotationLinePolar)
+            toEffect PRo3D.Core.PackedRendering.LineShader.thickLine
+            toEffect PRo3D.Base.Shader.DepthOffset.depthOffsetFS
+        ]
+
+    let annotationPointEffect (kind : MapProjectionKind) =
+        Effect.compose [
+            (match kind with
+             | MapProjectionKind.Equirectangular -> toEffect annotationPointEquirectangular
+             | _ -> toEffect annotationPointPolar)
+            toEffect annotationPointFragment
         ]

@@ -1,9 +1,11 @@
 /// PRo3D.MapProjection.exe: the map projection panel (#772) as a standalone app.
 ///
-///   PRo3D.MapProjection.exe --opc <dir> [--opc <dir> ...] [--planet Dimorphos] [--port 4330] [--server]
+///   PRo3D.MapProjection.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
+///                            [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--port 4330] [--server]
 ///
 /// `--opc` takes an OPC directory (its hierarchies are found below it) or a single
-/// hierarchy. `--server` serves without opening a window and runs until stdin closes --
+/// hierarchy. `--annotations` takes a PRo3D annotation file or an SBMT structure file (points,
+/// ellipses, circles), read in `--frame`. `--server` serves without opening a window and runs until stdin closes --
 /// the mode the Playwright spec drives. PRo3D embeds the same `MapProjectionApp.view` as the
 /// `mapprojection` page.
 module PRo3D.MapProjection.Program
@@ -28,6 +30,8 @@ let private argAfter (argv : string[]) (name : string) =
 [<EntryPoint; STAThread>]
 let main argv =
     let opcs = [ for i in 0 .. argv.Length - 2 do if argv.[i] = "--opc" then yield argv.[i + 1] ]
+    let annotationFiles = [ for i in 0 .. argv.Length - 2 do if argv.[i] = "--annotations" then yield argv.[i + 1] ]
+    let frame = argAfter argv "--frame" |> Option.defaultValue "DIMORPHOS_SHM"
     let planet =
         argAfter argv "--planet"
         |> Option.bind (fun s -> match Enum.TryParse<Planet>(s, true) with | true, p -> Some p | _ -> None)
@@ -60,7 +64,23 @@ let main argv =
                 Some ({ hierarchies = hierarchies; placement = AVal.constant Trafo3d.Identity; visible = AVal.constant true } : MapSg.MapSurface))
     Log.line "[map] %s, %d surface(s)" (string planet) surfaces.Length
 
-    let inputs = { planet = AVal.constant planet; surfaces = ASet.ofList surfaces }
+    let annotations =
+        annotationFiles
+        |> List.collect (fun file ->
+            try
+                let loaded = MapAnnotations.load frame file
+                Log.line "[map] %d annotation(s) from %s" loaded.Length file
+                loaded
+            with e ->
+                Log.warn "[map] cannot read annotations from %s: %s" file e.Message
+                [])
+
+    let inputs =
+        {
+            planet      = AVal.constant planet
+            surfaces    = ASet.ofList surfaces
+            annotations = { MapAnnotations.none with annotations = MapAnnotations.ofList annotations }
+        }
     use instance = MapProjectionApp.app inputs |> App.start
 
     Server.startLocalhost port instance.CancellationToken [

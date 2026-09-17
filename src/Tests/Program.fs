@@ -52,6 +52,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // map projection view (#772): math and shader codegen, no GPU
         MapProjectionMathTests.tests()
         MapProjectionShaderTest.tests()
+        MapProjectionAnnotationFixture.tests()
         PRo3D.Tests.SurfaceEffectSwitchTest.tests()
         // map projection view (#772): Dimorphos OPC rendered headless; self-skips without GPU/data
         MapProjectionRenderTest.tests()
@@ -266,6 +267,20 @@ let main args =
         | Some _ -> printfn "[bench] GL runtime created on the main thread"
         | None -> printfn "[bench] WARNING: no GL runtime"
         exit (PRo3D.Tests.SurfaceEffectBenchmark.run ())
+
+    match args |> Array.tryFindIndex ((=) "--write-map-annotations") with
+    | Some i ->
+        // the synthetic annotations of the map projection view (#772) as a PRo3D annotation file
+        match args |> Array.tryItem (i + 1) with
+        | Some path ->
+            Aardvark.Base.Aardvark.Init()
+            MapProjectionAnnotationFixture.write path
+            printfn "wrote %d annotations to %s" MapProjectionAnnotationFixture.all.Length path
+            exit 0
+        | None ->
+            printfn "usage: --write-map-annotations <file>"
+            exit 2
+    | None -> ()
 
     if args |> Array.contains "--bench-map" then
         // map projection view (#772); same main-thread GL requirement as --bench

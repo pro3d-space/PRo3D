@@ -20,6 +20,7 @@ type MapInputs =
         planet   : aval<Planet>
         /// OPC surfaces of the scene body
         surfaces : aset<MapSg.MapSurface>
+        annotations : MapAnnotations.AnnotationInputs
     }
 
 /// The map projection panel (#772): update and view.
@@ -113,7 +114,7 @@ module MapProjectionApp =
             // interactive: patches stream in, detail follows the map window (phase 1.5)
             let lod = MapSg.mapLod m.kind viewProj values.size maxColatitude MapSg.defaultTargetPixels
             let cfg = { OpcSg.defaultConfig values.signature runner lod "map" with asyncLoading = true }
-            MapSg.map cfg view inputs.surfaces |> Sg.noEvents
+            MapAnnotations.mapWithAnnotations cfg view inputs.surfaces inputs.annotations |> Sg.noEvents
 
     let private toolbar (m : AdaptiveMapProjectionModel) =
         div [ style "position:absolute; top:6px; left:6px; z-index:10" ] [

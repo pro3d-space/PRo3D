@@ -175,8 +175,135 @@ let private agreement (r : Rendered) (kind : MapProjectionKind) (top : bool) (fl
                     if not (llr.Z > 0.0 && llr.Z <= r.maxR * 1.001) then badRadius <- badRadius + 1
     { coverage = float covered / float (max 1 considered); worstPixels = worst / pixelAngle; badRadius = badRadius }
 
+// ---- annotations (phase 2) -----------------------------------------------------------------
+
+/// The synthetic annotations (MapProjectionAnnotationFixture) alone, through MapAnnotations.sg.
+let private renderAnnotations (runtime : IRuntime) (kind : MapProjectionKind) (size : V2i) (center : V2d) (zoom : float) =
+    let viewProj = Projection.viewProj kind Projection.defaultMaxColatitude center zoom size
+    let target = FloatTarget.create runtime size
+    try
+        let view : MapSg.MapView =
+            {
+                kind          = AVal.constant kind
+                viewProj      = AVal.constant viewProj
+                maxColatitude = AVal.constant Projection.defaultMaxColatitude
+                radiusRange   = AVal.constant (Projection.radiusRange 100.0)
+            }
+        let inputs =
+            { MapAnnotations.none with
+                annotations = MapAnnotations.ofList (MapProjectionAnnotationFixture.all |> List.map (fun c -> c.annotation)) }
+        let sg =
+            MapAnnotations.sg inputs view
+            // thickLine widens lines in pixels; a render control provides this uniform itself
+            |> Sg.uniform "ViewportSize" (AVal.constant size)
+            |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
+            |> Sg.projTrafo (AVal.constant Trafo3d.Identity)
+        { image = FloatTarget.render target 2 sg; viewProj = viewProj; size = size; maxR = 100.0 }
+    finally
+        FloatTarget.dispose target
+
+/// Pixel (column, readback row) of a map-space point, if it is inside the image.
+let private pixelOf (r : Rendered) (top : bool) (m : V2d) =
+    let ndc = r.viewProj.Forward.TransformPos(V3d(m, 0.0))
+    let x = int (floor ((ndc.X + 1.0) * 0.5 * float r.size.X))
+    let rowTop = int (floor ((1.0 - ndc.Y) * 0.5 * float r.size.Y))
+    if x < 0 || x >= r.size.X || rowTop < 0 || rowTop >= r.size.Y then None
+    else Some (x, (if top then rowTop else r.size.Y - 1 - rowTop))
+
+/// Where the CPU projection puts each annotation's check points, in map space: along every
+/// segment of a line (unwrapped from its first end, the way the geometry stage draws it), at a
+/// point, or inside a fill. Each with the colour the pixel must have.
+let private expectations (kind : MapProjectionKind) =
+    let lonLat (p : V3d) = let l = Projection.lonLatR p in V2d(l.X, l.Y)
+    [
+        for c in MapProjectionAnnotationFixture.all do
+            let color = c.color.ToC4f()
+            let expected = V3d(float color.R, float color.G, float color.B)
+            let pts = c.annotation.points |> IndexList.toArray |> Array.map lonLat
+            match c.annotation.geometry with
+            | PRo3D.Base.Annotation.Geometry.Point ->
+                for p in pts do
+                    yield c.name, Projection.forward kind p.X p.Y, expected, false
+            | _ ->
+                // the ellipse and the lines: samples along every segment, away from its ends
+                for i in 0 .. pts.Length - 2 do
+                    let a, b = pts.[i], pts.[i + 1]
+                    for t in [ 0.3; 0.5; 0.7 ] do
+                        match kind with
+                        | MapProjectionKind.Equirectangular ->
+                            let bx = a.X + Projection.wrapPi (b.X - a.X)
+                            yield c.name, V2d(a.X + t * (bx - a.X), a.Y + t * (b.Y - a.Y)), expected, false
+                        | _ ->
+                            // the polar maps drop a segment lying entirely beyond their cutoff
+                            let sign = Projection.polarSign kind
+                            let beyond (ll : V2d) = Projection.colatitude sign ll.Y > Projection.defaultMaxColatitude
+                            if not (beyond a && beyond b) then
+                                let pa = Projection.forward kind a.X a.Y
+                                let pb = Projection.forward kind b.X b.Y
+                                yield c.name, pa + t * (pb - pa), expected, false
+                let fillVisible (ll : V2d) =
+                    kind = MapProjectionKind.Equirectangular
+                    || Projection.colatitude (Projection.polarSign kind) ll.Y <= Projection.defaultMaxColatitude
+                if c.annotation.showFill && pts.Length > 1 && fillVisible pts.[0] then
+                    // well inside the polygon: 50 % fill over the transparent clear colour
+                    let centre = pts |> Array.take (pts.Length - 1) |> Array.fold (+) V2d.Zero |> fun s -> s / float (pts.Length - 1)
+                    yield c.name + " (fill)", Projection.forward kind centre.X centre.Y, expected * float c.annotation.fillAlpha.value, true
+    ]
+
+type private AnnotationCheck = { checkedPoints : int; wrong : list<string>; offScreen : int }
+
+let private checkAnnotations (r : Rendered) (kind : MapProjectionKind) (top : bool) =
+    let red = r.image.GetChannel Col.Channel.Red
+    let green = r.image.GetChannel Col.Channel.Green
+    let blue = r.image.GetChannel Col.Channel.Blue
+    let alpha = r.image.GetChannel Col.Channel.Alpha
+    let mutable checkedPoints = 0
+    let mutable offScreen = 0
+    let wrong = Collections.Generic.List<string>()
+    for name, m, expected, isFill in expectations kind do
+        // the map repeats every 2 pi: the copy on screen, if any
+        let onScreen =
+            match kind with
+            | MapProjectionKind.Equirectangular ->
+                [ 0.0; Projection.twoPi; -Projection.twoPi ] |> List.tryPick (fun dx -> pixelOf r top (m + V2d(dx, 0.0)))
+            | _ -> pixelOf r top m
+        match onScreen with
+        | None -> offScreen <- offScreen + 1
+        | Some (x, y) ->
+            checkedPoints <- checkedPoints + 1
+            let got = V3d(float red.[x, y], float green.[x, y], float blue.[x, y])
+            let tolerance = if isFill then 0.15 else 0.05
+            if alpha.[x, y] <= 0.0f || (got - expected).NormMax > tolerance then
+                wrong.Add(sprintf "%s at pixel (%d, %d): %A, expected %A" name x y got expected)
+    { checkedPoints = checkedPoints; wrong = List.ofSeq wrong; offScreen = offScreen }
+
 let tests () =
     testSequenced <| testList "map projection render (#772)" [
+
+        test "annotations: every line, point, fill and ellipse lands where the CPU projection puts it" {
+            match Render.context.Value with
+            | None -> skiptest "no OpenGL runtime in this environment"
+            | Some (runtime, _) ->
+
+            Startup.init ()
+            let top = rowZeroIsTop runtime
+            for name, kind, size, center, zoom, minChecked in
+                    [ "equirectangular", MapProjectionKind.Equirectangular, V2i(1024, 512), V2d.Zero, 1.0, 200
+                      // only the seam line's middle segments fall into this window
+                      "equirectangular zoom 6 across the seam", MapProjectionKind.Equirectangular, V2i(1024, 512), V2d(Projection.pi - 0.05, 0.2), 6.0, 8
+                      "polar north", MapProjectionKind.PolarNorth, V2i(768, 768), V2d.Zero, 1.0, 50 ] do
+                let r = renderAnnotations runtime kind size center zoom
+                savePng (Path.Combine(outputDir (), sprintf "annotations-%s.png" (name.Replace(' ', '-'))))
+                    r.image (fun rr g b a -> if a <= 0.0f then C3b.Black else C3b(byte (255.0f * rr), byte (255.0f * g), byte (255.0f * b))) top
+                let check = checkAnnotations r kind top
+                let flipped = checkAnnotations r kind (not top)
+                printfn "annotations, %s: %d points checked (%d off screen), %d wrong; flipped: %d wrong"
+                    name check.checkedPoints check.offScreen check.wrong.Length flipped.wrong.Length
+                for w in check.wrong |> List.truncate 8 do printfn "  %s" w
+                Expect.isGreaterThanOrEqual check.checkedPoints minChecked (sprintf "%s: enough annotation pixels on screen" name)
+                Expect.isEmpty check.wrong (sprintf "%s: every annotation pixel has its annotation's colour" name)
+                Expect.isGreaterThan flipped.wrong.Length (check.checkedPoints / 2) (sprintf "%s: the check would catch a mirrored map" name)
+        }
 
         test "equirectangular: every pixel shows the surface point at its own longitude and latitude" {
             match Render.context.Value, dimorphosOpc () with

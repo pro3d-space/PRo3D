@@ -135,7 +135,7 @@ module MapSg =
         | _ -> 1
 
     /// The map uniforms, bound once above everything the map draws.
-    let private withMapUniforms (view : MapView) (sg : ISg) =
+    let withMapUniforms (view : MapView) (sg : ISg) =
         sg
         |> Sg.uniform "MapViewProj" (view.viewProj |> AVal.map (fun t -> t.Forward))
         |> Sg.uniform "MapRadiusRange" (view.radiusRange |> AVal.map V2f)
@@ -215,10 +215,9 @@ module MapSg =
         |> Sg.depthTest (AVal.constant DepthTest.None)
         |> withMapUniforms view
 
-    /// The whole map: textured surfaces with the graticule on top.
+    /// After the surfaces, so the grid lies on top of the map.
+    let graticulePass = RenderPass.after "map-graticule" RenderPassOrder.Arbitrary RenderPass.main
+
+    /// The whole map without annotations: textured surfaces with the graticule on top.
     let map (cfg : OpcSg.Config) (view : MapView) (mapSurfaces : aset<MapSurface>) : ISg =
-        let grid =
-            graticule view
-            // after the surfaces, so the grid lies on top of the map
-            |> Sg.pass (RenderPass.after "map-graticule" RenderPassOrder.Arbitrary RenderPass.main)
-        Sg.ofList [ surfaces cfg surfaceEffects view mapSurfaces; grid ]
+        Sg.ofList [ surfaces cfg surfaceEffects view mapSurfaces; graticule view |> Sg.pass graticulePass ]

@@ -54,7 +54,16 @@ module MapProjectionHost =
                             return None
                     }
                 | _ -> AVal.constant None)
-        { planet = m.scene.referenceSystem.planet; surfaces = surfaces }
+        let annotations : PRo3D.MapProjection.MapAnnotations.AnnotationInputs =
+            {
+                annotations =
+                    m.drawing.annotations.flat
+                    |> AMap.choose (fun _ leaf -> PRo3D.Core.Drawing.DrawingApp.tryToAnnotation leaf)
+                    |> AMap.toASet
+                colorByCategory = m.drawing.colorByCategory
+                selected        = m.drawing.annotations.selectedLeaves |> ASet.map (fun l -> l.id)
+            }
+        { planet = m.scene.referenceSystem.planet; surfaces = surfaces; annotations = annotations }
 
     let view (m : AdaptiveModel) : DomNode<ViewerAction> =
         PRo3D.MapProjection.MapProjectionApp.view (inputs m) m.mapProjection
