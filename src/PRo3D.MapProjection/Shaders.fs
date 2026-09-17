@@ -119,7 +119,9 @@ module Shaders =
             else
                 let poleY = if a.Y + b.Y + c.Y > 0.0f then HalfPi else -HalfPi
                 let xa2 = xa + winding
-                if onScreen 0.0f xa xa2 xb poleY a.Y b.Y then
+                // the cap reaches from the pole row down to its lowest corner (#772 review)
+                let capNear = if poleY > 0.0f then min a.Y (min b.Y c.Y) else max a.Y (max b.Y c.Y)
+                if onScreen 0.0f xa xa2 xb poleY capNear capNear then
                     yield { t.P0 with svi = 0; pos = clip xa poleY a.Z; llr = V3f(xa, poleY, a.Z) }
                     yield { t.P0 with svi = 0; pos = clip xa a.Y a.Z; llr = V3f(xa, a.Y, a.Z) }
                     yield { t.P1 with svi = 1; pos = clip xb poleY b.Z; llr = V3f(xb, poleY, b.Z) }
@@ -129,7 +131,7 @@ module Shaders =
                     yield { t.P0 with svi = 0; pos = clip xa2 poleY a.Z; llr = V3f(xa2, poleY, a.Z) }
                     yield { t.P0 with svi = 0; pos = clip xa2 a.Y a.Z; llr = V3f(xa2, a.Y, a.Z) }
                     restartStrip()
-                if onScreen (-TwoPi) xa xa2 xb poleY a.Y b.Y then
+                if onScreen (-TwoPi) xa xa2 xb poleY capNear capNear then
                     yield { t.P0 with svi = 0; pos = clip (xa + -TwoPi) poleY a.Z; llr = V3f((xa + -TwoPi), poleY, a.Z) }
                     yield { t.P0 with svi = 0; pos = clip (xa + -TwoPi) a.Y a.Z; llr = V3f((xa + -TwoPi), a.Y, a.Z) }
                     yield { t.P1 with svi = 1; pos = clip (xb + -TwoPi) poleY b.Z; llr = V3f((xb + -TwoPi), poleY, b.Z) }
@@ -139,7 +141,7 @@ module Shaders =
                     yield { t.P0 with svi = 0; pos = clip (xa2 + -TwoPi) poleY a.Z; llr = V3f((xa2 + -TwoPi), poleY, a.Z) }
                     yield { t.P0 with svi = 0; pos = clip (xa2 + -TwoPi) a.Y a.Z; llr = V3f((xa2 + -TwoPi), a.Y, a.Z) }
                     restartStrip()
-                if onScreen TwoPi xa xa2 xb poleY a.Y b.Y then
+                if onScreen TwoPi xa xa2 xb poleY capNear capNear then
                     yield { t.P0 with svi = 0; pos = clip (xa + TwoPi) poleY a.Z; llr = V3f((xa + TwoPi), poleY, a.Z) }
                     yield { t.P0 with svi = 0; pos = clip (xa + TwoPi) a.Y a.Z; llr = V3f((xa + TwoPi), a.Y, a.Z) }
                     yield { t.P1 with svi = 1; pos = clip (xb + TwoPi) poleY b.Z; llr = V3f((xb + TwoPi), poleY, b.Z) }

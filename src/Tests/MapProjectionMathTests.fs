@@ -91,6 +91,21 @@ let tests () =
             Expect.isGreaterThan up.Y center.Y "pixel row 0 is the top: higher latitude"
         }
 
+        test "zooming keeps the map point under the pointer, whatever the panel size" {
+            // regression (#772 review): the viewport used to come only from drags, so a wheel
+            // step in a panel that was never dragged, or resized since, zoomed about the wrong point
+            for kind in kinds do
+                let size = V2d(1000.0, 400.0)
+                let pointer = V2d(900.0, 120.0)
+                let stale = { MapProjectionApp.initial with kind = kind; viewport = V2i(1024, 512); center = V2d(0.2, 0.1); zoom = 2.0 }
+                let underPointer (m : MapProjectionModel) =
+                    Projection.pixelToMap (Projection.viewProj m.kind Projection.defaultMaxColatitude m.center m.zoom (V2i(int size.X, int size.Y))) (V2i(int size.X, int size.Y)) pointer
+                let before = underPointer stale
+                let zoomed = MapProjectionApp.update stale (Zoom(1.0, pointer, size))
+                Expect.isGreaterThan zoomed.zoom stale.zoom (sprintf "%A: zoomed in" kind)
+                Expect.isLessThan (underPointer zoomed - before).Length 1e-9 (sprintf "%A: the point under the pointer stays" kind)
+        }
+
         test "equirectangular extent is 2:1, polar extent reaches the cutoff" {
             let e = Projection.extent MapProjectionKind.Equirectangular Projection.defaultMaxColatitude
             Expect.floatClose Accuracy.veryHigh (e.Size.X / e.Size.Y) 2.0 "360 by 180 degrees"

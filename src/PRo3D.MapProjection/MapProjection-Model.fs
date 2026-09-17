@@ -25,6 +25,6 @@ type MapProjectionAction =
     | DragStart of at : V2d * size : V2d
     | DragMove  of at : V2d * size : V2d
     | DragEnd
-    /// wheel steps (positive zooms in) at a relative pointer position (0..1)
-    | Zoom      of steps : float * at : V2d
+    /// wheel steps (positive zooms in) at a pointer position, with the panel size (pixels)
+    | Zoom      of steps : float * at : V2d * size : V2d
     | ResetView

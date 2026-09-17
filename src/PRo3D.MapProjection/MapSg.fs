@@ -62,7 +62,8 @@ module MapSg =
             let size = viewport.GetValue self
             let colatMax = maxColatitude.GetValue self
 
-            let bb = patch.info.GlobalBoundingBox
+            // placed as the shader places it: patch trafo = surface placement * Local2Global
+            let bb = patch.info.LocalBoundingBox.Transformed(patch.trafo.GetValue self)
             let centre = bb.Center
             let dist = centre.Length
             let halfDiagonal = 0.5 * bb.Size.Length
@@ -127,6 +128,29 @@ module MapSg =
             root.info.GlobalBoundingBox.ComputeCorners()
             |> Array.fold (fun m c -> max m c.Length) acc
         ) 0.0
+
+    /// Root bounding boxes of the hierarchies, in their global (unplaced) frame.
+    let rootBoxes (hierarchies : seq<string>) =
+        let serializer = FsPickler.CreateBinarySerializer()
+        hierarchies
+        |> Seq.map (fun basePath ->
+            let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
+            match h.tree with
+            | QTree.Node (p, _) -> p.info.GlobalBoundingBox
+            | QTree.Leaf p -> p.info.GlobalBoundingBox)
+        |> Seq.toArray
+
+    /// The depth range of the map over placed surfaces: the largest distance from the body centre
+    /// of any placed root bounding box corner.
+    let placedMaxRadius (surfaces : aset<MapSurface>) : aval<float> =
+        surfaces
+        |> ASet.mapA (fun s ->
+            // loaded once per surface, outside the evaluation
+            let boxes = rootBoxes s.hierarchies
+            s.placement |> AVal.map (fun t ->
+                boxes |> Array.fold (fun m b -> b.Transformed(t).ComputeCorners() |> Array.fold (fun m c -> max m c.Length) m) 0.0))
+        |> ASet.toAVal
+        |> AVal.map (fun radii -> radii |> Seq.fold max 0.0)
 
     /// Index into `effects` for a projection kind.
     let effectIndex (kind : MapProjectionKind) =

@@ -41,11 +41,17 @@ module MapProjectionHost =
                         let! system = system
                         let hierarchies = hierarchiesOf importPath names
                         // a surface of another body (e.g. Didymos in a Dimorphos scene) is not
-                        // centred on the map's body; without a GIS scene body, take them all
+                        // centred on the map's body; without a GIS scene body, take them all.
+                        // SPICE names match ignoring case; the frame may differ, the placement
+                        // rotates such a surface into the scene's frame
                         let onSceneBody =
-                            match sceneBody with
-                            | None -> true
-                            | Some body -> system = Some body
+                            match sceneBody, system with
+                            | None, _ -> true
+                            | Some scene, Some surface ->
+                                let (PRo3D.Base.Gis.EntitySpiceName sceneBody) = scene.body
+                                let (PRo3D.Base.Gis.EntitySpiceName surfaceBody) = surface.body
+                                PRo3D.Base.Gis.SpiceName.same sceneBody surfaceBody
+                            | Some _, None -> false
                         Log.line "[map] surface %s: %d hierarchies below %s %A, scene body %A, surface body %A"
                             (string surfaceId) hierarchies.Length importPath names sceneBody system
                         if hierarchies.Length > 0 && onSceneBody then

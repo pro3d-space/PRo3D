@@ -200,6 +200,25 @@ test.describe("map projection view (#772)", () => {
             const meridian = reddestColumn(img, 60, H - 20);
             expect(Math.abs(meridian - (W / 2 + 150)), `meridian moved with the drag (now at ${meridian})`).toBeLessThan(6);
 
+            // wheel zoom about the pointer: with the pointer where the prime meridian crosses the
+            // equator, both lines stay where they are while the map grows around them
+            await page.mouse.move(meridian, H / 2);
+            await page.mouse.wheel(0, -300);
+            img = await settle(page, "map-standalone-zoomed.png");
+            const zoomedMeridian = reddestColumn(img, 60, H - 20);
+            expect(Math.abs(zoomedMeridian - meridian), `meridian stays under the pointer (now at ${zoomedMeridian})`).toBeLessThan(6);
+            expect(yellowRow(img, H / 2, 20, W - 20), "equator stays under the pointer").toBeGreaterThan(0.8);
+            // and it did zoom: the next 15 degree meridian east of the prime meridian was W / 24 = 50 px
+            // away at zoom 1; three wheel notches zoom by 1.25^3 = 1.95. Measured along a row in the
+            // black sky of the test layer, where only grid lines are bright.
+            const row = H / 2 + 40;
+            let gap = -1;
+            for (let x = zoomedMeridian + 4; x < W && gap < 0; x++) {
+                const o = (row * img.width + x) * 4;
+                if (img.data[o] > 150 && img.data[o + 1] > 150 && img.data[o + 2] > 150) gap = x - zoomedMeridian;
+            }
+            expect(gap, `distance to the next meridian after zooming (was 50 px)`).toBeGreaterThan(80);
+
             // polar north: the prime meridian runs from the centre straight down (USGS convention)
             await clickButton(page, "Polar north");
             img = await settle(page, "map-standalone-polar-north.png");

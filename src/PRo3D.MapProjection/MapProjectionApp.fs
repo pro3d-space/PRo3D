@@ -45,8 +45,8 @@ module MapProjectionApp =
         let e = Projection.extent kind Projection.defaultMaxColatitude
         V2d(clamp e.Min.X e.Max.X c.X, clamp e.Min.Y e.Max.Y c.Y)
 
-    let private pixelOf (m : MapProjectionModel) (relative : V2d) =
-        relative * V2d m.viewport
+    let private withViewport (size : V2d) (m : MapProjectionModel) =
+        { m with viewport = V2i(max 1 (int size.X), max 1 (int size.Y)) }
 
     let update (m : MapProjectionModel) (action : MapProjectionAction) =
         match action with
@@ -54,24 +54,26 @@ module MapProjectionApp =
             { m with kind = kind; center = V2d.Zero; zoom = 1.0; dragFrom = None }
         | SetKind _ -> m
         | DragStart (at, size) ->
-            { m with dragFrom = Some at; viewport = V2i(max 1 (int size.X), max 1 (int size.Y)) }
+            { withViewport size m with dragFrom = Some at }
         | DragMove (at, size) ->
             match m.dragFrom with
             | None -> m
             | Some from ->
                 // grab and drag: the map point under the pointer follows it
-                let m = { m with viewport = V2i(max 1 (int size.X), max 1 (int size.Y)) }
+                let m = withViewport size m
                 let vp = viewProjOf m
                 let a = Projection.pixelToMap vp m.viewport from
                 let b = Projection.pixelToMap vp m.viewport at
                 { m with center = clampCenter m.kind (m.center + (a - b)); dragFrom = Some at }
         | DragEnd ->
             { m with dragFrom = None }
-        | Zoom (steps, at) ->
-            // zoom about the pointer: the map point under it stays put
-            let before = Projection.pixelToMap (viewProjOf m) m.viewport (pixelOf m at)
+        | Zoom (steps, at, size) ->
+            // zoom about the pointer: the map point under it stays put. The size comes with the
+            // event -- the viewport of the last drag may be stale (#772 review)
+            let m = withViewport size m
+            let before = Projection.pixelToMap (viewProjOf m) m.viewport at
             let zoomed = { m with zoom = clamp 1.0 maxZoom (m.zoom * Math.Pow(1.25, steps)) }
-            let after = Projection.pixelToMap (viewProjOf zoomed) zoomed.viewport (pixelOf zoomed at)
+            let after = Projection.pixelToMap (viewProjOf zoomed) zoomed.viewport at
             { zoomed with center = clampCenter m.kind (zoomed.center + (before - after)) }
         | ResetView ->
             { m with center = V2d.Zero; zoom = 1.0; dragFrom = None }
@@ -80,6 +82,26 @@ module MapProjectionApp =
     /// it is there because a render control needs one, and the LoD decider reads it.
     let private camera =
         AVal.constant (Camera.create (CameraView.lookAt V3d.OOI V3d.Zero V3d.OIO) (Frustum.perspective 60.0 0.1 10.0 1.0))
+
+    /// A mouse or wheel event carrying the pointer position and the element size, in pixels.
+    /// (Not pointer events: the render control registers its own pointer handlers, which win.)
+    let private sizedEvent (name : string) (preventDefault : bool) (extra : list<string>)
+                           (f : list<string> -> V2d -> V2d -> MapProjectionAction) =
+        name, AttributeValue.Event {
+            clientSide = fun send src ->
+                String.concat ";" [
+                    yield "var rect = getBoundingClientRect(this)"
+                    if preventDefault then yield "event.preventDefault()"
+                    // toFixed: FsPickler reads a V2d component only from a float literal, not "650"
+                    yield send src ([ "{ X: (event.clientX - rect.left).toFixed(10), Y: (event.clientY - rect.top).toFixed(10) }"
+                                      "{ X: rect.width.toFixed(10), Y: rect.height.toFixed(10) }" ] @ extra)
+                ]
+            serverSide = fun _ _ args ->
+                match args with
+                | pos :: size :: rest ->
+                    Seq.singleton (f rest (Pickler.json.UnPickleOfString pos) (Pickler.json.UnPickleOfString size))
+                | _ -> Seq.empty
+        }
 
     let private kinds =
         [
@@ -92,9 +114,7 @@ module MapProjectionApp =
         match PRo3D.Core.Surface.Sg.hackRunner with
         | None -> Sg.empty
         | Some runner ->
-            let maxRadius =
-                inputs.surfaces.Content
-                |> AVal.map (fun surfaces -> surfaces |> Seq.collect (fun s -> s.hierarchies) |> MapSg.maxRadius)
+            let maxRadius = MapSg.placedMaxRadius inputs.surfaces
             let viewProj =
                 adaptive {
                     let! kind = m.kind
@@ -135,11 +155,23 @@ module MapProjectionApp =
             AttributeMap.ofList [
                 style "width:100%; height:100%; background-color:#222222"
                 clazz "mapprojectionrendercontrol"
-                onMouseDownAbs (fun _ at size -> DragStart(at, size))
-                onMouseMoveAbs (fun at size -> DragMove(at, size))
-                onMouseUpAbs (fun _ _ _ -> DragEnd)
+                sizedEvent "onmousedown" false [] (fun _ at size -> DragStart(at, size))
+                // a move with no button held ends a drag whose mouseup happened outside the panel
+                sizedEvent "onmousemove" false [ "event.buttons" ] (fun rest at size ->
+                    match rest with
+                    | "0" :: _ -> DragEnd
+                    | _ -> DragMove(at, size))
+                sizedEvent "onmouseup" false [] (fun _ _ _ -> DragEnd)
                 // browser deltaY: about 100 per notch, positive when scrolling down (= zoom out)
-                onWheel' (fun delta at -> Zoom(-delta.Y / 100.0, at))
+                sizedEvent "onwheel" true [ "event.deltaY" ] (fun rest at size ->
+                    let deltaY =
+                        match rest with
+                        | d :: _ ->
+                            match Double.TryParse(d, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                            | true, v -> v
+                            | _ -> 0.0
+                        | [] -> 0.0
+                    Zoom(-deltaY / 100.0, at, size))
             ]
         Incremental.div (AttributeMap.ofList [ style "position:relative; width:100%; height:100%" ]) (
             alist {
