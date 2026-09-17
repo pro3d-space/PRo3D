@@ -84,8 +84,8 @@ module SunShadowMap =
     /// The same placement the main render applies to a surface (viewSingleSurfaceSg):
     /// fullTrafo * preTransform, with the flipZ / sketchFab variants. Replicated here
     /// because the caster geometry must land exactly where the lit geometry is, or
-    /// shadows arrive offset.
-    let private surfacePlacement (m : AdaptiveModel) (surfaceId : Guid) (surf : AdaptiveSurface) : aval<Trafo3d> =
+    /// shadows arrive offset. Also places the surfaces of the map projection view (#772).
+    let surfacePlacement (m : AdaptiveModel) (surfaceId : Guid) (surf : AdaptiveSurface) : aval<Trafo3d> =
         let refsys = m.scene.referenceSystem
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId

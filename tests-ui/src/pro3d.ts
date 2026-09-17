@@ -75,6 +75,18 @@ export function sceneFor(template: string, opc: string, out: string): string {
     return out;
 }
 
+/** A scene derived from the test-data template (`sceneFor`), edited as JSON and written to
+ *  `<dir>/<name>.pro3d` (default `artifacts/`). */
+export function derivedScene(name: string, edit: (d: any) => void, dir = path.join(__dirname, "..", "artifacts")): string {
+    fs.mkdirSync(dir, { recursive: true });
+    const out = path.join(dir, `${name}.pro3d`);
+    sceneFor(fixture.sceneTemplate, fixture.opc, out);
+    const d = JSON.parse(fs.readFileSync(out, "utf-8"));
+    edit(d);
+    fs.writeFileSync(out, JSON.stringify(d, null, 2));
+    return out;
+}
+
 export interface Pro3d {
     url: string;
     proc: ChildProcess;

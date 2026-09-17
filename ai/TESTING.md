@@ -29,6 +29,28 @@ dotnet bin/Release/net9.0/Tests.dll --filter-test-list <substring>
   (`{ SomeApp.initial with … }`), call `update`, assert on the record — see
   `ProjectedImageStackTest.fs`.
 
+## A testing ladder for rendering features
+
+For a rendering feature, climb from cheap to expensive, each rung green before the next.
+`docs/MapProjectionView.md` (#772) is a worked example:
+
+1. **CPU math** (Expecto): the double-precision model the shader mirrors. It becomes the
+   source of truth for the rungs above.
+2. **Shader codegen, no GPU** (Expecto, `OutcropTraceShaderTest.compile`): FShade decompiles
+   at runtime, so an effect that type-checks can still fail to generate. Assert the stages
+   you expect and the vertex inputs the geometry really has.
+3. **Headless GPU render** (Expecto, `Render.context` + `OpcSg.build` into a
+   `PRo3D.Tool.SunAnglesVerb.FloatTarget`): real data, pixels checked against rung 1.
+   - Write a quantity the shader did **not** derive the position from. Writing the same
+     lon/lat the position came from agrees by construction and proves nothing.
+   - Add a control that must fail, e.g. flipped rows.
+   - Measure the readback row order instead of assuming it.
+4. **Benchmark** (`Tests.dll --bench-...`, reusing `SurfaceEffectBenchmark.Bench`): a tool,
+   not a test.
+5. **Playwright**: the panel in the real app. A feature that can run standalone
+   (`PRo3D.MapProjection.exe --server`) gets a spec against the standalone app, plus one
+   check that PRo3D's page shows the same thing.
+
 ## Playwright (`tests-ui/`) — drive the real app
 
 End-to-end tests that launch the real viewer (`--server` mode), operate its

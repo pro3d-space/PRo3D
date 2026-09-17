@@ -86,6 +86,7 @@ module MapSg =
     let surfaces (cfg : OpcSg.Config) (effects : FShade.Effect[]) (view : MapView) (surfaces : aset<MapSurface>) : ISg =
         surfaces
         |> ASet.map (fun s ->
+            Log.line "[map] drawing %d hierarchies: %s" s.hierarchies.Length (String.concat ", " s.hierarchies)
             OpcSg.build cfg (AVal.constant None) PRo3D.InstrumentVisualization.VisualizationProperties.empty s.hierarchies
             |> Sg.ofList
             |> Sg.trafo s.placement
@@ -149,3 +150,11 @@ module MapSg =
         |> Sg.effect [ Shaders.graticuleEffect ]
         |> Sg.depthTest (AVal.constant DepthTest.None)
         |> withMapUniforms view
+
+    /// The whole map: textured surfaces with the graticule on top.
+    let map (cfg : OpcSg.Config) (view : MapView) (mapSurfaces : aset<MapSurface>) : ISg =
+        let grid =
+            graticule view
+            // after the surfaces, so the grid lies on top of the map
+            |> Sg.pass (RenderPass.after "map-graticule" RenderPassOrder.Arbitrary RenderPass.main)
+        Sg.ofList [ surfaces cfg surfaceEffects view mapSurfaces; grid ]

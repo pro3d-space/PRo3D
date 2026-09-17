@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <OutputType>Library</OutputType>
+    <OutputType>Exe</OutputType>
     <!-- XML doc warnings are not errors here, like the other libraries -->
     <NoWarn>$(NoWarn);FS3390</NoWarn>
   </PropertyGroup>
@@ -17,7 +17,12 @@
     <Compile Include="Projection.fs" />
     <Compile Include="Shaders.fs" />
     <Compile Include="MapSg.fs" />
+    <Compile Include="MapProjection-Model.fs" />
+    <Compile Include="MapProjection-Model.g.fs" />
+    <Compile Include="MapProjectionApp.fs" />
+    <Compile Include="Program.fs" />
     <None Include="paket.references" />
+    <None Include="RunAdaptify.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
