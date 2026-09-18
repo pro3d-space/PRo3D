@@ -1036,6 +1036,8 @@ module ViewerUtils =
             member x.CurtainBaseColor : V4f = uniform?CurtainBaseColor
             // 1 = absolute altitude-band texture mapping, 0 = surface-relative
             member x.CurtainAbsoluteMode : int = uniform?CurtainAbsoluteMode
+            // 1 = an image is bound, 0 = no image: the curtain is drawn in the base color
+            member x.CurtainHasTexture : int = uniform?CurtainHasTexture
 
         let curtainVertex (v : CurtainVertex) =
             vertex {
@@ -1079,7 +1081,9 @@ module ViewerUtils =
                 let totalD    = v.totalDepth
                 // v.tc.Y = 1.0 at surface, 0.0 at bottom; distFromSurface grows downward
                 let distFromSurface = (1.0f - v.tc.Y) * totalD
-                if uniform.CurtainAbsoluteMode = 1 then
+                if uniform.CurtainHasTexture = 0 then
+                    return baseColor
+                elif uniform.CurtainAbsoluteMode = 1 then
                     // Absolute mode: texture occupies the absolute altitude band
                     // [texStartAlt - texDepth, texStartAlt]. surfElev is pre-offset on
                     // CPU: (elevation - texStartAlt), so fragRelAlt = 0 at texStartAlt.
@@ -1814,9 +1818,24 @@ module ViewerUtils =
         )
 
     let createCurtainSg (view : aval<CameraView>) (m : AdaptiveModel) : ISg<ViewerAction> =
+        let csm = m.scene.crossSectionModel
+        // Up vector in view space. Kept outside the geometry below so that camera
+        // movement only updates this uniform instead of rebuilding the curtain
+        // (and reloading its image) every frame.
+        let upVS =
+            adaptive {
+                let! csOpt  = csm.crossSection
+                let! planet = m.scene.referenceSystem.planet
+                let! camView = view
+                let upWorld =
+                    match csOpt with
+                    | Some { geometry = LineOnSurface pts } when pts.Length > 0 ->
+                        CooTransformation.getUpVector pts.[0] planet
+                    | _ -> V3d.OOI
+                return (camView |> CameraView.viewTrafo).TransformDir upWorld |> V3f
+            }
         let curtainSgOpt =
             AVal.custom (fun token ->
-                let csm        = m.scene.crossSectionModel
                 let enabled    = csm.curtainEnabled.GetValue(token)
                 let texPath    = csm.curtainTexturePath.GetValue(token)
                 let depth      = csm.curtainExtrusionDepth.value.GetValue(token)
@@ -1827,14 +1846,17 @@ module ViewerUtils =
                 let baseColor  = csm.curtainBaseColor.c.GetValue(token)
                 let csOpt      = csm.crossSection.GetValue(token)
                 let planet     = m.scene.referenceSystem.planet.GetValue(token)
-                let camView    = view.GetValue(token)
+
+                // Without a (readable) image the curtain is still drawn, in the base color.
+                let texPath =
+                    match texPath with
+                    | Some path when not (System.IO.File.Exists path) ->
+                        Log.warn "[CrossSection] curtain image not found: %s" path
+                        None
+                    | p -> p
 
                 if not enabled then Sg.empty
                 else
-                    match texPath with
-                    | None -> Sg.empty
-                    | Some path when not (System.IO.File.Exists path) -> Sg.empty
-                    | Some path ->
                         match csOpt with
                         | None -> Sg.empty
                         | Some cs ->
@@ -1894,10 +1916,10 @@ module ViewerUtils =
                                     IndexArray = indices
                                 )
 
-                            // Up vector in view space
-                            let upWorld = CooTransformation.getUpVector ptsWS.[0] planet
-                            let viewTrafo = camView |> CameraView.viewTrafo
-                            let upVS = viewTrafo.TransformDir upWorld |> V3f
+                            let applyTexture (sg : ISg<ViewerAction>) =
+                                match texPath with
+                                | Some path -> sg |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
+                                | None      -> sg |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.blackTex
 
                             Sg.ofIndexedGeometry ig
                             |> Sg.trafo (AVal.constant modelTrafo)
@@ -1906,8 +1928,9 @@ module ViewerUtils =
                                 do! CurtainShader.curtainGeometry
                                 do! CurtainShader.curtainFragment
                             }
-                            |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
-                            |> Sg.uniform "UpVS" (AVal.constant upVS)
+                            |> applyTexture
+                            |> Sg.uniform "CurtainHasTexture" (AVal.constant (if texPath.IsSome then 1 else 0))
+                            |> Sg.uniform "UpVS" upVS
                             |> Sg.uniform "TextureDepth" (AVal.constant (float32 texDepth))
                             |> Sg.uniform "CurtainAbsoluteMode" (AVal.constant (if absMode then 1 else 0))
                             |> Sg.uniform "CurtainBaseColor" (AVal.constant (baseColor.ToC4f().ToV4f()))
