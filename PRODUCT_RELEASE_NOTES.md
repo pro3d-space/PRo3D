@@ -1,3 +1,8 @@
+## 6.3.1
+Fixes surface transformations in Earth scenes.
+
+- Surfaces: **on Earth, yaw now turns a surface around the local vertical.** Earth scenes are geocentric, but the transformation used the scene's x/y/z axes for Earth, so yaw rotated around Earth's spin axis (53 degrees off the vertical at 37 degrees latitude) and translation ran along the ECEF axes. Earth now uses local north/east/up like Mars and the other bodies, for surface transformations and scale bars. Earth scenes saved with a non-zero transformation load with the surface in a different place and need to be adjusted once; data that is not in Earth-centred coordinates should use the planet *None* (#791, docs/Transformations.md)
+
 ## 6.3.0
 The first non-prerelease of the 6.3 line: a new window layout system, popouts, and the map projection view for small bodies. Everything from `6.3.0-prerelease001` and `-prerelease002` is included.
 
