@@ -1,0 +1,66 @@
+/* PRo3D boot screen for render controls.
+ *
+ * Aardvark.UI builds the loader in the browser (resources/renderer.js,
+ * Renderer.createLoader): a div.loader inside the render control, holding the
+ * bouncing "fountain" dots, styled by its own aardvark.css to a black
+ * background with the AARDVARK logo. It is removed once the first frame has
+ * faded in, and comes back if the connection drops.
+ *
+ * We restyle it rather than passing RenderAttribute.customLoaderImage, because
+ * that attribute also injects its own (malformed) "Powered by the Aardvark
+ * Platform" markup. The credit lives in the artwork instead.
+ *
+ * The selectors outrank aardvark.css by being one level more specific, and this
+ * stylesheet is pulled in through `require`, which finishes loading before the
+ * render control boots - so the stock splash never flashes.
+ *
+ * See docs/LoadingScreen.md.
+ */
+
+div.aardvark > div.loader {
+    /* same as the render control's own background, so the first frame fades in
+       without a step in brightness */
+    background-color: #222222;
+    background-image: url('./pro3d-loader.svg');
+    background-size: min(760px, 72%) auto;
+    background-position: center center;
+    background-repeat: no-repeat;
+}
+
+/* the artwork carries the branding; the dots would only compete with it */
+div.aardvark > div.loader .fountainG_0 {
+    display: none;
+}
+
+/* indeterminate progress bar along the bottom edge: independent of how the
+   artwork scales, unlike anything anchored under the logo */
+div.aardvark > div.loader::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background-color: rgba(255, 255, 255, 0.07);
+    background-image: linear-gradient(
+        90deg,
+        rgba(190, 214, 47, 0) 0%,
+        rgba(190, 214, 47, 0.85) 50%,
+        rgba(190, 214, 47, 0) 100%
+    );
+    background-repeat: no-repeat;
+    background-size: 30% 100%;
+    animation: pro3d-loader-sweep 1.8s ease-in-out infinite;
+}
+
+@keyframes pro3d-loader-sweep {
+    from { background-position: -30% 0; }
+    to   { background-position: 130% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    div.aardvark > div.loader::after {
+        background-image: none;
+        animation: none;
+    }
+}
