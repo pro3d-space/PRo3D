@@ -344,7 +344,7 @@ let private renderSunShadowMap (runtime : IRuntime) (body : string)
             do! PRo3D.SPICE.Shaders.stableTrafo
             do! DefaultSurfaces.constantColor C4f.White
         }
-        |> SunAnglesVerb.withOpcScaffolding
+        |> OpcSg.withOpcScaffolding
         |> Sg.viewTrafo (AVal.constant view)
         |> Sg.projTrafo (AVal.constant proj)
 
@@ -813,7 +813,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                     (if useStackShader then "STACK" else "single-image")
                 if useStackShader then projectedStackSg imagePath else projectedSg imagePath
              | None -> shaded)
-            |> SunAnglesVerb.withOpcScaffolding
+            |> OpcSg.withOpcScaffolding
             |> Sg.uniform' "SunShadowEnabled" (not o.noShadows)
             |> Sg.uniform' "SunShadowViewProj" shadowMap.viewProj.Forward
             |> Sg.texture "SunShadowMap" (AVal.constant shadowMap.depth)

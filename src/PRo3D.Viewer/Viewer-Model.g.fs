@@ -1,5 +1,5 @@
-//4f13acb4-0e30-1c87-53a9-f865d13e106e
-//8756d366-d68a-333a-9d2f-64a1139cfa1b
+//160f1d09-2621-5787-55d1-799a10ba536b
+//063f4a65-cf0f-e312-388e-71de970a462d
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -197,6 +197,7 @@ type AdaptiveModel(value : Model) =
     let _navigation_ = PRo3D.Base.AdaptiveNavigationModel(value.navigation)
     let _properties_ = FSharp.Data.Adaptive.cval(value.properties)
     let _annotationExport_ = PRo3D.Core.AdaptiveAnnotationExportModel(value.annotationExport)
+    let _mapProjection_ = PRo3D.MapProjection.AdaptiveMapProjectionModel(value.mapProjection)
     let _multiSelectBox_ = FSharp.Data.Adaptive.cval(value.multiSelectBox)
     let _shiftFlag_ = FSharp.Data.Adaptive.cval(value.shiftFlag)
     let _picking_ = FSharp.Data.Adaptive.cval(value.picking)
@@ -261,6 +262,7 @@ type AdaptiveModel(value : Model) =
             _navigation_.Update(value.navigation)
             _properties_.Value <- value.properties
             _annotationExport_.Update(value.annotationExport)
+            _mapProjection_.Update(value.mapProjection)
             _multiSelectBox_.Value <- value.multiSelectBox
             _shiftFlag_.Value <- value.shiftFlag
             _picking_.Value <- value.picking
@@ -311,6 +313,7 @@ type AdaptiveModel(value : Model) =
     member __.navigation = _navigation_
     member __.properties = _properties_ :> FSharp.Data.Adaptive.aval<Properties>
     member __.annotationExport = _annotationExport_
+    member __.mapProjection = _mapProjection_
     member __.multiSelectBox = _multiSelectBox_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<MultiSelectionBox>>
     member __.shiftFlag = _shiftFlag_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.picking = _picking_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
@@ -364,6 +367,7 @@ module ModelLenses =
         static member navigation_ = ((fun (self : Model) -> self.navigation), (fun (value : PRo3D.Base.NavigationModel) (self : Model) -> { self with navigation = value }))
         static member properties_ = ((fun (self : Model) -> self.properties), (fun (value : Properties) (self : Model) -> { self with properties = value }))
         static member annotationExport_ = ((fun (self : Model) -> self.annotationExport), (fun (value : PRo3D.Core.AnnotationExportModel) (self : Model) -> { self with annotationExport = value }))
+        static member mapProjection_ = ((fun (self : Model) -> self.mapProjection), (fun (value : PRo3D.MapProjection.MapProjectionModel) (self : Model) -> { self with mapProjection = value }))
         static member multiSelectBox_ = ((fun (self : Model) -> self.multiSelectBox), (fun (value : Microsoft.FSharp.Core.Option<MultiSelectionBox>) (self : Model) -> { self with multiSelectBox = value }))
         static member shiftFlag_ = ((fun (self : Model) -> self.shiftFlag), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with shiftFlag = value }))
         static member picking_ = ((fun (self : Model) -> self.picking), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with picking = value }))

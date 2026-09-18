@@ -1,5 +1,6 @@
 import { ChildProcess, spawn } from "child_process";
 import * as http from "http";
+import * as net from "net";
 import * as path from "path";
 import * as fs from "fs";
 import type { Page } from "@playwright/test";
@@ -30,8 +31,23 @@ export const config = {
     scene: process.env.PRO3D_SCENE,
     /// folder of images with .mbi.json sidecars, for the import-driven specs
     imageDir: process.env.PRO3D_IMAGE_DIR ?? fixture.frames,
-    port: Number(process.env.PRO3D_PORT ?? 54321),
+    /// A port for every launch. PRO3D_PORT pins one (handy while debugging by hand); otherwise
+    /// each launch takes a free one, so a previous PRo3D still shutting down, or another one on
+    /// the machine, cannot collide with it.
+    port: process.env.PRO3D_PORT ? Number(process.env.PRO3D_PORT) : undefined,
 };
+
+/** A port nothing is listening on right now. */
+async function freePort(): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const srv = net.createServer();
+        srv.on("error", reject);
+        srv.listen(0, "127.0.0.1", () => {
+            const port = (srv.address() as net.AddressInfo).port;
+            srv.close(() => resolve(port));
+        });
+    });
+}
 
 /** Library rows carry the image file names; this matches one (Playwright text=). */
 export const imageRow = "text=/^[\\w.-]+\\.(png|tiff?)$/";
@@ -75,11 +91,41 @@ export function sceneFor(template: string, opc: string, out: string): string {
     return out;
 }
 
+/** A scene derived from the test-data template (`sceneFor`), edited as JSON and written to
+ *  `<dir>/<name>.pro3d` (default `artifacts/`). */
+export function derivedScene(name: string, edit: (d: any) => void, dir = path.join(__dirname, "..", "artifacts")): string {
+    fs.mkdirSync(dir, { recursive: true });
+    const out = path.join(dir, `${name}.pro3d`);
+    sceneFor(fixture.sceneTemplate, fixture.opc, out);
+    const d = JSON.parse(fs.readFileSync(out, "utf-8"));
+    edit(d);
+    fs.writeFileSync(out, JSON.stringify(d, null, 2));
+    return out;
+}
+
 export interface Pro3d {
     url: string;
     proc: ChildProcess;
     logFile: string;
     stop: () => Promise<void>;
+}
+
+/** Resolves when THIS process prints its URL. Waiting for an HTTP answer instead would accept
+ *  one from another PRo3D on the same port, and the spec would then drive a foreign instance. */
+function waitForServing(proc: ChildProcess, timeoutMs: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+        let out = "";
+        const timer = setTimeout(() => reject(new Error(`PRo3D did not start serving within ${timeoutMs} ms`)), timeoutMs);
+        const onData = (chunk: Buffer) => {
+            out += chunk.toString();
+            if (out.includes("ELECTRON_URL:")) {
+                clearTimeout(timer);
+                proc.stdout!.off("data", onData);
+                resolve();
+            }
+        };
+        proc.stdout!.on("data", onData);
+    });
 }
 
 function waitForHttp(url: string, timeoutMs: number): Promise<void> {
@@ -129,11 +175,12 @@ export async function launchPro3d(sceneOverride?: string, env?: Record<string, s
         path.join(logDir, `pro3d-${new Date().toISOString().replace(/[:.]/g, "-")}.log`)
     );
 
+    const port = config.port ?? (await freePort());
     const proc = spawn(
         config.exe,
         withScene
-            ? ["--server", "--port", String(config.port), "--scene", scene]
-            : ["--server", "--port", String(config.port)],
+            ? ["--server", "--port", String(port), "--scene", scene]
+            : ["--server", "--port", String(port)],
         {
             cwd: path.dirname(config.exe),
             env: { ...process.env, ...(env ?? {}) },
@@ -147,7 +194,7 @@ export async function launchPro3d(sceneOverride?: string, env?: Record<string, s
     proc.stdout!.pipe(keptLog);
     proc.stderr!.pipe(keptLog);
 
-    const url = `http://localhost:${config.port}/`;
+    const url = `http://localhost:${port}/`;
 
     const exited = new Promise<never>((_, reject) => {
         proc.on("exit", (code) =>
@@ -155,7 +202,9 @@ export async function launchPro3d(sceneOverride?: string, env?: Record<string, s
         );
     });
 
-    await Promise.race([waitForHttp(url, 120_000), exited]);
+    // serving (this process said so), then answering
+    await Promise.race([waitForServing(proc, 120_000), exited]);
+    await Promise.race([waitForHttp(url, 60_000), exited]);
 
     return {
         url,

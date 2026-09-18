@@ -84,8 +84,8 @@ module SunShadowMap =
     /// The same placement the main render applies to a surface (viewSingleSurfaceSg):
     /// fullTrafo * preTransform, with the flipZ / sketchFab variants. Replicated here
     /// because the caster geometry must land exactly where the lit geometry is, or
-    /// shadows arrive offset.
-    let private surfacePlacement (m : AdaptiveModel) (surfaceId : Guid) (surf : AdaptiveSurface) : aval<Trafo3d> =
+    /// shadows arrive offset. Also places the surfaces of the map projection view (#772).
+    let surfacePlacement (m : AdaptiveModel) (surfaceId : Guid) (surf : AdaptiveSurface) : aval<Trafo3d> =
         let refsys = m.scene.referenceSystem
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
@@ -101,21 +101,6 @@ module SunShadowMap =
             else
                 return fullTrafo * preTransform
         }
-
-    /// The Ag attributes the OPC shaders / captureContext expect on every OPC scene
-    /// graph, whether used or not -- without them CompileRender throws "could not get
-    /// inh attribute X". Mirrors pro3d-tool's withOpcScaffolding.
-    let private withOpcScaffolding (sg : ISg) =
-        sg
-        |> Sg.texture "ProjectedTexture" DefaultTextures.blackTex
-        |> Sg.uniform' "ProjectedImageModelViewProjValid" true
-        |> Sg.uniform' "LodVisEnabled" false
-        |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
-        |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
-        |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
-        |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId
-            (AVal.constant (Some { texture = TextureReference.LegacyId 0
-                                   channel = ChannelReference.NoChannelSelection }))
 
     /// All OPC surfaces as shadow casters: fresh PatchNodes against the shadow
     /// signature, each placed with the same trafo as in the main render, visibility
@@ -161,7 +146,7 @@ module SunShadowMap =
                 // OBJ and other non-OPC surfaces do not cast in v1
                 Sg.empty)
         |> Sg.set
-        |> withOpcScaffolding
+        |> OpcSg.withOpcScaffolding
 
     /// Combined world-space bounds of all (visible) surfaces -- the volume the sun-ortho
     /// camera must cover.
