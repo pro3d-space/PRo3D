@@ -1,0 +1,115 @@
+# Time and Sun
+
+Move the scene through time and watch the sun travel around the body: the terminator
+sweeps, craters catch the light from one side and then the other, and cast shadows
+follow. Everything SPICE-driven — sun direction, body placement, spacecraft positions —
+follows the scene's **observation time**.
+
+![one rotation of Dimorphos: six scene times, the sun sweeping from the far side around to the near side](images/timeSun-rotation.png)
+
+Six positions of one slider, about 105 minutes apart. Same camera, same body — only the
+time changed.
+
+# Walkthrough
+
+## 1. Load Dimorphos
+
+*Surfaces → Import OPC* and pick the Dimorphos OPC. It ships with
+[PRo3D.Resources.TestData](https://github.com/pro3d-space/PRo3D.Resources.TestData):
+
+```
+HERA/Dimorphos_opc/Dimorphos/
+```
+
+Load a SPICE kernel covering the epochs you want (GIS tab → *Path to Spice Kernel*, or
+`--spice` on the command line). Without one there is no sun direction and nothing below
+works.
+
+## 2. Pick the planet
+
+Choose **Dimorphos** as the planet in the top bar. This is not cosmetic — it is what puts
+the scene in the body's own fixed frame (`DIMORPHOS_FIXED`), and it decides whether you
+see anything at all in step 4. See [SceneBody.md](SceneBody.md).
+
+## 3. Turn on sun lighting
+
+GIS tab → *Projected Images* → *Projection Settings* → **Sun / Lighting Mode**:
+
+![the three lighting modes at the same instant](images/timeSun-modes.png)
+
+| Mode | Effect |
+|---|---|
+| `Off` (default) | no sun shading; the surface renders with its texture only |
+| `SunDirect` | shaded by the real sun direction, Lommel-Seeliger photometry over the per-face terrain normal |
+| `SunShadow` | `SunDirect` plus cast shadows from a sun-aligned shadow map |
+
+`Off` is not "lit from everywhere" — it simply skips shading, so the whole visible body
+reads bright (92% of it, measured). `SunDirect` is what creates a day and a night side:
+the same instant drops to 38%.
+
+`SunShadow` looks almost the same as `SunDirect` above (36% lit), and on a body this
+convex it usually will — there is little relief to throw a shadow across. The difference
+shows up in craters and against boulders, not on the terminator.
+
+## 4. Slide through mission time
+
+GIS tab → **Mission Time** → **Load Data**. Three mission phases appear:
+
+| Phase | Window |
+|---|---|
+| Deimos Flyby | 2025-03-12, 12:07 → 12:10 |
+| Mars Flyby | 2025-03-10 → 2025-03-14 |
+| Didymos Orbital Insertion | 2026-12-12 → 2026-12-16 |
+
+**Click the row first.** A row's slider does nothing until its row is selected — the
+cell is `pointer-events: none` otherwise. Clicking also sets the scene time to that row's
+current slider position.
+
+Then drag the slider. For Dimorphos use *Didymos Orbital Insertion*, and drag **slowly**:
+the row spans four days and the body turns roughly every 11 hours, so the whole slider is
+about nine full rotations.
+
+The figure at the top is one of those rotations, measured on the Dimorphos test data by
+stepping the slider in hundredths and counting lit pixels:
+
+| Slider | Scene time (UTC) | Body lit |
+|---|---|---|
+| 0.040 | 2026-12-12 03:50 | 0% |
+| 0.058 | 2026-12-12 05:36 | 13% |
+| 0.077 | 2026-12-12 07:21 | 55% |
+| 0.095 | 2026-12-12 09:07 | 85% |
+| 0.113 | 2026-12-12 10:52 | 59% |
+| 0.132 | 2026-12-12 12:38 | 21% |
+
+The lit fraction reaches a minimum at 0.040 and again at 0.150, so one full turn is
+**0.11 of the row**, about 10.6 h at the sampling used here.
+
+## If the sun does not seem to move
+
+Two causes, both of which look like "the feature is broken":
+
+**The scene is not in the body's fixed frame.** In an inertial frame such as `J2000` the
+body does not turn with the scene, so the sun direction barely changes: measured on the
+same data, the lit area creeps from 32.5% to 33.6% across the entire four-day row —
+visually nothing. Fix it in step 2. The GIS tab warns about this directly: *"J2000 is not
+the body-fixed frame of Dimorphos"*, with a button to switch.
+
+**You are stepping too coarsely.** The body turns about every 11 h and the row spans four
+days, so moving the slider in ninths samples almost exactly one rotation per step and the
+sun lands in nearly the same place every time. That is aliasing, not a still sun. Drag
+continuously, or step by 0.01 or less.
+
+# Notes
+
+- The observation time is also set by other actions — notably **fly-to on a projected
+  image**, which jumps the scene to that image's epoch (see
+  [MultiImageProjection.md](MultiImageProjection.md)).
+- The scene time is **saved with the scene**, and GIS bookmarks store their own. A
+  sequenced-bookmark render therefore sweeps the sun across the sequence; see
+  [GisView.md](GisView.md) for batch rendering.
+- Shadows use one global shadow map for all surfaces, sized for small bodies. On a
+  planet-sized scene a single 4096² map has too little resolution to be useful.
+- Only OPC surfaces cast shadows — not OBJ surfaces, annotations or scene objects.
+
+The figures on this page are generated by `tests-ui/src/probe-suntime.ts`, which also
+prints the measurements quoted above.

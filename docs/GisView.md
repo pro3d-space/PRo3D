@@ -144,6 +144,10 @@ surface registered in the GIS Surfaces tab (reference frame + body) — the same
 prerequisites the projected-image features have. The sun direction updates with the
 observation time, so scrubbing time moves the terminator and the shadows.
 
+**[TimeAndSun.md](TimeAndSun.md)** walks this through end to end: load Dimorphos, turn on
+sun lighting, and slide the Mission Time slider to send the sun around the body — plus the
+two reasons the sun can appear not to move at all.
+
 The lighting mode is saved with the scene, which also means **batch rendering
 (sequenced-bookmark image generation) uses it**: `PRo3D.Snapshots.exe` restores the scene
 and renders through the same surface pipeline. GIS bookmarks store their own observation
