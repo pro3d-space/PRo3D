@@ -29,7 +29,7 @@ When publishing the release, make sure to set the correct tag, branch and verify
 
 A single draft release is assembled from two independent publishers; everything is keyed off **one version string** and **one tag**.
 
-1. **Trigger & version.** `.github/workflows/deploy.yml` runs on a push that touches `PRODUCT_RELEASE_NOTES.md`, `aardium/package.json`, or `deploy.yml`. The version is the topmost entry in `PRODUCT_RELEASE_NOTES.md` (`notes.NugetVersion`). It is the only source of truth — the build patches `aardium/package.json`'s top-level `version` to it (`patchAardiumVersion` in `CopyToElectron`) and patches `viewerVersion` in `Program.fs`. The committed `package.json` version is irrelevant to the result; it is overwritten at build time.
+1. **Trigger & version.** `.github/workflows/deploy.yml` runs on a push **to a `releases/**` branch** that touches `PRODUCT_RELEASE_NOTES.md`, `aardium/package.json`, or `deploy.yml` (plus a manual *Run workflow*). The branch restriction is what keeps a merge back into `develop` — which carries the same release-notes change — from building a second draft of the same version off the wrong branch. The version is the topmost entry in `PRODUCT_RELEASE_NOTES.md` (`notes.NugetVersion`). It is the only source of truth — the build patches `aardium/package.json`'s top-level `version` to it (`patchAardiumVersion` in `CopyToElectron`) and patches `viewerVersion` in `Program.fs`. The committed `package.json` version is irrelevant to the result; it is overwritten at build time.
 
 2. **The runner matrix.** Each platform builds on its own runner and all `needs: win32_x64`:
    - `win32_x64` (windows-latest) — runs `GitHubRelease` **then** `PublishToElectron`.
@@ -141,3 +141,33 @@ to just create the release in the bin/publish folder.
 Our electron-based workflow (above) uses click-once installers. 'Old-school' zip-releases still useful for team-internal tests and diagnostics. For this reason in early 2024 we re-introduced zip-deployments and made them CI ready via a [github workflow](https://github.com/pro3d-space/PRo3D/blob/00ace24f078b54582c9553ee39ed8d60b1c7be29/.github/workflows/testrelease.yml#L28)
 
 The `--test` flag uses `TEST_RELEASE_NOTES.md` instead of `PRODUCT_RELEASE_NOTES.md` to quickly create test releases without interrupting the official PRODUCT_RELEASE_NOTES track. plase use a `--testing` suffix for test versions.
+
+# 3 -- Continuous integration: what runs when
+
+`.github/workflows/build.yml` builds and tests. Running all four platforms on every commit of
+every branch costs roughly four times what it needs to, and the old triggers ran twice for each
+commit on a branch with an open PR (`push` *and* `pull_request`). The policy now:
+
+| Event | Platforms | Notes |
+|---|---|---|
+| pull request | windows-latest | fast feedback; draft PRs are skipped |
+| push to `develop`, `main`, `releases/**` | ubuntu, windows, macos-15-intel, macos-15 | the merge commit is what the four platforms have to agree on |
+| nightly (03:17 UTC, default branch) | all four | catches platform drift and runner-image changes while nothing is pending |
+| *Run workflow* (manual) | all four | |
+| PR labelled `ci: full-matrix` | all four | for a change that is platform-sensitive by nature |
+
+Two more things save runs:
+
+- **`concurrency: build-${{ github.ref }}` with `cancel-in-progress: true`** — pushing again to a
+  branch or PR cancels the run of the commit you just superseded. Only the tip is ever built.
+- **`paths-ignore`** — a commit touching only `README.md` or `docs/**` builds nothing.
+
+The SPICE job (`spice-tests`, ubuntu only, ~1.3 GB of cached ESA kernels) runs on every non-draft
+PR and push, independent of the matrix: kernels are platform-independent data, so a second OS would
+add cache pressure but no coverage.
+
+**Consequence to be aware of:** a PR is green on Windows only. A platform-specific break (a path
+separator, a case-sensitive file name, a GL driver difference) is caught when the PR is merged into
+`develop`, or by the nightly run — not on the PR itself. If a change is likely to be
+platform-sensitive, add the `ci: full-matrix` label before asking for a review. Nothing reaches a
+release branch without the full matrix having run on it.

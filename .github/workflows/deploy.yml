@@ -1,10 +1,16 @@
 name: Deploy
 on:
-  push: 
+  # Release branches only. Any branch would deploy otherwise: merging a release commit back
+  # into develop touches PRODUCT_RELEASE_NOTES.md and would build a second draft of the same
+  # version from the wrong branch.
+  push:
+    branches:
+      - 'releases/**'
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - aardium/package.json
       - .github/workflows/deploy.yml
+  workflow_dispatch:
 
 concurrency:
   group: deploy-${{ github.ref }}
