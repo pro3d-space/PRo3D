@@ -40,7 +40,8 @@ A single draft release is assembled from two independent publishers; everything 
    - **Standalone** (`GitHubRelease`, win-x64 only): zips `bin/publish/win-x64` into `PRo3D.Viewer-standalone.{version}.zip`, creates the draft release with tag_name `v{version}`, and appends the source commit + tag to the release body. It also creates and pushes the git tag `v{version}`.
    - **Electron** (`PublishToElectron` → `yarn dist` → electron-builder, `--publish always`): builds the installer for the runner's OS/arch (`.exe`/`.dmg`/`.AppImage`) and publishes to a draft with tag `v{version}` (electron-builder's default `vPrefixedTagName`). Because the win job's `GitHubRelease` step has already created that draft, electron-builder attaches its artifacts to the **same** draft instead of creating a second one. The mac/linux jobs (`needs: win32_x64`) likewise attach to the existing draft.
 
-4. **Tag & provenance.** git tag, standalone release tag, and electron release tag are all `v{version}`. The pushed git tag points at the built commit, so the published release anchors to that commit, and the release body records `built from commit <sha>`.
+4. **Tag & provenance.** git tag, standalone release tag, and electron release tag are all `v{version}`. `GitHubRelease` pushes the git tag at the built commit **before** creating the draft, and creates the draft with `target_commitish` = that commit (`GITHUB_SHA`), so the release is anchored to it and the release body records `built from commit <sha>`.
+   Without an explicit target GitHub records the repository's **default branch** (`develop`, earlier `main`) as the release target. That is what releases up to `6.3.0-prerelease002` show: their tags are on the right commits, but the release page refers to the default branch, and had a tag push failed, publishing the draft would have created the tag at the default branch's tip. To correct an existing release: `gh api -X PATCH repos/pro3d-space/PRo3D/releases/<id> -f target_commitish=$(git rev-list -n1 <tag>)`.
 
 5. **Publishing.** The release stays a **draft** (`GitHub.publishDraft` is commented out; electron uses `releaseType: draft`). A human reviews artifacts/notes and publishes it. Verify the tag and target branch when publishing.
 
@@ -53,6 +54,7 @@ The `new` build system uses the Build.fsproj and Build.fs/Helpers.fs files for r
 
 Thus we have those components:
  - Build.fs run by ./build.sh and build.cmd
+ - the target "Adapt" generates the Adaptify `*.g.fs` files (not checked in) via `utilities/Adapt.fsx`; `Compile`, `CompileDebug`, `Tests`, `CopyToElectron` and `Publish` depend on it, so CI needs no extra step. See [ModelTypes.md](ModelTypes.md).
  - the target "CopyToElectron" patches the version string and copies overW the build result into the aardium/bin folders
  - the target "PublishToElectron" performs the build and runs yarn dist in the aardium folder. The rest of deployment/signing/notarization/upload is taken care of by ./aardium/package.json.
 

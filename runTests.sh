@@ -4,4 +4,5 @@
 # deterministically, even on a machine that happens to have those kernels.
 # Extra args are passed through to the Expecto runner.
 set -e
+bash "$(dirname "$0")/adapt.sh"
 dotnet run --project src/Tests/Tests.fsproj -c Release -- --skip-hera "$@"

@@ -128,7 +128,7 @@ The dispatch chain in `src/PRo3D.Viewer/Viewer/Viewer.fs`:
 3. Add a wrapper case to `ViewerAction`.
 4. Handle that case in `updateViewer`, delegating to the sub-app and writing back.
 5. Route a `?page=` id to the sub-app's `view` (`Gui.Pages.pageRouting`), register the panel in `LayoutPanels.all` and add it to the built-in layouts that should show it (see below).
-6. Run `adapt.cmd` to regenerate `*.g.fs`, and extend `Scene` versioning if persisted.
+6. Run `adapt.cmd` / `adapt.sh` to regenerate `*.g.fs` (a new model file also needs its `X.g.fs` `<Compile>` entry in the `.fsproj`; the generated files are not checked in), and extend `Scene` versioning if persisted.
 
 ---
 

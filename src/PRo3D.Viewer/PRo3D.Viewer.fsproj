@@ -36,7 +36,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ResettableAsyncValue.fs" />
-    <None Include="RunAdaptify.fsx" />
     <None Include="paket.references" />
     <Compile Include="Traverse\TraverseUtilities.fs" />
     <Compile Include="Traverse\PlannedTargetsTraverse.fs" />

@@ -15,7 +15,7 @@ The base framework (App/Unpersist/DomNode/controllers/animation/ThreadPool) is d
 ## Hard rules
 
 - **Paket only** — never `dotnet add package` or edit `<PackageReference>`. Edit `paket.dependencies` + `paket.references`.
-- **Never edit `*.g.fs`** — they are Adaptify output. Change the `*-Model.fs` source and run `adapt.cmd` / `adapt.sh`.
+- **Never edit or commit `*.g.fs`** — they are Adaptify output, generated locally and git-ignored. Change the `*-Model.fs` source and run `adapt.cmd` / `adapt.sh` (also needed once in a fresh clone/worktree before an IDE or plain `dotnet build`; `build.cmd` and the test scripts run it themselves). See [docs/ModelTypes.md](docs/ModelTypes.md).
 - **Models are immutable `[<ModelType>]` records**; updates return new models.
 - **Persisted state is versioned** — *adding* a field needs no version bump if read with `Json.tryRead` + a default; bump `Scene.current` / add a `readN` only for breaking changes (rename/remove/retype/changed meaning).
 - **Never `AVal.force` inside an adaptive computation** (`AVal.map`/`AList.collect`/CEs) — bind with `let!`. Forcing is OK only in imperative/UI callbacks; inside a custom `Sg`/`RenderObject` use the provided token (`x.GetValue(t)`). See [ai/CONVENTIONS.md](ai/CONVENTIONS.md).

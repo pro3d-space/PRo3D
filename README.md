@@ -64,7 +64,7 @@ Currently in order to run Pro3D (no matter if built from source or a binary) you
 
 # Getting started from pre-built binaries
 
-Demo data and the pre-built application versions can be found on our [Github Release Page](https://github.com/pro3d-space/PRo3D/releases). A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
+Demo data and the pre-built application versions can be found on our [Github Release Page](https://github.com/pro3d-space/PRo3D/releases). Step-by-step instructions for all platforms — including what to do when the browser blocks the download, where to get test data, and installing `pro3d-tool` — are in [docs/Installation.md](docs/Installation.md). A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
 
 # Getting started with from source
 
@@ -88,8 +88,7 @@ If you have any questions, feel free to contact us on [discord](https://discord.
 
 ## Adaptify
 
-The project makes heavy use of the [`adaptify`](https://github.com/krauthaufen/Adaptify) tool. Until 20.11.2024 all model type generation was handled by the msbuild tool implicitly. For better development experience we now use local adaptify mode, some documentation can be found [here](./docs/ModelTypes.md).
-This allows developers to use a much wider set of IDEs. Development in vscode or rider should work out-of-the box!
+The project makes heavy use of the [`adaptify`](https://github.com/krauthaufen/Adaptify) tool. The generated `*.g.fs` files are **not checked in**: `build.cmd` / `build.sh` generate them, and before working in an IDE (vscode, Rider, Visual Studio) run `adapt.cmd` / `adapt.sh` once after cloning and again whenever model types changed (after editing them, or after a pull/branch switch). See [docs/ModelTypes.md](./docs/ModelTypes.md).
 
 ## Notebooks
 
