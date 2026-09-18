@@ -1,3 +1,12 @@
+## 6.3.2
+The map projection view works for planets.
+
+- Small bodies and planets: **the Map Projection panel is no longer restricted to small bodies.** It draws for any body the scene is referenced to; without one (a scene observed in `J2000`) it still shows a hint and creates no render control. What made a planet unusable was scale, not correctness: a Jezero OPC tile is 2.7 km across, which on Mars is 0.045 degrees, an eighth of a pixel on a whole-planet map. Three things now make it usable (#772, docs/MapProjectionView.md):
+  - **data footprints**: a rectangle per surface where its data is, never smaller than 9 pixels, so sub-pixel data can be seen and aimed at. Data that fills the map, as on a small body, gets none
+  - **a camera marker**: the 3D view's position as a crosshair at a constant size on screen, so the map tells you where you are looking from
+  - ***Zoom to data*** and a maximum zoom of 32768 (0.6 m/pixel on Mars), where the map's float32 body positions are still worth well under a pixel
+- Map projection: opening the panel reads each surface's root bounding box once instead of three times, which is noticeable in a scene with a hundred surfaces
+
 ## 6.3.1
 Fixes surface transformations in Earth scenes.
 
