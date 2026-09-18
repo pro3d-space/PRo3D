@@ -107,9 +107,12 @@ module TransformationApp =
         // triad - which is why that is the fallback rather than an error: a body added
         // to `Planet` later belongs here, and guessing wrong is better than throwing
         // from inside a pivot pick or a trafo export.
+        //
+        // Earth is a body too: its scenes are geocentric, so "up" is the local surface
+        // normal and not the ECEF z axis. Earth used to share the identity basis here,
+        // which made yaw turn a surface around Earth's spin axis - 53 degrees off the
+        // local vertical at 37 degrees latitude.
         match refSystem.planet with
-        | Planet.Earth ->
-            Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
         | Planet.ENU -> 
             Trafo3d.FromOrthoNormalBasis( V3d.OIO, V3d.IOO, V3d.OOI) * northCorrection
         | Planet.JPL -> 
@@ -118,7 +121,7 @@ module TransformationApp =
             // northCorrection
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
         | _ ->
-            // Mars, Moon, Phobos, Deimos, Didymos, Dimorphos
+            // Earth, Mars, Moon, Phobos, Deimos, Didymos, Dimorphos
             let north = refSystem.northO.Normalized
             let up    = refSystem.up.value.Normalized
             let east  = north.Cross(up).Normalized
@@ -136,9 +139,8 @@ module TransformationApp =
         //
         // Note this cannot apply `northCorrection` the way the global variant does: it
         // is not given the ReferenceSystem, only the surface's directions and the planet.
+        // Earth takes the body case, as in the global variant.
         match planet with
-        | Planet.Earth ->
-            Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI)
         | Planet.ENU -> 
             Trafo3d.FromOrthoNormalBasis( V3d.OIO, V3d.IOO, V3d.OOI)
         | Planet.JPL -> 
@@ -147,7 +149,7 @@ module TransformationApp =
             //Trafo3d(directions)
             Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI)
         | _ ->
-            // Mars, Moon, Phobos, Deimos, Didymos, Dimorphos
+            // Earth, Mars, Moon, Phobos, Deimos, Didymos, Dimorphos
             let north, up, east = getNorthUpEastFromLocalRefSys directions
             Trafo3d.FromOrthoNormalBasis(north, east, up)
 
