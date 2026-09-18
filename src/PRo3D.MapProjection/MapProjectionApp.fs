@@ -187,7 +187,7 @@ module MapProjectionApp =
                         ]
             })
 
-    /// The panel as an app of its own: `PRo3D.MapProjection.exe` (Program.fs) serves it
+    /// The panel as an app of its own: `PRo3D.MapProjection.Standalone.exe` (its Program.fs) serves it
     /// standalone, PRo3D embeds `view` as a page.
     let app (inputs : MapInputs) : App<MapProjectionModel, AdaptiveMapProjectionModel, MapProjectionAction> =
         {

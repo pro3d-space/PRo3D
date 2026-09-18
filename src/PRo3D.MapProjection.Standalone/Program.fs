@@ -1,6 +1,6 @@
-/// PRo3D.MapProjection.exe: the map projection panel (#772) as a standalone app.
+/// PRo3D.MapProjection.Standalone.exe: the map projection panel (#772) as a standalone app.
 ///
-///   PRo3D.MapProjection.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
+///   PRo3D.MapProjection.Standalone.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
 ///                            [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--port 4330] [--server]
 ///
 /// `--opc` takes an OPC directory (its hierarchies are found below it) or a single
@@ -8,6 +8,8 @@
 /// ellipses, circles), read in `--frame`. `--server` serves without opening a window and runs until stdin closes --
 /// the mode the Playwright spec drives. PRo3D embeds the same `MapProjectionApp.view` as the
 /// `mapprojection` page.
+/// Lives in the PRo3D.MapProjection namespace although it builds into
+/// PRo3D.MapProjection.Standalone.exe, so it sees the library modules directly.
 module PRo3D.MapProjection.Program
 
 open System

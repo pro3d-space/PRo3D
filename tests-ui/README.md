@@ -46,7 +46,7 @@ npm run test:projection                   # projection end to end, see below
 | `PRO3D_E2E_DATE` / `PRO3D_E2E_EPOCH` | observation for `projection-e2e` | 2027-03-21 / 20:00:00 |
 | `PRO3D_E2E_SCENE_EPOCH` | scene time for its cross-epoch fly-to case | 14:00:00 |
 | `PRO3D_PYTHON` | interpreter with numpy, for the data generator | `python` |
-| `PRO3D_MAP_EXE` | standalone map projection app for `map-projection` | `../bin/Release/net9.0/PRo3D.MapProjection.exe` |
+| `PRO3D_MAP_EXE` | standalone map projection app for `map-projection` | `../bin/Release/net9.0/PRo3D.MapProjection.Standalone.exe` |
 
 Current specs:
 
@@ -59,7 +59,7 @@ Current specs:
 | `looking-at-dimorphos` | fly-to lands looking at the body, at the size the sidecar's range predicts |
 | `window-layouts` | window layouts (docs/WindowLayouts.md): built-in layouts, close/reopen, reload and restart restore, the layout library, the sidecar beside saved scenes (a failing sidecar never fails the save), the offer when opening a scene with another layout, broken layout files reported to the user, popouts. Each case uses its own `PRO3D_LAYOUT_DIR` |
 | `cross-section-curtain` | Create cross section clips the surface; the curtain renders in its base color without an image; the (stubbed) open dialog, cancel, remove and a typed path each put the right image, or none, on the curtain |
-| `map-projection` | the map projection panel (#772, docs/MapProjectionView.md): the standalone `PRo3D.MapProjection.exe` draws the synthetic annotations (`fixtures/map-projection-annotations.pro3d.ann`) and the graticule where the projection puts it, dragging moves the map by the drag, polar north puts the prime meridian below the pole, a planet gets the hint; PRo3D's `?page=mapprojection` shows the same map. Needs `dotnet build src/PRo3D.MapProjection -c Release` |
+| `map-projection` | the map projection panel (#772, docs/MapProjectionView.md): the standalone `PRo3D.MapProjection.Standalone.exe` draws the synthetic annotations (`fixtures/map-projection-annotations.pro3d.ann`) and the graticule where the projection puts it, dragging moves the map by the drag, polar north puts the prime meridian below the pole, a planet gets the hint; PRo3D's `?page=mapprojection` shows the same map. Needs `dotnet build src/PRo3D.MapProjection.Standalone -c Release` |
 | `scene-body` | the planet and the GIS observed body are one setting (#758): a GIS-only scene gets its planet on load and map view navigates; a J2000 scene loads unchanged and switches to body-fixed on request; picking the planet sets up the GIS |
 
 ### `projection-e2e` — generate, project, compare

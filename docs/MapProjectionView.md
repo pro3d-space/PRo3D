@@ -21,7 +21,7 @@ Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [
 - **Standalone:**
 
   ```
-  PRo3D.MapProjection.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
+  PRo3D.MapProjection.Standalone.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
                           [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--port 4330] [--server]
   ```
 
@@ -76,7 +76,7 @@ bound to the scene body, or unbound surfaces inheriting it.
 | [`src/PRo3D.MapProjection/MapSg.fs`](../src/PRo3D.MapProjection/MapSg.fs) | Scene graphs. **The single composition the panel and the tests share** |
 | [`src/PRo3D.MapProjection/MapAnnotations.fs`](../src/PRo3D.MapProjection/MapAnnotations.fs) | Annotations on the map: PRo3D's packed annotation buffers with the map shader stages; loading annotation files for the standalone app |
 | [`src/PRo3D.MapProjection/MapProjectionApp.fs`](../src/PRo3D.MapProjection/MapProjectionApp.fs) | Model update (pan, zoom, projection), view, and `app` for standalone use |
-| [`src/PRo3D.MapProjection/Program.fs`](../src/PRo3D.MapProjection/Program.fs) | `PRo3D.MapProjection.exe` |
+| [`src/PRo3D.MapProjection.Standalone/Program.fs`](../src/PRo3D.MapProjection.Standalone/Program.fs) | `PRo3D.MapProjection.Standalone.exe` |
 | [`src/PRo3D.Viewer/Viewer/MapProjectionHost.fs`](../src/PRo3D.Viewer/Viewer/MapProjectionHost.fs) | Everything the viewer knows about the panel: which surfaces it draws and where they sit |
 
 ### Rendering
