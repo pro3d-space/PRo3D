@@ -1,13 +1,15 @@
 # Map Projection View
 
-Synopsis: a panel showing a small body's OPC surfaces as a 2D map, **equirectangular** or
-**polar stereographic**, with a lat/lon graticule. It runs standalone too.
+Synopsis: a panel showing a body's OPC surfaces as a 2D map, **equirectangular** or
+**polar stereographic**, with a lat/lon graticule, the data footprints and the 3D view's
+camera. It runs standalone too.
 Issue: [#772](https://github.com/pro3d-space/PRo3D/issues/772).
 Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [Window Layouts](WindowLayouts.md).
 
 > **Phases 1, 1.5 and 2.** OPC surfaces with their primary texture, the graticule, pan and zoom,
-> a map-space LoD decider, and annotations (lines, fills, points, ellipses). Not yet: annotation
-> labels, dip-and-strike glyphs, picking or cursor readout, OBJ meshes, planets.
+> a map-space LoD decider, annotations (lines, fills, points, ellipses), and — for planets —
+> footprints, a camera marker and *Zoom to data*. Not yet: annotation labels, dip-and-strike
+> glyphs, picking or cursor readout, OBJ meshes.
 
 ## Using it
 
@@ -22,7 +24,8 @@ Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [
 
   ```
   PRo3D.MapProjection.Standalone.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
-                          [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--port 4330] [--server]
+                          [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--camera x,y,z]
+                          [--port 4330] [--server]
   ```
 
   `--opc` takes an OPC directory (its patch hierarchies are found below it) or a single
@@ -34,13 +37,33 @@ Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [
 |---|---|
 | *Equirectangular / Polar north / Polar south* | Switches the projection and resets the view |
 | Left-drag | Pan (grab and drag: the map point under the pointer follows it) |
-| Mouse wheel | Zoom about the pointer (1× to 512×) |
+| Mouse wheel | Zoom about the pointer (1× to 32768×) |
+| *Zoom to data* | Centres and zooms on the surfaces, with a margin |
 | *Reset view* | Whole map, zoom 1 |
 
-The panel only draws for **small bodies** (`CooTransformation.isSmallBody`: Phobos, Deimos,
-Didymos, Dimorphos). For any other planet it shows a hint and creates **no render control**.
-There is then no render task, no patch loading and no shader compile, so a Mars session
-pays nothing, even with the panel in its layout.
+`--camera` marks a body-fixed position in the standalone app, the way PRo3D marks its 3D view.
+
+The panel draws for **any body the scene is referenced to**, planets included. Without a body
+it shows a hint and creates **no render control**: no render task, no patch loading, no shader
+compile. Since it is a panel one opens, a session that never opens it pays nothing either way.
+
+### Planets
+
+A planet is mostly a question of scale, not of correctness. A Jezero OPC tile is 2.7 km across,
+which on Mars (1° ≈ 59.3 km) is **0.045°**: on a whole-planet map in a 1024-pixel panel that is
+**0.13 pixels**, and the whole 118-surface mosaic is about a pixel. Nothing is broken when such a
+map looks empty — the data is simply far below one pixel. Three things make it usable:
+
+- **Footprints.** Every surface gets a rectangle where its data is, never smaller than
+  `MapSg.footprintMinPixels` (9 px), so you can see *that* there is data and where.
+- **The camera marker.** An orange crosshair with a gap, at the 3D view's camera position, at a
+  constant size on screen. On a planet this is what tells you where you are looking.
+- ***Zoom to data*** and a maximum zoom of 32768 (0.6 m/pixel on Mars, where the float32 body
+  positions are worth about 0.2 m — still under a pixel).
+
+Precision is not the limit here: the map only needs longitude and latitude, and 0.2 m at Mars
+radius is 0.01 arcseconds. The `float32` caveat below still applies to what the *shader* does
+with positions, not to where the map puts them.
 
 In PRo3D the panel follows the scene's **planet**, which requires a body-fixed scene
 (docs/SceneBody.md). A scene observing Dimorphos in `J2000` has planet `None`: its world axes
@@ -257,5 +280,5 @@ A render control only renders on change, so these are costs while something move
   - labels;
   - chord densification: on the CPU, or with tessellation isolines, which set their subdivision
     level per segment at runtime.
-- **Planets:** a per-patch double anchor, the LoD decider, planetographic/west-positive
+- **Planets, deeper:** a per-patch double anchor, planetographic/west-positive
   conventions.

@@ -36,6 +36,8 @@ module MapSg =
             viewProj      : aval<Trafo3d>
             /// polar cutoff (`Projection.defaultMaxColatitude`)
             maxColatitude : aval<float>
+            /// map units one pixel covers: the size of whatever is drawn at a constant screen size
+            unitsPerPixel : aval<float>
             /// radius interval normalised into depth (`Projection.radiusRange`)
             radiusRange   : aval<V2d>
         }
@@ -191,6 +193,16 @@ module MapSg =
 
     let bodyPositionEffects = [| Shaders.bodyPositionEffect MapProjectionKind.Equirectangular; Shaders.bodyPositionEffect MapProjectionKind.PolarNorth |]
 
+    /// Map-space line segments drawn through the map view-projection: the graticule, the data
+    /// footprints and the camera marker are all this.
+    let lineSg (view : MapView) (lines : aval<(V3f * V3f * C4b)[]>) : ISg =
+        Sg.draw IndexedGeometryMode.LineList
+        |> Sg.vertexAttribute DefaultSemantic.Positions (lines |> AVal.map (Array.collect (fun (a, b, _) -> [| a; b |])))
+        |> Sg.vertexAttribute DefaultSemantic.Colors    (lines |> AVal.map (Array.collect (fun (_, _, c) -> [| c; c |])))
+        |> Sg.effect [ Shaders.graticuleEffect ]
+        |> Sg.depthTest (AVal.constant DepthTest.None)
+        |> withMapUniforms view
+
     /// Map-space line segments of the graticule: every 15 degrees, equator yellow, prime
     /// meridian red (the colours of the LatLon shader).
     let graticuleLines (kind : MapProjectionKind) (maxColatitude : float) : (V3f * V3f * C4b)[] =
@@ -229,19 +241,132 @@ module MapSg =
                     yield seg (V2d.Zero) (Projection.polar sign lon (latOf maxColatitude)) (if k = 0 then meridian0 else grid)
             |]
 
-    let graticule (view : MapView) : ISg =
+    /// Corners of the placed root bounding boxes, in the body-fixed frame the map projects.
+    let placedCorners (surfaces : aset<MapSurface>) : aval<V3d[]> =
+        surfaces
+        |> ASet.mapA (fun s ->
+            // loaded once per surface, outside the evaluation
+            let boxes = rootBoxes s.hierarchies
+            (s.placement, s.visible) ||> AVal.map2 (fun t visible ->
+                if visible then boxes |> Array.collect (fun b -> b.Transformed(t).ComputeCorners()) else [||]))
+        |> ASet.toAVal
+        |> AVal.map (fun cs -> cs |> Seq.toArray |> Array.concat)
+
+    /// Map-space box around everything the map draws, for *Zoom to data*.
+    let dataExtent (kind : aval<MapProjectionKind>) (surfaces : aset<MapSurface>) : aval<Option<Box2d>> =
+        (kind, placedCorners surfaces) ||> AVal.map2 Projection.mapBoxOf
+
+    /// Line segments of a rectangle, sampled along the edges so that it follows the curvature
+    /// of the polar map.
+    let private rectangle (color : C4b) (box : Box2d) =
+        let steps = 8
+        let corner i =
+            match i with
+            | 0 -> box.Min
+            | 1 -> V2d(box.Max.X, box.Min.Y)
+            | 2 -> box.Max
+            | _ -> V2d(box.Min.X, box.Max.Y)
+        [|
+            for edge in 0 .. 3 do
+                let a = corner edge
+                let b = corner ((edge + 1) % 4)
+                for i in 0 .. steps - 1 do
+                    let p0 = a + (b - a) * (float i / float steps)
+                    let p1 = a + (b - a) * (float (i + 1) / float steps)
+                    yield V3f(float32 p0.X, float32 p0.Y, 0.0f), V3f(float32 p1.X, float32 p1.Y, 0.0f), color
+        |]
+
+    let footprintColor = C4b(120, 200, 255, 255)
+    let cameraColor    = C4b(255, 150, 40, 255)
+
+    /// Smallest data footprint on screen, in pixels. A Jezero OPC is about 0.05 degrees across,
+    /// which is a fifth of a pixel on a whole-Mars map: without a floor there is no way to see
+    /// that there is data at all, let alone where to zoom.
+    let footprintMinPixels = 9.0
+
+    /// Above this size on screen the data speaks for itself and the rectangle is only clutter --
+    /// on a small body, where the surfaces are the whole map, no footprint is ever drawn.
+    let footprintMaxPixels = 400.0
+
+    /// The rectangle to draw for a surface whose data covers `box` in map space, or None when the
+    /// data is large enough on screen to speak for itself. Below `footprintMinPixels` the box is
+    /// grown around its centre, which is what makes sub-pixel data on a planet visible at all.
+    let footprintBox (unitsPerPixel : float) (box : Box2d) : Option<Box2d> =
+        let onScreen = box.Size / unitsPerPixel
+        if max onScreen.X onScreen.Y > footprintMaxPixels then None
+        else
+            let half = 0.5 * footprintMinPixels * unitsPerPixel
+            let c = box.Center
+            Some (Box2d(V2d(min box.Min.X (c.X - half), min box.Min.Y (c.Y - half)),
+                        V2d(max box.Max.X (c.X + half), max box.Max.Y (c.Y + half))))
+
+    /// Where the surfaces are: one rectangle per surface, never smaller than
+    /// `footprintMinPixels`, drawn over the map.
+    let footprints (view : MapView) (surfaces : aset<MapSurface>) : ISg =
         let lines =
-            (view.kind, view.maxColatitude) ||> AVal.map2 graticuleLines
-        Sg.draw IndexedGeometryMode.LineList
-        |> Sg.vertexAttribute DefaultSemantic.Positions (lines |> AVal.map (Array.collect (fun (a, b, _) -> [| a; b |])))
-        |> Sg.vertexAttribute DefaultSemantic.Colors    (lines |> AVal.map (Array.collect (fun (_, _, c) -> [| c; c |])))
-        |> Sg.effect [ Shaders.graticuleEffect ]
-        |> Sg.depthTest (AVal.constant DepthTest.None)
-        |> withMapUniforms view
+            surfaces
+            |> ASet.mapA (fun s ->
+                // loaded once per surface, outside the evaluation
+                let boxes = rootBoxes s.hierarchies
+                adaptive {
+                    let! visible = s.visible
+                    if not visible then return [||]
+                    else
+                        let! placement = s.placement
+                        let! kind = view.kind
+                        let! unitsPerPixel = view.unitsPerPixel
+                        let corners = boxes |> Array.collect (fun b -> b.Transformed(placement).ComputeCorners())
+                        match Projection.mapBoxOf kind corners |> Option.bind (footprintBox unitsPerPixel) with
+                        | None -> return [||]
+                        | Some box -> return rectangle footprintColor box
+                })
+            |> ASet.toAVal
+            |> AVal.map (fun s -> s |> Seq.toArray |> Array.concat)
+        lineSg view lines
+
+    /// The 3D view's camera on the map: a crosshair with a gap and a small box around the
+    /// position, at a constant size on screen. On a planet the data is a speck, so this is
+    /// what tells you where you are.
+    let cameraMarker (view : MapView) (camera : aval<Option<V3d>>) : ISg =
+        let lines =
+            adaptive {
+                let! camera = camera
+                match camera with
+                | None -> return [||]
+                | Some position ->
+                    let! kind = view.kind
+                    let! unitsPerPixel = view.unitsPerPixel
+                    match Projection.mapBoxOf kind [ position ] with
+                    | None -> return [||]
+                    | Some box ->
+                        let c = box.Center
+                        let u = unitsPerPixel
+                        let seg (a : V2d) (b : V2d) =
+                            V3f(float32 a.X, float32 a.Y, 0.0f), V3f(float32 b.X, float32 b.Y, 0.0f), cameraColor
+                        let inner, outer, half = 5.0 * u, 12.0 * u, 3.0 * u
+                        return
+                            Array.append
+                                [|
+                                    seg (c + V2d(inner, 0.0)) (c + V2d(outer, 0.0))
+                                    seg (c - V2d(inner, 0.0)) (c - V2d(outer, 0.0))
+                                    seg (c + V2d(0.0, inner)) (c + V2d(0.0, outer))
+                                    seg (c - V2d(0.0, inner)) (c - V2d(0.0, outer))
+                                |]
+                                (rectangle cameraColor (Box2d(c - V2d(half, half), c + V2d(half, half))))
+            }
+        lineSg view lines
+
+    let graticule (view : MapView) : ISg =
+        (view.kind, view.maxColatitude) ||> AVal.map2 graticuleLines |> lineSg view
 
     /// After the surfaces, so the grid lies on top of the map.
     let graticulePass = RenderPass.after "map-graticule" RenderPassOrder.Arbitrary RenderPass.main
 
     /// The whole map without annotations: textured surfaces with the graticule on top.
-    let map (cfg : OpcSg.Config) (view : MapView) (mapSurfaces : aset<MapSurface>) : ISg =
-        Sg.ofList [ surfaces cfg surfaceEffects view mapSurfaces; graticule view |> Sg.pass graticulePass ]
+    let map (cfg : OpcSg.Config) (view : MapView) (camera : aval<Option<V3d>>) (mapSurfaces : aset<MapSurface>) : ISg =
+        Sg.ofList [
+            surfaces cfg surfaceEffects view mapSurfaces
+            footprints view mapSurfaces |> Sg.pass graticulePass
+            graticule view |> Sg.pass graticulePass
+            cameraMarker view camera |> Sg.pass graticulePass
+        ]

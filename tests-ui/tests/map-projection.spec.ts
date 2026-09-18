@@ -243,13 +243,40 @@ test.describe("map projection view (#772)", () => {
         }
     });
 
-    test("standalone: a planet gets the hint, not a map", async ({ browser }) => {
-        const app = await launchMap([fixture.opc], ["--planet", "Mars"]);
+    test("standalone: without a body there is a hint and no render control", async ({ browser }) => {
+        const app = await launchMap([fixture.opc], ["--planet", "None"]);
         const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
         try {
             await page.goto(app.url);
-            await expect(page.locator("text=available for small bodies")).toBeVisible({ timeout: 60_000 });
+            await expect(page.locator("text=needs a body to project onto")).toBeVisible({ timeout: 60_000 });
             expect(await page.locator("img.rendercontrol").count()).toBe(0);
+        } finally {
+            await app.stop();
+        }
+    });
+
+    test("standalone: a planet gets a map, with the camera marker where it belongs", async ({ browser }) => {
+        // #772: planets used to be refused. What makes them usable is finding the data at all --
+        // a Jezero OPC is 0.045 degrees across, an eighth of a pixel on a whole-Mars map. The
+        // marker is the part that does not depend on the data, so it is what this checks; the
+        // footprint rule is a pure function, covered in MapProjectionMathTests.
+        // The camera is Jezero: 77.4 E, 18.5 N on Mars.
+        const app = await launchMap([fixture.opc], ["--planet", "Mars", "--camera", "700586.97,3140941.06,1077437.94"]);
+        const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
+        try {
+            await page.goto(app.url);
+            await page.waitForSelector("img.rendercontrol", { timeout: 60_000 });
+            const img = await settle(page, "map-standalone-mars.png");
+
+            // orange (255, 150, 40), against a body whose own texture is mostly dark sky
+            const isCamera: Rgb = (r, g, b) => r > 190 && g > 110 && g < 190 && b < 90;
+            const x = (77.4 / 180 + 1) / 2 * img.width;
+            const y = (1 - 18.5 / 90) / 2 * img.height;
+            expect(colourNear(img, x, y, 14, isCamera),
+                   `camera marker at pixel (${Math.round(x)}, ${Math.round(y)})`).toBe(true);
+            // and nowhere else: the crosshair is the only orange thing, 60 degrees away there is none
+            const far = (17.4 / 180 + 1) / 2 * img.width;
+            expect(colourNear(img, far, y, 14, isCamera), "no marker 60 degrees to the west").toBe(false);
         } finally {
             await app.stop();
         }
@@ -385,7 +412,7 @@ test.describe("map projection view (#772)", () => {
         const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
         try {
             await page.goto(app.url + "?page=mapprojection");
-            await expect(page.locator("text=available for small bodies")).toBeVisible({ timeout: 120_000 });
+            await expect(page.locator("text=needs a body to project onto")).toBeVisible({ timeout: 120_000 });
             expect(await page.locator("img.rendercontrol").count()).toBe(0);
         } finally {
             await app.stop();
