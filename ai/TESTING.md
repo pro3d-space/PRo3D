@@ -141,5 +141,61 @@ being modified, and check the geometry (do the silhouettes coincide?) and the
 orientation (is the identity really the best of the eight square symmetries?)
 before believing any content-level correlation.
 
+### Never derive the background colour from the frame
+
+The viewer clears to `#222222` (34). An unobserved region of a texture mosaic
+renders **pure black (0)**, so "body" means *not the clear colour*, not *bright* —
+and the clear colour must be the fixed constant 34. Every attempt to infer it
+from the picture fails on exactly the frames that matter:
+
+- **Sampling a corner** breaks as soon as the black body covers that corner.
+  `image.ts:bodyCoverage` still does this.
+- **Taking the most common value** breaks too: when most of the visible body is
+  unobserved, black *is* the most common value.
+
+Both then classify the black body as background and report the body as missing.
+That produced a "`bodyPixels=9501`, essentially empty frame" reading on a scene
+that was rendering perfectly, and cost a session chasing a rendering bug that did
+not exist — while the real fault was a camera 136 m from a body that needs ~199 m
+to fit the fov. Assert the share of pixels actually at 34 and fail loudly if it is
+~0, rather than trusting a plausible-looking coverage number.
+
+### Framing: check the angle before blaming the harness
+
+A body of radius *r* seen from distance *d* subtends `2·asin(r/d)`. Dimorphos is
+`r = 77.2 m` and the scene's `focal 10.25` is a 60° fov, so it needs *d* ≳ 190 m
+to fit — at 136 m it subtends ~69° and overflows the frame. Compute this before
+concluding the render page, the aspect ratio or the viewport is at fault.
+`tests-ui/src/probe-bookmarks.ts` renders every bookmark of a scene and prints
+distance, subtended angle and body coverage, which answers the question in one run.
+
+### Reproduce a viewpoint from a bookmark, never by re-aiming
+
+A bookmark stores the full `[Sky, Location, Forward, Up, Right]`. Write it
+verbatim into the scene's top-level `cameraView` and relaunch. Rebuilding it as
+"position + look at the origin" throws the saved orientation away and reframes the
+shot. Where a bookmark is radial (`Forward = -Location/|Location|`) you may scale
+`Location` to dolly in or out — that leaves all four directions untouched —
+but assert the radial property first.
+
+### aardvark.media hover needs a real crossing
+
+`onMouseEnter` handlers do not fire for `new MouseEvent("mouseenter",
+{ bubbles: false })`. They also do not fire if the pointer never *leaves* the
+element: library rows are the full panel width (~1092 px), so nudging from
+`x - 40` to `x` stays inside and nothing happens. Move the mouse away first, then
+in. And resolve the row element by requiring it to contain **its own** name and no
+other row's — walking up to "the nearest ancestor with an inline border" lands on
+the container shared by every row, so all of them hover the same thing and produce
+byte-identical frames.
+
+### Hiding the chrome for a screenshot
+
+The HUD, tool strip and colour bar are ordinary absolutely-positioned DOM over
+`img.rendercontrol`, and they are **not** all siblings of it — walking up from the
+render control's parent misses the HUD. Sweep `document.body` and hide every
+`position: absolute|fixed` element that is not an ancestor of the render control.
+The scale bar and axis cross are rendered into the image itself and survive this.
+
 Tests are machine-local (GPU + local datasets, `PRO3D_*` env vars); they are
 not run in CI, which makes running them locally the only line of defense.
