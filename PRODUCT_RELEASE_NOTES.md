@@ -1,3 +1,14 @@
+## 6.3.0
+The first non-prerelease of the 6.3 line: a new window layout system, popouts, and the map projection view for small bodies. Everything from `6.3.0-prerelease001` and `-prerelease002` is included.
+
+- UI: **the window uses Golden Layout.** Panels can be resized, moved between stacks, maximised and popped out into their own windows; closing a popout docks its panels back. The main view cannot be closed, and closed panels come back via *Layout -> Reopen Panel* (#614, based on work by Thomas Ortner in #618)
+- UI: **window layouts belong to the user, not the scene.** The layout you leave is restored at the next start (`%APPDATA%/Pro3D/layouts`). Built-in layouts (M2020 is the default) and *My Layouts* (save as, load, rename, delete) are in the *Layout* menu
+- Scenes: **saving a scene also stores its layout beside it** (`<scene>.pro3d.layout`), and opening a scene with a different layout asks whether to add it to *My Layouts* and whether to use it. The sidecar can never fail a save; unreadable layout files are reported and ignored
+- UI: **popouts work in the installed app.** Popping out a stack opened the system browser instead of a window, and its panels vanished from the main window (pro3d-space/aardium#1). Popouts now open as windows, dock back when closed, and reopen where they were, also on a second display
+- Small bodies: **a new Map Projection panel shows the body as a 2D map**, equirectangular or polar stereographic, with the surfaces, a lat/lon graticule and the scene's annotations. Drag pans, the wheel zooms, and the projection is chosen in the panel. It is part of the M2020, PRo3D Core and GIS layouts and available for Phobos, Deimos, Didymos and Dimorphos in a body-fixed scene; other bodies show a hint instead. The same view also runs standalone as `PRo3D.MapProjection.exe` (#772, docs/MapProjectionView.md)
+- UI: the title bar credits everyone behind PRo3D: *powered by Aardvark and the PRo3D community, led by VRVis*
+- Development: the Adaptify output (`*.g.fs`) is no longer checked in; `adapt.cmd` / `adapt.sh`, the build and the test scripts generate it (#774)
+
 ## 6.3.0-prerelease002
 Collects the work merged since `6.3.0-prerelease001`.
 
