@@ -1,7 +1,17 @@
 name: Build
 
+# What runs where (see docs/Build-Deploy-System.md):
+#   pull request        one platform (windows), so a commit gets fast feedback
+#   develop / main / releases/**   all four platforms
+#   nightly, manual, or a PR labelled "ci: full-matrix"   all four platforms
+# `push` is limited to the long-lived branches: a branch with an open PR would otherwise
+# build twice for every commit.
 on:
   push:
+    branches:
+      - develop
+      - main
+      - 'releases/**'
     paths-ignore:
     - 'README.md'
     - 'docs/**'
@@ -9,27 +19,46 @@ on:
     paths-ignore:
     - 'README.md'
     - 'docs/**'
+  schedule:
+    # 03:17 UTC, every day: the full matrix on the default branch
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+# One run per branch or pull request; pushing again cancels the superseded run.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # Which platforms this run uses. `include` cannot be filtered (an include whose key does
+  # not match an existing combination adds a job), so the whole matrix is built here.
+  setup:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - id: pick
+        shell: bash
+        env:
+          FULL: "${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci: full-matrix') }}"
+        run: |
+          windows='{"os":"windows-latest","run-build":".\\build.cmd","run-tests":".\\runTests.cmd"}'
+          ubuntu='{"os":"ubuntu-latest","run-build":"sh ./build.sh","run-tests":"bash ./runTests.sh"}'
+          mac_x64='{"os":"macos-15-intel","run-build":"bash ./build.sh","run-tests":"bash ./runTests.sh"}'
+          mac_arm='{"os":"macos-15","run-build":"bash ./build.sh","run-tests":"bash ./runTests.sh"}'
+          if [ "$FULL" = "true" ]; then
+            echo "matrix={\"include\":[$ubuntu,$windows,$mac_x64,$mac_arm]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix={\"include\":[$windows]}" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: setup
     runs-on: ${{ matrix.os }}
     strategy:
         fail-fast: false
-        matrix:
-            os: [ubuntu-latest, windows-latest, macos-15-intel, macos-15]
-            include:
-              - os: ubuntu-latest
-                run-build: sh ./build.sh
-                run-tests: bash ./runTests.sh
-              - os: windows-latest
-                run-build: .\build.cmd
-                run-tests: .\runTests.cmd
-              - os: macos-15-intel
-                run-build: bash ./build.sh
-                run-tests: bash ./runTests.sh
-              - os: macos-15
-                run-build: bash ./build.sh
-                run-tests: bash ./runTests.sh
+        matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -62,6 +91,7 @@ jobs:
   # size per OS would crowd the paket caches out of the repository's 10 GB budget.
   spice-tests:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - name: Checkout
         uses: actions/checkout@v7
