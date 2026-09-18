@@ -129,10 +129,11 @@ node. Hover handlers are triggered with
 
 **Judging the 3D view = screenshots + pixel math** (`src/image.ts`):
 
-- `streamLive(buf)` — the server renders its AARDVARK loading splash INTO the
-  stream (bright logo, pure black background); the live viewer clears to dark
-  gray `#2A2A2A`. Never trust a frame before `streamLive` is true — the splash
-  fools any naive brightness check.
+- `loaderGone(page)` (in `src/pro3d.ts`, *not* a pixel test) — the boot screen
+  is a DOM overlay Aardvark.UI puts inside the render control and removes when
+  the first frame fades in. PRo3D styles it to match the viewer background
+  (docs/LoadingScreen.md), so no brightness or corner-pixel check can spot it:
+  ask for the element. Never trust a frame before `loaderGone` is true.
 - `litFraction(buf)` — fraction of lit pixels in the *central* region only:
   the false-color legend (left edge) and the HUD text (top left) are DOM
   overlays that count as "content" otherwise.
@@ -163,7 +164,7 @@ probes bypass Playwright's reporting entirely.
 
 1. Launch once per file (`beforeAll` / `afterAll` with `launchPro3d`).
 2. Open the panels you need as pages; stub dialogs before clicking import.
-3. Gate every render-view screenshot on `streamLive` + `litFraction`, then
+3. Gate every render-view screenshot on `loaderGone` + `litFraction`, then
    frame stability; capture baselines after overlay-adding steps.
 4. Interact via single-shot `evaluate` clicks; poll DOM state with
    `expect.poll` (updates arrive asynchronously while the app re-renders).

@@ -35,23 +35,10 @@ export function litFraction(buf: Buffer, threshold = 70): number {
     return lit / n;
 }
 
-/** whether the server-side render stream shows live scene content rather than
- *  the AARDVARK loading splash: the splash background is pure black, the
- *  viewer clears to dark gray (#2A2A2A) -- corner pixels tell them apart */
-export function streamLive(buf: Buffer): boolean {
-    const png = PNG.sync.read(buf);
-    const at = (x: number, y: number) => {
-        const o = (y * png.width + x) * 4;
-        return (png.data[o] + png.data[o + 1] + png.data[o + 2]) / 3;
-    };
-    const m = 8;
-    const corners = [
-        at(m, png.height - m),
-        at(png.width - m, png.height - m),
-        at(png.width - m, Math.floor(png.height / 2)),
-    ];
-    return corners.every((c) => c > 15);
-}
+// NOTE: telling the boot screen apart from a render is NOT a pixel test --
+// see `loaderGone` in src/pro3d.ts. (There used to be a `streamLive` here that
+// keyed on the stock Aardvark splash being pure black; PRo3D's own splash is
+// styled to match the viewer background, so that no longer separates them.)
 
 export interface Coverage {
     /// number of pixels the baseline counts as body

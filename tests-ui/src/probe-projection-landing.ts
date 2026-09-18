@@ -13,8 +13,8 @@
 // Unlike projection-e2e.spec.ts this asserts nothing -- it is the tool for
 // looking at a case, including the ones that fail.
 import { chromium, Page } from "@playwright/test";
-import { launchPro3d } from "./pro3d";
-import { bodyCoverage, diffPng, litFraction, streamLive } from "./image";
+import { launchPro3d, loaderGone } from "./pro3d";
+import { bodyCoverage, diffPng, litFraction } from "./image";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -33,7 +33,7 @@ async function settled(page: Page, name: string): Promise<Buffer> {
     const started = Date.now();
     let shot = await page.screenshot();
     while (
-        (!streamLive(shot) || litFraction(shot) < 0.003) &&
+        (!(await loaderGone(page)) || litFraction(shot) < 0.003) &&
         Date.now() - started < settleMs
     ) {
         await page.waitForTimeout(3000);

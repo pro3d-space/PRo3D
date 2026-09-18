@@ -1,7 +1,7 @@
 import { test, expect, Page, Browser } from "@playwright/test";
 import { spawnSync } from "child_process";
-import { launchPro3d, Pro3d, fixture, surfaceShadersReady } from "../src/pro3d";
-import { bodyCoverage, diffPng, litFraction, registration, streamLive } from "../src/image";
+import { launchPro3d, Pro3d, fixture, loaderGone, surfaceShadersReady } from "../src/pro3d";
+import { bodyCoverage, diffPng, litFraction, registration } from "../src/image";
 import { overlayPlanet } from "../src/viewer";
 import * as fs from "fs";
 import * as path from "path";
@@ -63,7 +63,7 @@ test.describe.configure({ mode: "serial" });
 async function settled(page: Page, name: string, out: string): Promise<Buffer> {
     const started = Date.now();
     let shot = await page.screenshot();
-    while ((!streamLive(shot) || litFraction(shot) < 0.003) && Date.now() - started < 600_000) {
+    while ((!(await loaderGone(page)) || litFraction(shot) < 0.003) && Date.now() - started < 600_000) {
         await page.waitForTimeout(3000);
         shot = await page.screenshot();
     }
