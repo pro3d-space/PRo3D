@@ -1,0 +1,15 @@
+{
+  "name": "pro3d-loader-artwork",
+  "private": true,
+  "type": "module",
+  "description": "Regenerates the render control boot screen artwork (docs/LoadingScreen.md)",
+  "scripts": {
+    "generate": "node generate-loader.mjs"
+  },
+  "devDependencies": {
+    "opentype.js": "^2.0.0",
+    "jpeg-js": "^0.4.4",
+    "playwright": "^1.62.1",
+    "pngjs": "^7.0.0"
+  }
+}

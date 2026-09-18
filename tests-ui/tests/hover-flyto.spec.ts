@@ -1,6 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
-import { launchPro3d, Pro3d, config, imageRow, firstImage, surfaceShadersReady } from "../src/pro3d";
-import { diffPng, litFraction, streamLive } from "../src/image";
+import { launchPro3d, Pro3d, config, imageRow, firstImage, loaderGone, surfaceShadersReady } from "../src/pro3d";
+import { diffPng, litFraction } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -29,15 +29,14 @@ test.afterAll(async () => {
 const image = () =>
     process.env.PRO3D_SELECT_IMAGE ?? firstImage(config.imageDir);
 
-/** wait until the server stream shows the live scene (not the AARDVARK
- *  loading splash, which is rendered INTO the stream and has a bright logo
- *  that fools a naive brightness gate) with lit 3D content, then for two
- *  stable consecutive frames */
+/** wait until the render control has dropped its boot screen (`loaderGone`;
+ *  the splash is a DOM overlay styled like the viewer, so no brightness gate
+ *  can spot it) and shows lit 3D content, then for two stable frames */
 async function settled(page: Page, name: string): Promise<Buffer> {
     const started = Date.now();
     let shot = await page.screenshot();
     while (
-        (!streamLive(shot) || litFraction(shot) < 0.003) &&
+        (!(await loaderGone(page)) || litFraction(shot) < 0.003) &&
         Date.now() - started < 600_000
     ) {
         await page.waitForTimeout(3000);

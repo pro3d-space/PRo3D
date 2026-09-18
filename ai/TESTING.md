@@ -47,9 +47,10 @@ debugging a spec — it documents the mechanics that are NOT guessable:
 - Electron file dialogs must be stubbed on `window.aardvark.dialog`;
 - click via single-shot DOM `evaluate` (Playwright's actionability loop
   starves against the incremental UI);
-- screenshot gates: the loading splash is rendered *into* the stream
-  (`streamLive`), overlays pollute naive brightness checks (`litFraction`),
-  and an empty view is perfectly "stable";
+- screenshot gates: the loading splash is a DOM overlay styled like the viewer,
+  so it is recognised by its element (`loaderGone`) and not by pixels, overlays
+  pollute naive brightness checks (`litFraction`), and an empty view is
+  perfectly "stable";
 - **a changed surface shader recompiles for minutes on first start, during
   which surfaces are absent with no log output** — budget for it, and do not
   misdiagnose it as "my shader broke rendering".

@@ -2978,6 +2978,8 @@ module ViewerApp =
 
         let viewerDependencies = Html.semui @ [
             { kind = Stylesheet;  name = "semui-overrides"; url = "./resources/semui-overrides.css" }
+            // the boot screen of every render control on the page (docs/LoadingScreen.md)
+            { kind = Stylesheet;  name = "pro3d-loader";    url = "./resources/pro3d-loader.css" }
             { kind = Stylesheet;  name = "fonts";           url = "./resources/fonts.css" }
             { kind = Script;      name = "errorReporting";  url = "./resources/errorReporting.js"  }
             { kind = Script;      name = "resize";  url = "./resources/ResizeSensor.js"  }
