@@ -4,39 +4,58 @@
 
 Project an **ordered stack of up to 32 same-instrument images** onto a surface
 at once — e.g. a flyby sequence over an asteroid. Lives in the GIS tab under
-*Projected Images*. Where images overlap, the image **higher in the stack wins**
-(painter's order, opaque); the opacity slider blends the stack's result with
-the surface texture underneath.
+*Projected Images*.
+
+Order and opacity are both set in the GUI:
+
+- **Order** — where images overlap, the one **higher in the stack wins**
+  (painter's order, opaque). Reorder with ↑ / ↓ in the stack panel.
+- **Opacity** — *Projection Settings → Image Opacity* blends the stack's result
+  with the surface texture underneath.
 
 Panels 1 and 2 above are the same camera on the same body. Dimorphos carries its
-DRACO mosaic, which does not cover the whole body: from this direction **72% of
-the visible body is unobserved** and renders black. Projecting four AFC frames
-onto it brings that down to **7%**. Panels 3 and 4 show a second direction and
-the frustum of a hovered image. All four are produced by
-`tests-ui/src/probe-teaser.ts` from the shipped test data.
+DRACO mosaic, which does not cover it entirely: from this direction **72% of the
+visible body is unobserved** and renders black. Four AFC frames bring that to
+**7%**. `tests-ui/src/probe-teaser.ts` regenerates all four panels.
 
 # Workflow
 
 ## 1. Set up the scene
 
-The projection surface needs a GIS **entity and reference frame** assigned
-(GIS tab → *Surfaces* — e.g. entity `Dimorphos`, frame `DIMORPHOS_FIXED`), and
-a SPICE kernel with coverage for the observation epochs must be loaded. Watch
-out: the entity must be the body the OPC actually is — assigning `Didymos` to a
-Dimorphos OPC draws it a kilometre off.
+Pick the **planet** in the top bar. That sets the [scene body](SceneBody.md), and
+a surface with no GIS assignment of its own belongs to it — so for a single-body
+scene there is nothing else to set. A SPICE kernel covering the observation
+epochs must be loaded.
 
-Without that binding there is no frame for the projection to land in, and the symptom is
-easy to misread as a projector bug: the image sits offset against the silhouette. The HUD
-tells you — if it reads `None xyz` and `conversion failed (set planet)` instead of the body
-name, fix the scene before looking at the projection.
+For surfaces of *other* bodies, assign entity and frame explicitly in
+GIS tab → *Surfaces*. Two things to watch:
+
+- The entity must be the body the OPC actually is — assigning `Didymos` to a
+  Dimorphos OPC draws it a kilometre off.
+- Assign **both** or **neither**. A surface with a body but no frame, or a frame
+  but no body, stays unplaced.
+
+The walkthrough below uses the Dimorphos OPC that ships with
+[PRo3D.Resources.TestData](https://github.com/pro3d-space/PRo3D.Resources.TestData):
+
+```
+HERA/Dimorphos_opc/Dimorphos/
+```
 
 ## 2. Import a folder of images
 
 *Projected Images → Import Directory*. Every image of the folder
 (`.tif/.png/.jpg/.exr`, each with its `.mbi.json` sidecar) lands in the
-**library** at the bottom of the tab: sortable by observation date and
-distance, with instrument, distance and observation date per image. Sorting
-the library never changes what is projected.
+**library** at the bottom of the tab, with instrument, distance and observation
+date per image, sortable by date or distance. Sorting never changes what is
+projected.
+
+The four AFC-1 frames used throughout this page are in the same test-data
+repository:
+
+```
+HERA/Dimorphos_opc/AFC_2027-03-21/
+```
 
 ![the Projected Images section: import, stack panel, library](images/multiProjection-gisTab.png)
 
@@ -54,28 +73,19 @@ Settings and the selected image's 2D preview fold away into the
 
 ## 3. Find images by hovering
 
-**Hovering a library or stack row shows where that image would land**, without
-changing what is projected. Two things are drawn for the hovered image only:
-
-- its **projector frustum**, as a green wireframe running from the instrument to
-  the body, and
-- a **green outline on the surface** wherever the edge of its footprint crosses
-  the terrain.
+Hovering a library or stack row draws, for that image only, its **projector
+frustum** as a green wireframe and a **green outline** wherever the edge of its
+footprint crosses the terrain. It does not project the image: to see an image's
+pixels, select it or add it to the stack (4.).
 
 ![hovering an image: its projector frustum drawn from the instrument to Dimorphos](images/multiProjection-hover.png)
 
-The frustum is drawn at the instrument's real standoff, so you usually have to
-pull the camera back to see it whole. Above, the camera is 795 m from a body
-154 m across and the projector sits 8.4 km out.
+The frustum is drawn at the instrument's real standoff, so pull the camera back
+to see it whole — above, the camera is 795 m out and the projector 8.4 km.
 
-Expect the surface outline only where a footprint *edge* actually falls on the
-terrain. The AFC-1 frames in the test data were taken from 6.7–8.4 km, and at
-that instrument's 5.53° field that is a footprint 650–810 m across — four to five
-times the body. It covers Dimorphos entirely, so there is no edge to outline.
-
-Hovering does **not** project the image. What you see painted on the terrain
-stays whatever the stack and the selected image put there; to see an image's own
-pixels, select it or add it to the stack (4.).
+The outline appears only where a footprint *edge* falls on the terrain. The
+AFC-1 frames here were taken from 6.7–8.4 km; at 5.53° that is a footprint
+650–810 m across, which covers the 154 m body entirely, so none is drawn.
 
 ## 4. Build the stack
 
@@ -87,31 +97,20 @@ The **+** in a row adds the image to the top of the **projection stack**
 
 ## 4a. Does it actually land? Slide the opacity
 
-The AFC images in the test data were simulated **from this very shape model** with
-`pro3d-tool simulate-image`, so a correctly set up projection has to land exactly on the
-texture underneath it. *Image Opacity* is the quickest way to see whether it does: drag it
-from 0 to 1 and watch the seam.
+The AFC images in the test data were simulated from this same shape model with
+`pro3d-tool simulate-image`, so a correct projection lands exactly on the texture
+underneath. Drag *Image Opacity* from 0 to 1 and watch:
 
 ![the projected image at half opacity, blended with the DRACO texture](images/multiProjection-opacity-050.png)
 
-- **Nothing shifts, doubles or ghosts** as you slide — the image and the terrain texture
-  coincide, so the blend just changes which of two aligned pictures you are looking at.
-- **A ghost or a doubled crater edge** means the projection is landing in the wrong place.
-  Work through [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain).
+- **Nothing shifts or doubles** — image and texture coincide.
+- **A ghost or doubled crater edge** — the projection is landing in the wrong
+  place; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain).
 
-Measured on the Dimorphos test data, one AFC frame projected from its own viewpoint: at
-opacity 0 the rendered frame is pixel-identical to the bare surface, and at opacity 1
-about a tenth of the frame's pixels differ from it at all. That residue is the image's own
-noise and shading, not misregistration — a projection landing in the wrong place moves
-crater edges, which shows up as a far larger difference concentrated along them.
-
-Two settings matter for this comparison, and both are worth setting before you judge a
-projection:
-
-| setting | why |
-|---|---|
-| **Transfer Function → off** | on (the default) the image goes through the min/max remap and the colour map, so you are comparing a false-coloured image against a greyscale texture and cannot see registration at all |
-| **Orientation Source → MBI** | the pointing then comes from the image's own `.mbi.json` sidecar, which is what a simulated frame was generated with |
+Set two things first, or the comparison is meaningless: **Transfer Function off**
+(otherwise you are comparing a false-coloured image against a greyscale texture)
+and **Orientation Source → MBI** (the sidecar pointing the frame was generated
+with).
 
 ## 5. Fly to an image
 
@@ -121,8 +120,6 @@ off just far enough to frame the instrument's footprint — the rendered view
 then corresponds to what the instrument saw:
 
 ![after fly-to: the camera on the image's projector axis](images/multiProjection-flyTo.png)
-
-Two things to know:
 
 - **It also sets the scene's observation time** to the image's epoch, so the
   sun, the body's placement and everything else SPICE-driven match the moment

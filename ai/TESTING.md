@@ -195,7 +195,16 @@ The HUD, tool strip and colour bar are ordinary absolutely-positioned DOM over
 `img.rendercontrol`, and they are **not** all siblings of it — walking up from the
 render control's parent misses the HUD. Sweep `document.body` and hide every
 `position: absolute|fixed` element that is not an ancestor of the render control.
-The scale bar and axis cross are rendered into the image itself and survive this.
+
+The small centre cross and its "2 m" label are **rendered into the image**, so no
+DOM trick removes them. `config.showExplorationPointGui = false` in the generated
+scene is *not* what controls them — that was tried and changed nothing. Whatever
+draws them was not worth tracking down for a screenshot; if you need them gone,
+find the real toggle first rather than assuming a plausible-looking flag.
+
+For a figure with captions, lay the panels out as HTML and screenshot the element:
+`tests-ui` ships no font package, and the browser rendering the panels is already
+running, so this gives real type instead of a hand-rolled bitmap font.
 
 Tests are machine-local (GPU + local datasets, `PRO3D_*` env vars); they are
 not run in CI, which makes running them locally the only line of defense.

@@ -244,85 +244,58 @@ async function setUpProjection(ctx: import("@playwright/test").BrowserContext, u
 
 // ---------------------------------------------------------------- collage
 
-function label(png: PNG, text: string) {
-    // a plain 5x7 bitmap font, drawn white on a black band -- no external font files,
-    // so the collage regenerates identically anywhere
-    const F: Record<string, string[]> = {
-        A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
-        B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
-        C: ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
-        D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
-        E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
-        F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
-        G: ["01110", "10001", "10000", "10111", "10001", "10001", "01111"],
-        H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
-        I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
-        J: ["00111", "00010", "00010", "00010", "00010", "10010", "01100"],
-        K: ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
-        L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
-        M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
-        N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
-        O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
-        P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
-        R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
-        S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
-        T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
-        U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
-        V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
-        W: ["10001", "10001", "10001", "10101", "10101", "11011", "10001"],
-        X: ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
-        Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
-        Z: ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
-        " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
-        "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
-        ",": ["00000", "00000", "00000", "00000", "00110", "00010", "00100"],
-        "+": ["00000", "00100", "00100", "11111", "00100", "00100", "00000"],
-        "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
-        "2": ["01110", "10001", "00001", "00110", "01000", "10000", "11111"],
-        "3": ["11111", "00010", "00100", "00010", "00001", "10001", "01110"],
-        "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
-    };
-    const S = 3, pad = 10, bandH = 7 * S + pad * 2;
-    for (let y = 0; y < bandH; y++)
-        for (let x = 0; x < png.width; x++) {
-            const i = (png.width * y + x) * 4;
-            png.data[i] = png.data[i + 1] = png.data[i + 2] = 0;
-            png.data[i + 3] = 255;
-        }
-    let cx = pad;
-    for (const ch of text.toUpperCase()) {
-        const glyph = F[ch] ?? F[" "];
-        for (let gy = 0; gy < 7; gy++)
-            for (let gx = 0; gx < 5; gx++) {
-                if (glyph[gy][gx] !== "1") continue;
-                for (let dy = 0; dy < S; dy++)
-                    for (let dx = 0; dx < S; dx++) {
-                        const x = cx + gx * S + dx, y = pad + gy * S + dy;
-                        if (x >= png.width) continue;
-                        const i = (png.width * y + x) * 4;
-                        png.data[i] = png.data[i + 1] = png.data[i + 2] = 255;
-                    }
-            }
-        cx += 6 * S;
-    }
-}
+/** Compose the four panels with real type.
+ *
+ *  The panels are laid out as HTML and screenshotted, rather than blitted together
+ *  with a hand-rolled bitmap font: there is no font package in tests-ui, and the
+ *  browser that renders the panels is already running. */
+async function collageHtml(
+    ctx: import("@playwright/test").BrowserContext,
+    panels: Array<{ file: string; caption: string; note: string }>,
+    w: number,
+    h: number
+): Promise<Buffer> {
+    const html = `<!doctype html><meta charset="utf-8">
+<style>
+  :root { color-scheme: dark }
+  * { margin: 0; padding: 0; box-sizing: border-box }
+  body { background: #111; }
+  .grid {
+    display: grid; grid-template-columns: ${w}px ${w}px; gap: 10px;
+    padding: 10px; width: max-content;
+  }
+  figure { position: relative; width: ${w}px; height: ${h}px; overflow: hidden; }
+  img { display: block; width: ${w}px; height: ${h}px; }
+  figcaption {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 14px 18px 13px;
+    background: linear-gradient(to top, rgba(0,0,0,.85), rgba(0,0,0,.55) 60%, transparent);
+    font: 500 19px/1.35 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    color: #fff; display: flex; align-items: baseline; gap: .6em;
+  }
+  .n {
+    font-variant-numeric: tabular-nums; font-weight: 600;
+    color: #fff; opacity: .55; font-size: 17px;
+  }
+  .note { margin-left: auto; opacity: .72; font-size: 16px; font-weight: 400; }
+</style>
+<div class="grid">
+${panels.map((p, i) => `  <figure>
+    <img src="${path.basename(p.file)}">
+    <figcaption><span class="n">${i + 1}</span>${p.caption}<span class="note">${p.note}</span></figcaption>
+  </figure>`).join("\n")}
+</div>`;
+    const file = path.join(work, "collage.html");
+    fs.writeFileSync(file, html);
 
-function collage(panels: PNG[], gap = 8): Buffer {
-    const w = panels[0].width, h = panels[0].height;
-    const out = new PNG({ width: w * 2 + gap, height: h * 2 + gap });
-    out.data.fill(0);
-    panels.forEach((p, i) => {
-        const ox = (i % 2) * (w + gap), oy = Math.floor(i / 2) * (h + gap);
-        for (let y = 0; y < h; y++)
-            for (let x = 0; x < w; x++) {
-                const s = (y * w + x) * 4, d = ((y + oy) * out.width + (x + ox)) * 4;
-                out.data[d] = p.data[s];
-                out.data[d + 1] = p.data[s + 1];
-                out.data[d + 2] = p.data[s + 2];
-                out.data[d + 3] = 255;
-            }
-    });
-    return PNG.sync.write(out);
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: w * 2 + 30, height: h * 2 + 30 });
+    await page.goto("file:///" + file.replace(/\\/g, "/"));
+    await page.waitForLoadState("networkidle");
+    await page.evaluate("document.fonts.ready");
+    const buf = await page.locator(".grid").screenshot();
+    await page.close();
+    return buf;
 }
 
 // ---------------------------------------------------------------- main
@@ -476,12 +449,25 @@ async function main() {
     console.log(`3 second side    coverage=${(m3.coverage * 100).toFixed(1)}%  unobserved=${(m3.darkOfBody * 100).toFixed(1)}% of body`);
     console.log(`4 frustum        greenPixels=${m4.greenPixels}  coverage=${(m4.coverage * 100).toFixed(1)}%`);
 
-    label(p1, "1 DRACO MOSAIC ONLY");
-    label(p2, "2 PLUS 4 AFC IMAGES");
-    label(p3, "3 SECOND DIRECTION");
-    label(p4, "4 PROJECTOR FRUSTUM");
-
-    const buf = collage([p1, p2, p3, p4]);
+    // captions carry the measured numbers, so they cannot drift from the panels
+    const pct = (x: number) => `${Math.round(x * 100)}% unobserved`;
+    const browser = await chromium.launch();
+    let buf: Buffer;
+    try {
+        buf = await collageHtml(
+            await browser.newContext(),
+            [
+                { file: path.join(work, "b0-bare.png"), caption: "DRACO mosaic only", note: pct(m1.darkOfBody) },
+                { file: path.join(work, "b0-stacked.png"), caption: "Plus four AFC images", note: pct(m2.darkOfBody) },
+                { file: path.join(work, "b2-stacked.png"), caption: "A second direction", note: pct(m3.darkOfBody) },
+                { file: path.join(work, "b1-frustum.png"), caption: "Projector frustum of a hovered image", note: `camera ${(198.77 * k).toFixed(0)} m` },
+            ],
+            p1.width,
+            p1.height
+        );
+    } finally {
+        await browser.close();
+    }
     fs.writeFileSync(path.join(work, "multiProjection-teaser.png"), buf);
     fs.writeFileSync(path.join(outDir, "multiProjection-teaser.png"), buf);
     console.log(`\nteaser -> ${path.join(outDir, "multiProjection-teaser.png")}`);
