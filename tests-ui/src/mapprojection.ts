@@ -2,6 +2,7 @@
 import { spawn, ChildProcess } from "child_process";
 import * as fs from "fs";
 import * as http from "http";
+import * as net from "net";
 import * as path from "path";
 
 export const mapExe =
@@ -33,8 +34,22 @@ function waitForHttp(url: string, timeoutMs: number): Promise<void> {
     });
 }
 
-/** Start PRo3D.MapProjection.exe in --server mode on `opcs` and wait until it serves. */
-export async function launchMap(opcs: string[], extraArgs: string[] = [], port = 54331): Promise<MapApp> {
+/** A port nothing is listening on right now. */
+async function freePort(): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const srv = net.createServer();
+        srv.on("error", reject);
+        srv.listen(0, "127.0.0.1", () => {
+            const p = (srv.address() as net.AddressInfo).port;
+            srv.close(() => resolve(p));
+        });
+    });
+}
+
+/** Start PRo3D.MapProjection.exe in --server mode on `opcs` and wait until it serves. A free port
+ *  per launch: a fixed one collides with a previous app still shutting down. */
+export async function launchMap(opcs: string[], extraArgs: string[] = [], fixedPort?: number): Promise<MapApp> {
+    const port = fixedPort ?? (await freePort());
     if (!fs.existsSync(mapExe))
         throw new Error(`map projection exe not found: ${mapExe} (build src/PRo3D.MapProjection or set PRO3D_MAP_EXE)`);
     const logDir = path.join(__dirname, "..", "artifacts", "logs");
@@ -53,7 +68,21 @@ export async function launchMap(opcs: string[], extraArgs: string[] = [], port =
     const exited = new Promise<never>((_, reject) =>
         proc.on("exit", (code) => reject(new Error(`map projection app exited early (code ${code}), see ${logFile}`)))
     );
-    await Promise.race([waitForHttp(url, 60_000), exited]);
+    // this process announcing its url, then answering: an HTTP check alone would accept an
+    // answer from another app on the port
+    const serving = new Promise<void>((resolve, reject) => {
+        let out = "";
+        const timer = setTimeout(() => reject(new Error(`map projection app did not start serving within 60000 ms`)), 60_000);
+        proc.stdout!.on("data", (chunk: Buffer) => {
+            out += chunk.toString();
+            if (out.includes("MAP_PROJECTION_URL:")) {
+                clearTimeout(timer);
+                resolve();
+            }
+        });
+    });
+    await Promise.race([serving, exited]);
+    await Promise.race([waitForHttp(url, 30_000), exited]);
     return {
         url,
         proc,

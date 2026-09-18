@@ -231,7 +231,7 @@ test.describe("map projection view (#772)", () => {
     });
 
     test("standalone: annotations from a file land at their longitude and latitude", async ({ browser }) => {
-        const app = await launchMap([fixture.opc], ["--annotations", annotationFixture], 54334);
+        const app = await launchMap([fixture.opc], ["--annotations", annotationFixture]);
         const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
         try {
             await page.goto(app.url);
@@ -244,7 +244,7 @@ test.describe("map projection view (#772)", () => {
     });
 
     test("standalone: a planet gets the hint, not a map", async ({ browser }) => {
-        const app = await launchMap([fixture.opc], ["--planet", "Mars"], 54332);
+        const app = await launchMap([fixture.opc], ["--planet", "Mars"]);
         const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
         try {
             await page.goto(app.url);
@@ -295,6 +295,22 @@ test.describe("map projection view (#772)", () => {
             await page.goto(app.url);
             await page.waitForSelector(".lm_tab", { timeout: 120_000 });
 
+            // the default layout has the panel, so close it first: this test is about bringing a
+            // closed one back
+            const tabTitles = () => page.evaluate(() =>
+                Array.from(document.querySelectorAll(".lm_tab .lm_title")).map((t) => (t.textContent ?? "").trim()));
+            await poll("the default layout has arrived", tabTitles, (t) => t.includes("Map Projection"), 120_000);
+            await poll("the Map Projection tab is closed", async () => {
+                const titles = await tabTitles();
+                if (titles.includes("Map Projection"))
+                    await page.evaluate(() => {
+                        const tab = Array.from(document.querySelectorAll(".lm_tab")).find(
+                            (e) => (e.querySelector(".lm_title")?.textContent ?? "").trim() === "Map Projection");
+                        (tab?.querySelector(".lm_close_tab") as HTMLElement | null)?.click();
+                    });
+                return titles;
+            }, (t) => !t.includes("Map Projection"), 60_000);
+
             // the main menu (top-left) -> Layout -> Reopen Panel lists the panel...
             const entry = '[data-test="layout-reopen"] [data-panel="mapprojection"]';
             await poll("Map Projection is offered under Layout > Reopen Panel",
@@ -303,8 +319,6 @@ test.describe("map projection view (#772)", () => {
 
             // ...and clicking it adds the tab. Events clicked before the page's socket is up are
             // lost, so click until the tab is there (single-shot DOM click, see tests-ui/README.md).
-            const tabTitles = () => page.evaluate(() =>
-                Array.from(document.querySelectorAll(".lm_tab .lm_title")).map((t) => (t.textContent ?? "").trim()));
             await poll("the Map Projection tab appears", async () => {
                 const titles = await tabTitles();
                 if (!titles.includes("Map Projection"))

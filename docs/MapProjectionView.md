@@ -11,10 +11,12 @@ Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [
 
 ## Using it
 
-- **In PRo3D:** main menu (**☰**, top left) → *Layout* → *Reopen Panel* → *Map Projection*.
-  - The panel is added as a tab to the largest side stack; that tab is not selected and may
-    sit behind the stack's overflow chevron, so select it or maximise the stack.
-  - Layouts are saved per user, so from then on it stays in your layout.
+- **In PRo3D:** the panel is part of the built-in *M2020* (default), *PRo3D Core* and *GIS*
+  layouts, as a tab of the right-hand stack.
+  - Closed it? Main menu (**☰**, top left) → *Layout* → *Reopen Panel* → *Map Projection*
+    brings it back, as for any panel. It returns as a tab of the largest side stack, unselected
+    and possibly behind that stack's overflow chevron.
+  - Layouts are saved per user, so your own arrangement wins over the built-in one.
   - Or open `?page=mapprojection` directly.
 - **Standalone:**
 

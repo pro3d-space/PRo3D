@@ -4,7 +4,7 @@ import { launchMap } from "./mapprojection";
 import { fixture } from "./pro3d";
 
 (async () => {
-    const app = await launchMap([fixture.opc], [], 54333);
+    const app = await launchMap([fixture.opc]);
     const browser = await chromium.launch();
     try {
         for (const [w, h] of [[478, 393], [1200, 600]]) {

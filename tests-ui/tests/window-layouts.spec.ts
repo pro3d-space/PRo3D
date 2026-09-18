@@ -20,7 +20,7 @@ const artifacts = path.join(__dirname, "..", "artifacts", "window-layouts");
 test.setTimeout(10 * 60_000);
 test.describe.configure({ mode: "serial" });
 
-const M2020 = ["Main View", "Surfaces", "Annotations", "ScaleBars", "Instrument View", "GIS View", "Config", "Bookmarks", "Seq. Bookmarks", "Viewplans", "Properties", "Traverses"];
+const M2020 = ["Main View", "Surfaces", "Annotations", "ScaleBars", "Instrument View", "GIS View", "Map Projection", "Config", "Bookmarks", "Seq. Bookmarks", "Viewplans", "Properties", "Traverses"];
 
 function freshLayoutDir(): string {
     return fs.mkdtempSync(path.join(os.tmpdir(), "pro3d-layouts-"));
@@ -211,7 +211,8 @@ test("built-in layouts, closing and reopening panels, reload and restart", async
         await poll("the default stored", () => readJson(current), (f) => f?.name === "M2020" && panelIds(f).includes("gis"));
 
         await click(page, '[data-dashboard="PRo3D Core"]');
-        await waitTabs(page, "the Core layout", (t) => !t.includes("GIS View") && t.includes("Config"));
+        // the Core layout is the one without the Instrument View
+        await waitTabs(page, "the Core layout", (t) => !t.includes("Instrument View") && t.includes("Config"));
         await poll("status Core", () => status(page), (s) => s === "Layout: PRo3D Core");
 
         await closeTab(page, "Surfaces");
@@ -225,14 +226,14 @@ test("built-in layouts, closing and reopening panels, reload and restart", async
 
         await closeTab(page, "Annotations");
         await waitTabs(page, "Annotations closed", (t) => !t.includes("Annotations"));
-        await poll("stored without annotations", () => readJson(current), (f) => !!f && !panelIds(f).includes("annotations") && panelIds(f).includes("config") && !panelIds(f).includes("gis"));
+        await poll("stored without annotations", () => readJson(current), (f) => !!f && !panelIds(f).includes("annotations") && panelIds(f).includes("config") && !panelIds(f).includes("instrumentview"));
 
         // a reloaded page boots into the layout the user left, not the startup layout
         // and not the last applied one
         await page.reload();
         await page.waitForSelector(".lm_tab", { timeout: 120_000 });
         await page.waitForTimeout(3000); // a replayed stale layout would arrive right after boot
-        await waitTabs(page, "layout after reload", (t) => t.includes("Surfaces") && t.includes("Config") && !t.includes("Annotations") && !t.includes("GIS View"));
+        await waitTabs(page, "layout after reload", (t) => t.includes("Surfaces") && t.includes("Config") && !t.includes("Annotations") && !t.includes("Instrument View"));
         await context.close();
 
         // so does PRo3D after a restart
@@ -240,7 +241,7 @@ test("built-in layouts, closing and reopening panels, reload and restart", async
         app = await launchPro3d(sceneFile, { PRO3D_LAYOUT_DIR: dir });
         ({ context, page } = await openMain(browser, app));
         await page.waitForTimeout(3000);
-        await waitTabs(page, "layout after restart", (t) => t.includes("Surfaces") && t.includes("Config") && !t.includes("Annotations") && !t.includes("GIS View"));
+        await waitTabs(page, "layout after restart", (t) => t.includes("Surfaces") && t.includes("Config") && !t.includes("Annotations") && !t.includes("Instrument View"));
         expect(await status(page)).toBe("Layout: PRo3D Core");
         await page.screenshot({ path: path.join(artifacts, "after-restart.png") });
         await context.close();
@@ -306,7 +307,7 @@ test("saving a scene writes its layout beside it, and a blocked sidecar does not
     try {
         const { context, page } = await openMain(browser, app);
         await click(page, '[data-dashboard="PRo3D Core"]');
-        await waitTabs(page, "Core layout", (t) => !t.includes("GIS View") && t.includes("Config"));
+        await waitTabs(page, "Core layout", (t) => !t.includes("Instrument View") && t.includes("Config"));
 
         const saved = path.join(artifacts, "layouts-saved.pro3d");
         for (const f of [saved, saved + ".layout"]) fs.rmSync(f, { force: true, recursive: true });
@@ -314,7 +315,7 @@ test("saving a scene writes its layout beside it, and a blocked sidecar does not
         const sidecar = await poll("sidecar", () => readJson(saved + ".layout"), (f) => !!f);
         expect(sidecar.format).toBe("pro3d-layout");
         expect(panelIds(sidecar)).toContain("config");
-        expect(panelIds(sidecar)).not.toContain("gis");
+        expect(panelIds(sidecar)).not.toContain("instrumentview");
         expect(panelIds(sidecar)).toContain("render");
         // PRo3D <= 6.2 needs dockConfig; a loaded scene writes back what it read
         const savedScene = await poll("saved scene", () => readJson(saved), (f) => !!f);
