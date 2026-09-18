@@ -4,6 +4,11 @@
     <TargetFramework>net9.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <OutputType>Exe</OutputType>
+    <!-- PRo3D.Viewer references this project and publishes self-contained (Build.fs passes
+         a RuntimeIdentifier). A self-contained executable cannot reference a framework-dependent
+         one (NETSDK1150), so this executable follows: self-contained whenever a RID is given,
+         framework-dependent for plain builds, which is what `dotnet build` and the tests use. -->
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
     <!-- XML doc warnings are not errors here, like the other libraries -->
     <NoWarn>$(NoWarn);FS3390</NoWarn>
   </PropertyGroup>
