@@ -63,21 +63,29 @@ module SunShadowMap =
         m.scene.gisApp.projectedImageList.lightingMode
         |> AVal.map (fun l -> l = PRo3D.ImageMapping.LightingMode.SunShadow)
 
-    /// Direction towards the sun in scene space, from the first GIS-registered surface
-    /// (v1: one sun for the whole scene).
+    /// Direction towards the sun in scene space (v1: one sun for the whole scene), from
+    /// the first surface that has a body: explicitly bound, or inheriting the scene body
+    /// (#758). A half-bound surface (entity without frame) has none and is skipped.
     let private sunDirection (m : AdaptiveModel) : aval<Option<V3d>> =
-        m.scene.gisApp.gisSurfaces
-        |> AMap.toAVal
-        |> AVal.bind (fun surfs ->
-            match surfs |> HashMap.toSeq |> Seq.tryHead with
-            | Some (surfaceId, _) -> Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
+        // bindings and scene body only - not the observation time
+        (Gis.GisApp.sceneBodyAdaptive m.scene.gisApp,
+         m.scene.gisApp.gisSurfaces.Content,
+         m.scene.surfacesModel.surfaces.flat |> AMap.toAVal)
+        |||> AVal.map3 (fun sceneBody bound surfaces ->
+            let withBody (sid : Guid) =
+                Gis.GisApp.getSpiceReferenceSystemFromSurfaces sceneBody sid bound |> Option.map (fun _ -> sid)
+            match bound |> HashMap.toSeq |> Seq.tryPick (fst >> withBody) with
+            | Some sid -> Some sid
+            | None -> surfaces |> HashMap.toSeq |> Seq.tryPick (fst >> withBody))
+        |> AVal.bind (function
+            | Some surfaceId -> Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
             | None -> AVal.constant None)
 
     /// The same placement the main render applies to a surface (viewSingleSurfaceSg):
     /// fullTrafo * preTransform, with the flipZ / sketchFab variants. Replicated here
     /// because the caster geometry must land exactly where the lit geometry is, or
-    /// shadows arrive offset.
-    let private surfacePlacement (m : AdaptiveModel) (surfaceId : Guid) (surf : AdaptiveSurface) : aval<Trafo3d> =
+    /// shadows arrive offset. Also places the surfaces of the map projection view (#772).
+    let surfacePlacement (m : AdaptiveModel) (surfaceId : Guid) (surf : AdaptiveSurface) : aval<Trafo3d> =
         let refsys = m.scene.referenceSystem
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
@@ -93,21 +101,6 @@ module SunShadowMap =
             else
                 return fullTrafo * preTransform
         }
-
-    /// The Ag attributes the OPC shaders / captureContext expect on every OPC scene
-    /// graph, whether used or not -- without them CompileRender throws "could not get
-    /// inh attribute X". Mirrors pro3d-tool's withOpcScaffolding.
-    let private withOpcScaffolding (sg : ISg) =
-        sg
-        |> Sg.texture "ProjectedTexture" DefaultTextures.blackTex
-        |> Sg.uniform' "ProjectedImageModelViewProjValid" true
-        |> Sg.uniform' "LodVisEnabled" false
-        |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
-        |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
-        |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
-        |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId
-            (AVal.constant (Some { texture = TextureReference.LegacyId 0
-                                   channel = ChannelReference.NoChannelSelection }))
 
     /// All OPC surfaces as shadow casters: fresh PatchNodes against the shadow
     /// signature, each placed with the same trafo as in the main render, visibility
@@ -153,7 +146,7 @@ module SunShadowMap =
                 // OBJ and other non-OPC surfaces do not cast in v1
                 Sg.empty)
         |> Sg.set
-        |> withOpcScaffolding
+        |> OpcSg.withOpcScaffolding
 
     /// Combined world-space bounds of all (visible) surfaces -- the volume the sun-ortho
     /// camera must cover.

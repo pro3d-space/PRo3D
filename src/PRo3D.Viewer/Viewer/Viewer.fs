@@ -43,7 +43,8 @@ open PRo3D.SimulatedViews
 //open PRo3D.Linking
 open PRo3D.ViewerLenses
 
- 
+open Aardvark.UI.Primitives.Golden
+
 open Aether
 open Aether.Operators
 open Chiron 
@@ -247,7 +248,12 @@ module ViewerApp =
             // useful default viewpoint after 2nd import
             match m.scene.firstImport with                  
             | true -> 
-                let refAction = ReferenceSystemAction.InferCoordSystem(fullBb.Center)
+                // A scene body the GIS already observes was declared, not guessed: do not
+                // second-guess it from the data's radius, only place the cross (#758).
+                let refAction =
+                    match m.scene.gisApp.defaultObservationInfo.observer with
+                    | Some _ -> ReferenceSystemAction.UpdateUpNorth(fullBb.Center)
+                    | None   -> ReferenceSystemAction.InferCoordSystem(fullBb.Center)
                 let (refSystem',_)= 
                     ReferenceSystemApp.update 
                         m.scene.config 
@@ -276,42 +282,6 @@ module ViewerApp =
         |> AnimationAction.PushAnimation 
         |> AnimationApp.update animationsOld
 
-    //TODO TO refactor ... move docking manipulation somewhere else... check what works and what doesn't
-    let rec getAllDockElements (dnc: DockNodeConfig) : (list<DockElement>) = 
-        match dnc with
-        | DockNodeConfig.Vertical (weight,children) -> 
-            let test = children |> List.map(fun x -> getAllDockElements x )
-            test |> List.concat  
-        | DockNodeConfig.Horizontal (weight,children) -> 
-            let test = children |> List.map(fun x -> getAllDockElements x )
-            test |> List.concat 
-        | DockNodeConfig.Stack (weight,activeId,children) -> children 
-        | DockNodeConfig.Element element -> [element] 
-    
-    let updateClosedPages (m: Model) (dncUpdated: DockNodeConfig) =
-        let de = getAllDockElements m.scene.dockConfig.content
-        let deUpdated = getAllDockElements dncUpdated
-        let diff = ((Set.ofList de) - (Set.ofList deUpdated)) |> Set.toList
-        // diff contains all changed elements (not only the deleted)
-        match diff with
-            | [] -> m.scene.closedPages
-            | _ -> 
-                let test = 
-                    diff 
-                    |> List.choose (fun x -> 
-                        match deUpdated |> List.filter(fun y -> y.id = x.id) with
-                        | [] -> Some x
-                        | _  -> None)                
-                List.append m.scene.closedPages test 
-                   
-    let private addDockElement (dnc: DockNodeConfig) (de: DockElement) = 
-        match dnc with
-        | DockNodeConfig.Vertical (weight,children) -> let add = List.append children [(Stack(weight, None, [de]))]
-                                                       Horizontal(weight,add)
-        | DockNodeConfig.Horizontal (weight,children) -> let add = List.append children [(Stack(weight, None, [de]))]
-                                                         Horizontal(weight,add) 
-        | DockNodeConfig.Stack (weight,activeId,children) -> Stack(weight, activeId, List.append [de] children)
-        | DockNodeConfig.Element element ->  Stack(0.2, None, List.append [de] [element]) 
 
     let private updateReferenceSystemAt (action : V3d -> ReferenceSystemAction) (pos : V3d) (m : Model) =
         let (refSystem',_) =
@@ -530,6 +500,21 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
+    /// Saves the scene and writes its window layout beside it. The layout sidecar can
+    /// never fail the save; if it could not be written the user is told.
+    let private saveScene (path : string) (m : Model) =
+        match ViewerIO.saveEverythingWithLayout path m with
+        | m, None -> m
+        | m, Some _ -> m |> shortFeedback "Scene saved, but its window layout could not be stored beside it (see log)."
+
+    /// A scene was opened: offer the window layout stored beside it (docs/WindowLayouts.md).
+    let sceneOpened (m : Model) =
+        match m.scene.scenePath with
+        | Some path ->
+            let layout, feedback = LayoutApp.sceneOpened (LayoutLibrary.directory ()) path m.layout
+            feedback |> List.fold (fun m text -> shortFeedback text m) { m with layout = layout }
+        | None -> m
+
     let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) =
         match k with
         | Aardvark.Application.Keys.Enter ->
@@ -605,12 +590,22 @@ module ViewerApp =
     let flyToImageCamera (m : Model) (imageId : System.Guid) : Option<CameraView> =
         let gis = m.scene.gisApp
         let projectionSurface =
-            gis.gisSurfaces
-            |> HashMap.toSeq
-            |> Seq.tryPick (fun (sid, gs) ->
-                match gs.entity, gs.referenceFrame with
-                | Some entity, Some frame -> Some (sid, entity, frame)
-                | _ -> None)
+            let bound =
+                gis.gisSurfaces
+                |> HashMap.toSeq
+                |> Seq.tryPick (fun (sid, gs) ->
+                    match gs.entity, gs.referenceFrame with
+                    | Some entity, Some frame -> Some (sid, entity, frame)
+                    | _ -> None)
+            match bound with
+            | Some _ -> bound
+            | None ->
+                // no explicit binding: a surface that inherits the scene body (#758)
+                m.scene.surfacesModel.surfaces.flat
+                |> HashMap.toSeq
+                |> Seq.tryPick (fun (sid, _) ->
+                    Gis.GisApp.getSpiceReferenceSystem gis sid
+                    |> Option.map (fun r -> sid, r.body, r.referenceFrame))
         let image = PRo3D.ImageMapping.ProjectedImageListModel.tryFind imageId gis.projectedImageList
         let observerSystemOpt = Gis.GisApp.getObserverSystem gis
 
@@ -684,7 +679,7 @@ module ViewerApp =
                 [ if Option.isNone observerSystemOpt then
                       yield "no observed body is set (GIS tab -> Current Observation Settings -> Observed body)"
                   if Option.isNone projectionSurface then
-                      yield "no surface is bound to a SPICE body (GIS tab -> Surfaces -> pick an Entity and a Reference Frame)"
+                      yield "no surface is bound to a SPICE body (set the planet / Observed body, or GIS tab -> Surfaces -> pick an Entity and a Reference Frame)"
                   if Option.isNone image then
                       yield "the image is not in the projected-image library" ]
             Log.warn "[Viewer] fly-to needs: %s" (String.concat "; " missing)
@@ -1069,6 +1064,8 @@ module ViewerApp =
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
+        | MapProjectionMessage msg,_ ->
+            { m with mapProjection = PRo3D.MapProjection.MapProjectionApp.update m.mapProjection msg }
         | AnnotationExportMessage msg,_ ->
             match msg with
             | AnnotationExportAction.Export path ->
@@ -1200,7 +1197,7 @@ module ViewerApp =
                     | _ -> "snapshotScene.pro3d" 
                 let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
                 Log.line "[Snapshots] Saving scene as %s." scenePath
-                let m = m |> ViewerIO.saveEverything scenePath
+                let m = m |> saveScene scenePath
                 m, scenePath
 
             let m =
@@ -1748,9 +1745,9 @@ module ViewerApp =
         //    | false -> m
         | SaveScene s,_ ->
             let target = match m.scene.scenePath with | Some path -> path | None -> s
-            m |> ViewerIO.saveEverything target
+            m |> saveScene target
         | SaveAs s,_ ->
-            ViewerIO.saveEverything s m
+            saveScene s m
             |> ViewerIO.loadLastFootPrint
         | ViewerAction.SetScenePath s, _ -> 
             let scene = { m.scene with scenePath      = Some s }
@@ -1761,7 +1758,7 @@ module ViewerApp =
             match SceneLoading.loadSceneFromFile m runtime signature path with
             | SceneLoading.SceneLoadResult.Loaded(newModel,converted,path) -> 
                 Log.line "[PRo3D] loaded scene: %s" path
-                newModel
+                newModel |> sceneOpened
             | SceneLoading.SceneLoadResult.Error(msg,exn) -> 
                 Log.error "[PRo3D] could not load file: %s, error: %s" path msg
                 m
@@ -1771,6 +1768,8 @@ module ViewerApp =
             
         | LoadSerializedScene json, _ -> // serialized scene file (content of .pro3d)
             SceneLoading.loadSceneFromJson m runtime signature json
+            // like every other scene load (#758); the drawing arrives separately here
+            |> SceneLoader.reconcileSceneBody
 
         | LoadSerializedDrawingModel json, _ -> 
             let annotations = DrawingUtilities.IO.loadAnnotationsFromJson json 
@@ -1813,7 +1812,9 @@ module ViewerApp =
                     _animator
                     m.viewerVersion
 
-            { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
+            // the layout belongs to the user, not the scene; a fresh Golden Layout model would also
+            // reset the version its browser channel compares against and swallow the next change
+            { initialModel with recent = m.recent; layout = m.layout } |> ViewerIO.loadRoverData
 
         | KeyDown k, _ ->
             let m =
@@ -1840,7 +1841,7 @@ module ViewerApp =
             let m =
                 match (m.ctrlFlag, k, m.scene.scenePath) with
                 | true, Aardvark.Application.Keys.S, Some path ->
-                    { (ViewerIO.saveEverything path m) with ctrlFlag = false } |> shortFeedback "scene saved"
+                    { (saveScene path m) with ctrlFlag = false } |> shortFeedback "scene saved"
                 | true, Aardvark.Application.Keys.S, None ->
                     { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene"
                     // (saveSceneAndAnnotations p m)
@@ -1928,106 +1929,11 @@ module ViewerApp =
 
             { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_ ->                                
-            let refsystem',_ = 
-                ReferenceSystemApp.update
-                    m.scene.config 
-                    LenseConfigs.referenceSystemConfig 
-                    m.scene.referenceSystem 
-                    a
-                    
-            // Re-aim the camera only when the sky it would be built from actually moved.
-            // `updateCameraUp` keeps the position and viewing direction but replaces the
-            // sky vector, which *rolls* the camera about its own view axis - so running it
-            // on every reference-system action snapped the roll on purely cosmetic edits
-            // (toggling the cross, its text size or colour, nudging the north offset) and
-            // on re-picking the planet that was already selected. Only `planet` and `up`
-            // feed `bodyAwareSky`, so comparing it across the update is the exact
-            // precondition, and it leaves a camera the user deliberately rolled alone.
-            let skyOf (rs : ReferenceSystem) = ReferenceSystem.bodyAwareSky rs.planet rs.up.value
-            let skyMoved = Vec.distance (skyOf m.scene.referenceSystem) (skyOf refsystem') > 1e-9
-
-            let _refSystem = (Model.scene_ >-> Scene.referenceSystem_)
-            let m = 
-                let m = m |> Optic.set _refSystem refsystem'
-                if skyMoved then SceneLoader.updateCameraUp m else m
-                
-            //changing the planet requires update of local reference systems
-            let m = 
+            // the planet is the scene body: picking it also points the GIS at that body (#758)
+            m |> SceneLoader.withCameraSkyFollowing (fun m ->
                 match a with
-                | ReferenceSystemAction.SetPlanet planet ->
-                    let flat' =
-                        m.scene.surfacesModel.surfaces.flat
-                        |> HashMap.map (fun k v ->
-                            let s = Leaf.toSurface v
-                            let sgSurface = m.scene.surfacesModel.sgSurfaces |> HashMap.find k
-                            let bbCenter = sgSurface.globalBB.Center
-                            Leaf.Surfaces {
-                                s with transformation =
-                                            (TransformationApp.update s.transformation TransformationApp.Action.UpdatePlanetInLocalRefSys m.scene.referenceSystem bbCenter)
-                                }
-                            )
-                    let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = flat' }}}}
-                    // the annotation toolbar greys out geometries that need a real reference body
-                    // (DnS/TT/ellipses) while Planet.None is selected; drop an active one back to
-                    // Line so the drawing tool never sits on a disabled - and for ellipses crashing
-                    // - geometry. Line allows every projection, so projection is left untouched.
-                    if planet = Planet.None && Geometry.needsReferenceBody m.drawing.geometry then
-                        { m with drawing = { m.drawing with geometry = Geometry.Line } }
-                    else
-                        m
-                |_ -> m
-
-            //changing the reference system also requires adaptation of angular measurement values
-            Log.startTimed "[Viewer.fs] recalculating angular values in annos"
-            let flat = 
-                m.drawing.annotations.flat
-                |> HashMap.map(fun _ v ->
-                    let a = v |> Leaf.toAnnotation
-                    let results = Calculations.calculateAnnotationResults a refsystem'.up.value refsystem'.northO refsystem'.planet
-                    
-                    //Calculations.reCalcBearing a refsystem'.up.value refsystem'.northO                   
-                    let dnsResults = DipAndStrike.reCalculateDipAndStrikeResults refsystem'.up.value refsystem'.northO a
-                    { a with results = Some results; dnsResults = dnsResults } 
-                    |> Leaf.Annotations
-                )
-            Log.stop()
-
-            // Every derived value just moved — bearing, slope, dip and strike, altitudes — so
-            // a Color by Category ramp fitted to the old numbers no longer matches the data,
-            // and neither does the legend drawn from it. Refit, exactly as switching the
-            // attribute does. fitRange leaves categorical and cyclic attributes alone (a hue
-            // wheel has no bounds to fit), and a switched-off panel is not touched at all.
-            let colorByCategory =
-                if m.drawing.colorByCategory.enabled then
-                    let annotations = flat |> HashMap.toValueList |> List.map Leaf.toAnnotation
-                    ColorByCategory.update
-                        annotations m.drawing.colorByCategory ColorByCategoryAction.FitRangeToData
-                else
-                    m.drawing.colorByCategory
-
-            m
-            |> Optic.set _flat flat
-            |> Optic.set _colorByCategory colorByCategory
-
-
-            //match a with 
-            //| ReferenceSystemAction.SetUp _ | ReferenceSystemAction.SetPlanet _ ->
-            //    m' 
-            //    |> SceneLoader.updateCameraUp
-            //| ReferenceSystemAction.SetNOffset _ -> //update annotation results
-            //    let flat = 
-            //        m'.drawing.annotations.flat
-            //        |> HashMap.map(fun _ v ->
-            //            let a = v |> Leaf.toAnnotation
-            //            let results    = Calculations.reCalcBearing a refsystem'.up.value refsystem'.northO                         
-            //            let dnsResults = DipAndStrike.reCalculateDipAndStrikeResults refsystem'.up.value refsystem'.northO a
-            //            { a with results = results; dnsResults = dnsResults } 
-            //            |> Leaf.Annotations
-            //        )
-            //    m' 
-            //    |> Optic.set _flat flat                     
-            //| _ -> 
-            //    m'
+                | ReferenceSystemAction.SetPlanet planet -> SceneBodySync.setPlanet planet m
+                | _ -> SceneBodySync.applyReferenceSystemAction a m)
         | ConfigPropertiesMessage a,_ -> 
             //Log.line "config message %A" a
             let c' = ConfigProperties.update m.scene.config a
@@ -2112,17 +2018,10 @@ module ViewerApp =
             if s.IsEmptyOrNull() |> not then 
                 Log.line "[Viewer.fs] No Action %A" s
             m                   
-        | UpdateDockConfig dcf,_ ->
-            let closedPages = updateClosedPages m dcf.content
-            { m with scene = { m.scene with dockConfig = dcf; closedPages = closedPages } }
-        | AddPage de,_ -> 
-            let closedPages = m.scene.closedPages |> List.filter(fun x -> x.id <> de.id)                
-            let cont = addDockElement m.scene.dockConfig.content de
-            let dockconfig = config {content(cont);appName "PRo3D"; useCachedConfig false }
-            { m with scene = { m.scene with dockConfig = dockconfig; closedPages = closedPages } }
+        | LayoutMessage msg, _ ->
+            let layout, feedback = LayoutApp.update (LayoutLibrary.directory ()) msg m.layout
+            feedback |> List.fold (fun m text -> shortFeedback text m) { m with layout = layout }
         | UpdateUserFeedback s,_ ->   { m with scene = { m.scene with userFeedback = s } }
-        | ChangeDashboardMode mode, _ -> 
-            { m with scene = { m.scene with dockConfig = mode.dockConfig }; dashboardMode = mode.name }
         //| StartImportMessaging sl,_,_ -> 
         //    sl |> ImportDiscoveredSurfaces |> ViewerAction |> mailbox.Post
         //    { m with scene = { m.scene with userFeedback = "Import OPCs..." } }
@@ -2501,8 +2400,16 @@ module ViewerApp =
                         m.animations
                 | _ ->
                     m.animations
-            (Optic.set _gisApp gisApp m)
-            |> Optic.set ViewerLenses._animation animations
+            let m =
+                (Optic.set _gisApp gisApp m)
+                |> Optic.set ViewerLenses._animation animations
+
+            // the observed body and frame are the scene body: the planet follows (#758)
+            match msg with
+            | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetObserver _)
+            | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetReferenceFrame _) ->
+                m |> SceneLoader.withCameraSkyFollowing SceneBodySync.followObservation
+            | _ -> m
         | unknownAction, _ ->
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m
@@ -3152,8 +3059,10 @@ module ViewerApp =
                 |> ViewerIO.loadSequencedBookmarks
                 //|> ViewerIO.loadMinerva dumpFile cacheFile
                 //|> ViewerIO.loadLinking
+                |> SceneLoader.reconcileSceneBody
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+                |> sceneOpened
             | LoadScene path ->
                 viewerInitial
                 |> ProvenanceApp.emptyWithModel enableProvenance
@@ -3166,8 +3075,10 @@ module ViewerApp =
                 |> ViewerIO.loadSequencedBookmarks
                 //|> ViewerIO.loadMinerva dumpFile cacheFile
                 //|> ViewerIO.loadLinking
+                |> SceneLoader.reconcileSceneBody
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+                |> sceneOpened
                 
         let app = {
             unpersist = Unpersist.instance

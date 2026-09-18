@@ -55,6 +55,11 @@
     <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
     <Compile Include="DashboardModes.fs" />
+    <Compile Include="Layouts\LegacyDockConfig.fs" />
+    <Compile Include="Layouts\LayoutFiles.fs" />
+    <Compile Include="Layouts\Layout-Model.fs" />
+    <Compile Include="Layouts\Layout-Model.g.fs" />
+    <Compile Include="Layouts\LayoutApp.fs" />
     <Compile Include="ProvenanceModel.fs" />
     <Compile Include="ProvenanceModel.g.fs" />
     <Compile Include="Viewer-Model.fs" />
@@ -65,7 +70,10 @@
     <Compile Include="TraverseApp.fs" />
     <Compile Include="Viewer\Shaders.fs" />
     <Compile Include="Viewer\SunShadowMap.fs" />
+    <Compile Include="Viewer\MapProjectionHost.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
+    <Compile Include="Viewer\SurfaceEffectHarness.fs" />
+    <Compile Include="SceneBodySync.fs" />
     <Compile Include="Scene.fs" />
     <Compile Include="Viewer\RoseDiagram.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
@@ -148,6 +156,7 @@
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
+    <ProjectReference Include="..\PRo3D.MapProjection\PRo3D.MapProjection.fsproj" />
     <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
   </ItemGroup>
   <ItemGroup>

@@ -143,19 +143,43 @@ What is inside:
 
 | Folder | Content | Good for |
 |---|---|---|
-| `1087_004779_MSLMST_0011/` | small part of the MSL *Stimson* outcrop on Mars | first steps in the viewer; the full dataset is at [download.vrvis.at](http://download.vrvis.at/acquisition/32987e2792e0/PRo3D/Stimson_1087.zip) |
+| `HERA/Dimorphos_opc/Dimorphos/` | Dimorphos shape model | first steps in the viewer ([2.2](#22-open-dimorphos-hera)) |
+| `HERA/Dimorphos_opc/AFC_2027-03-21/` | simulated HERA/AFC frames of that model | image projection |
 | `HERA/Didymos_ASPECT/` | Didymos shape model | `pro3d-tool simulate-image` |
-| `HERA/Dimorphos_opc/` | Dimorphos shape model and simulated HERA/AFC frames | image projection |
+| `1087_004779_MSLMST_0011/` | small part of the MSL *Stimson* outcrop on Mars | a Mars surface ([2.3](#23-open-the-msl-stimson-outcrop-mars)); the full dataset is at [download.vrvis.at](http://download.vrvis.at/acquisition/32987e2792e0/PRo3D/Stimson_1087.zip) |
 | `HERA/Instrument Data/` | an ASPECT instrument image with metadata | `pro3d-tool sun-angles`, `unproject` |
 | `annotations/`, `cases/`, `imports/` | annotation files and example scenes | annotation features |
 
-### 2.2 Open a surface in PRo3D
+### 2.2 Open Dimorphos (HERA)
 
-Click the **☰** menu (top left) → **Surfaces** → **Import OPCs**:
+**1. Choose the body.** In the top bar set **Reference System** to **Dimorphos**. Latitude, longitude, altitude and up/north are then computed for Dimorphos instead of Mars:
+
+![Reference System set to Dimorphos](images/installation/pro3d-reference-system-dimorphos.png)
+
+**2. Import the surface.** Click the **☰** menu (top left) → **Surfaces** → **Import OPCs**:
 
 ![Surfaces → Import OPCs menu](images/installation/pro3d-import-opcs.png)
 
-In the folder dialog select `PRo3D.Resources.TestData-main\1087_004779_MSLMST_0011` and confirm. The surface appears in the **Surfaces** list on the right and in the 3D view:
+In the folder dialog select `PRo3D.Resources.TestData-main\HERA\Dimorphos_opc\Dimorphos` and confirm. Dimorphos appears in the **Surfaces** list on the right. If the 3D view does not show it, click the **house** icon next to its name (*Fly to surface*), and scroll the mouse wheel to zoom out until you see the whole body.
+
+**3. Rotate around the body.** Click into the 3D view and press **C**. This switches to **ArcBall** navigation with the **centre of the body** as the pivot — in PRo3D 6.3 and newer the ArcBall button in the toolbar next to the view lights up. Now:
+
+- **drag with the left mouse button** to rotate Dimorphos,
+- **scroll the mouse wheel** to zoom in and out.
+
+Press **C** again whenever you want the pivot back at the body centre. If you switch to ArcBall with the toolbar button instead, the pivot is the surface point in the middle of the screen, and on a small body the camera quickly swings off or through the surface.
+
+The side you look at first may be almost completely **black**: the texture only covers the part of Dimorphos that was imaged, the rest has no image data.
+
+![After pressing C: ArcBall active, looking at the dark side](images/installation/pro3d-dimorphos-arcball-back.png)
+
+Rotate until the imaged side faces you:
+
+![Dimorphos, rotated to the imaged side](images/installation/pro3d-dimorphos-loaded.png)
+
+### 2.3 Open the MSL Stimson outcrop (Mars)
+
+Keep **Reference System** at **Mars** (the default), then **☰** → **Surfaces** → **Import OPCs** as above and select `PRo3D.Resources.TestData-main87_004779_MSLMST_0011`:
 
 ![The imported Stimson surface in PRo3D](images/installation/pro3d-surface-loaded.png)
 
@@ -266,7 +290,8 @@ The SPICE library the tool uses exists for exactly these platforms, so there is 
 | "Windows protected your PC" | **More info → Run anyway** |
 | macOS: "cannot be opened" | **System Settings → Privacy & Security → Open Anyway** |
 | AppImage does not start | `chmod +x`, and install `libfuse2` |
-| PRo3D shows no surface after import | select the dataset folder itself (e.g. `1087_004779_MSLMST_0011`), not a file inside it |
+| PRo3D shows no surface after import | select the dataset folder itself (e.g. `Dimorphos` or `1087_004779_MSLMST_0011`), not a file inside it |
+| Rotating makes the camera jump or fly through the body | click into the 3D view and press **C** — ArcBall then rotates around the body centre ([2.2](#22-open-dimorphos-hera)) |
 | `pro3d-tool: command not found` | open a new terminal; add `~/.dotnet/tools` to `PATH` |
 | `no SPICE kernel tree given` | set `PRO3D_SPICE_KERNELS` or pass `--kernel-root` ([3.3](#33-spice-kernels)) |
 | `Verb 'simulate-image' is not recognized.` | tool too old — `dotnet tool update PRo3D.Tool --global` (needs 0.4.0) |

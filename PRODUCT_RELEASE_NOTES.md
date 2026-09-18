@@ -1,3 +1,36 @@
+## 6.3.0-prerelease002
+Collects the work merged since `6.3.0-prerelease001`.
+
+- UI: **popouts work in the installed app.** Popping out a stack opened the system browser instead of a window, and its panels vanished from the main window; running from a build worked. The desktop shell treated the viewer's own address as external (pro3d-space/aardium#1). Popouts now open as windows, dock back when closed, and reopen where they were, also on a second display
+- UI: the title bar credits everyone behind PRo3D: *powered by Aardvark and the PRo3D community, led by VRVis*
+
+## 6.3.0-prerelease001
+First prerelease of the 6.3.0 line, based on `6.2.0-prerelease003`.
+
+- UI: **the window uses Golden Layout.** Panels can be resized, moved between stacks, maximised and popped out into their own windows; closing a popout docks its panels back. The main view cannot be closed, and closed panels come back via *Layout → Reopen Panel*. The top bar follows the dark panel theme (#614, based on work by Thomas Ortner in #618)
+- UI: **window layouts belong to the user, not the scene.** The layout you leave is restored at the next start (`%APPDATA%/Pro3D/layouts`). Built-in layouts (M2020, now with the GIS view, is the default) and *My Layouts* (save as, load, rename, delete) are in the *Layout* menu
+- Scenes: **saving a scene also stores its layout beside it** (`<scene>.pro3d.layout`), and opening a scene with a different layout asks whether to add it to *My Layouts* and whether to use it. The sidecar can never fail a save; unreadable layout files are reported and ignored
+- Scenes: **the scene format is unchanged.** Scenes keep their `dockConfig`, so PRo3D 6.2 and older still open scenes saved by this version
+
+## 6.2.0-prerelease003
+Collects the work merged since `6.2.0-prerelease002`.
+
+- Surfaces: **OPC rendering pays only for the features a surface actually uses.** The two parts that cost even while switched off — the geometry shader stage (triangle-size filtering and face normals) and the cross-section clip, the only `discard` in the stack — are now composed only for surfaces that need them, and switched in at runtime when one is enabled. The geometry stage alone dominated OPC frame time on Apple Silicon
+- Surfaces: **the terrain shader is ~27× smaller and starts far faster.** Every `if … then return … else return …` in a shader stage made FShade duplicate the whole rest of the stack, so the generated code grew as the *product* of those branches: 21971 lines, with the last stage inlined 861 times. Written with a single return each, the same shader is ~800 lines with no duplication left. Start-up shader work went from minutes to ~6 s on the first start after an update, and nothing at all on every start after that (reported upstream as FShade#39)
+- GIS: **the global planet and the GIS observation are one setting, the scene body.** Picking *Dimorphos* in either place, loading a kernel and adding an image is enough for projection, sun lighting, MapView, lat/lon and measurements to work — no per-surface setup. Scenes observed in a body's own fixed frame get the identity placement, so nothing is transformed twice; surfaces with no body of their own inherit the scene body. Bookmarks contribute time and camera only. *Multi-body scenes and scenes observed in another frame (e.g. `J2000`) are not covered yet (#761)*
+
+## 6.2.0-prerelease002
+Collects the work merged since `6.2.0-prerelease001`.
+
+- GIS: **multi-image projection** — an ordered stack of up to 32 same-instrument images projected onto OPC surfaces (top wins), with a stack panel, hover footprints, fly-to and a coverage view. Each image is projected at its own observation time, and the same shader now runs on macOS
+- GIS: **pre-transformed surfaces (pre-transformation, Flip Z, SketchFab) get no image projection** instead of a misplaced one; winding correction is opt-in; observation times are UTC
+- Annotations: **Outcrop Traces** — the mean attitude of the annotation selection (orientation tensor), repeated at a constant bed thickness, traced where that bedding would crop out on the terrain. Dip&Strike gains a *Selection average* row
+- Surfaces: **LatLon graticule overlay** — 1° / 5° / 15° parallels and meridians plus equator and prime meridian, per surface, on reference bodies. Costs nothing while switched off; meridians can break up at rover-scale zoom (#748)
+- Annotations: **merge annotations moved to the main view**, and a **reverse flag** for annotation editing and picking
+- View planner: the **footprint boundary is drawn again** (as in `6.1.0-prerelease005`)
+- Region operations: **merging two regions no longer returns an area larger than their union**
+- Development builds **report "development build"** instead of a stale version number
+
 ## 6.2.0-prerelease001
 First prerelease of the 6.2 line. Collects the work merged since `6.1.0-prerelease004`.
 

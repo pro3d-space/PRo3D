@@ -50,6 +50,125 @@
     min-height: 34px;
 }
 
+/* ---------------------------------------------------------------------------
+   Dark top bar: both rows and their dropdowns in the palette of the Golden
+   Layout borderless-dark theme the panels use (docs/WindowLayouts.md), so the
+   window reads as one surface instead of a light bar above dark panels.
+   --------------------------------------------------------------------------- */
+.pro3d-topbar {
+    --topbar-bg: #1b1c1e;
+    --topbar-bg-raised: #242528;
+    --topbar-line: rgba(255, 255, 255, 0.08);
+    --topbar-text: rgba(255, 255, 255, 0.87);
+    --topbar-text-dim: rgba(255, 255, 255, 0.55);
+    background: var(--topbar-bg);
+}
+
+.pro3d-topbar .ui.menu {
+    background: var(--topbar-bg);
+    border-bottom: 1px solid var(--topbar-line);
+    color: var(--topbar-text);
+}
+
+.pro3d-topbar .ui.menu .item,
+.pro3d-topbar .ui.menu .topmenu,
+.pro3d-topbar .ui.menu .item > span,
+.pro3d-topbar .ui.menu .pro3d-toolbar-empty {
+    color: var(--topbar-text);
+}
+
+.pro3d-topbar .ui.menu .item:before {
+    background: var(--topbar-line);
+}
+
+.pro3d-topbar .ui.menu .link.item:hover,
+.pro3d-topbar .ui.menu a.item:hover,
+.pro3d-topbar .ui.menu .dropdown.item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+}
+
+/* dropdown menus (main menu, Scene, Layout, ...) */
+.pro3d-topbar .ui.menu .ui.dropdown .menu {
+    background: var(--topbar-bg-raised);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+}
+
+.pro3d-topbar .ui.menu .ui.dropdown .menu > .item,
+.pro3d-topbar .ui.menu .ui.dropdown .menu .ui.inverted.item {
+    background: transparent;
+    color: var(--topbar-text) !important;
+}
+
+.pro3d-topbar .ui.menu .ui.dropdown .menu > .item:hover,
+.pro3d-topbar .ui.menu .ui.dropdown .menu .ui.inverted.item:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff !important;
+}
+
+.pro3d-topbar .menu .header {
+    color: var(--topbar-text-dim) !important;
+}
+
+/* the recent-scenes popup of the Scene menu */
+.pro3d-topbar .ui.popup {
+    background: var(--topbar-bg-raised);
+    color: var(--topbar-text);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pro3d-topbar .ui.popup:before {
+    background: var(--topbar-bg-raised);
+}
+
+/* items built with Html.Layout.horizontal (Reference System, Direct Tool Mode, the
+   scene name) are `ui table`s, which Semantic paints white with dark text */
+.pro3d-topbar table.ui.table,
+.pro3d-topbar table.ui.table td,
+.pro3d-topbar table.ui.table tr {
+    background: transparent !important;
+    color: var(--topbar-text) !important;
+    border: none;
+    box-shadow: none;
+}
+
+.pro3d-topbar .ui.menu .ui.dropdown .menu > .divider,
+.pro3d-topbar .ui.menu .ui.dropdown .menu .divider {
+    border-top-color: var(--topbar-line);
+}
+
+.pro3d-topbar .ui.menu .ui.dropdown .menu .disabled.item {
+    color: var(--topbar-text-dim) !important;
+}
+
+/* form controls in the bars */
+/* !important: the global `button, input, select { color: black }` rule below and
+   inline widget styles would otherwise leave dark text on the dark fields */
+.pro3d-topbar select,
+.pro3d-topbar input[type="text"],
+.pro3d-topbar input[type="number"],
+.pro3d-topbar input:not([type]) {
+    background: var(--topbar-bg-raised) !important;
+    color: var(--topbar-text) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 3px;
+}
+
+.pro3d-topbar select:disabled,
+.pro3d-topbar input:disabled {
+    color: var(--topbar-text-dim) !important;
+}
+
+.pro3d-topbar select option {
+    background: var(--topbar-bg-raised);
+    color: var(--topbar-text);
+}
+
+.pro3d-topbar i.icon {
+    color: var(--topbar-text);
+}
+
 /* Indent the secondary toolbar so its leading item starts past the hamburger menu
    button of the main row, lining its first character up with "Mode" above. Only the
    leading item is indented - the tool controls and the trailing ctrl-click hint

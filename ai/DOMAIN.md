@@ -112,6 +112,14 @@ Key types:
 
 Actions cover assigning bodies/frames to surfaces, observing (positioning at a time), setting the SPICE kernel, and toggling the camera into an observer frame.
 
+**Scene body (#758, `docs/SceneBody.md`)** — `ReferenceSystem.planet` and the GIS observation (`observer` + `referenceFrame`) are **one setting**. Planet-based code (up/north, lat/lon, MapView's +Z pole and radius) reads world coordinates as the planet's body-fixed coordinates; that is only true when the GIS observes the body in its own fixed frame, which makes the scene body's surfaces' SPICE placement the identity.
+- Change either only through `PRo3D.Viewer/SceneBodySync.fs` (`setPlanet`, `followObservation`, `reconcileOnLoad`) — never write `referenceSystem.planet` or `defaultObservationInfo.observer/referenceFrame` directly, or the two drift apart.
+- `PRo3D.Base.Gis.SceneBody` is the planet ↔ (SPICE body, fixed frame) table and the body-fixed test (`tryBodyFixedPlanet`, `tryReferenceSystem`); compare SPICE names with `SpiceName.same` (case-insensitive).
+- Surfaces without a GIS assignment inherit the scene body (`GisApp.getSpiceReferenceSystem*`), but only while the scene is body-fixed; iterate *all* surfaces, not `gisSurfaces`, when you need "the surfaces with a body".
+- Bookmarks contribute time + camera source only; their observer/frame are ignored.
+- "Planet set, GIS observing nothing" is a legitimate state (every new scene, plain Mars scenes): nothing mirrors the planet into an empty observation automatically; the GIS panel offers a one-click "Observe <planet> as scene body".
+- A known body's frame is locked to its fixed frame for now; scenes saved in another frame (J2000) are legacy and load unchanged. A free scene frame is the planned next step — keep new code honest about which space a point is in.
+
 ---
 
 ## Bookmarks & Sequenced Bookmarks

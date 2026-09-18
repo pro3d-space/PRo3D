@@ -17,6 +17,7 @@ open PRo3D.Navigation2
 open Aardvark.UI
 open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation.Deprecated
 open Aardvark.Rendering
@@ -69,14 +70,7 @@ module Viewer =
         (viewerVerson        : string)
         : Model = 
 
-        // default to the M2020 docking config (includes the Traverse menu)
-        let defaultDashboard = DashboardModes.m2020
-        //let defaultDashboard = DashboardModes.gis
-        // use this one for PROVEX workflows if needed.
-        //let defaultDashboard = DashboardModes.provenance
-        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020   
-        
-        let viewConfigModel = 
+        let viewConfigModel =
             { ViewConfigModel.initial with showExplorationPointGui = startupArgs.showExplorationPoint }
 
         let applyProvenaceIfEnabled (m : Model) =
@@ -98,8 +92,7 @@ module Viewer =
                     referenceSystem       = { ReferenceSystem.initial with isVisible = startupArgs.showReferenceSystem }
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
-                    dockConfig            = defaultDockConfig                
-                    closedPages           = list.Empty 
+                    legacyDockConfig      = None
                     firstImport           = true
                     userFeedback          = ""
                     feedbackThreads       = ThreadPool.empty
@@ -116,13 +109,14 @@ module Viewer =
                 }
 
             viewerVersion   = viewerVerson
-            dashboardMode   = defaultDashboard.name
+            layout          = LayoutApp.initial (LayoutLibrary.directory ())
             navigation      = navInit
 
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
             annotationExport = AnnotationExportModel.initial
+            mapProjection   = PRo3D.MapProjection.MapProjectionApp.initial
             interaction     = Interactions.DrawAnnotation
             multiSelectBox  = None
             shiftFlag       = false

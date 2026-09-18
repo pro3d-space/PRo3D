@@ -400,6 +400,9 @@ altitude, slope maps, secondary image layers, whatever the dataset ships). This 
 the old *selected as multi-attribute profile* export, with the rest of the window's columns
 available alongside.
 
+> [**Multi-attribute profiles**](MultiAttributeProfile.md) walks the whole thing through on a
+> real dataset — drawing the sky-projected line, the settings, and the file that comes out.
+
 One column per layer found, named `surface_<layer>` after the layer in the patch:
 
 | | |

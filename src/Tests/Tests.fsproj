@@ -54,6 +54,10 @@
     <Compile Include="BulkAnnotationRoseTest.fs" />
     <Compile Include="OutcropTraceAttitudeTest.fs" />
     <Compile Include="OutcropTraceShaderTest.fs" />
+    <Compile Include="SurfaceEffectVariantTest.fs" />
+    <Compile Include="MapProjectionMathTests.fs" />
+    <Compile Include="MapProjectionShaderTest.fs" />
+    <Compile Include="MapProjectionAnnotationFixture.fs" />
     <Compile Include="Features\TestHelpers.fs" />
     <Compile Include="Features\Section01_StartingPRo3D.fs" />
     <Compile Include="Features\Section02_ViewerActionsNavigation.fs" />
@@ -66,6 +70,7 @@
     <Compile Include="Features\Section09_ViewerConfiguration.fs" />
     <Compile Include="Features\Section10_Grouping.fs" />
     <Compile Include="Features\Section12_GisView.fs" />
+    <Compile Include="Features\Section12_SceneBody.fs" />
     <Compile Include="Features\Section13_ContourMultitexturing.fs" />
     <Compile Include="Features\Section14_SurfaceComparison.fs" />
     <Compile Include="Features\Section16_CommandLine.fs" />
@@ -73,6 +78,7 @@
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
     <Compile Include="Features\Section20_BooleanOperations.fs" />
     <Compile Include="Features\Section21_OutcropTraces.fs" />
+    <Compile Include="Features\WindowLayoutTests.fs" />
     <Compile Include="Features\FootprintSceneFixture.fs" />
     <Compile Include="Pro3DToolTests.fs" />
     <Compile Include="MbiSidecarTest.fs" />
@@ -80,6 +86,10 @@
     <!-- after Features\TestHelpers.fs: these drive the real DrawingApp through the Draw harness -->
     <Compile Include="AdaptiveNestingTests.fs" />
     <Compile Include="VertexEditingTests.fs" />
+    <Compile Include="SurfaceEffectSwitchTest.fs" />
+    <Compile Include="MapProjectionRenderTest.fs" />
+    <Compile Include="SurfaceEffectBenchmark.fs" />
+    <Compile Include="MapProjectionBenchmark.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>
@@ -87,6 +97,7 @@
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
+    <ProjectReference Include="..\PRo3D.MapProjection\PRo3D.MapProjection.fsproj" />
     <ProjectReference Include="..\PRo3D.Tool\PRo3D.Tool.fsproj" />
     <!-- Scene, SceneLoader and ViewerIO live in the viewer: needed by the TC-1 scene lifecycle tests -->
     <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />

@@ -47,7 +47,7 @@ module EllipticAnnotations =
             let coord (p : V3d) : V2d option =
                 let sphericalOpt =
                     match referenceSystem with
-                    | Some r -> CooTransformation.tryGetLatLonAltPlanet r.body.Value p
+                    | Some r -> CooTransformation.tryGetLatLonAltOfBody r.body.Value p
                     | None   -> CooTransformation.tryGetLatLonAlt planet p
                 sphericalOpt |> Option.map Conv.geographicalToCartesian
 
@@ -112,7 +112,7 @@ module EllipticAnnotations =
             |> Array.map (fun p ->
                 let sphericalOpt =
                     match referenceSystem with
-                    | Some r -> CooTransformation.tryGetLatLonAltPlanet r.body.Value p
+                    | Some r -> CooTransformation.tryGetLatLonAltOfBody r.body.Value p
                     | None   -> CooTransformation.tryGetLatLonAlt planet p
                 sphericalOpt |> Option.map (fun sc -> sc, Conv.geographicalToCartesian sc))
 

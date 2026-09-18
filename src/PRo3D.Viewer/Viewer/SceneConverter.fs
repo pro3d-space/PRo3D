@@ -141,6 +141,7 @@ module SceneLoading =
                 |> ViewerIO.loadCorrelations
                 |> ViewerIO.loadLastFootPrint
                 |> ViewerIO.loadSequencedBookmarks
+                |> SceneLoader.reconcileSceneBody
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.loadSceneSpiceKernel
                 |> Choice1Of2 
