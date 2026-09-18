@@ -116,31 +116,33 @@ module MapSg =
         Directory.GetDirectories opcDirectory
         |> Array.filter (fun d -> Directory.Exists(Path.Combine(d, "Patches")))
 
+    /// Root bounding box of one hierarchy, loaded once per path and kept.
+    ///
+    /// The depth range, *Zoom to data* and the footprints all want it, and a Jezero scene has
+    /// over a hundred surfaces: without the cache, opening the panel would read every hierarchy
+    /// from disk once per consumer, on the thread that evaluates them.
+    let private rootBoxCache = System.Collections.Concurrent.ConcurrentDictionary<string, Box3d>()
+
+    let rootBox (basePath : string) =
+        rootBoxCache.GetOrAdd(basePath, fun path ->
+            let serializer = FsPickler.CreateBinarySerializer()
+            let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths path)
+            match h.tree with
+            | QTree.Node (p, _) -> p.info.GlobalBoundingBox
+            | QTree.Leaf p -> p.info.GlobalBoundingBox)
+
     /// Largest distance of any vertex from the body centre, bounded by the root bounding
     /// boxes of the hierarchies -- the depth range of the map.
     let maxRadius (hierarchies : seq<string>) =
-        let serializer = FsPickler.CreateBinarySerializer()
         hierarchies
         |> Seq.fold (fun acc basePath ->
-            let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
-            let root =
-                match h.tree with
-                | QTree.Node (p, _) -> p
-                | QTree.Leaf p -> p
-            root.info.GlobalBoundingBox.ComputeCorners()
+            (rootBox basePath).ComputeCorners()
             |> Array.fold (fun m c -> max m c.Length) acc
         ) 0.0
 
     /// Root bounding boxes of the hierarchies, in their global (unplaced) frame.
     let rootBoxes (hierarchies : seq<string>) =
-        let serializer = FsPickler.CreateBinarySerializer()
-        hierarchies
-        |> Seq.map (fun basePath ->
-            let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
-            match h.tree with
-            | QTree.Node (p, _) -> p.info.GlobalBoundingBox
-            | QTree.Leaf p -> p.info.GlobalBoundingBox)
-        |> Seq.toArray
+        hierarchies |> Seq.map rootBox |> Seq.toArray
 
     /// The depth range of the map over placed surfaces: the largest distance from the body centre
     /// of any placed root bounding box corner.
