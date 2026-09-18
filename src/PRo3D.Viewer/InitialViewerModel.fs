@@ -116,6 +116,7 @@ module Viewer =
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
             annotationExport = AnnotationExportModel.initial
+            mapProjection   = PRo3D.MapProjection.MapProjectionApp.initial
             interaction     = Interactions.DrawAnnotation
             multiSelectBox  = None
             shiftFlag       = false

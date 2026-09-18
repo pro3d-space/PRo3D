@@ -79,6 +79,7 @@ src/
 ├── PRo3D.Snapshots/       # Headless batch rendering tool (camera/animation snapshots)
 ├── PRo3D.Lite/            # Lightweight orbit-camera viewer variant
 ├── PRo3D.GIS/             # Geospatial tooling (image projection, SPICE-backed entities/frames)
+├── PRo3D.MapProjection/   # Equirectangular / polar map panel for small bodies; also a standalone exe
 ├── PRo3D.CorrelationPanels/ # Geologic correlation visualization
 ├── OpcViewer/             # Shared OPC viewing base functionality
 ├── opc-tool/              # CLI: validate OPC datasets, build/convert textures + KdTrees

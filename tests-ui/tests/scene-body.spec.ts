@@ -1,5 +1,5 @@
 import { test, expect, Page, Browser } from "@playwright/test";
-import { launchPro3d, Pro3d, fixture, sceneFor } from "../src/pro3d";
+import { launchPro3d, Pro3d, fixture, derivedScene as deriveScene } from "../src/pro3d";
 import { diffPng, litFraction, streamLive } from "../src/image";
 import { overlayPlanet } from "../src/viewer";
 import * as fs from "fs";
@@ -25,21 +25,12 @@ import * as path from "path";
  */
 
 const artifacts = path.join(__dirname, "..", "artifacts", "scene-body");
+const derivedScene = (name: string, edit: (d: any) => void) => deriveScene(name, edit, artifacts);
 
 test.setTimeout(15 * 60_000);
 test.describe.configure({ mode: "serial" });
 
 /** the template, re-pointed at this machine's data and edited by `edit` */
-function derivedScene(name: string, edit: (d: any) => void): string {
-    fs.mkdirSync(artifacts, { recursive: true });
-    const out = path.join(artifacts, `${name}.pro3d`);
-    sceneFor(fixture.sceneTemplate, fixture.opc, out);
-    const d = JSON.parse(fs.readFileSync(out, "utf-8"));
-    edit(d);
-    fs.writeFileSync(out, JSON.stringify(d, null, 2));
-    return out;
-}
-
 /** content on screen (not the splash), then two near-identical frames in a row */
 async function settled(page: Page, name: string): Promise<Buffer> {
     const started = Date.now();

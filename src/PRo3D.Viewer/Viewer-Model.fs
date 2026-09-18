@@ -201,6 +201,7 @@ type ViewerAction =
 | GisAppMessage                  of Gis.GisAppAction
 | CrossSectionMessage            of CrossSectionAction
 | AnnotationExportMessage        of AnnotationExportAction
+| MapProjectionMessage           of PRo3D.MapProjection.MapProjectionAction
 | SBookmarksToPoseDefinition
 | SetUserPreferences             of UserPreferences
 | Nop
@@ -629,6 +630,9 @@ type Model = {
     /// Settings of the annotation export window. Session-only on purpose — it
     /// lives here rather than on `Scene` so nothing has to be serialised.
     annotationExport : AnnotationExportModel
+
+    /// The map projection panel (#772). Session-only, like annotationExport.
+    mapProjection    : PRo3D.MapProjection.MapProjectionModel
 
     multiSelectBox   : Option<MultiSelectionBox>
     shiftFlag        : bool
