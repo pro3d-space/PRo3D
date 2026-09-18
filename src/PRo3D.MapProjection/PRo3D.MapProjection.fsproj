@@ -23,7 +23,6 @@
     <Compile Include="MapProjectionApp.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
-    <None Include="RunAdaptify.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
