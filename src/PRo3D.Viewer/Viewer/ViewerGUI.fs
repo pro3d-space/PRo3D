@@ -2045,6 +2045,13 @@ module Gui =
                         } )
                     ]
                 )
+            | Some "mapprojection" ->
+                // map projection panel (#772); gates itself to small bodies
+                require (viewerDependencies) (
+                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
+                        MapProjectionHost.view m |> UI.map ViewerMessage
+                    ]
+                )
             | Some "render" -> 
                 require (viewerDependencies) (
 

@@ -129,26 +129,6 @@ let private applyAngleShaders (sg : ISg) =
         do! SunAngles.Shaders.sunAnglesFloat
     }
 
-/// Attributes the OPC surface shaders inherit whether or not this verb uses them. Without
-/// each of these the Ag lookup throws at CompileRender rather than at graph construction,
-/// so the failure surfaces as an opaque "could not get inh attribute X" deep in a scope
-/// path. Kept as one block so the next added attribute has an obvious home. Shared with
-/// the simulate-image verb, whose graphs inherit the same attributes.
-let withOpcScaffolding (sg : ISg) =
-    sg
-    // The angle shaders do not sample the instrument image -- they need only geometry and
-    // the sun direction -- but the surface shaders still expect the sampler to be bound.
-    |> Sg.texture "ProjectedTexture" DefaultTextures.blackTex
-    |> Sg.uniform' "ProjectedImageModelViewProjValid" true
-    |> Sg.uniform' "LodVisEnabled" false
-    |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
-    // Cross-section clipping (releases/6.0.0) is another OPC-surface Ag attribute.
-    |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
-    |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
-    |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId
-        (AVal.constant (Some { texture = TextureReference.LegacyId 0
-                               channel = ChannelReference.NoChannelSelection }))
-
 /// Split the packed RGBA readback into one float array per angle, substituting NaN wherever
 /// the coverage mask says nothing was drawn.
 let private extractBand (img : PixImage<float32>) (band : Band) =
@@ -284,7 +264,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
             OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies
             |> Sg.ofList
             |> applyAngleShaders
-            |> withOpcScaffolding
+            |> OpcSg.withOpcScaffolding
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)
 

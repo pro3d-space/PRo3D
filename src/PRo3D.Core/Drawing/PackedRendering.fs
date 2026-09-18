@@ -1048,7 +1048,9 @@ module PackedRendering =
         |> Sg.depthTest (AVal.constant DepthTest.None)
         |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
 
-    let points (cbc : AdaptiveColorByCategoryModel) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
+    /// Point sprites as bare geometry, positions `view`-transformed on the CPU. `points` adds the
+    /// viewer's shader; the map projection view (#772) adds its own.
+    let pointsGeometry (cbc : AdaptiveColorByCategoryModel) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
         let instanceAttribs =
             AVal.custom (fun t ->
                 Log.startTimed "creating points"
@@ -1124,10 +1126,12 @@ module PackedRendering =
         |> Sg.vertexAttribute "Sizes" sizes
         // scaled like the lines and fills, now that the dots bias their depth the same way
         |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1)))
-        |> Sg.shader { 
+
+    let points (cbc : AdaptiveColorByCategoryModel) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
+        pointsGeometry cbc selected annoSet depthOffset view
+        |> Sg.shader {
               do! PointsShader.pointSpriteVertex
               do! PointsShader.pointSpriteFragment
-              //do! DepthOffset.depthOffsetFS
            }
 
 

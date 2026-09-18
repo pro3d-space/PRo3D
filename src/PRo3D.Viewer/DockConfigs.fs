@@ -1,4 +1,4 @@
-namespace PRo3D.Viewer
+﻿namespace PRo3D.Viewer
 
 open Aardvark.UI.Primitives.Golden
 
@@ -76,6 +76,7 @@ module DockConfigs =
                         element { id "scalebars";      title "ScaleBars" }
                         element { id "instrumentview"; title "Instrument View" }
                         element { id "gis";            title "GIS View" }
+                        element { id "mapprojection";  title "Map Projection" }
                     }
                     stack {
                         weight 5
@@ -106,6 +107,7 @@ module DockConfigs =
                         element { id "scalebars";      title "ScaleBars" }
                         element { id "instrumentview"; title "Instrument View" }
                         element { id "gis";            title "GIS View" }
+                        element { id "mapprojection";  title "Map Projection" }
                     }
                     stack {
                         weight 5
@@ -227,15 +229,16 @@ module DockConfigs =
                     weight 3
                     stack {
                         weight 5
-                        element { id "surfaces";    title "Surfaces" }
-                        element { id "annotations"; title "Annotations" }
-                        element { id "scalebars";   title "ScaleBars" }
+                        element { id "surfaces";      title "Surfaces" }
+                        element { id "annotations";   title "Annotations" }
+                        element { id "scalebars";     title "ScaleBars" }
+                        element { id "gis";           title "GIS View" }
+                        element { id "mapprojection"; title "Map Projection" }
                     }
                     stack {
                         weight 5
                         element { id "config";      title "Config" }
                         element { id "bookmarks";   title "Bookmarks" }
-                        element { id "scaletools";  title "Scale Tools" }
                     }
                 }
             }
@@ -320,7 +323,6 @@ module DockConfigs =
                         weight 5
                         element { id "config";     title "Config" }
                         element { id "bookmarks";  title "Bookmarks" }
-                        element { id "scaletools"; title "Scale Tools" }
                     }
                 }
             }

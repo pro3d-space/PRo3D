@@ -86,6 +86,25 @@ module OpcSg =
             textureLayer : Option<int>
         }
 
+    /// The Ag attributes the OPC surface shaders and `captureContext` inherit on every OPC
+    /// scene graph, whether a given effect uses them or not. Without each of these the Ag
+    /// lookup throws at CompileRender rather than at graph construction, as an opaque
+    /// "could not get inh attribute X" deep in a scope path -- keep them in this one block
+    /// so the next added attribute has an obvious home. Shared by the shadow map, the
+    /// pro3d-tool render verbs and the map projection view.
+    let withOpcScaffolding (sg : ISg) =
+        sg
+        // effects that do not sample the instrument image still expect the sampler bound
+        |> Sg.texture "ProjectedTexture" DefaultTextures.blackTex
+        |> Sg.uniform' "ProjectedImageModelViewProjValid" true
+        |> Sg.uniform' "LodVisEnabled" false
+        |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
+        |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
+        |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
+        |> SecondaryTexture.Sg.applySecondaryTextureId
+            (AVal.constant (Some { texture = TextureReference.LegacyId 0
+                                   channel = ChannelReference.NoChannelSelection }))
+
     let defaultConfig signature runner lodDecider body =
         {
             signature = signature

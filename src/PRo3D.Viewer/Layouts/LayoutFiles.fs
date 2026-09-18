@@ -24,6 +24,7 @@ module LayoutPanels =
     let all : list<Panel> = [
         { id = render;               title = "Main View" }
         { id = "instrumentview";     title = "Instrument View" }
+        { id = "mapprojection";      title = "Map Projection" }
         { id = "surfaces";           title = "Surfaces" }
         { id = "annotations";        title = "Annotations" }
         { id = "scalebars";          title = "ScaleBars" }
