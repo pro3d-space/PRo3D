@@ -27,4 +27,6 @@ type MapProjectionAction =
     | DragEnd
     /// wheel steps (positive zooms in) at a pointer position, with the panel size (pixels)
     | Zoom      of steps : float * at : V2d * size : V2d
+    /// centre and zoom on a map-space box: *Zoom to data* (the box comes from the surfaces)
+    | FitTo     of box : Box2d
     | ResetView
