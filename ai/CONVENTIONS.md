@@ -139,7 +139,7 @@ Two consequences worth internalizing (both visible in `Groups-Model.g.fs`):
 - **Element type matters too.** If the elements of an `IndexList`/`HashMap` are themselves `[<ModelType>]`, Adaptify makes the *elements* adaptive — `IndexList<Node>` → `alist<AdaptiveNode>`, `HashMap<Guid,Leaf>` → `amap<Guid, AdaptiveLeafCase>` — so a change to one field of one element only re-runs that field's dependents. With a plain element type you only get add/remove/replace granularity.
 - **Wrapping kills granularity.** `aval<HashMap<_,_>>` (or putting a collection behind `[<TreatAsValue>]`) collapses the whole collection to one value — any change recomputes everything downstream. Use that on purpose (rules 2–3), not by accident.
 
-So: **don't reach for a plain field or `Option<collection>` when you want incremental UI/scene-graph updates, and don't pay for `alist`/`amap`/`aset` element-tracking on a collection you always replace wholesale.** When the right choice isn't obvious, ask (rule 2). After changing a model type, run `adapt.cmd` and check the regenerated `*.g.fs` is what you intended.
+So: **don't reach for a plain field or `Option<collection>` when you want incremental UI/scene-graph updates, and don't pay for `alist`/`amap`/`aset` element-tracking on a collection you always replace wholesale.** When the right choice isn't obvious, ask (rule 2). After changing a model type, run `adapt.cmd` / `adapt.sh` and check the regenerated `*.g.fs` is what you intended (they are local build output, not in git — so there is no diff to review; read the file).
 
 ### 6. Deriving an aggregate from an adaptive collection
 

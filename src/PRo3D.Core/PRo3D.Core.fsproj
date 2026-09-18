@@ -22,7 +22,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="KdTrees.fs" />
-    <None Include="RunAdaptify.fsx" />
     <Compile Include="AardvarkUIReworks.fs" />
     <EmbeddedResource Include="resources/groupmappings" />
     <Compile Include="Config.fs" />

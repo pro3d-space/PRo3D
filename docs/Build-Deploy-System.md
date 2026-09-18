@@ -54,6 +54,7 @@ The `new` build system uses the Build.fsproj and Build.fs/Helpers.fs files for r
 
 Thus we have those components:
  - Build.fs run by ./build.sh and build.cmd
+ - the target "Adapt" generates the Adaptify `*.g.fs` files (not checked in) via `utilities/Adapt.fsx`; `Compile`, `CompileDebug`, `Tests`, `CopyToElectron` and `Publish` depend on it, so CI needs no extra step. See [ModelTypes.md](ModelTypes.md).
  - the target "CopyToElectron" patches the version string and copies overW the build result into the aardium/bin folders
  - the target "PublishToElectron" performs the build and runs yarn dist in the aardium folder. The rest of deployment/signing/notarization/upload is taken care of by ./aardium/package.json.
 
