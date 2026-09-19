@@ -280,6 +280,18 @@ module MapSg =
 
     let footprintColor = C4b(120, 200, 255, 255)
     let cameraColor    = C4b(255, 150, 40, 255)
+    let cursorColor    = C4b(150, 255, 90, 255)
+
+    /// Body-fixed positions the map marks: where the 3D view looks from, and what its cursor is
+    /// over. Both are None in the standalone app unless it is given them.
+    type MapMarkers =
+        {
+            camera : aval<Option<V3d>>
+            cursor : aval<Option<V3d>>
+        }
+
+    module MapMarkers =
+        let none = { camera = AVal.constant None; cursor = AVal.constant None }
 
     /// Smallest data footprint on screen, in pixels. A Jezero OPC is about 0.05 degrees across,
     /// which is a fifth of a pixel on a whole-Mars map: without a floor there is no way to see
@@ -326,13 +338,13 @@ module MapSg =
             |> AVal.map (fun s -> s |> Seq.toArray |> Array.concat)
         lineSg view lines
 
-    /// The 3D view's camera on the map: a crosshair with a gap and a small box around the
-    /// position, at a constant size on screen. On a planet the data is a speck, so this is
-    /// what tells you where you are.
-    let cameraMarker (view : MapView) (camera : aval<Option<V3d>>) : ISg =
+    /// A body-fixed position on the map: a crosshair with a gap and a small box around the
+    /// position, at a constant size on screen. On a planet the data is a speck, so these markers
+    /// are what tell you where you are (the camera) and what you are pointing at (the cursor).
+    let positionMarker (colour : C4b) (view : MapView) (position : aval<Option<V3d>>) : ISg =
         let lines =
             adaptive {
-                let! camera = camera
+                let! camera = position
                 match camera with
                 | None -> return [||]
                 | Some position ->
@@ -344,7 +356,7 @@ module MapSg =
                         let c = box.Center
                         let u = unitsPerPixel
                         let seg (a : V2d) (b : V2d) =
-                            V3f(float32 a.X, float32 a.Y, 0.0f), V3f(float32 b.X, float32 b.Y, 0.0f), cameraColor
+                            V3f(float32 a.X, float32 a.Y, 0.0f), V3f(float32 b.X, float32 b.Y, 0.0f), colour
                         let inner, outer, half = 5.0 * u, 12.0 * u, 3.0 * u
                         return
                             Array.append
@@ -354,9 +366,12 @@ module MapSg =
                                     seg (c + V2d(0.0, inner)) (c + V2d(0.0, outer))
                                     seg (c - V2d(0.0, inner)) (c - V2d(0.0, outer))
                                 |]
-                                (rectangle cameraColor (Box2d(c - V2d(half, half), c + V2d(half, half))))
+                                (rectangle colour (Box2d(c - V2d(half, half), c + V2d(half, half))))
             }
         lineSg view lines
+
+    let cameraMarker (view : MapView) (camera : aval<Option<V3d>>) = positionMarker cameraColor view camera
+    let cursorMarker (view : MapView) (cursor : aval<Option<V3d>>) = positionMarker cursorColor view cursor
 
     let graticule (view : MapView) : ISg =
         (view.kind, view.maxColatitude) ||> AVal.map2 graticuleLines |> lineSg view
@@ -365,10 +380,11 @@ module MapSg =
     let graticulePass = RenderPass.after "map-graticule" RenderPassOrder.Arbitrary RenderPass.main
 
     /// The whole map without annotations: textured surfaces with the graticule on top.
-    let map (cfg : OpcSg.Config) (view : MapView) (camera : aval<Option<V3d>>) (mapSurfaces : aset<MapSurface>) : ISg =
+    let map (cfg : OpcSg.Config) (view : MapView) (markers : MapMarkers) (mapSurfaces : aset<MapSurface>) : ISg =
         Sg.ofList [
             surfaces cfg surfaceEffects view mapSurfaces
             footprints view mapSurfaces |> Sg.pass graticulePass
             graticule view |> Sg.pass graticulePass
-            cameraMarker view camera |> Sg.pass graticulePass
+            cameraMarker view markers.camera |> Sg.pass graticulePass
+            cursorMarker view markers.cursor |> Sg.pass graticulePass
         ]

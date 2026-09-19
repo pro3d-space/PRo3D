@@ -154,7 +154,7 @@ let run () : int =
                     { hierarchies = hierarchies; placement = AVal.constant Trafo3d.Identity; visible = AVal.constant true }
                 let sw = Stopwatch.StartNew()
                 let sg =
-                    MapAnnotations.mapWithAnnotations cfg view (AVal.constant None) (ASet.single surface) inputs
+                    MapAnnotations.mapWithAnnotations cfg view MapSg.MapMarkers.none (ASet.single surface) inputs
                     |> Sg.uniform "ViewportSize" (AVal.constant size)
                     |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
                     |> Sg.projTrafo (AVal.constant Trafo3d.Identity)

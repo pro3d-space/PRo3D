@@ -39,9 +39,39 @@ Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [
 | Left-drag | Pan (grab and drag: the map point under the pointer follows it) |
 | Mouse wheel | Zoom about the pointer (1× to 32768×) |
 | *Zoom to data* | Centres and zooms on the surfaces, with a margin |
+| *Follow cursor* | The map centres on what the 3D view's cursor is over |
 | *Reset view* | Whole map, zoom 1 |
 
-`--camera` marks a body-fixed position in the standalone app, the way PRo3D marks its 3D view.
+`--camera` and `--cursor` mark body-fixed positions in the standalone app, the way PRo3D marks its
+3D view and its cursor.
+
+### Follow cursor
+
+With *Follow cursor* on, the map centres on the 3D view's **preview cursor** -- the hit point of
+the pick that also feeds the *Cursor* panel. Moving the mouse over the terrain moves the map under
+it, which is what makes the map usable next to the 3D view on a planet, where the data is a speck
+in a 360-degree map.
+
+Three things follow from where that hit point comes from:
+
+- **It updates only while picking** -- Ctrl held, or Direct Tool Mode with a tool armed -- because
+  that is when PRo3D runs the preview pick. While you fly the camera around, the map holds the
+  centre it last followed to; it does not jump home. The panel reads that pick, it does not cause
+  one, so nothing about picking changes for anyone who never opens the map.
+- **Taking over keeps the view.** Switching the toggle off, or grabbing the map with the mouse,
+  adopts the centre the map is showing and stops following, so nothing jumps.
+- **The wheel keeps following** and only changes the zoom: while the centre belongs to the cursor,
+  zooming about the pointer would fight it.
+
+The cursor is drawn as a green marker whenever there is a hit, whether or not the map is following,
+next to the orange camera marker. On a planet both markers are usually the only things you can see
+until you zoom in (see *Planets* above).
+
+Cost: re-centring is one frame per pick and independent of how many surfaces the scene has --
+measured at 4, 24 and 43 Jezero surfaces, the map delivered one frame per centre change with a
+worst gap of about 50 ms, i.e. it is input-bound. A map that is not being moved renders nothing at
+all, and a panel whose tab is not selected does no work in the first place (`plans/mapFollowCursor.md`
+records both measurements).
 
 The panel draws for **any body the scene is referenced to**, planets included. Without a body
 it shows a hint and creates **no render control**: no render task, no patch loading, no shader
