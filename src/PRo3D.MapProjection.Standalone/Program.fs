@@ -44,11 +44,12 @@ let main argv =
         argAfter argv "--port"
         |> Option.bind (fun s -> match Int32.TryParse s with | true, p -> Some p | _ -> None)
         |> Option.defaultValue 4330
-    // body-fixed position of a camera to mark, "x,y,z" in metres. PRo3D passes its 3D view;
-    // here it makes the marker reachable without a viewer, for tests and for looking at a
+    // body-fixed positions to mark, "x,y,z" in metres: --camera where the 3D view looks from,
+    // --cursor what its cursor is over. PRo3D passes both from its 3D view; here they make the
+    // markers (and *Follow cursor*) reachable without a viewer, for tests and for looking at a
     // planet, where the data itself is a speck.
-    let camera =
-        argAfter argv "--camera"
+    let position (flag : string) =
+        argAfter argv flag
         |> Option.bind (fun s ->
             let parts = s.Split(',')
             let number (x : string) =
@@ -60,19 +61,8 @@ let main argv =
                 match number parts.[0], number parts.[1], number parts.[2] with
                 | Some x, Some y, Some z -> Some (V3d(x, y, z))
                 | _ -> None)
-    let cursor =
-        argAfter argv "--cursor"
-        |> Option.bind (fun s ->
-            let parts = s.Split(',')
-            let number (x : string) =
-                match Double.TryParse(x.Trim(), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
-                | true, v -> Some v
-                | _ -> None
-            if parts.Length <> 3 then None
-            else
-                match number parts.[0], number parts.[1], number parts.[2] with
-                | Some x, Some y, Some z -> Some (V3d(x, y, z))
-                | _ -> None)
+    let camera = position "--camera"
+    let cursor = position "--cursor"
     let server = argv |> Array.contains "--server"
 
     Aardvark.Init()

@@ -24,9 +24,10 @@ type MapInputs =
         /// where the 3D view looks from, body-fixed; drawn as the camera marker. None in the
         /// standalone app, which has no 3D view.
         camera   : aval<Option<V3d>>
-        /// what the 3D view's cursor is over, body-fixed: the preview pick's hit point. Drawn as
-        /// the cursor marker, and the centre while *Follow cursor* is on. None while nothing is
-        /// picked, and in the standalone app unless --cursor is given.
+        /// what the 3D view's cursor was last over, body-fixed: the preview pick's last hit point
+        /// (PRo3D keeps it after Ctrl is released and when a pick misses). Drawn as the cursor
+        /// marker, and the centre while *Follow cursor* is on. None only before the first pick, and
+        /// in the standalone app unless --cursor is given.
         cursor   : aval<Option<V3d>>
     }
 
@@ -58,8 +59,8 @@ module MapProjectionApp =
         V2d(clamp e.Min.X e.Max.X c.X, clamp e.Min.Y e.Max.Y c.Y)
 
     /// The centre the map actually shows: the 3D cursor while following, otherwise the model's.
-    /// The preview pick only runs while picking, so with nothing under the cursor the last centre
-    /// stands rather than the map jumping home.
+    /// Without a cursor (before the first pick) or with a degenerate one, the model's centre
+    /// stands.
     let effectiveCentre (kind : MapProjectionKind) (follow : bool) (cursor : Option<V3d>) (center : V2d) =
         if not follow then center
         else
@@ -110,24 +111,27 @@ module MapProjectionApp =
             else
                 let after = Projection.pixelToMap (viewProjOf zoomed) zoomed.viewport at
                 { zoomed with center = clampCenter m.kind (zoomed.center + (before - after)) }
+        // both set the centre, so they stop following: otherwise the cursor would keep the centre
+        // and the button would only change the zoom
         | ResetView ->
-            { m with center = V2d.Zero; zoom = 1.0; dragFrom = None }
+            { m with center = V2d.Zero; zoom = 1.0; dragFrom = None; follow = false }
         | FitTo box ->
             // the panel size is the one the last pointer event reported (the initial value until
             // then), so a fit right after opening can be off by the difference; the margin in
             // `fitBox` covers it, and any interaction corrects it
             let center, zoom = Projection.fitBox m.kind Projection.defaultMaxColatitude m.viewport 0.8 maxZoom box
-            { m with center = clampCenter m.kind center; zoom = zoom; dragFrom = None }
+            { m with center = clampCenter m.kind center; zoom = zoom; dragFrom = None; follow = false }
 
     /// The render control never uses its camera for the map (the effects read `MapViewProj`);
     /// it is there because a render control needs one, and the LoD decider reads it.
     let private camera =
         AVal.constant (Camera.create (CameraView.lookAt V3d.OOI V3d.Zero V3d.OIO) (Frustum.perspective 60.0 0.1 10.0 1.0))
 
-    /// A mouse or wheel event carrying the pointer position and the element size, in pixels.
-    /// (Not pointer events: the render control registers its own pointer handlers, which win.)
+    /// A mouse or wheel event carrying the pointer position and the element size, in pixels;
+    /// `f` returns None to ignore it. (Not pointer events: the render control registers its own
+    /// pointer handlers, which win.)
     let private sizedEvent (name : string) (preventDefault : bool) (extra : list<string>)
-                           (f : list<string> -> V2d -> V2d -> MapProjectionAction) =
+                           (f : list<string> -> V2d -> V2d -> Option<MapProjectionAction>) =
         name, AttributeValue.Event {
             clientSide = fun send src ->
                 String.concat ";" [
@@ -140,7 +144,7 @@ module MapProjectionApp =
             serverSide = fun _ _ args ->
                 match args with
                 | pos :: size :: rest ->
-                    Seq.singleton (f rest (Pickler.json.UnPickleOfString pos) (Pickler.json.UnPickleOfString size))
+                    Option.toList (f rest (Pickler.json.UnPickleOfString pos) (Pickler.json.UnPickleOfString size)) :> seq<_>
                 | _ -> Seq.empty
         }
 
@@ -252,13 +256,17 @@ module MapProjectionApp =
             AttributeMap.ofList [
                 style "width:100%; height:100%; background-color:#222222"
                 clazz "mapprojectionrendercontrol"
-                sizedEvent "onmousedown" false [] (fun _ at size -> DragStart(at, size, AVal.force centre))
+                // left button only: a right or middle click must not take the map over from following
+                sizedEvent "onmousedown" false [ "event.button" ] (fun rest at size ->
+                    match rest with
+                    | "0" :: _ -> Some (DragStart(at, size, AVal.force centre))
+                    | _ -> None)
                 // a move with no button held ends a drag whose mouseup happened outside the panel
                 sizedEvent "onmousemove" false [ "event.buttons" ] (fun rest at size ->
                     match rest with
-                    | "0" :: _ -> DragEnd
-                    | _ -> DragMove(at, size))
-                sizedEvent "onmouseup" false [] (fun _ _ _ -> DragEnd)
+                    | "0" :: _ -> Some DragEnd
+                    | _ -> Some (DragMove(at, size)))
+                sizedEvent "onmouseup" false [] (fun _ _ _ -> Some DragEnd)
                 // browser deltaY: about 100 per notch, positive when scrolling down (= zoom out)
                 sizedEvent "onwheel" true [ "event.deltaY" ] (fun rest at size ->
                     let deltaY =
@@ -268,7 +276,7 @@ module MapProjectionApp =
                             | true, v -> v
                             | _ -> 0.0
                         | [] -> 0.0
-                    Zoom(-deltaY / 100.0, at, size))
+                    Some (Zoom(-deltaY / 100.0, at, size)))
             ]
         Incremental.div (AttributeMap.ofList [ style "position:relative; width:100%; height:100%" ]) (
             alist {
