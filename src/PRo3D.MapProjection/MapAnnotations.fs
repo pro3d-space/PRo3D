@@ -89,5 +89,5 @@ module MapAnnotations =
         |> MapSg.withMapUniforms view
 
     /// The whole map: surfaces, graticule, annotations.
-    let mapWithAnnotations (cfg : OpcSg.Config) (view : MapSg.MapView) (camera : aval<Option<V3d>>) (surfaces : aset<MapSg.MapSurface>) (inputs : AnnotationInputs) : ISg =
-        Sg.ofList [ MapSg.map cfg view camera surfaces; sg inputs view ]
+    let mapWithAnnotations (cfg : OpcSg.Config) (view : MapSg.MapView) (markers : MapSg.MapMarkers) (surfaces : aset<MapSg.MapSurface>) (inputs : AnnotationInputs) : ISg =
+        Sg.ofList [ MapSg.map cfg view markers surfaces; sg inputs view ]

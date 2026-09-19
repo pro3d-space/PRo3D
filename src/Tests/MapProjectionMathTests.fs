@@ -208,4 +208,57 @@ let tests () =
             Expect.floatClose Accuracy.high (u1 / u8) 8.0 "eight times the zoom, an eighth of the map units per pixel"
             Expect.floatClose Accuracy.high (u1 * float viewport.X) (Projection.twoPi) "at zoom 1 the panel width is the whole 360 degrees"
         }
+
+        test "follow cursor centres the map on the 3D hit point" {
+            // #772: on a planet the data is a speck, so the map follows the 3D view's preview
+            // cursor. The preview pick only runs while picking, so with nothing under the cursor
+            // the map holds what it had rather than jumping home.
+            let r = 3393700.0
+            let atLonLat (lonDeg : float) (latDeg : float) =
+                let lon, lat = lonDeg * Constant.RadiansPerDegree, latDeg * Constant.RadiansPerDegree
+                V3d(r * cos lat * cos lon, r * cos lat * sin lon, r * sin lat)
+            let held = V2d(0.3, -0.2)
+            for kind in kinds do
+                let hit = atLonLat 77.4 18.5
+                let followed = MapProjectionApp.effectiveCentre kind true (Some hit) held
+                // the centre is kept on the map: on the south polar map a northern point lies
+                // beyond the cutoff, and the centre is pinned to the edge rather than flying off
+                let e = Projection.extent kind Projection.defaultMaxColatitude
+                let projected = Projection.forward kind (77.4 * Constant.RadiansPerDegree) (18.5 * Constant.RadiansPerDegree)
+                let expected = V2d(clamp e.Min.X e.Max.X projected.X, clamp e.Min.Y e.Max.Y projected.Y)
+                Expect.isLessThan (followed - expected).Length 1e-9 (sprintf "%A: centred on the hit point" kind)
+                Expect.equal (MapProjectionApp.effectiveCentre kind true None held) held
+                    (sprintf "%A: nothing picked, the centre stands" kind)
+                Expect.equal (MapProjectionApp.effectiveCentre kind false (Some hit) held) held
+                    (sprintf "%A: follow off, the model centre wins" kind)
+                // the body centre has no longitude or latitude and must not move the map
+                Expect.equal (MapProjectionApp.effectiveCentre kind true (Some V3d.Zero) held) held
+                    (sprintf "%A: a degenerate hit is ignored" kind)
+        }
+
+        test "taking the map over from following keeps what it shows" {
+            // switching the toggle off, or grabbing the map, adopts the followed centre: the map
+            // must not jump back to the centre the model held while following
+            let followed = V2d(1.1, 0.4)
+            let m = { MapProjectionApp.initial with follow = true; center = V2d.Zero }
+            let stopped = MapProjectionApp.update m (SetFollow(false, followed))
+            Expect.isFalse stopped.follow "follow is off"
+            Expect.isLessThan (stopped.center - followed).Length 1e-9 "the followed centre is kept"
+            let dragged = MapProjectionApp.update m (DragStart(V2d(10.0, 10.0), V2d(800.0, 400.0), followed))
+            Expect.isFalse dragged.follow "a drag takes the map over"
+            Expect.isLessThan (dragged.center - followed).Length 1e-9 "and continues from where it was"
+        }
+
+        test "the wheel keeps following, and zooms about the pointer when it is off" {
+            let size = V2d(1000.0, 500.0)
+            let pointer = V2d(900.0, 120.0)
+            let following = { MapProjectionApp.initial with follow = true; center = V2d(0.7, 0.1); zoom = 4.0 }
+            let zoomed = MapProjectionApp.update following (Zoom(1.0, pointer, size))
+            Expect.isGreaterThan zoomed.zoom following.zoom "zoomed in"
+            Expect.isTrue zoomed.follow "still following"
+            Expect.equal zoomed.center following.center "the centre belongs to the cursor, the wheel leaves it alone"
+            let free = { following with follow = false }
+            let freeZoomed = MapProjectionApp.update free (Zoom(1.0, pointer, size))
+            Expect.notEqual freeZoomed.center free.center "with follow off the wheel zooms about the pointer"
+        }
     ]

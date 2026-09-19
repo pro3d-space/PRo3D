@@ -282,6 +282,41 @@ test.describe("map projection view (#772)", () => {
         }
     });
 
+    test("standalone: Follow cursor centres the map on the 3D cursor, and stops without jumping", async ({ browser }) => {
+        // #772: the map follows the preview cursor. --cursor stands in for the 3D view here, so
+        // the centring can be checked without driving PRo3D's picking.
+        // The cursor is Jezero, 77.4 E / 18.5 N, far from the map centre at zoom 1.
+        const app = await launchMap([fixture.opc], ["--planet", "Mars", "--cursor", "700586.97,3140941.06,1077437.94"]);
+        const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
+        try {
+            await page.goto(app.url);
+            await page.waitForSelector("img.rendercontrol", { timeout: 60_000 });
+            const isCursor: Rgb = (r, g, b) => g > 200 && r > 100 && r < 200 && b < 140;
+
+            // follow off: the marker sits where the projection puts it, right of the prime meridian
+            const before = await settle(page, "map-standalone-follow-off.png", 0);
+            const atProjected = (img: Img) =>
+                colourNear(img, (77.4 / 180 + 1) / 2 * img.width, (1 - 18.5 / 90) / 2 * img.height, 14, isCursor);
+            expect(atProjected(before), "cursor marker at its longitude and latitude").toBe(true);
+            expect(colourNear(before, before.width / 2, before.height / 2, 14, isCursor),
+                   "and not at the centre while follow is off").toBe(false);
+
+            // follow on: the same point becomes the centre of the map
+            await clickButton(page, "Follow cursor");
+            const following = await settle(page, "map-standalone-follow-on.png", 0);
+            expect(colourNear(following, following.width / 2, following.height / 2, 14, isCursor),
+                   "cursor marker at the centre while following").toBe(true);
+
+            // switching off keeps the view: the marker stays in the middle instead of jumping back
+            await clickButton(page, "Follow cursor");
+            const stopped = await settle(page, "map-standalone-follow-stopped.png", 0);
+            expect(colourNear(stopped, stopped.width / 2, stopped.height / 2, 14, isCursor),
+                   "the map keeps what it showed when following stopped").toBe(true);
+        } finally {
+            await app.stop();
+        }
+    });
+
     test("in PRo3D: the scene's annotations are on the map", async ({ browser }) => {
         const scene = bodyFixedScene();
         // PRo3D reads a scene's annotations from <scene>.ann beside it
@@ -414,6 +449,35 @@ test.describe("map projection view (#772)", () => {
             await page.goto(app.url + "?page=mapprojection");
             await expect(page.locator("text=needs a body to project onto")).toBeVisible({ timeout: 120_000 });
             expect(await page.locator("img.rendercontrol").count()).toBe(0);
+        } finally {
+            await app.stop();
+        }
+    });
+
+    test("in PRo3D: a Map Projection tab that is not selected does no work", async ({ browser }) => {
+        // the promise this feature rests on (#772): the panel is in the built-in layouts, so it
+        // must cost nothing until it is shown. Golden Layout creates every panel's iframe up
+        // front, so this cannot be argued from the layout -- it has to be observed. The panel
+        // logs "[map]" lines as soon as its inputs are evaluated.
+        const app = await launchPro3d(bodyFixedScene(), freshLayouts());
+        const page = await (await browser.newContext({ viewport: { width: 1600, height: 900 } })).newPage();
+        const mapLines = () => (fs.readFileSync(app.logFile, "utf8").match(/\[map\]/g) ?? []).length;
+        try {
+            await page.goto(app.url);
+            await page.waitForSelector(".lm_tab", { timeout: 120_000 });
+            await poll("the default layout has arrived",
+                () => page.evaluate(() => Array.from(document.querySelectorAll(".lm_tab .lm_title")).map((t) => (t.textContent ?? "").trim())),
+                (titles) => titles.includes("Map Projection"), 120_000);
+            await page.waitForTimeout(20_000);
+            expect(mapLines(), "an unselected Map Projection tab evaluates nothing").toBe(0);
+
+            // control: the detector works, so the zero above means something
+            await page.evaluate(() => {
+                const tab = Array.from(document.querySelectorAll(".lm_tab")).find(
+                    (e) => (e.querySelector(".lm_title")?.textContent ?? "").trim() === "Map Projection");
+                (tab as HTMLElement | null)?.click();
+            });
+            await poll("selecting the tab brings the panel to life", async () => mapLines(), (n) => n > 0, 120_000);
         } finally {
             await app.stop();
         }

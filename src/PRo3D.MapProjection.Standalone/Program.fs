@@ -2,6 +2,7 @@
 ///
 ///   PRo3D.MapProjection.Standalone.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
 ///                            [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--camera x,y,z]
+///                            [--cursor x,y,z]
 ///                            [--port 4330] [--server]
 ///
 /// `--opc` takes an OPC directory (its hierarchies are found below it) or a single
@@ -59,6 +60,19 @@ let main argv =
                 match number parts.[0], number parts.[1], number parts.[2] with
                 | Some x, Some y, Some z -> Some (V3d(x, y, z))
                 | _ -> None)
+    let cursor =
+        argAfter argv "--cursor"
+        |> Option.bind (fun s ->
+            let parts = s.Split(',')
+            let number (x : string) =
+                match Double.TryParse(x.Trim(), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                | true, v -> Some v
+                | _ -> None
+            if parts.Length <> 3 then None
+            else
+                match number parts.[0], number parts.[1], number parts.[2] with
+                | Some x, Some y, Some z -> Some (V3d(x, y, z))
+                | _ -> None)
     let server = argv |> Array.contains "--server"
 
     Aardvark.Init()
@@ -98,6 +112,7 @@ let main argv =
         {
             planet      = AVal.constant planet
             camera      = AVal.constant camera
+            cursor      = AVal.constant cursor
             surfaces    = ASet.ofList surfaces
             annotations = { MapAnnotations.none with annotations = MapAnnotations.ofList annotations }
         }

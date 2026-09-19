@@ -24,6 +24,10 @@ type MapInputs =
         /// where the 3D view looks from, body-fixed; drawn as the camera marker. None in the
         /// standalone app, which has no 3D view.
         camera   : aval<Option<V3d>>
+        /// what the 3D view's cursor is over, body-fixed: the preview pick's hit point. Drawn as
+        /// the cursor marker, and the centre while *Follow cursor* is on. None while nothing is
+        /// picked, and in the standalone app unless --cursor is given.
+        cursor   : aval<Option<V3d>>
     }
 
 /// The map projection panel (#772): update and view.
@@ -36,6 +40,7 @@ module MapProjectionApp =
             zoom     = 1.0
             viewport = V2i(1024, 512)
             dragFrom = None
+            follow   = false
         }
 
     /// 512 fits a small body, where the whole map is the data. A planet needs far more: at
@@ -52,6 +57,18 @@ module MapProjectionApp =
         let e = Projection.extent kind Projection.defaultMaxColatitude
         V2d(clamp e.Min.X e.Max.X c.X, clamp e.Min.Y e.Max.Y c.Y)
 
+    /// The centre the map actually shows: the 3D cursor while following, otherwise the model's.
+    /// The preview pick only runs while picking, so with nothing under the cursor the last centre
+    /// stands rather than the map jumping home.
+    let effectiveCentre (kind : MapProjectionKind) (follow : bool) (cursor : Option<V3d>) (center : V2d) =
+        if not follow then center
+        else
+            match cursor with
+            | Some p ->
+                let ll = Projection.lonLatR p
+                if ll.Z <= 0.0 then center else clampCenter kind (Projection.forward kind ll.X ll.Y)
+            | None -> center
+
     let private withViewport (size : V2d) (m : MapProjectionModel) =
         { m with viewport = V2i(max 1 (int size.X), max 1 (int size.Y)) }
 
@@ -60,8 +77,14 @@ module MapProjectionApp =
         | SetKind kind when kind <> m.kind ->
             { m with kind = kind; center = V2d.Zero; zoom = 1.0; dragFrom = None }
         | SetKind _ -> m
-        | DragStart (at, size) ->
-            { withViewport size m with dragFrom = Some at }
+        | SetFollow (on, centre) ->
+            // stopping keeps what the map shows: the caller passes the followed centre
+            if on then { m with follow = true; dragFrom = None }
+            else { m with follow = false; center = clampCenter m.kind centre; dragFrom = None }
+        | DragStart (at, size, centre) ->
+            // grabbing the map is an explicit "I steer now": it stops following and continues from
+            // the centre the map is showing, which is the followed one while follow is on
+            { withViewport size m with dragFrom = Some at; follow = false; center = clampCenter m.kind centre }
         | DragMove (at, size) ->
             match m.dragFrom with
             | None -> m
@@ -80,8 +103,13 @@ module MapProjectionApp =
             let m = withViewport size m
             let before = Projection.pixelToMap (viewProjOf m) m.viewport at
             let zoomed = { m with zoom = clamp 1.0 maxZoom (m.zoom * Math.Pow(1.25, steps)) }
-            let after = Projection.pixelToMap (viewProjOf zoomed) zoomed.viewport at
-            { zoomed with center = clampCenter m.kind (zoomed.center + (before - after)) }
+            if m.follow then
+                // the centre belongs to the cursor while following, so the wheel only changes the
+                // zoom -- zooming about the pointer would fight whatever the cursor does next
+                zoomed
+            else
+                let after = Projection.pixelToMap (viewProjOf zoomed) zoomed.viewport at
+                { zoomed with center = clampCenter m.kind (zoomed.center + (before - after)) }
         | ResetView ->
             { m with center = V2d.Zero; zoom = 1.0; dragFrom = None }
         | FitTo box ->
@@ -123,7 +151,21 @@ module MapProjectionApp =
             MapProjectionKind.PolarSouth,      "Polar south"
         ]
 
-    let private mapSg (inputs : MapInputs) (m : AdaptiveMapProjectionModel) (values : RenderClientValues) : ISg<MapProjectionAction> =
+    /// The centre the map shows, adaptively: `effectiveCentre` over the model and the 3D cursor.
+    /// Built once per view and read both by the view-projection and, forced, by the handlers that
+    /// take the map over from following (a drag, or switching the toggle off).
+    let shownCentre (inputs : MapInputs) (m : AdaptiveMapProjectionModel) =
+        adaptive {
+            let! kind = m.kind
+            let! follow = m.follow
+            let! center = m.center
+            if not follow then return center
+            else
+                let! cursor = inputs.cursor
+                return effectiveCentre kind follow cursor center
+        }
+
+    let private mapSg (inputs : MapInputs) (centre : aval<V2d>) (m : AdaptiveMapProjectionModel) (values : RenderClientValues) : ISg<MapProjectionAction> =
         match PRo3D.Core.Surface.Sg.hackRunner with
         | None -> Sg.empty
         | Some runner ->
@@ -131,7 +173,7 @@ module MapProjectionApp =
             let viewProj =
                 adaptive {
                     let! kind = m.kind
-                    let! center = m.center
+                    let! center = centre
                     let! zoom = m.zoom
                     let! size = values.size
                     return Projection.viewProj kind Projection.defaultMaxColatitude center zoom size
@@ -155,9 +197,10 @@ module MapProjectionApp =
             // interactive: patches stream in, detail follows the map window (phase 1.5)
             let lod = MapSg.mapLod m.kind viewProj values.size maxColatitude MapSg.defaultTargetPixels
             let cfg = { OpcSg.defaultConfig values.signature runner lod "map" with asyncLoading = true }
-            MapAnnotations.mapWithAnnotations cfg view inputs.camera inputs.surfaces inputs.annotations |> Sg.noEvents
+            let markers : MapSg.MapMarkers = { camera = inputs.camera; cursor = inputs.cursor }
+            MapAnnotations.mapWithAnnotations cfg view markers inputs.surfaces inputs.annotations |> Sg.noEvents
 
-    let private toolbar (inputs : MapInputs) (m : AdaptiveMapProjectionModel) =
+    let private toolbar (inputs : MapInputs) (centre : aval<V2d>) (m : AdaptiveMapProjectionModel) =
         div [ style "position:absolute; top:6px; left:6px; z-index:10" ] [
             yield
                 Incremental.div (AttributeMap.ofList [ clazz "ui mini buttons" ]) (
@@ -182,10 +225,25 @@ module MapProjectionApp =
                                     | None -> ResetView)
                             ] [ text "Zoom to data" ]
                     })
+            // Follow cursor: switching it off keeps what the map shows, so the handler passes the
+            // centre it is showing. Forcing in a click handler is fine; it keeps the button out of
+            // the map's dependencies
+            yield
+                Incremental.div (AttributeMap.ofList [ style "display:inline-block" ]) (
+                    alist {
+                        let! follow = m.follow
+                        let active = if follow then " active" else ""
+                        yield
+                            button [
+                                clazz ("ui mini inverted basic button" + active); style "margin-left:6px"
+                                onClick (fun _ -> SetFollow(not follow, AVal.force centre))
+                            ] [ text "Follow cursor" ]
+                    })
             yield button [ clazz "ui mini inverted basic button"; style "margin-left:6px"; onClick (fun _ -> ResetView) ] [ text "Reset view" ]
         ]
 
     let view (inputs : MapInputs) (m : AdaptiveMapProjectionModel) : DomNode<MapProjectionAction> =
+        let centre = shownCentre inputs m
         // any body the scene is referenced to, planets included: the map is a panel one opens,
         // so a Mars scene pays nothing until it is opened (#772). Without a body (a scene
         // observed in J2000) there is nothing to project onto.
@@ -194,7 +252,7 @@ module MapProjectionApp =
             AttributeMap.ofList [
                 style "width:100%; height:100%; background-color:#222222"
                 clazz "mapprojectionrendercontrol"
-                sizedEvent "onmousedown" false [] (fun _ at size -> DragStart(at, size))
+                sizedEvent "onmousedown" false [] (fun _ at size -> DragStart(at, size, AVal.force centre))
                 // a move with no button held ends a drag whose mouseup happened outside the panel
                 sizedEvent "onmousemove" false [ "event.buttons" ] (fun rest at size ->
                     match rest with
@@ -216,9 +274,9 @@ module MapProjectionApp =
             alist {
                 let! available = available
                 if available then
-                    yield toolbar inputs m
+                    yield toolbar inputs centre m
                     // no host JavaScript needed: the mouse events carry the panel size
-                    yield DomNode.RenderControl(attributes, camera, mapSg inputs m, RenderControlConfig.standard)
+                    yield DomNode.RenderControl(attributes, camera, mapSg inputs centre m, RenderControlConfig.standard)
                 else
                     yield
                         div [ style "padding:16px; color:#bbbbbb; font-style:italic" ] [
