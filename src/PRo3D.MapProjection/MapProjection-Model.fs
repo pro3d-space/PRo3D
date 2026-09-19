@@ -17,9 +17,9 @@ type MapProjectionModel =
         viewport : V2i
         /// last pointer position (pixels) while dragging
         dragFrom : Option<V2d>
-        /// centre on the 3D view's cursor (its preview pick) instead of `center`. The preview
-        /// pick only runs while picking (Ctrl held, or Direct Tool Mode with a tool armed), so
-        /// during plain navigation the map holds the centre it last followed to.
+        /// centre on the 3D view's cursor (its last preview-pick hit) instead of `center`. The
+        /// preview pick only runs while picking (Ctrl held, or Direct Tool Mode with a tool armed)
+        /// and PRo3D keeps the last hit, so during plain navigation the map stays on it.
         follow   : bool
     }
 
