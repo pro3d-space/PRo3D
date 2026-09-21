@@ -161,12 +161,33 @@ let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Re
     if not (File.Exists normalPath) then
         Result.Error (sprintf "no per-vertex normals for the de-shading fit: %s" normalPath)
     elif not (File.Exists layerPath) then
-        Result.Error (sprintf "no per-vertex '%s' layer for the de-shading fit: %s (see --deshade-layer)" layerName layerPath)
+        // Name what the patch actually has: the default 'DRACO' matches nothing on an OPC
+        // whose layers are DRACO_1/DRACO_2, and a bare "not found" sent people hunting.
+        let available =
+            try
+                Directory.GetFiles(patchDir, "*.aara")
+                |> Array.map Path.GetFileNameWithoutExtension
+                |> Array.filter (fun n -> n <> "Normal" && not (n.EndsWith "_Coordinates") && not (n.EndsWith "_Weights"))
+                |> String.concat ", "
+            with _ -> "(cannot list)"
+        Result.Error (sprintf "no per-vertex '%s' layer for the de-shading fit. This patch has: %s (see --deshade-layer)"
+                          layerName available)
     else
 
+    // The brightness layer is stored either as V3f (grey replicated, e.g. DRACO_2) or as
+    // a scalar float (e.g. DRACO_1). Reading only V3f made the scalar layers unusable --
+    // "Unknown conversion from System.Single to Aardvark.Base.V3f" -- which silently
+    // disabled de-shading for half the layers an OPC offers.
+    let readBrightness () =
+        try Ok ((Aara.fromFile<V3f> layerPath).Data |> Array.map (fun v -> float v.X))
+        with _ ->
+            try Ok ((Aara.fromFile<float32> layerPath).Data |> Array.map float)
+            with e -> Result.Error (sprintf "cannot read fit inputs (%s): %s" layerName e.Message)
+
     match
-        (try Ok ((Aara.fromFile<V3f> normalPath).Data, (Aara.fromFile<V3f> layerPath).Data)
-         with e -> Result.Error (sprintf "cannot read fit inputs (%s): %s" layerName e.Message))
+        (try Ok (Aara.fromFile<V3f> normalPath).Data
+         with e -> Result.Error (sprintf "cannot read per-vertex normals: %s" e.Message))
+        |> Result.bind (fun normals -> readBrightness () |> Result.map (fun values -> normals, values))
       with
     | Result.Error e -> Result.Error e
     | Ok (normals, values) ->
@@ -189,10 +210,10 @@ let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Re
     while i < normals.Length do
         let n = normals.[i]
         let v = values.[i]
-        if not n.IsNaN && not v.IsNaN then
+        if not n.IsNaN && not (Double.IsNaN v) then
             let len = n.Length
-            // brightness stored as 0..255 (V3f, grey replicated); shader samples 0..1
-            let dn = float v.X / 255.0
+            // brightness stored as 0..255; the shader samples the same layer as 0..1
+            let dn = v / 255.0
             if len > 0.5f && len < 1.5f && dn > deshadeShadowFloor then
                 collected.Add ((toBody.TransformDir (V3d n)).Normalized, dn)
         i <- i + stride
@@ -400,8 +421,24 @@ let private viewTrafoOfBasis (right : V3d) (up : V3d) (forward : V3d) (location 
 /// `distanceOverride` > 0 moves the camera to that range along the direction SPICE puts
 /// the spacecraft -- the viewpoint stays real, only the standoff changes. Useful when the
 /// body would otherwise be a handful of pixels, and for validation renders.
+/// Where the camera's orientation comes from. `Ck` is the default and the honest one: the
+/// attitude the kernels carry. `LookAt` invents the missing roll from an up-vector
+/// convention, which is useful for a picture but is NOT what the instrument saw -- so it
+/// is opt-in, never a fallback. Silently substituting it produced plausible images that
+/// disagreed with the real pointing, which is the worst possible failure mode here.
+type PointingSource =
+    | Ck
+    | LookAt
+
+module PointingSource =
+    let parse (s : string) =
+        match (if isNull s then "ck" else s).Trim().ToLowerInvariant() with
+        | "lookat" | "look-at" -> Ok LookAt
+        | "ck" | "" -> Ok Ck
+        | other -> Result.Error (sprintf "--pointing '%s' is not understood; use 'ck' or 'lookat'" other)
+
 let cameraAt (observer : string) (frame : string) (body : string) (instrument : string)
-             (distanceOverride : float) (time : DateTime) : Result<SimCamera, string> =
+             (pointing : PointingSource) (distanceOverride : float) (time : DateTime) : Result<SimCamera, string> =
     match CooTransformation.getRelState observer "SUN" body time frame with
     | None ->
         Result.Error (sprintf "no ephemeris for %s relative to %s in %s at %s (kernel coverage?)"
@@ -434,32 +471,45 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
             // so the instrument's real boresight offset (0.145 deg for AFC-1) is included
             // rather than idealised away; for ASPECT the two coincide, its channel frames
             // being a zero-offset TKFRAME of MILANI_SPACECRAFT.
+            let lookAtView () =
+                // The roll here is a convention, not an observation. Up is the body-fixed
+                // +Z, swapped to +Y when the boresight comes within ~11.5 deg of it, where
+                // the cross product that builds the basis would collapse.
+                let boresight = (-pos).Normalized
+                let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
+                CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo
+
             let view =
-                match CooTransformation.getRotationTrafo instrument frame time,
-                      Map.tryFind instrument InstrumentProjection.specialTrafos with
-                | Some instrumentToBody, Some mounting ->
-                    let m = instrumentToBody.Forward.UpperLeftM33()
-                    Some (viewTrafoOfBasis -m.C0 -m.C1 m.C2 pos * mounting)
-                | missing ->
-                    // No attitude (or no known mounting) at this epoch: fall back, and say
-                    // so -- the roll is then an arbitrary convention again and the frame
-                    // will not match a real image.
-                    match missing with
+                match pointing with
+                | LookAt ->
+                    Log.line "[camera] --pointing lookat: boresight aimed at the body centre; the ROLL around it is a convention, not the real attitude"
+                    Ok (lookAtView ())
+                | Ck ->
+                    match CooTransformation.getRotationTrafo instrument frame time,
+                          Map.tryFind instrument InstrumentProjection.specialTrafos with
+                    | Some instrumentToBody, Some mounting ->
+                        let m = instrumentToBody.Forward.UpperLeftM33()
+                        Ok (viewTrafoOfBasis -m.C0 -m.C1 m.C2 pos * mounting)
                     | None, _ ->
-                        Log.warn "[camera] no attitude for %s in %s at %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
-                            instrument frame (time.ToString "o")
-                    | _ ->
-                        Log.warn "[camera] no mounting trafo known for %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
-                            instrument
-                    let boresight = (-pos).Normalized
-                    let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
-                    Some (CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo)
-            Ok {
-                view = view |> Option.defaultValue Trafo3d.Identity
-                proj = Frustum.projTrafo frustum
-                distance = distance
-                aspect = (frustum.right - frustum.left) / (frustum.top - frustum.bottom)
-            }
+                        // Deliberately an error, not a fallback: a look-at camera here
+                        // would render a believable frame with an invented roll, and
+                        // nothing downstream could tell it apart from a measured one.
+                        Result.Error (sprintf "no attitude for %s in %s at %s -- the loaded kernels carry no CK there. \
+                                               Load a kernel set covering this epoch, or pass --pointing lookat to aim \
+                                               at the body centre with a conventional roll (which is then NOT what the instrument saw)."
+                                          instrument frame (time.ToString "o"))
+                    | _, None ->
+                        Result.Error (sprintf "no image-axis convention known for %s (see InstrumentProjection.specialTrafos) -- \
+                                               its attitude cannot be turned into a camera. Pass --pointing lookat to render it anyway."
+                                          instrument)
+            view
+            |> Result.map (fun view ->
+                {
+                    view = view
+                    proj = Frustum.projTrafo frustum
+                    distance = distance
+                    aspect = (frustum.right - frustum.left) / (frustum.top - frustum.bottom)
+                })
 
 // ---------------------------------------------------------------------------------
 // Tonemap: linear I/F -> 8-bit DN. Auto-exposure anchors the 99.5th percentile of the
@@ -639,7 +689,9 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 Log.warn "[camera] --distance is ignored with --mbi: the standoff is the observation's own"
             Log.line "[camera] from %s (%s at %s)" (Path.GetFileName cameraSource) instrument (obs.time.ToString "o")
             Ok obs.camera
-        | None -> cameraAt observer frame body instrument o.distance time
+        | None ->
+            PointingSource.parse o.pointing
+            |> Result.bind (fun p -> cameraAt observer frame body instrument p o.distance time)
 
     match camera with
     | Result.Error e -> Result.Error e
@@ -667,7 +719,14 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     // De-shading: fit on the first hierarchy's root patch (all hierarchies of one OPC
     // share the acquisition, so one fit serves them all). A failed fit degrades loudly to
     // the constant albedo -- a wrong divisor is worse than none.
-    let layerName = if String.IsNullOrWhiteSpace o.deshadeLayer then "DRACO" else o.deshadeLayer
+    // The fit reads a per-vertex layer; the shader divides the TEXTURE layer. If those
+    // two are different layers the correction is meaningless -- it was dividing DRACO_1
+    // (black over 93% of this body) by a fit made on DRACO_2. Default one from the other
+    // so a single --texture-layer or --deshade-layer sets both consistently.
+    let layerName =
+        if not (String.IsNullOrWhiteSpace o.deshadeLayer) then o.deshadeLayer
+        elif not (String.IsNullOrWhiteSpace o.textureLayer) then o.textureLayer
+        else "DRACO"
     let deshade =
         if not o.deshade then None
         else
@@ -724,6 +783,50 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         hierarchies
         |> Array.map (fun h -> (rootPatchOf h).info.GlobalBoundingBox)
         |> Array.fold (fun (b : Box3d) x -> b.ExtendedBy x) Box3d.Invalid
+
+    // Pre-flight the pointing, before the shadow map and the main render.
+    //
+    // With --pointing ck the camera is aimed by the kernels, not at the body, so an epoch
+    // where the instrument was observing something else yields an empty frame. That is a
+    // correct answer and it deserves a correct explanation: the numbers are all known
+    // here, and finding out afterwards from a blank image costs the whole render and says
+    // only "wrong time, body or instrument?".
+    //
+    // Conservative on purpose -- it fires only when the body is CERTAINLY outside. The
+    // terrain lies inside its bounding box, so the rendered silhouette lies inside the
+    // convex hull of the box's eight projected corners; if that hull misses the unit
+    // square, no fragment can survive. A body clipping any edge still renders and is left
+    // to the coverage check below. Bounding the box by a sphere instead was too loose to
+    // catch a 4 deg miss on a 5.5 deg frustum -- the diagonal overstates a flat body.
+    let pointingComplaint =
+        let vp = cam.view * cam.proj
+        let corners = bbox.ComputeCorners() |> Array.map (fun c -> vp.Forward.Transform(V4d(c, 1.0)))
+        // any corner at or behind the camera makes the projected hull meaningless
+        if corners |> Array.exists (fun c -> c.W <= 0.0 || not (Double.IsFinite c.W)) then None
+        else
+            let ndc = corners |> Array.map (fun c -> V2d(c.X / c.W, c.Y / c.W))
+            let lo = ndc |> Array.fold (fun (a : V2d) b -> V2d(min a.X b.X, min a.Y b.Y)) (V2d(infinity, infinity))
+            let hi = ndc |> Array.fold (fun (a : V2d) b -> V2d(max a.X b.X, max a.Y b.Y)) (V2d(-infinity, -infinity))
+            if lo.X > 1.0 || hi.X < -1.0 || lo.Y > 1.0 || hi.Y < -1.0 then
+                let camPos = cam.view.Backward.TransformPos V3d.Zero
+                let forward = (cam.view.Backward.TransformDir -V3d.OOI).Normalized
+                let toBody = bbox.Center - camPos
+                let theta = acos (clamp -1.0 1.0 (Vec.dot forward toBody.Normalized)) |> Conversion.DegreesFromRadians
+                let tanH = 1.0 / cam.proj.Forward.M00
+                let tanV = 1.0 / cam.proj.Forward.M11
+                let halfH = atan tanH |> Conversion.DegreesFromRadians
+                let halfV = atan tanV |> Conversion.DegreesFromRadians
+                Some (sprintf "%s is not in %s's field of view at %s: the boresight is %.3f deg off the body centre, \
+                               and the frustum reaches %.3f x %.3f deg from it (range %.1f km). \
+                               The kernels point the instrument elsewhere at this epoch -- pick an epoch inside an \
+                               observation window, target the body it IS observing, or pass --pointing lookat to aim at \
+                               %s regardless of the real attitude."
+                          body instrument (time.ToString "o") theta halfH halfV (toBody.Length / 1000.0) body)
+            else None
+
+    match pointingComplaint with
+    | Some e -> Result.Error e
+    | None ->
 
     let shadowMap =
         if o.noShadows then dummyShadowMap runtime
@@ -960,8 +1063,22 @@ let run (o : SimulateImageOptions) : int =
 
     // Resolve before any GPU work, so a bad layer name fails immediately with the list of
     // what the OPC actually has, rather than after a minute of loading.
-    let textureLayer =
+    // With --deshade the texture layer is the divisor, so it must be the layer the fit was
+    // made on. Falling back to the patch's default layer here is what made de-shading look
+    // broken: the default is DRACO_1, which is black over most of the surface.
+    let wantedTexture =
         match o.textureLayer with
+        | null | "" when o.deshade && not (String.IsNullOrWhiteSpace o.deshadeLayer) ->
+            Log.line "[texture] --deshade: using '%s' as the texture layer to match --deshade-layer" o.deshadeLayer
+            o.deshadeLayer
+        | other -> other
+    if o.deshade && not (String.IsNullOrWhiteSpace o.textureLayer)
+              && not (String.IsNullOrWhiteSpace o.deshadeLayer)
+              && not (String.Equals(o.textureLayer, o.deshadeLayer, StringComparison.OrdinalIgnoreCase)) then
+        Log.warn "[deshade] fitting on '%s' but dividing texture '%s' -- these should be the same layer"
+            o.deshadeLayer o.textureLayer
+    let textureLayer =
+        match wantedTexture with
         | null | "" -> Ok None
         | wanted ->
             match OpcTextureLayers.resolve o.opc wanted with

@@ -172,6 +172,9 @@ type SimulateImageOptions =
 
         [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002); raise against acne, lower against peter-panning")>]
         shadowBias : float
+
+        [<Option("pointing", HelpText = "Where the camera orientation comes from: 'ck' (default) uses the spacecraft's measured/planned attitude and FAILS if the kernels have none at this epoch; 'lookat' aims the boresight at the body centre with an up-vector roll convention. 'ck' can legitimately produce no image -- if the instrument was pointed elsewhere, the body is not in the frame, and that is the answer, not a fault.")>]
+        pointing : string
     }
 
 /// Options for the `unproject` verb.

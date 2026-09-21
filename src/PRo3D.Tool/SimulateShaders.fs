@@ -209,7 +209,16 @@ let simulatedImage (v : SimVertex) =
                 let ratio = texVal / max 0.15f muBake * uniform.DeshadeScale / uniform.AlbedoConst
                 let deshaded =
                     uniform.AlbedoConst * clamp 0.5f 2.0f (sqrt (max 0.0f ratio))
-                uniform.AlbedoConst + w * (deshaded - uniform.AlbedoConst)
+                // Low confidence used to fall back to the flat AlbedoConst, which threw the
+                // texture away entirely -- on this body that erased the surface over ~half
+                // the disk wherever the BAKED illumination was grazing. Fall back to the
+                // texture instead, normalised through the same scale at a fixed mid
+                // incidence: it keeps the detail and merely leaves the residual baked
+                // shading in, which is the smaller error of the two.
+                let plainRatio = texVal / 0.5f * uniform.DeshadeScale / uniform.AlbedoConst
+                let plain =
+                    uniform.AlbedoConst * clamp 0.5f 2.0f (sqrt (max 0.0f plainRatio))
+                plain + w * (deshaded - plain)
             else
                 uniform.AlbedoConst
 

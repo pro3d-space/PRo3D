@@ -143,11 +143,31 @@ module InstrumentProjection =
             | _ ->
                 None)
 
+    /// Camera-space axis remap per instrument: which instrument axis becomes image right
+    /// and which becomes image down.
+    ///
+    /// The instrument kernels draw this and all three HERA entries below share one layout
+    /// (hera_afc_v06.ti, hera_hsh_v03.ti): boresight +Z into the page, **+X to image
+    /// right, +Y to image down**, pixel (0,0) lower left.
+    ///
+    /// The basis columns are the images of the camera-space axes, and the camera basis
+    /// feeding them is (right, up, forward) = (-X, -Y, +Z) of the instrument frame. So a
+    /// feature along instrument +X arrives at camera x = -1: to land it on image right the
+    /// first column must be (-1, 0, 0), and by the same argument +Y lands on image down
+    /// with a second column of (0, +1, 0).
+    ///
+    /// Determinant must stay -1: getLookAtQuat builds its basis as FromBasis(-C0,-C1,-C2),
+    /// det = -1, and these entries cancel it back to a proper rotation. (-1, +1, +1) does.
+    ///
+    /// This replaced (-Y, -X, Z) for AFC-1/HSH and (+Y, +X, Z) for AFC-2, which put
+    /// instrument +X on image *up* -- a 90 degree rotation away from the kernels, measured
+    /// two ways in docs/ShapeModelCrosscheck.md and tracked in issue #801. Handedness was
+    /// never wrong, only the roll, which is why nothing self-generated ever caught it.
     let specialTrafos =
         Map.ofList [
-            "HERA_AFC-2", Trafo3d.FromOrthoNormalBasis(V3d.OIO, V3d.IOO, V3d.OOI)
-            "HERA_AFC-1", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
-            "HERA_HSH", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
+            "HERA_AFC-2", Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, V3d.OOI)
+            "HERA_AFC-1", Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, V3d.OOI)
+            "HERA_HSH", Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, V3d.OOI)
             // hera_milani_v05.tf defines all four ASPECT channel frames (VIS/NIR1/NIR2/SWIR)
             // as a zero-degree TKFRAME offset from MILANI_SPACECRAFT, so unlike the Hera-mounted
             // instruments above there is no known axis remap to apply here. Identity until this
