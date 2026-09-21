@@ -43,3 +43,25 @@ keeps its four raw picks and no outline is sampled. The disabled geographical pa
 (`constructAndSampleGeographical`) does handle four points. The corresponding test,
 `TC-3.7` in `src/Tests/Features/Section03_DrawingAnnotations.fs`, is skipped for this
 reason.
+
+## Needs a reference body
+
+The outline is sampled on the fitted plane and then **draped onto the surface with the Sky
+projection**, which shoots its rays along the scene's up vector. With `Planet.None` there
+is no such vector: the drape returns too few points, `getFinishedAnnotation` discards the
+annotation with a warning, and before it ever gets that far the geometry dropdown greys the
+ellipse entries out (`needs a reference body`, `Geometry.needsReferenceBody`).
+
+This is worth knowing when reading older material: an ellipse drawn on a body-less scene
+came out as a lumpy blob rather than an ellipse, which is what the user manual's figure used
+to show. Set the scene body ([SceneBody.md](SceneBody.md)) and the outline is a real ellipse draped over
+the terrain.
+
+## While drawing, there is almost no feedback
+
+Ellipses generate no segments while they are being picked (`allowSegmentGeneration` in
+`DrawingApp.addPoint`), so the working annotation has no polyline to draw: until the third
+click lands, the render view shows only the picked points, as dots of `thickness * 1.5`
+pixels (`Sg.drawWorkingAnnotation`). At the default thickness that is a 4-5 px speck per
+pick and no line along the major axis being defined. Older PRo3D versions drew that axis,
+which is why older screenshots show one.
