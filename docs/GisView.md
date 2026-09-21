@@ -139,9 +139,10 @@ shades OPC surfaces with the real sun position for the current observation time:
 | `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun |
 | `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map |
 
-Requirements: a loaded SPICE kernel, an observation time inside its coverage, and the
-surface registered in the GIS Surfaces tab (reference frame + body) — the same
-prerequisites the projected-image features have. The sun direction updates with the
+Requirements: a loaded SPICE kernel, an observation time inside its coverage, and a
+surface that resolves to a body and frame — either the scene body it inherits by
+default, or an explicit assignment in the GIS Surfaces tab. The same prerequisites the
+projected-image features have. The sun direction updates with the
 observation time, so scrubbing time moves the terminator and the shadows.
 
 The lighting mode is saved with the scene, which also means **batch rendering
