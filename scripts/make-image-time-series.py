@@ -7,20 +7,25 @@ Drives `pro3d-tool simulate-image` once per epoch on a fixed cadence, writing li
 with their `.mbi.json` sidecars, a coarsely sampled subset ready to import into the
 viewer, and a scene set up to project them.
 
-    <out>/micro/           every epoch WITH micro-structure, PNG + .mbi.json + .png.json
-    <out>/smooth/          every epoch WITHOUT it, same cameras
+    <out>/delit/           every epoch, de-lit DRACO texture (the realistic variant)
+    <out>/micro/           every epoch, constant albedo + micro-structure
+    <out>/smooth/          every epoch, constant albedo, no micro-structure
+    <out>/spice/           optional: an independent SPICE DSK ray-cast of --spice-count
+                           epochs, spread over the series, for checking the others
     <out>/stack/           the --stack-count subset, evenly spaced over the series
     <out>/ImageSeries.pro3d  scene with body, frame, kernel, epoch and focal length set
-    <out>/series.json      what was rendered, with what kernels, at what gain
-    <out>/README.md        the same, for whoever receives the folder
+    <out>/series.json      one entry per epoch, naming its file in each variant
+    <out>/README.md        the same, and the folder layout, for whoever receives it
 
-Two lit variants per epoch, same camera and same --gain, so a pair differs in exactly one
-thing:
+Three lit variants per epoch, same camera and same --gain, so any pair differs in exactly
+one thing -- DELIT adds the real texture, MICRO adds procedural structure to a constant
+albedo, SMOOTH is the bare shape:
 
-    AFC1_MICRO_<stamp>     micro-structure on (--micro-amplitude 0.3) -- the realistic one
-    AFC1_SMOOTH_<stamp>    micro-structure off -- the bare shape under the same light
+    AFC1_DELIT_<stamp>     de-lit DRACO texture + micro-structure -- the realistic one
+    AFC1_MICRO_<stamp>     constant albedo + micro-structure -- no texture
+    AFC1_SMOOTH_<stamp>    constant albedo, micro-structure off -- the bare shape
 
-Both are lit (Lommel-Seeliger, cast shadows, constant albedo); neither is texture-only.
+All three are lit (Lommel-Seeliger, cast shadows); none is texture-only.
 Across the series the illumination and the visible face change while the exposure does
 not, which is what makes it a series rather than a set of unrelated renders -- pass
 --gain 0 to auto-expose each frame separately and that property is gone.
@@ -42,7 +47,9 @@ Re-runnable: a frame whose PNG is already there is skipped, so an interrupted ru
 continues where it stopped and a changed --stack-count costs nothing. Pass --force to
 re-render. Changing --interval, --start or --kernel produces different frames, so use a
 different --out (or --force) -- the stamps of a finer cadence otherwise interleave with a
-coarser earlier run and series.json will describe only the last one.
+coarser earlier run. series.json and the README describe the FOLDER, rebuilt by scanning
+every variant directory, so a repair pass over one variant no longer rewrites them as if
+the other variants did not exist.
 
 THE EPOCH AND THE KERNEL SET GO TOGETHER. ESA regenerates the HERA plan kernels, and they
 move the spacecraft: the default start lies inside hera_plan.tm's close-orbit coverage for
@@ -63,8 +70,8 @@ import time
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pro3d_sim import (check_sidecars, list_layers, run_tool, texture_index,
-                       tool_error, write_scene)
+from pro3d_sim import (check_sidecars, dsk_render, list_layers, run_tool,
+                       texture_index, tool_error, write_scene)
 
 # Dimorphos' rotation period. Tidally locked to Didymos, 11.92 h after the DART impact
 # (Naidu et al. 2024) -- the pre-impact 11.92 h orbital period was shortened to ~11.37 h,
@@ -124,6 +131,53 @@ def mk_identifier(path):
     return None
 
 
+VARIANTS = {
+    "delit":  "DRACO texture with its baked illumination divided out, plus procedural "
+              "micro-structure -- the realistic frame",
+    "micro":  "constant albedo plus procedural micro-structure -- no texture",
+    "smooth": "constant albedo, no micro-structure -- the bare shape model",
+    "spice":  "independent reference: SPICE ray-casts its own DSK shape model. No PRo3D "
+              "code involved, no sidecars -- for checking the others, not for projecting",
+}
+
+
+def folder_tree(variant_dirs, chosen, stack_variant, scene):
+    """The folder layout, drawn, for the README that travels with the data."""
+    rows = [(v + '/', VARIANTS.get(v, '')) for v in variant_dirs]
+    rows.append(("stack/", "%d %s frames, thinned for the 32-layer projection stack"
+                 % (len(chosen), stack_variant)))
+    rows.append((os.path.basename(scene) if scene else '(no scene)',
+                 'PRo3D scene: body, frame, kernel, epoch, focal length'))
+    rows.append(('README.md', 'this file'))
+    rows.append(('series.json', 'the same, machine-readable, one entry per epoch'))
+    out = []
+    for i, (name, what) in enumerate(rows):
+        stem = '`- ' if i == len(rows) - 1 else '+- '
+        out.append('%s%-14s %s' % (stem, name, what))
+    return chr(10).join(out) + chr(10)
+
+
+def tool_fingerprint(repo):
+    """Identity of the binary that renders the frames.
+
+    Frames from different builds must never be mixed. A change to the instrument axis
+    map or the FOV silently rotates or rescales every frame rendered after it, while the
+    resume logic happily keeps the earlier ones -- which is exactly what happened here:
+    a folder ended up holding `smooth/` frames 90 degrees away from its `delit/` frames,
+    and nothing in the output said so. Recorded in series.json and compared on every run.
+    """
+    import hashlib
+    parts = []
+    for n in ("PRo3D.Tool.exe", "PRo3D.Base.dll"):
+        f = os.path.join(repo, "bin", "Release", "net9.0", n)
+        if os.path.exists(f):
+            st = os.stat(f)
+            parts.append("%s:%d:%d" % (n, st.st_size, int(st.st_mtime)))
+    if not parts:
+        return "unknown"
+    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:12]
+
+
 def subset(items, n):
     """n items spread evenly over the list, first and last included.
 
@@ -137,6 +191,42 @@ def subset(items, n):
     last = len(items) - 1
     idx = sorted({int(round(i * last / (n - 1.0))) for i in range(n)})
     return [items[i] for i in idx]
+
+
+class _Result(object):
+    """Mimics subprocess.CompletedProcess so the render loop treats both paths alike."""
+    def __init__(self, returncode, stdout=""):
+        self.returncode, self.stdout, self.stderr = returncode, stdout, ""
+
+
+def spice_frame(kernel, utc, out, gain, albedo):
+    """One reference frame from SPICE's DSK, written as 8-bit PNG."""
+    try:
+        import spiceypy as sp
+        from PIL import Image
+    except ImportError as ex:
+        return _Result(1, "ERROR: spice variant needs spiceypy and pillow (%s)" % ex)
+    cwd = os.getcwd()
+    try:
+        sp.kclear()
+        os.chdir(os.path.dirname(kernel))
+        sp.furnsh(os.path.basename(kernel))
+        img, hit = dsk_render(utc, "HERA_AFC-1", "DIMORPHOS", "HERA", "DIMORPHOS_FIXED",
+                              1020, 5.50)
+        if not hit.any():
+            return _Result(1, "ERROR: DIMORPHOS is not in the frame at %s" % utc)
+        dn = np.clip(gain * albedo * img * 255.0, 0, 255).astype(np.uint8)
+        Image.fromarray(dn).save(out)
+        return _Result(0, "[out] %s" % out)
+    except Exception as ex:
+        return _Result(1, "ERROR: %s" % ex)
+    finally:
+        os.chdir(cwd)
+        try:
+            import spiceypy as sp2
+            sp2.kclear()
+        except Exception:
+            pass
 
 
 def preflight(epochs, kernel, instrument, target, observer):
@@ -213,18 +303,23 @@ Simulated images, not observations. Rendered from a shape model with PRo3D
 | gain | {gain} (fixed, not auto-exposed) |
 | generated | {generated} |
 
-## Files
+## Folder structure
 
-| | |
+```
+{folder}/
+{tree}```
+
+Every frame exists once per variant under its own folder, named
+`AFC1_<VARIANT>_<date>_<time>`, so the same epoch is the same stamp in each. Each
+`pro3d-tool` frame comes with two sidecars:
+
+| file | content |
 |---|---|
-| `micro/` | all {count} epochs, micro-structure on |
-| `smooth/` | all {count} epochs, micro-structure off, same cameras |
-| `.png` | the image |
-| `.mbi.json` | `SC_QUAT0..3` = spacecraft -> J2000 quaternion; `TRG_POSX/Y/Z` = target minus spacecraft, km, J2000 |
-| `.png.json` | pixel size |
-| `stack/` | {nstack} {stackvariant} frames, evenly spaced; PRo3D projection stack caps at 32 |
-| `series.json` | the same data per frame, machine-readable |
-| `{scene}` | PRo3D scene: body, frame, kernel, epoch, focal length preset |
+| `.png` | the image, 8-bit greyscale, {width} px |
+| `.mbi.json` | the observation: `SC_QUAT0..3` is the **spacecraft -> J2000** quaternion, `TRG_POSX/Y/Z` is **target minus spacecraft**, km, J2000 |
+| `.png.json` | statistics sidecar; its load-bearing field is the pixel size |
+
+`series.json` describes all of the above per epoch, machine-readable.
 
 In PRo3D: open the scene, GIS tab -> Projected Images -> Import Directory -> `stack/`,
 `+` per row, Orientation Source MBI, Transfer Function off.
@@ -285,17 +380,24 @@ def main():
                          "the SMOOTH variant is always 0")
     ap.add_argument("--distance", default=None,
                     help="camera range override in metres; default is the spacecraft's real range")
-    ap.add_argument("--variants", default="micro,smooth",
-                    help="which lit variants to render, comma-separated (default micro,smooth)")
+    ap.add_argument("--variants", default="delit,micro,smooth",
+                    help="which variants to render, comma-separated (default delit,micro,smooth). "
+                         "'spice' adds an independent reference ray-cast from SPICE's own DSK "
+                         "shape model -- same epochs, same camera, no PRo3D code involved")
     ap.add_argument("--stack-count", type=int, default=15,
                     help="how many frames to copy into <out>/stack/ (default 15, cap %d)" % MAX_STACK)
-    ap.add_argument("--stack-variant", default="micro", choices=["micro", "smooth"],
-                    help="which variant the stack subset takes (default micro)")
+    ap.add_argument("--stack-variant", default="delit", choices=["micro", "smooth", "delit"],
+                    help="which variant the stack subset takes (default delit)")
     ap.add_argument("--texture-layer", default="DRACO_2",
                     help="texture layer the scene displays under the projection (default DRACO_2)")
     ap.add_argument("--scene-template", default=default_template,
                     help="a .pro3d to derive ImageSeries.pro3d from; skipped if absent")
     ap.add_argument("--force", action="store_true", help="re-render frames that already exist")
+    ap.add_argument("--spice-count", type=int, default=8,
+                    help="how many spice reference frames to render, spread evenly over "
+                         "the series (default 8; 0 renders one per epoch). The reference "
+                         "costs ~50 s a frame and tests the renderer, not the epoch, so a "
+                         "few spread over the series answer the same question as all of them")
     ap.add_argument("--list-layers", action="store_true",
                     help="print the OPC's texture layers and exit")
     a = ap.parse_args()
@@ -314,13 +416,16 @@ def main():
     span = (epochs[-1] - epochs[0]).total_seconds() / 3600.0
 
     variants = [v.strip().lower() for v in a.variants.split(",") if v.strip()]
-    unknown = [v for v in variants if v not in ("micro", "smooth")]
+    unknown = [v for v in variants if v not in ("micro", "smooth", "delit", "spice")]
     if unknown or not variants:
-        print("--variants takes micro and/or smooth, got %s" % a.variants)
+        print("--variants takes any of micro, smooth, delit, spice -- got %s" % a.variants)
         return 2
     if a.stack_variant not in variants:
-        print("--stack-variant %s is not among --variants %s" % (a.stack_variant, ",".join(variants)))
-        return 2
+        # Not fatal: a pass that renders only one variant (e.g. the spice reference) into
+        # an existing series should leave the stack it already has alone rather than
+        # refuse to run.
+        print("note: --stack-variant %s is not being rendered this run; leaving stack/ as it is"
+              % a.stack_variant)
     if a.stack_count > MAX_STACK:
         print("note: --stack-count %d exceeds the viewer's cap of %d; clamping"
               % (a.stack_count, MAX_STACK))
@@ -339,6 +444,28 @@ def main():
 
     kernel = resolve_kernel(a.kernel, a.kernel_root)
     mkid = mk_identifier(kernel)
+
+    # Refuse to resume across a rebuild of the renderer: a different binary may place,
+    # orient or scale the body differently, and half-updated folders are worse than a
+    # re-render because nothing in the frames says which build made them.
+    build = tool_fingerprint(repo)
+    force = a.force
+    prev = os.path.join(a.out, "series.json")
+    if os.path.exists(prev) and not force:
+        try:
+            # written under `provenance` since the manifest was reshaped; the older flat
+            # key is still accepted so a folder from before that does not re-render
+            was = json.load(open(prev, encoding="utf-8"))
+            was = was.get("provenance", {}).get("toolBuild") or was.get("toolBuild")
+        except Exception:
+            was = None
+        if was != build:
+            # `was is None` means the folder predates this check, so its provenance is
+            # unknown -- treat that the same as a known mismatch rather than trusting it.
+            print("the renderer changed since this folder was written (%s -> %s):"
+                  % (was or "unrecorded", build))
+            print("   re-rendering every frame, because mixing builds silently mixes geometry")
+            force = True
     # One folder per variant, so each is directly importable: PRo3D's Import Directory
     # takes a folder, and a folder holding both variants would load two layers per epoch.
     # It also keeps the README, the scene and the stack out of the data.
@@ -391,16 +518,42 @@ def main():
         shared += ["--albedo", a.albedo]
     if a.distance:
         shared += ["--distance", a.distance]
-    flags = {"micro": ["--micro-amplitude", a.micro_amplitude],
-             "smooth": ["--micro-amplitude", "0"]}
+    flags = {"micro":  ["--micro-amplitude", a.micro_amplitude],
+             "smooth": ["--micro-amplitude", "0"],
+             # DELIT is the realistic one: the DRACO texture with its baked illumination
+             # divided out where there is any to divide, so the render's own sun lights a
+             # surface that carries real albedo detail. --deshade-layer also selects the
+             # texture layer, so one name drives both the fit and the divisor.
+             "delit":  ["--micro-amplitude", a.micro_amplitude,
+                        "--deshade", "--deshade-layer", a.texture_layer]}
 
     failed, rendered, skipped = [], [], 0
+
+    # The SPICE reference is the expensive one: ~50 s a frame against ~7 s for the tool,
+    # and it does not parallelise -- CSPICE reads the DSK in 1 KB records through its DAS
+    # layer, and fifteen worker processes spent thirteen minutes reading 20 GB each before
+    # delivering their first frames. It renders serially, like everything else.
+    #
+    # It is also not needed at every epoch. The reference exists to show that the detector
+    # axes and the FOV agree with the kernels, and that is a property of the *renderer*,
+    # not of the epoch: a handful of frames spread over the series tests it under the
+    # illuminations and visible faces the series contains. Rendering it 143 times would
+    # cost two hours to re-answer a question already answered at frame ten.
+    spice_at = set()
+    if "spice" in variants:
+        n = len(epochs) if a.spice_count <= 0 else min(a.spice_count, len(epochs))
+        spice_at = {iso(e) for e in subset(epochs, n)}
+        print("spice: %d reference frame(s) spread over %d epochs "
+              "(--spice-count 0 renders every one)" % (len(spice_at), len(epochs)))
+
     t0 = time.time()
     for i, e in enumerate(epochs):
         for v in variants:
             stem = "AFC1_%s_%s" % (v.upper(), stamp(e))
             png = os.path.join(vdir[v], stem + ".png")
-            if os.path.exists(png) and not a.force:
+            if v == "spice" and iso(e) not in spice_at:
+                continue
+            if os.path.exists(png) and not force:
                 skipped += 1
                 rendered.append((stem, iso(e), v))
                 continue
@@ -411,8 +564,15 @@ def main():
                 left = (count - i) * len(variants) - variants.index(v)
                 eta = "  ~%d min left" % max(0, int(per * left / 60.0))
             print(" [%d/%d] %s  %s%s" % (i + 1, count, iso(e), v, eta))
-            p = run_tool(repo, ["simulate-image"] + common + shared + flags[v] +
-                         ["--time", iso(e), "--out", png])
+            if v == "spice":
+                # Independent reference: SPICE ray-casts its own DSK. Scaled through the
+                # same albedo and gain as the tool's frames so the two are radiometrically
+                # comparable, not just geometrically.
+                p = spice_frame(kernel, iso(e), png, float(a.gain or 4.492),
+                                float(a.albedo or 0.16))
+            else:
+                p = run_tool(repo, ["simulate-image"] + common + shared + flags[v] +
+                             ["--time", iso(e), "--out", png])
             # A failed render leaves no files behind, and the sidecar check below only
             # looks at what IS there -- so without this a half-empty series reports "all
             # sidecars pass". The usual cause is an epoch where the body is not in the
@@ -424,6 +584,45 @@ def main():
 
     if skipped:
         print("\n%d frame(s) already present, skipped (--force re-renders)" % skipped)
+
+    # Everything below this line describes the FOLDER, not this run. Building it from the
+    # frames this invocation happened to render meant that a pass over one variant (say
+    # --variants micro, to repair a single frame) rewrote series.json as if the other
+    # variants did not exist -- which silently dropped the spice reference and made the
+    # validator report "nothing to validate against" -- and left the README claiming one
+    # epoch over a folder holding forty-eight.
+    run_attempts = count * len(variants)
+    rendered = []
+    for v in sorted(VARIANTS):
+        d = os.path.join(a.out, v)
+        if not os.path.isdir(d):
+            continue
+        for f in sorted(os.listdir(d)):
+            if f.startswith("AFC1_") and f.endswith(".png"):
+                st = f[:-4]
+                bits = st.split("_")
+                if len(bits) < 4:
+                    continue
+                day, hms = bits[-2], bits[-1]
+                t = "%s-%s-%sT%s:%s:%sZ" % (day[0:4], day[4:6], day[6:8],
+                                            hms[0:2], hms[2:4], hms[4:6])
+                rendered.append((st, t, v))
+    variants = sorted({v for (_, _, v) in rendered}) or variants
+    vdir = {v: os.path.join(a.out, v) for v in variants}
+    times = sorted({t for (_, t, _) in rendered})
+    if times:
+        count = len(times)
+        span = (parse_iso(times[-1]) - parse_iso(times[0])).total_seconds() / 3600.0
+        if count > 1:
+            # the median gap, not a.interval: a re-run over a sub-range must not restate
+            # the folder's cadence, and off-target epochs leave gaps that are multiples
+            gaps = sorted((parse_iso(b) - parse_iso(c)).total_seconds() / 60.0
+                          for c, b in zip(times, times[1:]))
+            interval = gaps[len(gaps) // 2]
+        else:
+            interval = a.interval
+    else:
+        times, interval = [iso(e) for e in epochs], a.interval
 
     print("\nsidecar check -- A^T*TRG_POS must be close to (0, 0, +1):")
     bad, ranges = 0, {}
@@ -458,7 +657,7 @@ def main():
 
     scene = None
     if a.scene_template and os.path.exists(a.scene_template) and chosen:
-        idx = texture_index(repo, common, iso(epochs[0]), a.texture_layer)
+        idx = texture_index(repo, common, times[0], a.texture_layer)
         if idx is None:
             print("could not resolve '%s' to an index; scene not written" % a.texture_layer)
         else:
@@ -473,24 +672,80 @@ def main():
             print("wrote %s (texture %s index %d, camera on %s)"
                   % (scene, a.texture_layer, idx, mid_stem))
 
+    # One entry per EPOCH, each naming its file per variant -- the same shape as the
+    # folders on disk (epoch x variant), and the shape a consumer actually wants: "give
+    # me every rendition of time T". The old flat list repeated each epoch once per
+    # variant with the variant encoded inside a filename, and had nowhere to say what a
+    # variant meant or where its files were.
+    by_stamp = {}
+    for (stem, t, v) in rendered:
+        by_stamp.setdefault(t, {})[v] = "%s/%s.png" % (v, stem)
+    ranges_by_time = {}
+    for (stem, t, v) in rendered:
+        if ranges.get(stem):
+            ranges_by_time[t] = round(ranges[stem], 1)
+
     manifest = {
+        "schema": "pro3d.image-series/1",
         "generated": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "opc": os.path.abspath(a.opc),
-        "body": "DIMORPHOS", "frame": "DIMORPHOS_FIXED",
-        "observer": "HERA", "instrument": "HERA_AFC-1",
-        "kernel": kernel, "mkIdentifier": mkid,
-        "start": iso(epochs[0]), "end": iso(epochs[-1]),
-        "intervalMinutes": a.interval, "count": count,
-        "spanHours": round(span, 3), "rotations": round(span / ROTATION_HOURS, 3),
-        "gain": a.gain, "microScale": a.micro_scale, "microAmplitude": a.micro_amplitude,
-        "variants": variants,
-        "frames": [{"stem": s, "time": t, "variant": v, "rangeMeters": ranges.get(s)}
-                   for (s, t, v) in sorted(rendered, key=lambda r: (r[1], r[2]))],
-        "stack": [s for s, _ in chosen],
-        "stackVariant": a.stack_variant,
-        "scene": scene,
-        "failed": [{"time": t, "variant": v, "error": w} for (t, v, w) in failed],
-        "skippedOffTarget": [{"time": t, "boresightOffDeg": round(ang, 4)} for (t, ang) in offtarget],
+        "provenance": {
+            "generator": "scripts/make-image-time-series.py",
+            "toolBuild": build,
+            "kernel": kernel,
+            "mkIdentifier": mkid,
+            "opc": os.path.abspath(a.opc),
+            "opcProduct": next((os.path.splitext(f)[0] for f in sorted(os.listdir(a.opc))
+                                if f.endswith(".opcx")), None),
+        },
+        "observation": {
+            "body": "DIMORPHOS", "frame": "DIMORPHOS_FIXED",
+            "observer": "HERA", "instrument": "HERA_AFC-1",
+            "imageSize": [1020, 1020],
+            "textureLayer": a.texture_layer,
+        },
+        "series": {
+            "start": times[0], "end": times[-1],
+            "intervalMinutes": interval, "epochs": count,
+            "spanHours": round(span, 3),
+            "rotations": round(span / ROTATION_HOURS, 3),
+            "rotationPeriodHours": ROTATION_HOURS,
+        },
+        "radiometry": {
+            "gain": a.gain, "albedo": a.albedo, "fixedExposure": str(a.gain) != "0",
+            "microScale": a.micro_scale, "microAmplitude": a.micro_amplitude,
+        },
+        "variants": {
+            v: {
+                "dir": v,
+                "description": VARIANTS.get(v, ""),
+                "renderer": "spiceypy DSK ray-cast" if v == "spice" else "pro3d-tool simulate-image",
+                "sidecars": v != "spice",
+                "frames": sum(1 for (_, _, vv) in rendered if vv == v),
+            } for v in variants
+        },
+        "stack": {
+            "dir": "stack",
+            "variant": a.stack_variant,
+            "frames": len(chosen),
+            "note": "copies of the %s frames, thinned for PRo3D's 32-layer projection stack"
+                    % a.stack_variant,
+            "times": [t for _, t in chosen],
+        },
+        "scene": os.path.basename(scene) if scene else None,
+        "epochs": [
+            {
+                "time": t,
+                "stamp": stamp(parse_iso(t)),
+                "rangeMeters": ranges_by_time.get(t),
+                "files": by_stamp[t],
+            }
+            for t in sorted(by_stamp)
+        ],
+        "issues": {
+            "failed": [{"time": t, "variant": v, "error": w} for (t, v, w) in failed],
+            "skippedOffTarget": [{"time": t, "boresightOffDeg": round(ang, 4)}
+                                 for (t, ang) in offtarget],
+        },
     }
     with open(os.path.join(a.out, "series.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
@@ -510,17 +765,19 @@ def main():
                  # above is this machine's and means nothing to whoever receives the data
                  opcname=next((os.path.splitext(f)[0] for f in sorted(os.listdir(a.opc))
                                if f.endswith(".opcx")), os.path.basename(os.path.abspath(a.opc))),
-                 start=iso(epochs[0]), end=iso(epochs[-1]),
-                 interval=a.interval, count=count, span=span,
+                 start=times[0], end=times[-1],
+                 interval=interval, count=count, span=span,
                  rotations=span / ROTATION_HOURS,
                  rmin=(min(rs) / 1000.0 if rs else 0.0), rmax=(max(rs) / 1000.0 if rs else 0.0),
                  width="1020x1020", gain=a.gain,
                  nstack=len(chosen), stackvariant=a.stack_variant,
+                 folder=os.path.basename(os.path.abspath(a.out)),
+                 tree=folder_tree(sorted(vdir), chosen, a.stack_variant, scene),
                  scene=os.path.basename(scene) if scene else "ImageSeries.pro3d (not written)")
     print("wrote %s" % readme)
 
     if failed:
-        print("\n%d of %d renders FAILED:" % (len(failed), count * len(variants)))
+        print("\n%d of %d renders FAILED:" % (len(failed), run_attempts))
         for t, v, w in failed:
             print("   %s %-6s  %s" % (t, v, w))
     if bad:

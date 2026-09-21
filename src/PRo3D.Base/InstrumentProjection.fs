@@ -61,8 +61,16 @@ module InstrumentProjection =
     let private fovs =
         Map.ofList [
             // name, (vertical fov in degrees, aspect = width / height)
-            "HERA_AFC-1",         (5.5306897076421, 1.0)
-            "HERA_AFC-2",         (5.5306897076421, 1.0)
+            // 5.50 exactly: hera_afc_v06.ti declares INS-91110_FOV_REF_ANGLE =
+            // INS-91120_FOV_REF_ANGLE = 2.75 deg half-angle, and the detector agrees
+            // (1024 px x 93.7 urad IFOV = 5.4975 deg). The previous 5.5306897076421
+            // corresponded to a ~106.0 mm focal length against the IK's ~106.7 and was
+            // 0.558 % too wide -- ~2.8 px of radial error at the corner of a 1020 px
+            // frame. It never showed up in our own tests because the same value was used
+            // to render and to reconstruct, so the error cancelled; against a real AFC
+            // frame it does not. Still hardcoded -- see #801 for reading it via getfov.
+            "HERA_AFC-1",         (5.50, 1.0)
+            "HERA_AFC-2",         (5.50, 1.0)
             "HERA_HSH",           (15.23999,        409.0 / 217.0)
             // hera_milani_aspect_v02.ti: INS-9102120 (NIR1) FOV_REF_ANGLE/FOV_CROSS_ANGLE
             // are half-angles of 3.35/2.7 degrees -> full FOV 6.7 x 5.4 degrees.

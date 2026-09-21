@@ -173,3 +173,67 @@ def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso
 
     d["scenePath"] = out
     json.dump(d, open(out, "w", encoding="utf-8"), indent=2)
+
+
+# ---------------------------------------------------------------------------------
+# Independent reference renderer: SPICE's own DSK shape model, ray-cast with spiceypy.
+#
+# Shares nothing with PRo3D but the kernels, so it is a genuine cross-check rather than a
+# second opinion from the same code. See docs/ShapeModelCrosscheck.md.
+#
+# Rays follow the IK's detector layout (+X image right, +Y image DOWN, boresight +Z), the
+# same convention PRo3D uses after the specialTrafos fix, so the two line up with no
+# transform.
+
+def dsk_render(utc, instrument, target, observer, frame, size, fov_deg):
+    """One ray-cast frame. Kernels must already be furnshed. Returns (image, hit mask).
+
+    Only the body's projected bounding box is traced: it covers a few percent of the
+    frame, and a miss costs a raised SPICE error plus a reset, so tracing the full grid
+    spends most of its time proving that space is empty.
+
+    Still the expensive path, and it scales with how much of the frame the body fills.
+    Measured at 1020x1020: ~50 s a frame on the 2027-02-25 window, where the body covers
+    8 % of the frame (~84k rays hit). It does not parallelise across processes -- CSPICE
+    reads the DSK in 1 KB records and the per-read overhead dominates.
+    """
+    import numpy as np
+    import spiceypy as sp
+    et = sp.str2et(utc)
+    half = np.tan(np.radians(fov_deg / 2.0))
+    img = np.zeros((size, size), np.float32)
+    hit = np.zeros((size, size), bool)
+
+    pos, _ = sp.spkpos(target, et, "J2000", "NONE", observer)
+    dist = float(np.linalg.norm(pos)) * 1000.0
+    radius = float(max(sp.bodvrd(target, "RADII", 3)[1])) * 1000.0
+    v = sp.pxform("J2000", instrument, et) @ (pos / np.linalg.norm(pos))
+    if v[2] <= 0.0:
+        return img, hit                       # body behind the camera
+    cx, cy = v[0] / v[2], v[1] / v[2]         # tangent-plane centre
+    ang = (radius / dist) * 1.35              # angular radius plus margin
+    px = lambda t: (t / half + 1.0) * 0.5 * size - 0.5
+    i0, i1 = int(np.floor(px(cx - ang))), int(np.ceil(px(cx + ang)))
+    j0, j1 = int(np.floor(px(cy - ang))), int(np.ceil(px(cy + ang)))
+    i0, j0 = max(0, i0), max(0, j0)
+    i1, j1 = min(size - 1, i1), min(size - 1, j1)
+
+    for j in range(j0, j1 + 1):
+        y = (2.0 * (j + 0.5) / size - 1.0) * half      # +Y is image DOWN, per the IK
+        for i in range(i0, i1 + 1):
+            x = (2.0 * (i + 0.5) / size - 1.0) * half
+            try:
+                spoint = sp.sincpt("DSK/UNPRIORITIZED", target, et, frame,
+                                   "NONE", observer, instrument, [x, y, 1.0])[0]
+            except Exception:
+                sp.reset(); continue
+            hit[j, i] = True
+            try:
+                f = sp.illumf("DSK/UNPRIORITIZED", target, "SUN", et, frame,
+                              "NONE", observer, spoint)
+            except Exception:
+                sp.reset(); continue
+            mu0, mu = np.cos(f[3]), np.cos(f[4])
+            if mu0 > 0.0 and mu > 0.0 and f[6]:        # f[6] = lit: DSK self-shadowing
+                img[j, i] = 2.0 * mu0 / (mu0 + mu)     # Lommel-Seeliger
+    return img, hit
