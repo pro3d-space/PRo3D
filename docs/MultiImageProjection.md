@@ -1,30 +1,61 @@
 # Multi-Image Projection
 
-![a stack of two HERA AFC images projected onto Dimorphos](images/multiProjection-stack.png)
+![four views of Dimorphos: the DRACO mosaic alone, the same view with four AFC images projected, a second direction, and a hovered image's projector frustum](images/multiProjection-teaser.png)
 
 Project an **ordered stack of up to 32 same-instrument images** onto a surface
 at once — e.g. a flyby sequence over an asteroid. Lives in the GIS tab under
-*Projected Images*. Where images overlap, the image **higher in the stack wins**
-(painter's order, opaque); the opacity slider blends the stack's result with
-the surface texture underneath.
+*Projected Images*.
+
+Order and opacity are both set in the GUI:
+
+- **Order** — where images overlap, the one **higher in the stack wins**
+  (painter's order, opaque). Reorder with ↑ / ↓ in the stack panel.
+- **Opacity** — *Projection Settings → Image Opacity* blends the stack's result
+  with the surface texture underneath.
+
+Panels 1 and 2 above are the same camera on the same body. Dimorphos carries its
+DRACO mosaic, which does not cover it entirely: from this direction **72% of the
+visible body is unobserved** and renders black. Four AFC frames bring that to
+**7%**.
 
 # Workflow
 
 ## 1. Set up the scene
 
-The projection surface needs a GIS **entity and reference frame** assigned
-(GIS tab → *Surfaces* — e.g. entity `Dimorphos`, frame `DIMORPHOS_FIXED`), and
-a SPICE kernel with coverage for the observation epochs must be loaded. Watch
-out: the entity must be the body the OPC actually is — assigning `Didymos` to a
-Dimorphos OPC draws it a kilometre off.
+Pick the body under **Reference System** in the top bar. That sets the
+[scene body](SceneBody.md), and a surface with no GIS assignment of its own
+belongs to it — so for a single-body scene there is nothing else to set. A SPICE
+kernel covering the observation epochs must be loaded.
+
+For surfaces of *other* bodies, assign entity and frame explicitly in
+GIS tab → *Surfaces*. Two things to watch:
+
+- The entity must be the body the OPC actually is — assigning `Didymos` to a
+  Dimorphos OPC draws it a kilometre off.
+- Assign **both** or **neither**. A surface with a body but no frame, or a frame
+  but no body, stays unplaced.
+
+The walkthrough below uses the Dimorphos OPC that ships with
+[PRo3D.Resources.TestData](https://github.com/pro3d-space/PRo3D.Resources.TestData):
+
+```
+HERA/Dimorphos_opc/Dimorphos/
+```
 
 ## 2. Import a folder of images
 
 *Projected Images → Import Directory*. Every image of the folder
 (`.tif/.png/.jpg/.exr`, each with its `.mbi.json` sidecar) lands in the
-**library** at the bottom of the tab: sortable by observation date and
-distance, with instrument, distance and observation date per image. Sorting
-the library never changes what is projected.
+**library** at the bottom of the tab, with instrument, distance and observation
+date per image, sortable by date or distance. Sorting never changes what is
+projected.
+
+The four AFC-1 frames used throughout this page are in the same test-data
+repository:
+
+```
+HERA/Dimorphos_opc/AFC_2027-03-21/
+```
 
 ![the Projected Images section: import, stack panel, library](images/multiProjection-gisTab.png)
 
@@ -37,35 +68,76 @@ Settings and the selected image's 2D preview fold away into the
 | **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
 | **Transfer Function** | on (default): samples go through the per-image min/max remap and the colour map, which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source |
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
-| **Orientation Source** | where the pointing comes from — **MBI** (default) or **SPICE**; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
-| lighting, boresight registration | as before |
+| **Orientation Source** | where the pointing comes from — `MbiBased` (default) or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
 
 ## 3. Find images by hovering
 
-**Hovering a library row previews that image live in 3D** as if it were on top
-of the stack — this is the workflow for finding good images. The hovered
-image's **footprint** shows as a green outline on the surface plus the
-instrument frustum as a wireframe:
+**Hovering a library row previews that image in 3D as the top layer of the
+stack.** This is the workflow for finding good images: sweep the library and
+watch each one land. Nothing is added — move the pointer away and the preview is
+gone. Hovering a row whose image is already *in* the stack does not duplicate its
+layer; it only draws the two markers below.
 
-![hovering an image: live preview plus frustum wireframe](images/multiProjection-hover.png)
+Alongside the preview, two things are drawn for the hovered image alone:
+
+- its **projector frustum**, a green wireframe from the instrument to the body,
+- a **green outline** wherever the edge of its footprint crosses the terrain.
+
+![hovering an image: the projector frustum drawn from the instrument to Dimorphos](images/multiProjection-hover.png)
+
+The frustum is drawn at the instrument's real standoff, so pull the camera back
+to see it whole — above, the camera is 795 m out and the projector 8.4 km.
+
+The outline appears only where a footprint *edge* falls on the terrain. The
+AFC-1 frames here were taken from 6.7–8.4 km; at 5.53° that is a footprint
+650–810 m across, which covers the 154 m body entirely, so none is drawn.
+
+**Selecting** a row (its checkbox) is a different thing: it opens that image's 2D
+preview and makes its min/max and colour map drive the whole stack's legend. On
+its own it projects nothing.
 
 ## 4. Build the stack
 
 The **+** in a row adds the image to the top of the **projection stack**
 (cap: 32). The stack panel lists the projected images top-first with
-↑ / ↓ to reorder, ✕ to remove, and a count indicator. Hovering a stack row
-highlights its footprint without changing the rendering.
+↑ / ↓ to reorder, ✕ to remove, and a count indicator.
+
+![a stack of HERA AFC images projected onto Dimorphos](images/multiProjection-stack.png)
+
+## 4a. Does it actually land? Slide the opacity
+
+The AFC images in the test data were simulated from this same shape model with
+`pro3d-tool simulate-image`, so a correct projection lands exactly on the texture
+underneath. Drag *Image Opacity* from 0 to 1 and watch:
+
+![the projected image at half opacity, blended with the DRACO texture](images/multiProjection-opacity-050.png)
+
+- **Nothing shifts or doubles** — image and texture coincide.
+- **A ghost or doubled crater edge** — the projection is landing in the wrong
+  place; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain).
+
+Measured on the shipped test data by `tests-ui/src/probe-docs-shots.ts`: at opacity
+0 the frame is **pixel-identical** to the bare surface, and at opacity 1 **7.9%**
+of it differs. That residue is the image's own noise and shading. A projection
+landing in the wrong place moves crater edges, which shows up as a much larger
+difference concentrated along them.
+
+Set two things first, or the comparison is meaningless: **Transfer Function off**
+(otherwise you are comparing a false-coloured image against a greyscale texture)
+and **Orientation Source → `MbiBased`** (the sidecar pointing the frame was
+generated with).
 
 ## 5. Fly to an image
 
-The paper-plane button (library and stack rows) puts the camera onto that
+The location-arrow button (library and stack rows) puts the camera onto that
 image's **projector axis**: forward along the instrument boresight, standing
 off just far enough to frame the instrument's footprint — the rendered view
 then corresponds to what the instrument saw:
 
-![after fly-to: the camera on the image's projector axis](images/multiProjection-flyTo.png)
+![after fly-to: the camera on the image's projector axis, the body small inside the instrument's much wider footprint](images/multiProjection-flyTo.png)
 
-Two things to know:
+The body sits small in that frame on purpose: what is framed is the **footprint**,
+and for these AFC-1 images it is 650-810 m across against a 154 m body.
 
 - **It also sets the scene's observation time** to the image's epoch, so the
   sun, the body's placement and everything else SPICE-driven match the moment
@@ -79,10 +151,12 @@ image itself).
 
 ## 6. Where do my images overlap?
 
-*Projection Settings → Visibility → RelativeCount* colors the surface by how
-many **stack** layers cover each fragment (blue = few … red = many):
+*Projection Settings → Visibility → RelativeCount* tints the surface by the
+**fraction** of the stack that covers each fragment — not by an absolute count,
+so with a two-image stack a single covering layer already reads as half. The tint
+is blended at 20% over the surface colour:
 
-![coverage view: how many stack layers cover each fragment](images/multiProjection-coverage.png)
+![coverage view: the surface tinted by what fraction of the stack covers it](images/multiProjection-coverage.png)
 
 # Data expectations
 
@@ -108,8 +182,8 @@ the image's pointing comes from, and the two modes fail in opposite ways:
 
 | mode | where the pointing comes from |
 |---|---|
-| **SPICE** | Nowhere in the image. The spacecraft position comes from SPICE at the image's epoch, but the camera is then simply aimed at the **body centre** with a fixed up-vector — `InstrumentProjection.getLookAt` computes an attitude and discards it. Every image is painted as if it had been shot dead-centre with one roll, so a frame that was off-centre or rolled lands on the body but its features do not line up. |
-| **MBI** (default) | The image's own measured attitude (`SC_QUAT`) and range (`TRG_POS`) from its sidecar. Correct when the sidecar is — and badly wrong when it is not, because a mis-stated pointing is followed faithfully. |
+| `Spice` | Nowhere in the image. The spacecraft position comes from SPICE at the image's epoch, but the camera is then simply aimed at the **body centre** with a fixed up-vector — `InstrumentProjection.getLookAt` computes an attitude and discards it. Every image is painted as if it had been shot dead-centre with one roll, so a frame that was off-centre or rolled lands on the body but its features do not line up. |
+| `MbiBased` (default) | The image's own measured attitude (`SC_QUAT`) and range (`TRG_POS`) from its sidecar. Correct when the sidecar is — and badly wrong when it is not, because a mis-stated pointing is followed faithfully. |
 
 So "lands on the body but does not match it" points at the first mode, and
 "does not land at all" points at the second plus a sidecar problem.
