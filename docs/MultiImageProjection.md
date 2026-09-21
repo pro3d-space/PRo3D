@@ -14,9 +14,9 @@ Order and opacity are both set in the GUI:
   with the surface texture underneath.
 
 Panels 1 and 2 above are the same camera on the same body. Dimorphos carries its
-DRACO mosaic, which does not cover it entirely: from this direction **72% of the
-visible body is unobserved** and renders black. Four AFC frames bring that to
-**7%**.
+DRACO_1 mosaic, which does not cover it entirely: from this direction **42% of the
+visible body is unobserved**. Four AFC frames bring that to **4%**. Both panels are
+regenerated from the shipped test data by `tests-ui/src/probe-teaser.ts`.
 
 # Workflow
 
