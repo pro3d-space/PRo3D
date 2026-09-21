@@ -41,7 +41,7 @@ const ROW_END = Date.UTC(2026, 11, 16, 0, 0, 0);
 const ROW_HOURS = (ROW_END - ROW_START) / 3_600_000;
 const dateAt = (v: number) => new Date(ROW_START + (ROW_END - ROW_START) * v);
 
-/** scan far enough to see at least two lit-fraction minima, i.e. two full turns */
+/** scan far enough to cross at least two dark phases, i.e. two full turns */
 const SCAN_TO = 0.26;
 const SCAN_STEPS = 26;
 const STRIP = 6;
@@ -176,25 +176,33 @@ async function main() {
             );
         }
 
-        // Local minima of the lit fraction are one turn apart. Require a margin, so noise
-        // on a 27-sample curve cannot invent a minimum and silently divide the period down.
-        const MARGIN = 0.02;
-        const minima = scan.filter((p, i) =>
-            i > 0 && i < scan.length - 1 &&
-            p.lit + MARGIN < scan[i - 1].lit && p.lit + MARGIN < scan[i + 1].lit
-        );
-        if (minima.length < 2)
+        // One turn separates successive darkest points. Do NOT look for strict local
+        // minima: the curve bottoms out on a PLATEAU (two adjacent samples both at 0.8%),
+        // so a strict test with a margin finds none at all. Take every sample in the
+        // bottom band instead and cluster the adjacent ones; each cluster is one night.
+        const peak = Math.max(...scan.map((p) => p.lit));
+        const floor = peak * 0.12;
+        const dark = scan.map((p, i) => ({ ...p, i })).filter((p) => p.lit <= floor);
+        const clusters: Array<typeof dark> = [];
+        for (const p of dark) {
+            const last = clusters[clusters.length - 1];
+            if (last && p.i - last[last.length - 1].i <= 1) last.push(p);
+            else clusters.push([p]);
+        }
+        if (clusters.length < 2)
             throw new Error(
-                `found ${minima.length} lit-fraction minima in 0..${SCAN_TO}; cannot measure the ` +
-                `rotation period, and a hard-coded fallback would make the figure a guess`
+                `found ${clusters.length} dark phases in 0..${SCAN_TO} (floor ${(floor * 100).toFixed(1)}%); ` +
+                `cannot measure the rotation period, and a hard-coded fallback would make the figure a guess`
             );
-        const period = (minima[minima.length - 1].v - minima[0].v) / (minima.length - 1);
+        const centre = (c: typeof dark) => c.reduce((a, p) => a + p.v, 0) / c.length;
+        const period = (centre(clusters[clusters.length - 1]) - centre(clusters[0])) / (clusters.length - 1);
         const hours = period * ROW_HOURS;
-        // one scan step is the resolution of this measurement -- quote it, do not imply more
         const resolution = (SCAN_TO / SCAN_STEPS) * ROW_HOURS;
         console.log(
-            `\nminima at ${minima.map((m) => m.v.toFixed(3)).join(", ")} -> one turn = ` +
-            `${period.toFixed(3)} of the row = ${hours.toFixed(1)} h (+/- ${resolution.toFixed(1)} h, one scan step)`
+            `
+dark phases centred at ${clusters.map((c) => centre(c).toFixed(3)).join(", ")} -> ` +
+            `one turn = ${period.toFixed(3)} of the row = ${hours.toFixed(1)} h ` +
+            `(+/- ${resolution.toFixed(1)} h, one scan step)`
         );
         console.log(`the row is ${(1 / period).toFixed(1)} turns end to end`);
 
@@ -202,7 +210,7 @@ async function main() {
         // sample [0, period) so the six frames span one turn without repeating the start
         const panels: Array<{ file: string; caption: string; note: string }> = [];
         for (let i = 0; i < STRIP; i++) {
-            const v = minima[0].v + (period * i) / STRIP;
+            const v = centre(clusters[0]) + (period * i) / STRIP;
             await setSlider(gis, v);
             const name = `strip-${i}.png`;
             const s = measure(await settled(render, path.join(work, name)));
