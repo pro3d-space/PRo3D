@@ -57,6 +57,29 @@ came out as a lumpy blob rather than an ellipse, which is what the user manual's
 to show. Set the scene body ([SceneBody.md](SceneBody.md)) and the outline is a real ellipse draped over
 the terrain.
 
+## Test
+
+`TC-3.6` in `src/Tests/Features/Section03_DrawingAnnotations.fs` covers the model side
+against a synthetic surface sampler: geometry, `Projection.Sky`, and an outline of more
+than three points.
+
+What a unit test cannot see is the shape the *real* drape produces, so
+`tests-ui/tests/ellipse-annotation.spec.ts` draws an AxisEllipse on the Dimorphos OPC and
+reads the drawn curve back out of the render: it thins the coloured band to one point per
+angular sector and least-squares fits `p·u² + q·v² = 1` in the curve's principal frame. A
+correct drape sits on its own fitted ellipse to within a mean residual of 0.018; the
+body-less figure described above scores 0.097, and its 95th percentile 0.251 against
+0.041 — a 5x gap, so the check can be strict without being flaky. The spec also requires
+the outline to be closed (no angular sector empty, which a drape that failed to reproject
+part of the curve would leave behind) and 201 points long (`planeSampleNumber` + 1).
+
+Its second case is the gate: on a scene left in J2000, where the planet stays `None`, the
+ellipse entries must be disabled and carry "needs a reference body", while `Line` and
+`Polyline` stay available.
+
+Run it with `PRO3D_DOC_SHOTS=1` to also refresh the ellipse figure in the short user
+manual.
+
 ## While drawing, there is almost no feedback
 
 Ellipses generate no segments while they are being picked (`allowSegmentGeneration` in

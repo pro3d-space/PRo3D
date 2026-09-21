@@ -47,6 +47,7 @@ npm run test:projection                   # projection end to end, see below
 | `PRO3D_E2E_SCENE_EPOCH` | scene time for its cross-epoch fly-to case | 14:00:00 |
 | `PRO3D_PYTHON` | interpreter with numpy, for the data generator | `python` |
 | `PRO3D_MAP_EXE` | standalone map projection app for `map-projection` | `../bin/Release/net9.0/PRo3D.MapProjection.exe` |
+| `PRO3D_DOC_SHOTS` | `1` also writes the screenshots a spec takes into the documentation (`ellipse-annotation` → the manual's `pics`) | unset |
 
 Current specs:
 
@@ -60,6 +61,7 @@ Current specs:
 | `window-layouts` | window layouts (docs/WindowLayouts.md): built-in layouts, close/reopen, reload and restart restore, the layout library, the sidecar beside saved scenes (a failing sidecar never fails the save), the offer when opening a scene with another layout, broken layout files reported to the user, popouts. Each case uses its own `PRO3D_LAYOUT_DIR` |
 | `map-projection` | the map projection panel (#772, docs/MapProjectionView.md): the standalone `PRo3D.MapProjection.exe` draws the synthetic annotations (`fixtures/map-projection-annotations.pro3d.ann`) and the graticule where the projection puts it, dragging moves the map by the drag, polar north puts the prime meridian below the pole, a planet gets the hint; PRo3D's `?page=mapprojection` shows the same map. Needs `dotnet build src/PRo3D.MapProjection -c Release` |
 | `scene-body` | the planet and the GIS observed body are one setting (#758): a GIS-only scene gets its planet on load and map view navigates; a J2000 scene loads unchanged and switches to body-fixed on request; picking the planet sets up the GIS |
+| `ellipse-annotation` | an AxisEllipse drawn on Dimorphos really is an ellipse *on the terrain*: the drawn curve is read back out of the render and fitted, which the manual's old body-less figure fails by 5x; the outline is closed and 201 points long; and with no reference body the ellipse entries are greyed out with their reason. Produces the manual's ellipse figure |
 
 ### `projection-e2e` — generate, project, compare
 
