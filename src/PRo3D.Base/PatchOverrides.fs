@@ -9,19 +9,30 @@ open Aardvark.SceneGraph.Opc
 type Patch = Aardvark.SceneGraph.Opc.Patch
 
 module Patch =
-   let extractTexturePath (opcPaths : OpcPaths) (patchInfo : PatchFileInfo) (texNumber : int) =
+   let private tryFindTex (extensions : string list) (path : string) =
+        extensions |> List.tryPick (fun ext ->
+            let current = System.IO.Path.ChangeExtension(path, ext)
+            if Prinziple.fileExists current then Some current else None
+        )
+
+   let tryExtractTexturePath (opcPaths : OpcPaths) (patchInfo : PatchFileInfo) (texNumber : int) =
         let t = patchInfo.Textures |> List.item texNumber
         let fn = t.fileName.Replace('\\',System.IO.Path.DirectorySeparatorChar)
         let sourcePath = opcPaths.Images_DirAbsPath +/ fn
-        let extensions = [ ".dds"; ".tif"; ".tiff"; ".exr"]
+        // attribute name is the folder containing the per-patch texture file
+        // (fn is typically "<AttributeName>/<PatchName>.<ext>")
+        let attributeName =
+            match System.IO.Path.GetDirectoryName(fn) with
+            | null | "" -> System.IO.Path.GetFileNameWithoutExtension(fn)
+            | d -> d
+        match tryFindTex [ ".dds"; ".tif"; ".tiff"; ".exr"] sourcePath with
+        | Some t -> Some (t, attributeName)
+        | _      -> None
 
-        let rec tryFindTex exts path =
-            match exts with
-            | x::xs ->
-                let current = System.IO.Path.ChangeExtension(path,x)
-                if Prinziple.fileExists current then current else tryFindTex xs path
-
-            | [] ->
-                failwithf "texture not found: %s" path
-
-        tryFindTex extensions sourcePath
+   let extractTexturePath (opcPaths : OpcPaths) (patchInfo : PatchFileInfo) (texNumber : int) =
+        match tryExtractTexturePath opcPaths patchInfo texNumber with
+        | Some (path, _) -> path
+        | None ->
+            let t = patchInfo.Textures |> List.item texNumber
+            let fn = t.fileName.Replace('\\',System.IO.Path.DirectorySeparatorChar)
+            failwithf "texture not found: %s" (opcPaths.Images_DirAbsPath +/ fn)

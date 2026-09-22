@@ -212,3 +212,61 @@ module MultiBandReader =
             Result.Ok { width = width; height = height; bands = samplesPerPixel; buffers = Float32Bands bands; format = Float32 }
         | _ ->
             Result.Error $"Unsupported SAMPLEFORMAT={sampleFormat} BITSPERSAMPLE={bitsPerSample}"
+/// Writing single-band float32 TIFFs.
+///
+/// Plain TIFF, deliberately with no georeferencing tags: the rasters this produces live
+/// in an instrument's image frame, which has no map projection to encode. GDAL, QGIS and
+/// anything else that speaks baseline TIFF read them as unreferenced float rasters.
+///
+/// NaN is the nodata value. Callers use it for fragments with no meaningful value (no
+/// surface hit, back-facing), because 0 is a perfectly plausible angle and would be
+/// silently indistinguishable from real data.
+module Float32Writer =
+
+    /// Write `data` (row-major, length width*height) as a single-band float32 TIFF.
+    ///
+    /// Rows are written top-down (ORIENTATION_TOPLEFT). Callers holding a framebuffer
+    /// readback must flip it themselves if their origin is bottom-left -- doing it here
+    /// would hide the convention mismatch rather than resolve it.
+    let write (path : string) (width : int) (height : int) (data : float32[]) : Result<unit, string> =
+        if width <= 0 || height <= 0 then
+            Result.Error $"invalid dimensions {width}x{height}"
+        elif isNull (box data) then
+            Result.Error "data is null"
+        elif data.Length <> width * height then
+            Result.Error $"data length {data.Length} does not match {width}x{height} = {width * height}"
+        else
+
+        try
+            use tif = Tiff.Open(path, "w")
+            if isNull tif then
+                Result.Error $"could not open '{path}' for writing"
+            else
+
+            tif.SetField(TiffTag.IMAGEWIDTH, width) |> ignore
+            tif.SetField(TiffTag.IMAGELENGTH, height) |> ignore
+            tif.SetField(TiffTag.SAMPLESPERPIXEL, 1) |> ignore
+            tif.SetField(TiffTag.BITSPERSAMPLE, 32) |> ignore
+            tif.SetField(TiffTag.SAMPLEFORMAT, SampleFormat.IEEEFP) |> ignore
+            tif.SetField(TiffTag.ORIENTATION, Orientation.TOPLEFT) |> ignore
+            // SEPARATE rather than the more usual CONTIG. For a single band the two are
+            // equivalent, and MultiBandReader above only accepts SEPARATE -- so writing it
+            // keeps these rasters readable by PRo3D itself, not just by external tools.
+            tif.SetField(TiffTag.PLANARCONFIG, PlanarConfig.SEPARATE) |> ignore
+            tif.SetField(TiffTag.PHOTOMETRIC, Photometric.MINISBLACK) |> ignore
+            tif.SetField(TiffTag.COMPRESSION, Compression.NONE) |> ignore
+            tif.SetField(TiffTag.ROWSPERSTRIP, tif.DefaultStripSize(0)) |> ignore
+
+            let rowBytes = width * 4
+            let scanline = Array.zeroCreate<byte> rowBytes
+            let mutable failedRow = -1
+
+            for row = 0 to height - 1 do
+                if failedRow < 0 then
+                    Buffer.BlockCopy(data, row * rowBytes, scanline, 0, rowBytes)
+                    if not (tif.WriteScanline(scanline, row)) then failedRow <- row
+
+            if failedRow >= 0 then Result.Error $"WriteScanline failed at row {failedRow}"
+            else Result.Ok ()
+        with e ->
+            Result.Error $"writing '{path}' failed: {e.Message}"

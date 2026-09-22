@@ -53,13 +53,15 @@ module RimfaxTraverseApp =
                 | Coordinate.TwoDim y ->
                     //x ... lon
                     //y ... lat
-                    let latLonAlt = 
+                    let latLonAlt =
                         V3d (
-                            y.Y, 
+                            y.Y,
                             360.0 - y.X,
                             0 // orti implements the correct projection
                         )
-                    CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
+                    match CooTransformation.tryGetXYZFromLatLonAlt' latLonAlt Planet.Mars with
+                    | Some v -> v
+                    | None   -> failwithf "[RIMFAXTraverse] could not convert latLonAlt %A on Mars" latLonAlt
                 | Coordinate.ThreeDim y ->
                     let latLonAlt =  //y.YXZ
                         V3d (
@@ -67,7 +69,9 @@ module RimfaxTraverseApp =
                             360.0 - y.X,
                             y.Z
                         )
-                    CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars 
+                    match CooTransformation.tryGetXYZFromLatLonAlt' latLonAlt Planet.Mars with
+                    | Some v -> v
+                    | None   -> failwithf "[RIMFAXTraverse] could not convert latLonAlt %A on Mars" latLonAlt
 
         let parseFeature (idx : int) (x : GeoJsonFeature) =
             let locations = 

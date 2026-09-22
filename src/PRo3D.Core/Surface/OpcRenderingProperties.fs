@@ -6,11 +6,12 @@ open FSharp.Data.Adaptive
 open System.Collections.Generic
 open Aardvark.GeoSpatial.Opc.PatchLod
 open Aardvark.GeoSpatial.Opc
+open PRo3D.Base.Annotation
 
 [<AutoOpen>]
 module SgExtensions =
 
-    module Sg = 
+    module Sg =
 
         open Aardvark.Base.Ag
         open Aardvark.SceneGraph
@@ -20,7 +21,7 @@ module SgExtensions =
         type BodyApplicator(child : ISg, body : aval<Option<string>>) =
             inherit Sg.AbstractApplicator(child)
             member x.Body = body
-        
+
 
         [<Rule>]
         type BodySem() =
@@ -30,12 +31,51 @@ module SgExtensions =
                 let empty : aval<Option<string>> = AVal.constant None
                 s.Child?Body <- AVal.constant empty
 
-        type ProjectedImages = 
+        /// One layer of the projection stack (multi-image projection).
+        type ProjectedStackLayer =
+            {
+                /// The projector's view*proj in the surface's reference frame at
+                /// this image's own observation time. None when the projection
+                /// did not resolve (no metadata / no SPICE coverage) -- the
+                /// layer keeps its slot (a zero matrix in the uniform array, so
+                /// texture-array slices and matrices stay index-aligned) and
+                /// simply never covers a fragment.
+                trafo : Option<Trafo3d>
+                /// display min/max of this layer (the per-image false-color range)
+                minMax : V2f
+                /// image file feeding this layer's texture-array slice
+                texturePath : string
+                /// which band of a multi-band image is uploaded
+                channel : int
+            }
+
+        type ProjectedImages =
             {
                 imageProjection : aval<Option<Trafo3d>>
-                localImageProjectionTrafos : aval<array<Trafo3d>>
+                /// The projection stack, bottom -> top. Bounded by
+                /// ProjectedImages.maxCount; the stack shader consumes it as
+                /// fixed-size uniform arrays (matrices + min/max) plus a count,
+                /// and layer i samples slice i of the stack texture array.
+                stackProjections : aval<array<ProjectedStackLayer>>
+                /// InstrumentVisibilityMode.RelativeCount: tint fragments by
+                /// how many stack layers cover them (projectedStackCoverage)
+                stackCoverageEnabled : aval<bool>
+                /// The hovered image's own projector (surface frame, its obs
+                /// time) -- drives the hover-only footprint outline uniform and
+                /// the frustum wireframe (D5). None when nothing is hovered or
+                /// the projection does not resolve.
+                hoveredProjection : aval<Option<Trafo3d>>
+                /// Correct inward-wound OPC hierarchies for the projector-facing test
+                /// (see NormalWinding). Off: no patch is loaded to vote on, and the
+                /// projector matrices are exactly vp * Local2Global.
+                windingCorrection : aval<bool>
                 sunDirection : aval<Option<V3d>>
                 sunLightEnabled : aval<bool>
+                /// World -> sun-camera clip space for shadow mapping; None disables the
+                /// shadow lookup (HasShadowMap = false). Rides along here -- not as an
+                /// outer uniform -- because the per-patch uniform must compose the
+                /// patch's Local2Global in double precision (see projectionUniformMap).
+                lightViewProj : aval<Option<Trafo3d>>
             }
 
         type ProjectedImageApplicator(child : ISg, images : aval<Option<string>> -> aval<Option<ProjectedImages>>) =
@@ -47,7 +87,44 @@ module SgExtensions =
             member x.ProjectedImages(app : ProjectedImageApplicator, scope : Ag.Scope) =
                 app.Child?ProjectedImages <- app.Images
 
-        let applyBody (s : aval<Option<string>>) (sg : ISg) = 
+        type CrossSectionData =
+            {
+                polygon : Polygon2d
+                basis   : CrossSection.ProjectionBasis2d
+            }
+
+        type CrossSectionApplicator(child : ISg, data : aval<Option<CrossSectionData>>) =
+            inherit Sg.AbstractApplicator(child)
+            member x.CrossSectionData = data
+
+        [<Rule>]
+        type CrossSectionSem() =
+            member x.CrossSectionData(app : CrossSectionApplicator, scope : Ag.Scope) =
+                app.Child?CrossSectionData <- app.CrossSectionData
+            member x.CrossSectionData(s : Root<ISg>, scope : Ag.Scope) =
+                s.Child?CrossSectionData <- AVal.constant None
+
+        let applyCrossSection (data : aval<Option<CrossSectionData>>) (sg : ISg) =
+            CrossSectionApplicator(sg, data) :> ISg
+
+        /// Carries the body whose graticule (LatLon shader) should be baked into the
+        /// per-vertex lat/lon attribute. `None` -> overlay disabled on the surface, or a
+        /// non-planetary frame: the attribute is not computed (placeholder only).
+        type LatLonGridApplicator(child : ISg, planet : aval<Option<PRo3D.Base.Planet>>) =
+            inherit Sg.AbstractApplicator(child)
+            member x.LatLonGridPlanet = planet
+
+        [<Rule>]
+        type LatLonGridSem() =
+            member x.LatLonGridPlanet(app : LatLonGridApplicator, scope : Ag.Scope) =
+                app.Child?LatLonGridPlanet <- app.LatLonGridPlanet
+            member x.LatLonGridPlanet(s : Root<ISg>, scope : Ag.Scope) =
+                s.Child?LatLonGridPlanet <- AVal.constant None
+
+        let applyLatLonGrid (planet : aval<Option<PRo3D.Base.Planet>>) (sg : ISg) =
+            LatLonGridApplicator(sg, planet) :> ISg
+
+        let applyBody (s : aval<Option<string>>) (sg : ISg) =
             BodyApplicator(sg, s) :> ISg
 
         let applyProjectedImages' (s : aval<Option<string>> -> aval<Option<ProjectedImages>>) (sg : ISg) = 
@@ -67,13 +144,21 @@ module OpcRenderingExtensions =
         member x.ProjectedImages : aval<Option<string>> -> aval<Option<ProjectedImages>> = x?ProjectedImages
         member x.Body : aval<Option<string>> = x?Body
 
-    type Context = 
-        { 
-            footprintVP : aval<M44d> 
+    type Ag.Scope with
+        member x.CrossSectionData : aval<Option<Sg.CrossSectionData>> = x?CrossSectionData
+
+    type Ag.Scope with
+        member x.LatLonGridPlanet : aval<Option<PRo3D.Base.Planet>> = x?LatLonGridPlanet
+
+    type Context =
+        {
+            footprintVP : aval<M44d>
             modelTrafo: aval<Trafo3d>
             projectedImages : aval<Option<Sg.ProjectedImages>>
             texturesScope : obj
             agScope : Ag.Scope
+            crossSectionData : aval<Option<Sg.CrossSectionData>>
+            latLonGridPlanet : aval<Option<PRo3D.Base.Planet>>
         }
 
     let captureContext (n : PatchNode) (s : Ag.Scope) =
@@ -82,9 +167,13 @@ module OpcRenderingExtensions =
         let modelTrafo = s.ModelTrafo
         let body = s.Body
         let projectedImages = s.ProjectedImages s.Body
+        let crossSectionData = s.CrossSectionData
+        let latLonGridPlanet = s.LatLonGridPlanet
 
-        {   footprintVP = footprintVP; texturesScope = secondaryTexture; 
+        {   footprintVP = footprintVP; texturesScope = secondaryTexture;
             modelTrafo = modelTrafo;
             projectedImages = projectedImages
-            agScope = s 
+            agScope = s
+            crossSectionData = crossSectionData
+            latLonGridPlanet = latLonGridPlanet
         }  :> obj

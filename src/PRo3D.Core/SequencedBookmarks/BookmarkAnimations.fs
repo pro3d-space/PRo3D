@@ -30,6 +30,29 @@ module BookmarkAnimations =
         let frustum_ = SceneStateViewConfig.frustumModel_ >-> FrustumModel.frustum_
         let focal_   = SceneStateViewConfig.frustumModel_ >-> FrustumModel.focal_ >-> NumericInput.value_
 
+        /// Interpolates between two camera views over a fixed unit duration.
+        ///
+        /// Deliberately does not use Animation.Camera.interpolate: that primitive composes a
+        /// position and an orientation animation whose durations are derived from how far each
+        /// one travels, and a component that does not move collapses to zero duration and then
+        /// samples to its default value rather than holding still. Two bookmarks that share an
+        /// orientation but not a location - a pure dolly - therefore produced a correct position
+        /// with Unchecked.defaultof<Rot3d>, i.e. CameraView.orient loc (Rot3d()) sky, whose
+        /// forward is +Y: the camera stared off into the sky for the whole segment. Fully
+        /// coincident endpoints degenerated further, to a null CameraView.
+        ///
+        /// Sampling position and orientation together under one explicit duration removes the
+        /// dependency on how far either travels, so identical endpoints simply hold. This
+        /// mirrors what the snapshot path already does in SnapshotAnimation.lerpCamera, which
+        /// is why batch-rendered animations never showed the bug.
+        let cameraInterpolateSafe (src : CameraView) (dst : CameraView) : IAnimation<'Model, CameraView> =
+            Animation.create (fun (t : float) ->
+                let location = src.Location + (dst.Location - src.Location) * t
+                let orientation = Rot.SlerpShortest(src.Orientation, dst.Orientation, t)
+                CameraView.orient location orientation dst.Sky
+            )
+            |> Animation.seconds 1.0
+
         // interpolate ViewConfigModel for animation
         let interpVcm (src : SceneStateViewConfig) (dst : SceneStateViewConfig)
                 : IAnimation<'Model, SceneStateViewConfig> =
@@ -48,31 +71,19 @@ module BookmarkAnimations =
                                 |> Optic.set focal_   focal
                                 )
 
+        /// The observation time from `src` to `dst`; everything else is `dst`'s. A bookmark
+        /// contributes its time and camera source only (#758, docs/SceneBody.md), so the time
+        /// animates whether or not the bookmark names a camera source, observer or frame. (It
+        /// used to require all three, and an incomplete one yielded Animation.empty - whose
+        /// value is a null ObservationInfo.)
         let interpObservationInfo (src : Gis.ObservationInfo) (dst : Gis.ObservationInfo) =
-            match src.valuesIfComplete, dst.valuesIfComplete with
-            | Some (t1, o1, r1), Some (t2, o2, r2) -> 
-                let timeAnimation = 
-                    lerp src.time.date.Ticks dst.time.date.Ticks
-                    |> Animation.create
-                    |> Animation.seconds 1 // necessary?
-                    |> Animation.map (fun ticks ->
-                        let newCalendar =  {dst.time with date = new DateTime(ticks)}
-                        let info : Gis.ObservationInfo = 
-                            {
-                                target   = Some t2
-                                observer = Some o2
-                                referenceFrame = Some r2
-                                time     = newCalendar
-                            }                    
-                        info
-                    )
-
-                    
-                
-                timeAnimation
-            | _ -> 
-                Log.warn "[BookmarkAnimation] Incomplete observation info."
-                Animation.empty
+            // UTC ticks in, UTC kind out: a DateTime built from bare ticks is
+            // Unspecified, which SPICE reads as local time
+            lerp (Calendar.toUtc src.time.date).Ticks (Calendar.toUtc dst.time.date).Ticks
+            |> Animation.create
+            |> Animation.seconds 1 // necessary?
+            |> Animation.map (fun ticks ->
+                { dst with time = { dst.time with date = DateTime(ticks, DateTimeKind.Utc) } } : Gis.ObservationInfo)
 
 
         /// Creates an animation that interpolates between two bookmarks
@@ -84,7 +95,7 @@ module BookmarkAnimations =
             let pause = 
                 if src.delay.value > 0.0 then
                     let p = // creating interpolation here, because static version (Animation.create (fun _ -> src.cameraView)) fails in very specific circumstances (issue #456)
-                        Animation.Camera.interpolate  (src.bookmark.cameraView) (src.bookmark.cameraView)
+                        cameraInterpolateSafe (src.bookmark.cameraView) (src.bookmark.cameraView)
                         |> Animation.map (fun view -> 
                             {src with bookmark = {src.bookmark with cameraView = view}})
                     [p
@@ -92,13 +103,13 @@ module BookmarkAnimations =
                 else 
                     []
             
-            let toNext = 
-                let animCam = 
-                    Animation.Camera.interpolate  (src.bookmark.cameraView) (dst.bookmark.cameraView)
+            let toNext =
+                let animCam =
+                    cameraInterpolateSafe (src.bookmark.cameraView) (dst.bookmark.cameraView)
                     
-                let animCam = 
+                let animCam =
                     animCam
-                    |> Animation.map (fun view -> 
+                    |> Animation.map (fun view ->
                         {dst with bookmark = {dst.bookmark with cameraView = view}})
 
                 match src.sceneState, dst.sceneState with

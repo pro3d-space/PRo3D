@@ -1,0 +1,274 @@
+{
+    "instrument": "AFC2",
+    "fits_hdu_headers": [
+        {
+            "SIMPLE": {
+                "value": true,
+                "comment": "conforms to FITS standard"
+            },
+            "BITPIX": {
+                "value": -32,
+                "comment": ""
+            },
+            "NAXIS": {
+                "value": 2,
+                "comment": ""
+            },
+            "NAXIS1": {
+                "value": 1020,
+                "comment": ""
+            },
+            "NAXIS2": {
+                "value": 1020,
+                "comment": ""
+            },
+            "EXTEND": {
+                "value": true,
+                "comment": ""
+            },
+            "INSTRUME": {
+                "value": "AFC2",
+                "comment": ""
+            },
+            "ORIGIN": {
+                "value": "ESA - HERA",
+                "comment": "HERA imaging instruments"
+            },
+            "MISSPHAS": {
+                "value": "003_MARS_FLYBY",
+                "comment": "HERA Mission Phase ID"
+            },
+            "OSERV_ID": {
+                "value": "0009_MARS_SWINGBY",
+                "comment": "HERA Observation ID"
+            },
+            "FILENAME": {
+                "value": "AF2_0CO72A_250311T025652_1B.fits",
+                "comment": ""
+            },
+            "ORIGFILE": {
+                "value": "AF2_0CO72A_250311T025652_0.FITS",
+                "comment": ""
+            },
+            "SWCREATE": {
+                "value": "HERACAL",
+                "comment": "BME-MOGI HeraCal (c) 2024, 2025 G. Kovacs"
+            },
+            "DATE": {
+                "value": "2025-03-17T22:36:19",
+                "comment": "File creation time UTC"
+            },
+            "PROCLEVL": {
+                "value": "1B",
+                "comment": ""
+            },
+            "DATE-OBS": {
+                "value": "2025-03-11T02:56:52.653",
+                "comment": "Observation time UTC"
+            },
+            "SC_CLK": {
+                "value": "13376586:350174",
+                "comment": "Spacecraft clk start"
+            },
+            "OBJECT": {
+                "value": "UNK",
+                "comment": "Observation Target ID"
+            },
+            "EXPOSURE": {
+                "value": 0.000436,
+                "comment": "Exposure commanded [Sec]"
+            },
+            "CCDTEMP": {
+                "value": 286.61,
+                "comment": "detector temp [K] (13.46 [C])"
+            },
+            "AFC_IMAGE_TYPE": {
+                "value": "SCI",
+                "comment": "AFC science image"
+            },
+            "AFC_UNITID": {
+                "value": 2,
+                "comment": "Tm afc_unitId"
+            },
+            "AFC_BIN_EN": {
+                "value": 0,
+                "comment": "Tm afc_BIN_EN"
+            },
+            "AFC_BIN_FAC": {
+                "value": 0,
+                "comment": "Tm afc_BIN_FAC"
+            },
+            "AFC_TEMP_RAW": {
+                "value": 0,
+                "comment": "Tm afc_temp_raw"
+            },
+            "AFC_FULL_EXPOSURE": {
+                "value": 0,
+                "comment": "Tm afc_Rdclfullexp us"
+            },
+            "AFC_PIXEL_CLK": {
+                "value": 0,
+                "comment": "Tm afc_Rdfrpixclock"
+            },
+            "AFC_REFRLINES": {
+                "value": 0,
+                "comment": "Tm afc_Rdfrlines"
+            },
+            "TEMP_AFC_A_TEMP": {
+                "value": 289.44,
+                "comment": "AFC_A sensor temp [K] (16.29 [C])"
+            },
+            "TEMP_AFC_B_TEMP": {
+                "value": 286.61,
+                "comment": "AFC_B sensor temp [K] (13.46 [C])"
+            },
+            "SPICE_MK": {
+                "value": "hera_ops_v172_20250312_001",
+                "comment": "SPICE metakernel"
+            },
+            "SPICECLK": {
+                "value": "1/0013376586.01367",
+                "comment": "SPICE Sc Clk"
+            },
+            "SPICETIM": {
+                "value": "2025-03-11T02:56:52.825",
+                "comment": "SPICE Time"
+            },
+            "SUN_POSX": {
+                "value": 189441673.229,
+                "comment": "Sun position vector X [km]"
+            },
+            "SUN_POSY": {
+                "value": -142281416.0,
+                "comment": "Sun position vector Y [km]"
+            },
+            "SUN_POSZ": {
+                "value": -70427013.301,
+                "comment": "Sun position vector Z [km]"
+            },
+            "SOLAR_D": {
+                "value": 1.652217,
+                "comment": "Solar distance [AU]"
+            },
+            "EARTPOSX": {
+                "value": 42906095.27,
+                "comment": "Earth position vector X [km]"
+            },
+            "EARTPOSY": {
+                "value": -119612382.99,
+                "comment": "Earth position vector Y [km]"
+            },
+            "EARTPOSZ": {
+                "value": -60599274.213,
+                "comment": "Earth position vector Z [km]"
+            },
+            "EARTH_D": {
+                "value": 0.941087,
+                "comment": "Earth distance [AU]"
+            },
+            "TARGET": {
+                "value": "MARS BARYCENTER",
+                "comment": ""
+            },
+            "TRG_POSX": {
+                "value": -757865.528,
+                "comment": "Target position vector X [km]"
+            },
+            "TRG_POSY": {
+                "value": 701405.369,
+                "comment": "Target position vector Y [km]"
+            },
+            "TRG_POSZ": {
+                "value": 286617.65,
+                "comment": "Target position vector Z [km]"
+            },
+            "TRG_DIST": {
+                "value": 0.007164,
+                "comment": "Target distance [AU]"
+            },
+            "SC_QUAT0": {
+                "value": 0.69457825,
+                "comment": "Spacecraft quaternions"
+            },
+            "SC_QUAT1": {
+                "value": -0.57549785,
+                "comment": "Spacecraft quaternions"
+            },
+            "SC_QUAT2": {
+                "value": -0.18713807,
+                "comment": "Spacecraft quaternions"
+            },
+            "SC_QUAT3": {
+                "value": 0.38902779,
+                "comment": "Spacecraft quaternions"
+            },
+            "CAM_RA": {
+                "value": 137.266124,
+                "comment": "Camera RA [deg]"
+            },
+            "CAM_DEC": {
+                "value": 15.51931,
+                "comment": "Camera DEC [deg]"
+            },
+            "CAM_NAZ": {
+                "value": 11.239563,
+                "comment": "Cam. north azi.[deg]"
+            },
+            "SOL_ELNG": {
+                "value": 174.306732,
+                "comment": "Solar elongation [deg]"
+            },
+            "SW_CALIB": {
+                "value": "HERACAL BME 0.021",
+                "comment": "Calibration version"
+            }
+        },
+        {
+            "XTENSION": {
+                "value": "IMAGE",
+                "comment": "Text lines"
+            },
+            "BITPIX": {
+                "value": 8,
+                "comment": ""
+            },
+            "NAXIS": {
+                "value": 1,
+                "comment": ""
+            },
+            "NAXIS1": {
+                "value": 1604,
+                "comment": ""
+            },
+            "PCOUNT": {
+                "value": 0,
+                "comment": ""
+            },
+            "GCOUNT": {
+                "value": 1,
+                "comment": ""
+            },
+            "EXTNAME": {
+                "value": "ORIGHDR",
+                "comment": ""
+            }
+        }
+    ],
+    "bands": [
+        {
+            "label": "AFC2",
+            "description": "AFC gray image",
+            "exposure": 0.000436,
+            "index": 0,
+            "file_path": "AF2_0CO72A_250311T025652_1B_AFC2.tif"
+        }
+    ],
+    "product_information": {
+        "schema_id": "https://www.joanneum.at/jim/product_information.schema.json",
+        "schema_version": 7262,
+        "product_type": "FITS imported MultiBandImage (MBI)",
+        "product_state": "imported",
+        "creator_id": "Fits2Mbi",
+        "creation_datetime": "2025-10-16T10:33:34.023112+0000"
+    }
+}

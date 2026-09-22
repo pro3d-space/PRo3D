@@ -17,6 +17,7 @@ open PRo3D.Navigation2
 open Aardvark.UI
 open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation.Deprecated
 open Aardvark.Rendering
@@ -69,13 +70,7 @@ module Viewer =
         (viewerVerson        : string)
         : Model = 
 
-        let defaultDashboard =  DashboardModes.defaultDashboard //DashboardModes.defaultDashboard
-        let defaultDashboard = DashboardModes.gis
-        // use this one for PROVEX workflows if needed.
-        //let defaultDashboard = DashboardModes.provenance
-        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020   
-        
-        let viewConfigModel = 
+        let viewConfigModel =
             { ViewConfigModel.initial with showExplorationPointGui = startupArgs.showExplorationPoint }
 
         let applyProvenaceIfEnabled (m : Model) =
@@ -97,8 +92,7 @@ module Viewer =
                     referenceSystem       = { ReferenceSystem.initial with isVisible = startupArgs.showReferenceSystem }
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
-                    dockConfig            = defaultDockConfig                
-                    closedPages           = list.Empty 
+                    legacyDockConfig      = None
                     firstImport           = true
                     userFeedback          = ""
                     feedbackThreads       = ThreadPool.empty
@@ -112,22 +106,25 @@ module Viewer =
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                     screenshotModel       = ScreenshotModel.initial
                     gisApp                = Gis.GisApp.initial startupArgs.defaultSpiceKernelPath
+                    crossSectionModel     = CrossSectionModel.initial
                 }
 
             viewerVersion   = viewerVerson
-            dashboardMode   = defaultDashboard.name
+            layout          = LayoutApp.initial (LayoutLibrary.directory ())
             navigation      = navInit
 
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
+            annotationExport = AnnotationExportModel.initial
+            mapProjection   = PRo3D.MapProjection.MapProjectionApp.initial
             interaction     = Interactions.DrawAnnotation
             multiSelectBox  = None
             shiftFlag       = false
             picking         = false
             pivotType       = PickPivot.SurfacePivot
             ctrlFlag        = false
-            inverseFlag     = false
+            directToolMode  = false
 
             messagingMailbox = msgBox
             mailboxState     = MailboxState.empty
@@ -182,9 +179,15 @@ module Viewer =
 
             provenanceModel = ProvenanceModel.invalid
             surfaceIntersection   = None
+            cursorAttributes      = None
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()
+            outcropTraces   = OutcropTraceModel.initial
+            roseEnabled     = false
+            roseUsePolyline = false
+            roseUseDnS      = true
+            userPreferences      = UserPreferences.load ()
         } |> applyProvenaceIfEnabled
 
 

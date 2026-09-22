@@ -463,8 +463,10 @@ module GeologicalLogNuevo =
 
         let log = { log with contactPoints = log.contactPoints |> HashMap.alter contactId (fun _ -> Some p) }
 
-        let referenceElevation = 
-            CooTransformation.getElevation' planet log.referencePlane.centerOfMass
+        let referenceElevation =
+            match CooTransformation.tryGetElevation planet log.referencePlane.centerOfMass with
+            | Some v -> v
+            | None   -> failwithf "[GeologicalLog] could not get elevation for centerOfMass on planet %A" planet
 
         let up =
             CooTransformation.getUpVector log.referencePlane.centerOfMass planet
@@ -516,8 +518,10 @@ module GeologicalLogNuevo =
         (semApp         : SemanticsModel)
         (planet         : Planet) =
 
-        let referenceElevation = 
-            CooTransformation.getElevation' planet referencePlane.centerOfMass
+        let referenceElevation =
+            match CooTransformation.tryGetElevation planet referencePlane.centerOfMass with
+            | Some v -> v
+            | None   -> failwithf "[GeologicalLog] could not get elevation for centerOfMass on planet %A" planet
 
         let up =
             CooTransformation.getUpVector referencePlane.centerOfMass planet

@@ -53,20 +53,19 @@ module HeightValidatorApp =
                         north
                         model.validator.inclination.value
 
-                { model with 
-                    validator      = validator; 
-                    result         = HeightValidatorModel.computeResult validator; 
-                    validatorBrush = IndexList.empty 
-                }
+                let next = { model with validator = validator; validatorBrush = IndexList.empty }
+                match HeightValidatorModel.computeResult validator with
+                | Some r -> { next with result = r }
+                | None   -> next   // keep previous result; computeResult already logged
             | _ -> 
                 model
         | ChangeInclination a ->
 
-            let validator = (HeightValidatorModel.updateValidator model.validator a)
-           
-            let result = HeightValidatorModel.computeResult validator
+            let validator = HeightValidatorModel.updateValidator model.validator a
 
-            { model with validator = validator; result = result }
+            match HeightValidatorModel.computeResult validator with
+            | Some r -> { model with validator = validator; result = r }
+            | None   -> { model with validator = validator }   // keep previous result
         | _ ->
             model
 

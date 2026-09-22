@@ -141,7 +141,9 @@ module DebugKdTreesX =
                         //Log.line "cache miss %A- loading kdtree" kd.boundingBox
                     
                         let mutable tree = KdTrees.loadKdtree kd.kdtreePath
+                        Log.startTimed "loading kd tree: %s" kd.kdtreePath
                         let triangles = kd |> loadTriangles
+                        Log.stop()
                         
                         tree.KdIntersectionTree.ObjectSet <- triangles                                                            
                         tree, (HashMap.add key tree cache)
@@ -184,9 +186,20 @@ module DebugKdTreesX =
             Log.error "%A" e
             None,c
 
+/// Result of a KdTree intersection, including patch identification info
+/// needed for attribute extraction.
+type KdTreeHitInfo = {
+    hit       : ObjectRayHit
+    surface   : Surface
+    /// Bounding box key identifying which Level0KdTree (patch) was hit
+    hitBBox   : Box3d
+    /// The SgSurface that was hit (provides access to picking kdtrees and dataSource/PatchHierarchies)
+    sgSurface : SgSurface
+}
+
 module SurfaceIntersection =
 
-    let doKdTreeIntersection 
+    let doKdTreeIntersection
         (m             : SurfaceModel)
         (refSys        : ReferenceSystem)
         (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
@@ -195,30 +208,30 @@ module SurfaceIntersection =
         (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
         (loadedKdTrees : HashMap<string, ConcreteKdIntersectionTree>)
         (verboseLogging : bool)
-        : option<ObjectRayHit * Surface> * HashMap<_,_> = 
-        
+        : option<KdTreeHitInfo> * HashMap<_,_> =
+
         let mutable loadedKdTrees = loadedKdTrees
-        let activeSgSurfaces = 
+        let activeSgSurfaces =
             m.surfaces.flat
-            |> HashMap.toList 
-            |> List.choose (fun (id,leaf) -> 
+            |> HashMap.toList
+            |> List.choose (fun (id,leaf) ->
                 match m.sgSurfaces |> HashMap.tryFind id with
-                | Some s -> 
+                | Some s ->
                     if filterSurface id leaf s then Some s
                     else None
                 | _ -> None
             )
-            
-        let hits = 
-            activeSgSurfaces 
-            |> List.map (fun d -> d.picking, (m.surfaces.flat |> HashMap.find d.surface) |> Leaf.toSurface)                      
-            |> List.choose (fun (p ,surf) ->
+
+        let hits =
+            activeSgSurfaces
+            |> List.map (fun d -> d, d.picking, (m.surfaces.flat |> HashMap.find d.surface) |> Leaf.toSurface)
+            |> List.choose (fun (sgSurf, p, surf) ->
                 match p with
                 | Picking.NoPicking -> None
                 | Picking.KdTree kd ->
                     if kd.IsEmpty then Log.error "no kdtree loaded for %s" surf.name; None
-                    else                    
-                        //if flipZ then 
+                    else
+                        //if flipZ then
                         //    return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
                         //else
                         //    return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
@@ -232,12 +245,12 @@ module SurfaceIntersection =
                         let hitBoxes =
                             kd
                             |> HashMap.toList |> List.map fst
-                            |> List.filter(fun x -> 
+                            |> List.filter(fun x ->
                                 let mutable t = 0.0
                                 let r' = r.Ray //combine pre and current transform
 
-                                let trafo = 
-                                    if surf.transformation.flipZ then 
+                                let trafo =
+                                    if surf.transformation.flipZ then
                                         Trafo3d.Scale(1.0, 1.0, -1.0).Forward * (fullTrafo.Forward * surf.preTransform.Forward)
                                     else if surf.transformation.isSketchFab then
                                         Sg.switchYZTrafo.Forward
@@ -249,10 +262,10 @@ module SurfaceIntersection =
                         //intersect corresponding kdtrees
                         let closestHit =
                             hitBoxes
-                            |> List.choose(fun key -> 
-                                if verboseLogging then Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value                                                             
-                                //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform         
-                                let backward = 
+                            |> List.choose(fun key ->
+                                if verboseLogging then Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value
+                                //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform
+                                let backward =
                                     if surf.transformation.flipZ then
                                         Trafo3d.Scale(1.0, 1.0, -1.0).Backward * surf.preTransform.Backward * fullTrafo.Backward
                                     else if surf.transformation.isSketchFab then
@@ -261,23 +274,25 @@ module SurfaceIntersection =
                                         surf.preTransform.Backward * fullTrafo.Backward
 
                                 let ray = r.Ray.Transformed(backward) |> FastRay3d
-                                let hit, c = 
+                                let hit, c =
                                     kd |> DebugKdTreesX.intersectKdTrees key surf loadedKdTrees ray
                                 if verboseLogging then Log.stop()
                                 loadedKdTrees <- c
-                                hit
+                                hit |> Option.map (fun (h, s) ->
+                                    { hit = h; surface = s; hitBBox = key; sgSurface = sgSurf }
+                                )
                             )
-                            |> List.sortBy(fun (t,_)-> t.RayHit.T)
+                            |> List.sortBy(fun info -> info.hit.RayHit.T)
                             |> List.tryHead
-                        
+
                         closestHit
                 | Picking.PickMesh pm -> Log.error "no kdtree loaded for %s" surf.name; None
             )
-            |> List.groupBy(fun (_,surf) -> surf.priority.value) |> List.sortByDescending fst
+            |> List.groupBy(fun info -> info.surface.priority.value) |> List.sortByDescending fst
             |> List.tryHead
-            |> Option.bind(fun (_,b) -> b |> List.sortBy (fun (hit, _) -> hit.RayHit.T) |> List.tryHead)
+            |> Option.bind(fun (_,b) -> b |> List.sortBy (fun info -> info.hit.RayHit.T) |> List.tryHead)
             //|> List.sortBy(fun (t,_) -> t)
             //|> List.tryPick(fun d -> Some d)
-            
-        hits, loadedKdTrees    
+
+        hits, loadedKdTrees
 

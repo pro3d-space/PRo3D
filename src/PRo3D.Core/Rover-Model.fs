@@ -437,7 +437,7 @@ module Rover3DModel =
                             let cs =
                                 match node.Children with
                                 | [] -> None
-                                | _ -> node.Children |> Seq.map traverse |> SgFSharp.Sg.ofSeq |> Some
+                                | _ -> node.Children |> Seq.map traverse |> Aardvark.SceneGraph.SgFSharp.Sg.ofSeq |> Some
 
                             let ms =
                                 node.Meshes |> List.choose (fun mi ->
@@ -465,13 +465,13 @@ module Rover3DModel =
                                     | None ->
                                         None
                                 )                         
-                                |> SgFSharp.Sg.ofList |> Some
+                                |> Aardvark.SceneGraph.SgFSharp.Sg.ofList |> Some
 
                             let sg =
                                 match cs with
                                 | Some cs ->
                                     ms 
-                                    |> Option.map(fun m -> SgFSharp.Sg.ofList [cs; m])
+                                    |> Option.map(fun m -> Aardvark.SceneGraph.SgFSharp.Sg.ofList [cs; m])
                                     |> Option.defaultValue cs
                                 | None ->
                                     ms
@@ -479,7 +479,7 @@ module Rover3DModel =
                                     |> Option.defaultValue SgFSharp.Sg.empty
                                     
                             node.Trafo
-                            |> Option.map (fun t -> SgFSharp.Sg.trafo' t sg)
+                            |> Option.map (fun t -> Aardvark.SceneGraph.SgFSharp.Sg.trafo' t sg)
                             |> Option.defaultValue sg
 
                         traverse scene.RootNode)
@@ -487,10 +487,10 @@ module Rover3DModel =
 
 
                 Sg.UniformApplicator(defaultMaterial, roverSGModel)
-                |> SgFSharp.Sg.vertexBufferValue' DefaultSemantic.Colors C4b.White
-                |> SgFSharp.Sg.vertexBufferValue' DefaultSemantic.DiffuseColorTexture V2f.Zero  
+                |> Aardvark.SceneGraph.SgFSharp.Sg.vertexBufferValue' DefaultSemantic.Colors C4b.White
+                |> Aardvark.SceneGraph.SgFSharp.Sg.vertexBufferValue' DefaultSemantic.DiffuseColorTexture V2f.Zero  
                              
-                |> SgFSharp.Sg.shader {
+                |> Aardvark.SceneGraph.SgFSharp.Sg.shader {
                     do! Shader.trafo
                     do! Shader.shade
                 }

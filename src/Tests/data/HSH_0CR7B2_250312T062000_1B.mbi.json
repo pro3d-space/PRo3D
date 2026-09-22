@@ -1,0 +1,433 @@
+{
+    "instrument": "HSH",
+    "fits_hdu_headers": [
+        {
+            "SIMPLE": {
+                "value": true,
+                "comment": "conforms to FITS standard"
+            },
+            "BITPIX": {
+                "value": -32,
+                "comment": ""
+            },
+            "NAXIS": {
+                "value": 2,
+                "comment": ""
+            },
+            "NAXIS1": {
+                "value": 2048,
+                "comment": ""
+            },
+            "NAXIS2": {
+                "value": 1088,
+                "comment": ""
+            },
+            "EXTEND": {
+                "value": true,
+                "comment": ""
+            },
+            "INSTRUME": {
+                "value": "HSH",
+                "comment": ""
+            },
+            "ORIGIN": {
+                "value": "ESA - HERA",
+                "comment": "HERA imaging instruments"
+            },
+            "MISSPHAS": {
+                "value": "003_MARS_FLYBY",
+                "comment": "HERA Mission Phase ID"
+            },
+            "OSERV_ID": {
+                "value": "0009_MARS_SWINGBY",
+                "comment": "HERA Observation ID"
+            },
+            "FILENAME": {
+                "value": "HSH_0CR7B2_250312T062000_1B.fits",
+                "comment": ""
+            },
+            "ORIGFILE": {
+                "value": "HS-L0-FE-0247-01-01.bin",
+                "comment": ""
+            },
+            "SWCREATE": {
+                "value": "HERACAL",
+                "comment": "BME-MOGI HeraCal (c) 2024, 2025 G. Kovacs"
+            },
+            "DATE": {
+                "value": "2025-03-17T22:36:28",
+                "comment": "File creation time UTC"
+            },
+            "PROCLEVL": {
+                "value": "1B",
+                "comment": ""
+            },
+            "DATE-OBS": {
+                "value": "2025-03-12T06:20:00.375",
+                "comment": "Observation time UTC"
+            },
+            "SC_CLK": {
+                "value": "13475170:6453422",
+                "comment": "Spacecraft clk start"
+            },
+            "OBJECT": {
+                "value": "UNK",
+                "comment": "Observation Target ID"
+            },
+            "EXPOSURE": {
+                "value": 0.01,
+                "comment": "Exposure commanded [Sec]"
+            },
+            "CCDTEMP": {
+                "value": 260.26,
+                "comment": "detector temp [K] (-12.89 [C])"
+            },
+            "HSH_FILENAME": {
+                "value": "",
+                "comment": "HSH internal fileneme"
+            },
+            "WINDOWED_IMAGE": {
+                "value": false,
+                "comment": "full frame image"
+            },
+            "OFFSET_X": {
+                "value": 0,
+                "comment": "HSH image offset X"
+            },
+            "OFFSET_Y": {
+                "value": 0,
+                "comment": "HSH image offset Y"
+            },
+            "WND_X0": {
+                "value": 0,
+                "comment": "HSH window pos. X0"
+            },
+            "WND_Y0": {
+                "value": 0,
+                "comment": "HSH window pos. Y0"
+            },
+            "WND_XS": {
+                "value": 2048,
+                "comment": "HSH window size cols."
+            },
+            "WND_YS": {
+                "value": 1088,
+                "comment": "HSH window size rows."
+            },
+            "HS_MODE": {
+                "value": 0,
+                "comment": ""
+            },
+            "TIMESTAMP_CAPTURE_US": {
+                "value": 0,
+                "comment": "HSH time"
+            },
+            "TIMESTAMP_SYSTEM_US": {
+                "value": 0,
+                "comment": "HSH time"
+            },
+            "SENSOR_TEMPERATURE_DEGC": {
+                "value": 0.0,
+                "comment": ""
+            },
+            "EXPOSURE_TIME_US": {
+                "value": 0,
+                "comment": ""
+            },
+            "FRAME_PERIOD_US": {
+                "value": 0,
+                "comment": ""
+            },
+            "FPGA_VERSION": {
+                "value": "",
+                "comment": ""
+            },
+            "FPA_NUMBER": {
+                "value": 0,
+                "comment": ""
+            },
+            "FPGA_SELFTEST_FLAGS": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADC_OFFSET": {
+                "value": -400,
+                "comment": ""
+            },
+            "SENSOR_PGA_GAIN": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADC_RANGE": {
+                "value": 48,
+                "comment": ""
+            },
+            "SENSOR_VRAMP": {
+                "value": 109,
+                "comment": ""
+            },
+            "SENSOR_PIXEL_CLK_FREQ": {
+                "value": 20000000,
+                "comment": ""
+            },
+            "SENSOR_PGA_GAIN_X2": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_BLACK_COLUMNS": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADDR_98": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADDR_99": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADDR_100": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADDR_101": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADDR_102": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADDR_103": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADDR_121": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADDR_126": {
+                "value": 0,
+                "comment": ""
+            },
+            "SENSOR_ADDR_127": {
+                "value": 0,
+                "comment": ""
+            },
+            "EXPOSURE_TIME_S": {
+                "value": 0.0,
+                "comment": ""
+            },
+            "TEMP_FPA": {
+                "value": 260.26,
+                "comment": "FPA temperature [K] (-12.89[C])"
+            },
+            "TEMP_BEE": {
+                "value": 270.15,
+                "comment": "BEE temperature [K] (-3.00[C])"
+            },
+            "TEMP_HSP": {
+                "value": 268.65,
+                "comment": "HSP temperature [K] (-4.50[C])"
+            },
+            "TEMP_ICU1": {
+                "value": 0.0,
+                "comment": "ICU1 temperature [K] (UNK [C])"
+            },
+            "TEMP_ICU2": {
+                "value": 0.0,
+                "comment": "ICU2 temperature [K] (UNK [C])"
+            },
+            "TEMP_TELE_1": {
+                "value": 0.0,
+                "comment": "telescope1 temperature [K] (UNK [C])"
+            },
+            "TEMP_TELE_2": {
+                "value": 0.0,
+                "comment": "telescope1 temperature [K] (UNK [C])"
+            },
+            "TEMP_TELE_3": {
+                "value": 0.0,
+                "comment": "telescope1 temperature [K] (UNK [C])"
+            },
+            "TEMP_TELE_4": {
+                "value": 0.0,
+                "comment": "telescope1 temperature [K] (UNK [C])"
+            },
+            "SPICE_MK": {
+                "value": "hera_ops_v172_20250312_001",
+                "comment": "SPICE metakernel"
+            },
+            "SPICECLK": {
+                "value": "1/0013475170.25208",
+                "comment": "SPICE Sc Clk"
+            },
+            "SPICETIM": {
+                "value": "2025-03-12T06:20:00.580",
+                "comment": "SPICE Time"
+            },
+            "SUN_POSX": {
+                "value": 191487848.766,
+                "comment": "Sun position vector X [km]"
+            },
+            "SUN_POSY": {
+                "value": -141351642.018,
+                "comment": "Sun position vector Y [km]"
+            },
+            "SUN_POSZ": {
+                "value": -70002619.588,
+                "comment": "Sun position vector Z [km]"
+            },
+            "SOLAR_D": {
+                "value": 1.658374,
+                "comment": "Solar distance [AU]"
+            },
+            "EARTPOSX": {
+                "value": 44445805.536,
+                "comment": "Earth position vector X [km]"
+            },
+            "EARTPOSY": {
+                "value": -121353016.642,
+                "comment": "Earth position vector Y [km]"
+            },
+            "EARTPOSZ": {
+                "value": -61332362.903,
+                "comment": "Earth position vector Z [km]"
+            },
+            "EARTH_D": {
+                "value": 0.956238,
+                "comment": "Earth distance [AU]"
+            },
+            "TARGET": {
+                "value": "MARS BARYCENTER",
+                "comment": ""
+            },
+            "TRG_POSX": {
+                "value": -147623.97,
+                "comment": "Target position vector X [km]"
+            },
+            "TRG_POSY": {
+                "value": 131526.446,
+                "comment": "Target position vector Y [km]"
+            },
+            "TRG_POSZ": {
+                "value": 61888.391,
+                "comment": "Target position vector Z [km]"
+            },
+            "TRG_DIST": {
+                "value": 0.001385,
+                "comment": "Target distance [AU]"
+            },
+            "SC_QUAT0": {
+                "value": 0.76205722,
+                "comment": "Spacecraft quaternions"
+            },
+            "SC_QUAT1": {
+                "value": -0.51622416,
+                "comment": "Spacecraft quaternions"
+            },
+            "SC_QUAT2": {
+                "value": -0.29011148,
+                "comment": "Spacecraft quaternions"
+            },
+            "SC_QUAT3": {
+                "value": 0.26194798,
+                "comment": "Spacecraft quaternions"
+            },
+            "CAM_RA": {
+                "value": 138.305229,
+                "comment": "Camera RA [deg]"
+            },
+            "CAM_DEC": {
+                "value": 17.379292,
+                "comment": "Camera DEC [deg]"
+            },
+            "CAM_NAZ": {
+                "value": -10.365649,
+                "comment": "Cam. north azi.[deg]"
+            },
+            "SOL_ELNG": {
+                "value": 174.869711,
+                "comment": "Solar elongation [deg]"
+            },
+            "SW_CALIB": {
+                "value": "HERACAL 0.021 (c) BME MOGI 2025",
+                "comment": "Calibration version"
+            }
+        },
+        {
+            "XTENSION": {
+                "value": "IMAGE",
+                "comment": "Text lines"
+            },
+            "BITPIX": {
+                "value": 8,
+                "comment": ""
+            },
+            "NAXIS": {
+                "value": 1,
+                "comment": ""
+            },
+            "NAXIS1": {
+                "value": 3148,
+                "comment": ""
+            },
+            "PCOUNT": {
+                "value": 0,
+                "comment": ""
+            },
+            "GCOUNT": {
+                "value": 1,
+                "comment": ""
+            },
+            "EXTNAME": {
+                "value": "ORIGHDR",
+                "comment": ""
+            }
+        }
+    ],
+    "bands": [
+        {
+            "label": "Stacked",
+            "description": "Stacked Hyperscout frames",
+            "wavelengths": [
+                661,
+                670,
+                688,
+                702,
+                713,
+                730,
+                741,
+                754,
+                769,
+                782,
+                790,
+                806,
+                817,
+                830,
+                844,
+                855,
+                867,
+                881,
+                893,
+                901,
+                916,
+                924,
+                934,
+                944,
+                952
+            ],
+            "exposure": 0.01,
+            "index": 0,
+            "file_path": "HSH_0CR7B2_250312T062000_1B_Stacked.tif"
+        }
+    ],
+    "product_information": {
+        "schema_id": "https://www.joanneum.at/jim/product_information.schema.json",
+        "schema_version": 7262,
+        "product_type": "FITS imported MultiBandImage (MBI)",
+        "product_state": "imported",
+        "creator_id": "Fits2Mbi",
+        "creation_datetime": "2025-10-16T10:33:51.935968+0000"
+    }
+}

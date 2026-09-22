@@ -207,6 +207,8 @@ module Bookmarks =
                                 camera = { camState with view = bkm.cameraView }
                                 exploreCenter = bkm.exploreCenter
                                 navigationMode = bkm.navigationMode
+                                updatePerFrame = (bkm.navigationMode = NavigationMode.MapView)
+                                lockedAxis = None
                             }
                         let newOuterModel = Optic.set navigationModel nav' outerModel
                         newOuterModel, bookmarks
@@ -225,9 +227,12 @@ module Bookmarks =
                     Log.line "\"location\": \"%s\"," (bm.cameraView.Location.ToString ())
                     Log.line "\"up\": \"%s\"" (bm.cameraView.Up.ToString ())
 
-                    let lla = CooTransformation.getLatLonAlt planet bm.cameraView.Location |> CooTransformation.SphericalCoo.toV3d
+                    let llaStr =
+                        CooTransformation.tryGetLatLonAlt planet bm.cameraView.Location
+                        |> Option.map (CooTransformation.SphericalCoo.toV3d >> string)
+                        |> Option.defaultValue "(conversion failed; set planet)"
 
-                    Log.line "\"lon lat alt\": \"%s\"" (lla.ToString ())
+                    Log.line "\"lon lat alt\": \"%s\"" llaStr
 
                     outerModel, bookmarks
                 | _ -> outerModel, bookmarks
@@ -329,13 +334,11 @@ module Bookmarks =
 
         alist {
 
-            let! active = model.activeGroup
-            let color = sprintf "color: %s" (Html.color C4b.White)                
-            
             let map = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
-               
+            let colorAttributes = GroupsApp.treeItemColorAttributes ""
+
             let desc =
-                div [style color] [       
+                Incremental.div colorAttributes <| AList.ofList [
                     Incremental.text group.name
                     Incremental.i map AList.empty |> UI.wrapToolTip DataPosition.Bottom "Set active"
                         
@@ -349,10 +352,12 @@ module Bookmarks =
                 amap {
                     yield onMouseClick (fun _ -> BookmarkAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                     let! selected = group.expanded
-                    if selected 
+                    if selected
                     then yield clazz "icon large outline open folder"
                     else yield clazz "icon large outline folder"
-                    yield style "overflow-y : visible"
+                    // the icon is a sibling of the (white) description div and would
+                    // otherwise inherit semantic ui's default (black) on our dark background
+                    yield style ("overflow-y : visible; " + GroupsApp.treeItemColorStyle)
                 } |> AttributeMap.ofAMap
             
             let childrenAttribs =

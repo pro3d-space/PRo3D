@@ -80,14 +80,19 @@ type PickPivot =
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
-type ViewerAction =     
-| InvertDrawing
+type ViewerAction =
+| ToggleDirectToolMode
 | DrawingMessage                  of DrawingAction
 | AnnotationGroupsMessageViewer   of GroupsAppAction
 | NavigationMessage               of Navigation.Action
 | AnimationMessage                of AnimationAction // SequencedBookmarkId that corresponds to this AnimationAction
 | ReferenceSystemMessage          of ReferenceSystemAction
 | AnnotationMessage               of AnnotationProperties.Action
+| AnnotationBulkMessage           of AnnotationProperties.Action
+| OutcropTraceMessage             of OutcropTraceAction
+| SetRoseEnabled                  of bool
+| SetRoseUsePolyline              of bool
+| SetRoseUseDnS                   of bool
 | BookmarkMessage                 of BookmarkAction
 | BookmarkUIMessage               of GroupsAppAction
 | SequencedBookmarkMessage        of SequencedBookmarksAction
@@ -96,8 +101,10 @@ type ViewerAction =
 | DnSColorLegendMessage           of FalseColorLegendApp.Action
 | SceneObjectsMessage             of SceneObjectAction
 | FrustumMessage                  of FrustumProperties.Action
-| SetCamera                       of CameraView        
-| SetCameraAndFrustum             of CameraView * double * double        
+| SetCamera                       of CameraView
+| OrientCameraToGizmoAxis         of NavigationGizmo.GizmoAxis
+| ToggleNavigationAxisLock        of NavigationAxis
+| SetCameraAndFrustum             of CameraView * double * double
 | SetCameraAndFrustum2            of CameraView * Frustum
 | SetFrustum                      of Frustum
 | SetRenderViewportSize           of V2i
@@ -107,6 +114,7 @@ type ViewerAction =
 | ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
 | ImportPRo3Dv1Annotations        of list<string>
+| ImportSbmtAnnotations           of list<string>
 | ImportSurfaceTrafo              of list<string>
 | ImportRoverPlacement            of list<string>
 | ImportTraverse                  of list<string>
@@ -118,10 +126,13 @@ type ViewerAction =
 
 | PickSurface                     of SceneHit * string * bool
 | PreviewPickSurface              of SceneHit * string * bool
-| PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d>
+| PreviewPickSurfaceFinished      of SceneHit * string * Option<Aardvark.Geometry.ObjectRayHit * V3d> * Option<AttributeHit>
 
 
-| PickObject                      of V3d*Guid
+// PickObject is dead: nothing dispatches it (its SurfaceApp call sites were commented out
+// long ago) and its handler gated on Model.picking, which nothing writes any more. Kept
+// commented rather than deleted in case the object-pick flow is ever revived.
+//| PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
 | SetScenePath                    of string // used to set hint path in scene (e.g. to be used in top menu bar)
@@ -156,9 +167,7 @@ type ViewerAction =
 | SetTabMenu                      of TabMenu
 | NoAction                        of string
 | OrientationCube                 of ISg
-| UpdateDockConfig                of DockConfig
-| ChangeDashboardMode             of DashboardMode
-| AddPage                         of DockElement    
+| LayoutMessage                   of LayoutAction
 | ToggleOrientationCube
 | UpdateUserFeedback              of string
 | StartImportMessaging            of list<string>
@@ -186,11 +195,14 @@ type ViewerAction =
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera
-| StopGeoJsonAutoExport        
 | SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
 | GisAppMessage                  of Gis.GisAppAction
+| CrossSectionMessage            of CrossSectionAction
+| AnnotationExportMessage        of AnnotationExportAction
+| MapProjectionMessage           of PRo3D.MapProjection.MapProjectionAction
 | SBookmarksToPoseDefinition
+| SetUserPreferences             of UserPreferences
 | Nop
 
 and MailboxState = {
@@ -222,8 +234,10 @@ type Scene = {
 
     viewPlans         : ViewPlanModel
     rover             : Rover3DModel
-    dockConfig        : DockConfig
-    closedPages       : list<DockElement>
+    /// The docking layout of PRo3D <= 6.2 exactly as read from the scene file, written
+    /// back unchanged so older versions keep opening the scene. The viewer no longer uses
+    /// it: window layouts live in AppData and beside the scene (docs/WindowLayouts.md).
+    legacyDockConfig  : Option<string>
     firstImport       : bool
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
@@ -234,6 +248,7 @@ type Scene = {
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
     gisApp                : Gis.GisApp
+    crossSectionModel     : CrossSectionModel
 }
 
 module Scene =
@@ -252,7 +267,7 @@ module Scene =
             let! scenePath       = Json.read "scenePath"
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
-            let! dockConfig      = Json.read "dockConfig"            
+            let! dockConfig      = Json.tryRead<string> "dockConfig"
 
             return 
                 {
@@ -271,8 +286,7 @@ module Scene =
                                           
                     viewPlans             = ViewPlanModel.initial
                     rover                 = Rover3DModel.initial
-                    dockConfig            = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages           = List.empty
+                    legacyDockConfig      = dockConfig
                     firstImport           = false
                     userFeedback          = String.Empty
                     feedbackThreads       = ThreadPool.empty
@@ -287,10 +301,11 @@ module Scene =
                     comparisonApp         = ComparisonApp.init
                     screenshotModel       = ScreenshotModel.initial
                     gisApp                = Gis.GisApp.initial None
+                    crossSectionModel     = CrossSectionModel.initial
                 }
         }
 
-    let read1 = 
+    let read1 =
         json {            
             let! cameraView             = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
             let! navigationMode         = Json.read "navigationMode"
@@ -302,7 +317,7 @@ module Scene =
             let! scenePath              = Json.read "scenePath"
             let! referenceSystem        = Json.read "referenceSystem"
             let! bookmarks              = Json.read "bookmarks"
-            let! dockConfig             = Json.read "dockConfig"  
+            let! dockConfig             = Json.tryRead<string> "dockConfig"
             let! comparisonApp          = Json.tryRead "comparisonApp"
             let! scaleBars              = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
@@ -325,8 +340,7 @@ module Scene =
 
                     viewPlans               = ViewPlanModel.initial
                     rover                   = Rover3DModel.initial
-                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages             = List.empty
+                    legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -340,10 +354,11 @@ module Scene =
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
                     gisApp                  = Gis.GisApp.initial None                    
+                    crossSectionModel       = CrossSectionModel.initial
                 }
         }
 
-    let read2 = 
+    let read2 =
         json {            
             let! cameraView             = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
             let! navigationMode         = Json.read "navigationMode"
@@ -355,7 +370,7 @@ module Scene =
             let! scenePath              = Json.read "scenePath"
             let! referenceSystem        = Json.read "referenceSystem"
             let! bookmarks              = Json.read "bookmarks"
-            let! dockConfig             = Json.read "dockConfig"  
+            let! dockConfig             = Json.tryRead<string> "dockConfig"
             let! comparisonApp          = Json.tryRead "comparisonApp"
             let! scaleBars              = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
@@ -383,8 +398,7 @@ module Scene =
 
                     viewPlans               = ViewPlanModel.initial //if viewplans.IsSome then viewplans.Value else ViewPlanModel.initial
                     rover                   = Rover3DModel.initial
-                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages             = List.empty
+                    legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -398,6 +412,7 @@ module Scene =
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
                     gisApp                  = Gis.GisApp.initial None
+                    crossSectionModel       = CrossSectionModel.initial
                 }
         }
 
@@ -415,7 +430,7 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! viewPlans       = Json.read "viewPlans"
-            let! dockConfig      = Json.read "dockConfig"  
+            let! dockConfig      = Json.tryRead<string> "dockConfig"
             let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
             let! scaleBars       = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
@@ -424,13 +439,13 @@ module Scene =
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
             let! gisApp                 = Json.tryRead "gisApp"
-            let gisApp = 
+            let gisApp =
                 match gisApp with
                 | Some gisApp -> gisApp
                 | None -> Gis.GisApp.initial None
-            //let! viewplans     = Json.tryRead "viewplans"
+            let! crossSectionModel      = Json.tryRead "crossSectionModel"
 
-            return 
+            return
                 {
                     version                 = current
 
@@ -447,8 +462,7 @@ module Scene =
 
                     viewPlans               = viewPlans
                     rover                   = Rover3DModel.initial
-                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages             = List.empty
+                    legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
@@ -462,6 +476,7 @@ module Scene =
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
                     gisApp                  = gisApp
+                    crossSectionModel       = crossSectionModel |> Option.defaultValue CrossSectionModel.initial
                 }
         }
 
@@ -495,7 +510,7 @@ type Scene with
             do! Json.write "bookmarks" x.bookmarks    
             do! Json.write "viewPlans" x.viewPlans    
             do! Json.write "comparisonApp" (x.comparisonApp)
-            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString) 
+            do! Json.write "dockConfig" (x.legacyDockConfig |> Option.defaultWith LegacyDockConfig.pickled)
             do! Json.write "scaleBars" x.scaleBars
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
@@ -504,6 +519,7 @@ type Scene with
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
             do! Json.write "screenshotModel"    x.screenshotModel
             do! Json.write "gisApp"             x.gisApp
+            do! Json.write "crossSectionModel"  x.crossSectionModel
         }
 
 type SceneHandle = {
@@ -546,6 +562,15 @@ type MultiSelectionBox =
 
 type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
 
+/// Per-vertex attribute values under the 3D cursor, shown in the "Cursor" panel.
+/// Refreshed by the background preview pick, so it only exists while the preview
+/// cursor is enabled and the mouse is over a surface in picking mode.
+type CursorAttributes =
+    {
+        surfaceName : string
+        hit         : AttributeHit
+    }
+
 type ProjectedEllipse = 
     {
         surfaceProjectedPoints : Option<array<V3d>>
@@ -578,7 +603,8 @@ module EllipseModel =
 type Model = { 
     viewerVersion        : string
     startupArgs          : StartupArgs
-    dashboardMode        : string
+    /// Window layout of this viewer; per user, not part of the scene.
+    layout               : LayoutModel
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
     interaction          : Interactions    
@@ -604,12 +630,23 @@ type Model = {
     navigation       : NavigationModel
 
     properties       : Properties
+
+    /// Settings of the annotation export window. Session-only on purpose — it
+    /// lives here rather than on `Scene` so nothing has to be serialised.
+    annotationExport : AnnotationExportModel
+
+    /// The map projection panel (#772). Session-only, like annotationExport.
+    mapProjection    : PRo3D.MapProjection.MapProjectionModel
+
     multiSelectBox   : Option<MultiSelectionBox>
     shiftFlag        : bool
     picking          : bool
     pivotType        : PickPivot
     ctrlFlag         : bool
-    inverseFlag      : bool
+    /// "Direct Tool Mode": the active tool owns the left mouse button without Ctrl,
+    /// and camera navigation moves to the middle (pan) and right (orbit) buttons.
+    /// Session-only, never persisted. See docs/DirectToolMode.md.
+    directToolMode   : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
@@ -647,9 +684,29 @@ type Model = {
     backgroundPicking    : ThreadPool<ViewerAction>
 
     surfaceIntersection : Option<SurfaceIntersection>
+    cursorAttributes    : Option<CursorAttributes>
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
-} 
+
+    /// Outcrop traces: where the selection's mean attitude, repeated at a constant bed
+    /// thickness, would crop out on the terrain. Driven by the annotation selection, which
+    /// is itself not persisted, so this is transient too. The appearance fields on it are
+    /// conceptually *scene* properties and belong on `Scene` when persistence is wanted -
+    /// never in userPreferences.json, which is per computer.
+    outcropTraces        : OutcropTraceModel
+
+    // Bulk edit: dip-direction rose diagram. `roseEnabled` is the feature toggle that
+    // activates the whole rose section; the other two pick which annotation geometry
+    // types feed it.
+    roseEnabled          : bool
+    roseUsePolyline      : bool
+    roseUseDnS           : bool
+    /// Per-computer user preferences (e.g. MapView WASD invert flags).
+    /// Loaded from / saved to `%APPDATA%/Pro3D/userPreferences.json`.
+    /// Outside scene/bookmark serialisation.
+    [<TreatAsValue>]
+    userPreferences      : UserPreferences
+}
 
 type ViewerAnimationAction =
     | ViewerMessage     of ViewerAction

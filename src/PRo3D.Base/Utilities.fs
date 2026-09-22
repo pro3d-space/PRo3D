@@ -76,24 +76,45 @@ module OPCFilter =
                     return v.c
             }
 
+        type UniformScope with
+            member x.WhiteDiscardEnabled   : bool    = x?WhiteDiscardEnabled
+            member x.WhiteDiscardThreshold : float32 = x?WhiteDiscardThreshold
+
+
+        // Discards the large white areas above and beneath the RIMFAX data
+        let discardWhiteBands (v : Effects.Vertex) =
+            fragment {
+                if uniform.HasDiffuseColorTexture then
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0f)
+                    if uniform.WhiteDiscardEnabled then
+                        let t = uniform.WhiteDiscardThreshold
+                        if texColor.Y >= t then
+                            discard()
+                    return texColor
+                else
+                    return v.c
+
+            }
+
         let improvedDiffuseTexture (v : Effects.Vertex) =
             fragment {
                 let texColor = diffuseSampler.Sample(v.tc,-1.0f)
                 return texColor
             }
 
+        /// One return on purpose: every return path of a fragment stage duplicates the whole
+        /// rest of the effect in the generated GLSL, and this stage sits near its start
+        /// (#719 -- it alone multiplied everything after it by five).
         let markPatchBorders (v : Effects.Vertex) =
             fragment { 
-            //if uniform.HasDiffuseColorTexture then
+                let mutable c = v.c
                 if uniform.selected then
-                    if (v.tc.X >= 0.99f) && (v.tc.X <= 1.0f) || (v.tc.X >= 0.0f) && (v.tc.X <= 0.01f) then
-                        return V4f(0.69f, 0.85f, 0.0f, 1.0f)
-                    elif (v.tc.Y >= 0.99f) && (v.tc.Y <= 1.0f) || (v.tc.Y >= 0.0f) && (v.tc.Y <= 0.01f) then
-                        return V4f(0.69f, 0.85f, 0.0f, 1.0f)
-                    else
-                        return v.c
-                else return v.c
-            //else return v.c
+                    let onBorder =
+                        ((v.tc.X >= 0.99f) && (v.tc.X <= 1.0f)) || ((v.tc.X >= 0.0f) && (v.tc.X <= 0.01f)) ||
+                        ((v.tc.Y >= 0.99f) && (v.tc.Y <= 1.0f)) || ((v.tc.Y >= 0.0f) && (v.tc.Y <= 0.01f))
+                    if onBorder then
+                        c <- V4f(0.69f, 0.85f, 0.0f, 1.0f)
+                return c
             }
 
         let EffectOPCFilter =
@@ -563,7 +584,10 @@ module Shader =
         }
 
     let mapRadiometry (v : Effects.Vertex) =
+        // one return on purpose (#719, FShade#39): every return path duplicates the
+        // whole rest of the effect in the generated GLSL
         fragment { 
+            let mutable color = v.c
             if (uniform?useRadiometry) then
                 let abR : V3f =  uniform?abR
                 let abG : V3f =  uniform?abG
@@ -579,9 +603,8 @@ module Shader =
                 let bClamped = clamp abB.X abB.Y nc.Z 
                 let blue = ((bClamped - abB.X) / (abB.Y - abB.X))
 
-                return V4f(red, green, blue, 1.0f)
-            else
-                return v.c
+                color <- V4f(red, green, blue, 1.0f)
+            return color
         }
 
     let private colormap =
@@ -752,6 +775,83 @@ module Shader =
 
             let finalColor = v.c.XYZ * (1.0f - lineColor.W)
             return V4f(finalColor, 1.0f)
+        }
+
+    type UniformScope with
+        /// LatLon graticule, parallels. X <= 0 disables the whole overlay (off, or
+        /// a non-planetary body). Y / Z / W = 1/0 flags for the 1° / 5° / 15°
+        /// parallels.
+        member x.LatLonLatLevels : V4f = uniform?LatLonLatLevels
+        /// LatLon graticule, meridians. X / Y / Z = 1/0 flags for the 1° / 5° / 15°
+        /// meridians. W unused.
+        member x.LatLonLonLevels : V4f = uniform?LatLonLonLevels
+        /// Colour of the 1° / 5° / 15° graticule lines. The equator (yellow) and
+        /// prime meridian (red) use fixed colours in the shader.
+        member x.LatLonLineColor : V4f = uniform?LatLonLineColor
+
+    type LatLonVertex =
+        {
+            [<Color>]                    c            : V4f
+            [<Semantic("LatLonSinCos")>] latLonSinCos : V4f
+        }
+
+    /// Coverage in [0,1] of a grid line for one angular coordinate. `w` is
+    /// |d(coord)/d(pixel)|, so the line keeps a constant `widthPx` on screen; it
+    /// also blows up at the poles and the +/-180 seam, where we suppress the line.
+    [<ReflectedDefinition>]
+    let private latLonCoverage (coordDeg : float32) (intervalDeg : float32) (w : float32) (widthPx : float32) =
+        let halfPx = widthPx * 0.5f
+        if w > 0.0f && w < intervalDeg * 0.5f then
+            let ph = coordDeg / intervalDeg
+            let distDeg = abs (ph - floor (ph + 0.5f)) * intervalDeg
+            1.0f - Fun.Smoothstep(distDeg, (halfPx - 0.5f) * w, (halfPx + 0.5f) * w)
+        else
+            0.0f
+
+    /// Composite a grid line of colour `col` and coverage `cov` over `baseRgb`.
+    [<ReflectedDefinition>]
+    let private overlayLine (baseRgb : V3f) (cov : float32) (col : V3f) =
+        let a = Fun.Clamp(cov, 0.0f, 1.0f)
+        baseRgb * (1.0f - a) + col * a
+
+    /// Additive latitude/longitude graticule. Reads the CPU-computed per-vertex
+    /// (sinphi, cosphi, sinlambda, coslambda) attribute that Surface.Sg bakes in
+    /// double precision, so no world-scale position is transformed in the shader.
+    /// Draws up to three nested grids per axis (1°/5°/15°, widths 0.5/1.0/2.0 px),
+    /// painted fine-to-coarse, then the equator (yellow) and prime meridian (red)
+    /// at 2.5 px on top. Composites over the incoming colour like contourLines.
+    let latLonLines (v : LatLonVertex) =
+        fragment {
+            let deg = 57.29577951308232f
+            let latLev = uniform.LatLonLatLevels
+            let lonLev = uniform.LatLonLonLevels
+
+            let mutable rgb = v.c.XYZ
+
+            // Everything below is gated on a uniform, so a disabled overlay costs no
+            // atan2/derivatives per fragment (#747). ddx/ddy stay well-defined here:
+            // the branch condition is uniform across the draw call.
+            if latLev.X > 0.5f then
+                let sc  = v.latLonSinCos
+                let lat = atan2 sc.X sc.Y * deg
+                let lon = atan2 sc.Z sc.W * deg
+                let wLat = abs (ddx lat) + abs (ddy lat)
+                let wLon = abs (ddx lon) + abs (ddy lon)
+
+                let g = uniform.LatLonLineColor.XYZ
+                // Fine to coarse: wider (coarser) lines paint over narrower ones.
+                if latLev.Y > 0.5f then rgb <- overlayLine rgb (latLonCoverage lat 1.0f  wLat 0.5f) g
+                if lonLev.X > 0.5f then rgb <- overlayLine rgb (latLonCoverage lon 1.0f  wLon 0.5f) g
+                if latLev.Z > 0.5f then rgb <- overlayLine rgb (latLonCoverage lat 5.0f  wLat 1.0f) g
+                if lonLev.Y > 0.5f then rgb <- overlayLine rgb (latLonCoverage lon 5.0f  wLon 1.0f) g
+                if latLev.W > 0.5f then rgb <- overlayLine rgb (latLonCoverage lat 15.0f wLat 2.0f) g
+                if lonLev.Z > 0.5f then rgb <- overlayLine rgb (latLonCoverage lon 15.0f wLon 2.0f) g
+                // Equator (yellow) and prime meridian (red). Interval 360° so only
+                // lat = 0 and lon = 0 produce a line; always drawn while enabled.
+                rgb <- overlayLine rgb (latLonCoverage lat 360.0f wLat 2.5f) (V3f(1.0f, 1.0f, 0.0f))
+                rgb <- overlayLine rgb (latLonCoverage lon 360.0f wLon 2.5f) (V3f(1.0f, 0.0f, 0.0f))
+
+            return V4f(rgb, 1.0f)
         }
 
 
@@ -1143,28 +1243,31 @@ module Sg =
         |> Sg.trafo trafo
 
     //## TEXT ##
-    let invariantScaleTrafo 
-        (view : aval<CameraView>) 
-        (near : aval<float>) 
-        (pos  : aval<V3d>) 
-        (size : aval<double>) 
-        (hfov : aval<float>) 
+    /// Scale factor that keeps geometry at a constant size on screen ("fixed pixel size"):
+    /// size is a fraction of the viewport and does not depend on the distance to the camera.
+    /// This is the single definition of the text size convention used throughout PRo3D
+    /// (annotations, scale bars, reference system, traverse sol labels) - the constants matter,
+    /// do not reimplement it: half the field of view, no additional factor.
+    let invariantScale (hfovInDegrees : float) (distance : float) (size : float) =
+        let hfov_rad = Conversion.RadiansFromDegrees hfovInDegrees
+        Fun.Tan(hfov_rad / 2.0) * size * distance
+
+    let invariantScaleTrafo
+        (view : aval<CameraView>)
+        (near : aval<float>)   // unused: the near plane cancels out in the scale factor
+        (pos  : aval<V3d>)
+        (size : aval<double>)
+        (hfov : aval<float>)
         : aval<Trafo3d> =
 
         adaptive {
             let! hfov = hfov
-            let hfov_rad = Conversion.RadiansFromDegrees(hfov)
-
-            let! near = near
-            let! size = size 
-            let wz = Fun.Tan(hfov_rad / 2.0) * near * size
-
+            let! size = size
             let! p = pos
             let! v = view
-            let dist = Vec.Distance(p, v.Location)
-            let scale = ( wz / near ) * dist
 
-            return Trafo3d.Scale scale
+            let dist = Vec.Distance(p, v.Location)
+            return Trafo3d.Scale (invariantScale hfov dist size)
         }
 
     let private screenAlignedTrafo (forw : V3d) (up : V3d) (modelTrafo: Trafo3d) =
@@ -1190,7 +1293,7 @@ module Sg =
     let stableTrafoShader = 
         Effect.compose [toEffect Shader.StableTrafo.stableTrafo]
 
-    module private Font =
+    module Font =
         open System.Reflection
 
         let private getEmbeddedFont (name: string) =
@@ -1198,7 +1301,7 @@ module Sg =
                 let asm = Assembly.GetExecutingAssembly()
                 let resourceName =
                     asm.GetManifestResourceNames()
-                    |> Array.find (String.toLowerInvariant >> String.endsWith (String.toLowerInvariant name))
+                    |> Array.find (_.ToLowerInvariant() >> String.endsWith (name.ToLowerInvariant()))
 
                 asm.GetManifestResourceStream resourceName
             with _ ->
@@ -1409,6 +1512,7 @@ module Copy =
 module ScreenshotUtilities = 
     module Utilities =
         open System.Net.Http
+        open System.Threading
 
         type ClientStatistics =
           {
@@ -1421,17 +1525,45 @@ module ScreenshotUtilities =
               frameTime       : float
           }
 
-        let downloadClientStatistics baseAddress (httpClient : HttpClient) =
-            let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
-            Log.line "[Screenshot] querying rendering stats at: %s" path
-            let result = httpClient.GetStringAsync(path).Result
+        /// Aardvark.UI's /rendering/stats.json handler pickles the statistics to a string and
+        /// then hands that string to http.json, which pickles it a second time
+        /// (RenderServer.fs: `http.json (Pickler.json.PickleToString stats)`, Aardvark.UI 5.7.3).
+        /// The body is therefore a JSON string wrapping the actual payload. Peel that layer off
+        /// when it is there, so we keep working against both the current and a fixed
+        /// aardvark.media. See https://github.com/aardvark-platform/aardvark.media/issues/53
+        let private unwrapDoubleEncodedJson (body : string) =
+            if body.TrimStart().StartsWith "\"" then
+                try Newtonsoft.Json.JsonConvert.DeserializeObject<string> body with _ -> body
+            else
+                body
+
+        let private parseClientStatistics path (body : string) =
+            let result = body |> unwrapDoubleEncodedJson
 
             let clientBla : list<ClientStatistics> =
-                Pickler.unpickleOfJson  result
+                try
+                    Pickler.unpickleOfJson result
+                with e ->
+                    failwithf "Could not parse client statistics from %s: %s (body was: %s)" path e.Message result
 
-            match clientBla.Length with
-            | 1 | 2 -> clientBla // clientBla.[1] 
-            | _ -> failwith (sprintf "Could not download client statistics for %s" path)  //"no client bla"
+            match clientBla with
+            | [] -> failwith (sprintf "No rendering client reported statistics at %s" path)
+            | _ -> clientBla
+
+        let downloadClientStatisticsAsync baseAddress (httpClient : HttpClient) (ct : CancellationToken) =
+            task {
+                let path = sprintf "%s/rendering/stats.json" baseAddress
+                Log.line "[Screenshot] querying rendering stats at: %s" path
+                let! body = httpClient.GetStringAsync(path, ct)
+                return parseClientStatistics path body
+            }
+
+        /// Blocking wrapper for the callers that still live in a synchronous `update`
+        /// (RemoteControlApp, Rover-Model). New code should await the async version -
+        /// blocking here costs a second thread and can starve the pool.
+        let downloadClientStatistics baseAddress (httpClient : HttpClient) =
+            (downloadClientStatisticsAsync baseAddress httpClient CancellationToken.None)
+                .GetAwaiter().GetResult()
 
         let getScreenshotUrl baseAddress clientStatistic width height =                                
 
@@ -1463,11 +1595,11 @@ module ScreenshotUtilities =
             let clientStatistics = downloadClientStatistics baseAddress httpClient
             
             let cs =
-                match clientStatistics.Length with
-                | 2 -> clientStatistics.[1] 
-                | 1 -> clientStatistics.[0]
-                | _ -> failwith (sprintf "Could not download client statistics")
-                
+                match clientStatistics with
+                | _ :: second :: _ -> second
+                | first :: _ -> first
+                | [] -> failwith (sprintf "Could not download client statistics")
+
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format
             httpClient.DownloadFile(screenshot,filename)        
@@ -1495,7 +1627,6 @@ module FrustumUtils =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
         let hfov = 2.0 * atan(11.84 /(focal*2.0))
-        Log.line $"computed hvov: {hfov}."
         Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
 
     let calculateFrustum' (focal : float) (near : float) 
@@ -1503,5 +1634,4 @@ module FrustumUtils =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
         let hfov = 2.0 * atan(11.84 /(focal*2.0))
-        Log.line $"computed hvov: {hfov}."
         Frustum.perspective (hfov.DegreesFromRadians()) near far aspect

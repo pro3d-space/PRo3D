@@ -247,7 +247,7 @@ module BookmarkUtils =
             SequencedBookmark.LoadedBookmark {loaded with basePath = Some basePath}
         | SequencedBookmarks.NotYetLoaded notLoaded ->
             let newPath = Path.combine [basePath;Path.GetFileName (workaroundForWindowsPaths notLoaded.path)]
-            if String.equals notLoaded.path newPath then
+            if notLoaded.path = newPath then
                 SequencedBookmarks.NotYetLoaded notLoaded
             else
                 Log.line "Updating sequenced bookmark path from %s to %s" notLoaded.path newPath

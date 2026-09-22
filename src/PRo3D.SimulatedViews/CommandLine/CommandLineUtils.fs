@@ -15,7 +15,7 @@ module CommandLineUtils =
     let parseArg (flag : string) (args : string []) =
         try 
             if (args |> Array.contains flag) then
-                let ind = Array.findIndex (fun s -> String.equals s flag) args
+                let ind = Array.findIndex ((=) flag) args
                 if ind + 1 < Array.length args then
                     Array.item (ind + 1) args
                         |> Some

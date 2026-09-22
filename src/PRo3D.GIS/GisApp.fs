@@ -90,34 +90,73 @@ module GisApp =
         | None ->
             m
 
-    let loadSpiceKernelForced (m : GisApp) = 
+    let loadSpiceKernelForced (m : GisApp) =
         match m.spiceKernel with
         | Some kernel -> loadSpiceKernel true kernel.FullPath m
         | None -> m
 
+    /// Like loadSpiceKernel, but resets SPICE's kernel pool first (see
+    /// CooTransformation.switchKernel) instead of just adding on top of
+    /// whatever is already loaded. Used when switching to a kernel from a
+    /// possibly different mission phase (e.g. via LoadSpiceAndTime), where
+    /// layering would risk silently conflicting kernel data.
+    let loadSpiceKernelSwitching (path : string) (m : GisApp) =
+        if File.Exists path then
+            let directory = Path.GetDirectoryName path
+            let name = Path.GetFileName path
+            match CooTransformation.switchKernel directory name with
+            | None ->
+                Log.line "[GisApp] Could not load spice kernel %s" path
+                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
+                        spiceKernelLoadSuccess = false}
+            | Some spiceKernel ->
+                Log.line "[GisApp] Successfully loaded spice kernel %s" path
+                {m with spiceKernel = Some spiceKernel
+                        spiceKernelLoadSuccess = true}
+        else
+            Log.line "[GisApp] Could not find path %s" path
+            {m with spiceKernelLoadSuccess = false}
+
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
         let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
+        // UTC, like every observation time (see Calendar.toUtc)
+        let utc (y, mo, d) (h, mi, s) = DateTime(y, mo, d, h, mi, s, DateTimeKind.Utc)
         [
             {
-                minDate = DateTime.Parse("2025-03-12 12:07:08.00Z")
-                maxDate = DateTime.Parse("2025-03-12 12:10:08.00Z")
+                minDate = utc (2025, 3, 12) (12, 7, 8)
+                maxDate = utc (2025, 3, 12) (12, 10, 8)
                 value = getNumericInput 0.5 // 12 March 2025, 12:07
                 name    = "Deimos Flyby"
             };
             {
-                minDate = DateTime(2025, 3, 10)
-                maxDate = DateTime(2025, 3, 14)
+                minDate = utc (2025, 3, 10) (0, 0, 0)
+                maxDate = utc (2025, 3, 14) (0, 0, 0)
                 value = getNumericInput 0.6338 // 12 March 2025, 12:51
                 name    = "Mars Flyby"
             };
             {
-                minDate = DateTime(2026, 12, 12)
-                maxDate = DateTime(2026, 12, 16)
+                minDate = utc (2026, 12, 12) (0, 0, 0)
+                maxDate = utc (2026, 12, 16) (0, 0, 0)
                 value = getNumericInput 0.5
                 name    = "Didymos Orbital Insertion"
             }
         ]    
         
+    /// Every update that sets the scene time goes through here, and so through
+    /// ObservationInfoAction.SetTime (which holds it as UTC).
+    let private setObservationTime (date : DateTime) (m : GisApp) =
+        { m with defaultObservationInfo = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime date) }
+
+    /// Scene time := the image's observation time (fly-to, Load Spice and Time).
+    let private setObservationTimeToImage (mbi : InstrumentMetadata.Tiff_Mbi_Json.Mbi) (m : GisApp) =
+        let current = Calendar.toUtc m.defaultObservationInfo.time.date
+        let epoch = Calendar.toUtc mbi.obs_date
+        if current = epoch then m
+        else
+            Log.line "[GisApp] observation time %s -> %s (the image's epoch)"
+                (current.ToString "u") (epoch.ToString "u")
+            setObservationTime epoch m
+
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
                (viewer : 'viewer)
@@ -250,38 +289,64 @@ module GisApp =
             viewer, {m with cameraInObserver = not m.cameraInObserver}
         | GisAppAction.ToggleDrawMarkers -> 
             viewer, {m with showMarkers = not m.showMarkers }
-        | GisAppAction.ProjectedImageListMessage msg -> 
-            // SP: Change time of GIS App
-            //let m = 
-            //    match msg with 
-            //    | ImageProjectionMessage.SelectImage idx -> 
-            //        match IndexList.tryGet idx m.projectedImages.images with
-            //        | None -> m
-            //        | Some img -> 
-            //            match img.projection with
-            //            | None -> m
-            //            | Some p ->
-            //                let info = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime p.time)
-            //                let m = {m with defaultObservationInfo = info}
-            //                m
-            //    | _ -> m
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.FlyToImage imageId) ->
+            // The scene time goes to the image's epoch here, so the sun, the body's
+            // placement and kernel coverage match the image. The camera is the Viewer's:
+            // it frames the image after this returns, from the new time -- the other order
+            // leaves the body rotated out from under the camera.
+            match ProjectedImageListModel.tryFind imageId m.projectedImageList with
+            | None -> viewer, m
+            | Some image ->
+                match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
+                | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
+                | None, _ -> viewer, m
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.LoadSpiceAndTime directory) ->
+            if String.IsNullOrEmpty directory then
+                viewer, m // user cancelled the folder dialog
+            else
+                let selectedTexturePath =
+                    m.projectedImageList.selectedImage
+                    |> Option.bind (fun id -> ProjectedImageListModel.tryFind id m.projectedImageList)
+                    |> Option.map (fun img -> img.texture)
+                match selectedTexturePath with
+                | None ->
+                    Log.warn "[GisApp] no image selected -- select an image before loading its spice kernel"
+                    viewer, m
+                | Some texturePath ->
+                    match InstrumentMetadata.tryParseMetadataForImagePath texturePath with
+                    | None, _ ->
+                        Log.warn "[GisApp] selected image has no mbi sidecar metadata"
+                        viewer, m
+                    | Some mbi, _ ->
+                        let m = setObservationTimeToImage mbi m
+                        match mbi.spiceMk with
+                        | None ->
+                            Log.warn "[GisApp] selected image's mbi sidecar does not declare a SPICE_MK kernel name"
+                            viewer, m
+                        | Some mkName ->
+                            match CooTransformation.tryFindSpiceKernelFile directory mkName with
+                            | None ->
+                                Log.warn "[GisApp] could not find kernel \"%s\" (.tm) under %s" mkName directory
+                                viewer, {m with spiceKernelLoadSuccess = false}
+                            | Some kernelPath ->
+                                viewer, loadSpiceKernelSwitching kernelPath m
+        | GisAppAction.ProjectedImageListMessage msg ->
             viewer, {m with projectedImageList = ProjectedImageListApp.update m.projectedImageList msg }
         | GisAppAction.InitializeMissionTimeEntries ->
              let data : list<MissionTimeEntry> = getMissionTimeEntriesData()
              viewer, {m with missionTimesEntries = Some (IndexList.ofList data) }
         | GisAppAction.SetMissionTimesRowAndSetDate (entry, rowIdx) ->
             let date = entry.minDate + (entry.maxDate - entry.minDate) * entry.value.value
-            let defaultObservationInfo = {m.defaultObservationInfo with time = {m.defaultObservationInfo.time with date = date}}
-            viewer, {m with selectedMissionTimeRow = Some rowIdx; defaultObservationInfo = defaultObservationInfo}
+            viewer, {setObservationTime date m with selectedMissionTimeRow = Some rowIdx}
         | GisAppAction.SetTime (entry, idx, sliderValue) ->
             let date = entry.minDate + (entry.maxDate - entry.minDate) * sliderValue
-            let defaultObservationInfo = {m.defaultObservationInfo with time = {m.defaultObservationInfo.time with date = date}}
-            let missionTimesEntries = 
+            let m = setObservationTime date m
+            let missionTimesEntries =
                 m.missionTimesEntries
                 |> Option.map (fun entries ->
                     entries |> IndexList.update idx (fun e -> { e with value = { e.value with value = sliderValue }})
                 )
-            viewer, {m with missionTimesEntries = missionTimesEntries; defaultObservationInfo = defaultObservationInfo}
+            viewer, {m with missionTimesEntries = missionTimesEntries}
         | GisAppAction.Empty ->
             viewer, m
             
@@ -320,14 +385,28 @@ module GisApp =
                 surfaces
                 |> AList.choose(function | AdaptiveSurfaces s -> Some s | _-> None )
             
+            let! sceneBody =
+                (m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame)
+                ||> AVal.map2 SceneBody.tryReferenceSystem
+
             for s in surfaces do 
                 let headerText = 
                     AVal.map (fun a -> sprintf "%s" a) s.name
                 let! key = s.guid
 
-                let entity = 
+                let entity =
                     currentlyAssociatedEntity key m.gisSurfaces m.entities
-                    
+                let frame =
+                    currentlyAssociatedFrame key m.gisSurfaces m.referenceFrames
+
+                // a surface with neither body nor frame inherits the scene body (#758): say
+                // so in the empty entries. A half assignment does not inherit - no hint there.
+                let! inherited =
+                    (entity, frame) ||> AVal.map2 (fun e f ->
+                        match e, f, sceneBody with
+                        | None, None, Some b -> Some b
+                        | _ -> None)
+
                 let entitySelectionGui =
                     UI.dropDownWithEmptyText
                         (m.entities 
@@ -337,9 +416,9 @@ module GisApp =
                         entity 
                         (fun x -> AssignBody (key, x))  
                         (fun x -> x.Value)
-                        "Select Entity"
-                let frame = 
-                    currentlyAssociatedFrame key m.gisSurfaces m.referenceFrames
+                        (match inherited with
+                         | Some b -> sprintf "Scene body (%s)" b.body.Value
+                         | None -> "Select Entity")
                 let refFramesSelectionGui =
                     UI.dropDownWithEmptyText
                         (m.referenceFrames 
@@ -349,7 +428,9 @@ module GisApp =
                         frame
                         (fun x -> AssignReferenceFrame (key, x))  
                         (fun x -> x.Value)
-                        "Select Frame"
+                        (match inherited with
+                         | Some b -> sprintf "Scene frame (%s)" b.referenceFrame.Value
+                         | None -> "Select Frame")
                 let! c = SurfaceApp.mkColor model s
                 let infoc = sprintf "color: %s" (Html.color C4b.White)
                 let bgc = sprintf "color: %s" (Html.color c)
@@ -383,15 +464,14 @@ module GisApp =
                      (surfaces : AdaptiveGroupsModel) 
                      (m : AdaptiveGisApp) =
         alist {
-            let! s = surfaces.activeGroup
-            let color = sprintf "color: %s" (Html.color C4b.White)                
-            let children = AList.collecti (fun i v -> viewTree (i::path) v surfaces m) group.subNodes    
+            let children = AList.collecti (fun i v -> viewTree (i::path) v surfaces m) group.subNodes
             let activeAttributes = GroupsApp.setActiveGroupAttributeMap path surfaces group GroupsMessage
-                                   
+            let colorAttributes = GroupsApp.treeItemColorAttributes ""
+
             let desc =
-                div [style color] [       
+                Incremental.div colorAttributes <| AList.ofList [
                     Incremental.text group.name
-                    Incremental.i activeAttributes AList.empty 
+                    Incremental.i activeAttributes AList.empty
                     |> UI.wrapToolTip DataPosition.Bottom "Set active"
                 ]
                  
@@ -399,10 +479,12 @@ module GisApp =
                 amap {
                     yield onMouseClick (fun _ -> SurfaceAppAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                     let! selected = group.expanded
-                    if selected 
+                    if selected
                     then yield clazz "icon outline open folder"
                     else yield clazz "icon outline folder"
-                    yield style "overflow-y : visible"
+                    // the icon is a sibling of the (white) description div and would
+                    // otherwise inherit semantic ui's default (black) on our dark background
+                    yield style ("overflow-y : visible; " + GroupsApp.treeItemColorStyle)
                 } |> AttributeMap.ofAMap
             
             let childrenAttribs =
@@ -649,7 +731,7 @@ module GisApp =
                 let! info = bookmark.observationInfo
                 match info with
                 | AdaptiveSome info ->
-                    yield (ObservationInfo.view info m.entities m.referenceFrames
+                    yield (ObservationInfo.view false info m.entities m.referenceFrames
                             |> UI.map (fun msg -> 
                         GisAppAction.BookmarkObservationInfoMessage (bookmark.bookmark.key, msg)))
                 | AdaptiveNone ->
@@ -657,9 +739,50 @@ module GisApp =
             }
         Incremental.div AttributeMap.empty info
 
+    /// The OPC surfaces the image projection refuses to paint, and why (#741). Empty,
+    /// and invisible, while there are none.
+    let private viewProjectionRefusals (surfaces : AdaptiveSurfaceModel) =
+        let refused =
+            surfaces.surfaces.flat
+            |> AMap.chooseA (fun _ leaf ->
+                match leaf with
+                | AdaptiveSurfaces s ->
+                    (s.name, ProjectionPreconditions.refusalOf s)
+                    ||> AVal.map2 (fun name why -> why |> Option.map (fun why -> name, why))
+                | _ -> AVal.constant None)
+            |> AMap.toASetValues
+            |> ASet.sortBy fst
+        Incremental.div AttributeMap.empty (
+            refused |> AList.map (fun (name, why) ->
+                div [clazz "ui inverted red segment"; style "padding: 5px; margin: 4px 0"
+                     attribute "title" ProjectionPreconditions.issueUrl] [
+                    text (sprintf "No image projection on %s: %s, and the projection cannot follow it yet (issue #741)." name why)
+                ]))
+
+    /// A planet that is a body, with the GIS observing nothing: the scene is not a scene
+    /// body yet (#758) - no projection, no sun. Offer the one click that makes it one; the
+    /// planet does not do it on its own, a plain Mars scene stays as it is.
+    let private viewObservePlanet (planet : aval<Planet>) (m : AdaptiveGisApp) =
+        Incremental.div AttributeMap.empty (
+            alist {
+                let! planet = planet
+                let! observer = m.defaultObservationInfo.observer
+                match observer, SceneBody.trySpice planet with
+                | None, Some (body, frame) ->
+                    yield div [clazz "ui inverted segment"; style "padding: 5px; margin: 4px 0"] [
+                        text (sprintf "The planet is %s, but the GIS observes no body: no image projection or sun. " body.Value)
+                        button [clazz "ui mini button"
+                                onClick (fun _ -> ObservationInfoMessage (ObservationInfoAction.SetObserver (Some body)))] [
+                            text (sprintf "Observe %s as scene body (%s)" body.Value frame.Value)
+                        ]
+                    ]
+                | _ -> ()
+            })
+
     let view (m : AdaptiveGisApp)
+             (planet : aval<Planet>)
              (surfaces : AdaptiveSurfaceModel)
-             (bookmarks : SequencedBookmarks.AdaptiveSequencedBookmarks) =  
+             (bookmarks : SequencedBookmarks.AdaptiveSequencedBookmarks) =
         let bookmarkGisInfo =
             alist {
                 let! (id : option<System.Guid>) = bookmarks.selectedBookmark 
@@ -688,7 +811,8 @@ module GisApp =
                 h5 [clazz "ui inverted horizontal divider header"
                     style "padding-top: 1rem"] 
                    [text "Current Observation Settings"]
-                ObservationInfo.view m.defaultObservationInfo 
+                viewObservePlanet planet m
+                ObservationInfo.view true m.defaultObservationInfo
                                      m.entities m.referenceFrames
                 |> UI.map ObservationInfoMessage
                 Incremental.div AttributeMap.empty bookmarkGisInfo
@@ -703,6 +827,7 @@ module GisApp =
             ]
 
             GuiEx.accordion "Projected Images" "Images" false [
+                viewProjectionRefusals surfaces
                 ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative |> UI.map GisAppAction.ProjectedImageListMessage
             ]
             
@@ -972,35 +1097,85 @@ module GisApp =
         Sg.ofList [bodies; markers]
 
 
-    let getSpiceReferenceSystemFromSurfaces (s : SurfaceId) (m : HashMap<SurfaceId, GisSurface>)  = 
+    /// A surface's SPICE body and frame: its own GIS assignment, or - with no assignment
+    /// at all - the scene body (#758), so a single-body scene needs no per-surface setup.
+    /// A half assignment (body without frame or vice versa) stays unplaced, as before.
+    let getSpiceReferenceSystemFromSurfaces (sceneBody : Option<SpiceReferenceSystem>) (s : SurfaceId) (m : HashMap<SurfaceId, GisSurface>)  =
         match HashMap.tryFind s m with
-        | None -> None
+        | None -> sceneBody
         | Some r -> 
             match r.referenceFrame, r.entity with
             | Some referenceFrame, Some entity -> 
                 Some { referenceFrame = referenceFrame; body = entity;  }
+            | None, None -> sceneBody
             | _ -> None
 
-    let getSpiceReferenceSystem (m : GisApp) (s : SurfaceId) = 
-        getSpiceReferenceSystemFromSurfaces s m.gisSurfaces 
+    /// The scene body as surfaces inherit it: only while the scene is body-fixed. A scene
+    /// in another frame (J2000) leaves unassigned surfaces unplaced, as it always did.
+    let sceneBodyOf (info : ObservationInfo) =
+        SceneBody.tryReferenceSystem info.observer info.referenceFrame
+
+    /// The planet the GIS observation makes the scene body, see SceneBody.tryBodyFixedPlanet.
+    let scenePlanet (m : GisApp) =
+        SceneBody.tryBodyFixedPlanet m.defaultObservationInfo.observer m.defaultObservationInfo.referenceFrame
+
+    /// The global planet choice, mirrored into the GIS observation (#758): its body in its
+    /// fixed frame. A planet that is no body (None, ENU, JPL) ends a body-fixed observation;
+    /// any other observation - a spacecraft, a scene saved in J2000 - is not the planet's to
+    /// end: explicitly bound surfaces are placed by it.
+    let withScenePlanet (planet : Planet) (m : GisApp) =
+        let info = m.defaultObservationInfo
+        let observer, frame =
+            match SceneBody.trySpice planet with
+            | Some (body, frame) -> Some body, Some frame
+            | None when Option.isSome (scenePlanet m) -> None, None
+            | None -> info.observer, info.referenceFrame
+        if info.observer = observer && info.referenceFrame = frame then m
+        else { m with defaultObservationInfo = { info with observer = observer; referenceFrame = frame } }
+
+    let getSpiceReferenceSystem (m : GisApp) (s : SurfaceId) =
+        getSpiceReferenceSystemFromSurfaces (sceneBodyOf m.defaultObservationInfo) s m.gisSurfaces
+
+    // one scene-body aval per adaptive GIS model, shared by every surface that asks
+    let private sceneBodyAvals =
+        System.Runtime.CompilerServices.ConditionalWeakTable<AdaptiveGisApp, aval<Option<SpiceReferenceSystem>>>()
+
+    /// The scene body as surfaces inherit it (sceneBodyOf), adaptively. Reads observer and
+    /// frame only: the observation time must not re-evaluate every surface.
+    let sceneBodyAdaptive (m : AdaptiveGisApp) : aval<Option<SpiceReferenceSystem>> =
+        sceneBodyAvals.GetValue(m, fun m ->
+            (m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame)
+            ||> AVal.map2 SceneBody.tryReferenceSystem)
 
     let getSpiceReferenceSystemAdaptive (m : AdaptiveGisApp) (s : SurfaceId) =
-        m.gisSurfaces.Content |> AVal.map (getSpiceReferenceSystemFromSurfaces s)
+        (sceneBodyAdaptive m, m.gisSurfaces.Content)
+        ||> AVal.map2 (fun sceneBody surfaces -> getSpiceReferenceSystemFromSurfaces sceneBody s surfaces)
 
+    /// Towards the sun from the surface's body, in the observer's frame. None without a
+    /// complete observation: there is no scene frame to express it in (this used to guess
+    /// Mars in IAU_MARS). None while the lighting mode is Off, where nothing reads it:
+    /// every surface of a scene body inherits a reference system (#758), and a SPICE query
+    /// per surface and time step is neither free nor quiet without an ephemeris kernel.
     let getSunDirection (m: AdaptiveGisApp) (s : SurfaceId) =
         let observer = m.defaultObservationInfo.observer 
-        let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
         let time = m.defaultObservationInfo.time.date
-        let targetReferenceFrame = m.defaultObservationInfo.referenceFrame |> AVal.map (Option.defaultValue (FrameSpiceName "IAU_MARS"))
-        getSpiceReferenceSystemAdaptive m s 
+        let targetReferenceFrame = m.defaultObservationInfo.referenceFrame
+        let lit =
+            m.projectedImageList.lightingMode
+            |> AVal.map (fun mode -> mode <> PRo3D.ImageMapping.LightingMode.Off)
+        (lit, getSpiceReferenceSystemAdaptive m s)
+        ||> AVal.map2 (fun lit r -> if lit then r else None)
         |> AVal.bind (function
             | None -> AVal.constant None
             | Some r -> 
-                (observerWithDefault, targetReferenceFrame, time) |||> AVal.map3 (fun observer targetReferenceFrame time -> 
-                    let bodyPos = CooTransformation.transformBody r.body (Some r.referenceFrame) observer targetReferenceFrame time 
-                    let sunPos = CooTransformation.transformBody (EntitySpiceName "SUN") (Some r.referenceFrame) observer targetReferenceFrame time 
-                    match sunPos, bodyPos with
-                    | Some sunPos, Some bodyPos -> sunPos.position - bodyPos.position |> Vec.normalize |> Some
+                (observer, targetReferenceFrame, time) |||> AVal.map3 (fun observer targetReferenceFrame time ->
+                    match observer, targetReferenceFrame with
+                    | Some observer, Some targetReferenceFrame ->
+                        let bodyPos = CooTransformation.transformBody r.body (Some r.referenceFrame) observer targetReferenceFrame time
+                        let sunPos = CooTransformation.transformBody (EntitySpiceName "SUN") (Some r.referenceFrame) observer targetReferenceFrame time
+                        match sunPos, bodyPos with
+                        | Some sunPos, Some bodyPos -> sunPos.position - bodyPos.position |> Vec.normalize |> Some
+                        | _ -> None
                     | _ -> None
                 )
         )
@@ -1017,8 +1192,14 @@ module GisApp =
         m.defaultObservationInfo.Current |> AVal.map getObserver
 
 
+    /// The camera looking from the camera source body at the observed body. None when
+    /// either is unset - and when they are the same body: there is no viewpoint "from the
+    /// body at itself", and transformBody's identity answer for it has only a stand-in
+    /// camera, which would teleport the view into the body on every time change.
     let lookAtObserver' (observationInfo : ObservationInfo)  =
         match observationInfo.observer, observationInfo.referenceFrame, observationInfo.target with
+        | Some (EntitySpiceName observer), _, Some (EntitySpiceName target) when SpiceName.same observer target ->
+            None
         | Some observer, Some observerFrame, Some target ->
             Log.line "look at. target: %A, observer: %A, frame: %A" target observer observerFrame
             match CooTransformation.transformBody target (Some observerFrame) observer observerFrame observationInfo.time.date with
@@ -1062,8 +1243,8 @@ module GisApp =
                 (ReferenceFrame.iauDeimos.spiceName, ReferenceFrame.iauDeimos)
                 (ReferenceFrame.iauPhobos.spiceName, ReferenceFrame.iauPhobos)
                 (ReferenceFrame.iauMoon.spiceName, ReferenceFrame.iauMoon)
-                // (ReferenceFrame.iauDidymos.spiceName, ReferenceFrame.iauDidymos)
-                // (ReferenceFrame.iauDimorphos.spiceName, ReferenceFrame.iauDimorphos)
+                (ReferenceFrame.didymosFixed.spiceName, ReferenceFrame.didymosFixed)
+                (ReferenceFrame.dimorphosFixed.spiceName, ReferenceFrame.dimorphosFixed)
             ] |> HashMap.ofList
 
         let missionTimeEntries : list<MissionTimeEntry> = getMissionTimeEntriesData()

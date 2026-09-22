@@ -286,7 +286,7 @@ module AreaComparison =
                                                                            cache
                                                                            true
                 cache <- c
-                hitInfo |> Option.map (fun (h,s) -> (h.RayHit.T, s))
+                hitInfo |> Option.map (fun info -> (info.hit.RayHit.T, info.surface))
 
             let calcDistanceRound (localPoint : V3d) =
                 let raysFrom : V3d = sgSurface1.globalBB.Center

@@ -35,10 +35,10 @@ module CommandLine =
         Log.line "[CommandLine] Command Line Arguments:"
         Log.line "%s" (argv |> (String.concat " "))
         let isHelp flag = 
-            String.equalsCaseInsensitive flag "--help"
-            || (flag |> String.equalsCaseInsensitive "--h")
-            || (flag |> String.equalsCaseInsensitive "-h")
-            || (flag |> String.equalsCaseInsensitive "-help")
+            flag = "--help"
+            || (flag = "--h")
+            || (flag = "-h")
+            || (flag = "-help")
         
         match argv with 
         | argv when Array.isEmpty argv -> { CLStartupArgs.initArgs with areValid = true}

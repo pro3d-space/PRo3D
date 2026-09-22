@@ -1,5 +1,14 @@
 # The new opc-tool
 
+> **Deprecated.** `opc-tool` has been superseded by `pro3d-tool`, which carries the same
+> KdTree functionality as the `kdtree` verb alongside other commands.
+> See **[Pro3DTool.md](./Pro3DTool.md)**.
+>
+> `opc-tool --forcekdtreerebuild <dir>` becomes `pro3d-tool kdtree --forcekdtreerebuild <dir>`.
+> This page is kept for users of the old package.
+
+
+
 The purpose of this tool is to generate KdTrees for OPC hierarchies.
 Either run the tool directly from source or use a prebuilt version which is hosted on nuget and available as a dotnet tool.
 

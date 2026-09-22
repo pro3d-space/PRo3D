@@ -10,7 +10,6 @@ open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.Data.Opc
 open Aardvark.SceneGraph.Semantics
-open Aardvark.UI
 
 open Aardvark.UI.Primitives
 open Aardvark.UI
@@ -93,10 +92,42 @@ module FootprintSg =
 //            n.Child?DepthVP <- n.ViewProj
 
 module Sg =
-    
 
-    let applyFootprint (v : aval<M44d>) (sg : ISg) = 
+
+    let applyFootprint (v : aval<M44d>) (sg : ISg) =
         FootprintSg.FootprintApplicator(v, sg) :> ISg
+
+    /// LatLon graticule: flattening f = 1 - rPolar/rEquator of the body, used to
+    /// turn planetocentric latitude into the planetographic latitude PRo3D's
+    /// coordinate readout shows (latG = atan(tan latC / (1-f)^2)). Memoized per
+    /// body so patch loads don't repeat the native SPICE radius lookups.
+    let private latLonFlatteningCache =
+        System.Collections.Concurrent.ConcurrentDictionary<PRo3D.Base.Planet, float>()
+
+    let private bodyFlattening (planet : PRo3D.Base.Planet) : float =
+        latLonFlatteningCache.GetOrAdd(planet, fun p ->
+            match CooTransformation.getConvention p with
+            | CooTransformation.NonPlanetary -> 0.0
+            | CooTransformation.Spherical _ -> 0.0
+            | CooTransformation.Ellipsoidal radii ->
+                let eq = (radii.X + radii.Y) * 0.5
+                if eq > 0.0 then max 0.0 (1.0 - radii.Z / eq) else 0.0
+            | CooTransformation.Planetographic ->
+                let rEq = CooTransformation.tryGetBodyRadius p (V3d(1.0, 0.0, 0.0))
+                let rPo = CooTransformation.tryGetBodyRadius p (V3d(0.0, 0.0, 1.0))
+                match rEq, rPo with
+                | Some a, Some c when a > 0.0 -> max 0.0 (1.0 - c / a)
+                | _ -> 0.0)
+
+    /// (sinφ, cosφ, sinλ, cosλ) of the planetographic lat/lon at body-fixed `pWorld`.
+    /// sin/cos rather than raw degrees so linear interpolation across a triangle
+    /// does not tear at the ±180° longitude seam.
+    let private latLonSinCos (f : float) (pWorld : V3d) : V4f =
+        let n = pWorld.Normalized
+        let latC = asin (clamp -1.0 1.0 n.Z)
+        let lon  = atan2 n.Y n.X
+        let latG = if f <> 0.0 then atan2 (tan latC) ((1.0 - f) ** 2.0) else latC
+        V4f(float32 (sin latG), float32 (cos latG), float32 (sin lon), float32 (cos lon))
 
     //type Ag.Scope with
     //    member x.DepthVP : aval<M44d> = x?DepthVP
@@ -406,60 +437,108 @@ module Sg =
             kdTreesPerHierarchy                     
             |> Array.fold HashMap.union HashMap.empty
 
-        let createShadowContext (f : Aardvark.GeoSpatial.Opc.PatchLod.PatchNode) (scope : Scope) =
-             match scope.TryGetInherited "LightViewProj" with
-             | None -> Option<aval<Trafo3d>>.None :> obj
-             | Some v -> Some (v |> unbox<aval<Trafo3d>>) :> obj
-
-        let uniforms = 
-             Map.ofList [    
-                 //"LightViewProj", fun scope (rp : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                 "LightViewProj", fun scope (rp : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                     let vp : Option<aval<Trafo3d>> = unbox scope
-                     match vp with
-                     | Some vp -> 
-                         AVal.map2 (fun (m : Trafo3d) (vp : Trafo3d) -> (m * vp).Forward)                                     
-                                   rp.trafo vp :> IAdaptiveValue
-                     | None -> 
-                         Log.error "did not provide LightViewProj but shader wanted it."
-                         (AVal.constant M44f.Identity) :> IAdaptiveValue
-                 "HasLightViewProj", fun scope _ -> 
-                     let vp : Option<aval<Trafo3d>> = unbox scope
-                     match vp with
-                         | Some _ -> AVal.constant true :> IAdaptiveValue
-                         | _ -> AVal.constant false :> IAdaptiveValue
-             ]
-     
         //let lodDeciderMars = lodDeciderMars scene.preTransform
         //let lodDeciderMars = marsArea scene.preTransform
         //let lodDeciderMars = reworkedLoD scene.preTransform intersect
-        let lodDeciderMars = cleanedOldLegacyLoD  scene.preTransform 
+        let lodDeciderMars = cleanedOldLegacyLoD  scene.preTransform
 
-        let projectedImages = ImageProjectionOpcExtensions.projectionUniformMap
-
-        let footprintUniforms = 
-            Map.ofList [
-                "FootprintModelViewProj", fun scope (patch : RenderPatch) -> 
-                    let context = unbox<OpcRenderingExtensions.Context> scope
-                    let viewTrafo = context.footprintVP
-                    let r = AVal.map2 (fun viewTrafo (model : Trafo3d) -> viewTrafo * model.Forward) viewTrafo patch.trafo 
-                    r :> IAdaptiveValue
-            ]
-
-        let allUniforms = Map.unionMany [Map.empty; projectedImages; ]
+        // Shadow mapping's per-patch light matrix (StableModelViewProjTexture) lives in
+        // projectionUniformMap, fed through the ProjectedImages record. A previous
+        // "LightViewProj"/"HasLightViewProj" uniform map sat here unused (and unsound:
+        // its capture function was never installed, so it would have unboxed the wrong
+        // scope type); removed when the working path landed.
 
         // create level of detail hierarchy (Sg)
-        let g = 
-            patchHierarchies 
-            |> Array.map (fun h ->      
-                let patchLodWithTextures = 
+        let g =
+            patchHierarchies
+            |> Array.map (fun h ->
+                // Winding vote for the projection shaders' projector-facing test. It
+                // reads the root patch from disk, so it is only taken once winding
+                // correction is on and a projector resolves (see toProjector).
+                let inwardWound =
+                    lazy (match h.tree with
+                          | QTree.Node (p, _) | QTree.Leaf p ->
+                              NormalWinding.estimate h.opcPaths.Opc_DirAbsPath p > 0.5)
+                let uniforms = ImageProjectionOpcExtensions.projectionUniformMap' inwardWound
+
+                let patchLodWithTextures =
 
                     let extractTextureScope f (p : OpcPaths) (lodScope : obj) (r : RenderPatch) =
                         let context = unbox<OpcRenderingExtensions.Context> lodScope
-                        f p context.texturesScope r 
+                        f p context.texturesScope r
 
                     let getTextures = extractTextureScope SecondaryTexture.textures
-                    let getVertexAttributes = extractTextureScope SecondaryTexture.vertexAttributes
+
+                    let getVertexAttributes (p : OpcPaths) (lodScope : obj) (r : PatchLod.RenderPatch) =
+                        let context = unbox<OpcRenderingExtensions.Context> lodScope
+                        let baseAttrs = SecondaryTexture.vertexAttributes p context.texturesScope r
+
+                        let crossSectionBuf : aval<IBuffer> =
+                            context.crossSectionData
+                            |> AVal.bind (fun csOpt ->
+                                match csOpt with
+                                | Some cs ->
+                                    let (g, _) = Aardvark.Data.Opc.Patch.load h.opcPaths r.modality r.info
+                                    let positions = g.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
+                                    let arr : V4f[] = Array.zeroCreate positions.Length
+                                    let poly = cs.polygon
+                                    let basis = cs.basis
+                                    //Log.startTimed "computing inside"
+                                    for i = 0 to positions.Length - 1 do
+                                        let pLocal = V3d positions.[i]
+                                        let pWorld = r.info.Local2Global.TransformPos pLocal
+                                        let q2 = PRo3D.Base.Annotation.CrossSection.projectTo2d basis pWorld
+                                        // Signed distance to the polygon boundary (negative inside),
+                                        // interpolated across triangles so the clip edge is smooth
+                                        // rather than snapping to mesh-edge midpoints.
+                                        let signed =
+                                            if q2.AnyNaN then -1.0f
+                                            else
+                                                let closest = poly.GetClosestPointOn q2
+                                                let d = float32 (q2 - closest).Length
+                                                if poly.Contains q2 then -d else d
+                                        arr.[i] <- V4f(signed, 0.0f, 0.0f, 0.0f)
+                                    //Log.stop()
+                                    AVal.constant (ArrayBuffer(arr) :> IBuffer)
+                                | None ->
+                                    // Placeholder only. This constant attribute does not
+                                    // arrive as the bound zero on Apple Silicon -- whole
+                                    // patches read back garbage. Do not read
+                                    // InsideOutsideV4 unless a cross-section is defined;
+                                    // crossSectionClip guards on CrossSectionDefined.
+                                    SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
+                            )
+
+                        // LatLon graticule: per-vertex (sinφ,cosφ,sinλ,cosλ) computed on
+                        // the CPU in double, so the shader never transforms a world-scale
+                        // position through float32. latLonGridPlanet is Some only while the
+                        // overlay is enabled on this surface and the scene sits on a body
+                        // (applied per surface in ViewerUtils.viewSingleSurfaceSg), so a
+                        // surface without the overlay never reaches the second
+                        // Patch.load below (#747). Enabling it recomputes the loaded patches.
+                        let latLonBuf : aval<IBuffer> =
+                            context.latLonGridPlanet
+                            |> AVal.bind (fun planetOpt ->
+                                match planetOpt with
+                                | Some planet ->
+                                    let (g, _) = Aardvark.Data.Opc.Patch.load h.opcPaths r.modality r.info
+                                    let positions = g.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
+                                    let f = bodyFlattening planet
+                                    let arr : V4f[] = Array.zeroCreate positions.Length
+                                    for i = 0 to positions.Length - 1 do
+                                        let pWorld = r.info.Local2Global.TransformPos (V3d positions.[i])
+                                        arr.[i] <- latLonSinCos f pWorld
+                                    AVal.constant (ArrayBuffer(arr) :> IBuffer)
+                                | None ->
+                                    // Placeholder (see InsideOutsideV4 note). latLonLines
+                                    // guards on LatLonLatLevels.X, which is <= 0 whenever
+                                    // this branch is taken, so it is never sampled.
+                                    SingleValueBuffer(AVal.constant V4f.Zero) :> aval<IBuffer>
+                            )
+
+                        baseAttrs
+                        |> Map.add (Sym.ofString "InsideOutsideV4") (BufferView(crossSectionBuf, typeof<V4f>))
+                        |> Map.add (Sym.ofString "LatLonSinCos") (BufferView(latLonBuf, typeof<V4f>))
 
                     PatchNode(
                         signature, 
@@ -472,16 +551,16 @@ module Sg =
                         PatchLod.CoordinatesMapping.Local, 
                         useAsyncLoading, 
                         OpcRenderingExtensions.captureContext, 
-                        allUniforms,
+                        uniforms,
                         PatchLod.toRoseTree h.tree,
                         Some (getTextures h.opcPaths), 
                         Some (getVertexAttributes h.opcPaths), 
                         Aardvark.Data.PixImagePfim.Loader
                     )
                 //plainPatchLod
-                patchLodWithTextures
+                (patchLodWithTextures :> ISg)
             )
-            |> SgFSharp.Sg.ofArray  
+            |> Aardvark.SceneGraph.SgFSharp.Sg.ofArray
                                                                       
         g, patchHierarchies, kdTrees
     
@@ -601,8 +680,8 @@ module Sg =
                         yield fail
                 | None -> 
                     yield fail
-            }|> Aardvark.UI.``F# Sg``.Sg.set
-        Aardvark.UI.``F# Sg``.Sg.ofList [point]
+            }|> Sg.set
+        Sg.ofList [point]
 
     let viewLeafLabels 
         (near   : aval<float>)

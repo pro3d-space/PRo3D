@@ -59,14 +59,13 @@ type ObservationInfo = {
         json {
             let! target         = Json.read    "target"        
             let! observer       = Json.read    "observer"      
-            let! time           = Json.read    "time"     
-            let success, time =
-                DateTime.TryParse time
-            let time = 
-                if success then
-                    Calendar.fromDate time
-                else
-                    Calendar.fromDate DateTime.Now
+            // written as UTC with a "Z" (Chiron's DateTime codec), read back as
+            // DateTimeKind.Utc -- the same instant as before, only no longer local
+            let! time           = Json.read    "time"
+            let time =
+                match Calendar.tryParseUtc time with
+                | Some time -> Calendar.fromDate time
+                | None -> Calendar.fromDate DateTime.UtcNow
             let! referenceFrame = Json.tryRead "referenceFrame"
             
             return {
@@ -166,19 +165,30 @@ module GisAppJson =
             let! cameraInObserver = Json.tryRead "cameraInObserver"
 
             let! showMarkers = Json.tryRead "showMarkers"
-            
+
+            // Additive field (tryRead + default), so scenes from before it existed load
+            // unchanged. Only the mode is persisted, not the whole image list -- the list
+            // staying session-local is existing behaviour.
+            let! (lightingMode : Option<int>) = Json.tryRead "lightingMode"
+            let lightingMode =
+                lightingMode |> Option.map enum<LightingMode> |> Option.defaultValue LightingMode.Off
+            let! (windingCorrection : Option<bool>) = Json.tryRead "windingCorrection"
+
             return {
-                version                = ReferenceFrame.current
+                version                = GisApp.current
                 defaultObservationInfo = defaultObservationInfo
-                referenceFrames        = HashMap.ofList referenceFrames               
-                entities               = HashMap.ofList entities          
+                referenceFrames        = HashMap.ofList referenceFrames
+                entities               = HashMap.ofList entities
                 newEntity              = None
                 newFrame               = None
                 gisSurfaces            = HashMap.ofList gisSurfaces
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
-                projectedImageList        = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = System.IO.Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
+                projectedImageList        =
+                    { ProjectedImageListModel.initial with
+                        lightingMode = lightingMode
+                        windingCorrection = Option.defaultValue false windingCorrection }
                 showMarkers            = Option.defaultValue false showMarkers
 
                 selectedMissionTimeRow = None
@@ -196,6 +206,13 @@ type GisApp with
             do! Json.write "gisSurfaces"             (x.gisSurfaces |> HashMap.toList |> List.map snd)
             do! Json.write "spiceKernel"             (Option.map CooTransformation.SPICEKernel.toPath x.spiceKernel)
             do! Json.write "showMarkers"             x.showMarkers
+            // The sun/lighting mode must survive save/load: PRo3D.Snapshots.exe restores
+            // the scene through this codec, so an unserialized mode would silently reset
+            // to Off in every batch render.
+            do! Json.write "lightingMode"            (int x.projectedImageList.lightingMode)
+            // a property of the scene's OPCs, so it travels with the scene (and into
+            // PRo3D.Snapshots) like the lighting mode
+            do! Json.write "windingCorrection"       x.projectedImageList.windingCorrection
         }
     static member FromJson (_ : GisApp) =
         json {

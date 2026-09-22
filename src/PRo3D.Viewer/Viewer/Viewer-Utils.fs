@@ -29,13 +29,6 @@ open PRo3D.InstrumentVisualization
 module ViewerUtils =    
     type Self = Self
 
-    let mapRenderCommand rc =
-        match rc with
-            | SceneGraph sg -> 
-                RenderCommand.SceneGraph (sg |> Sg.map ViewerMessage)
-            | RenderCommand.Clear (a,b,c) -> 
-                RenderCommand<ViewerAnimationAction>.Clear (a,b,c)
-
     let mapAttribute (f : 'msg -> 'newmsg) (a : Attribute<'msg>) =
         let (str, a) = a
         let avalue = AttributeValue.map f a
@@ -47,7 +40,13 @@ module ViewerUtils =
     let colormap =
         let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
         let pi = PixImage.Load(s)
-        PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
+        PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture
+
+    /// Adaptive sibling of `ViewerApp.toolArmed`: the active tool owns the left mouse
+    /// button right now. Classic scheme arms it while Ctrl is held; Direct Tool Mode
+    /// arms it while Ctrl is *not* held. Keep the two definitions in step.
+    let toolArmed (m : AdaptiveModel) : aval<bool> =
+        (m.ctrlFlag, m.directToolMode) ||> AVal.map2 (<>)
     
 
     let addImageCorrectionParameters (surf: AdaptiveSurface)  (isg:ISg<'a>) =
@@ -248,8 +247,23 @@ module ViewerUtils =
     }
 
         
-    let viewSingleSurfaceSg 
-        (surface         : AdaptiveSgSurface) 
+    /// The SPICE body a surface is observed as (Sg.applyBody); None without a SPICE
+    /// reference system. Also gates whether the surface gets projection data at all.
+    let observedBody (observedSystem : aval<Option<SpiceReferenceSystem>>) : aval<Option<string>> =
+        observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value)
+
+    /// Distance-to-home filtering is on only when there is a home position to filter
+    /// against. Feeds the FilterByDistance uniform and the surface-effect variant switch.
+    let surfaceFilterByDistance (surf : AdaptiveSurface) : aval<bool> =
+        adaptive {
+            let! homePosition = surf.homePosition
+            match homePosition with
+            | Some _ -> return! surf.filterByDistance
+            | None -> return false
+        }
+
+    let viewSingleSurfaceSg
+        (surface         : AdaptiveSgSurface)
         (m               : AdaptiveModel) 
         (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>) 
@@ -384,30 +398,24 @@ module ViewerUtils =
                     |> Sg.dynamic
 
                
+                // transform the home position into view space on the CPU (double precision)
+                // and hand a clean V3f to the shader; the per-vertex check then runs in the
+                // numerically stable view space (vp), no planet-scale world coords on the GPU
                 let homePositionViewSpace =
                     adaptive {
                         let! homePosition = surf.homePosition
-                        
+
                         match homePosition with
-                        | Some hp -> 
+                        | Some hp ->
                             let! view' = view
                             let mv = (view' |> CameraView.viewTrafo).Forward
-                            return (mv.TransformPos hp.Location)
+                            return V3f (mv.TransformPos hp.Location)
                         | None ->
                             let! bb = surface.globalBB
-                            return bb.Center                        
-                    }               
+                            return V3f bb.Center
+                    }
                     
-                let filterByDistance =
-                    adaptive {
-                        let! homePosition = surf.homePosition 
-                        
-                        match homePosition with
-                        | Some _ -> 
-                            return! surf.filterByDistance 
-                        | None ->
-                            return false
-                    }  
+                let filterByDistance = surfaceFilterByDistance surf
                     
                 let cusorViewSpace = 
                     (view, cursorWorldSpace) ||> AVal.map2 (fun view p -> 
@@ -424,7 +432,17 @@ module ViewerUtils =
                     |> Sg.dynamic
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
-                    |> Sg.applyBody (observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value))
+                    |> Sg.applyBody (observedBody observedSystem)
+                    // LatLon graticule: the per-vertex lat/lon attribute (Surface.Sg) is
+                    // built only while the overlay is enabled on this surface and the
+                    // scene sits on a body, so a surface without it pays no second patch
+                    // load, per-vertex loop or buffer (#747). Enabling it recomputes the
+                    // attribute for the loaded patches.
+                    |> Sg.applyLatLonGrid (
+                        (surf.latLonModel.enabled, refsys.planet) ||> AVal.map2 (fun enabled planet ->
+                            if enabled && CooTransformation.getConvention planet <> CooTransformation.NonPlanetary
+                            then Some planet else None)
+                    )
                     |> Sg.noEvents
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
@@ -434,7 +452,7 @@ module ViewerUtils =
                     |> Sg.uniform "MaxTriangleSize"   triangleFilter  
                     |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
-                    |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
+                    |> Sg.uniform "FilterDistance" (surf.filterDistance.value |> AVal.map float32)
                     //|> Sg.texture "ShadowTexture" shadowMap
                     //|> Sg.uniform "LightDirectionRover" lightDirRover
                     //|> Sg.uniform "LightViewProjRover" (Rover3DModel.Shadows.lightViewProj roverTrafo m.scene.rover.upVector lightDirRover)
@@ -453,6 +471,10 @@ module ViewerUtils =
                     |> addRadiometryParameters surf
                     |> Sg.uniform "DepthVisible" depthVisible //(AVal.constant(true)) //
                     |> Sg.uniform "FootprintVisible" footprintVisible
+                    // Placeholder for non-PatchNode geometry under this scope (e.g. mesh
+                    // surfaces), which never draws a footprint. OPC patches shadow it with
+                    // the per-patch matrix from projectionUniformMap; identity here would
+                    // put every patch-local vertex outside footPrintF's [-1,1] test.
                     |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
                     |> Sg.applyFootprint footprintViewProj
                     |> Sg.noEvents
@@ -492,8 +514,33 @@ module ViewerUtils =
                         surf.transferFunction |> AVal.map (fun tf -> tf.textureCombiner)
                     )
                     |> Sg.uniform "SecondaryTextureContour"(
-                        surf.contourModel.Current |> AVal.map (fun m -> 
+                        surf.contourModel.Current |> AVal.map (fun m ->
                             V4d((if m.enabled then m.distance.value else -1.0), m.width.value, m.border.value, 0.0)
+                        )
+                    )
+                    // LatLon graticule overlay. LatLevels.X <= 0 disables everything
+                    // (off, or a non-planetary body); LatLevels.YZW / LonLevels.XYZ
+                    // are 1/0 flags for the 1°/5°/15° parallels and meridians. The
+                    // per-vertex lat/lon attribute comes from Sg.applyLatLonGrid above.
+                    |> Sg.uniform "LatLonLatLevels" (
+                        (surf.latLonModel.Current, refsys.planet) ||> AVal.map2 (fun m planet ->
+                            let usable =
+                                m.enabled &&
+                                CooTransformation.getConvention planet <> CooTransformation.NonPlanetary
+                            let b v = if v then 1.0 else 0.0
+                            V4d((if usable then 1.0 else -1.0), b m.lat1, b m.lat5, b m.lat15)
+                        )
+                    )
+                    |> Sg.uniform "LatLonLonLevels" (
+                        surf.latLonModel.Current |> AVal.map (fun m ->
+                            let b v = if v then 1.0 else 0.0
+                            V4d(b m.lon1, b m.lon5, b m.lon15, 0.0)
+                        )
+                    )
+                    |> Sg.uniform "LatLonLineColor" (
+                        surf.latLonModel.Current |> AVal.map (fun m ->
+                            let c = m.lineColor.c
+                            V4d(float c.R / 255.0, float c.G / 255.0, float c.B / 255.0, 1.0)
                         )
                     )
                     |> Sg.uniform "TransferFunctionMode" (
@@ -516,20 +563,29 @@ module ViewerUtils =
                     |> Sg.withEvents [
                         if Config.previewIntersections  then
                             yield SceneEventKind.Move, (
-                                fun sceneHit -> 
-                                    if previewPickingEnabled.GetValue() then
-                                        let name  = surf.name |> AVal.force        
-                                        let surfacePicking = surfacePicking |> AVal.force
-                                        true, Seq.ofList [PreviewPickSurface (sceneHit, name, surfacePicking)]
+                                fun sceneHit ->
+                                    let surfacePicking = surfacePicking |> AVal.force
+                                    let surfacePickingActivated = toolArmed m |> AVal.force
+                                    // only show the preview cursor while in picking mode (ctrl held,
+                                    // modulo Direct Tool Mode) - no preview while navigating the camera
+                                    if previewPickingEnabled.GetValue() && surfacePicking && surfacePickingActivated then
+                                        let name  = surf.name |> AVal.force
+                                        true, Seq.ofList [PreviewPickSurface (sceneHit, name, true)]
                                     else
                                         true, Seq.empty
                             )
                         yield SceneEventKind.Click, (
                            fun sceneHit -> 
-                                let name  = surf.name |> AVal.force        
+                                let name  = surf.name |> AVal.force
                                 let surfacePicking = surfacePicking |> AVal.force
-                                let surfacePickingActivated = ((m.ctrlFlag |> AVal.force) <> (m.inverseFlag |> AVal.force))
-                                if surfacePicking && surfacePickingActivated then
+                                let surfacePickingActivated = toolArmed m |> AVal.force
+                                // Tools are on the left button only. In Direct Tool Mode the right
+                                // button orbits the camera, and a right-drag ending on a surface
+                                // would otherwise place a point where the drag happened to stop.
+                                // This is the master gate feeding `matchPickingInteraction`, so it
+                                // covers every place/pick interaction at once.
+                                let leftButton = (sceneHit.event.evtButtons = Aardvark.Application.MouseButtons.Left)
+                                if surfacePicking && surfacePickingActivated && leftButton then
                                     true, Seq.ofList [PickSurface (sceneHit, name, true)]
                                 else 
                                     true, Seq.ofList []
@@ -719,10 +775,10 @@ module ViewerUtils =
             [<Color>]           c       : V4f
             [<TexCoord>]        tc      : V2f
 
-            [<Semantic("ViewSpacePos")>] 
+            [<Semantic("ViewSpacePos")>]
             vp : V4f
 
-            [<Semantic("FootPrintProj")>] 
+            [<Semantic("FootPrintProj")>]
             tc0     : V4f
 
             [<Normal>] 
@@ -732,8 +788,8 @@ module ViewerUtils =
         }
 
         let fixAlpha (v : Vertex) =
-            fragment {         
-               return V4f(v.c.X, v.c.Y,v.c.Z, 1.0f)           
+            fragment {
+               return V4f(v.c.X, v.c.Y,v.c.Z, 1.0f)
             }
 
         type UniformScope with
@@ -743,8 +799,8 @@ module ViewerUtils =
 
             // filter for distance to home position
             member x.FilterByDistance : bool = x?FilterByDistance
-            member x.FilterDistance : float = x?FilterDistance
-            member x.HomePositionViewSpace : V3d = x?HomePositionViewSpace
+            member x.FilterDistance : float32 = x?FilterDistance
+            member x.HomePositionViewSpace : V3f = x?HomePositionViewSpace
 
 
         // performs all checks in view space
@@ -772,10 +828,10 @@ module ViewerUtils =
                 let validTriangle = disabled || smallTriangle
 
                 if filterDistanceActive then
-                    let filterRange : float32 = float32 uniform.FilterDistance
-                    let homePositionVSp : V3f = uniform?HomePositionViewSpace
+                    let filterRange : float32 = uniform.FilterDistance
+                    let homePositionVSp : V3f = uniform.HomePositionViewSpace
 
-                    let inRange = 
+                    let inRange =
                         (Vec.distance homePositionVSp p0) < filterRange &&
                         (Vec.distance homePositionVSp p1) < filterRange &&
                         (Vec.distance homePositionVSp p2) < filterRange
@@ -796,7 +852,7 @@ module ViewerUtils =
             vertex {
                 let p = uniform.ModelViewProjTrafo * v.pos
 
-                return 
+                return
                     { v with
                         pos = p
                         c = v.c
@@ -834,6 +890,221 @@ module ViewerUtils =
 
        
 
+    module CrossSectionShader =
+        open FShade
+
+        type CrossSectionVertex = {
+            [<Semantic("InsideOutsideV4")>]
+            insideOutside : V4f
+        }
+
+        type UniformScope with
+            member x.CrossSectionClippingEnabled : bool = x?CrossSectionClippingEnabled
+            member x.CrossSectionDefined : bool = x?CrossSectionDefined
+
+        /// Discards surface fragments outside the cross-section polygon, using the signed
+        /// distance Surface.Sg writes into the per-vertex InsideOutsideV4 attribute.
+        ///
+        /// CrossSectionDefined is not redundant with CrossSectionClippingEnabled: clipping
+        /// is enabled by default and only means "clip if there is something to clip
+        /// against". Without the guard this ran on every scene from the first frame, and
+        /// with no cross-section defined InsideOutsideV4 holds no meaningful data --
+        /// Surface.Sg binds it as a constant attribute (SingleValueBuffer) whose value does
+        /// not arrive on Apple Silicon, so roughly half the surface read negative and was
+        /// discarded, producing a lattice of holes across the terrain.
+        let crossSectionClip (v : CrossSectionVertex) =
+            fragment {
+                if uniform.CrossSectionClippingEnabled && uniform.CrossSectionDefined
+                   && v.insideOutside.X < 0.0f then
+                    discard()
+                return v
+            }
+
+    module OutcropTraceShader =
+        open FShade
+
+        /// Only what the test needs: the interpolated colour so far, and the view-space
+        /// position `Shader.stableTrafo` writes into the ViewSpacePos semantic.
+        type OutcropTraceVertex = {
+            [<Color>]                        c  : V4f
+            [<Semantic("ViewSpacePos")>]     vp : V4f
+        }
+
+        type UniformScope with
+            member x.OutcropTraceEnabled : bool = x?OutcropTraceEnabled
+            /// xyz = view-space unit normal, w = view-space plane offset d
+            member x.OutcropTracePlane   : V4f  = x?OutcropTracePlane
+            /// xyz = view-space anchor, w = projection radius (metres)
+            member x.OutcropTraceExtent  : V4f  = x?OutcropTraceExtent
+            /// x = trace width, y = trace smoothing, z = bed thickness (<= 0 = single
+            /// plane), w = phase offset along the normal
+            member x.OutcropTraceParams  : V4f  = x?OutcropTraceParams
+            member x.OutcropTraceColor   : V4f  = x?OutcropTraceColor
+
+        /// Marks the fragments where a modelled bedding sequence meets the terrain.
+        ///
+        /// One attitude, uploaded as a single view-space plane; the whole sequence comes from
+        /// folding the signed distance into one bed-thickness interval. That is why there is
+        /// no uniform array and no per-fragment loop however many beds are on screen.
+        ///
+        /// Everything is view space: `v.vp` is camera-relative, so at 10 km a float32 still
+        /// resolves ~1 mm. The same test in world space would be a float32 dot product
+        /// against ~3.4e6 m on Mars, about 0.25 m of resolution - noise next to a 0.25 m
+        /// trace. The plane is composed on the CPU in double (OutcropTrace.viewSpaceAttitude).
+        ///
+        /// OutcropTraceEnabled gates the whole thing and the uniforms are always bound, zero
+        /// filled when off - see the crossSectionClip note above for why reading an unbound
+        /// value per fragment is not safe on every platform.
+        let outcropTrace (v : OutcropTraceVertex) =
+            // one return on purpose (#719, FShade#39): every return path duplicates the
+            // whole rest of the effect in the generated GLSL
+            fragment {
+                let mutable color = v.c
+                if uniform.OutcropTraceEnabled then
+                    let p         = v.vp.XYZ
+                    let pl        = uniform.OutcropTracePlane
+                    let ext       = uniform.OutcropTraceExtent
+                    let par       = uniform.OutcropTraceParams
+                    let halfWidth = par.X * 0.5f
+                    let smooth    = max par.Y 1e-4f
+                    let bedThk    = par.Z
+
+                    // signed distance to the reference plane, view space, metres, shifted
+                    // along the normal by the phase offset. Sliding the whole sequence is
+                    // how you line a modelled bed up with a marker bed you can actually see;
+                    // the pattern repeats every bed thickness, so one bed of travel reaches
+                    // every possible phase.
+                    let signed = Vec.dot pl.XYZ p - pl.W - par.W
+
+                    // a sequence folds that distance into one bed-thickness interval
+                    let d =
+                        if bedThk > 0.0f then
+                            let m = signed - bedThk * floor (signed / bedThk)
+                            min m (bedThk - m)               // distance to the nearest bed
+                        else
+                            abs signed
+
+                    // How much the signed distance changes across one pixel. This is what
+                    // makes a *sequence* survivable: trace width and bed thickness are both
+                    // in metres, so once a bed is thinner than a couple of pixels of terrain
+                    // the traces shimmer, moire against the LOD and crawl as the camera
+                    // moves. At 500 m on a 1080-tall viewport with a 60 deg vertical FOV one
+                    // pixel already covers ~0.5 m face-on, and several times that at grazing
+                    // incidence, so a 1 m bed thickness is at the Nyquist limit before the
+                    // terrain tilts at all.
+                    // ddx/ddy, NOT ddxFine/ddyFine: the Fine variants emit dFdxFine/dFdyFine,
+                    // which need GLSL 4.50 or GL_ARB_derivative_control. macOS caps OpenGL at
+                    // 4.1, so they fail to compile there and take the whole surface shader
+                    // down with them. Plain dFdx/dFdy have been core since GLSL 1.10 and the
+                    // coarse/fine distinction is invisible at this scale anyway.
+                    let w = max (V2f(ddx signed, ddy signed) |> Vec.length) 1e-6f
+
+                    // Never let a trace fall below about a pixel and a half, or it
+                    // disappears and reappears between frames instead of getting fainter.
+                    let halfWidth = max halfWidth (w * 0.75f)
+                    let smooth    = max smooth w
+
+                    // band: 1 inside halfWidth, smoothstep out over `smooth`
+                    let band = 1.0f - Fun.Smoothstep(d, halfWidth, halfWidth + smooth)
+
+                    // Dissolve an over-dense sequence into a flat tint rather than a
+                    // shimmering mess: below ~3 pixels per bed there is no longer a pattern
+                    // to resolve, so fade the whole thing out instead of aliasing it.
+                    let density =
+                        if bedThk > 0.0f then Fun.Smoothstep(bedThk / w, 2.0f, 4.0f)
+                        else 1.0f
+
+                    // fade out away from the selection the attitude was measured on
+                    let r    = Vec.distance ext.XYZ p
+                    let fade = 1.0f - Fun.Smoothstep(r, ext.W, ext.W * 1.15f)
+
+                    let a = Fun.Clamp(band * fade * density, 0.0f, 1.0f)
+                    color <- V4f(v.c.XYZ * (1.0f - a) + uniform.OutcropTraceColor.XYZ * a, v.c.W)
+                return color
+            }
+
+    module CurtainShader =
+        open FShade
+
+        type CurtainVertex = {
+            [<Position>]                     pos        : V4f
+            [<TexCoord>]                     tc         : V2f
+            [<Semantic("ViewPos")>]          vp         : V4f
+            [<Semantic("TotalDepth")>]       totalDepth : float32
+            [<Semantic("SurfaceElevation")>] surfElev   : float32
+        }
+
+        type UniformScope with
+            member x.UpVS : V3f = uniform?UpVS
+            member x.TextureDepth : float32 = uniform?TextureDepth
+            member x.CurtainBaseColor : V4f = uniform?CurtainBaseColor
+            // 1 = absolute altitude-band texture mapping, 0 = surface-relative
+            member x.CurtainAbsoluteMode : int = uniform?CurtainAbsoluteMode
+
+        let curtainVertex (v : CurtainVertex) =
+            vertex {
+                let vp = uniform.ModelViewTrafo * v.pos
+                return { v with vp = vp }
+            }
+
+        let curtainGeometry (line : Line<CurtainVertex>) =
+            triangle {
+                let up     = uniform.UpVS |> Vec.normalize
+                // Per-vertex extrusion depths encoded in tc.Y by the CPU
+                let depth0 = line.P0.tc.Y
+                let depth1 = line.P1.tc.Y
+                let offset0 = V4f(up * depth0, 0.0f)
+                let offset1 = V4f(up * depth1, 0.0f)
+                let p0 = line.P0.vp
+                let p1 = line.P1.vp
+                let u0 = line.P0.tc.X
+                let u1 = line.P1.tc.X
+                let elev0 = line.P0.surfElev
+                let elev1 = line.P1.surfElev
+                // top edge (surface, v=1); bottom edge (extruded down, v=0)
+                yield { line.P0 with pos = uniform.ProjTrafo * p0;             tc = V2f(u0, 1.0f); totalDepth = depth0; surfElev = elev0 }
+                yield { line.P0 with pos = uniform.ProjTrafo * (p0 - offset0); tc = V2f(u0, 0.0f); totalDepth = depth0; surfElev = elev0 }
+                yield { line.P1 with pos = uniform.ProjTrafo * p1;             tc = V2f(u1, 1.0f); totalDepth = depth1; surfElev = elev1 }
+                yield { line.P1 with pos = uniform.ProjTrafo * (p1 - offset1); tc = V2f(u1, 0.0f); totalDepth = depth1; surfElev = elev1 }
+            }
+
+        let private curtainSampler =
+            sampler2d {
+                texture uniform?DiffuseColorTexture
+                filter Filter.MinMagMipLinear
+                addressU WrapMode.Clamp
+                addressV WrapMode.Clamp
+            }
+
+        let curtainFragment (v : CurtainVertex) =
+            fragment {
+                let texDepth  = uniform.TextureDepth
+                let baseColor = uniform.CurtainBaseColor
+                let totalD    = v.totalDepth
+                // v.tc.Y = 1.0 at surface, 0.0 at bottom; distFromSurface grows downward
+                let distFromSurface = (1.0f - v.tc.Y) * totalD
+                if uniform.CurtainAbsoluteMode = 1 then
+                    // Absolute mode: texture occupies the absolute altitude band
+                    // [texStartAlt - texDepth, texStartAlt]. surfElev is pre-offset on
+                    // CPU: (elevation - texStartAlt), so fragRelAlt = 0 at texStartAlt.
+                    let fragRelAlt = v.surfElev - distFromSurface
+                    if fragRelAlt <= 0.0f && fragRelAlt >= -texDepth && texDepth > 0.0f then
+                        // V=1 at top (fragRelAlt=0), V=0 at bottom (fragRelAlt=-texDepth)
+                        let t = (fragRelAlt + texDepth) / texDepth
+                        return curtainSampler.Sample(V2f(v.tc.X, t))
+                    else
+                        return baseColor
+                else
+                    // Surface-relative mode: texture starts on the surface and drapes
+                    // down texDepth metres, independent of absolute altitude.
+                    if distFromSurface <= texDepth && texDepth > 0.0f then
+                        // V=1 at surface (distFromSurface=0), V=0 at texDepth down
+                        let t = 1.0f - distFromSurface / texDepth
+                        return curtainSampler.Sample(V2f(v.tc.X, t))
+                    else
+                        return baseColor
+            }
+
     let objEffect =
         Effect.compose [
             //Shader.footprintV       |> toEffect 
@@ -843,60 +1114,252 @@ module ViewerUtils =
             Shader.textureOrLightingIfPossible |> toEffect
 
             PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
-            Shader.mapColorAdaption  |> toEffect   
+            Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
+
+            // last, so the trace colour is not modulated by lighting
+            OutcropTraceShader.outcropTrace |> toEffect
         ]
 
-    let surfaceEffect =
+    /// Surface.effectPool (Aardvark.Rendering) with the linking shared across surfaces (#719).
+    ///
+    /// All variants must share one FShade.EffectInputLayout. effectPool builds it from every
+    /// variant, which links them all, on every start and once per surface. This pool builds
+    /// it from the LAST variant alone -- the one that uses everything the others use, so its
+    /// layout covers them (SurfaceEffectVariantTest pins that) -- and shares the result per
+    /// (framebuffer layout, topology). The other variants stay lazy: applying a layout does
+    /// not link, and on a warm start GL finds each program on disk by effect id + layout
+    /// hash, so they are never linked at all. Switching variants swaps the GL program;
+    /// render objects are not rebuilt.
+    module SharedEffectPool =
+
+        /// True once the surface shaders are ready. Marked in the render view's DOM
+        /// (data-surface-shaders) so UI tests can wait for it instead of for a pixel.
+        let ready = cval false
+
+        /// Linking the effect takes ~15 s, and would do so on EVERY start: the layout is
+        /// what GL keys its on-disk programs by, so nothing can be reused without it. Keep
+        /// it next to that shader cache and every later start links nothing at all.
+        module private LayoutCache =
+            type private Stored =
+                { inputs : (string * System.Type)[]; uniforms : (string * FShade.UniformLayout)[] }
+
+            let private pickler = MBrace.FsPickler.FsPickler.CreateBinarySerializer()
+
+            /// plain arrays, so the file does not depend on how MapExt pickles
+            let serialize (layout : FShade.EffectInputLayout) =
+                pickler.Pickle { inputs = MapExt.toArray layout.Inputs; uniforms = MapExt.toArray layout.Uniforms }
+
+            let deserialize (bytes : byte[]) : FShade.EffectInputLayout =
+                let s = pickler.UnPickle<Stored> bytes
+                { Inputs = MapExt.ofArray s.inputs; Uniforms = MapExt.ofArray s.uniforms }
+
+            /// The effect id changes with the shader code, so a stale file simply misses,
+            /// like the GL shader cache. Both assembly versions belong in the key: Effect.link
+            /// reads more of the runtime than the effect id covers (device count, layered
+            /// inputs), so an Aardvark upgrade can change the linked uniform set while the
+            /// effect id stays the same, and a layout that no longer matches the modules
+            /// throws when a variant is first used. None when the shader cache is disabled.
+            let private file (effect : FShade.Effect) (signature : IFramebufferSignature) topology =
+                match signature.Runtime with
+                | :? IRuntime as r -> r.ShaderCachePath
+                | _ -> None
+                |> Option.map (fun dir ->
+                    let key =
+                        sprintf "%s|%A|%A|%A|%A" effect.Id signature.Layout topology
+                            typeof<FShade.Effect>.Assembly.FullName
+                            (typeof<IFramebufferSignature>.Assembly.GetName().Version)
+                    use sha = System.Security.Cryptography.SHA1.Create()
+                    let hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes key) |> Array.map (sprintf "%02x") |> String.concat ""
+                    Path.combine [ dir; "PRo3D.EffectInputLayouts"; hash + ".bin" ])
+
+            let tryLoad effect signature topology =
+                file effect signature topology |> Option.bind (fun path ->
+                    try if File.Exists path then Some (deserialize (File.readAllBytes path)) else None
+                    with e -> Log.warn "[SharedEffectPool] ignoring layout cache: %s" e.Message; None)
+
+            let store effect signature topology layout =
+                file effect signature topology |> Option.iter (fun path ->
+                    try
+                        Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+                        // via a temp file: two instances writing at once must not leave a
+                        // half-written file for the next start to read
+                        let tmp = path + "." + string (System.Guid.NewGuid()) + ".tmp"
+                        File.writeAllBytes tmp (serialize layout)
+                        File.Move(tmp, path, true)
+                    with e -> Log.warn "[SharedEffectPool] could not write layout cache: %s" e.Message)
+
+        /// `effects`: the variants; the LAST must use everything the others use.
+        let create (effects : FShade.Effect[]) : aval<int> -> Aardvark.Rendering.Surface =
+            let linked =
+                System.Collections.Generic.Dictionary<FramebufferLayout * IndexedGeometryMode, FShade.EffectInputLayout * FShade.Imperative.Module[]>()
+            // reached from the patch loader thread and the render thread
+            let link (signature : IFramebufferSignature) (topology : IndexedGeometryMode) =
+                lock linked (fun () ->
+                    let key = (signature.Layout, topology)
+                    match linked.TryGetValue key with
+                    | true, l -> l
+                    | _ ->
+                        let modules = effects |> Array.map (Effect.link signature topology false)
+                        let full = effects.[effects.Length - 1]
+                        let layout =
+                            match LayoutCache.tryLoad full signature topology with
+                            | Some layout -> layout
+                            | None ->
+                                // the only link ever forced here, and only on a cold start;
+                                // the other variants follow lazily on first use
+                                Log.startTimed "[SharedEffectPool] linking the surface effect"
+                                try
+                                    let layout = FShade.EffectInputLayout.ofModules [ modules.[modules.Length - 1] ]
+                                    LayoutCache.store full signature topology layout
+                                    layout
+                                finally Log.stop ()
+                        let l = layout, modules |> Array.map (FShade.EffectInputLayout.apply layout)
+                        linked.[key] <- l
+                        l
+                )
+            // outside the lock: marking propagation has no business inside it
+            let link signature topology =
+                let l = link signature topology
+                if not ready.Value then transact (fun () -> ready.Value <- true)
+                l
+            fun (active : aval<int>) ->
+                let compile (signature : IFramebufferSignature) (topology : IndexedGeometryMode) : DynamicSurface =
+                    let layout, modules = link signature topology
+                    // GL creates a render object's resources (bound textures, uniform buffers,
+                    // vertex attributes) from the interface of the program this aval yields
+                    // FIRST. A lean variant lacks what only the full one uses (the projection
+                    // stack sampler, the clip attribute, the filter uniforms), and a render
+                    // object prepared with it stays without them after switching up: the
+                    // projection silently does not appear. So the full variant, the last
+                    // effect and a superset of the others, comes first; the shared layout
+                    // keeps locations and bindings equal, so a lean program simply ignores
+                    // what it does not use.
+                    let bootstrap = cval true
+                    let full = modules.[modules.Length - 1]
+                    let current =
+                        AVal.custom (fun t ->
+                            if bootstrap.GetValue t then
+                                System.Threading.Tasks.Task.Run(fun () ->
+                                    transact (fun () -> bootstrap.Value <- false)) |> ignore
+                                full
+                            else
+                                modules.[active.GetValue t % modules.Length])
+                    layout, current
+                Aardvark.Rendering.Surface.Dynamic compile
+
+    /// The OPC surface effect. Two parts cost even while their uniforms switch them off,
+    /// so they are composed only when a surface needs them (#719):
+    /// - `geometryStage`: triangleSizeFilter and generateNormal, the only geometry
+    ///   shaders. FShade merges them into one stage, and that stage alone dominated OPC
+    ///   frame time on Apple Silicon (64 -> 4.6 ms/frame without it, #719). Without it,
+    ///   noFaceNormal stands in for the face normal. Surfaces with projection data keep
+    ///   the stage (see createGroupedSgs), so the normal's readers are off whenever it is
+    ///   missing.
+    /// - `crossSectionClip`: the only discard in the stack. A shader that may discard
+    ///   defeats hidden-surface removal on tile-based (Apple) GPUs even when it never does.
+    let surfaceEffectVariant (geometryStage : bool) (crossSectionClip : bool) =
         Effect.compose [
 
             // image projection
             PRo3D.SPICE.Shaders.planetLocalLightingViewSpace   |> toEffect
             ImageProjection.Shaders.stableImageProjectionTrafo |> toEffect
             PRo3D.SPICE.Shaders.transformShadowVertices |> toEffect
-            
-            
+
+
             Shaders.donutVertex |> toEffect
-            Shader.footprintV        |> toEffect 
+            Shader.footprintV        |> toEffect
             Shader.stableTrafo       |> toEffect
-            Shader.triangleSizeFilter   |> toEffect
-            
-            ImageProjection.Shaders.generateNormal |> toEffect
-           
+
+            if geometryStage then
+                Shader.triangleSizeFilter   |> toEffect
+
+                // No applyNormalFlip here: inward-wound OPCs are corrected by negating the
+                // projector matrices on the CPU (ImageProjectionOpcExtensions.toProjector),
+                // which the projector-facing tests below read. Terrain lighting does not
+                // care either way: solarShadingLS orients the normal itself.
+                ImageProjection.Shaders.generateNormal |> toEffect
+            else
+                ImageProjection.Shaders.noFaceNormal |> toEffect
+
             Shader.fixAlpha |> toEffect
-            PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
-            PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
-           
-            
+            PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect
+            PRo3D.Base.OPCFilter.markPatchBorders |> toEffect
+
+
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
             // Shader.selectionColor          |> toEffect
             //PRo3D.Base.Shader.differentColor   |> toEffect
-                        
-            OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
+
+            // PRo3D's own copy, not OpcViewer.Base's: same shader with one return instead of
+            // two, which keeps it from duplicating everything after it (#719, FShade#39)
+            PRo3D.Core.Shader.LoDColor |> toEffect
             //PRo3D.Base.Shader.falseColorsScalars |> toEffect
-            PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
+            PRo3D.Base.Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
-            Shader.secondaryTexture |> toEffect 
+            Shader.secondaryTexture |> toEffect
 
             Shader.contourLines |> toEffect
+            // additive latitude/longitude graticule; composites over the colour
+            // produced by the stages above, like contourLines.
+            Shader.latLonLines |> toEffect
             Shaders.donutFragment |> toEffect
+
+            if crossSectionClip then
+                CrossSectionShader.crossSectionClip |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
 
-            // TODO HERA: make this optional
-            ImageProjection.Shaders.stableImageProjection |> toEffect
+            // The projection stack (multi-image projection). Subsumes the old
+            // single-image stableImageProjection: a stack of one behaves
+            // identically, and hovering a library image previews it as the top
+            // layer (effectiveStack).
+            ImageProjection.Shaders.stableImageProjectionStack |> toEffect
 
-            if not Config.limitedShaderCapabilities then
-                ImageProjection.Shaders.localImageProjections |> toEffect
+            // stack-coverage view (RelativeCount); uniform-gated, and on the
+            // same bounded uniform arrays as the stack shader -- the old
+            // storage-buffer variant and its limitedShaderCapabilities macOS
+            // split are gone
+            ImageProjection.Shaders.projectedStackCoverage |> toEffect
 
-            PRo3D.SPICE.Shaders.solarLighting |> toEffect
+            // hover footprint: green outline of the hovered image's frustum
+            // footprint on the surface (D5)
+            ImageProjection.Shaders.hoveredProjectionOutline |> toEffect
+
+            // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
+            // sphere-normal predecessor made relief invisible under sun lighting.
+            PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
+            // Cast shadows (LightingMode.SunShadow); per-patch gated, no-op otherwise.
+            PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
+
+            // Last in the stack on purpose: outcrop traces are an interpretive overlay, so
+            // their colour must survive lighting and shadowing. contourLines sits earlier
+            // and is shaded, which is right for a terrain property and wrong for this.
+            OutcropTraceShader.outcropTrace |> toEffect
             //Rover3DModel.Shader.lighting |> toEffect
         ]
+
+    /// Everything composed: what every OPC surface used before #719.
+    let surfaceEffect = surfaceEffectVariant true true
+
+    /// Index of a surface's variant in surfaceEffectPool.
+    let surfaceEffectIndex (geometryStage : bool) (crossSectionClip : bool) =
+        (if geometryStage then 1 else 0) + (if crossSectionClip then 2 else 0)
+
+    /// All four variants, indexed by surfaceEffectIndex. Built once: the shared linking
+    /// cache lives in this value.
+    let surfaceEffectPool : aval<int> -> Aardvark.Rendering.Surface =
+        SharedEffectPool.create [|
+            surfaceEffectVariant false false
+            surfaceEffectVariant true  false
+            surfaceEffectVariant false true
+            surfaceEffectVariant true  true
+        |]
         //Effect.compose [
             
         //    Shader.stableTrafo       |> toEffect
@@ -948,7 +1411,9 @@ module ViewerUtils =
                             surfaces 
                             m.frustum 
                             selected 
-                            (AVal.map2 (&&) m.ctrlFlag m.inverseFlag)
+                            // picking mode, same predicate as the interactive path. Offscreen
+                            // scene-event handlers never fire, so this is consistency only.
+                            (AVal.map2 (<>) m.ctrlFlag m.directToolMode)
                             m.scene.config.showPreviewIntersection
                             sf.globalBB 
                             refSystem 
@@ -988,12 +1453,94 @@ module ViewerUtils =
             }                              
         AList.append sgs ([ rover3DModel ] |> AList.ofList)
 
-    let createGroupedSgs 
-        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
-        (view           : aval<CameraView>)
-        (allowFootprint : bool) 
-        (allowDepthview : bool) 
+    /// The annotations the outcrop-trace attitude is measured on: the green multi-selection,
+    /// falling back to the single selected annotation when that is empty. One expression
+    /// covers both "a selection" and "a group's Select All", which is what fills
+    /// `selectedLeaves`.
+    let private outcropTraceSelection (annotations : AdaptiveGroupsModel) =
+        adaptive {
+            let! multi = annotations.selectedLeaves.Content
+            if HashSet.isEmpty multi then
+                let! single = annotations.singleSelectLeaf
+                return single |> Option.toList |> HashSet.ofList
+            else
+                return multi |> HashSet.map (fun ts -> ts.id)
+        }
+
+    /// Mean attitude of the current selection, or None when there is nothing usable.
+    ///
+    /// The aggregate is built the way the rose panel's is (see ViewerGUI, `angles`): one
+    /// AMap.filter reader over `flat` rather than N AMap.tryFind calls - tryFind
+    /// re-evaluates on *every* change of the map, so N lookups would turn one annotation
+    /// edit into N invalidations - and AMap.chooseA to cache the per-annotation read, so
+    /// editing one annotation re-reads that one. The source toggles are applied at the leaf,
+    /// filtering the already-collected map, so clicking a checkbox does not tear the
+    /// per-annotation subtree down and rebuild it.
+    let outcropTraceAttitude (m : AdaptiveModel) : aval<Option<MeanAttitude>> =
+        let annotations = m.drawing.annotations
+        // deliberately not gated on `enabled`: the Dip&Strike panel shows this same
+        // selection average with outcrop traces switched off. The draw gate lives in
+        // outcropTraceUniforms.
+        adaptive {
+                let! ids = outcropTraceSelection annotations
+                let perAnnotation =
+                    annotations.flat
+                    |> AMap.filter (fun annoId _ -> ids |> HashSet.contains annoId)
+                    |> AMap.chooseA (fun _ leaf ->
+                        match leaf with
+                        | AdaptiveAnnotations a ->
+                            // annotations with no dip and strike surface as the degenerate
+                            // zero-normal plane, which OutcropTrace.includes rejects
+                            let planeAndCenter =
+                                AVal.bindAdaptiveOption a.dnsResults (Plane3d(V3d.Zero, 0.0), V3d.Zero) (fun d ->
+                                    AVal.map2 (fun p c -> (p, c)) d.plane d.centerOfMass)
+                            AVal.map2
+                                (fun geo (plane, com) -> Some (geo, plane, com))
+                                a.geometry
+                                planeAndCenter
+                        | _ -> AVal.constant None)
+                    |> AMap.toAVal
+
+                let! perAnno = perAnnotation
+                let! usePolyline = m.outcropTraces.usePolyline
+                let! useDnS = m.outcropTraces.useDnS
+
+                let contributions =
+                    perAnno
+                    |> HashMap.fold (fun acc _ (geo, plane, com) ->
+                        if OutcropTrace.includes usePolyline useDnS geo plane
+                        then { OutcropTrace.plane = plane; OutcropTrace.center = com } :: acc
+                        else acc) []
+                    |> List.toArray
+
+                return OutcropTrace.meanAttitude contributions
+        }
+
+    /// View-space plane and extent for the shader, or None when nothing should be drawn.
+    ///
+    /// Folds together disabled, nothing selected, no usable planes, no dominant attitude and
+    /// girdle into one gate, so the shader can never be reached with a half-valid plane.
+    /// `view` is the view actually rendering the pass, not m.navigation.camera.view: taking
+    /// the latter would draw the main camera's plane into the instrument view.
+    let outcropTraceUniforms (view : aval<CameraView>) (m : AdaptiveModel) : aval<Option<V4f * V4f>> =
+        adaptive {
+            let! enabled = m.outcropTraces.enabled
+            if not enabled then return None else
+            match! outcropTraceAttitude m with
+            | Some attitude when attitude.shape = Cluster ->
+                let! radius = m.outcropTraces.projectionRadius.value
+                let! view' = view
+                return Some (OutcropTrace.viewSpaceAttitude (CameraView.viewTrafo view') radius attitude)
+            | _ ->
+                return None
+        }
+
+    let createGroupedSgs
         (runtime        : IRuntime)
+        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>)
+        (view           : aval<CameraView>)
+        (allowFootprint : bool)
+        (allowDepthview : bool)
         (m              : AdaptiveModel)  =
 
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
@@ -1007,6 +1554,16 @@ module ViewerUtils =
                 | Interactions.PickAnnotation | Interactions.PickLog -> false
                 | _ -> true
             )
+
+        // Vertex editing is driven entirely by the live surface hit, so it has to keep the preview
+        // picking running even when the scene has it switched off. #669 made `true` the default,
+        // but scenes saved before that carry an explicit `false` and Json.tryRead only defaults a
+        // key that is absent - so without this, opening an older scene makes edit mode inert.
+        // The user's config value is read, never written.
+        let previewPickingEnabled =
+            (m.scene.config.showPreviewIntersection, m.interaction)
+            ||> AVal.map2 (fun showIt interaction ->
+                showIt || interaction = Interactions.EditAnnotation)
 
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
@@ -1027,27 +1584,84 @@ module ViewerUtils =
             AVal.constant true
 
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-                              
-        let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
+
+        // Sun shadow mapping (LightingMode.SunShadow): the depth map + light matrix,
+        // both inert (dummy texture / None) in every other mode. Shared by the
+        // interactive viewer and PRo3D.Snapshots, which both assemble surfaces here.
+        let sunShadow = SunShadowMap.get runtime m
+
+        // one stack texture array for all surfaces: slice i = stack layer i's
+        // image band, index-aligned with each surface's per-patch matrix array
+        // (both derive from the same filtered effectiveStack)
+        let projectedStackTextures =
+            PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
+                runtime
+                (PRo3D.GIS.ProjectedImagesListAppHelper.getStackTextureLayers m.scene.gisApp)
+
+
+        // per surface, shared by the per-patch applicator, the frustum wireframe and
+        // the surface-effect variant switch (does not depend on the body value)
+        let projectedImageData (surfaceId : Guid) (projectionRefused : aval<bool>) =
+            PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
+            |> Option.map (ProjectionPreconditions.withoutProjection projectionRefused)
+
+        let wrapGisData (surfaceTrafo : aval<Trafo3d>) (projData : Option<Sg.ProjectedImages>) (sg : ISg<_>) =
             let projectedTexture =  PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedTexture m.scene.gisApp
             let imageProperties = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectionVisualizationProperties m.scene.gisApp
-            let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
 
-            sg
-            |> Sg.applyProjectedImages (fun body -> 
-                body 
-                |> AVal.map (function 
-                    | Some b -> 
-                        let r = PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp surfaceId "MARS"
-                        r
-                    | _ -> None 
+            let wrapped =
+                sg
+                |> Sg.applyProjectedImages (fun body ->
+                    body
+                    |> AVal.map (function
+                        | Some b -> projData
+                        | _ -> None
+                    )
                 )
-            )
-            |> Sg.texture "ProjectedTexture" projectedTexture
-            |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
-            |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
-            |> Sg.noEvents
+                |> Sg.texture "ProjectedStackTextures" projectedStackTextures
+                |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
+                |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
+                |> Sg.noEvents
 
+            // hovered image's frustum wireframe (D5), in the surface's frame;
+            // appears/disappears with hoveredImage
+            let frustum =
+                match projData with
+                | Some p ->
+                    PRo3D.InstrumentProjection.Visualization.hoveredFrustumSg p.hoveredProjection surfaceTrafo
+                    |> Sg.noEvents
+                | None -> Sg.empty
+
+            Sg.ofList [wrapped; frustum]
+
+
+        // Compute cross-section clipping data from scene-level cross section model
+        let crossSectionData : aval<Option<Sg.CrossSectionData>> =
+            m.scene.crossSectionModel.crossSection
+            |> AVal.bind (fun csOpt ->
+                match csOpt with
+                | None -> AVal.constant None
+                | Some cs ->
+                    m.scene.referenceSystem.planet |> AVal.map (fun planet ->
+                        match cs.geometry with
+                        | LineOnSurface points ->
+                            if points.Length >= 2 then
+                                let refPoint = cs.refPoint
+                                let up = CooTransformation.getUpVector (points.[0]) planet
+                                let basis = PRo3D.Base.Annotation.CrossSection.buildBasisFromUp up
+                                match PRo3D.Base.Annotation.CrossSection.buildPolygon basis points refPoint with
+                                | Some poly ->
+                                    Some { Sg.CrossSectionData.polygon = poly; basis = basis }
+                                | None -> None
+                            else None
+                    )
+            )
+
+        // crossSectionClip only discards while both of its uniforms (below) are on;
+        // otherwise the surface effect is composed without it (#719)
+        let crossSectionClipActive =
+            (m.scene.crossSectionModel.clippingEnabled, crossSectionData |> AVal.map Option.isSome)
+            ||> AVal.map2 (&&)
 
         let rover3DModel, shadowMap = Rover3DApp.viewRover runtime m.scene.rover
 
@@ -1066,7 +1680,7 @@ module ViewerUtils =
                             m.frustum 
                             selected 
                             surfacePicking
-                            m.scene.config.showPreviewIntersection
+                            previewPickingEnabled
                             surface.globalBB
                             refSystem 
                             observationSystem
@@ -1081,22 +1695,78 @@ module ViewerUtils =
                             view
 
 
-                    let surfaceSg = 
+                    let surfaceModel = AMap.tryFind guid m.scene.surfacesModel.surfaces.flat
+
+                    // the surface's placement, for overlays that live outside
+                    // the surface's own Sg subtree (the hovered-frustum lines)
+                    let surfaceTrafo =
+                        surfaceModel
+                        |> AVal.bind (function
+                            | Some (AdaptiveSurfaces s) ->
+                                adaptive {
+                                    let! fullTrafo = TransformationApp.fullTrafo s.transformation refSystem observationSystem observerSystem
+                                    let! preTransform = s.preTransform
+                                    return fullTrafo * preTransform
+                                }
+                            | _ -> AVal.constant Trafo3d.Identity)
+
+                    // #741: no image projection where the OPC's coordinates are not
+                    // the body-fixed frame (GisApp.view names such surfaces)
+                    let projectionRefused =
+                        surfaceModel
+                        |> AVal.bind (function
+                            | Some (AdaptiveSurfaces s) -> ProjectionPreconditions.refusalOf s |> AVal.map Option.isSome
+                            | _ -> AVal.constant false)
+
+                    let projData = projectedImageData guid projectionRefused
+
+                    // #719: compose the geometry stage only while one of its consumers can
+                    // run - the triangle / distance filters (FilterTriangleEnabled,
+                    // FilterByDistance) or a shader reading its face normal. The per-patch
+                    // uniforms get the projection data only when the surface has a body
+                    // (Sg.applyProjectedImages), so the switch applies the same gate.
+                    let geometryStage =
+                        let filters =
+                            surfaceModel
+                            |> AVal.bind (function
+                                | Some (AdaptiveSurfaces s) ->
+                                    (s.filterByTriangleSize, surfaceFilterByDistance s) ||> AVal.map2 (||)
+                                | _ -> AVal.constant false)
+                        let faceNormal =
+                            match projData with
+                            | Some p ->
+                                // the gates of every shader reading the face normal: projection
+                                // stack (+ coverage), hover outline, sun shading, shadows
+                                let needed =
+                                    adaptive {
+                                        let! stack  = p.stackProjections
+                                        let! hover  = p.hoveredProjection
+                                        let! sun    = p.sunLightEnabled
+                                        let! dir    = p.sunDirection
+                                        let! shadow = p.lightViewProj
+                                        return stack.Length > 0 || hover.IsSome || (sun && dir.IsSome) || shadow.IsSome
+                                    }
+                                observedBody observationSystem
+                                |> AVal.bind (function Some _ -> needed | None -> AVal.constant false)
+                            | None -> AVal.constant false
+                        (filters, faceNormal) ||> AVal.map2 (||)
+
+                    let surfaceSg =
                         match surface.isObj with
-                        | true -> 
-                            s 
-                            |> Sg.effect [
-                                objEffect
-                            ] 
-                        | false -> 
+                        | true ->
                             s
-                            |> Sg.effect [surfaceEffect] 
+                            |> Sg.effect [objEffect]
+                        | false ->
+                            s
+                            |> Sg.surface (
+                                (geometryStage, crossSectionClipActive)
+                                ||> AVal.map2 surfaceEffectIndex
+                                |> surfaceEffectPool)
                             |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                             |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
-
                     surfaceSg
-                    |> wrapGisData guid
+                    |> wrapGisData surfaceTrafo projData
                 )
 
             let depthComposed = 
@@ -1112,38 +1782,150 @@ module ViewerUtils =
                                     s.priority.value |> AVal.map (int >> Some) 
                                 | _ -> AVal.constant None
                             )
-                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority
+                        TraverseApp.Sg.view view m.scene.config.nearPlane.value (m.frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees) refSystem m.scene.traverses priority validSurfacePriority false
                         |> Sg.map ViewerAction.TraverseMessage
                 )
                 |> Sg.dynamic
 
-            let surfaces = 
+            let outcropTrace = outcropTraceUniforms view m
+            let outcropTraceParams =
+                adaptive {
+                    let! width  = m.outcropTraces.traceWidth.value
+                    let! smooth = m.outcropTraces.traceSmoothing.value
+                    let! bedThk = m.outcropTraces.bedThickness.value
+                    let! phase  = m.outcropTraces.phaseOffset.value
+                    return V4f(float32 width, float32 smooth, float32 bedThk, float32 phase)
+                }
+
+            let surfaces =
                 surfaces
-                |> AMap.toASet 
-                |> ASet.map snd           
+                |> AMap.toASet
+                |> ASet.map snd
                 |> Sg.set
+                |> Sg.uniform "OutcropTraceEnabled" (outcropTrace |> AVal.map Option.isSome)
+                // always bound, zero filled when off - never left unbound; see outcropTrace
+                |> Sg.uniform "OutcropTracePlane"  (outcropTrace |> AVal.map (function Some (p, _) -> p | None -> V4f.Zero))
+                |> Sg.uniform "OutcropTraceExtent" (outcropTrace |> AVal.map (function Some (_, e) -> e | None -> V4f.Zero))
+                |> Sg.uniform "OutcropTraceParams" outcropTraceParams
+                |> Sg.uniform "OutcropTraceColor"  (m.outcropTraces.color.c |> AVal.map (fun c -> c.ToC4f().ToV4f()))
+                |> Sg.uniform "CrossSectionClippingEnabled" m.scene.crossSectionModel.clippingEnabled
+                // Whether there is a cross-section at all. See crossSectionClip.
+                |> Sg.uniform "CrossSectionDefined" (crossSectionData |> AVal.map Option.isSome)
+                // The OPC effect stack samples the shadow comparison sampler
+                // unconditionally (terrainSunShadow), so every surface needs a depth
+                // texture behind it even while shadows are off.
+                |> Sg.texture "ShadowMap" sunShadow.texture
+                |> Sg.uniform "ShadowMapBias" (sunShadow.bias |> AVal.map float32)
+                |> Sg.applyCrossSection crossSectionData
+                |> Sg.noEvents
 
-            let roverTrafo = 
-                m.scene.rover.trafo
-                |> Rover3DModel.TrafoHelper.usableTrafo
-            
-            //let lightProjBox = 
-            //    roverTrafo
-            //    |> AVal.map Rover3DModel.Shadows.lightBox.Transformed
-            //    |> SgPrimitives.Sg.box (AVal.constant(C4b.Blue))
-            //    |> Sg.texture "ShadowTexture" shadowMap                
-            //    |> Sg.uniform "LightDirectionRover" m.scene.rover.upVector
-            //    |> Sg.uniform "LightViewProjRover" (Rover3DModel.Shadows.lightViewProj roverTrafo m.scene.rover.upVector m.scene.rover.upVector)
-            //    |> Sg.shader {
-            //        do! Shader.stableTrafo//DefaultSurfaces.trafo
-            //        do! DefaultSurfaces.vertexColor                    
-            //        //do! Rover3DModel.Shader.lighting 
-            //    }
-                    
             Sg.ofList [surfaces; depthComposed; rover3DModel]
-        )  
+        )
 
-    let renderCommands 
+    let createCurtainSg (view : aval<CameraView>) (m : AdaptiveModel) : ISg<ViewerAction> =
+        let curtainSgOpt =
+            AVal.custom (fun token ->
+                let csm        = m.scene.crossSectionModel
+                let enabled    = csm.curtainEnabled.GetValue(token)
+                let texPath    = csm.curtainTexturePath.GetValue(token)
+                let depth      = csm.curtainExtrusionDepth.value.GetValue(token)
+                let absMode    = csm.curtainAbsoluteMode.GetValue(token)
+                let targetAlt  = csm.curtainTargetAltitude.value.GetValue(token)
+                let texDepth   = csm.curtainTextureDepth.value.GetValue(token)
+                let texStartAlt = csm.curtainTextureStartAltitude.value.GetValue(token)
+                let baseColor  = csm.curtainBaseColor.c.GetValue(token)
+                let csOpt      = csm.crossSection.GetValue(token)
+                let planet     = m.scene.referenceSystem.planet.GetValue(token)
+                let camView    = view.GetValue(token)
+
+                if not enabled then Sg.empty
+                else
+                    match texPath with
+                    | None -> Sg.empty
+                    | Some path when not (System.IO.File.Exists path) -> Sg.empty
+                    | Some path ->
+                        match csOpt with
+                        | None -> Sg.empty
+                        | Some cs ->
+                            let ptsWS =
+                                match cs.geometry with
+                                | LineOnSurface pts -> pts
+                            if ptsWS.Length < 2 then Sg.empty
+                            else
+                            let n        = ptsWS.Length
+                            let modelTrafo = Trafo3d.Translation(ptsWS.[0])
+                            let ptsLocal   = ptsWS |> Array.map modelTrafo.Backward.TransformPos
+
+                            // Arc-length UV
+                            let segs = ptsLocal |> Array.pairwise |> Array.map (fun (a,b) -> Vec.distance a b)
+                            let cum  = Array.zeroCreate n
+                            let mutable s = 0.0
+                            for i in 1 .. n-1 do
+                                s <- s + segs.[i-1]
+                                cum.[i] <- s
+                            let total = max 1e-12 s
+                            let u = cum |> Array.map (fun x -> float32 (x / total))
+
+                            // Geometry: LineList
+                            let positions : V3f[] = ptsLocal |> Array.map V3f
+
+                            // Per-vertex extrusion depth encoded in tc.Y
+                            let depths : float32[] =
+                                if absMode then
+                                    ptsWS |> Array.map (fun p ->
+                                        // failure -> depth 0 for that vertex (tryGet API
+                                        // replaced the old failure-as-zero getElevation')
+                                        let alt = CooTransformation.tryGetElevation planet p |> Option.defaultValue targetAlt
+                                        float32 (max 0.0 (alt - targetAlt)))
+                                else
+                                    Array.create n (float32 depth)
+
+                            // Per-vertex surface elevation relative to texture start altitude
+                            // (offset to keep values small and avoid float32 precision issues)
+                            let surfElevs : float32[] =
+                                ptsWS |> Array.map (fun p ->
+                                    let alt = CooTransformation.tryGetElevation planet p |> Option.defaultValue texStartAlt
+                                    float32 (alt - texStartAlt))
+
+                            let texcoords : V2f[] = Array.map2 (fun (uu : float32) (d : float32) -> V2f(uu, d)) u depths
+                            let indices : int[] =
+                                Array.init ((n-1)*2) (fun k ->
+                                    let i = k / 2
+                                    if k % 2 = 0 then i else i + 1)
+                            let ig =
+                                IndexedGeometry(
+                                    Mode = IndexedGeometryMode.LineList,
+                                    IndexedAttributes = SymDict.ofList [
+                                        DefaultSemantic.Positions,               (positions :> Array)
+                                        DefaultSemantic.DiffuseColorCoordinates, (texcoords :> Array)
+                                        Sym.ofString "SurfaceElevation",         (surfElevs :> Array)
+                                    ],
+                                    IndexArray = indices
+                                )
+
+                            // Up vector in view space
+                            let upWorld = CooTransformation.getUpVector ptsWS.[0] planet
+                            let viewTrafo = camView |> CameraView.viewTrafo
+                            let upVS = viewTrafo.TransformDir upWorld |> V3f
+
+                            Sg.ofIndexedGeometry ig
+                            |> Sg.trafo (AVal.constant modelTrafo)
+                            |> Sg.shader {
+                                do! CurtainShader.curtainVertex
+                                do! CurtainShader.curtainGeometry
+                                do! CurtainShader.curtainFragment
+                            }
+                            |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
+                            |> Sg.uniform "UpVS" (AVal.constant upVS)
+                            |> Sg.uniform "TextureDepth" (AVal.constant (float32 texDepth))
+                            |> Sg.uniform "CurtainAbsoluteMode" (AVal.constant (if absMode then 1 else 0))
+                            |> Sg.uniform "CurtainBaseColor" (AVal.constant (baseColor.ToC4f().ToV4f()))
+                            |> Sg.cullMode (AVal.constant CullMode.None)
+                            |> Sg.noEvents
+            )
+        curtainSgOpt |> Sg.dynamic
+
+    let renderCommands
         (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
         (overlayed      : ISg<ViewerAction>)
         (depthTested    : ISg<ViewerAction>)
@@ -1153,17 +1935,18 @@ module ViewerUtils =
         (runtime        : IRuntime) 
         (m              : AdaptiveModel)  =
 
-        let grouped = createGroupedSgs sgGrouped view allowFootprint allowDepthview runtime m
+        let grouped = createGroupedSgs runtime sgGrouped view allowFootprint allowDepthview m
 
-        alist {                    
-            for sg in grouped do  
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-                yield RenderCommand.SceneGraph sg
+        alist {
+            for sg in grouped do
+                yield RenderCommand<_>.ClearDepth 1.0
+                yield RenderCommand<_>.ClearDepth 1.0
+                yield RenderCommand<_>.Render sg
 
-            yield RenderCommand.SceneGraph (depthTested)
-            yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+            yield RenderCommand<_>.Render depthTested
+            yield RenderCommand<_>.ClearDepth 1.0
 
-            yield RenderCommand.SceneGraph overlayed
+            yield RenderCommand<_>.Render overlayed
 
         }
 

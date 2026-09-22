@@ -17,29 +17,50 @@ open FSharp.Data.Adaptive
 
 module UI =
 
-    let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+    /// Enum dropdown with two independent filters:
+    ///  - `exclude`  : values omitted from the list entirely
+    ///  - `disabled` : values shown but greyed out and unselectable; `disabledNote`,
+    ///                 when non-empty, is appended to the option's tooltip explaining why
+    ///                 (the visible label is left alone so it cannot widen the <select>)
+    /// (An <option> may only contain text, so browsers ignore strike-through/styling
+    /// inside it; the reliable "not selectable" signal is the `disabled` attribute.)
+    let dropDownDisabled<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (disabled : HashSet<'a>) (disabledNote : string) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
         let names  = Enum.GetNames(typeof<'a>)
-        let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
+        let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]>
         let nv     = Array.zip names values
 
         let attributes (name : string) (value : 'a) =
-            AttributeMap.ofListCond [
-                always (attribute "value" name)
-                onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
-            ]
-       
+            AttributeMap.ofListCond (
+                [
+                    always (attribute "value" name)
+                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
+                ]
+                @ (if HashSet.contains value disabled then [ always (attribute "disabled" "disabled") ] else [])
+            )
+
         select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
             for (name, value) in nv do
                 if exclude |> HashSet.contains value |> not then
+                    let isDisabled = HashSet.contains value disabled
                     let att = attributes name value
-                    let tooltip = getTooltip value
-                    if tooltip != "" then
-                        yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
-                    else 
-                        yield Incremental.option att (AList.ofList [text name])
+                    // the label stays the bare name - a greyed, unselectable option is signal
+                    // enough, and a suffix here would stretch the <select> to its width
+                    let label = name
+                    let tooltip =
+                        let t = getTooltip value
+                        if isDisabled && disabledNote <> "" then
+                            if t <> "" then sprintf "%s - %s" t disabledNote else disabledNote
+                        else t
+                    if tooltip <> "" then
+                        yield Incremental.option att (AList.ofList [text label]) |> UI.wrapToolTip DataPosition.Bottom tooltip
+                    else
+                        yield Incremental.option att (AList.ofList [text label])
         ]
 
-    let viewAnnotationToolsHorizontal (paletteFile : string) (model:AdaptiveDrawingModel) =
+    let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+        dropDownDisabled exclude HashSet.empty "" selected change getTooltip
+
+    let viewAnnotationToolsHorizontal (paletteFile : string) (planet : aval<Planet>) (model:AdaptiveDrawingModel) =
         let geometryTooltip (i : Geometry) : string =
             match i with 
             | Geometry.Point        -> "A single point measurement on the surface."
@@ -55,33 +76,106 @@ module UI =
             match i with
             | Projection.Linear     -> "Produces straight line segments as point-to-point connections with linear interpolation between them, no actual projection is performed."
             | Projection.Viewpoint  -> "Between two points the space is sampled by shooting additional rays to intersect with the surface."
-            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene’s up-vector."
+            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene's up-vector."
             | _                     -> ""
 
         let thicknessTooltip = "Thickness of annotation"
         let samplingAmountTooltip = "Sampling amount used for annotations rendered with viewpoint or sky projection"
         let samplingUnitTooltip = "Sampling unit used for annotations rendered with viewpoint or sky projection"
+        let fillTooltip = "Fill new annotations. Closed geometries only; uses the group colour"
+        let fillAlphaTooltip = "Fill opacity for new annotations, 0 to 1"
 
-        Html.Layout.horizontal [
-            Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
-            Html.Layout.boxH [ dropDown ( [ Geometry.Ellipse ] |> HashSet.ofList ) model.geometry SetGeometry geometryTooltip ]
-            Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
-            Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" false model.color |> UI.map ChangeColor; div [] [] ]
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip     
-            Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
-            Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
-        //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
+        // Sampling amount/unit only drive the ray casting done for viewpoint and sky projection;
+        // they are meaningless for linear projection, so the whole group is hidden there.
+        let projectionUsesSampling (p : Projection) =
+            match p with
+            | Projection.Viewpoint | Projection.Sky -> true
+            | _ -> false
+
+        // Fill/alpha only affects closed geometries whose interior can be filled
+        // (matches PackedRendering.isFillable); hidden for points, lines, polylines and DnS.
+        let geometryIsFillable (g : Geometry) =
+            match g with
+            | Geometry.Polygon | Geometry.Ellipse | Geometry.AxisEllipse | Geometry.Axis4PEllipse -> true
+            | _ -> false
+
+        let samplingCells =
+            [
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Sampling:"] ]
+                Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
+                Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
+            ]
+
+        // no fill colour here on purpose - it follows the active group's default colour, the
+        // same single source the outline colour uses (see the note above)
+        let fillCells =
+            [
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Fill/Alpha:"] ]
+                Html.Layout.boxH [ GuiEx.iconCheckBoxSet model.fillNewAnnotations SetFillNewAnnotations ] |> UI.wrapToolTip DataPosition.Bottom fillTooltip
+                Html.Layout.boxH [ Numeric.view' [InputBox] model.defaultFillAlpha |> UI.map ChangeDefaultFillAlpha ] |> UI.wrapToolTip DataPosition.Bottom fillAlphaTooltip
+            ]
+
+        let cells =
+            alist {
+                let! geometry = model.geometry
+                let! currentPlanet = planet
+
+                yield Html.Layout.boxH [ div [style "font-weight:bold"] [text "Annotation:"] ]
+                // Axis4PEllipse is hidden from the selector for now â€” the geometry itself and its
+                // update/rendering path stay intact, so existing annotations still load and draw.
+                // With Planet.None as the reference system, geometries whose measurements need a
+                // real body (DnS/TT azimuths, the ellipse surface-drape) are greyed out; the
+                // SetPlanet handler resets an active one back to Line.
+                let disabledGeometries =
+                    if currentPlanet = Planet.None then
+                        Enum.GetValues(typeof<Geometry>)
+                        |> unbox<Geometry[]>
+                        |> Array.filter Geometry.needsReferenceBody
+                        |> HashSet.ofArray
+                    else
+                        HashSet.empty
+                yield Html.Layout.boxH [ dropDownDisabled ( [ Geometry.Ellipse; Geometry.Axis4PEllipse ] |> HashSet.ofList ) disabledGeometries "needs a reference body" model.geometry SetGeometry geometryTooltip ]
+
+                // grey out the projection modes this geometry cannot use (ellipses are Sky-only);
+                // the options stay readable so the user sees why. SetGeometry / SetProjection keep
+                // the model in the allowed set.
+                let disabledProjections =
+                    let allowed = Geometry.allowedProjections geometry
+                    Enum.GetValues(typeof<Projection>)
+                    |> unbox<Projection[]>
+                    |> Array.filter (fun p -> not (List.contains p allowed))
+                    |> HashSet.ofArray
+                yield Html.Layout.boxH [ dropDownDisabled HashSet.empty disabledProjections "not available for this annotation type" model.projection SetProjection projectionTooltip ]
+
+                // annotation color now comes from the active group's default color, so the tool-level color picker was removed
+                yield Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip
+
+                let! projection = model.projection
+                if projectionUsesSampling projection then
+                    yield! AList.ofList samplingCells
+
+                if geometryIsFillable geometry then
+                    yield! AList.ofList fillCells
+            //  yield Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
+            }
+
+        table [clazz "ui table inverted segment"; style "backgroundColor: transparent"] [
+            tbody [] [ Incremental.tr AttributeMap.empty cells ]
         ]
                     
-    let mkColor (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =        
+    /// Selection still wins over the category color, which in turn overrides the
+    /// annotation's own color while the Color by Category panel is enabled.
+    let mkColor (cbc : AdaptiveColorByCategoryModel) (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =
         model.selectedLeaves.Content
-            |> AVal.bind (fun selected -> 
-                if HashSet.exists (fun x -> x.id = a.key) selected then 
+            |> AVal.bind (fun selected ->
+                if HashSet.exists (fun x -> x.id = a.key) selected then
                     AVal.constant C4b.VRVisGreen
-                else 
-                    a.color.c
-            )                              
+                else
+                    cbc.enabled
+                    |> AVal.bind (function
+                        | true  -> ColorByCategory.resolveAdaptive cbc a
+                        | false -> a.color.c)
+            )
     
     let isSingleSelect (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =
         model.singleSelectLeaf |> AVal.map( fun x -> 
@@ -103,8 +197,9 @@ module UI =
             ]
         )
                      
-    let viewAnnotationsInGroup 
-        (path         : list<Index>) 
+    let viewAnnotationsInGroup
+        (cbc          : AdaptiveColorByCategoryModel)
+        (path         : list<Index>)
         (model        : AdaptiveGroupsModel)
         (singleSelect : AdaptiveAnnotation*list<Index> -> DrawingAction)
         (multiSelect  : AdaptiveAnnotation*list<Index> -> DrawingAction)
@@ -136,7 +231,7 @@ module UI =
                     yield onClick (multiSelect)
 
                     let! guh = model.selectedLeaves.Content
-                    let! c = mkColor model a
+                    let! c = mkColor cbc model a
                     let s = style (sprintf "color: %s" (Html.color c))
                     yield s
                 } |> AttributeMap.ofAMap
@@ -164,11 +259,16 @@ module UI =
                     let! geometry = a.geometry
                     let! semantic = a.semanticId
                     let! semanticType = a.semanticType
+                    let! text = a.text
 
                     return 
                         match semanticType with
-                        | SemanticType.Undefined -> 
-                            geometry  |> sprintf "%A"
+                        | SemanticType.Undefined ->
+                            match text with
+                            | "" ->  
+                                geometry  |> sprintf "%A"
+                            | _ -> 
+                                sprintf "%s (%A)" text geometry
                         | _ -> 
                             let (SemanticId s) = semantic
                             s
@@ -208,13 +308,13 @@ module UI =
         else
             i [clazz icon; onClick (fun _ -> onClickAction)] [] |> UI.wrapToolTip DataPosition.Bottom toolTipText
                 
-    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<DrawingAction> =
+    let rec viewTree (cbc : AdaptiveColorByCategoryModel) path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<DrawingAction> =
                                                   
         let setActiveAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                        
-        let color = sprintf "color: %s" (Html.color C4b.White)
+        let colorAttributes = GroupsApp.treeItemColorAttributes ""
         let desc =
-            div [style color] [       
+            Incremental.div colorAttributes <| AList.ofList [
                 Incremental.text group.name
                 Incremental.i setActiveAttributes AList.empty 
                 |> UI.wrapToolTip DataPosition.Bottom "Set active"
@@ -229,17 +329,23 @@ module UI =
                 staticClickIcon "bookmark outline icon" "Deselect All" (GroupsMessage(GroupsAppAction.SetSelection(path,false)))
 
                 staticClickIcon "calculator icon"       "Recalculate selected Polygon Measurements" (RecalculateMeasurements)
+
+                ColorPicker.view group.defaultColor
+                |> UI.map (fun a -> GroupsMessage(GroupsAppAction.SetGroupDefaultColor(path, a)))
+                |> UI.wrapToolTip DataPosition.Bottom "Default color for new annotations in this group"
             ]
            
         let itemAttributes =
             amap {
                 yield onMouseClick (fun _ -> DrawingAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                 let! expanded = group.expanded
-                if expanded then 
+                if expanded then
                     yield clazz "icon outline open folder"
-                else 
+                else
                     yield clazz "icon outline folder"
-                    yield style "overflow-y : visible"
+                // the icon is a sibling of the (white) description div and would
+                // otherwise inherit semantic ui's default (black) on our dark background
+                yield style ("overflow-y : visible; " + GroupsApp.treeItemColorStyle)
             } |> AttributeMap.ofAMap
           
         let childrenAttribs =
@@ -262,13 +368,13 @@ module UI =
 
         let subNodes = 
             group.subNodes 
-            |> AList.mapi (fun i v -> viewTree (i::path) v model lookup) 
+            |> AList.mapi (fun i v -> viewTree cbc (i::path) v model lookup)
                     
         let annos = 
             group.leaves 
             |> AList.filterA (fun x -> lookup |> AMap.keys |> ASet.contains x)
             |> AList.map(fun x -> lookup |> AMap.find x |> AVal.force) 
-            |> viewAnnotationsInGroup path model singleSelect multiSelect lift
+            |> viewAnnotationsInGroup cbc path model singleSelect multiSelect lift
 
         let nodes = annos |> AList.append subNodes
 
@@ -290,13 +396,14 @@ module UI =
         | AdaptiveAnnotations a -> a
         | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveAnnotations'" |> failwith
 
-    let viewAnnotationGroups (model:AdaptiveDrawingModel) = 
-        let a = 
-          model.annotations.flat 
-            |> AMap.map(fun _ v -> v |> toAdaptiveAnnotation)              
-         
+    let viewAnnotationGroups (model:AdaptiveDrawingModel) =
+        let a =
+          model.annotations.flat
+            |> AMap.map(fun _ v -> v |> toAdaptiveAnnotation)
+
         require GuiEx.semui (
-            let tree = viewTree [] model.annotations.rootGroup model.annotations a
+            let tree = viewTree model.colorByCategory [] model.annotations.rootGroup model.annotations a
             //Incremental.div (AttributeMap.ofList [clazz "ui list"]) ([])
             div [clazz "ui list"] [tree]
         )
+

@@ -32,6 +32,7 @@ type GroupsAppAction =
     | ToggleGroup           of list<Index>
     | SetVisibility         of path : list<Index> * isVisible : bool
     | SetSelection          of path : list<Index> * isSelected : bool
+    | SetGroupDefaultColor  of path : list<Index> * action : ColorPicker.Action
     | MoveLeaves      
     | AddAndSelectGroup     of list<Index> * Node
     | ClearSnapshotsGroup
@@ -119,8 +120,22 @@ module GroupsApp =
 
         (go m.rootGroup)
         |> IndexList.toList
-        |> HashMap.ofList                 
-    
+        |> HashMap.ofList
+
+    /// Leaf -> the full chain of group names containing it, outermost first.
+    /// Unlike `updateGroupsLookup` (which only yields the immediate parent's
+    /// name) this keeps nested structure, so an exporter can write a path and an
+    /// importer can rebuild the tree from it. The root group is not part of the
+    /// path: leaves directly under it map to an empty list.
+    let groupPathLookup (m : GroupsModel) : HashMap<Guid, list<string>> =
+        let rec collect (prefix : list<string>) (n : Node) =
+            [ yield! n.leaves |> IndexList.toList |> List.map (fun leaf -> leaf, prefix)
+              yield! n.subNodes
+                     |> IndexList.toList
+                     |> List.collect (fun child -> collect (prefix @ [ child.name ]) child) ]
+
+        collect [] m.rootGroup |> HashMap.ofList
+
     let updateActiveGroup (f : Node -> Node) (m : GroupsModel) =
         let root = updateNodeAt m.activeGroup.path f m.rootGroup        
 
@@ -222,6 +237,21 @@ module GroupsApp =
         else
             { m with rootGroup = root'; singleSelectLeaf = None } 
 
+    /// Removes a leaf wherever it sits in the tree, by id alone. removeLeaf needs the owning
+    /// group's path and silently leaves the tree untouched on a wrong one - a hazard when the
+    /// selection came from a viewport pick, whose TreeSelection carries the root path regardless
+    /// of the leaf's actual group.
+    let removeLeafById (id : Guid) (model : GroupsModel) =
+        let rec strip (n : Node) =
+            { n with
+                leaves   = n.leaves |> IndexList.filter (fun leafId -> leafId <> id)
+                subNodes = n.subNodes |> IndexList.map strip }
+        { model with
+            rootGroup        = strip model.rootGroup
+            flat             = model.flat |> HashMap.remove id
+            singleSelectLeaf = (match model.singleSelectLeaf with Some s when s = id -> None | s -> s)
+            selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> ts.id <> id) }
+
     let rec removeSelected (selection:list<TreeSelection>) (removeFromFlat:bool) (m:GroupsModel)  =
         match selection with
         | x::rest ->                
@@ -280,15 +310,16 @@ module GroupsApp =
             }
             
     let createEmptyGroup () = 
-        {    
-            version   = Node.current
-            name      = "newGroup" 
-            key       = Guid.NewGuid()
-            leaves    = IndexList.Empty
-            subNodes  = IndexList.Empty
-            visible   = true
-            expanded  = true
-        }    
+        {
+            version      = Node.current
+            name         = "newGroup"
+            key          = Guid.NewGuid()
+            leaves       = IndexList.Empty
+            subNodes     = IndexList.Empty
+            visible      = true
+            expanded     = true
+            defaultColor = Node.initialDefaultColor
+        }
 
     let clearGroupAtRoot (model : GroupsModel) (groupName : string) =
         let node = 
@@ -536,7 +567,10 @@ module GroupsApp =
             if isSelected then
                 { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
             else
-                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }              
+                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }
+        | SetGroupDefaultColor (p, a) ->
+            let func = fun (x:Node) -> { x with defaultColor = ColorPicker.update x.defaultColor a }
+            { model with rootGroup = updateNodeAt p func model.rootGroup }
         | MoveLeaves  -> 
             moveChildren model
         | ClearSelection ->
@@ -581,22 +615,40 @@ module GroupsApp =
 
     let activeIcon (model : AdaptiveGroupsModel)
                    (group : AdaptiveNode) =
-        adaptive { 
+        adaptive {
             let! activeGroup = model.activeGroup
             let! group  =  group.key
-            return if (activeGroup.id = group) then "circle icon" else "circle thin icon"
+            // "circle thin" is font-awesome 4; the shipped semantic ui knows only "circle outline",
+            // and silently falls back to the filled circle - making active and inactive indistinguishable
+            return if (activeGroup.id = group) then "circle icon" else "circle outline icon"
         }
+
+    /// css color fragment for group labels / folder icons in the tree view: always white
+    /// (the tree renders on a dark background, hence white rather than the semantic ui default).
+    /// the active group is highlighted only on its "set active" circle icon, see setActiveGroupAttributeMap.
+    let treeItemColorStyle = sprintf "color: %s" (Html.color C4b.White)
+
+    /// static style attributes for a group label, prefixed with additionalStyle
+    let treeItemColorAttributes (additionalStyle : string) =
+        AttributeMap.ofList [ style (additionalStyle + treeItemColorStyle) ]
 
     let setActiveGroupAttributeMap (path : list<Index>)
                                    (model : AdaptiveGroupsModel)
-                                   (group : AdaptiveNode) 
+                                   (group : AdaptiveNode)
                                    (msg : GroupsAppAction -> 'a) =
         amap {
-            let! name = group.name
-            let setActive = GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, name)
             let! icon = activeIcon model group
             yield clazz icon
-            yield onClick (fun _ -> (msg setActive))
+            // only the circle icon that triggers SetActiveGroup is coloured, not the whole tree line:
+            // green while this group is active, white otherwise (dark background)
+            let! activeGroup = model.activeGroup
+            let! key = group.key
+            let c = if activeGroup.id = key then C4b.VRVisGreen else C4b.White
+            yield style (sprintf "color: %s" (Html.color c))
+            yield onClick (fun _ ->
+                let setActive =
+                    GroupsAppAction.SetActiveGroup (AVal.force group.key, path, AVal.force group.name)
+                msg setActive)
         } |> AttributeMap.ofAMap
 
     let viewSelectionButtons =

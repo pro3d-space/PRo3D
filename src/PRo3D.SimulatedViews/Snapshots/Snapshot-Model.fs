@@ -618,7 +618,11 @@ with
             //| Some legacy -> 
             //    return SnapshotAnimation.LegacyAnimation legacy
             //| None ->
-            let! animation = Json.read "CameraAnimation"
+            // Optional: a snapshot file is a tagged union carrying exactly one of
+            // CameraAnimation / BookmarkAnimation / PanoramaCollection. Using the
+            // required Json.read here made loading any non-camera snapshot fail
+            // ("missing CameraAnimation") before the fallbacks below could run.
+            let! animation = Json.tryRead "CameraAnimation"
             match animation with
             | Some cameraAnimation ->
                 return SnapshotAnimation.CameraAnimation cameraAnimation

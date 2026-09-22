@@ -1,7 +1,5 @@
 ﻿namespace PRo3D
 
-open Aardvark.Service
-
 open System
 open System.Collections.Concurrent
 open System.IO
@@ -14,7 +12,6 @@ open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
-open Aardvark.SceneGraph
 open Aardvark.Rendering.Text
 open Aardvark.UI
 open Aardvark.UI.Operators
@@ -107,25 +104,24 @@ module SnapshotSg =
 
     /// create scengegraph using Rendering.RenderCommands
     let createSceneGraph (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
-                         overlayed depthTested (runtime : IRuntime) (allowFootprint : bool) 
+                         (overlayed: ISg<_>) (depthTested: ISg<_>) (runtime : IRuntime) (allowFootprint : bool)
                          (allowDepthview : bool) 
                          (calcDepth : bool) id cam (m:AdaptiveModel)  =
         let view = m.navigation.camera.view
-        let grouped = ViewerUtils.createGroupedSgs sgGrouped view allowFootprint allowDepthview runtime m      
+        let grouped = ViewerUtils.createGroupedSgs runtime sgGrouped view allowFootprint allowDepthview m
 
 
         let commands = 
             
             alist {
                 for sg in grouped do
-                    if (not calcDepth) then yield RenderCommand.ClearDepth(1.0) 
-                    let sg = sg :> ISg
-                    yield RenderCommand.Ordered [sg]
+                    if (not calcDepth) then yield RenderCommand.ClearDepth 1.0
+                    yield RenderCommand.Render sg
                     
-                yield RenderCommand.Ordered [depthTested :> ISg]
+                yield RenderCommand.Render depthTested
                 if (not calcDepth) then 
-                    yield RenderCommand.ClearDepth(1.0) 
-                    yield RenderCommand.Ordered [(overlayed :> ISg)] 
+                    yield RenderCommand.ClearDepth 1.0
+                    yield RenderCommand.Render overlayed
             } |> RenderCommand.Ordered
 
         Sg.execute commands

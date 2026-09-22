@@ -1,8 +1,6 @@
 #!/bin/bash
-
-dotnet fsi ./src/PRo3D.Base/RunAdaptify.fsx
-dotnet fsi ./src/PRo3D.Core/RunAdaptify.fsx
-dotnet fsi ./src/PRo3D.SimulatedViews/RunAdaptify.fsx
-dotnet fsi ./src/PRo3D.Lite/RunAdaptify.fsx
-dotnet fsi ./src/PRo3D.Snapshots/RunAdaptify.fsx
-dotnet fsi ./src/PRo3D.Viewer/RunAdaptify.fsx
+# Generates the Adaptify *.g.fs files, which are not checked in. By default only the missing
+# or stale ones; --all regenerates everything, --check only reports. build.sh and the
+# runTests scripts run this too. See docs/ModelTypes.md.
+cd "$(dirname "$0")" || exit 1
+exec dotnet fsi utilities/Adapt.fsx "$@"

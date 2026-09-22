@@ -119,8 +119,14 @@ module SceneLoader =
            let loadOpcX (path : string) =
                let layers = SurfaceUtils.SurfaceAttributes.read path
                let textures = layers |> SurfaceProperties.getTextures
-               
-               { s with 
+
+               // *.opc.json sidecar: DEM reference model and, for OPCs derived from a
+               // SPICE DSK, the DSKBRIEF summary of the source *.bds shape model.
+               // Not persisted into the scene - logged so the provenance is visible.
+               OpcMetadata.tryReadForOpcx path
+               |> Option.iter (OpcMetadata.log s.name)
+
+               { s with
                    scalarLayers  = layers |> SurfaceProperties.getScalarsHmap //SurfaceProperties.getScalars
                    textureLayers = textures
                    primaryTexture = textures |> IndexList.tryFirst
@@ -325,31 +331,61 @@ module SceneLoader =
             {                 
                     camera          = { m.navigation.camera with view = m.scene.cameraView }
                     exploreCenter   = m.scene.exploreCenter;
-                    navigationMode  = m.scene.navigationMode 
+                    navigationMode  = m.scene.navigationMode
+                    updatePerFrame  = (m.scene.navigationMode = NavigationMode.MapView)
+                    lockedAxis      = None
             }
         { m with navigation = navigation' }
      
     let updateCameraUp (m: Model) =
         let cam = m.navigation.camera
-        let view' = 
-            CameraView.lookAt 
-                cam.view.Location 
-                (cam.view.Location + cam.view.Forward) 
-                m.scene.referenceSystem.up.value
+        let view' =
+            ReferenceSystem.bodyAwareLookAt
+                m.scene.referenceSystem
+                cam.view.Location
+                (cam.view.Location + cam.view.Forward)
 
         let cam' = { cam with view = view' }
         Optic.set _camera cam' m
 
+    /// Runs `f` and re-aims the camera only when the sky it would be built from actually
+    /// moved. `updateCameraUp` keeps the position and viewing direction but replaces the
+    /// sky vector, which *rolls* the camera about its own view axis - so running it on every
+    /// reference-system action snapped the roll on purely cosmetic edits (toggling the
+    /// cross, its text size or colour, nudging the north offset) and on re-picking the
+    /// planet that was already selected. Only `planet` and `up` feed `bodyAwareSky`, so
+    /// comparing it across `f` is the exact precondition, and it leaves a camera the user
+    /// deliberately rolled alone.
+    let withCameraSkyFollowing (f : Model -> Model) (m : Model) =
+        let skyOf (rs : ReferenceSystem) = ReferenceSystem.bodyAwareSky rs.planet rs.up.value
+        let skyBefore = skyOf m.scene.referenceSystem
+        let m = f m
+        if Vec.distance skyBefore (skyOf m.scene.referenceSystem) > 1e-9 then updateCameraUp m else m
+
+    /// Scene load step: a scene whose GIS observation is body-fixed gets that body as its
+    /// planet (#758, SceneBodySync.reconcileOnLoad). Runs after the annotations are loaded -
+    /// a planet change recomputes their measurements - and before the scale bars, which
+    /// are built for the planet.
+    let reconcileSceneBody (m : Model) =
+        withCameraSkyFollowing SceneBodySync.reconcileOnLoad m
+
         
-    let updateGisApp (m : Model) = 
+    let updateGisApp (m : Model) =
         let gisApp = PRo3D.Core.Gis.GisApp.loadSpiceKernelForced m.scene.gisApp
         { m with scene = { m.scene with gisApp = gisApp }}
 
+    /// A scene load replaces the annotations wholesale, so a continuous GeoJSON
+    /// export armed for the previous scene would silently overwrite its file
+    /// with the annotations of the new one. Stop it instead; the user re-arms it
+    /// from the export window if they want the new scene exported.
+    let disarmContinuousExport (m : Model) =
+        { m with drawing = PRo3D.Core.Drawing.DrawingApp.disarmAutomaticGeoJsonExport m.drawing }
 
     let private applyScene (scene : Scene) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature)=
-        let m = 
-            m 
+        let m =
+            m
             |> Model.withScene scene
+            |> disarmContinuousExport
             |> updateGisApp
             |> resetControllerState
             |> updateNavigation

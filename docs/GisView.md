@@ -40,18 +40,18 @@ A green check mark appears below the path if loading the kernel was successful. 
 
 ### Current Observation Settings
 
-At the top of the GIS tab there is a section entitled "Current Observation Settings". This is used to define an observer, a target, a point in time, and a reference frame.
+At the top of the GIS tab there is a section entitled "Current Observation Settings". This is used to define the observed body, a camera source body, a point in time, and a reference frame.
 
 ![](images/currentObservationSettings.png)
 
-* Observer: The entity from which we want to observe a specific target. The camera will be placed at the location of the observer.
-* Target: The entity we want to look at. The camera will look in the direction of the target.
-* Time: The point of time at which we want to observe. The loaded spice kernel needs to have data for observer and target at the selected point in time!
-* Reference Frame: The reference frame into which all other frames will be converted. Which frame is selected here should not change the visual result.
+* Observed body: the **scene body** — the body at the origin of the scene. It is the same setting as the planet in the top bar: choosing one sets the other (see [SceneBody.md](SceneBody.md)).
+* Camera source Body: the entity the camera looks from. When set, the camera is placed at its position and looks at the observed body.
+* Time: The point of time at which we want to observe. The loaded spice kernel needs to have data for the bodies involved at the selected point in time!
+* Reference Frame: the frame the scene is expressed in. For a body PRo3D knows (Mars, Earth, Moon, Phobos, Deimos, Didymos, Dimorphos) this is the body's fixed frame (e.g. `DIMORPHOS_FIXED`) and is set automatically — that is what lets map view and the planet-based measurements work. A scene saved in another frame (e.g. `J2000`) keeps it and shows a note with a button to switch.
 
 ### Surfaces
 
-To use a surface with PRo3D's GIS functionality, it has to be associated with a reference frame, and can be associated with an entity. This reference frame in which the surface is defined is needed to transform the surface to the global reference system used by PRo3D.
+To use a surface with PRo3D's GIS functionality, it needs a body and a reference frame. A surface with no assignment at all belongs to the scene body (the dropdowns show "Scene body (…)"), so a single-body scene needs no per-surface setup. Assign a body and frame explicitly for surfaces of other bodies; this is needed to transform the surface into the scene.
 Assigning a reference frame and entity to a loaded surfaces is done in the "Surfaces" tab. 
 
 ![](images/surfaces.png)
@@ -128,6 +128,135 @@ In the Surfaces pane witin the Gis View, now specifiy reference frame and celest
 Since we have a full surface for mars now, we can switch of the proxy geometry:
 ![](images/molaObservation.png)
 
+## Sun illumination and cast shadows
+
+The **Sun / Lighting Mode** dropdown (in the projected-images section of the GIS tab)
+shades OPC surfaces with the real sun position for the current observation time:
+
+| Mode | Effect |
+|---|---|
+| `Off` (default) | no sun shading, surfaces render as always |
+| `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun |
+| `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map |
+
+Requirements: a loaded SPICE kernel, an observation time inside its coverage, and a
+surface that resolves to a body and frame — either the scene body it inherits by
+default, or an explicit assignment in the GIS Surfaces tab. The same prerequisites the
+projected-image features have. The sun direction updates with the
+observation time, so scrubbing time moves the terminator and the shadows.
+
+The lighting mode is saved with the scene, which also means **batch rendering
+(sequenced-bookmark image generation) uses it**: `PRo3D.Snapshots.exe` restores the scene
+and renders through the same surface pipeline. GIS bookmarks store their own observation
+time, so a generated sequence sweeps the sun (and shadows) across bookmarks.
+
+Caveats:
+
+- Shadows use **one global shadow map** covering all surfaces; the sun direction comes
+  from the first GIS-registered surface. Multi-body scenes with different reference
+  frames share that one sun, and at planetary extents (a Mars-sized scene) a single
+  4096² map has too little resolution to be useful — the feature targets small-body
+  scenes (asteroids, moons).
+- Only OPC surfaces cast shadows (not OBJ surfaces, annotations or scene objects).
+- Switching `SunDirect` on changes the look compared to older PRo3D versions: shading
+  now uses the terrain normal and Lommel-Seeliger photometry instead of a
+  Lambert-on-sphere-normal approximation.
+
+### Batch rendering with hand-written JSON
+
+`PRo3D.Snapshots.exe --scn <scene.pro3d> --asnap <batch.json> --out <dir> --exitOnFinish`
+renders a bookmark list without the UI. To get sun lighting into such a run, two files
+need the right fields — the easiest way to get valid values is to set things up in the
+viewer once, save, and copy from the saved files; the reference below is for authoring
+or patching them by hand.
+
+**1. The scene file** (`--scn`) carries the global switches, inside `"gisApp"`:
+
+```jsonc
+"gisApp": {
+    "lightingMode": 2,                       // 0 = Off, 1 = SunDirect, 2 = SunShadow
+    "spiceKernel": "C:\\kernels\\mk\\hera_plan.tm",
+    "gisSurfaces": [
+      {
+        "surfaceId": "27e5b2c7-...",          // guid of the surface in this scene
+        "entity":         { "EntitySpiceName": "DIMORPHOS" },
+        "referenceFrame": { "FrameSpiceName":  "DIMORPHOS_FIXED" }
+      }
+    ],
+    "defaultObservationInfo": {
+      "observer":       { "EntitySpiceName": "DIMORPHOS" },
+      "referenceFrame": { "FrameSpiceName":  "DIMORPHOS_FIXED" },
+      "target": null,
+      "time": "2027-03-15T14:00:00.0000000Z"  // fallback for bookmarks without their own info
+    },
+    ...
+}
+```
+
+Without a kernel, a valid time and a surface with a body there is no sun direction, and
+the lit modes silently render like `Off`. The `gisSurfaces` entry may be left out when the
+surface belongs to the scene body (`observer` above, observed in its fixed frame): an
+unassigned surface inherits it ([SceneBody.md](SceneBody.md)).
+
+**2. The batch file** (`--asnap`): to move the sun per frame, each bookmark carries an
+`"observationInfo"` — a bookmark without one renders with the scene's static default.
+`target`, `observer` and `time` must be present (`null` for unset; a missing one fails the parse); `referenceFrame` may be left out:
+
+```jsonc
+{
+  "BookmarkAnimation": {
+    "fieldOfView": 30.0, "nearplane": 0.1, "farplane": 100000.0,
+    "resolution": "[640, 480]",
+    "snapshots": [
+      {
+        "filename": "frame_a",
+        "transformation": {
+          "Bookmark": {
+            "version": 0,
+            "bookmark": {
+              "version": 0,
+              "key": "dfd6d044-...",           // fresh guid per bookmark
+              "name": "epochA",
+              "navigationMode": 0,
+              "exploreCenter": "[0, 0, 0]",
+              "cameraView": { "view": [ "[sky]", "[position]", "[look]", "[up]", "[right]" ] }
+            },
+            "delay": 0, "duration": 5,
+            "sceneState": null,                 // key must exist, null is fine
+            "observationInfo": {
+              "observer":       { "EntitySpiceName": "DIMORPHOS" },
+              "referenceFrame": { "FrameSpiceName":  "DIMORPHOS_FIXED" },
+              "target": null,
+              "time": "2027-03-15T14:00:00.0000000Z"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+The `observationInfo` fields follow the GIS observation dropdowns:
+
+- `observer` and `referenceFrame` are **ignored** for a bookmark: the observed body is the
+  scene body, set once in the scene file (`defaultObservationInfo` above), and a bookmark
+  cannot switch it ([SceneBody.md](SceneBody.md)). The keys must still be present.
+- `target` is the **Camera source Body**. With `"target": null` (as above) the
+  bookmark's own `cameraView` is used and only the sun moves between frames — the usual
+  choice for hand-placed cameras. Setting it (e.g.
+  `{ "EntitySpiceName": "HERA" }`) makes the generator **discard the bookmark's
+  camera** and render from that body's real SPICE position at `time`, looking at the
+  observed body — an approach-phase view.
+- `time` (UTC, must lie inside the kernel set's coverage) drives the sun direction — and
+  the camera position, when `target` is set.
+
+The end-to-end test `src/Tests/Features/SnapshotSunLightingTest.fs` generates exactly
+these files through the typed codecs and renders both variants — when in doubt about a
+field, that is the executable reference. Alternatively set everything up in the viewer,
+save the scene and a sequenced bookmark, and copy from the saved `.pro3d` / `.sbm`
+files: they use the same codecs.
+
 ## Extended features
 
 It is possible to add new celestial bodies, new reference frames.
@@ -138,4 +267,6 @@ For story telling, PRo3D also supports to create GIS bookmarks. Similarly to sto
 
 ## Caveats
 
-Currently the GIS settings are not stored to scene files.
+The GIS observation settings, surfaces, entities, reference frames and the sun/lighting
+mode are stored in the scene file; the projected-image list and its per-image settings
+are still session-local.

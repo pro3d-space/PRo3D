@@ -721,6 +721,7 @@ type Surface = {
     radiometry      : Radiometry
 
     contourModel    : ContourLineModel
+    latLonModel     : LatLonShaderModel
 
     highlightSelected : bool
     highlightAlways   : bool
@@ -831,9 +832,10 @@ module Surface =
                     filterDistance   = Initial.filterDistance 10.0
 
                     contourModel = ContourLineModel.initial
+                    latLonModel = LatLonShaderModel.initial
 
-                    highlightSelected = true
-                    highlightAlways   = false
+                    highlightSelected     = true
+                    highlightAlways       = false
                 }
         }
 
@@ -870,6 +872,7 @@ module Surface =
             let! transferFunction = Json.readOrDefault "transferFunction" TransferFunction.empty
             let! opcxPath = Json.readOrDefault "opcxPath" None
             let! contourModel = Json.readOrDefault "contourModel" ContourLineModel.initial
+            let! latLonModel = Json.readOrDefault "latLonModel" LatLonShaderModel.initial
 
             let! surfaceType     = Json.read "surfaceType"    
             let! colorCorrection = Json.read "colorCorrection"
@@ -895,10 +898,10 @@ module Surface =
             let scalarLayers  = scalarLayers  |> HashMap.ofList
             let textureLayers = textureLayers |> IndexList.ofList
 
-            let! highlightSel  = Json.tryRead "highlightSelected"
-            let! highlightAl   = Json.tryRead "highlightAlways"
+            let! highlightSel         = Json.tryRead "highlightSelected"
+            let! highlightAl          = Json.tryRead "highlightAlways"
 
-            return 
+            return
                 {
                     version              = current
                     guid                 = guid |> Guid
@@ -927,6 +930,7 @@ module Surface =
                     transferFunction = transferFunction
                     opcxPath        = opcxPath
                     contourModel = contourModel
+                    latLonModel = latLonModel
 
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
@@ -938,11 +942,11 @@ module Surface =
                     filterByDistance = match filterByDistance with |Some v -> v |None -> false
                     filterDistance   = match filterDistance with |Some d -> Initial.filterDistance d |None -> Initial.filterDistance 10.0
 
-                    highlightSelected = match highlightSel with |Some v -> v |None -> true
-                    highlightAlways   = match highlightAl with |Some v -> v |None -> false
+                    highlightSelected     = match highlightSel        with |Some v -> v |None -> true
+                    highlightAlways       = match highlightAl         with |Some v -> v |None -> false
                 }
         }
-     
+
 type Surface with
     static member FromJson( _ : Surface) =
         json {
@@ -985,6 +989,7 @@ type Surface with
             do! Json.write "transferFunction" x.transferFunction
             do! Json.write "opcxPath" x.opcxPath
             do! Json.write "contourModel" x.contourModel
+            do! Json.write "latLonModel" x.latLonModel
 
             do! Json.write "surfaceType" (x.surfaceType |> int)
             do! Json.write "colorCorrection" x.colorCorrection
@@ -1009,8 +1014,8 @@ type Surface with
             do! Json.write "filterByDistance" x.filterByDistance
             do! Json.write "filterDistance" x.filterDistance.value
 
-            do! Json.write "highlightSelected" x.highlightSelected
-            do! Json.write "highlightAlways" x.highlightAlways
+            do! Json.write "highlightSelected"     x.highlightSelected
+            do! Json.write "highlightAlways"       x.highlightAlways
         }
 
 type Picking =

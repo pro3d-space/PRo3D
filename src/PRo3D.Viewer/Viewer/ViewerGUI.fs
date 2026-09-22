@@ -12,6 +12,7 @@ open Aardvark.Rendering
 open Aardvark.UI
 open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
+open Aardvark.UI.Primitives.Golden
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
@@ -53,8 +54,76 @@ module Gui =
     
     let dnsColorLegend (m : AdaptiveModel) =
         let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DnsLegend" m.drawing.dnsColorLegend
-        
+
         Incremental.Svg.svg falseColorAttributes falseColorSvg
+
+    /// the loaded annotations, for the attributes that need to enumerate them (surfaces)
+    let annotationSet (m : AdaptiveModel) : aset<AdaptiveAnnotation> =
+        m.drawing.annotations.flat
+        |> AMap.toASet
+        |> ASet.choose (fun (_, leaf) ->
+            match leaf with
+            | AdaptiveAnnotations a -> Some a
+            | _ -> None)
+
+    /// distinct, sorted scalar-layer labels across every loaded surface's `.opcx`; the
+    /// choices offered in Color by Category's "surface attribute" dropdown
+    let surfaceScalarLayerLabels (m : AdaptiveModel) : aval<list<string>> =
+        AVal.custom (fun t ->
+            m.scene.surfacesModel.surfaces.flat.Content.GetValue t
+            |> HashMap.toValueList
+            |> List.collect (fun leaf ->
+                match leaf with
+                | AdaptiveSurfaces s ->
+                    s.scalarLayers.Content.GetValue t
+                    |> HashMap.toValueList
+                    |> List.map (fun (l : AdaptiveScalarLayer) -> l.label.GetValue t)
+                | _ -> [])
+            |> List.distinct
+            |> List.sort)
+
+    /// true when Color by Category's cached surface samples no longer match the current
+    /// inputs (layer, planet, annotation points) — drives the "resample" button's stale style.
+    /// Comparing a live stamp catches every edit path, undo included, without hooking
+    /// individual actions.
+    ///
+    /// Reads the planet and deliberately not `referenceSystem.up`: navigating rewrites that
+    /// vector from the camera position, so depending on it here re-evaluated this aval — and
+    /// flagged the button — on every camera movement. See `ColorByCategory.stampOf`.
+    let colorByCategorySurfaceStale (m : AdaptiveModel) : aval<bool> =
+        AVal.custom (fun t ->
+            let cbc   = m.drawing.colorByCategory
+            let layer = cbc.surfaceLayer.GetValue t
+            let store = cbc.surfaceSamples.GetValue t
+            if cbc.attributeKind.GetValue t <> ColorAttributeKind.SurfaceAttribute || layer = "" then
+                false
+            elif store.layer <> layer || HashMap.isEmpty store.entries then
+                true
+            else
+                let planet = m.scene.referenceSystem.planet.GetValue t
+                let annos =
+                    (annotationSet m).Content.GetValue t
+                    |> HashSet.toList
+                    |> List.map (fun a -> a.key, a.points.Content.GetValue t |> IndexList.toArray)
+                ColorByCategory.stampOf layer planet annos <> store.stamp)
+
+    /// Same placement as falseColorAttributes, only wider: the hue wheel drawn for the
+    /// cyclic attributes captions itself, and the caption does not fit into 55px.
+    let colorByCategoryAttributes =
+        [
+                "display"               => "block";
+                "width"                 => "170px";
+                "height"                => "75%";
+                "preserveAspectRatio"   => "xMidYMid meet";
+                "viewBox"               => "0 0 5% 100%"
+                "style"                 => "position:absolute; left: 0%; top: 25%"
+                "pointer-events"        => "None"
+        ]
+        |> AttributeMap.ofList
+
+    let colorByCategoryLegend (m : AdaptiveModel) =
+        Incremental.Svg.svg colorByCategoryAttributes
+            (ColorByCategory.Draw.legend m.drawing.colorByCategory)
                             
     let scalarsColorLegend (m : AdaptiveModel) =
         Incremental.Svg.svg falseColorAttributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
@@ -130,39 +199,55 @@ module Gui =
                 )  
             
             let pnb = pitchAndBearing m cv
-            
-            let pitch    = pnb |> AVal.map(fun (p,_) -> sprintf "%s deg" (p.ToString("0.00")))
-            let bearing  = pnb |> AVal.map(fun (_,b) -> sprintf "%s deg" (b.ToString("0.00")))
+
+            // Bearing/pitch suppressed on small bodies. The current math
+            // (AnnotationHelpers.bearing/pitch + ReferenceSystem.northVector)
+            // assumes world +Z is the body's north pole and computes pitch
+            // against a global plane through origin -- both wrong for small
+            // irregular bodies like Dimorphos (north pole is -Z in SHM, and
+            // the camera sits a body-radius away from origin). Better to show
+            // nothing than nonsense. See TODOS.md "small-body bearing/pitch
+            // overlay" before re-enabling.
+            let pitch =
+                AVal.map2 (fun (p,_) planet ->
+                    if CooTransformation.isSmallBody planet then "n/a"
+                    else sprintf "%s deg" ((p : float).ToString("0.00"))) pnb m.planet
+            let bearing =
+                AVal.map2 (fun (_,b) planet ->
+                    if CooTransformation.isSmallBody planet then "n/a"
+                    else sprintf "%s deg" ((b : float).ToString("0.00"))) pnb m.planet
             
             let position = cv |> AVal.map(fun x -> x.Location.ToString("0.00"))
             
-            let spericalc = 
-                AVal.map2 (fun (a : CameraView) b -> 
-                    CooTransformation.getLatLonAlt b a.Location
+            let spericalc =
+                AVal.map2 (fun (a : CameraView) b ->
+                    CooTransformation.tryGetLatLonAlt b a.Location
                 ) cv m.planet
-            
-            let altitude = 
-                AVal.map2 (fun (a : CameraView) b -> 
-                    CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
-            
-            let lon = 
-                spericalc 
-                |> AVal.map(fun x -> 
-                    if x.longitude.IsNaN() then
-                        sprintf "not available"
-                    else
-                        sprintf "%s deg" ((360.0 - x.longitude).ToString())
-                )
-            let lat = 
-                spericalc 
-                |> AVal.map(fun x -> 
-                    if x.latitude.IsNaN() then
-                        sprintf "not available"
-                    else
-                        sprintf "%s deg" ((x.latitude).ToString())
-                ) 
-                
-            let alt2 = altitude |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
+
+            let altitude =
+                AVal.map2 (fun (a : CameraView) b ->
+                    CooTransformation.tryGetAltitude a.Location a.Up b) cv m.planet
+
+            let formatCoo (project : CooTransformation.SphericalCoo -> string) =
+                spericalc |> AVal.map (function
+                    | Some sc -> project sc
+                    | None    -> "conversion failed (set planet)")
+
+            let lon = formatCoo (fun x -> sprintf "%s deg" ((360.0 - x.longitude).ToString()))
+            let lat = formatCoo (fun x -> sprintf "%s deg" (x.latitude.ToString()))
+
+            let alt2 =
+                altitude |> AVal.map (function
+                    | Some v -> sprintf "%s m" (v.ToString("0.00"))
+                    | None   -> "conversion failed (set planet)")
+
+            let conventionLabel =
+                m.planet |> AVal.map (fun p ->
+                    match CooTransformation.getConvention p with
+                    | CooTransformation.Planetographic    -> "planetographic"
+                    | CooTransformation.Spherical r       -> sprintf "spherical r=%.1fm" r
+                    | CooTransformation.Ellipsoidal _     -> "ellipsoidal"
+                    | CooTransformation.NonPlanetary      -> "n/a")
                                                    
             let style' = "color: white; font-family: Roboto Mono"
             
@@ -201,9 +286,13 @@ module Gui =
                     tr [] [
                         td [style style'] [text "Altitude: "]
                         td [style style'] [Incremental.text alt2]
-                    ]                    
+                    ]
+                    tr [] [
+                        td [style style'] [text "Convention: "]
+                        td [style style'] [Incremental.text conventionLabel]
+                    ]
                 ]
-            ]                     
+            ]
         ]
     
     let textOverlaysInstrumentView (m : AdaptiveViewPlanModel)  = 
@@ -241,8 +330,61 @@ module Gui =
                         td [style style'] [Incremental.text m.userFeedback]
                     ]
                 ]
+                // for UI tests (tests-ui surfaceShadersReady): "ready" once linked
+                yield Incremental.div (
+                    AttributeMap.ofListCond [
+                        always <| style "display: none"
+                        "data-surface-shaders",
+                            ViewerUtils.SharedEffectPool.ready
+                            |> AVal.map (fun r -> Some (AttributeValue.String (if r then "ready" else "compiling")))
+                    ]) AList.empty
             ]                              
         ]
+
+    /// Accent colour per tool group. Single source of truth for the tool strip's icon
+    /// colours (Gui.ToolStrip) and the selected-tool label on the secondary toolbar
+    /// row - the label is tinted with the active tool's colour so the row visibly
+    /// belongs to whichever icon is lit in the strip.
+    module ToolColors =
+        // Held as (r, g, b) rather than a hex string so the same definition yields both
+        // the solid chip colour and a toned down translucent wash of it.
+        let navigation = (0x4a, 0xa3, 0xff)   // blue
+        let annotation = (0x3f, 0xb9, 0x50)   // green
+        let selection  = (0xe3, 0xb3, 0x41)   // amber
+        let placement  = (0xb0, 0x83, 0xf0)   // violet
+        let reference  = (0x4f, 0xd1, 0xc5)   // teal
+        /// interactions that are hidden from the UI and so belong to no group
+        let neutral    = (0xcc, 0xcc, 0xcc)
+
+        let hex ((r, g, b) : int * int * int) = sprintf "#%02x%02x%02x" r g b
+
+        /// Translucent version of a group colour. `alpha` is a CSS literal passed through
+        /// verbatim - formatting a float here would emit a decimal comma under a German
+        /// locale and silently void the declaration.
+        let rgba (alpha : string) ((r, g, b) : int * int * int) =
+            sprintf "rgba(%d, %d, %d, %s)" r g b alpha
+
+        /// Group an interaction belongs to, expressed as its colour. This is also what
+        /// defines the grouping drawn in the tool strip, so an interaction added to a
+        /// group here must be added to the matching block of `ToolStrip.view` too.
+        let ofInteraction (i : Interactions) =
+            match i with
+            | Interactions.DrawAnnotation
+            | Interactions.PickAnnotation
+            | Interactions.CutAnnotation
+            | Interactions.EditAnnotation           -> annotation
+            | Interactions.PickSurface
+            | Interactions.SelectArea               -> selection
+            | Interactions.PlaceRoverViewPlan
+            | Interactions.PlaceRoverModel
+            | Interactions.PickDistancePoint
+            | Interactions.PlaceSceneObject
+            | Interactions.PlaceScaleBar
+            | Interactions.PickPivotPoint           -> placement
+            | Interactions.PlaceCoordinateSystem
+            | Interactions.PickSurfaceRefSys
+            | Interactions.PickExploreCenter        -> reference
+            | _                                     -> neutral
 
     module TopMenu =                       
 
@@ -456,117 +598,70 @@ module Gui =
         let jsExportAnnotationsFileDialog = 
             "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
-        let jsExportAnnotationsAsCSVDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+        // Every data export lives in the export window now; only the native
+        // round-trip format stays here, since it has no settings. The automatic
+        // GeoJSON stream is armed from the window too (its "Continuous GeoJSON"
+        // file type) and switched off again in the config panel.
+        let annotationMenu : DomNode<ViewerAction> =
+            let drawingItem attributes children =
+                div attributes children |> UI.map DrawingMessage
 
-        let jsExportProfileAsCSVDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Profile (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-
-        let jsExportAnnotationsAsGeoJSONDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
-
-        let jsExportAnnotationsAsGeoJSONQGISDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
-
-        let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
-                i [clazz "dropdown icon"] [] 
-                div [ clazz "menu"] [                    
-                    div [
+                i [clazz "dropdown icon"] []
+                div [ clazz "menu"] [
+                    drawingItem [
                         clazz "ui inverted item"
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
                     ] [
                         text "Import Directory"
                     ]
-                    div [
+                    drawingItem [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
                     ] [
                         text "Clear"
-                    ]      
-                    div [ clazz "ui dropdown item"] [
-                        text "Export"
-                        i [clazz "dropdown icon"] [] 
-                        div [ clazz "menu"] [
-                    
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsAnnotations
-                                clientEvent "onclick" jsExportAnnotationsFileDialog
-                            ] [
-                                text "all as 'PRo3D' annotations (*.pro3d.ann)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsCsv
-                                clientEvent "onclick" jsExportAnnotationsAsCSVDialog
-                            ] [
-                                text "visible as table (*.csv)"
-                            ]     
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsProfileCsv
-                                clientEvent "onclick" jsExportProfileAsCSVDialog
-                            ]  [
-                                text "selected as profile (*.csv)"
-                            ]     
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSON
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ]  [
-                                text "visible as GeoJSON (*.json)"
-                            ]     
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSON_xyz
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ] [
-                                text "visible as GeoJSON xyz (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_latlon
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
-                            ] [
-                                text "export as latlon GeoJSON for QGIS (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_xyz
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
-                            ] [
-                                text "export as xyz GeoJSON for QGIS (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsGeoJSONQGIS_both
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONQGISDialog
-                            ] [
-                                text "export as latlon GeoJSON for QGIS + xyz metadata (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ContinuouslyGeoJson
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ] [
-                                text "continuously export as GeoJSON xyz (*.json)"
-                            ]
-                            div [ 
-                                clazz "ui inverted item"
-                                Dialogs.onSaveFile ExportAsAttitude
-                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ] [
-                                text "dns as 'Attitude' planes (*.json)"
-                            ]
-                        ]
+                    ]
+                    div [
+                        clazz "ui inverted item"
+                        onClick (fun _ -> AnnotationExportMessage AnnotationExportAction.Open)
+                    ] [
+                        text "Export..."
+                    ]
+                    drawingItem [
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsAnnotations
+                        clientEvent "onclick" jsExportAnnotationsFileDialog
+                    ] [
+                        text "Save as 'PRo3D' annotations (*.pro3d.ann)"
                     ]
                 ]
-            ]       
-        
-        let menu (m : AdaptiveModel) =          
-            let subMenu name menuItems = 
+            ]
+
+        // Checkbox-style menu item bound to a single bool flag on
+        // `m.userPreferences`. Click toggles the flag — the update handler
+        // dispatches SetUserPreferences which both updates the model and
+        // writes the JSON file under %APPDATA%/Pro3D.
+        let prefToggle (label : string)
+                       (getter : UserPreferences -> bool)
+                       (setter : bool -> UserPreferences -> UserPreferences)
+                       (m : AdaptiveModel) =
+            let iconAttrs =
+                amap {
+                    let! prefs = m.userPreferences
+                    yield clazz (if getter prefs then "check square outline icon" else "square outline icon")
+                } |> AttributeMap.ofAMap
+
+            div [ clazz "ui item"
+                  onClick (fun _ ->
+                      let prefs = AVal.force m.userPreferences
+                      SetUserPreferences (setter (not (getter prefs)) prefs)) ] [
+                Incremental.i iconAttrs AList.empty
+                text (" " + label)
+            ]
+
+        let menu (m : AdaptiveModel) =
+            let subMenu name menuItems =
                 div [ clazz "ui dropdown item"] [
                   text name
                   i [clazz "dropdown icon"] [] 
@@ -597,15 +692,8 @@ module Gui =
                                 div [ clazz "ui dropdown item"] (scene m)
                             
                                 //annotations menu
-                                annotationMenu |> UI.map DrawingMessage;   
-                                subMenu "Change Mode"
-                                        [
-                                          menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
-                                          menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
-                                          menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
-                                          menuItem "Provenance" (ChangeDashboardMode DashboardModes.provenance)
-                                          menuItem "GIS" (ChangeDashboardMode DashboardModes.gis)
-                                        ]   
+                                annotationMenu;   
+                                LayoutApp.UI.menu m.layout |> UI.map LayoutMessage
                                 
                                 //scene objects
                                 div [ clazz "ui dropdown item"; style "width: 150px"] importSCeneObject
@@ -629,7 +717,18 @@ module Gui =
                                             clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ] [
                                             text "Import v1 Annotations (*.xml)"
                                         ]
-                                        
+
+                                        // SBMT structure files: real fixtures sometimes have no extension
+                                        // (e.g. boulder catalogs) so the filter is wide. Frame is hardcoded
+                                        // to DIMORPHOS_SHM in the handler -- see plans/archive/sbmtImport.md.
+                                        let jsOpenSbmtFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import SBMT annotations', filters: [{ name: 'SBMT structure files', extensions: ['txt', '*']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        div [ clazz "ui item";
+                                            Dialogs.onChooseFiles ImportSbmtAnnotations;
+                                            clientEvent "onclick" jsOpenSbmtFileDialogue ] [
+                                            text "Import SBMT Annotations"
+                                        ]
+
                                         let jsImportTraverseDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Traverse files' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
                                         div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" jsImportTraverseDialog ] [
@@ -678,8 +777,11 @@ module Gui =
                                         
 
                                         //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
-                                        div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
-                                            text "Send log to maintainers"
+                                        div [clazz "ui item"; clientEvent "onclick" "aardvark.showReportDialog?.()"] [ // server-mode (i.e. deploy version) only
+                                            text "Report Issue"
+                                        ]
+                                        div [clazz "ui item"; clientEvent "onclick" "aardvark.showLogViewer?.()"] [ // server-mode (i.e. deploy version) only
+                                            text "View Log"
                                         ]
                                         a [style "visibility:hidden"; clazz "invisibleCrashButton"] []
 
@@ -695,18 +797,57 @@ module Gui =
                                         //]
                                     ]
                                 ]
-                            ] 
+
+                                // Preferences: per-computer settings persisted to
+                                // %APPDATA%/Pro3D/userPreferences.json. NOT part of
+                                // the scene file or any bookmark.
+                                div [ clazz "ui dropdown item"] [
+                                    text "Preferences"
+                                    i [clazz "dropdown icon"] []
+                                    div [ clazz "menu"] [
+                                        div [clazz "header"; style "padding: 6px 10px; color: black; font-weight: bold"] [
+                                            text "MapView controls"
+                                        ]
+                                        prefToggle "Invert W / S (forward-back)"
+                                            (fun p -> p.mapInvertForward)
+                                            (fun b p -> { p with mapInvertForward = b })
+                                            m
+                                        prefToggle "Invert A / D (strafe)"
+                                            (fun p -> p.mapInvertStrafe)
+                                            (fun b p -> { p with mapInvertStrafe = b })
+                                            m
+                                    ]
+                                ]
+                            ]
                         ]
                     )
                 ]
             ]
         
+        /// The Transformations model of the single selected surface, or None when nothing
+        /// is selected (or the selection no longer exists in the group tree). Same lookup
+        /// `SurfaceApp.viewTranslationTools` does for the Transformations panel.
+        let private selectedSurfaceTransformation (m : AdaptiveModel) =
+            adaptive {
+                let! guid = m.scene.surfacesModel.surfaces.singleSelectLeaf
+                match guid with
+                | None -> return None
+                | Some id ->
+                    let! exists = (m.scene.surfacesModel.surfaces.flat |> AMap.keys) |> ASet.contains id
+                    if not exists then return None
+                    else
+                        let! leaf = m.scene.surfacesModel.surfaces.flat |> AMap.find id
+                        match leaf with
+                        | AdaptiveSurfaces surf -> return Some surf.transformation
+                        | _ -> return None
+            }
+
         let dynamicTopMenu (m:AdaptiveModel) =
             adaptive {
                 let! interaction = m.interaction
                 match interaction with
-                | Interactions.DrawAnnotation -> 
-                    return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.drawing |> UI.map DrawingMessage
+                | Interactions.DrawAnnotation ->
+                    return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.scene.referenceSystem.planet m.drawing |> UI.map DrawingMessage
                 | Interactions.PlaceRoverViewPlan ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
@@ -716,6 +857,52 @@ module Gui =
                         Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ] |> UI.wrapToolTip DataPosition.Bottom measurementTooltip
                         Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ] |> UI.wrapToolTip DataPosition.Bottom visibilityTooltip                     
                         ] |> UI.map ReferenceSystemMessage 
+                | Interactions.PickSurfaceRefSys ->
+                    // Mirrors the Place Coordinate System row: a unit dropdown sizing the
+                    // cross, and an eye toggling it. Both act on the selected surface's
+                    // Transformations, so with nothing selected they render greyed and
+                    // inert rather than vanishing - the row keeps its shape either way.
+                    let measurementTooltip = "Measurement to adapt the size of the surface reference system"
+                    let visibilityTooltip  = "Toggle visibility of the surface reference system"
+                    let! trafo = selectedSurfaceTransformation m
+
+                    let sizeInMetres, isVisible =
+                        match trafo with
+                        | Some t -> t.refSysSize.value, t.showTrafoRefSys
+                        | None   -> AVal.constant 0.0, AVal.constant false
+
+                    // `refSysSize` is metres, the chart is the same unit list the global
+                    // reference system uses. Convert with the same `scaleToSize`; a size
+                    // typed into the Transformations panel that matches no entry shows as
+                    // the nearest one.
+                    let selectedScale =
+                        (sizeInMetres, m.scene.referenceSystem.scaleChart |> AList.toAVal)
+                        ||> AVal.map2 (fun size chart ->
+                            chart
+                            |> IndexList.toList
+                            |> List.sortBy (fun label -> abs (PRo3D.Core.Sg.scaleToSize label - size))
+                            |> List.tryHead
+                            |> Option.defaultValue "2m")
+
+                    let row =
+                        Html.Layout.horizontal [
+                            Html.Layout.boxH [
+                                Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart selectedScale
+                                    (fun label ->
+                                        TransformationApp.Action.SetRefSysSize
+                                            (Numeric.Action.SetValue (PRo3D.Core.Sg.scaleToSize label))) id
+                            ] |> UI.wrapToolTip DataPosition.Bottom measurementTooltip
+                            Html.Layout.boxH [
+                                GuiEx.iconToggle isVisible "unhide icon" "hide icon"
+                                    TransformationApp.Action.ToggleRefSysVisible
+                            ] |> UI.wrapToolTip DataPosition.Bottom visibilityTooltip
+                        ] |> UI.map (SurfaceAppAction.TranslationMessage >> SurfaceActions)
+
+                    match trafo with
+                    | Some _ -> return row
+                    | None ->
+                        return div [ style "opacity:0.45; pointer-events:none"
+                                     attribute "title" "select a surface to change its reference system" ] [ row ]
                 | Interactions.PickAnnotation ->
                      return Html.Layout.horizontal [
                         Html.Layout.boxH [text "eps.:"]
@@ -760,71 +947,329 @@ module Gui =
                 }        
         )
             
-        let interactionText (i : Interactions) =
-            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
-            match i with 
-            | Interactions.PickExploreCenter     -> sprintf "%s+click to place arcball center" ctrl
-            | Interactions.PlaceCoordinateSystem -> sprintf "%s+click to place coordinate cross" ctrl
-            | Interactions.DrawAnnotation        -> sprintf "%s+click to pick point on surface" ctrl
-            | Interactions.PickAnnotation        -> sprintf "%s+click on annotation to select" ctrl
-            | Interactions.PickSurface           -> sprintf "%s+click on surface to select" ctrl
-            | Interactions.PlaceRoverModel       -> sprintf "%s+click to (1) place rover and (2) pick lookat" ctrl
-            | Interactions.PlaceRoverViewPlan    -> sprintf "%s+click to (1) place rover and (2) pick lookat" ctrl
+        /// How the hint lines below name the gesture that runs the active tool. Direct
+        /// Tool Mode puts the tool on a plain left click, so the modifier must drop out
+        /// of the text or every hint reads wrong.
+        let private clickGesture (directToolMode : bool) =
+            if directToolMode then "Click"
+            else
+                let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
+                sprintf "%s+click" ctrl
+
+        let interactionText (directToolMode : bool) (i : Interactions) =
+            let click = clickGesture directToolMode
+            match i with
+            | Interactions.PickExploreCenter     -> sprintf "%s to place arcball center" click
+            | Interactions.PlaceCoordinateSystem -> sprintf "%s to place coordinate cross" click
+            | Interactions.DrawAnnotation        -> sprintf "%s to pick point on surface" click
+            | Interactions.PickAnnotation        -> sprintf "%s on annotation to select" click
+            | Interactions.CutAnnotation         -> sprintf "%s to draw separating polyline" click
+            | Interactions.PickSurface           -> sprintf "%s on surface to select" click
+            | Interactions.PlaceRoverModel       -> sprintf "%s to (1) place rover and (2) pick lookat" click
+            | Interactions.PlaceRoverViewPlan    -> sprintf "%s to (1) place rover and (2) pick lookat" click
             | Interactions.TrafoControls         -> "not implemented"
             | Interactions.PlaceSurface          -> "not implemented"
-            | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
-            | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
-            | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
-            | Interactions.PickSurfaceRefSys     -> sprintf "%s+click to place additional reference system for surface" ctrl
+            | Interactions.PlaceScaleBar         -> sprintf "%s to place scale bar" click
+            | Interactions.PlaceSceneObject      -> sprintf "%s to place scene object" click
+            | Interactions.PickPivotPoint        -> sprintf "%s to place pivot point" click
+            | Interactions.PickSurfaceRefSys     -> sprintf "%s to place additional reference system for selected surface" click
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
+
+        /// As interactionText, but also reflects whether a control point is currently in hand.
+        /// Click-to-grab has no drag affordance to feel out, so the hint line is most of what makes
+        /// the gesture discoverable.
+        let interactionTextWithState (directToolMode : bool) (i : Interactions) (grabbed : bool) =
+            let click = clickGesture directToolMode
+            match i with
+            | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click
+            | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it" click
+            | _ -> interactionText directToolMode i
 
         let interactionTooltip (i : Interactions) : string =
             match i with 
             | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
             | Interactions.PlaceCoordinateSystem -> "Pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
+            | Interactions.PickSurfaceRefSys     -> "Pick a point on the selected surface to give it its own reference system, and choose a unit of measurement to adapt the size of its cross."
             | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
             | Interactions.PlaceRoverViewPlan    -> "Select a rover model in the rover menu."
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
+            | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Clicking an annotation selects it."
             | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
             | Interactions.SelectArea            -> ""
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
+            | Interactions.PlaceRoverViewPlan    -> "Place Rover ViewPlan on picked position"
             | Interactions.PlaceRoverModel       -> "Place Rover Model on picked position"
             | _ -> ""
-        
-        let topMenuItems (model : AdaptiveModel) = [ 
-            div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
-                [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
-            Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
-              
+
+        /// Display name of the selected tool, shown as the secondary-toolbar chip. Covers
+        /// exactly the interactions reachable from the tool strip (`Gui.ToolStrip.view`);
+        /// hidden interactions fall back to the generic label.
+        let interactionName (i : Interactions) : string =
+            match i with
+            | Interactions.DrawAnnotation        -> "Draw Annotation"
+            | Interactions.PickAnnotation        -> "Select Annotation"
+            | Interactions.CutAnnotation         -> "Cut Annotation"
+            | Interactions.EditAnnotation        -> "Edit Annotation"
+            | Interactions.PickSurface           -> "Select Surface"
+            | Interactions.SelectArea            -> "Select Area"
+            | Interactions.PlaceRoverViewPlan    -> "Place Rover for ViewPlan"
+            | Interactions.PlaceRoverModel       -> "Place Rover 3D Model"
+            | Interactions.PickDistancePoint     -> "Place Distance Point"
+            | Interactions.PlaceSceneObject      -> "Place Scene Object"
+            | Interactions.PlaceScaleBar         -> "Place Scalebar"
+            | Interactions.PickPivotPoint        -> "Pick Pivot Point"
+            | Interactions.PlaceCoordinateSystem -> "Place Coordinate System"
+            | Interactions.PickSurfaceRefSys     -> "Place Surface Reference System"
+            | Interactions.PickExploreCenter     -> "Pick Explore Center"
+            | _                                  -> "Tool Settings"
+
+        let directToolModeTooltip =
+            "Direct Tool Mode: the active tool runs on the left mouse button, no Ctrl needed. \
+             Middle button pans, right button orbits, wheel zooms. Hold Ctrl to orbit with the \
+             left button as well."
+
+        let topMenuItems (model : AdaptiveModel) = [
+            div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
+                [Incremental.text (LayoutApp.displayName model.layout |> AVal.map (sprintf "Layout: %s"))]
+
+            // The navigation-mode and interaction selectors live in the vertical tool
+            // strip overlaid on the right edge of the render view (Gui.ToolStrip), and
+            // the ctrl-click hint for the selected tool sits at the far end of the
+            // secondary toolbar row - see `secondaryToolbarRow` below.
+
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
-                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
-                Html.Layout.boxH [ 
-                    div [style "font-style:italic; width:100%; text-align:right"] [
-                        Incremental.text (model.interaction |> AVal.map interactionText)
-                    ]]
-            ]
-              
-            Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Reference System:"] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
-            ] 
+            ]
+
+            // Hands the left mouse button to the active tool and moves navigation onto the
+            // middle and right buttons (picking = ctrlFlag <> directToolMode). It is a global
+            // interaction-mode switch like the two items above, so it lives on the main row
+            // rather than in the Annotations dock page. See docs/DirectToolMode.md.
             Html.Layout.horizontal [
-                scenepath model
-            ]        
-        ]        
-        
+                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Direct Tool Mode:"] ]
+                Html.Layout.boxH [ GuiEx.iconCheckBox model.directToolMode ViewerAction.ToggleDirectToolMode ]
+            ] |> UI.wrapToolTip DataPosition.Bottom directToolModeTooltip
+        ]
+
+        // The secondary toolbar is always rendered (even when the active
+        // interaction has no tool controls) so the dock below never jumps
+        // when switching tools. `dynamicTopMenu` returns an empty div for
+        // interactions without a secondary toolbar; the row height stays
+        // stable thanks to the wrapping `.ui.menu`'s min-height.
+
+        // Interactions that actually contribute controls to the secondary
+        // toolbar row (i.e. `dynamicTopMenu` returns something non-empty).
+        let private hasSecondaryTools (i : Interactions) =
+            match i with
+            | Interactions.DrawAnnotation
+            | Interactions.PlaceRoverViewPlan
+            | Interactions.PlaceRoverModel
+            | Interactions.PlaceCoordinateSystem
+            | Interactions.PickSurfaceRefSys
+            | Interactions.PickAnnotation
+            | Interactions.PlaceScaleBar
+            | Interactions.PickPivotPoint -> true
+            | _ -> false
+
+        let secondaryToolbarRow (m : AdaptiveModel) =
+            // When the row carries no controls we drop the semantic-ui `item` class so
+            // its trailing vertical divider (`:before`) is not left as a
+            // stray tick; the row keeps its height via `.pro3d-topbar .ui.menu`.
+            let itemAttribs =
+                amap {
+                    let! interaction = m.interaction
+                    if hasSecondaryTools interaction
+                    then yield clazz "item topmenu"
+                    else yield clazz "topmenu pro3d-toolbar-empty"
+                } |> AttributeMap.ofAMap
+
+            // Row label: a white-on-colour chip in the active tool's group colour, showing
+            // the selected tool's name, so the row reads as belonging to whichever icon is
+            // lit in the tool strip.
+            let label =
+                let attribs =
+                    amap {
+                        let! interaction = m.interaction
+                        yield clazz "pro3d-toolsettings-chip"
+                        yield style (sprintf "background:%s"
+                                             (ToolColors.hex (ToolColors.ofInteraction interaction)))
+                    } |> AttributeMap.ofAMap
+                div [clazz "item topmenu pro3d-toolsettings-label"] [
+                    Incremental.div attribs (AList.ofList [
+                        Incremental.text (m.interaction |> AVal.map interactionName) ])
+                ]
+
+            // Ctrl-click hint for the selected tool, flowing straight on after that tool's
+            // settings. It is prose about the tool the strip has selected, so it belongs
+            // with the tool's settings rather than on the main row.
+            let hint =
+                div [clazz "item topmenu"; style "font-style:italic"] [
+                    Incremental.text (
+                        AVal.map3 interactionTextWithState
+                            m.directToolMode
+                            m.interaction
+                            (m.drawing.vertexGrab |> AVal.map Option.isSome))
+                ]
+
+            // The row itself is untinted. To wash it in a toned down version of the active
+            // tool's colour instead, make these attributes incremental and add
+            //   background: ToolColors.rgba "0.16" (ToolColors.ofInteraction interaction)
+            // (`ToolColors.rgba` is kept around for exactly that).
+            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0"] [
+                label
+                Incremental.div itemAttribs (AList.ofAValSingle (dynamicTopMenu m))
+                hint
+            ]
+
         let getTopMenu (m:AdaptiveModel) =
-            div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
-                yield (menu m)
-                for t in (topMenuItems m) do
-                    yield div [clazz "item topmenu"] [t]
+            div [clazz "pro3d-topbar"] [
+                div [clazz "ui menu"; style "padding:0; margin:0"] [
+                    yield (menu m)
+                    for t in (topMenuItems m) do
+                        yield div [clazz "item topmenu"] [t]
+                    // scene name pinned to the right edge of the main row
+                    // (`margin-left:auto` on the flex `.ui.menu`)
+                    yield div [clazz "item topmenu"; style "margin-left:auto"] [
+                        Html.Layout.horizontal [ scenepath m ]
+                    ]
+                ]
+                secondaryToolbarRow m
             ]
         
+    /// Vertical icon strip overlaid on the right edge of the main render view. It replaces the
+    /// navigation-mode and interaction dropdowns that used to live in the top menu.
+    ///
+    /// Both selections are enum-valued model fields (`navigation.navigationMode` and
+    /// `interaction`), so "nothing selected" is not representable: exactly one navigation icon
+    /// and exactly one tool icon is highlighted at all times. The groups below therefore cover
+    /// every interaction the old dropdown offered, i.e. every `Interactions` case NOT in
+    /// `Interactions.hideSet` - keep the two in sync when un-hiding an interaction, otherwise
+    /// that interaction becomes unreachable and (if selected via F-key) shows no active icon.
+    module ToolStrip =
+
+        /// One strip button. `isEnabled` is only ever false for MapView without a reference
+        /// body; a disabled button dispatches nothing so the model cannot enter that state.
+        let private button
+            (color     : string)
+            (icon      : string)
+            (isActive  : aval<bool>)
+            (isEnabled : aval<bool>)
+            (tooltip   : string)
+            (action    : 'msg) =
+
+            let attribs =
+                amap {
+                    let! active  = isActive
+                    let! enabled = isEnabled
+                    // active and disabled are independent: MapView can be the current mode
+                    // while the scene has no reference body, and it must still read as the
+                    // one active navigation icon - just greyed out.
+                    let cls =
+                        (if active then "pro3d-tool active" else "pro3d-tool")
+                        + (if enabled then "" else " disabled")
+                    yield clazz cls
+                    yield style (sprintf "--tool-color:%s" color)
+                    if enabled then
+                        yield onClick (fun _ -> action)
+                } |> AttributeMap.ofAMap
+
+            Incremental.div attribs (AList.ofList [ i [clazz (icon + " icon")] [] ])
+            |> UI.wrapToolTip DataPosition.Left tooltip
+
+        let private navButton (icon : string) (tooltip : string) (mode : NavigationMode)
+                              (current : aval<NavigationMode>) (isEnabled : aval<bool>) =
+            button (ToolColors.hex ToolColors.navigation) icon
+                   (current |> AVal.map (fun x -> x = mode))
+                   isEnabled
+                   tooltip
+                   (NavigationMessage (Navigation.Action.SetNavigationMode mode))
+
+        /// The colour is looked up rather than passed in, so `ToolColors.ofInteraction`
+        /// stays the one place that says which group a tool belongs to.
+        let private toolButton (icon : string) (tooltip : string)
+                               (interaction : Interactions) (current : aval<Interactions>) =
+            button (ToolColors.hex (ToolColors.ofInteraction interaction)) icon
+                   (current |> AVal.map (fun x -> x = interaction))
+                   (AVal.constant true)
+                   tooltip
+                   (SetInteraction interaction)
+
+        /// A one-shot command button - it fires an action on the current selection rather
+        /// than switching the interaction mode, so it never reads as "active".
+        let private actionButton (color : string) (icon : string) (tooltip : string) (action : ViewerAction) =
+            button color icon (AVal.constant false) (AVal.constant true) tooltip action
+
+        let private divider = div [clazz "pro3d-tool-divider"] []
+
+        let view (m : AdaptiveModel) : DomNode<ViewerAction> =
+            let navMode     = m.navigation.navigationMode
+            let interaction = m.interaction
+
+            // MapView orients to the planet centre with up = north, so it needs a reference
+            // body. Same rule the old dropdown applied via `dropDownDisabled`.
+            let mapViewEnabled =
+                m.scene.referenceSystem.planet |> AVal.map (fun p -> p <> Planet.None)
+
+            let tool icon tooltip i = toolButton icon tooltip i interaction
+
+            // Clicks must not reach the render body underneath: it starts a camera drag /
+            // selection rectangle on mousedown and opens the context menu on right click.
+            // Navigation and tools sit in two separate panels with a small gap, so the
+            // blue navigation group reads as distinct from the interaction tools. Both
+            // panels share the button width and padding, so the icon columns line up.
+            onBoot "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });" (
+                div [clazz "pro3d-toolstrip"] [
+                  // --- navigation panel --------------------------------------------------
+                  div [clazz "pro3d-toolstrip-group"] [
+                    navButton "rocket" "Free fly - move the camera freely"
+                              NavigationMode.FreeFly navMode (AVal.constant true)
+                    // trailing ◎ echoes the bullseye "Pick ArcBall orbit centre" tool
+                    navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point  ◎"
+                              NavigationMode.ArcBall navMode (AVal.constant true)
+                    navButton "map" "Map view - top down, up is north, speed scales with altitude (needs a planet)"
+                              NavigationMode.MapView navMode mapViewEnabled
+                  ]
+
+                  // --- tool panel ------------------------------------------------------
+                  div [clazz "pro3d-toolstrip-group"] [
+                    // --- annotations ------------------------------------------------------
+                    tool "pencil"        "Draw annotation" Interactions.DrawAnnotation
+                    tool "mouse pointer" "Select annotation" Interactions.PickAnnotation
+                    tool "cut"           "Cut annotation - draw a stroke that cuts the selected annotation" Interactions.CutAnnotation
+                    actionButton (ToolColors.hex ToolColors.annotation) "pro3d-union"
+                                 "Union selected annotations (2 or more)"
+                                 (ViewerAction.DrawingMessage (DrawingAction.UnionSelectedAnnotations None))
+                    tool "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
+
+                    divider
+
+                    // --- selection --------------------------------------------------------
+                    tool "mouse pointer" "Select surface" Interactions.PickSurface
+                    tool "crop"  "Select area - drag a rectangle to multi-select" Interactions.SelectArea
+
+                    divider
+
+                    // --- placement --------------------------------------------------------
+                    tool "pro3d-tire" "Place rover" Interactions.PlaceRoverViewPlan
+                    tool "marker"   "Place distance point for the selected view plan" Interactions.PickDistancePoint
+                    tool "cube"     "Place scene object" Interactions.PlaceSceneObject
+                    tool "ruler" "Place scale bar" Interactions.PlaceScaleBar
+                    tool "anchor"   "Pick pivot point for placing / transforming" Interactions.PickPivotPoint
+
+                    divider
+
+                    // --- reference systems & camera ---------------------------------------
+                    tool "pro3d-coordinate-cross" "Place coordinate cross" Interactions.PlaceCoordinateSystem
+                    tool "pro3d-surface-ref-sys" "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
+                    tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' to set the pivot point to the body center" Interactions.PickExploreCenter
+                  ]
+                ]
+            )
+
     module Annotations =
       
         let viewAnnotationProperties (model : AdaptiveModel) =
@@ -834,7 +1279,329 @@ module Gui =
                   | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
-                
+
+        // Bulk edit surface: targets the green multi-selection (selectedLeaves), which stays
+        // distinct from the single-selection that drives the Properties panel. Fields bind to a
+        // representative annotation but every edit is routed (write-only) to all selected.
+        let viewBulkAnnotationProperties (model : AdaptiveModel) =
+            let annotations = model.drawing.annotations
+            adaptive {
+                let! selected = annotations.selectedLeaves.Content
+                let selectedList = selected |> HashSet.toList
+                let count = selectedList |> List.length
+                let! single = annotations.singleSelectLeaf
+
+                // representative the fields show: the single-selected one when it is part of the
+                // multi-selection, otherwise the first selected leaf (e.g. after a group Select All)
+                let repId =
+                    match single with
+                    | Some id when selectedList |> List.exists (fun ts -> ts.id = id) -> Some id
+                    | _ -> selectedList |> List.tryHead |> Option.map (fun ts -> ts.id)
+
+                if count < 2 then
+                    return div [style "font-style:italic; padding:5px"]
+                               [ text "Select two or more annotations (multi-select via the cube icons or a group's Select All) to bulk edit." ]
+                else
+                    match repId with
+                    | None -> return div [] []
+                    | Some id ->
+                        match! AMap.tryFind id annotations.flat with
+                        | Some (AdaptiveAnnotations ann) ->
+                            let header =
+                                h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
+                                   [ text (sprintf "%d annotations selected — edits apply to all" count) ]
+                            let clear =
+                                div [style "padding: 5px 0px"] [
+                                    button [
+                                        clazz "ui tiny button"
+                                        onClick (fun _ -> ViewerAction.DrawingMessage(DrawingAction.GroupsMessage(GroupsAppAction.ClearSelection)))
+                                    ] [ text "Clear selection" ]
+                                ]
+                            let fields =
+                                AnnotationProperties.viewBulk Config.colorPaletteStore ann
+                                |> UI.map ViewerAction.AnnotationBulkMessage
+
+                            // Dip-direction rose over the selection, restricted to the geometry
+                            // types the user enabled. dipAzimuth is a stored field (read via the
+                            // adaptive dnsResults option); see `angles` below for the shape of the
+                            // adaptive graph this builds and what invalidates it.
+                            let roseHeader =
+                                h5 [clazz "ui inverted horizontal divider header"; style "padding-top: 1rem"]
+                                   [ text "Dip direction rose" ]
+                            // Activation button: the rose (and its type toggles) only exist while
+                            // the feature is switched on, so nothing is binned when it is off.
+                            let roseActivation =
+                                Incremental.div (AttributeMap.ofList [style "padding: 5px 0px"]) (
+                                    alist {
+                                        let! enabled = model.roseEnabled
+                                        yield button [
+                                            clazz (if enabled then "ui tiny blue button" else "ui tiny button")
+                                            onClick (fun _ -> ViewerAction.SetRoseEnabled (not enabled))
+                                        ] [
+                                            i [clazz (if enabled then "toggle on icon" else "toggle off icon")] []
+                                            text (if enabled then "Rose diagram on" else "Rose diagram off")
+                                        ]
+                                    })
+                            let toggles =
+                                require GuiEx.semui (
+                                    Html.table [
+                                        Html.row "Polyline:" [ GuiEx.iconCheckBoxSet model.roseUsePolyline ViewerAction.SetRoseUsePolyline ]
+                                        Html.row "DnS:"      [ GuiEx.iconCheckBoxSet model.roseUseDnS      ViewerAction.SetRoseUseDnS ]
+                                    ])
+                            // Dip azimuths of the selected annotations, collected as one
+                            // incremental aggregate rather than one lookup per annotation:
+                            //  * a single AMap.filter reader on `flat` replaces N AMap.tryFind
+                            //    calls. AMap.tryFind is documented as re-evaluating on *every*
+                            //    change of the map, so N of them turned finishing, deleting or
+                            //    importing a single annotation into N invalidated lookups; the
+                            //    filter sees the same event as one incremental add/remove.
+                            //  * AMap.chooseA caches (geometry, azimuth) per annotation, so an
+                            //    edit to one annotation re-reads that one and nothing else.
+                            //  * the type toggles are applied at the *leaf*, filtering the already
+                            //    collected map. Binding them above the per-annotation work would
+                            //    make every checkbox click tear that whole subtree down and
+                            //    rebuild it.
+                            // The selection itself is still whole-value: it is bound by the
+                            // enclosing adaptive block, which rebuilds the panel anyway.
+                            // Annotations with no dip and strike surface here as NaN (the
+                            // bindAdaptiveOption default), which RoseDiagram.includes rejects
+                            // along with a genuinely NaN dipAzimuth.
+                            let angles : aval<list<float>> =
+                                let ids = selected |> HashSet.map (fun ts -> ts.id)
+                                let perAnnotation =
+                                    annotations.flat
+                                    |> AMap.filter (fun annoId _ -> ids |> HashSet.contains annoId)
+                                    |> AMap.chooseA (fun _ leaf ->
+                                        match leaf with
+                                        | AdaptiveAnnotations a ->
+                                            AVal.map2
+                                                (fun geo az -> Some(geo, az))
+                                                a.geometry
+                                                (AVal.bindAdaptiveOption a.dnsResults nan (fun d -> d.dipAzimuth))
+                                        | _ -> AVal.constant None)
+                                    |> AMap.toAVal
+                                // Single fold - no intermediate list, one traversal per
+                                // invalidation. RoseDiagram.includes is the one place that
+                                // decides whether an annotation counts, shared with the tests.
+                                let selectEnabled
+                                    (perAnno : HashMap<System.Guid, PRo3D.Base.Annotation.Geometry * float>)
+                                    usePoly useDns =
+                                    perAnno
+                                    |> HashMap.fold (fun acc _ (geo, az) ->
+                                        if RoseDiagram.includes usePoly useDns geo az
+                                        then az :: acc
+                                        else acc) []
+                                AVal.map3 selectEnabled perAnnotation model.roseUsePolyline model.roseUseDnS
+                            let rose =
+                                Incremental.div AttributeMap.empty (
+                                    alist {
+                                        let! enabled = model.roseEnabled
+                                        if enabled then
+                                            yield toggles
+                                            let! angs = angles
+                                            if List.isEmpty angs then
+                                                yield div [style "font-style:italic; padding:5px"]
+                                                          [ text "No dip directions in selection (enable a type, or select Polyline / DnS annotations)." ]
+                                            else
+                                                yield RoseDiagram.view angs
+                                    })
+
+                            return div [] [ header; fields; roseHeader; roseActivation; rose; clear ]
+                        | _ ->
+                            return div [style "font-style:italic; padding:5px"] [ text "no annotation selected" ]
+            }
+
+        /// Outcrop traces: the mean attitude of the current selection, the bed thickness of
+        /// the modelled sequence, and what is actually being drawn.
+        ///
+        /// Its own accordion rather than a section inside Bulk Edit, because that panel
+        /// refuses to render below two selected annotations and outcrop traces must work for
+        /// one. The appearance settings (trace width, smoothing, projection radius) are on
+        /// the config page instead - they are scene settings, set once and left alone.
+        let viewOutcropTraces (model : AdaptiveModel) =
+            let m = model.outcropTraces
+            let up = model.scene.referenceSystem.up.value
+            let north = model.scene.referenceSystem.northO
+
+            let activation =
+                Incremental.div (AttributeMap.ofList [style "padding: 5px 0px"]) (
+                    alist {
+                        let! enabled = m.enabled
+                        yield button [
+                            clazz (if enabled then "ui tiny blue button" else "ui tiny button")
+                            onClick (fun _ -> ViewerAction.OutcropTraceMessage OutcropTraceAction.ToggleEnabled)
+                        ] [
+                            i [clazz (if enabled then "toggle on icon" else "toggle off icon")] []
+                            text (if enabled then "Outcrop traces on" else "Outcrop traces off")
+                        ]
+                    })
+
+            let toggles =
+                require GuiEx.semui (
+                    Html.table [
+                        Html.row "Polyline:" [ GuiEx.iconCheckBoxSet m.usePolyline (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetUsePolyline) ]
+                        Html.row "DnS:"      [ GuiEx.iconCheckBoxSet m.useDnS      (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetUseDnS) ]
+                    ])
+
+            // The readout is what makes the combination trustworthy: it names the attitude
+            // being drawn, and says plainly why nothing is drawn when nothing is.
+            let readout =
+                Incremental.div (AttributeMap.ofList [style "padding: 5px 0px"]) (
+                    alist {
+                        let! attitude = ViewerUtils.outcropTraceAttitude model
+                        let! up = up
+                        let! north = north
+                        match attitude with
+                        | None ->
+                            yield div [style "font-style:italic"]
+                                      [ text "No planes in the selection (enable a type, or select DnS / Polyline annotations)." ]
+                        | Some a ->
+                            match a.shape with
+                            | Cluster ->
+                                let dip, dipDir = OutcropTrace.dipAndDipDirection up north a
+                                let source =
+                                    if a.count = 1 then "1 annotation"
+                                    else sprintf "%d annotations" a.count
+                                yield div [] [
+                                    text (sprintf "Mean attitude of %s - %.1f° / %.1f° (dip / dip direction), S₁ = %.2f"
+                                                  source dip dipDir a.s.X) ]
+                            | NoDominantAttitude ->
+                                yield div [style "font-style:italic"] [
+                                    text (sprintf "The selection has no dominant attitude (S₁ = %.2f) - a mean attitude would be meaningless."
+                                                  a.s.X) ]
+                            | Girdle axis ->
+                                let trend, plunge = OutcropTrace.trendAndPlunge up north axis
+                                yield div [style "font-style:italic"] [
+                                    text (sprintf "The poles form a girdle, not a cluster (S₁ = %.2f, S₂ = %.2f): the selection is folded, so no single attitude represents it. Fold axis (π-axis) ≈ %03.0f/%02.0f."
+                                                  a.s.X a.s.Y trend plunge) ]
+                    })
+
+            // The two distances the user actually works with, both in metres and both with
+            // a Fit that seeds them from the measurements. Bed thickness first: a value far
+            // too small paints the terrain a solid colour and far too large shows one line,
+            // both of which read as "the feature is broken".
+            //
+            // The Numeric controls are built OUTSIDE any adaptive block that reads their
+            // value, and this is not a style point. Putting them inside one makes the
+            // control invalidate its own subtree the moment it is touched, so the input
+            // under the cursor is destroyed and rebuilt mid-edit: buttons still work,
+            // because a click fires once and the rebuild happens after, but typing and
+            // dragging are impossible. Only the Fit buttons and the summary - which have no
+            // editable state to lose - depend on the values.
+            let usableAttitude =
+                ViewerUtils.outcropTraceAttitude model
+                |> AVal.map (function
+                    | Some a when a.shape = Cluster -> Some a
+                    | _ -> None)
+
+            let fitBedThickness =
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! usable = usableAttitude
+                        let! radius = m.projectionRadius.value
+                        match usable with
+                        | Some _ ->
+                            yield button [
+                                clazz "ui tiny compact button"
+                                style "margin-left: 6px"
+                                onClick (fun _ -> ViewerAction.OutcropTraceMessage (OutcropTraceAction.FitBedThickness radius))
+                            ] [ text "Fit" ]
+                        | None -> ()
+                    })
+
+            let fitProjectionRadius =
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! usable = usableAttitude
+                        match usable with
+                        | Some a ->
+                            yield button [
+                                clazz "ui tiny compact button"
+                                style "margin-left: 6px"
+                                onClick (fun _ ->
+                                    ViewerAction.OutcropTraceMessage
+                                        (OutcropTraceAction.FitProjectionRadius (OutcropTrace.fitProjectionRadius a)))
+                            ] [ text "Fit" ]
+                        | None -> ()
+                    })
+
+            // What the two distances add up to, so the extrapolation is visible next to the
+            // control that causes it rather than inferred.
+            let summary =
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! usable = usableAttitude
+                        let! radius = m.projectionRadius.value
+                        let! bedThk = m.bedThickness.value
+                        match usable with
+                        | Some a ->
+                            let count = if bedThk > 0.0 then 2.0 * radius / bedThk else 1.0
+                            // The span is the evidence behind the extrapolation, so it sits
+                            // next to it. One annotation spans nothing, and saying "0 m"
+                            // reads as a bug rather than as "everything here rests on a
+                            // single measurement", which is what it actually means.
+                            let evidence =
+                                if a.count = 1 then "from a single measurement"
+                                else sprintf "measurements span %.0f m" (2.0 * a.spread)
+                            yield div [style "font-size: 0.9em; opacity: 0.8"] [
+                                text (sprintf "%.0f traces over %.0f m; %s"
+                                              count (2.0 * radius) evidence) ]
+                        | None -> ()
+                    })
+
+            let distances =
+                require GuiEx.semui (
+                    Html.table [
+                        Html.row "Bed Thickness (m):" [
+                            Numeric.view' [InputBox] m.bedThickness
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetBedThickness)
+                            fitBedThickness
+                        ]
+                        Html.row "Projection Radius (m):" [
+                            Numeric.view' [InputBox] m.projectionRadius
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetProjectionRadius)
+                            fitProjectionRadius
+                        ]
+                        Html.row "Phase Offset (m):" [
+                            Numeric.view' [InputBox] m.phaseOffset
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetPhaseOffset)
+                        ]
+                        Html.row "" [ summary ]
+                    ])
+
+            // Appearance is one panel down from the distances rather than one panel away, but
+            // still visually subordinate: these are set once and then left alone, while
+            // everything above changes with the selection. Contour lines make the same call -
+            // line distance, width and border sit together in surface properties.
+            let appearance =
+                require GuiEx.semui (
+                    Html.table [
+                        Html.row "Trace Width (m):" [
+                            Numeric.view' [InputBox] m.traceWidth
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetTraceWidth)
+                        ]
+                        Html.row "Trace Smoothing (m):" [
+                            Numeric.view' [InputBox] m.traceSmoothing
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetTraceSmoothing)
+                        ]
+                        Html.row "Colour:" [
+                            ColorPicker.view m.color
+                            |> UI.map (ViewerAction.OutcropTraceMessage << OutcropTraceAction.SetColor)
+                        ]
+                    ])
+
+            Incremental.div AttributeMap.empty (
+                alist {
+                    let! enabled = m.enabled
+                    yield activation
+                    if enabled then
+                        yield toggles
+                        yield readout
+                        yield distances
+                        yield h5 [clazz "ui inverted horizontal divider header"] [ text "Appearance" ]
+                        yield appearance
+                })
+
         let viewAnnotationResults (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
@@ -843,17 +1610,63 @@ module Gui =
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
                        
+        /// Mean attitude of the whole selection, shown under the per-annotation numbers.
+        ///
+        /// Shares `ViewerUtils.outcropTraceAttitude`, so this and the Outcrop Traces panel
+        /// can never report different numbers, and the average stays available with outcrop
+        /// traces switched off - which is where a geologist looks for it first.
+        let viewSelectionAttitude (model : AdaptiveModel) =
+            Incremental.div (AttributeMap.ofList [style "padding-top: 6px"]) (
+                alist {
+                    let! attitude = ViewerUtils.outcropTraceAttitude model
+                    let! up = model.scene.referenceSystem.up.value
+                    let! north = model.scene.referenceSystem.northO
+                    match attitude with
+                    | Some a when a.count > 1 ->
+                        yield h5 [clazz "ui inverted horizontal divider header"] [ text "Selection average" ]
+                        match a.shape with
+                        | Cluster ->
+                            let dip, dipDir = OutcropTrace.dipAndDipDirection up north a
+                            yield require GuiEx.semui (
+                                Html.table [
+                                    Html.row "Annotations:"    [ text (sprintf "%d" a.count) ]
+                                    Html.row "Dipping Angle:"  [ text (sprintf "%.2f deg" dip) ]
+                                    Html.row "Dip Direction:"  [ text (sprintf "%.2f deg" dipDir) ]
+                                    Html.row "Clustering S1:"  [ text (sprintf "%.3f" a.s.X) ]
+                                ])
+                        | NoDominantAttitude ->
+                            yield div [style "font-style:italic"] [
+                                text (sprintf "No dominant attitude in the selection (S1 = %.2f)." a.s.X) ]
+                        | Girdle axis ->
+                            let trend, plunge = OutcropTrace.trendAndPlunge up north axis
+                            yield div [style "font-style:italic"] [
+                                text (sprintf "The selection is folded (S1 = %.2f, S2 = %.2f); fold axis approx %03.0f/%02.0f."
+                                              a.s.X a.s.Y trend plunge) ]
+                    | _ ->
+                        yield div [] []
+                })
+
         let viewDipAndStrike (model : AdaptiveModel) = 
             let view = (fun leaf ->
                 match leaf with
                   | AdaptiveAnnotations ann -> DipAndStrike.viewUI ann
                   | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
         
-            model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties    
+            (model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties)
+            |> AVal.map (fun perAnnotation ->
+                div [] [ perAnnotation; viewSelectionAttitude model ])
             
-        let viewDnSColorLegendUI (model : AdaptiveModel) = 
-            model.drawing.dnsColorLegend 
-            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage 
+        let viewDnSColorLegendUI (model : AdaptiveModel) =
+            model.drawing.dnsColorLegend
+            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage
+            |> AVal.constant
+
+        /// Unlike the other Properties panels this one is global rather than per-selection,
+        /// so it does not go through GroupsApp.viewSelected.
+        let viewColorByCategory (model : AdaptiveModel) =
+            ColorByCategory.view Config.colorPaletteStore (annotationSet model)
+                (surfaceScalarLayerLabels model) (colorByCategorySurfaceStale model) model.drawing.colorByCategory
+            |> UI.map (fun a -> ViewerAction.DrawingMessage(DrawingAction.ColorByCategoryMessage a))
             |> AVal.constant
           
         let annotationLeafButtonns' (model : AdaptiveModel) = 
@@ -893,21 +1706,14 @@ module Gui =
                     | _ -> annotationLeafButtonns m 
                 )
 
-            let toggleIcon = 
-                AVal.map( fun toggle -> if toggle then "toggle on icon" else "toggle off icon") m.inverseFlag
-
-            let toggleMap = 
-                amap {
-                    let! toggleIcon = toggleIcon
-                    yield clazz toggleIcon
-                    yield onClick (fun _ -> ViewerAction.InvertDrawing)
-                } |> AttributeMap.ofAMap  
-            
             div [] [
                 GuiEx.accordion "Annotations" "Write" true [
                     GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
                     Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
+                ]
+                GuiEx.accordion "Curtain Settings" "Expand" false [
+                    CrossSectionApp.viewCurtainSettings m.scene.crossSectionModel |> UI.map CrossSectionMessage
                 ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))
@@ -915,15 +1721,88 @@ module Gui =
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
                 ]
-                div [style "padding: 10px; display: flex; color: white; align-items: center;"] [
-                    Incremental.i toggleMap AList.empty
-                    text "Invert Drawing"
-                ]
-            ]    
+            ]
+
+    module AnnotationExport =
+
+        let exportWindow (m : AdaptiveModel) =
+            // the window lives in PRo3D.Core and is compiled before DrawingModel,
+            // so the state of the background export is handed in from here
+            let state : ContinuousExportState = {
+                isRunning = m.drawing.automaticGeoJsonExport.enabled
+                target    = m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz
+            }
+            AnnotationExportApp.viewModal state m.annotationExport
+            |> UI.map AnnotationExportMessage
 
     module Config =
-        let config (model : AdaptiveModel) = 
-            ConfigProperties.view model.scene.config 
+
+        /// Read-out of the OPC per-vertex attribute layers under the 3D cursor.
+        ///
+        /// The values come from the hit patch's `*.aara` attribute layers, barycentrically
+        /// interpolated at the picked point - not from sampling the attribute textures.
+        /// Texture sampling costs an image decode per layer, which is fine for profile
+        /// extraction but not per mouse move, so surfaces without per-vertex layers show
+        /// nothing here and say so.
+        let underCursor (m : AdaptiveModel) : DomNode<ViewerAction> =
+            // several opened namespaces carry records with `name` / `surfaceName` fields,
+            // so the types below are spelled out to keep field resolution unambiguous
+            let formatValues (values : float[]) =
+                values |> Array.map (sprintf "%g") |> String.concat "; "
+
+            let hint (message : string) =
+                div [style "color: #cccccc; padding: 4px"] [text message]
+
+            let content =
+                alist {
+                    let! enabled = m.scene.config.showPreviewIntersection
+                    if not enabled then
+                        yield hint "Preview cursor is off - enable \"Show Preview Cursor\" above."
+                    else
+                        let! cursor = m.cursorAttributes
+                        match cursor with
+                        | None ->
+                            yield hint "Hold CTRL and move the mouse over a surface."
+                        | Some (cursor : CursorAttributes) ->
+                            let hit : AttributeHit = cursor.hit
+                            // SPICE lat/lon/alt of the picked point, shown only when available.
+                            // tryGetLatLonAlt is total: None for non-planetary frames
+                            // (Planet.None/JPL/ENU) and when the native PGRREC call reports an
+                            // error. Its out-params are nan-seeded, so a wrapper returning
+                            // success without writing cannot yield silent zeros - the finiteness
+                            // filter turns that into None as well. Either way the rows are just
+                            // omitted; the rest of the read-out is unaffected.
+                            let! planet = m.scene.referenceSystem.planet
+                            let spherical =
+                                CooTransformation.tryGetLatLonAlt planet hit.position
+                                |> Option.filter (fun sc ->
+                                    Double.IsFinite sc.latitude &&
+                                    Double.IsFinite sc.longitude &&
+                                    Double.IsFinite sc.altitude)
+                            yield Html.table [
+                                yield Html.row "Surface:"  [text cursor.surfaceName]
+                                yield Html.row "Patch:"    [text hit.patchName]
+                                yield Html.row "Position:" [text (hit.position.ToString("0.000"))]
+                                match spherical with
+                                | Some sc ->
+                                    // raw convention, matching the Coordinate System panel
+                                    yield Html.row "Latitude:"  [text (sprintf "%s deg" (sc.latitude.ToString("0.00000")))]
+                                    yield Html.row "Longitude:" [text (sprintf "%s deg" (sc.longitude.ToString("0.00000")))]
+                                    yield Html.row "Altitude:"  [text (sprintf "%s m"   (sc.altitude.ToString("0.00")))]
+                                | None -> ()
+                                for a : SampledAttribute in hit.attributes do
+                                    yield Html.row (a.name + ":") [text (formatValues a.values)]
+                            ]
+                            if hit.attributes.IsEmpty then
+                                // either the surface ships no *.aara layers at all, or the hit
+                                // triangle touches the position grid's skirt, which carries none
+                                yield hint "No per-vertex attribute layers cover this point."
+                }
+
+            Incremental.div AttributeMap.empty content
+
+        let config (model : AdaptiveModel) =
+            ConfigProperties.view model.scene.config
             |> UI.map ConfigPropertiesMessage
             |> AVal.constant
               
@@ -944,24 +1823,8 @@ module Gui =
                 GuiEx.accordion "Screenshots" "Settings" false [
                     ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage
                 ]
-                GuiEx.accordion "Data Management" "Settings" false [
-                    Html.table [  
-                        Html.row "Automatically GeoJson export: "  [
-                            let attributes = 
-                                amap {
-                                    yield onClick (fun _ -> StopGeoJsonAutoExport) 
-                                    let! enabled = m.drawing.automaticGeoJsonExport.enabled
-                                    if enabled then 
-                                        yield clazz "ui small inverted button"; 
-                                    else 
-                                        yield clazz "ui small disabled inverted button"; 
-                                } |> AttributeMap.ofAMap
-                            Generic.button attributes [text "Stop AutoExport"]
-                        ]
-                        Html.row "Automatically GeoJson export path: "  [
-                            Incremental.text (m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz  |> AVal.map (function None -> "not set" | Some path -> path))
-                        ]
-                    ]
+                GuiEx.accordion "Under Cursor" "Crosshairs" true [
+                    underCursor m
                 ]
                 GuiEx.accordion "Rover Model" "Settings" false [
                     Rover3DApp.view |> UI.map Rover3DMessage
@@ -1157,9 +2020,9 @@ module Gui =
     //TODO refactor: two codes for resize attachments
     module Pages =
         let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
-        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
+        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) (request : IHttpRequest) =
             
-            match Map.tryFind "page" request.queryParams with
+            match request.QueryParam "page" with
             | Some "instrumentview" ->
                 let id = System.Guid.NewGuid().ToString()
 
@@ -1189,6 +2052,13 @@ module Gui =
                             yield textOverlaysInstrumentView m.scene.viewPlans
                             yield depthColorLegend m
                         } )
+                    ]
+                )
+            | Some "mapprojection" ->
+                // map projection panel (#772); gates itself to small bodies
+                require (viewerDependencies) (
+                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
+                        MapProjectionHost.view m |> UI.map ViewerMessage
                     ]
                 )
             | Some "render" -> 
@@ -1222,11 +2092,56 @@ module Gui =
                                 yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
-                                yield dnsColorLegend m                                
+                                yield dnsColorLegend m
+                                yield colorByCategoryLegend m
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield projectedColorLegend m
                                 yield selectionRectangle m
+                                // navigation + interaction selector, overlaid on the right edge
+                                yield ToolStrip.view m |> UI.map ViewerMessage
+                                // axis gizmo, bottom-left corner: click an axis to look along it
+                                // onto the multi-selected surfaces; disabled with no selection,
+                                // and Up/Down disabled in MapView (nadir is its gimbal-lock axis)
+                                let gizmoHasSelection =
+                                    m.scene.surfacesModel.surfaces.selectedLeaves.Content
+                                    |> AVal.map (HashSet.isEmpty >> not)
+                                let gizmoAxisEnabled =
+                                    AVal.map2
+                                        (fun sel mode a ->
+                                            sel &&
+                                            not (mode = NavigationMode.MapView &&
+                                                 (a = NavigationGizmo.Up || a = NavigationGizmo.Down)))
+                                        gizmoHasSelection m.navigation.navigationMode
+                                // "" while the gizmo is fully usable: no tooltip, wrapper stays click-through
+                                let gizmoHint =
+                                    AVal.map2
+                                        (fun sel mode ->
+                                            if not sel then
+                                                "Select at least one surface to use the navigation gizmo."
+                                            elif mode = NavigationMode.MapView then
+                                                "Vertical (up/down) views are not available in Map View - use the horizontal axes."
+                                            else "")
+                                        gizmoHasSelection m.navigation.navigationMode
+                                // Which edges can be clicked to lock an axis: ArcBall any,
+                                // MapView only the vertical edge, FreeFly none.
+                                let gizmoEdgeLockEnabled =
+                                    m.navigation.navigationMode
+                                    |> AVal.map (fun mode a ->
+                                        match mode, a with
+                                        | NavigationMode.ArcBall, _                     -> true
+                                        | NavigationMode.MapView, NavigationAxis.UpDown -> true
+                                        | _                                            -> false)
+                                yield NavigationGizmo.view
+                                        (fun a -> OrientCameraToGizmoAxis a)
+                                        (fun a -> ToggleNavigationAxisLock a)
+                                        gizmoAxisEnabled
+                                        gizmoEdgeLockEnabled
+                                        m.navigation.lockedAxis
+                                        gizmoHint
+                                        m.navigation.camera.view
+                                        m.scene.referenceSystem
+                                      |> UI.map ViewerMessage
                                 //yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
                                 //                                                           |> UI.map ViewerMessage
                             }
@@ -1236,7 +2151,7 @@ module Gui =
             | Some "surfaces" -> 
                 require (viewerDependencies) (
                     body bodyAttributes
-                        [SurfaceApp.surfaceUI m.scene.scenePath Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage] 
+                        [SurfaceApp.surfaceUI m.scene.scenePath Config.colorPaletteStore m.scene.referenceSystem m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage]
                 )
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m
@@ -1283,17 +2198,27 @@ module Gui =
                         GuiEx.accordion "Properties" "Content" true [
                                            Incremental.div AttributeMap.empty (AList.ofAValSingle prop)
                         ]
-                                       
+
+                        GuiEx.accordion "Bulk Edit" "edit" false [
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle (Annotations.viewBulkAnnotationProperties m))
+                        ]
+
                         GuiEx.accordion "Measurements" "Content" true [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
                         ]
                         
                         GuiEx.accordion "Dip&Strike" "Calculator" false [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewDipAndStrike m))]
+
+                        GuiEx.accordion "Outcrop Traces" "map outline" false [
+                            Annotations.viewOutcropTraces m
+                        ]
+                        GuiEx.accordion "Color by Category" "Theme" false [
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewColorByCategory m))]
                     ]
 
                 require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))
-            | Some "config" -> 
+            | Some "config" ->
                 require (viewerDependencies) (body bodyAttributes [Config.configUI m |> UI.map ViewerMessage])
             | Some "viewplanner" -> 
                 require (viewerDependencies) (body bodyAttributes [ViewPlanner.viewPlannerUI m |> UI.map ViewerMessage])
@@ -1340,26 +2265,31 @@ module Gui =
             | Some "gis" ->
                 require (viewerDependencies) (
                     body bodyAttributes 
-                         [GisApp.view m.scene.gisApp 
-                                      m.scene.surfacesModel 
+                         [GisApp.view m.scene.gisApp
+                                      m.scene.referenceSystem.planet
+                                      m.scene.surfacesModel
                                       m.scene.sequencedBookmarks
                             |> UI.map GisAppMessage
                             |> UI.map ViewerMessage]
                 )
-            | None -> 
+            | None ->
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (
-                        body [] [                    
+                        body [] [
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [
-                                m.scene.dockConfig
-                                |> docking [                                           
-                                    style "width:100%; height:100%; background:#F00"
-                                    onLayoutChanged UpdateDockConfig
-                                    |> ViewerUtils.mapAttribute ViewerMessage
-                                ]
+                                GoldenLayout.view
+                                    [ style "width:100%; height:100%"
+                                      onLayoutChangedRaw (LayoutAction.Changed >> LayoutMessage >> ViewerMessage) ]
+                                    m.layout.golden
                             ]
+                            // Overlay window; absent from the DOM while closed,
+                            // so there is no JS modal state to keep in sync.
+                            AnnotationExport.exportWindow m
+                            |> UI.map ViewerMessage
+                            LayoutApp.UI.dialogs m.layout
+                            |> UI.map (LayoutMessage >> ViewerMessage)
                         ]
                     )
                 )

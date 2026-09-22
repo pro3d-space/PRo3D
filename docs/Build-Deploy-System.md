@@ -10,7 +10,9 @@ In order to deploy all supported architectures using github actions is the prefe
 
 Deployments are triggered by github actions. 
 There are two release types:
- 1. public releases, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md) and change the version number [here](https://github.com/pro3d-space/PRo3D/blob/0fc290263430b5c2ff172c18286885a8bf0b73a0/aardium/package.json#L4) and let the CI build a multiplatform build with installer, the result will appear at as a draft in the github release page
+ 1. public releases: add a new top entry (with the new version) to [PRODUCT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md), commit and push. The CI builds a multiplatform build with installers and the result appears as a draft on the github release page.
+
+> **You no longer need to edit `aardium/package.json`.** `PRODUCT_RELEASE_NOTES.md` is the single source of truth for the release version: the build syncs `package.json`'s `version` from it automatically (see *How a release is crafted* below). A push that touches `PRODUCT_RELEASE_NOTES.md` is enough to trigger the deploy workflow.
 
 The draft release looks like this:
 ![alt text](images/draftRelease1.png)
@@ -23,6 +25,27 @@ When publishing the release, make sure to set the correct tag, branch and verify
  2. test releases for internal testing, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/TEST_RELEASE_NOTES.md) file and let the CI build a zip which appears on the github release page as a draft
 
 
+## How a release is crafted (end to end)
+
+A single draft release is assembled from two independent publishers; everything is keyed off **one version string** and **one tag**.
+
+1. **Trigger & version.** `.github/workflows/deploy.yml` runs on a push **to a `releases/**` branch** that touches `PRODUCT_RELEASE_NOTES.md`, `aardium/package.json`, or `deploy.yml` (plus a manual *Run workflow*). The branch restriction is what keeps a merge back into `develop` — which carries the same release-notes change — from building a second draft of the same version off the wrong branch. The version is the topmost entry in `PRODUCT_RELEASE_NOTES.md` (`notes.NugetVersion`). It is the only source of truth — the build patches `aardium/package.json`'s top-level `version` to it (`patchAardiumVersion` in `CopyToElectron`) and patches `viewerVersion` in `Program.fs`. The committed `package.json` version is irrelevant to the result; it is overwritten at build time.
+
+2. **The runner matrix.** Each platform builds on its own runner and all `needs: win32_x64`:
+   - `win32_x64` (windows-latest) — runs `GitHubRelease` **then** `PublishToElectron`.
+   - `mac_x64` (macos-15-intel) and `mac_arm64` (macos-15, Apple Silicon) — run `PublishToElectron` (signed + notarized).
+   - `linux_x64` (ubuntu-latest) — runs `PublishToElectron`.
+
+3. **Two publishers, one draft.** Both target the same tag `v{version}`:
+   - **Standalone** (`GitHubRelease`, win-x64 only): zips `bin/publish/win-x64` into `PRo3D.Viewer-standalone.{version}.zip`, creates the draft release with tag_name `v{version}`, and appends the source commit + tag to the release body. It also creates and pushes the git tag `v{version}`.
+   - **Electron** (`PublishToElectron` → `yarn dist` → electron-builder, `--publish always`): builds the installer for the runner's OS/arch (`.exe`/`.dmg`/`.AppImage`) and publishes to a draft with tag `v{version}` (electron-builder's default `vPrefixedTagName`). Because the win job's `GitHubRelease` step has already created that draft, electron-builder attaches its artifacts to the **same** draft instead of creating a second one. The mac/linux jobs (`needs: win32_x64`) likewise attach to the existing draft.
+
+4. **Tag & provenance.** git tag, standalone release tag, and electron release tag are all `v{version}`. `GitHubRelease` pushes the git tag at the built commit **before** creating the draft, and creates the draft with `target_commitish` = that commit (`GITHUB_SHA`), so the release is anchored to it and the release body records `built from commit <sha>`.
+   Without an explicit target GitHub records the repository's **default branch** (`develop`, earlier `main`) as the release target. That is what releases up to `6.3.0-prerelease002` show: their tags are on the right commits, but the release page refers to the default branch, and had a tag push failed, publishing the draft would have created the tag at the default branch's tip. To correct an existing release: `gh api -X PATCH repos/pro3d-space/PRo3D/releases/<id> -f target_commitish=$(git rev-list -n1 <tag>)`.
+
+5. **Publishing.** The release stays a **draft** (`GitHub.publishDraft` is commented out; electron uses `releaseType: draft`). A human reviews artifacts/notes and publishes it. Verify the tag and target branch when publishing.
+
+> Because both sides derive the tag from `notes.NugetVersion`, the standalone zip and the installers always land together. The one thing to confirm on a real run is that electron-builder attaches to the existing draft (it should, matching by tag) rather than forking a second one.
 
 
 ## Details
@@ -31,6 +54,7 @@ The `new` build system uses the Build.fsproj and Build.fs/Helpers.fs files for r
 
 Thus we have those components:
  - Build.fs run by ./build.sh and build.cmd
+ - the target "Adapt" generates the Adaptify `*.g.fs` files (not checked in) via `utilities/Adapt.fsx`; `Compile`, `CompileDebug`, `Tests`, `CopyToElectron` and `Publish` depend on it, so CI needs no extra step. See [ModelTypes.md](ModelTypes.md).
  - the target "CopyToElectron" patches the version string and copies overW the build result into the aardium/bin folders
  - the target "PublishToElectron" performs the build and runs yarn dist in the aardium folder. The rest of deployment/signing/notarization/upload is taken care of by ./aardium/package.json.
 
@@ -51,6 +75,33 @@ tags and release notes taken from PRODCT_RELEASE_NOTES.md
 
 when creating releases from within branches suffix the version number with the name of the branch to make the version unique.
 
+### Allowed version strings
+
+The version comes from the top heading of `PRODUCT_RELEASE_NOTES.md` and **must be valid [SemVer 2.0](https://semver.org/)** — it is consumed by FAKE's release-notes parser (`notes.SemVer`), by npm/electron-builder (`package.json` `version`), and by NuGet (`Pack`). Anything that is not valid SemVer makes the build fail early.
+
+- Format: `MAJOR.MINOR.PATCH` with an optional `-prerelease` label, e.g. `6.0.0`, `6.0.0-prerelease1`.
+- A custom prerelease label like `6.0.0-funysuperversion` **is allowed** — but the label may only contain dot-separated identifiers of ASCII letters, digits, and hyphens (`[0-9A-Za-z-]`). No spaces, underscores, slashes, or other symbols. So `6.0.0-funysuperversion` ✓, `6.0.0-rc.2-mybranch` ✓; `6.0.0-funy_version` ✗, `6.0.0-funy super` ✗, `6.0.0-releases/6` ✗ (sanitize branch names before using them as a suffix).
+- The git/release tag becomes `v{version}` (e.g. `v6.0.0-funysuperversion`).
+- **macOS:** prerelease labels are fine. electron-builder maps `version` → `CFBundleShortVersionString` and `buildVersion` → `CFBundleVersion`, both written verbatim into `Info.plist`. The "numeric dotted only" rule for those keys is enforced only by **App Store** submission — PRo3D ships via **Developer ID + notarization**, which does not validate the version-string format. Proof: releases already ship as `X.Y.Z-prerelease1` (e.g. `5.9.0-prerelease1`) with working signed/notarized `.dmg`s. So `6.0.0-prerelease1` deploys fine.
+
+### Number prereleases `001`, `002`, `003` — never `1`, `2`, `3`
+
+**Zero-pad the counter in a prerelease label to three digits**, i.e. `6.1.0-rc001`, `6.1.0-rc002`, … and `6.1.0-prerelease001`, … Start a version line that way; it cannot be fixed later.
+
+The build does **not** take the topmost entry of `PRODUCT_RELEASE_NOTES.md` — FAKE's `ReleaseNotes.load` returns the entry with the **highest SemVer**. And per [SemVer §11.4](https://semver.org/#spec-item-11), a prerelease identifier containing letters is compared *lexically in ASCII order*, not numerically. So the counter breaks the moment it reaches two digits:
+
+```
+rc9  vs  rc10   →  'r','c' equal, then '9' (0x39) > '1' (0x31)   →  rc10 < rc9
+```
+
+`6.0.0-prerelease10` therefore sorted *below* `6.0.0-prerelease9`. The failure is silent and expensive: `deploy.yml` resolved the older version, found that release already existed, set `skip=true`, and every downstream job was skipped — **the workflow reported success while building nothing**. That is why the 6.0.0 line jumps from `prerelease9` to `rc1`: `rc` sorts above `prerelease` (`'r' > 'p'`), which was the only way out that kept the same `MAJOR.MINOR.PATCH`.
+
+Zero-padding fixes this because the identifiers stay the same length, so lexical order matches numeric order: `rc001 < rc002 < … < rc009 < rc010 < … < rc999`.
+
+**You cannot retrofit the padding mid-line.** `rc002` sorts *below* `rc1` (`'0' < '1'`), so switching schemes part-way re-creates the exact bug. Once a line has started unpadded, keep counting unpadded and **do not go past `9`**; adopt the padded form at the next `MAJOR.MINOR.PATCH`. (This is why `6.0.0` continues `rc2`, `rc3`, … rather than moving to `rc002`.)
+
+If a line does run out of single digits before it ships, `6.0.0-rc9.1` sorts above `6.0.0-rc9` (more dot-identifiers win when the leading ones are equal) — ugly, but it unblocks a release.
+
 ## Resources
 
 all resources should be embedded using dotnet embedded resources to allow "single file deployment"
@@ -58,6 +109,18 @@ all resources should be embedded using dotnet embedded resources to allow "singl
 ## Title bar
 
 - title bar version is fixed up by "publish" target using string replace
+
+The literal in `src/PRo3D.Viewer/Program.fs` is **`"development build"`**, not a version
+number. `patchViewerVersion` in `Build.fs` rewrites that line from `notes.NugetVersion` at
+the top of both `CopyToElectron` (→ `PublishToElectron`, the installers) and `Publish`
+(→ `UploadStandalone`, the standalone zip), before each target's own `DotNet.publish`
+rebuilds — so every published artifact carries the real version and only unstamped builds
+(`dotnet run`, the IDE, a plain `build.cmd`) show the placeholder.
+
+Keeping a version number there instead was actively harmful: it goes stale silently, and
+[#733](https://github.com/pro3d-space/PRo3D/issues/733) was filed against a build that
+reported `5.4.0` while running 6.0.0 code. `patchViewerVersion` fails the build if the
+`let viewerVersion` line ever moves, rather than shipping the placeholder.
 
 # Manual build and upload to github release
 
@@ -78,3 +141,33 @@ to just create the release in the bin/publish folder.
 Our electron-based workflow (above) uses click-once installers. 'Old-school' zip-releases still useful for team-internal tests and diagnostics. For this reason in early 2024 we re-introduced zip-deployments and made them CI ready via a [github workflow](https://github.com/pro3d-space/PRo3D/blob/00ace24f078b54582c9553ee39ed8d60b1c7be29/.github/workflows/testrelease.yml#L28)
 
 The `--test` flag uses `TEST_RELEASE_NOTES.md` instead of `PRODUCT_RELEASE_NOTES.md` to quickly create test releases without interrupting the official PRODUCT_RELEASE_NOTES track. plase use a `--testing` suffix for test versions.
+
+# 3 -- Continuous integration: what runs when
+
+`.github/workflows/build.yml` builds and tests. Running all four platforms on every commit of
+every branch costs roughly four times what it needs to, and the old triggers ran twice for each
+commit on a branch with an open PR (`push` *and* `pull_request`). The policy now:
+
+| Event | Platforms | Notes |
+|---|---|---|
+| pull request | windows-latest | fast feedback; draft PRs are skipped |
+| push to `develop`, `main`, `releases/**` | ubuntu, windows, macos-15-intel, macos-15 | the merge commit is what the four platforms have to agree on |
+| nightly (03:17 UTC, default branch) | all four | catches platform drift and runner-image changes while nothing is pending |
+| *Run workflow* (manual) | all four | |
+| PR labelled `ci: full-matrix` | all four | for a change that is platform-sensitive by nature |
+
+Two more things save runs:
+
+- **`concurrency: build-${{ github.ref }}` with `cancel-in-progress: true`** — pushing again to a
+  branch or PR cancels the run of the commit you just superseded. Only the tip is ever built.
+- **`paths-ignore`** — a commit touching only `README.md` or `docs/**` builds nothing.
+
+The SPICE job (`spice-tests`, ubuntu only, ~1.3 GB of cached ESA kernels) runs on every non-draft
+PR and push, independent of the matrix: kernels are platform-independent data, so a second OS would
+add cache pressure but no coverage.
+
+**Consequence to be aware of:** a PR is green on Windows only. A platform-specific break (a path
+separator, a case-sensitive file name, a GL driver difference) is caught when the PR is merged into
+`develop`, or by the nightly run — not on the PR itself. If a change is likely to be
+platform-sensitive, add the `ci: full-matrix` label before asking for a review. Nothing reaches a
+release branch without the full matrix having run on it.

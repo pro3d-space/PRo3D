@@ -24,7 +24,10 @@ module Picking =
 
     let mutable cache = HashMap.Empty
 
-    let pickRay (m : Model) (r : FastRay3d) (surfaceName : Option<string>) =
+    /// Intersects the scene's surfaces and keeps the full hit info (surface, bounding box,
+    /// object ray hit), which callers need to look up per-patch data such as attribute
+    /// layers. `pickRay` is the reduced variant most call sites want.
+    let pickRayInfo (m : Model) (r : FastRay3d) (surfaceName : Option<string>) =
         let ray = r.Ray
         let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
         let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
@@ -48,35 +51,39 @@ module Picking =
 
         let hit = 
             match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem r surfaceFilter cache Config.diagnosticTimings with
-            | Some (hit,surf), c ->                         
+            | Some hitInfo, c ->
                 cache <- c
-                let t = hit.RayHit.T
+                let t = hitInfo.hit.RayHit.T
                 let hitPosOnRay = ray.GetPointOnRay(t)
 
-                if Config.diagnosticTimings then Log.line "[PickSurface] surface hit at (new method) %A" hit
+                if Config.diagnosticTimings then Log.line "[PickSurface] surface hit at (new method) %A" hitInfo.hit
 
-                //let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
+                //let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location
                 //let hitF = hitF cameraLocation
 
                 //let observedSystem = observedSystem surf.guid
-                //let spiceTrafo = 
+                //let spiceTrafo =
                 //    match observedSystem, observerSystem with
-                //    | Some observedSystem, Some observerSystem -> 
+                //    | Some observedSystem, Some observerSystem ->
                 //        CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time
-                //        |> Option.map (fun t -> t.Trafo) 
+                //        |> Option.map (fun t -> t.Trafo)
                 //        |> Option.defaultValue Trafo3d.Identity
                 //    | _ -> Trafo3d.Identity
 
                 //let toLocal (v : V3d) = spiceTrafo.Backward.TransformPos(v)
 
                 //hitF >> Option.map toLocal
-                Some (hit, hitPosOnRay)
-            | _ -> 
+                Some (hitInfo, hitPosOnRay)
+            | _ ->
                 None
 
         if endLog then Log.stop()
 
-        hit 
+        hit
+
+    let pickRay (m : Model) (r : FastRay3d) (surfaceName : Option<string>) =
+        pickRayInfo m r surfaceName
+        |> Option.map (fun (hitInfo, hitPosOnRay) -> hitInfo.hit, hitPosOnRay)
 
     let pickVisualization (m : AdaptiveModel) =
         

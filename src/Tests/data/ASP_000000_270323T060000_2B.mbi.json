@@ -1,0 +1,1087 @@
+{
+    "product_information": {
+        "schema_id": "https://www.joanneum.at/jim/product_information.schema.json",
+        "schema_version": 7262,
+        "product_type": "MultiBandImage (MBI)",
+        "product_state": "imported",
+        "creator_id": "Fits2Mbi",
+        "creation_datetime": "2026-06-02T12:08:21.883170+0000"
+    },
+    "mbi": {
+        "instrument": "ASPECT",
+        "origin": "ESA-HERA",
+        "mission_phase": "SIMULATED",
+        "date": "2025-12-17T13:18:05",
+        "calibration_level": "2B",
+        "observation_target": "Didymos"
+    },
+    "mbi_bands": [
+        {
+            "index": 0,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_0.tif",
+            "label": "Vis_0",
+            "description": "ASPECT Vis channel frame 0",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 675.0
+        },
+        {
+            "index": 1,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_1.tif",
+            "label": "Vis_1",
+            "description": "ASPECT Vis channel frame 1",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 690.0
+        },
+        {
+            "index": 2,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_2.tif",
+            "label": "Vis_2",
+            "description": "ASPECT Vis channel frame 2",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 705.0
+        },
+        {
+            "index": 3,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_3.tif",
+            "label": "Vis_3",
+            "description": "ASPECT Vis channel frame 3",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 720.0
+        },
+        {
+            "index": 4,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_4.tif",
+            "label": "Vis_4",
+            "description": "ASPECT Vis channel frame 4",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 735.0
+        },
+        {
+            "index": 5,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_5.tif",
+            "label": "Vis_5",
+            "description": "ASPECT Vis channel frame 5",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 750.0
+        },
+        {
+            "index": 6,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_6.tif",
+            "label": "Vis_6",
+            "description": "ASPECT Vis channel frame 6",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 765.0
+        },
+        {
+            "index": 7,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_7.tif",
+            "label": "Vis_7",
+            "description": "ASPECT Vis channel frame 7",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 780.0
+        },
+        {
+            "index": 8,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_8.tif",
+            "label": "Vis_8",
+            "description": "ASPECT Vis channel frame 8",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 795.0
+        },
+        {
+            "index": 9,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_9.tif",
+            "label": "Vis_9",
+            "description": "ASPECT Vis channel frame 9",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 810.0
+        },
+        {
+            "index": 10,
+            "file_path": "ASP_000000_270323T060000_2B_Vis_10.tif",
+            "label": "Vis_10",
+            "description": "ASPECT Vis channel frame 10",
+            "task": "N/A",
+            "exposure": 0.01,
+            "wavelength": 825.0
+        },
+        {
+            "index": 11,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_0.tif",
+            "label": "NIR1_0",
+            "description": "ASPECT NIR1 channel frame 0",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 875.0
+        },
+        {
+            "index": 12,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_1.tif",
+            "label": "NIR1_1",
+            "description": "ASPECT NIR1 channel frame 1",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 904.20738725
+        },
+        {
+            "index": 13,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_2.tif",
+            "label": "NIR1_2",
+            "description": "ASPECT NIR1 channel frame 2",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 933.40538359
+        },
+        {
+            "index": 14,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_3.tif",
+            "label": "NIR1_3",
+            "description": "ASPECT NIR1 channel frame 3",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 962.41926832
+        },
+        {
+            "index": 15,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_4.tif",
+            "label": "NIR1_4",
+            "description": "ASPECT NIR1 channel frame 4",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 991.59052354
+        },
+        {
+            "index": 16,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_5.tif",
+            "label": "NIR1_5",
+            "description": "ASPECT NIR1 channel frame 5",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1020.78790557
+        },
+        {
+            "index": 17,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_6.tif",
+            "label": "NIR1_6",
+            "description": "ASPECT NIR1 channel frame 6",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1050.0
+        },
+        {
+            "index": 18,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_7.tif",
+            "label": "NIR1_7",
+            "description": "ASPECT NIR1 channel frame 7",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1079.21475545
+        },
+        {
+            "index": 19,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_8.tif",
+            "label": "NIR1_8",
+            "description": "ASPECT NIR1 channel frame 8",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1108.41876944
+        },
+        {
+            "index": 20,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_9.tif",
+            "label": "NIR1_9",
+            "description": "ASPECT NIR1 channel frame 9",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1137.4036651
+        },
+        {
+            "index": 21,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_10.tif",
+            "label": "NIR1_10",
+            "description": "ASPECT NIR1 channel frame 10",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1166.57594038
+        },
+        {
+            "index": 22,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_11.tif",
+            "label": "NIR1_11",
+            "description": "ASPECT NIR1 channel frame 11",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1195.77918273
+        },
+        {
+            "index": 23,
+            "file_path": "ASP_000000_270323T060000_2B_NIR1_12.tif",
+            "label": "NIR1_12",
+            "description": "ASPECT NIR1 channel frame 12",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1225.0
+        },
+        {
+            "index": 24,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_0.tif",
+            "label": "NIR2_0",
+            "description": "ASPECT NIR2 channel frame 0",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1225.0
+        },
+        {
+            "index": 25,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_1.tif",
+            "label": "NIR2_1",
+            "description": "ASPECT NIR2 channel frame 1",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1254.2242793
+        },
+        {
+            "index": 26,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_2.tif",
+            "label": "NIR2_2",
+            "description": "ASPECT NIR2 channel frame 2",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1283.43620514
+        },
+        {
+            "index": 27,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_3.tif",
+            "label": "NIR2_3",
+            "description": "ASPECT NIR2 channel frame 3",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1312.38308545
+        },
+        {
+            "index": 28,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_4.tif",
+            "label": "NIR2_4",
+            "description": "ASPECT NIR2 channel frame 4",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1341.55680112
+        },
+        {
+            "index": 29,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_5.tif",
+            "label": "NIR2_5",
+            "description": "ASPECT NIR2 channel frame 5",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1370.76774434
+        },
+        {
+            "index": 30,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_6.tif",
+            "label": "NIR2_6",
+            "description": "ASPECT NIR2 channel frame 6",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1400.0
+        },
+        {
+            "index": 31,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_7.tif",
+            "label": "NIR2_7",
+            "description": "ASPECT NIR2 channel frame 7",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1429.23686478
+        },
+        {
+            "index": 32,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_8.tif",
+            "label": "NIR2_8",
+            "description": "ASPECT NIR2 channel frame 8",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1458.45946423
+        },
+        {
+            "index": 33,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_9.tif",
+            "label": "NIR2_9",
+            "description": "ASPECT NIR2 channel frame 9",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1487.35519223
+        },
+        {
+            "index": 34,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_10.tif",
+            "label": "NIR2_10",
+            "description": "ASPECT NIR2 channel frame 10",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1516.5310435
+        },
+        {
+            "index": 35,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_11.tif",
+            "label": "NIR2_11",
+            "description": "ASPECT NIR2 channel frame 11",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1545.75237632
+        },
+        {
+            "index": 36,
+            "file_path": "ASP_000000_270323T060000_2B_NIR2_12.tif",
+            "label": "NIR2_12",
+            "description": "ASPECT NIR2 channel frame 12",
+            "task": "N/A",
+            "exposure": 0.02,
+            "wavelength": 1575.0
+        }
+    ],
+    "spice": {
+        "SPICE_MK": "hera_plan_v180_20250616_001",
+        "SPICEVER": "v180_20250616_001",
+        "SPICECLK": "1/077436069.1856",
+        "SUN_POSX": 51339760.707945116,
+        "SUN_POSY": -164219676.60315868,
+        "SUN_POSZ": -77845583.10634352,
+        "SOLAR_D": 1.262375172710774,
+        "EARTPOSX": -97644645.21236482,
+        "EARTPOSY": -169003457.10397458,
+        "EARTPOSZ": -79917979.45608161,
+        "EARTH_D": 1.4098542028247354,
+        "TARGET": "DIDYMOS",
+        "TRG_POSX": 1.4123456260112177,
+        "TRG_POSY": 8.779494695122768,
+        "TRG_POSZ": 5.016216654125852,
+        "TRG_DIST": 6.82472044509512e-08,
+        "SC_QUATW": 0.856149532097478,
+        "SC_QUATX": -0.5041133031626687,
+        "SC_QUATY": 0.014516492773652462,
+        "SC_QUATZ": -0.11254789070100477,
+        "CAM_RA": 80.861503409399,
+        "CAM_DEC": 29.427253205041026,
+        "CAM_NAZ": 168.03039127752845,
+        "SOL_ELNG": 155.8808621115284
+    },
+    "fits_header": [
+        {
+            "SIMPLE": {
+                "value": true,
+                "comment": "conforms to FITS standard"
+            },
+            "BITPIX": {
+                "value": -32,
+                "comment": "array data type"
+            },
+            "NAXIS": {
+                "value": 3,
+                "comment": "number of array dimensions"
+            },
+            "NAXIS1": {
+                "value": 640,
+                "comment": ""
+            },
+            "NAXIS2": {
+                "value": 512,
+                "comment": ""
+            },
+            "NAXIS3": {
+                "value": 37,
+                "comment": ""
+            },
+            "INSTRUME": {
+                "value": "ASPECT",
+                "comment": "Camera ID"
+            },
+            "ORIGIN": {
+                "value": "ESA-HERA",
+                "comment": "HERA imaging instruments"
+            },
+            "MISSPHAS": {
+                "value": "SIMULATED",
+                "comment": "HERA Mission Phase ID"
+            },
+            "OSERV_ID": {
+                "value": "D1D2-10km",
+                "comment": "HERA Observation ID"
+            },
+            "FILENAME": {
+                "value": "ASP_000000_270323T060000_2B.fits",
+                "comment": "Name of the fits file"
+            },
+            "ORIGFILE": {
+                "value": "dc_X_exp_XXX.bin",
+                "comment": "Original file name."
+            },
+            "SWCREATE": {
+                "value": "ASPECTCAL",
+                "comment": "Software identification"
+            },
+            "DATE": {
+                "value": "2025-12-17T13:18:05",
+                "comment": "file creation time UTC"
+            },
+            "PROCLEVL": {
+                "value": "2B",
+                "comment": "Calibration level"
+            },
+            "DATE-OBS": {
+                "value": "2027-03-23T06:00:00.000",
+                "comment": "Observation time UTC"
+            },
+            "SC_CLK": {
+                "value": "UNK",
+                "comment": "SC clock Hera instrument format"
+            },
+            "OBJECT": {
+                "value": "Didymos",
+                "comment": "Observation target"
+            },
+            "SPICE_MK": {
+                "value": "hera_plan_v180_20250616_001",
+                "comment": "SPICE metakernel"
+            },
+            "SPICEVER": {
+                "value": "v180_20250616_001",
+                "comment": "SPICE dataset version"
+            },
+            "SPICECLK": {
+                "value": "1/077436069.1856",
+                "comment": "SC clock SPICE format"
+            },
+            "SUN_POSX": {
+                "value": 51339760.707945116,
+                "comment": "Sun position vector X [km]"
+            },
+            "SUN_POSY": {
+                "value": -164219676.60315868,
+                "comment": "Sun position vector Y [km]"
+            },
+            "SUN_POSZ": {
+                "value": -77845583.10634352,
+                "comment": "Sun position vector Z [km]"
+            },
+            "SOLAR_D": {
+                "value": 1.262375172710774,
+                "comment": "Solar distance [AU]"
+            },
+            "EARTPOSX": {
+                "value": -97644645.21236482,
+                "comment": "Earth position vector X [km]"
+            },
+            "EARTPOSY": {
+                "value": -169003457.10397458,
+                "comment": "Earth position vector Y [km]"
+            },
+            "EARTPOSZ": {
+                "value": -79917979.45608161,
+                "comment": "Earth position vector Z [km]"
+            },
+            "EARTH_D": {
+                "value": 1.4098542028247354,
+                "comment": "Earth distance [AU]"
+            },
+            "TARGET": {
+                "value": "DIDYMOS",
+                "comment": "Observation target"
+            },
+            "TRG_POSX": {
+                "value": 1.4123456260112177,
+                "comment": "Target position vector X [km]"
+            },
+            "TRG_POSY": {
+                "value": 8.779494695122768,
+                "comment": "Target position vector Y [km]"
+            },
+            "TRG_POSZ": {
+                "value": 5.016216654125852,
+                "comment": "Target position vector Z [km]"
+            },
+            "TRG_DIST": {
+                "value": 6.82472044509512e-08,
+                "comment": "Target distance [AU]"
+            },
+            "SC_QUATW": {
+                "value": 0.856149532097478,
+                "comment": "Spacecraft quaternion (W)"
+            },
+            "SC_QUATX": {
+                "value": -0.5041133031626687,
+                "comment": "Spacecraft quaternion (X)"
+            },
+            "SC_QUATY": {
+                "value": 0.014516492773652462,
+                "comment": "Spacecraft quaternion (Y)"
+            },
+            "SC_QUATZ": {
+                "value": -0.11254789070100477,
+                "comment": "Spacecraft quaternion (Z)"
+            },
+            "CAM_RA": {
+                "value": 80.861503409399,
+                "comment": "Camera axis RA [deg]"
+            },
+            "CAM_DEC": {
+                "value": 29.427253205041026,
+                "comment": "Camera axis DEC [deg]"
+            },
+            "CAM_NAZ": {
+                "value": 168.03039127752845,
+                "comment": "Camera axis north azimuth [deg]"
+            },
+            "SOL_ELNG": {
+                "value": 155.8808621115284,
+                "comment": "Solar elongation"
+            },
+            "ASP_ACQDATE": {
+                "value": "2027-03-23T06:00:00.000",
+                "comment": "Telemetry ACQ_DATE"
+            },
+            "ASP_CHANNELS": {
+                "value": "Vis,NIR1,NIR2",
+                "comment": "Instrument channels"
+            },
+            "AS0_CCDTEMP": {
+                "value": "N/A",
+                "comment": "Vis detector temp [K] ('N/A' [C])"
+            },
+            "AS0_FPI_TEMP1": {
+                "value": "N/A",
+                "comment": "Vis FPI_TEMP1 [K] ('N/A' [C])"
+            },
+            "AS0_FPI_TEMP2": {
+                "value": "N/A",
+                "comment": "Vis FPI_TEMP2 [K] ('N/A' [C])"
+            },
+            "AS0_FRAMES": {
+                "value": "000,001,002,003,004,005,006,007,008,009,010",
+                "comment": "Vis frames"
+            },
+            "AS0_ORDER": {
+                "value": "N/A",
+                "comment": "LOW / HIGH"
+            },
+            "AS0_TASK_NUMBER": {
+                "value": "11",
+                "comment": "Number of Vis imiging tasks"
+            },
+            "AS0_TASK_000": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_001": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_002": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_003": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_004": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_005": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_006": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_007": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_008": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_009": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_TASK_010": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS0_EXP_000": {
+                "value": "0.01",
+                "comment": "Vis task 000 exposure [s]"
+            },
+            "AS0_EXP_001": {
+                "value": "0.01",
+                "comment": "Vis task 001 exposure [s]"
+            },
+            "AS0_EXP_002": {
+                "value": "0.01",
+                "comment": "Vis task 002 exposure [s]"
+            },
+            "AS0_EXP_003": {
+                "value": "0.01",
+                "comment": "Vis task 003 exposure [s]"
+            },
+            "AS0_EXP_004": {
+                "value": "0.01",
+                "comment": "Vis task 004 exposure [s]"
+            },
+            "AS0_EXP_005": {
+                "value": "0.01",
+                "comment": "Vis task 005 exposure [s]"
+            },
+            "AS0_EXP_006": {
+                "value": "0.01",
+                "comment": "Vis task 006 exposure [s]"
+            },
+            "AS0_EXP_007": {
+                "value": "0.01",
+                "comment": "Vis task 007 exposure [s]"
+            },
+            "AS0_EXP_008": {
+                "value": "0.01",
+                "comment": "Vis task 008 exposure [s]"
+            },
+            "AS0_EXP_009": {
+                "value": "0.01",
+                "comment": "Vis task 009 exposure [s]"
+            },
+            "AS0_EXP_010": {
+                "value": "0.01",
+                "comment": "Vis task 010 exposure [s]"
+            },
+            "AS0_WL_000": {
+                "value": "675.0",
+                "comment": "Vis task 000 wavelength [nm]"
+            },
+            "AS0_WL_001": {
+                "value": "690.0",
+                "comment": "Vis task 001 wavelength [nm]"
+            },
+            "AS0_WL_002": {
+                "value": "705.0",
+                "comment": "Vis task 002 wavelength [nm]"
+            },
+            "AS0_WL_003": {
+                "value": "720.0",
+                "comment": "Vis task 003 wavelength [nm]"
+            },
+            "AS0_WL_004": {
+                "value": "735.0",
+                "comment": "Vis task 004 wavelength [nm]"
+            },
+            "AS0_WL_005": {
+                "value": "750.0",
+                "comment": "Vis task 005 wavelength [nm]"
+            },
+            "AS0_WL_006": {
+                "value": "765.0",
+                "comment": "Vis task 006 wavelength [nm]"
+            },
+            "AS0_WL_007": {
+                "value": "780.0",
+                "comment": "Vis task 007 wavelength [nm]"
+            },
+            "AS0_WL_008": {
+                "value": "795.0",
+                "comment": "Vis task 008 wavelength [nm]"
+            },
+            "AS0_WL_009": {
+                "value": "810.0",
+                "comment": "Vis task 009 wavelength [nm]"
+            },
+            "AS0_WL_010": {
+                "value": "825.0",
+                "comment": "Vis task 010 wavelength [nm]"
+            },
+            "AS1_CCDTEMP": {
+                "value": "N/A",
+                "comment": "NIR1 detector temp [K] ('N/A' [C])"
+            },
+            "AS1_FPI_TEMP1": {
+                "value": "N/A",
+                "comment": "NIR1 FPI_TEMP1 [K] ('N/A' [C])"
+            },
+            "AS1_FPI_TEMP2": {
+                "value": "N/A",
+                "comment": "NIR1 FPI_TEMP2 [K] ('N/A' [C])"
+            },
+            "AS1_FRAMES": {
+                "value": "000,001,002,003,004,005,006,007,008,009,010,011,012",
+                "comment": ""
+            },
+            "AS1_ORDER": {
+                "value": "N/A",
+                "comment": "LOW / HIGH"
+            },
+            "AS1_TASK_NUMBER": {
+                "value": "13",
+                "comment": "Number of NIR1 imiging tasks"
+            },
+            "AS1_TASK_000": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_001": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_002": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_003": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_004": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_005": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_006": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_007": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_008": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_009": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_010": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_011": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_TASK_012": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS1_EXP_000": {
+                "value": "0.02",
+                "comment": "NIR1 task 000 exposure [s]"
+            },
+            "AS1_EXP_001": {
+                "value": "0.02",
+                "comment": "NIR1 task 001 exposure [s]"
+            },
+            "AS1_EXP_002": {
+                "value": "0.02",
+                "comment": "NIR1 task 002 exposure [s]"
+            },
+            "AS1_EXP_003": {
+                "value": "0.02",
+                "comment": "NIR1 task 003 exposure [s]"
+            },
+            "AS1_EXP_004": {
+                "value": "0.02",
+                "comment": "NIR1 task 004 exposure [s]"
+            },
+            "AS1_EXP_005": {
+                "value": "0.02",
+                "comment": "NIR1 task 005 exposure [s]"
+            },
+            "AS1_EXP_006": {
+                "value": "0.02",
+                "comment": "NIR1 task 006 exposure [s]"
+            },
+            "AS1_EXP_007": {
+                "value": "0.02",
+                "comment": "NIR1 task 007 exposure [s]"
+            },
+            "AS1_EXP_008": {
+                "value": "0.02",
+                "comment": "NIR1 task 008 exposure [s]"
+            },
+            "AS1_EXP_009": {
+                "value": "0.02",
+                "comment": "NIR1 task 009 exposure [s]"
+            },
+            "AS1_EXP_010": {
+                "value": "0.02",
+                "comment": "NIR1 task 010 exposure [s]"
+            },
+            "AS1_EXP_011": {
+                "value": "0.02",
+                "comment": "NIR1 task 011 exposure [s]"
+            },
+            "AS1_EXP_012": {
+                "value": "0.02",
+                "comment": "NIR1 task 012 exposure [s]"
+            },
+            "AS1_WL_000": {
+                "value": "875.0",
+                "comment": "NIR1 task 000 wavelength [nm]"
+            },
+            "AS1_WL_001": {
+                "value": "904.20738725",
+                "comment": "NIR1 task 001 wavelength [nm]"
+            },
+            "AS1_WL_002": {
+                "value": "933.40538359",
+                "comment": "NIR1 task 002 wavelength [nm]"
+            },
+            "AS1_WL_003": {
+                "value": "962.41926832",
+                "comment": "NIR1 task 003 wavelength [nm]"
+            },
+            "AS1_WL_004": {
+                "value": "991.59052354",
+                "comment": "NIR1 task 004 wavelength [nm]"
+            },
+            "AS1_WL_005": {
+                "value": "1020.78790557",
+                "comment": "NIR1 task 005 wavelength [nm]"
+            },
+            "AS1_WL_006": {
+                "value": "1050.0",
+                "comment": "NIR1 task 006 wavelength [nm]"
+            },
+            "AS1_WL_007": {
+                "value": "1079.21475545",
+                "comment": "NIR1 task 007 wavelength [nm]"
+            },
+            "AS1_WL_008": {
+                "value": "1108.41876944",
+                "comment": "NIR1 task 008 wavelength [nm]"
+            },
+            "AS1_WL_009": {
+                "value": "1137.4036651",
+                "comment": "NIR1 task 009 wavelength [nm]"
+            },
+            "AS1_WL_010": {
+                "value": "1166.57594038",
+                "comment": "NIR1 task 010 wavelength [nm]"
+            },
+            "AS1_WL_011": {
+                "value": "1195.77918273",
+                "comment": "NIR1 task 011 wavelength [nm]"
+            },
+            "AS1_WL_012": {
+                "value": "1225.0",
+                "comment": "NIR1 task 012 wavelength [nm]"
+            },
+            "AS2_CCDTEMP": {
+                "value": "N/A",
+                "comment": "NIR2 detector temp [K] ('N/A' [C])"
+            },
+            "AS2_FPI_TEMP1": {
+                "value": "N/A",
+                "comment": "NIR2 FPI_TEMP1 [K] ('N/A' [C])"
+            },
+            "AS2_FPI_TEMP2": {
+                "value": "N/A",
+                "comment": "NIR2 FPI_TEMP2 [K] ('N/A' [C])"
+            },
+            "AS2_FRAMES": {
+                "value": "000,001,002,003,004,005,006,007,008,009,010,011,012",
+                "comment": ""
+            },
+            "AS2_ORDER": {
+                "value": "N/A",
+                "comment": "LOW / HIGH"
+            },
+            "AS2_TASK_NUMBER": {
+                "value": "13",
+                "comment": "Number of NIR2 imiging tasks"
+            },
+            "AS2_TASK_000": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_001": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_002": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_003": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_004": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_005": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_006": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_007": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_008": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_009": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_010": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_011": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_TASK_012": {
+                "value": "N/A",
+                "comment": "SP1 SP2 SP3 ExpDn"
+            },
+            "AS2_EXP_000": {
+                "value": "0.02",
+                "comment": "NIR2 task 000 exposure [s]"
+            },
+            "AS2_EXP_001": {
+                "value": "0.02",
+                "comment": "NIR2 task 001 exposure [s]"
+            },
+            "AS2_EXP_002": {
+                "value": "0.02",
+                "comment": "NIR2 task 002 exposure [s]"
+            },
+            "AS2_EXP_003": {
+                "value": "0.02",
+                "comment": "NIR2 task 003 exposure [s]"
+            },
+            "AS2_EXP_004": {
+                "value": "0.02",
+                "comment": "NIR2 task 004 exposure [s]"
+            },
+            "AS2_EXP_005": {
+                "value": "0.02",
+                "comment": "NIR2 task 005 exposure [s]"
+            },
+            "AS2_EXP_006": {
+                "value": "0.02",
+                "comment": "NIR2 task 006 exposure [s]"
+            },
+            "AS2_EXP_007": {
+                "value": "0.02",
+                "comment": "NIR2 task 007 exposure [s]"
+            },
+            "AS2_EXP_008": {
+                "value": "0.02",
+                "comment": "NIR2 task 008 exposure [s]"
+            },
+            "AS2_EXP_009": {
+                "value": "0.02",
+                "comment": "NIR2 task 009 exposure [s]"
+            },
+            "AS2_EXP_010": {
+                "value": "0.02",
+                "comment": "NIR2 task 010 exposure [s]"
+            },
+            "AS2_EXP_011": {
+                "value": "0.02",
+                "comment": "NIR2 task 011 exposure [s]"
+            },
+            "AS2_EXP_012": {
+                "value": "0.02",
+                "comment": "NIR2 task 012 exposure [s]"
+            },
+            "AS2_WL_000": {
+                "value": "1225.0",
+                "comment": "NIR2 task 000 wavelength [nm]"
+            },
+            "AS2_WL_001": {
+                "value": "1254.2242793",
+                "comment": "NIR2 task 001 wavelength [nm]"
+            },
+            "AS2_WL_002": {
+                "value": "1283.43620514",
+                "comment": "NIR2 task 002 wavelength [nm]"
+            },
+            "AS2_WL_003": {
+                "value": "1312.38308545",
+                "comment": "NIR2 task 003 wavelength [nm]"
+            },
+            "AS2_WL_004": {
+                "value": "1341.55680112",
+                "comment": "NIR2 task 004 wavelength [nm]"
+            },
+            "AS2_WL_005": {
+                "value": "1370.76774434",
+                "comment": "NIR2 task 005 wavelength [nm]"
+            },
+            "AS2_WL_006": {
+                "value": "1400.0",
+                "comment": "NIR2 task 006 wavelength [nm]"
+            },
+            "AS2_WL_007": {
+                "value": "1429.23686478",
+                "comment": "NIR2 task 007 wavelength [nm]"
+            },
+            "AS2_WL_008": {
+                "value": "1458.45946423",
+                "comment": "NIR2 task 008 wavelength [nm]"
+            },
+            "AS2_WL_009": {
+                "value": "1487.35519223",
+                "comment": "NIR2 task 009 wavelength [nm]"
+            },
+            "AS2_WL_010": {
+                "value": "1516.5310435",
+                "comment": "NIR2 task 010 wavelength [nm]"
+            },
+            "AS2_WL_011": {
+                "value": "1545.75237632",
+                "comment": "NIR2 task 011 wavelength [nm]"
+            },
+            "AS2_WL_012": {
+                "value": "1575.0",
+                "comment": "NIR2 task 012 wavelength [nm]"
+            },
+            "AS3_CCDTEMP": {
+                "value": "N/A",
+                "comment": "SWIR detector temp [K] ('N/A' [C])"
+            },
+            "AS3_FPI_TEMP1": {
+                "value": "N/A",
+                "comment": "SWIR FPI_TEMP1 [K] ('N/A' [C])"
+            },
+            "AS3_FPI_TEMP2": {
+                "value": "N/A",
+                "comment": "SWIR FPI_TEMP2 [K] ('N/A' [C])"
+            }
+        }
+    ]
+}

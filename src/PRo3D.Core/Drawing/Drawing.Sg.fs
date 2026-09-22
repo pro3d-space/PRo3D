@@ -158,28 +158,58 @@ module Sg =
         (cam    : aval<CameraView>) =   
         drawDns' anno.points (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption anno.dnsResults) conf cl
 
+    /// World-space distance below which two *consecutive* polyline points count as identical.
+    /// Comfortably above double-precision noise at planetary magnitudes (~1e-9 m at 1e7 m) and
+    /// far below any meaningful annotation detail (sampling distance defaults to 1 m).
+    let private polylinePointEps = 1e-6
+
+    /// Drops points coinciding with their immediate predecessor.
+    ///
+    /// Only *consecutive* duplicates go. A closing point repeating the first one is not adjacent
+    /// to it and is kept, so closed rings — ellipses emit samples+1 points — keep their closing
+    /// edge.
+    let private dedupeConsecutive (ps : V3d[]) =
+        if ps.Length < 2 then ps
+        else
+            let res = System.Collections.Generic.List<V3d>(ps.Length)
+            res.Add ps.[0]
+            for i in 1 .. ps.Length - 1 do
+                if Vec.Distance(res.[res.Count - 1], ps.[i]) > polylinePointEps then
+                    res.Add ps.[i]
+            res.ToArray()
+
+    /// Concatenates an annotation's segments — or its raw points, when it has none — into a
+    /// polyline.
+    ///
+    /// Segments share their end points by construction: segment i's endPoint is segment i+1's
+    /// startPoint (Drawing-App.fs:161), and the last interior sample can land on the segment end
+    /// (Drawing-App.fs:171-179). The raw concatenation therefore contains doubled and tripled
+    /// vertices, which become zero-length line segments — and the thick-line geometry shader
+    /// expands those by normalizing (p1 - p0), i.e. a zero vector. Dropped here rather than at
+    /// each of the call sites.
+    /// The flattening itself, evaluated against the caller's token.
+    ///
+    /// Anything already inside an AVal.custom must call this rather than getPolylinePoints.
+    /// Building an adaptive value inside another one's evaluation creates a node that nothing
+    /// holds a strong reference to, and adaptive outputs are weak: once it is collected, the
+    /// invalidation chain from `a.points` to the enclosing computation is gone and the geometry
+    /// silently stops updating until something unrelated marks it dirty. That is what made an
+    /// edited annotation only redraw once the next annotation was drawn.
+    let getPolylinePointsAt (a : AdaptiveAnnotation) (t : AdaptiveToken) : V3d[] =
+        let segments = a.segments.Content.GetValue t
+        if IndexList.isEmpty segments then
+            a.points.Content.GetValue(t) |> IndexList.toArray |> dedupeConsecutive
+        else
+            let points = System.Collections.Generic.List<V3d>()
+            segments |> IndexList.iter(fun (s : AdaptiveSegment) ->
+                points.Add(s.startPoint.GetValue(t))
+                for p in s.points.Content.GetValue(t) do points.Add(p)
+                points.Add(s.endPoint.GetValue(t))
+            )
+            points.ToArray() |> dedupeConsecutive
+
     let getPolylinePoints (a : AdaptiveAnnotation) =
-        //a.segments.Content 
-        //    |> AVal.bind (fun segments -> 
-        //        if IndexList.isEmpty segments then a.points |> AList.toAVal |> AVal.map IndexList.toArray
-        //        else 
-        //            segments |> IndexList.map (fun s -> 
-                        
-        //            )
-        //    )
-        AVal.custom (fun t -> 
-            let segments = a.segments.Content.GetValue t
-            if IndexList.isEmpty segments then  
-                a.points.Content.GetValue(t) |> IndexList.toArray 
-            else 
-                let points = System.Collections.Generic.List<V3d>()
-                a.segments.Content.GetValue(t) |> IndexList.iter(fun (s : AdaptiveSegment) -> 
-                    points.Add(s.startPoint.GetValue(t))
-                    for s in s.points.Content.GetValue(t) do points.Add(s)
-                    points.Add(s.endPoint.GetValue(t))
-                )
-                points.ToArray()
-        )
+        AVal.custom (getPolylinePointsAt a)
         //alist {                          
         //    let! hasSegments = (a.segments |> AList.count) |> AVal.map(fun x -> x > 0)
         //    if hasSegments |> not then
@@ -214,7 +244,12 @@ module Sg =
 
                 let rayHash = sceneHit.globalRay.Ray.Ray.GetHashCode()
 
-                if (rayHash = lastHash) then
+                // Selecting is a left-button gesture. The other buttons drive the camera
+                // in every mouse scheme, and in Direct Tool Mode a right-drag orbit that
+                // happens to end on an annotation would otherwise select it.
+                if sceneHit.event.evtButtons <> Aardvark.Application.MouseButtons.Left then
+                    true, Seq.empty
+                elif (rayHash = lastHash) then
                     Log.warn "[AnnotationPicking] detected duplicate picking interaction (rayhash)"
                     true, Seq.empty
                 else
@@ -495,19 +530,22 @@ module Sg =
             //toEffect <| DefaultSurfaces.stableHeadlight
         ]
 
+    // composed once (like stableLight above), not per sphere' call
+    let private sphereEffect =
+        Effect.compose [
+            toEffect Shader.ScreenSpaceScale.screenSpaceScale
+            toEffect DefaultSurfaces.stableTrafo
+            toEffect DefaultSurfaces.vertexColor
+        ]
+
     //spheres
     let sphere' color radius (pos : aval<V3d>) =
-        Sg.sphere 4 (color) (~~1.0) 
-        |> Sg.noEvents        
+        Sg.sphere 4 (color) (~~1.0)
+        |> Sg.noEvents
         |> Sg.trafo (pos |> AVal.map Trafo3d.Translation)
         |> Sg.uniform "WorldPos" pos
         |> Sg.uniform "Size" radius
-        |> Sg.effect [
-            toEffect <| Shader.ScreenSpaceScale.screenSpaceScale
-            toEffect <| DefaultSurfaces.stableTrafo
-            toEffect <| DefaultSurfaces.vertexColor
-            //toEffect <| DefaultSurfaces.stableHeadlight
-        ]
+        |> Sg.effect [sphereEffect]
 
     //lines
     let toColoredEdges (offset:V3d) (color : C4b) (points : array<V3d>) =

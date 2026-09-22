@@ -50,17 +50,22 @@ module GeoJSONExport =
         let points = 
             a |> Annotation.retrievePoints
         
-        let coordinates = 
-            match planet with 
+        let coordinates =
+            match planet with
             | Some p ->
-                points 
-                |> List.map (fun x ->
-                    let coord = CooTransformation.getLatLonAlt p x
-                    { coord with longitude = 360.0 - coord.longitude }
-                )
-                |> List.map CooTransformation.SphericalCoo.toV3d                
+                let converted =
+                    points
+                    |> List.map (fun x ->
+                        CooTransformation.tryGetLatLonAlt p x
+                        |> Option.map (fun coord -> { coord with longitude = 360.0 - coord.longitude })
+                        |> Option.map CooTransformation.SphericalCoo.toV3d)
+                if converted |> List.forall Option.isSome then
+                    converted |> List.choose id
+                else
+                    Log.warn "[GeoJSON] lat/lon conversion failed for one or more points on %A; exporting xyz" p
+                    points
             | None ->
-                points  
+                points
                 
         let properties = 
             Some { geometry = GeometryProperties.NoProperties; selected = isSelected a }
@@ -100,41 +105,6 @@ module GeoJSONExport =
     let geoJsonGeometryToJson (geometry : GeoJsonGeometry) =
         geometry
         |> Json.serialize
-
-    let toGeoJsonString 
-        (planet      : option<Planet>) 
-        (isSelected  : Annotation -> bool)
-        (annotations : list<Annotation>) 
-        : string = 
-
-        let geometryCollection =
-            let annos = 
-                annotations
-                |> List.map (annotationToGeoJsonGeometry isSelected planet)
-            GeoJsonGeometry.GeometryCollection(annos, None)
-
-        geometryCollection
-        |> Json.serialize
-        |> Json.formatWith JsonFormattingOptions.Pretty
-
-    let writeGeoJSON 
-        (planet      : option<Planet>) 
-        (path        : string) 
-        (isSelected : Annotation -> bool)
-        (annotations : list<Annotation>) 
-        : unit = 
-        toGeoJsonString planet isSelected annotations
-        |> Serialization.writeToFile path
-
-    let writeGeoJSONQGIS
-        (cooConfig : GeoJsonQGIS.CoordinateConfiguration)
-        (path        : string) 
-        (isSelected : Annotation -> bool)
-        (annotations : list<Annotation>) 
-        : unit = 
-        GeoJsonQGIS.encoder cooConfig isSelected annotations
-        |> Serialization.writeToFile path
-
 
     // exports geojson objects as line delimited json: https://en.wikipedia.org/wiki/JSON_streaming#Line-delimited_JSON
     // the feature has been discussed here: https://github.com/pro3d-space/PRo3D/issues/185

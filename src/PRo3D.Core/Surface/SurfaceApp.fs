@@ -100,11 +100,12 @@ module SurfaceUtils =
 
             
             contourModel = ContourLineModel.initial
+            latLonModel = LatLonShaderModel.initial
 
-            highlightSelected = true
-            highlightAlways   = false
-        }       
-   
+            highlightSelected     = true
+            highlightAlways       = false
+        }
+
     module ObjectFiles =        
         open Aardvark.Geometry
         open Aardvark.Data.Wavefront
@@ -687,23 +688,65 @@ module SurfaceUtils =
 
                 sgObjects
 
-    module SurfaceAttributes = 
+    module SurfaceAttributes =
         open System.Xml
-            
+        open System.Globalization
+        open System.Text.RegularExpressions
+
         let get (name : string) (node : XmlNode)=
             node.SelectSingleNode(name).InnerText.Trim()
-        
-        let parseMap (index : int)(node : XmlNode) : ScalarLayer = 
-            let definedRange = node |> get "ChannelsDefinedRange" |> Range1d.Parse
-            { 
+
+        let tryGet (name : string) (node : XmlNode) =
+            match node.SelectSingleNode(name) with
+            | null -> None
+            | n    -> Some (n.InnerText.Trim())
+
+        let private rangePattern = Regex(@"\[\s*([^\[\],]+?)\s*,\s*([^\[\],]+?)\s*\]", RegexOptions.Compiled)
+
+        /// ChannelsDefinedRange / ChannelsActualRange holds a single range "[min, max]" for
+        /// single channel maps, but a per-channel list "[[min,max], [min,max], [min,max]]"
+        /// for multi-channel ones - normals, gravity vectors, lon/lat/radius.
+        /// Range1d.Parse only understands the former, which made such OPCs fail to import
+        /// until the *.opcx was hand-patched.
+        let parseChannelRanges (text : string) =
+            rangePattern.Matches(text)
+            |> Seq.choose (fun m ->
+                match Double.TryParse(m.Groups.[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture),
+                      Double.TryParse(m.Groups.[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture) with
+                | (true, min), (true, max) -> Some (Range1d(min, max))
+                | _ -> None
+            )
+            |> Seq.toList
+
+        /// The range carried by a scalar layer. The model has room for exactly one, and the
+        /// consumers - the false-colour legend and the de-normalisation of texture samples -
+        /// both look at the layer's *first* channel (attribute textures are read through
+        /// `ChannelReference.ChannelWithIndex 0`). So the first channel's range is the right
+        /// one; unioning the channels would widen it, e.g. by 25% for Dimorphos's Gravity
+        /// layer, and skew every de-normalised value.
+        let parseChannelRange (text : string) =
+            parseChannelRanges text |> List.tryHead
+
+        let parseMap (index : int)(node : XmlNode) : ScalarLayer =
+            let label = node |> get "Label"
+
+            let range (name : string) (fallback : Range1d) =
+                match node |> tryGet name |> Option.bind parseChannelRange with
+                | Some r -> r
+                | None ->
+                    Log.warn "[SurfaceAttributes] could not parse %s of layer %s - using %A" name label fallback
+                    fallback
+
+            let definedRange = range "ChannelsDefinedRange" (Range1d(0.0, 1.0))
+            {
                 version      = ScalarLayer.current
-                label        = node |> get "Label" 
-                actualRange  = node |> get "ChannelsActualRange"  |> Range1d.Parse
-                definedRange = definedRange //node |> get "ChannelsDefinedRange" |> Range1d.Parse
+                label        = label
+                actualRange  = range "ChannelsActualRange" definedRange
+                definedRange = definedRange
                 index        = index
                 colorLegend  = (FalseColorsModel.initDefinedScalarsLegend definedRange)
             }
-        
+
         let parseTexture (index : int)(node : XmlNode) : TextureLayer =
             { 
                 version = TextureLayer.current
@@ -865,7 +908,10 @@ module SurfaceApp =
         | RemoveSurface (id,path) -> //model
             let groups = GroupsApp.removeLeaf model.surfaces id path true
             let sg' = model.sgSurfaces |> HashMap.remove id
-            { model with surfaces = groups; sgSurfaces = sg'} |> SurfaceModel.triggerSgGrouping              
+            // per-patch attribute layers and triangle mappings are keyed by path, so drop
+            // them rather than let them outlive the surface they belong to
+            ProfileAttributeExtraction.clearCaches ()
+            { model with surfaces = groups; sgSurfaces = sg'} |> SurfaceModel.triggerSgGrouping
         | RebuildKdTrees id ->                
             let surf = id |> SurfaceModel.getSurface model
             match surf with
@@ -1289,28 +1335,27 @@ module SurfaceApp =
 
         alist {
 
-            let! s = model.activeGroup
-            let color = sprintf "color: %s" (Html.color C4b.White)                
-            let children = AList.collecti (fun i v -> viewTree scenePath (i::path) v model) group.subNodes    
+            let children = AList.collecti (fun i v -> viewTree scenePath (i::path) v model) group.subNodes
             let activeAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
-                                   
-            let toggleIcon = 
+            let colorAttributes = GroupsApp.treeItemColorAttributes ""
+
+            let toggleIcon =
                 AVal.constant "unhide icon" //group.visible |> AVal.map(fun toggle -> if toggle then "unhide icon" else "hide icon")                
 
             let toggleAttributes = GroupsApp.clickIconAttributes toggleIcon (GroupsMessage(GroupsAppAction.ToggleGroup path))
                
             let desc =
-                div [style color] [       
+                Incremental.div colorAttributes <| AList.ofList [
                     Incremental.text group.name
-                    Incremental.i activeAttributes AList.empty 
+                    Incremental.i activeAttributes AList.empty
                     |> UI.wrapToolTip DataPosition.Bottom "Set active"
-                        
-                    i [clazz "plus icon"
-                       onMouseClick (fun _ -> 
-                         GroupsMessage(GroupsAppAction.AddGroup path))] []
-                    |> UI.wrapToolTip DataPosition.Bottom "Add Group"           
 
-                    Incremental.i toggleAttributes AList.empty 
+                    i [clazz "plus icon"
+                       onMouseClick (fun _ ->
+                         GroupsMessage(GroupsAppAction.AddGroup path))] []
+                    |> UI.wrapToolTip DataPosition.Bottom "Add Group"
+
+                    Incremental.i toggleAttributes AList.empty
                     |> UI.wrapToolTip DataPosition.Bottom "Toggle Group"
                    // GuiEx.iconCheckBox group.visible (GroupsMessage(Groups.ToggleGroup path))
                 ]
@@ -1319,10 +1364,12 @@ module SurfaceApp =
                 amap {
                     yield onMouseClick (fun _ -> SurfaceAppAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                     let! selected = group.expanded
-                    if selected 
+                    if selected
                     then yield clazz "icon outline open folder"
                     else yield clazz "icon outline folder"
-                    yield style "overflow-y : visible"
+                    // the icon is a sibling of the (white) description div and would
+                    // otherwise inherit semantic ui's default (black) on our dark background
+                    yield style ("overflow-y : visible; " + GroupsApp.treeItemColorStyle)
                 } |> AttributeMap.ofAMap
             
             let childrenAttribs =
@@ -1564,7 +1611,7 @@ module SurfaceApp =
             return (GroupsApp.viewGroupButtons ts |> UI.map GroupsMessage)
         } 
     
-    let surfaceUI (scenePath : aval<Option<string>>) (colorPaletteStore : string) (model:AdaptiveSurfaceModel) =
+    let surfaceUI (scenePath : aval<Option<string>>) (colorPaletteStore : string) (refSystem : AdaptiveReferenceSystem) (model:AdaptiveSurfaceModel) =
         let item2 = 
             model.surfaces.lastSelectedItem 
                 |> AVal.bind (fun x -> 
@@ -1600,7 +1647,13 @@ module SurfaceApp =
                 div [] [
                     viewSurfaceProperty model (fun s -> ContourLineApp.view s.contourModel |> UI.map (SurfaceAppAction.SurfacePropertiesMessage << SurfaceProperties.CountourAppMessage))
                 ]
-            ] 
+            ]
+
+            yield GuiEx.accordion "LatLon Shader" "globe" false [
+                div [] [
+                    viewSurfaceProperty model (fun s -> LatLonShaderApp.view refSystem.planet s.latLonModel |> UI.map (SurfaceAppAction.SurfacePropertiesMessage << SurfaceProperties.LatLonShaderMessage))
+                ]
+            ]
 
             //yield GuiEx.accordion "Radiometry" "file image outline" false [
             //    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))

@@ -145,10 +145,11 @@ module AssemblyResources =
                 ()
 
     let copyDependenciesForArch (arch : Architecture) (folder : string) (targets : seq<string>) =
-            let arch = 
+            let arch =
                 match arch with
                 | Architecture.X64 -> "AMD64"
                 | Architecture.X86 -> "x86"
+                | Architecture.Arm64 -> "ARM64"
                 | _ -> "unknown"
             let targets = targets |> Seq.toArray
 

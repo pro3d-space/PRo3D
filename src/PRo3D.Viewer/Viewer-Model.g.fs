@@ -1,5 +1,5 @@
-//5eaa1890-ecd4-a384-b4cf-731dd580b430
-//f3425813-073d-5e2b-a506-53af5428d1d4
+//0f985a99-e7d6-f31b-5daa-d7d5044cf165
+//e6e9c850-bfdc-3a82-c201-f5ccdc964962
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -26,8 +26,7 @@ type AdaptiveScene(value : Scene) =
     let _traverses_ = PRo3D.Core.AdaptiveTraverseModel(value.traverses)
     let _viewPlans_ = PRo3D.SimulatedViews.AdaptiveViewPlanModel(value.viewPlans)
     let _rover_ = PRo3D.Core.AdaptiveRover3DModel(value.rover)
-    let _dockConfig_ = FSharp.Data.Adaptive.cval(value.dockConfig)
-    let _closedPages_ = FSharp.Data.Adaptive.cval(value.closedPages)
+    let _legacyDockConfig_ = FSharp.Data.Adaptive.cval(value.legacyDockConfig)
     let _firstImport_ = FSharp.Data.Adaptive.cval(value.firstImport)
     let _userFeedback_ = FSharp.Data.Adaptive.cval(value.userFeedback)
     let _feedbackThreads_ = FSharp.Data.Adaptive.cval(value.feedbackThreads)
@@ -37,6 +36,7 @@ type AdaptiveScene(value : Scene) =
     let _sequencedBookmarks_ = PRo3D.Core.SequencedBookmarks.AdaptiveSequencedBookmarks(value.sequencedBookmarks)
     let _screenshotModel_ = PRo3D.SimulatedViews.AdaptiveScreenshotModel(value.screenshotModel)
     let _gisApp_ = PRo3D.Core.Gis.AdaptiveGisApp(value.gisApp)
+    let _crossSectionModel_ = PRo3D.Core.AdaptiveCrossSectionModel(value.crossSectionModel)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Scene) = AdaptiveScene(value)
@@ -59,8 +59,7 @@ type AdaptiveScene(value : Scene) =
             _traverses_.Update(value.traverses)
             _viewPlans_.Update(value.viewPlans)
             _rover_.Update(value.rover)
-            _dockConfig_.Value <- value.dockConfig
-            _closedPages_.Value <- value.closedPages
+            _legacyDockConfig_.Value <- value.legacyDockConfig
             _firstImport_.Value <- value.firstImport
             _userFeedback_.Value <- value.userFeedback
             _feedbackThreads_.Value <- value.feedbackThreads
@@ -70,6 +69,7 @@ type AdaptiveScene(value : Scene) =
             _sequencedBookmarks_.Update(value.sequencedBookmarks)
             _screenshotModel_.Update(value.screenshotModel)
             _gisApp_.Update(value.gisApp)
+            _crossSectionModel_.Update(value.crossSectionModel)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.cameraView = _cameraView_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
@@ -85,8 +85,7 @@ type AdaptiveScene(value : Scene) =
     member __.traverses = _traverses_
     member __.viewPlans = _viewPlans_
     member __.rover = _rover_
-    member __.dockConfig = _dockConfig_ :> FSharp.Data.Adaptive.aval<Aardvark.UI.Primitives.DockConfig>
-    member __.closedPages = _closedPages_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.UI.Primitives.DockElement>>
+    member __.legacyDockConfig = _legacyDockConfig_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>>
     member __.firstImport = _firstImport_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.userFeedback = _userFeedback_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.feedbackThreads = _feedbackThreads_ :> FSharp.Data.Adaptive.aval<FSharp.Data.Adaptive.ThreadPool<ViewerAction>>
@@ -96,6 +95,7 @@ type AdaptiveScene(value : Scene) =
     member __.sequencedBookmarks = _sequencedBookmarks_
     member __.screenshotModel = _screenshotModel_
     member __.gisApp = _gisApp_
+    member __.crossSectionModel = _crossSectionModel_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SceneLenses = 
     type Scene with
@@ -113,8 +113,7 @@ module SceneLenses =
         static member traverses_ = ((fun (self : Scene) -> self.traverses), (fun (value : PRo3D.Core.TraverseModel) (self : Scene) -> { self with traverses = value }))
         static member viewPlans_ = ((fun (self : Scene) -> self.viewPlans), (fun (value : PRo3D.SimulatedViews.ViewPlanModel) (self : Scene) -> { self with viewPlans = value }))
         static member rover_ = ((fun (self : Scene) -> self.rover), (fun (value : PRo3D.Core.Rover3DModel) (self : Scene) -> { self with rover = value }))
-        static member dockConfig_ = ((fun (self : Scene) -> self.dockConfig), (fun (value : Aardvark.UI.Primitives.DockConfig) (self : Scene) -> { self with dockConfig = value }))
-        static member closedPages_ = ((fun (self : Scene) -> self.closedPages), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.UI.Primitives.DockElement>) (self : Scene) -> { self with closedPages = value }))
+        static member legacyDockConfig_ = ((fun (self : Scene) -> self.legacyDockConfig), (fun (value : Microsoft.FSharp.Core.Option<Microsoft.FSharp.Core.string>) (self : Scene) -> { self with legacyDockConfig = value }))
         static member firstImport_ = ((fun (self : Scene) -> self.firstImport), (fun (value : Microsoft.FSharp.Core.bool) (self : Scene) -> { self with firstImport = value }))
         static member userFeedback_ = ((fun (self : Scene) -> self.userFeedback), (fun (value : Microsoft.FSharp.Core.string) (self : Scene) -> { self with userFeedback = value }))
         static member feedbackThreads_ = ((fun (self : Scene) -> self.feedbackThreads), (fun (value : FSharp.Data.Adaptive.ThreadPool<ViewerAction>) (self : Scene) -> { self with feedbackThreads = value }))
@@ -124,6 +123,7 @@ module SceneLenses =
         static member sequencedBookmarks_ = ((fun (self : Scene) -> self.sequencedBookmarks), (fun (value : PRo3D.Core.SequencedBookmarks.SequencedBookmarks) (self : Scene) -> { self with sequencedBookmarks = value }))
         static member screenshotModel_ = ((fun (self : Scene) -> self.screenshotModel), (fun (value : PRo3D.SimulatedViews.ScreenshotModel) (self : Scene) -> { self with screenshotModel = value }))
         static member gisApp_ = ((fun (self : Scene) -> self.gisApp), (fun (value : PRo3D.Core.Gis.GisApp) (self : Scene) -> { self with gisApp = value }))
+        static member crossSectionModel_ = ((fun (self : Scene) -> self.crossSectionModel), (fun (value : PRo3D.Core.CrossSectionModel) (self : Scene) -> { self with crossSectionModel = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveRecent(value : Recent) =
     let _recentScenes_ = FSharp.Data.Adaptive.cval(value.recentScenes)
@@ -184,7 +184,7 @@ module EllipseModelLenses =
 type AdaptiveModel(value : Model) =
     let _viewerVersion_ = FSharp.Data.Adaptive.cval(value.viewerVersion)
     let _startupArgs_ = FSharp.Data.Adaptive.cval(value.startupArgs)
-    let _dashboardMode_ = FSharp.Data.Adaptive.cval(value.dashboardMode)
+    let _layout_ = AdaptiveLayoutModel(value.layout)
     let _scene_ = AdaptiveScene(value.scene)
     let _drawing_ = PRo3D.Core.Drawing.AdaptiveDrawingModel(value.drawing)
     let _interaction_ = FSharp.Data.Adaptive.cval(value.interaction)
@@ -200,12 +200,14 @@ type AdaptiveModel(value : Model) =
     let _mailboxState_ = FSharp.Data.Adaptive.cval(value.mailboxState)
     let _navigation_ = PRo3D.Base.AdaptiveNavigationModel(value.navigation)
     let _properties_ = FSharp.Data.Adaptive.cval(value.properties)
+    let _annotationExport_ = PRo3D.Core.AdaptiveAnnotationExportModel(value.annotationExport)
+    let _mapProjection_ = PRo3D.MapProjection.AdaptiveMapProjectionModel(value.mapProjection)
     let _multiSelectBox_ = FSharp.Data.Adaptive.cval(value.multiSelectBox)
     let _shiftFlag_ = FSharp.Data.Adaptive.cval(value.shiftFlag)
     let _picking_ = FSharp.Data.Adaptive.cval(value.picking)
     let _pivotType_ = FSharp.Data.Adaptive.cval(value.pivotType)
     let _ctrlFlag_ = FSharp.Data.Adaptive.cval(value.ctrlFlag)
-    let _inverseFlag_ = FSharp.Data.Adaptive.cval(value.inverseFlag)
+    let _directToolMode_ = FSharp.Data.Adaptive.cval(value.directToolMode)
     let _frustum_ = FSharp.Data.Adaptive.cval(value.frustum)
     let _viewPortSizes_ = FSharp.Data.Adaptive.cmap(value.viewPortSizes)
     let _overlayFrustum_ = FSharp.Data.Adaptive.cval(value.overlayFrustum)
@@ -222,6 +224,7 @@ type AdaptiveModel(value : Model) =
     let _provenanceModel_ = AdaptiveProvenanceModel(value.provenanceModel)
     let _backgroundPicking_ = FSharp.Data.Adaptive.cval(value.backgroundPicking)
     let _surfaceIntersection_ = FSharp.Data.Adaptive.cval(value.surfaceIntersection)
+    let _cursorAttributes_ = FSharp.Data.Adaptive.cval(value.cursorAttributes)
     let _ellipseModel_ =
         let inline __arg2 (o : System.Object) (v : EllipseModel) =
             (unbox<AdaptiveEllipseModel> o).Update(v)
@@ -231,6 +234,11 @@ type AdaptiveModel(value : Model) =
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.Viewer.EllipseModel, PRo3D.Viewer.AdaptiveEllipseModel, PRo3D.Viewer.AdaptiveEllipseModel>(value.ellipseModel, (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o), (fun (v : EllipseModel) -> AdaptiveEllipseModel(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveEllipseModel> o))
     let _pickPreviewRequested_ = FSharp.Data.Adaptive.cval(value.pickPreviewRequested)
+    let _outcropTraces_ = PRo3D.Core.AdaptiveOutcropTraceModel(value.outcropTraces)
+    let _roseEnabled_ = FSharp.Data.Adaptive.cval(value.roseEnabled)
+    let _roseUsePolyline_ = FSharp.Data.Adaptive.cval(value.roseUsePolyline)
+    let _roseUseDnS_ = FSharp.Data.Adaptive.cval(value.roseUseDnS)
+    let _userPreferences_ = FSharp.Data.Adaptive.cval(value.userPreferences)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Model) = AdaptiveModel(value)
@@ -241,7 +249,7 @@ type AdaptiveModel(value : Model) =
             __adaptive.MarkOutdated()
             _viewerVersion_.Value <- value.viewerVersion
             _startupArgs_.Value <- value.startupArgs
-            _dashboardMode_.Value <- value.dashboardMode
+            _layout_.Update(value.layout)
             _scene_.Update(value.scene)
             _drawing_.Update(value.drawing)
             _interaction_.Value <- value.interaction
@@ -257,12 +265,14 @@ type AdaptiveModel(value : Model) =
             _mailboxState_.Value <- value.mailboxState
             _navigation_.Update(value.navigation)
             _properties_.Value <- value.properties
+            _annotationExport_.Update(value.annotationExport)
+            _mapProjection_.Update(value.mapProjection)
             _multiSelectBox_.Value <- value.multiSelectBox
             _shiftFlag_.Value <- value.shiftFlag
             _picking_.Value <- value.picking
             _pivotType_.Value <- value.pivotType
             _ctrlFlag_.Value <- value.ctrlFlag
-            _inverseFlag_.Value <- value.inverseFlag
+            _directToolMode_.Value <- value.directToolMode
             _frustum_.Value <- value.frustum
             _viewPortSizes_.Value <- value.viewPortSizes
             _overlayFrustum_.Value <- value.overlayFrustum
@@ -279,12 +289,18 @@ type AdaptiveModel(value : Model) =
             _provenanceModel_.Update(value.provenanceModel)
             _backgroundPicking_.Value <- value.backgroundPicking
             _surfaceIntersection_.Value <- value.surfaceIntersection
+            _cursorAttributes_.Value <- value.cursorAttributes
             _ellipseModel_.Update(value.ellipseModel)
             _pickPreviewRequested_.Value <- value.pickPreviewRequested
+            _outcropTraces_.Update(value.outcropTraces)
+            _roseEnabled_.Value <- value.roseEnabled
+            _roseUsePolyline_.Value <- value.roseUsePolyline
+            _roseUseDnS_.Value <- value.roseUseDnS
+            _userPreferences_.Value <- value.userPreferences
     member __.Current = __adaptive
     member __.viewerVersion = _viewerVersion_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.startupArgs = _startupArgs_ :> FSharp.Data.Adaptive.aval<PRo3D.StartupArgs>
-    member __.dashboardMode = _dashboardMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.layout = _layout_
     member __.scene = _scene_
     member __.drawing = _drawing_
     member __.interaction = _interaction_ :> FSharp.Data.Adaptive.aval<PRo3D.Core.Interactions>
@@ -300,12 +316,14 @@ type AdaptiveModel(value : Model) =
     member __.mailboxState = _mailboxState_ :> FSharp.Data.Adaptive.aval<MailboxState>
     member __.navigation = _navigation_
     member __.properties = _properties_ :> FSharp.Data.Adaptive.aval<Properties>
+    member __.annotationExport = _annotationExport_
+    member __.mapProjection = _mapProjection_
     member __.multiSelectBox = _multiSelectBox_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<MultiSelectionBox>>
     member __.shiftFlag = _shiftFlag_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.picking = _picking_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.pivotType = _pivotType_ :> FSharp.Data.Adaptive.aval<PickPivot>
     member __.ctrlFlag = _ctrlFlag_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
-    member __.inverseFlag = _inverseFlag_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.directToolMode = _directToolMode_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.frustum = _frustum_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.Frustum>
     member __.viewPortSizes = _viewPortSizes_ :> FSharp.Data.Adaptive.amap<Microsoft.FSharp.Core.string, Aardvark.Base.V2i>
     member __.overlayFrustum = _overlayFrustum_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.Rendering.Frustum>>
@@ -323,14 +341,20 @@ type AdaptiveModel(value : Model) =
     member __.provenanceModel = _provenanceModel_
     member __.backgroundPicking = _backgroundPicking_ :> FSharp.Data.Adaptive.aval<FSharp.Data.Adaptive.ThreadPool<ViewerAction>>
     member __.surfaceIntersection = _surfaceIntersection_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<SurfaceIntersection>>
+    member __.cursorAttributes = _cursorAttributes_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<CursorAttributes>>
     member __.ellipseModel = _ellipseModel_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<EllipseModel, AdaptiveEllipseModel, AdaptiveEllipseModel>>
     member __.pickPreviewRequested = _pickPreviewRequested_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>>
+    member __.outcropTraces = _outcropTraces_
+    member __.roseEnabled = _roseEnabled_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.roseUsePolyline = _roseUsePolyline_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.roseUseDnS = _roseUseDnS_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.userPreferences = _userPreferences_ :> FSharp.Data.Adaptive.aval<PRo3D.UserPreferences>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ModelLenses = 
     type Model with
         static member viewerVersion_ = ((fun (self : Model) -> self.viewerVersion), (fun (value : Microsoft.FSharp.Core.string) (self : Model) -> { self with viewerVersion = value }))
         static member startupArgs_ = ((fun (self : Model) -> self.startupArgs), (fun (value : PRo3D.StartupArgs) (self : Model) -> { self with startupArgs = value }))
-        static member dashboardMode_ = ((fun (self : Model) -> self.dashboardMode), (fun (value : Microsoft.FSharp.Core.string) (self : Model) -> { self with dashboardMode = value }))
+        static member layout_ = ((fun (self : Model) -> self.layout), (fun (value : LayoutModel) (self : Model) -> { self with layout = value }))
         static member scene_ = ((fun (self : Model) -> self.scene), (fun (value : Scene) (self : Model) -> { self with scene = value }))
         static member drawing_ = ((fun (self : Model) -> self.drawing), (fun (value : PRo3D.Core.Drawing.DrawingModel) (self : Model) -> { self with drawing = value }))
         static member interaction_ = ((fun (self : Model) -> self.interaction), (fun (value : PRo3D.Core.Interactions) (self : Model) -> { self with interaction = value }))
@@ -346,12 +370,14 @@ module ModelLenses =
         static member mailboxState_ = ((fun (self : Model) -> self.mailboxState), (fun (value : MailboxState) (self : Model) -> { self with mailboxState = value }))
         static member navigation_ = ((fun (self : Model) -> self.navigation), (fun (value : PRo3D.Base.NavigationModel) (self : Model) -> { self with navigation = value }))
         static member properties_ = ((fun (self : Model) -> self.properties), (fun (value : Properties) (self : Model) -> { self with properties = value }))
+        static member annotationExport_ = ((fun (self : Model) -> self.annotationExport), (fun (value : PRo3D.Core.AnnotationExportModel) (self : Model) -> { self with annotationExport = value }))
+        static member mapProjection_ = ((fun (self : Model) -> self.mapProjection), (fun (value : PRo3D.MapProjection.MapProjectionModel) (self : Model) -> { self with mapProjection = value }))
         static member multiSelectBox_ = ((fun (self : Model) -> self.multiSelectBox), (fun (value : Microsoft.FSharp.Core.Option<MultiSelectionBox>) (self : Model) -> { self with multiSelectBox = value }))
         static member shiftFlag_ = ((fun (self : Model) -> self.shiftFlag), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with shiftFlag = value }))
         static member picking_ = ((fun (self : Model) -> self.picking), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with picking = value }))
         static member pivotType_ = ((fun (self : Model) -> self.pivotType), (fun (value : PickPivot) (self : Model) -> { self with pivotType = value }))
         static member ctrlFlag_ = ((fun (self : Model) -> self.ctrlFlag), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with ctrlFlag = value }))
-        static member inverseFlag_ = ((fun (self : Model) -> self.inverseFlag), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with inverseFlag = value }))
+        static member directToolMode_ = ((fun (self : Model) -> self.directToolMode), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with directToolMode = value }))
         static member frustum_ = ((fun (self : Model) -> self.frustum), (fun (value : Aardvark.Rendering.Frustum) (self : Model) -> { self with frustum = value }))
         static member viewPortSizes_ = ((fun (self : Model) -> self.viewPortSizes), (fun (value : FSharp.Data.Adaptive.HashMap<Microsoft.FSharp.Core.string, Aardvark.Base.V2i>) (self : Model) -> { self with viewPortSizes = value }))
         static member overlayFrustum_ = ((fun (self : Model) -> self.overlayFrustum), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.Rendering.Frustum>) (self : Model) -> { self with overlayFrustum = value }))
@@ -369,6 +395,12 @@ module ModelLenses =
         static member provenanceModel_ = ((fun (self : Model) -> self.provenanceModel), (fun (value : ProvenanceModel) (self : Model) -> { self with provenanceModel = value }))
         static member backgroundPicking_ = ((fun (self : Model) -> self.backgroundPicking), (fun (value : FSharp.Data.Adaptive.ThreadPool<ViewerAction>) (self : Model) -> { self with backgroundPicking = value }))
         static member surfaceIntersection_ = ((fun (self : Model) -> self.surfaceIntersection), (fun (value : Microsoft.FSharp.Core.Option<SurfaceIntersection>) (self : Model) -> { self with surfaceIntersection = value }))
+        static member cursorAttributes_ = ((fun (self : Model) -> self.cursorAttributes), (fun (value : Microsoft.FSharp.Core.Option<CursorAttributes>) (self : Model) -> { self with cursorAttributes = value }))
         static member ellipseModel_ = ((fun (self : Model) -> self.ellipseModel), (fun (value : Microsoft.FSharp.Core.Option<EllipseModel>) (self : Model) -> { self with ellipseModel = value }))
         static member pickPreviewRequested_ = ((fun (self : Model) -> self.pickPreviewRequested), (fun (value : Aardvark.Base.ConsumableAsyncValue<(Model * Aardvark.UI.SceneHit * Microsoft.FSharp.Core.string)>) (self : Model) -> { self with pickPreviewRequested = value }))
+        static member outcropTraces_ = ((fun (self : Model) -> self.outcropTraces), (fun (value : PRo3D.Core.OutcropTraceModel) (self : Model) -> { self with outcropTraces = value }))
+        static member roseEnabled_ = ((fun (self : Model) -> self.roseEnabled), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseEnabled = value }))
+        static member roseUsePolyline_ = ((fun (self : Model) -> self.roseUsePolyline), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseUsePolyline = value }))
+        static member roseUseDnS_ = ((fun (self : Model) -> self.roseUseDnS), (fun (value : Microsoft.FSharp.Core.bool) (self : Model) -> { self with roseUseDnS = value }))
+        static member userPreferences_ = ((fun (self : Model) -> self.userPreferences), (fun (value : PRo3D.UserPreferences) (self : Model) -> { self with userPreferences = value }))
 

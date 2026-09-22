@@ -37,9 +37,6 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Remove="Drawing\**" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="Viewer\PRo3DUtils.fs" />
     <Compile Include="Viewer\SnapshotGenerator.fs" />
