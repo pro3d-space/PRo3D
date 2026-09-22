@@ -97,13 +97,26 @@ def frame_paths(folder, suffix=".png"):
     return out
 
 
-# How far off the boresight the target may sit before a sidecar counts as broken, in
-# degrees. It is the instrument's own corner half-angle, not zero: with --pointing ck the
-# camera follows the spacecraft's attitude rather than aiming at the body, so a perfectly
-# good frame can have the target 2.75 deg off-axis -- and an 85-day set is full of them.
-# The failure this catches is a conjugated quaternion or the wrong body in TRG_POS, which
-# is wrong by tens of degrees, so nothing is lost by allowing the whole field of view.
-BORESIGHT_TOLERANCE_DEG = 4.0
+# How far off the boresight the target may sit before a sidecar counts as broken.
+#
+# Not zero: with --pointing ck the camera follows the spacecraft's attitude rather than
+# aiming at the body, and an 85-day set is full of off-axis frames. The bound is the
+# instrument's CORNER half-angle -- AFC's field is a square, so a body in a corner is
+# 3.886 deg off-axis while still being fully inside a frustum whose edges are 2.750 --
+# plus the body's own angular radius, since a body that clips an edge still renders.
+#
+# Measured over the COP set: median 0.146 deg, p99 3.902, max 4.409. A flat 4.0 deg
+# rejected 58 perfectly good frames.
+#
+# The failure this exists to catch -- a conjugated quaternion, or the wrong body in
+# TRG_POS -- is wrong by tens of degrees, so nothing is lost by allowing the whole field.
+BORESIGHT_CORNER_DEG = 3.886
+# Half the diagonal of Dimorphos' bounding box, metres (179.5 x 169.4 x 115.2). The
+# SEMI-AXIS is the wrong number here: the tool refuses a frame only when the projected
+# bounding BOX certainly misses the frustum, so that box is what sets how far off-axis a
+# rendered frame can legitimately be. Using 90 m left five frames of 4263 failing by
+# 0.02-0.12 deg.
+BORESIGHT_TARGET_RADIUS_M = 136.0
 
 
 def check_sidecars(folder, quiet=False):
@@ -125,7 +138,9 @@ def check_sidecars(folder, quiet=False):
         A = quat_to_matrix(h["SC_QUAT0"], h["SC_QUAT1"], h["SC_QUAT2"], h["SC_QUAT3"])
         v = A.T @ trg
         v = v / np.linalg.norm(v)
-        ok = v[2] > np.cos(np.radians(BORESIGHT_TOLERANCE_DEG))
+        rng_m = float(np.linalg.norm(trg)) * 1000.0
+        tol = np.radians(BORESIGHT_CORNER_DEG) + np.arctan(BORESIGHT_TARGET_RADIUS_M / max(1.0, rng_m))
+        ok = v[2] > np.cos(tol)
         bad += 0 if ok else 1
         stem = f[:-9]
         ranges[stem] = float(np.linalg.norm(trg) * 1000)
