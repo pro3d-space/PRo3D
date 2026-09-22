@@ -374,6 +374,11 @@ let run (o : SimulateSeriesOptions) : int =
     let projC = cval Trafo3d.Identity
     let sunC  = cval (None : Option<V3d>)
     let imageProjC = cval (None : Option<Trafo3d>)
+    // Where the occluder sits this epoch, for --occluder-in-scene. Separate from the
+    // shadow pass's own placement because the shadow pass owns a scene graph of its own;
+    // both are driven from the same EclipseOccluder, so they cannot disagree.
+    let occluderPlacementC = cval Trafo3d.Identity
+    let occluderVisibleC = cval false
     let occluderFrame =
         if String.IsNullOrWhiteSpace o.occluderFrame then o.occluderBody + "_FIXED"
         else o.occluderFrame
@@ -411,6 +416,18 @@ let run (o : SimulateSeriesOptions) : int =
     try
         let opc = shape.build target.signature projectedImages
 
+        // --occluder-in-scene: the primary in the image, not only in the shadow map. Its
+        // placement moves every epoch, so it rides on cvals like everything else here and
+        // an epoch stays a transact rather than a rebuild.
+        let scene =
+            match occluderShape with
+            | Some occ when o.occluderInScene ->
+                Log.line "[eclipse] %s is in the scene as well as casting" o.occluderBody
+                Sg.ofList [ opc
+                            occluderSg occ target.signature projectedImages
+                                (occluderPlacementC :> aval<_>) (occluderVisibleC :> aval<_>) ]
+            | _ -> opc
+
         // One compiled task per variant over the SAME geometry: they differ only in the
         // shading uniforms, and micro/smooth never sample the texture, so the texture
         // layer bound for delit is harmless to them.
@@ -430,7 +447,7 @@ let run (o : SimulateSeriesOptions) : int =
                 // decided by `shading` alone. MICRO and SMOOTH ask for neither and get the
                 // constant albedo.
                 let sg =
-                    shadedShaders opc
+                    shadedShaders scene
                     |> applyShading shading deshade eclipse shadow.viewProj shadow.depth
                     |> Sg.viewTrafo viewC
                     |> Sg.projTrafo projC
@@ -488,7 +505,11 @@ let run (o : SimulateSeriesOptions) : int =
                 viewC.Value <- cam.view
                 projC.Value <- cam.proj
                 sunC.Value <- Some sun
-                imageProjC.Value <- Some (cam.view * cam.proj))
+                imageProjC.Value <- Some (cam.view * cam.proj)
+                occluderVisibleC.Value <- Option.isSome occluderAt
+                match occluderAt with
+                | Some e -> occluderPlacementC.Value <- e.toTarget
+                | None -> ())
 
             // The sun moves between epochs, so both depth maps do.
             shadow.update sun

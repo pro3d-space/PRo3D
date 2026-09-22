@@ -197,6 +197,9 @@ type SimulateImageOptions =
 
         [<Option("occluder-obj-scale", Default = 1000.0, HelpText = "Metres per --occluder-obj file unit (default 1000, i.e. kilometres)")>]
         occluderObjScale : float
+
+        [<Option("occluder-in-scene", HelpText = "Draw --occluder-body in the image too, not only as a shadow caster. Both bodies are then lit by one sun with one photometry, which is what makes a conjunction renderable: at 2027-04-25T03:00 Didymos is 2.6 deg from Dimorphos and 7.1 deg across, wider than AFC-1's whole field. Off by default, because it changes every frame of an existing eclipse series.")>]
+        occluderInScene : bool
         [<Option("pointing", HelpText = "Where the camera orientation comes from: 'ck' (default) uses the spacecraft's measured/planned attitude and FAILS if the kernels have none at this epoch; 'lookat' aims the boresight at the body centre with an up-vector roll convention. 'ck' can legitimately produce no image -- if the instrument was pointed elsewhere, the body is not in the frame, and that is the answer, not a fault.")>]
         pointing : string
     }
@@ -314,6 +317,9 @@ type SimulateSeriesOptions =
 
         [<Option("occluder-obj-scale", Default = 1000.0, HelpText = "Metres per --occluder-obj file unit (default 1000, i.e. kilometres)")>]
         occluderObjScale : float
+
+        [<Option("occluder-in-scene", HelpText = "Draw --occluder-body in the image too, not only as a shadow caster. Both bodies are then lit by one sun with one photometry, which is what makes a conjunction renderable: at 2027-04-25T03:00 Didymos is 2.6 deg from Dimorphos and 7.1 deg across, wider than AFC-1's whole field. Off by default, because it changes every frame of an existing eclipse series.")>]
+        occluderInScene : bool
 
         [<Option("keep-going", HelpText = "Render the remaining epochs after a failure instead of stopping. The run still exits non-zero and names every frame that failed.")>]
         keepGoing : bool

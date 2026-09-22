@@ -1,4 +1,4 @@
-module PRo3D.Tool.SimulateShaders
+﻿module PRo3D.Tool.SimulateShaders
 
 open Aardvark.Base
 open Aardvark.Rendering
@@ -294,7 +294,16 @@ let simulatedImage (v : SimVertex) =
             if uniform.SunShadowEnabled then
                 let p = v.shadowPos.XYZ / v.shadowPos.W
                 let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
-                if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f then 1.0f
+                // Outside the map counts as lit -- in DEPTH as well as in X and Y. The
+                // ortho frustum is fitted to the target's own bounds, so a fragment past
+                // its far plane is a fragment the map holds no information about, and
+                // reading one as shadowed is not conservative, it is wrong: with
+                // --occluder-in-scene the primary sits a kilometre beyond that plane and
+                // acquired a dark bite exactly the shape of the target's shadow-map
+                // footprint. The cost of this guard is that the target cannot cast onto
+                // the occluder, which is a documented limitation rather than an artefact.
+                if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f
+                   || tc.Z < 0.0f || tc.Z > 1.0f then 1.0f
                 else
                     let r = 1.5f / float32 (Vec.MaxElement sunShadowSampler.Size)
                     // A CONSTANT bias, deliberately, although the viewer's
@@ -329,8 +338,12 @@ let simulatedImage (v : SimVertex) =
             if uniform.EclipseEnabled then
                 let p = v.eclipsePos.XYZ / v.eclipsePos.W
                 let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
-                // outside the occluder's footprint there is nothing to be shadowed by
-                if tc.X < -1.0f || tc.X > 2.0f || tc.Y < -1.0f || tc.Y > 2.0f then 1.0f
+                // Outside the occluder's footprint there is nothing to be shadowed by.
+                // tc.Z < 0 is the case that matters: the fragment is NEARER the sun than
+                // anything in the map, which is what every fragment of the occluder's own
+                // sunward face is, and what the target is whenever it leads the primary.
+                if tc.X < -1.0f || tc.X > 2.0f || tc.Y < -1.0f || tc.Y > 2.0f
+                   || tc.Z < 0.0f || tc.Z > 1.0f then 1.0f
                 else
                     let r = max (0.5f / float32 (Vec.MaxElement eclipseShadowSampler.Size))
                                 uniform.EclipseShadowRadius

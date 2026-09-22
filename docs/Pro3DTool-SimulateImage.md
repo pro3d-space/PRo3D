@@ -201,6 +201,7 @@ The occluder's **geometry is a shape model like any other**:
 | `--occluder-frame <name>` | its body-fixed frame (default `<body>_FIXED`) |
 | `--occluder-obj <file>` | its shape model, `.obj`/`.obj.gz`. The kernels ship one: `dsk/g_01165mm_spc_obj_didy_0000n00000_v003.obj` |
 | `--occluder-obj-scale <v>` | metres per file unit (default `1000`) |
+| `--occluder-in-scene` | draw the occluder in the **image** too, not only as a shadow caster |
 
 Without `--occluder-obj` the occluder is a **tessellation of the body's reference radii**
 (Didymos: 409.5 × 400.5 × 303.5 m, hard-coded — `CooTransformation` exposes no `bodvrd`,
@@ -233,6 +234,29 @@ and only the shape model says *how much*, which is the half the light curve is m
 
 Per-epoch numbers in [`eclipse.json`](images/simulateImage/eclipse.json); regenerate both
 with `python scripts/make-eclipse-figure.py`.
+
+### Both bodies in one frame
+
+`--occluder-in-scene` draws the occluder as well as casting it. Both bodies then go through
+one shader stack with one sun and one photometry, which is what makes a conjunction
+renderable rather than merely computable:
+
+```
+pro3d-tool simulate-image --obj <dimorphos> --time 2027-04-25T02:30:00Z     --occluder-body DIDYMOS --occluder-obj <kernels>/dsk/g_01165mm_spc_obj_didy_...v003.obj     --occluder-in-scene
+```
+
+At 2027-04-25T03:00 Didymos is **2.6° from Dimorphos and 7.1° across** — wider than AFC-1's
+whole 5.5° field. An hour earlier the pair separates into a foreground Dimorphos against
+Didymos' limb. There are 100+ such epochs across the close-orbit phase.
+
+Off by default: switching it on changes every frame of an existing eclipse series.
+
+**What it does and does not model.** The occluder is lit and shadows the target, and it
+self-shadows through its own depth map. The target does **not** cast onto the occluder — the
+target's shadow map is fitted to the target's own bounds, and a fragment a kilometre beyond
+its far plane is one the map holds no information about. That case is explicitly treated as
+lit; before it was, the primary acquired a dark region exactly the shape of the target's
+shadow-map footprint.
 
 ### Which eclipse to render — and what you cannot have
 

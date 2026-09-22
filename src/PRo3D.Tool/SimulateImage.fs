@@ -476,6 +476,32 @@ module ShapeSource =
         else
             ObjShape.read obj objScale |> Result.map (fun mesh -> ofObj mesh None)
 
+/// The occluder as a VISIBLE body in the scene, not only as a shadow caster.
+///
+/// The shadow pass places the same geometry the same way; this puts it in the image too, so
+/// a conjunction is something the tool renders rather than merely computes. At
+/// 2027-04-25T03:00 Didymos sits 2.6 deg from Dimorphos and is 7.1 deg across -- wider than
+/// AFC-1's whole field -- and until now none of it appeared in the frame.
+///
+/// It shares the target's shader stack and shading uniforms, so both bodies are lit by one
+/// sun with one photometry; what it overrides are the three textured modes. Those are set
+/// INSIDE this subgraph, where they win over `applyShading`'s outer ones: the target may
+/// well be drawing a de-shaded mosaic, and the primary must not be de-shaded against the
+/// black stand-in texture bound for it.
+///
+/// `visible` exists because the placement comes from SPICE, which can fail at an epoch the
+/// target still renders at. A missing occluder then disappears rather than freezing at
+/// wherever it was last seen.
+let occluderSg (shape : ShapeSource) (signature : IFramebufferSignature)
+               (projectedImages : aval<Option<Sg.ProjectedImages>>)
+               (placement : aval<Trafo3d>) (visible : aval<bool>) : ISg =
+    shape.build signature projectedImages
+    |> Sg.trafo placement
+    |> Sg.uniform' "DeshadeEnabled" false
+    |> Sg.uniform' "TextureAlbedo" false
+    |> Sg.uniform' "TextureOnly" false
+    |> Sg.onOff visible
+
 /// Fit the baked illumination, log what came out, and fall back to the constant albedo if
 /// it could not be made.
 ///
@@ -1334,7 +1360,27 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     try
         let opc = shape.build target.signature projectedImages
 
-        let shaded = shadedShaders opc
+        // --occluder-in-scene puts the primary in the image as well as in the shadow map.
+        // Only the SHADED path gets it: --project is about how one image lands on the
+        // target, and a second body in that frame would be neither projected nor wanted.
+        let scene =
+            match occluder, eclipseAt with
+            | Some occ, Some e when o.occluderInScene ->
+                Log.line "[eclipse] %s is in the scene as well as casting (%.3f km away, %.2f deg across)"
+                    o.occluderBody (e.centre.Length / 1000.0)
+                    (Conversion.DegreesFromRadians
+                        (2.0 * atan (0.5 * occ.bbox.Size.NormMax /
+                                     max 1.0 (cam.view.Forward.TransformPos e.centre).Length)))
+                Sg.ofList [ opc
+                            occluderSg occ target.signature projectedImages
+                                (AVal.constant e.toTarget) (AVal.constant true) ]
+            | Some _, None when o.occluderInScene ->
+                Log.warn "[eclipse] --occluder-in-scene: %s could not be placed at this epoch"
+                    o.occluderBody
+                opc
+            | _ -> opc
+
+        let shaded = shadedShaders scene
 
         /// PRo3D's single-image projection, composed exactly as ProjectionTestbed and
         /// sun-angles compose it -- this verb's own shading is not involved at all, so

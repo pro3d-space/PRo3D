@@ -111,13 +111,15 @@ module private Fixtures =
             textureAlbedo = false
             project = null
             projectShader = null
-            shadowBias = 0.002
+            // the shipped default, swept against a SPICE ray-cast -- see check-lighting.py
+            shadowBias = 0.006
             // No binary companion in the scene: these fixtures render Didymos, which IS
             // the primary, and an eclipse cast by its own moon is not what they test.
             occluderBody = null
             occluderFrame = null
             occluderObj = null
             occluderObjScale = 1000.0
+            occluderInScene = false
             // 'lookat', not the verb's 'ck' default: these fixtures render Didymos from
             // MILANI at epochs the CK does not necessarily cover, and the point of them is
             // the shading and the sidecar, not the attitude.
