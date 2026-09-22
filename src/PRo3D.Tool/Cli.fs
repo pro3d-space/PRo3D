@@ -239,7 +239,7 @@ type SimulateSeriesOptions =
         [<Option("out", HelpText = "Output directory; each variant gets a subdirectory of frames and sidecars", Required = true)>]
         out : string
 
-        [<Option("variants", Default = "delit,baked,micro,smooth", HelpText = "Which shading variants to render, comma-separated: 'delit' (texture with its baked illumination divided out, + micro-structure -- the realistic one), 'baked' (the same texture WITHOUT that division, so the mosaic's own lighting stays in and this epoch's sun lights it again -- the naive rendering, for testing whether de-lighting is necessary at all), 'micro' (constant albedo + micro-structure), 'smooth' (constant albedo, no micro-structure). All share one camera and one exposure, so any pair differs in exactly one thing.")>]
+        [<Option("variants", Default = "delit,baked,micro,smooth", HelpText = "Which shading variants to render, comma-separated: 'delit' (texture with its baked illumination divided out, + micro-structure -- the realistic one), 'delitplain' (the same WITHOUT the micro-structure, for consumers who cannot have shading-only detail reconstructed as relief), 'baked' (the same texture WITHOUT that division, so the mosaic's own lighting stays in and this epoch's sun lights it again -- the naive rendering, for testing whether de-lighting is necessary at all), 'micro' (constant albedo + micro-structure), 'smooth' (constant albedo, no micro-structure). All share one camera and one exposure, so any pair differs in exactly one thing.")>]
         variants : string
 
         [<Option("stem-prefix", HelpText = "Filename prefix for the frames (default: derived from the instrument, e.g. HERA_AFC-1 -> AFC1). Frames are <prefix>_<VARIANT>_<yyyyMMdd_HHmmss>.png")>]
@@ -326,6 +326,9 @@ type SimulateSeriesOptions =
 
         [<Option("occluder-in-scene", HelpText = "Draw --occluder-body in the image too, not only as a shadow caster. Both bodies are then lit by one sun with one photometry, which is what makes a conjunction renderable: at 2027-04-25T03:00 Didymos is 2.6 deg from Dimorphos and 7.1 deg across, wider than AFC-1's whole field. Off by default, because it changes every frame of an existing eclipse series.")>]
         occluderInScene : bool
+
+        [<Option("day-folders", HelpText = "Split each variant folder by UTC date (<variant>/yyyy-MM-dd/). An 85-day set is thousands of files, and one flat directory is neither navigable nor what the reference deliveries look like. The filename stamp is unchanged, so a frame is still findable by epoch alone.")>]
+        dayFolders : bool
 
         [<Option("keep-going", HelpText = "Render the remaining epochs after a failure instead of stopping. The run still exits non-zero and names every frame that failed.")>]
         keepGoing : bool

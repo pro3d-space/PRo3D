@@ -75,8 +75,39 @@ def header(path):
     return h
 
 
+def sidecar_paths(folder):
+    """Every .mbi.json under `folder`, however deep.
+
+    A series folder is flat by default and split by UTC date with --day-folders, and no
+    caller should have to know which. os.walk covers both.
+    """
+    out = []
+    for root, _, files in os.walk(folder):
+        out += [os.path.join(root, f) for f in files if f.endswith(".mbi.json")]
+    return out
+
+
+def frame_paths(folder, suffix=".png"):
+    """{stem: full path} for every frame under `folder`, however deep."""
+    out = {}
+    for root, _, files in os.walk(folder):
+        for f in files:
+            if f.endswith(suffix) and not f.endswith(".png.json"):
+                out[f[:-len(suffix)]] = os.path.join(root, f)
+    return out
+
+
+# How far off the boresight the target may sit before a sidecar counts as broken, in
+# degrees. It is the instrument's own corner half-angle, not zero: with --pointing ck the
+# camera follows the spacecraft's attitude rather than aiming at the body, so a perfectly
+# good frame can have the target 2.75 deg off-axis -- and an 85-day set is full of them.
+# The failure this catches is a conjugated quaternion or the wrong body in TRG_POS, which
+# is wrong by tens of degrees, so nothing is lost by allowing the whole field of view.
+BORESIGHT_TOLERANCE_DEG = 4.0
+
+
 def check_sidecars(folder, quiet=False):
-    """A^T * TRG_POS must point down the boresight, i.e. close to (0, 0, +1).
+    """A^T * TRG_POS must point INTO THE FIELD OF VIEW, i.e. near (0, 0, +1).
 
     The check a real delivery can fail -- the HERA COP set conjugates the quaternion,
     puts the camera position in TRG_POS and centres it on the wrong body. The projector
@@ -87,15 +118,14 @@ def check_sidecars(folder, quiet=False):
     """
     bad = 0
     ranges = {}
-    for f in sorted(os.listdir(folder)):
-        if not f.endswith(".mbi.json"):
-            continue
-        h = header(os.path.join(folder, f))
+    for path in sorted(sidecar_paths(folder)):
+        f = os.path.basename(path)
+        h = header(path)
         trg = np.array([h["TRG_POSX"], h["TRG_POSY"], h["TRG_POSZ"]])
         A = quat_to_matrix(h["SC_QUAT0"], h["SC_QUAT1"], h["SC_QUAT2"], h["SC_QUAT3"])
         v = A.T @ trg
         v = v / np.linalg.norm(v)
-        ok = v[2] > 0.999
+        ok = v[2] > np.cos(np.radians(BORESIGHT_TOLERANCE_DEG))
         bad += 0 if ok else 1
         stem = f[:-9]
         ranges[stem] = float(np.linalg.norm(trg) * 1000)

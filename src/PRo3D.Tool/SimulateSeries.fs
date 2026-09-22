@@ -75,13 +75,21 @@ module Variant =
     let private known (microAmplitude : float) (name : string) =
         match name with
         | "delit"  -> Ok { name = "delit";  tag = "DELIT";  texture = true;  deshade = true;  micro = microAmplitude }
+        // DELITPLAIN is DELIT with the procedural micro-structure switched off and nothing
+        // else changed. Micro-structure is SHADING, not geometry: it perturbs the normal,
+        // casts no shadow and does not move the silhouette, so a reconstruction will
+        // happily turn it into relief the shape model does not have. A consumer who cannot
+        // afford that needs the frame without it, and pairing the two is what shows how
+        // much of a result came from it.
+        | "delitplain" ->
+            Ok { name = "delitplain"; tag = "DELITPLAIN"; texture = true; deshade = true; micro = 0.0 }
         // BAKED is DELIT with the division switched off and nothing else changed, which
         // is what makes the pair worth having: it is the only difference between them.
         | "baked"  -> Ok { name = "baked";  tag = "BAKED";  texture = true;  deshade = false; micro = microAmplitude }
         | "micro"  -> Ok { name = "micro";  tag = "MICRO";  texture = false; deshade = false; micro = microAmplitude }
         | "smooth" -> Ok { name = "smooth"; tag = "SMOOTH"; texture = false; deshade = false; micro = 0.0 }
         | other ->
-            Result.Error (sprintf "--variants: '%s' is not a variant; use any of delit, baked, micro, smooth" other)
+            Result.Error (sprintf "--variants: '%s' is not a variant; use any of delit, delitplain, baked, micro, smooth" other)
 
     let parse (spec : string) (microAmplitude : float) : Result<Variant list, string> =
         let names =
@@ -329,6 +337,13 @@ let run (o : SimulateSeriesOptions) : int =
     // the data saying so -- and a series that renders in one process has nothing to gain
     // from resuming.
     let variantDir (v : Variant) = Path.Combine(o.out, v.name)
+    // Where one frame goes. With --day-folders the variant folder is split by UTC date,
+    // which is what an 85-day set needs to stay navigable -- and is how the reference COP
+    // delivery is laid out. The stamp in the filename is unchanged either way, so a frame
+    // is still findable by epoch alone.
+    let frameDir (v : Variant) (t : DateTime) =
+        if o.dayFolders then Path.Combine(variantDir v, t.ToString "yyyy-MM-dd")
+        else variantDir v
     Directory.CreateDirectory o.out |> ignore
     for v in variants do
         let d = variantDir v
@@ -519,7 +534,9 @@ let run (o : SimulateSeriesOptions) : int =
 
             for (v, task) in tasks do
                 let stem = sprintf "%s_%s_%s" stemPrefix v.tag (time.ToString "yyyyMMdd_HHmmss")
-                let outPath = Path.Combine(variantDir v, stem + ".png")
+                let dir = frameDir v time
+                if o.dayFolders then Directory.CreateDirectory dir |> ignore
+                let outPath = Path.Combine(dir, stem + ".png")
 
                 // More warm-up than sun-angles on an OPC: the LOD tree descends one
                 // refinement per rendered frame. Cheap there -- after the first epoch the

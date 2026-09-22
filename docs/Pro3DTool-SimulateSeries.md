@@ -58,12 +58,23 @@ Four presets, ordered so that each adds exactly one thing to the one before it:
 | `--variants` | what it adds |
 |---|---|
 | `smooth` | constant albedo, micro-structure off — the bare shape |
+| `delitplain` | the de-lit texture **without** micro-structure (see below) |
 | `micro` | + procedural micro-structure, still no texture |
 | `baked` | + the real texture, **illumination and all** |
 | `delit` | + that baked illumination divided back out — the realistic frame |
 
 They share one camera and one exposure, so a neighbouring pair differs in exactly one
 thing, which is what makes a comparison mean anything.
+
+### Why `delitplain` exists
+
+Micro-structure is **shading, not geometry**: it perturbs the shading normal, casts no
+shadow and does not move the silhouette. A shape-from-shading or photogrammetric
+reconstruction will happily turn it into relief the shape model does not have.
+
+`delitplain` is `delit` with it switched off and nothing else changed, so a consumer who
+cannot afford invented detail has a frame without it — and the pair measures how much of a
+result came from it. Same camera, same exposure, same de-lit mosaic.
 
 ### Why `baked` exists
 
@@ -191,6 +202,8 @@ bug.
 | `--occluder-frame <name>` | its body-fixed frame (default `<body>_FIXED`) |
 | `--occluder-obj <file>`, `--occluder-obj-scale <v>` | its shape model; without one, a tessellation of its reference radii |
 | `--max-reprojection-error <px>` | how far a frame's own sidecar may sit from the camera that rendered it (default 0.1) |
+| `--day-folders` | split each variant folder by UTC date (`<variant>/yyyy-MM-dd/`) — an 85-day set is thousands of files and one flat directory is not navigable |
+| `--shadow-map <n>` | edge length of the sun-side depth maps (default 4096); see [`--shadow-bias`](./Pro3DTool-SimulateImage.md#-shadow-bias-was-measured-not-guessed) |
 | `--keep-going` | render the remaining epochs after a failure; still exits non-zero |
 
 ## Output

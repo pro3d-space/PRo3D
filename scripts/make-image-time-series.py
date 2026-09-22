@@ -88,9 +88,9 @@ import time
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pro3d_sim import (check_sidecars, dsk_render, list_layers, print_validation,
-                       run_tool, texture_index, tool_error, validate_series,
-                       write_scene)
+from pro3d_sim import (check_sidecars, dsk_render, frame_paths, list_layers,
+                       print_validation, run_tool, texture_index, tool_error,
+                       validate_series, write_scene)
 
 # Dimorphos' rotation period. Tidally locked to Didymos, 11.92 h after the DART impact
 # (Naidu et al. 2024) -- the pre-impact 11.92 h orbital period was shortened to ~11.37 h,
@@ -106,6 +106,10 @@ DEFAULT_START = "2027-03-21T13:00:00Z"
 # ProjectedImages.maxCount in src/PRo3D.Core/ProjectedImageList-Model.fs -- the shader's
 # uniform arrays are sized for it, so the viewer silently refuses layer 33.
 MAX_STACK = 32
+# Dimorphos' longest semi-axis, metres. Only a MARGIN for the pointing pre-flight, so that
+# an epoch where the body clips the edge of the frame is kept rather than dropped; the tool
+# makes the real decision from the shape model's own bounding box.
+TARGET_RADIUS_M = 90.0
 
 
 def parse_iso(s):
@@ -151,6 +155,8 @@ def mk_identifier(path):
 
 
 VARIANTS = {
+    "delitplain": "the de-lit DRACO mosaic WITHOUT procedural micro-structure: the shape "
+                  "model relief and nothing invented",
     # One line each. The detail belongs in the README's prose, not repeated per folder.
     # alphabetical in the listing, so baked/ must stand on its own and delit/ refers back
     "baked":  "DRACO image where available, rest filled with random texture. Since the "
@@ -282,9 +288,14 @@ def preflight(epochs, kernel, instrument, target, observer):
             # the FOV's own bounds, rather than a number repeated from the docs
             code = sp.bodn2c(instrument)
             _, _, bore, _, bounds = sp.getfov(code, 8)
-            half = max(np.degrees(np.arccos(np.clip(np.dot(b / np.linalg.norm(b),
-                                                           bore / np.linalg.norm(bore)), -1, 1)))
-                       for b in bounds)
+            # AFC's FOV is a SQUARE, and the angle to a corner (3.886 deg) is not the angle
+            # to an edge (2.750 deg). Testing against the corner as a cone accepts epochs
+            # the tool then refuses -- which, without --keep-going, aborted the run. Take
+            # the per-axis half-angles from the bounds instead, which is the frustum the
+            # renderer actually builds.
+            tx = max(abs(b[0] / b[2]) for b in bounds)
+            ty = max(abs(b[1] / b[2]) for b in bounds)
+            half = float(np.degrees(np.arctan(max(tx, ty))))
         except Exception:
             return None, None, "could not read %s's FOV from the kernels" % instrument
         angles = {}
@@ -292,9 +303,18 @@ def preflight(epochs, kernel, instrument, target, observer):
             try:
                 et = sp.str2et(iso(e).replace("Z", ""))
                 pos, _ = sp.spkpos(target, et, "J2000", "NONE", observer)
-                d = pos / np.linalg.norm(pos)
-                b = sp.pxform(instrument, "J2000", et) @ np.array([0.0, 0.0, 1.0])
-                angles[iso(e)] = float(np.degrees(np.arccos(np.clip(np.dot(b, d), -1, 1))))
+                r = np.linalg.norm(pos)
+                v = sp.pxform("J2000", instrument, et) @ (pos / r)
+                if v[2] <= 0.0:
+                    angles[iso(e)] = 180.0            # behind the camera
+                    continue
+                # How far outside the square frustum the body CENTRE is, in degrees, with
+                # its own angular radius allowed: the tool keeps a body that clips an edge,
+                # so dropping one here would throw away a frame it would have rendered.
+                margin = np.degrees(np.arctan(TARGET_RADIUS_M / (r * 1000.0)))
+                ax = np.degrees(np.arctan(abs(v[0] / v[2])))
+                ay = np.degrees(np.arctan(abs(v[1] / v[2])))
+                angles[iso(e)] = float(max(ax, ay) - margin)
             except Exception:
                 angles[iso(e)] = None      # no attitude or no ephemeris: let the tool say so
         return angles, float(half), None
@@ -409,7 +429,7 @@ def what_variants(lit):
     """The paragraph describing the lit variant folders of THIS series."""
     out = (WHAT_VARIANTS["many"].format(n=len(lit)) if len(lit) > 1
            else WHAT_VARIANTS["one"].format(only=(lit or ["(none)"])[0]))
-    textured = [v for v in lit if v in ("delit", "baked")]
+    textured = [v for v in lit if v in ("delit", "delitplain", "baked")]
     return out + (WHAT_VARIANTS["texture"] if len(textured) == 2
                   else "" if textured else WHAT_VARIANTS["noTexture"])
 
@@ -450,6 +470,10 @@ def main():
                          "limb; without it a tessellation of its reference radii is used")
     ap.add_argument("--occluder-obj-scale", default="1000",
                     help="metres per --occluder-obj file unit (default 1000)")
+    ap.add_argument("--day-folders", action="store_true",
+                    help="split each variant folder by UTC date (<variant>/yyyy-MM-dd/). "
+                         "An 85-day set is thousands of files and one flat directory is "
+                         "neither navigable nor what the reference deliveries look like")
     ap.add_argument("--occluder-in-scene", action="store_true",
                     help="draw the occluder in the image too, not only as a shadow caster: "
                          "both bodies then go through one sun and one photometry")
@@ -490,13 +514,14 @@ def main():
     ap.add_argument("--distance", default=None,
                     help="camera range override in metres; default is the spacecraft's real range")
     ap.add_argument("--variants", default="delit,baked,micro,smooth",
-                    help="which variants to render, comma-separated (default delit,baked,micro,smooth). "
+                    help="which variants to render, comma-separated (default delit,baked,micro,smooth); "
+                         "'delitplain' is delit without the micro-structure. "
                          "'spice' adds an independent reference ray-cast from SPICE's own DSK "
                          "shape model -- same epochs, same camera, no PRo3D code involved")
     ap.add_argument("--stack-count", type=int, default=15,
                     help="how many frames to copy into <out>/stack/ (default 15, cap %d)" % MAX_STACK)
     ap.add_argument("--stack-variant", default="delit",
-                    choices=["delit", "baked", "micro", "smooth"],
+                    choices=["delit", "delitplain", "baked", "micro", "smooth"],
                     help="which variant the stack subset takes (default delit)")
     ap.add_argument("--texture-layer", default="DRACO_2",
                     help="texture layer the scene displays under the projection (default DRACO_2)")
@@ -552,9 +577,11 @@ def main():
     span = (epochs[-1] - epochs[0]).total_seconds() / 3600.0
 
     variants = [v.strip().lower() for v in a.variants.split(",") if v.strip()]
-    unknown = [v for v in variants if v not in ("micro", "smooth", "delit", "baked", "spice")]
+    unknown = [v for v in variants
+               if v not in ("micro", "smooth", "delit", "delitplain", "baked", "spice")]
     if unknown or not variants:
-        print("--variants takes any of delit, baked, micro, smooth, spice -- got %s" % a.variants)
+        print("--variants takes any of delit, delitplain, baked, micro, smooth, spice -- got %s"
+              % a.variants)
         return 2
 
     # Exactly one shape model. With both there is no answer to "which body is this frame
@@ -575,7 +602,7 @@ def main():
     # refuses them: an untextured `delit` frame is pixel for pixel a `micro` frame, and
     # nothing in the delivery would say so.
     if a.obj and not a.obj_texture:
-        textured = [v for v in variants if v in ("delit", "baked")]
+        textured = [v for v in variants if v in ("delit", "delitplain", "baked")]
         if textured:
             print("--obj carries no texture, so %s cannot be rendered from it "
                   "(they would be identical to micro). Pass --obj-texture, or "
@@ -723,7 +750,15 @@ def main():
             "--gain", a.gain,
             "--micro-scale", a.micro_scale,
             "--micro-amplitude", a.micro_amplitude,
+            # The pre-flight above and the tool's own test are not identical -- the tool
+            # projects the shape model's bounding box, this projects a sphere around the
+            # body centre -- so a handful of epochs can still be refused at render time.
+            # Over 85 days that must not abort the run; the verb still exits non-zero and
+            # names every frame it could not render, and series.json records them.
+            "--keep-going",
         ]
+        if a.day_folders:
+            args += ["--day-folders"]
         if not a.obj:
             # --deshade-layer drives both the fit and the divisor; DELIT is the only
             # variant that uses it, and the other two never sample the texture. A mesh
@@ -793,20 +828,23 @@ def main():
     # validator report "nothing to validate against" -- and left the README claiming one
     # epoch over a folder holding forty-eight.
     rendered = []
+    paths = {}
     for v in sorted(VARIANTS):
         d = os.path.join(a.out, v)
         if not os.path.isdir(d):
             continue
-        for f in sorted(os.listdir(d)):
-            if f.startswith("AFC1_") and f.endswith(".png"):
-                st = f[:-4]
-                bits = st.split("_")
-                if len(bits) < 4:
-                    continue
-                day, hms = bits[-2], bits[-1]
-                t = "%s-%s-%sT%s:%s:%sZ" % (day[0:4], day[4:6], day[6:8],
-                                            hms[0:2], hms[2:4], hms[4:6])
-                rendered.append((st, t, v))
+        # walks day folders as well as a flat one, so --day-folders needs no second path
+        for st, full in sorted(frame_paths(d).items()):
+            if not st.startswith("AFC1_"):
+                continue
+            bits = st.split("_")
+            if len(bits) < 4:
+                continue
+            day, hms = bits[-2], bits[-1]
+            t = "%s-%s-%sT%s:%s:%sZ" % (day[0:4], day[4:6], day[6:8],
+                                        hms[0:2], hms[2:4], hms[4:6])
+            rendered.append((st, t, v))
+            paths[(v, st)] = full
     variants = sorted({v for (_, _, v) in rendered}) or variants
     vdir = {v: os.path.join(a.out, v) for v in variants}
     times = sorted({t for (_, t, _) in rendered})
@@ -845,8 +883,13 @@ def main():
             # .png.json, not .json: --write-mbi names the statistics sidecar after the
             # image file, extension included. Copying "<stem>.json" silently copies
             # nothing and the subset arrives without the pixel size unproject needs.
-            for ext in (".png", ".mbi.json", ".png.json"):
-                src = os.path.join(vdir[a.stack_variant], stem + ext)
+            base = paths.get((a.stack_variant, stem))
+            if not base:
+                continue
+            root = base[:-4]                     # drop ".png"; the sidecars sit beside it
+            for ext, src in ((".png", base),
+                             (".mbi.json", root + ".mbi.json"),
+                             (".png.json", base + ".json")):
                 if os.path.exists(src):
                     shutil.copy2(src, os.path.join(stack_dir, stem + ext))
         first, last = chosen[0][1], chosen[-1][1]
@@ -872,8 +915,10 @@ def main():
             # and the scene clock with it, so the sun matches what that frame saw
             mid_stem, mid_iso = chosen[len(chosen) // 2]
             scene = os.path.join(a.out, "ImageSeries.pro3d")
+            # from the STACK copy, which is flat whatever --day-folders did to the
+            # variant folders -- and is the frame the scene's camera is placed on anyway
             write_scene(a.scene_template, scene, a.opc, a.texture_layer, idx,
-                        os.path.join(vdir[a.stack_variant], mid_stem + ".mbi.json"),
+                        os.path.join(stack_dir, mid_stem + ".mbi.json"),
                         mid_iso.replace("Z", ".0000000Z"),
                         a.kernel_root or os.environ.get("PRO3D_SPICE_KERNELS"), a.kernel)
             print("wrote %s (texture %s index %d, camera on %s)"
