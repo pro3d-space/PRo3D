@@ -119,6 +119,34 @@ is unlit and he is shaded, so the two have no directly comparable region — onl
 separate agreement with us can be measured, and both are within a few degrees once each is
 compared on its own footing.
 
+### Kernel deliveries: ruled out, for two of the three
+
+The three renderers use three deliveries:
+
+| | delivery |
+|---|---|
+| comet-toolbox | `v182 plan 20260805_001` |
+| Pilucas | `hera_plan_v182_20260817_001` (HERA_4-5_Kernels_2026-08-19) |
+| ours | `hera_plan_v182_20260820_001` |
+
+Asked of SPICE directly rather than through a render, hers and ours are **numerically
+identical** at all five comparison epochs:
+
+| quantity | difference |
+|---|---|
+| HERA→Dimorphos range | 0.00 m |
+| range direction | 0.000000° |
+| J2000 → HERA_AFC-1 | 0.000000° |
+| J2000 → DIMORPHOS_FIXED | 0.000000° (one epoch 0.000001°) |
+
+So the delivery cannot explain anything between us and Pilucas. What is left is the shape
+model and the rendering method.
+
+comet-toolbox's `20260805` is not on this machine and remains untested. Two consecutive
+v182 deliveries being bit-identical in this window makes a third likely to be as well, but
+that is an expectation, not a measurement — and it is the one loose end behind the
+ours-vs-comet numbers in (b).
+
 ### (c) 11:30 is an eclipse, and we get it wrong
 
 comet-toolbox renders 2027-02-25T11:30 **black**. It is right to: Dimorphos is inside
