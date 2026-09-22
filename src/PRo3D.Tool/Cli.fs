@@ -176,6 +176,12 @@ type SimulateImageOptions =
         [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002); raise against acne, lower against peter-panning")>]
         shadowBias : float
 
+
+        [<Option("occluder-body", HelpText = "The other body of a binary, cast as a shadow onto the target -- 'DIDYMOS' when rendering Dimorphos. The scene holds only the target, so without this an eclipsed epoch renders as full daylight; Dimorphos is inside Didymos' umbra for ~12 %% of the close-orbit phase. Empty (default) disables it.")>]
+        occluderBody : string
+
+        [<Option("occluder-frame", HelpText = "Body-fixed frame of --occluder-body (default: <body>_FIXED)")>]
+        occluderFrame : string
         [<Option("pointing", HelpText = "Where the camera orientation comes from: 'ck' (default) uses the spacecraft's measured/planned attitude and FAILS if the kernels have none at this epoch; 'lookat' aims the boresight at the body centre with an up-vector roll convention. 'ck' can legitimately produce no image -- if the instrument was pointed elsewhere, the body is not in the frame, and that is the answer, not a fault.")>]
         pointing : string
     }
@@ -271,6 +277,13 @@ type SimulateSeriesOptions =
 
         [<Option("max-reprojection-error", Default = 0.1, HelpText = "How far, in pixels, the camera reconstructed from a frame's own sidecar may sit from the camera that rendered it before the frame counts as failed (default 0.1). This is checked for EVERY frame: a sidecar that does not reproduce its own render makes the frame unusable for projection, and finding that out later costs the whole series.")>]
         maxReprojectionError : float
+
+
+        [<Option("occluder-body", HelpText = "The other body of a binary, cast as a shadow onto the target -- 'DIDYMOS' when rendering Dimorphos. The scene holds only the target, so without this an eclipsed epoch renders as full daylight; Dimorphos is inside Didymos' umbra for ~12 %% of the close-orbit phase. Empty (default) disables it.")>]
+        occluderBody : string
+
+        [<Option("occluder-frame", HelpText = "Body-fixed frame of --occluder-body (default: <body>_FIXED)")>]
+        occluderFrame : string
 
         [<Option("keep-going", HelpText = "Render the remaining epochs after a failure instead of stopping. The run still exits non-zero and names every frame that failed.")>]
         keepGoing : bool

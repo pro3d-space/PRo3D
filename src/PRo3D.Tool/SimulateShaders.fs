@@ -55,6 +55,16 @@ type UniformScope with
     /// it out -- an approximation with a confidence weight and a constant-albedo
     /// fallback, none of which belongs in an image meant as a registration reference.
     member x.TextureOnly : bool = uniform?TextureOnly
+    /// Cast the shadow of a second body -- the primary of a binary -- onto this one.
+    member x.EclipseEnabled : bool = uniform?EclipseEnabled
+    /// Centre of the occluding body in THIS body's fixed frame, metres.
+    member x.OccluderCentre : V3f = uniform?OccluderCentre
+    /// Maps a body-fixed offset into a space where the occluder is the unit sphere, so
+    /// the triaxial ellipsoid test becomes a ray/sphere test.
+    member x.OccluderToUnit : M33f = uniform?OccluderToUnit
+    /// Half-width of the penumbra in occluder radii: the Sun is not a point, so the
+    /// umbra boundary is a gradient rather than an edge.
+    member x.EclipseSoftness : float32 = uniform?EclipseSoftness
 
 type SimVertex =
     {
@@ -275,7 +285,30 @@ let simulatedImage (v : SimVertex) =
             else
                 1.0f
 
-        let lit = albedo * disk * shadow
+        // Eclipse by the other body of the binary. The scene holds only the target, so
+        // nothing in it can cast this shadow -- and Dimorphos sits inside Didymos' umbra
+        // for ~12 % of the close-orbit phase, which was rendered as full daylight.
+        //
+        // The occluder is a triaxial ellipsoid taken from the kernel pool's RADII.
+        // Transforming the fragment-to-Sun ray into the space where that ellipsoid is the
+        // unit sphere turns the test into a ray/sphere intersection, which is a dot
+        // product and a square root rather than a second shadow map over a 2 km scene.
+        let eclipse =
+            if uniform.EclipseEnabled then
+                let o = uniform.OccluderToUnit * (pBody - uniform.OccluderCentre)
+                let d = uniform.OccluderToUnit * uniform.SunDirectionWorld
+                let b = Vec.dot o d
+                // b >= 0 means the Sun is on the near side: the occluder is behind the
+                // fragment and cannot shadow it.
+                if b >= 0.0f then 1.0f
+                else
+                    let closest = sqrt (max 0.0f (Vec.dot o o - b * b / Vec.dot d d))
+                    smoothstep (1.0f - uniform.EclipseSoftness)
+                               (1.0f + uniform.EclipseSoftness) closest
+            else
+                1.0f
+
+        let lit = albedo * disk * shadow * eclipse
         let iOverF = uniform.AmbientFloor * albedo + (1.0f - uniform.AmbientFloor) * lit
         return V4f(iOverF, iOverF, iOverF, 1.0f)
     }

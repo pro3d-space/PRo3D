@@ -632,6 +632,66 @@ let cameraFromMbi (observer : string) (frame : string) (body : string)
 
 // ---------------------------------------------------------------------------------
 
+/// The other body of a binary, as a shadow caster.
+///
+/// Dimorphos is inside Didymos' umbra for ~12 % of the close-orbit phase, and the scene
+/// holds only the target body, so nothing in it casts that shadow. Rather than load the
+/// primary's OPC and grow the sun-side depth map from 180 m to 2 km -- losing an order of
+/// magnitude of resolution on the target's own self-shadowing -- the occluder is carried
+/// as the reference ellipsoid and tested analytically in the shader.
+///
+/// The penumbra at this separation is ~9 m across a 177 m body, so the approximation is
+/// well inside what the geometry can resolve: the ellipsoid misses the real shape by tens
+/// of metres, which moves ingress and egress by seconds.
+type EclipseOccluder =
+    {
+        /// centre of the occluding body in the target's body-fixed frame, metres
+        centre : V3d
+        /// body-fixed offset -> a space where the occluder is the unit sphere
+        toUnit : M33d
+        /// half-width of the penumbra, in occluder radii
+        softness : float
+    }
+
+module EclipseOccluder =
+
+    /// Radii are not readable through CooTransformation, which exposes no kernel-pool
+    /// access (no `bodvrd`) -- the same gap that keeps the instrument FOVs hardcoded. See
+    /// #801. These are DIDYMOS' RADII from the HERA kernel pool, in metres.
+    let didymosRadii = V3d(409.5, 400.5, 303.5)
+
+    /// Where the occluder sits relative to the target, and how big it looks, at one epoch.
+    /// Returns None when SPICE cannot place or orient it, so a missing kernel degrades to
+    /// "no eclipse" rather than to a wrong one.
+    let at (occluder : string) (occluderFrame : string) (radii : V3d)
+           (target : string) (targetFrame : string) (time : DateTime) : Option<EclipseOccluder> =
+        match CooTransformation.getRelState occluder "SUN" target time targetFrame,
+              CooTransformation.getRotationTrafo targetFrame occluderFrame time with
+        | Some st, Some toOccluder ->
+            let centre = st.pos
+            let d = centre.Length
+            if d <= 0.0 || not (Double.IsFinite d) then None
+            else
+                // diag(1/r) * R: rotate into the occluder's own frame, then scale each
+                // axis by its radius, and the ellipsoid becomes the unit sphere.
+                let r = toOccluder.Forward
+                let toUnit =
+                    M33d(r.M00 / radii.X, r.M01 / radii.X, r.M02 / radii.X,
+                         r.M10 / radii.Y, r.M11 / radii.Y, r.M12 / radii.Y,
+                         r.M20 / radii.Z, r.M21 / radii.Z, r.M22 / radii.Z)
+                // The Sun's angular radius seen from here, expressed in occluder radii:
+                // the umbra edge is a gradient this wide rather than a step.
+                let sunRadius = 695700000.0
+                let sunDistance =
+                    match CooTransformation.getRelState "SUN" "SUN" target time targetFrame with
+                    | Some sun when sun.pos.Length > 0.0 -> sun.pos.Length
+                    | _ -> 1.6 * 1.495978707e11
+                let meanRadius = (radii.X + radii.Y + radii.Z) / 3.0
+                Some { centre = centre
+                       toUnit = toUnit
+                       softness = (sunRadius / sunDistance) * d / meanRadius }
+        | _ -> None
+
 /// Everything the shading shader needs that is neither the camera nor the epoch.
 ///
 /// Lifted out of the options record so `simulate-image` and `simulate-series` drive the
@@ -671,7 +731,7 @@ module ShadingParams =
 /// need a scale factor out of it, and which mode is wanted is `p`'s business alone. A
 /// missing fit therefore falls back to the constant albedo in either mode, rather than
 /// rendering a texture at an arbitrary brightness.
-let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>)
+let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>) (eclipse : aval<Option<EclipseOccluder>>)
                  (shadowViewProj : aval<M44d>) (shadowDepth : aval<ITexture>) (sg : ISg) =
     sg
     |> SunAnglesVerb.withOpcScaffolding
@@ -691,6 +751,13 @@ let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>)
     |> Sg.uniform' "AmbientFloor" (float32 p.ambient)
     |> Sg.uniform' "NoLighting" p.noLighting
     |> Sg.uniform' "TextureOnly" p.textureOnly
+    |> Sg.uniform "EclipseEnabled" (eclipse |> AVal.map Option.isSome)
+    |> Sg.uniform "OccluderCentre" (eclipse |> AVal.map (fun e ->
+           V3f (e |> Option.map (fun x -> x.centre) |> Option.defaultValue V3d.Zero)))
+    |> Sg.uniform "OccluderToUnit" (eclipse |> AVal.map (fun e ->
+           M33f (e |> Option.map (fun x -> x.toUnit) |> Option.defaultValue M33d.Identity)))
+    |> Sg.uniform "EclipseSoftness" (eclipse |> AVal.map (fun e ->
+           float32 (e |> Option.map (fun x -> x.softness) |> Option.defaultValue 0.0)))
 
 /// The shader stack of the shaded body. Order is load-bearing -- see the comment inside.
 let shadedShaders (sg : ISg) =
@@ -872,6 +939,25 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                     Log.warn "[deshade] falling back to constant albedo %.2f" o.albedo
                     None
 
+    // The other body of the binary, if one was named: without it an eclipsed epoch
+    // renders as full daylight.
+    let eclipse =
+        if String.IsNullOrWhiteSpace o.occluderBody then None
+        else
+            let occFrame =
+                if String.IsNullOrWhiteSpace o.occluderFrame then o.occluderBody + "_FIXED"
+                else o.occluderFrame
+            match EclipseOccluder.at o.occluderBody occFrame EclipseOccluder.didymosRadii
+                                    body frame time with
+            | Some e ->
+                Log.line "[eclipse] %s is %.3f km away, penumbra %.3f radii"
+                    o.occluderBody (e.centre.Length / 1000.0) e.softness
+                Some e
+            | None ->
+                Log.warn "[eclipse] could not place %s at this epoch -- no eclipse applied"
+                    o.occluderBody
+                None
+
     let projectedImages : aval<Option<Sg.ProjectedImages>> =
         // Must go through this record, not Sg.uniform': projectionUniformMap installs
         // SunDirectionWorld as a PER-PATCH uniform sourced from here, and being deeper in
@@ -1005,7 +1091,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                     (if useStackShader then "STACK" else "single-image")
                 if useStackShader then projectedStackSg imagePath else projectedSg imagePath
              | None -> shaded)
-            |> applyShading (ShadingParams.ofSimulateImage o) deshade
+            |> applyShading (ShadingParams.ofSimulateImage o) deshade (AVal.constant eclipse)
                    (AVal.constant shadowMap.viewProj.Forward) (AVal.constant shadowMap.depth)
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)

@@ -360,6 +360,15 @@ let run (o : SimulateSeriesOptions) : int =
     let projC = cval Trafo3d.Identity
     let sunC  = cval (None : Option<V3d>)
     let imageProjC = cval (None : Option<Trafo3d>)
+    // The occluding body moves relative to the target, so this is per epoch like the sun.
+    let eclipseC = cval (None : Option<EclipseOccluder>)
+    let occluderFrame =
+        if String.IsNullOrWhiteSpace o.occluderFrame then o.occluderBody + "_FIXED"
+        else o.occluderFrame
+    if not (String.IsNullOrWhiteSpace o.occluderBody) then
+        Log.line "[eclipse] %s cast onto %s as a triaxial ellipsoid (%.1f x %.1f x %.1f m)"
+            o.occluderBody body
+            EclipseOccluder.didymosRadii.X EclipseOccluder.didymosRadii.Y EclipseOccluder.didymosRadii.Z
 
     let projectedImages : aval<Option<Sg.ProjectedImages>> =
         // Must go through this record, not Sg.uniform': projectionUniformMap installs
@@ -408,7 +417,7 @@ let run (o : SimulateSeriesOptions) : int =
                 // constant albedo.
                 let sg =
                     shadedShaders opc
-                    |> applyShading shading deshade shadow.viewProj shadow.depth
+                    |> applyShading shading deshade (eclipseC :> aval<_>) shadow.viewProj shadow.depth
                     |> Sg.viewTrafo viewC
                     |> Sg.projTrafo projC
                 v, runtime.CompileRender(target.signature, sg))
@@ -453,11 +462,17 @@ let run (o : SimulateSeriesOptions) : int =
                     Log.warn "output %dx%d (ratio %.3f) does not match %s's frustum aspect %.3f -- the images will be stretched"
                         size.X size.Y (float size.X / float size.Y) instrument cam.aspect
 
+            let occluder =
+                if String.IsNullOrWhiteSpace o.occluderBody then None
+                else EclipseOccluder.at o.occluderBody occluderFrame
+                                        EclipseOccluder.didymosRadii body frame time
+
             transact (fun () ->
                 viewC.Value <- cam.view
                 projC.Value <- cam.proj
                 sunC.Value <- Some sun
-                imageProjC.Value <- Some (cam.view * cam.proj))
+                imageProjC.Value <- Some (cam.view * cam.proj)
+                eclipseC.Value <- occluder)
 
             // The sun moves between epochs, so the depth map does too.
             shadow.update sun
