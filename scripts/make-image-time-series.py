@@ -109,7 +109,21 @@ MAX_STACK = 32
 # Dimorphos' longest semi-axis, metres. Only a MARGIN for the pointing pre-flight, so that
 # an epoch where the body clips the edge of the frame is kept rather than dropped; the tool
 # makes the real decision from the shape model's own bounding box.
-TARGET_RADIUS_M = 90.0
+TARGET_RADIUS_M = 57.6
+# The body's SMALLEST semi-axis, metres, from the shape models' bounding boxes
+# (Dimorphos 179.5 x 169.4 x 115.2, Didymos 823.7 x 801.2 x 606.9).
+#
+# The smallest, not the largest and not the bounding-box diagonal, because this margin
+# decides whether an epoch is worth rendering and the question is "is the target certainly
+# IN the frame". A sphere of the smallest semi-axis fits inside the body whatever its
+# orientation, so a centre within (corner half-angle + that radius) guarantees the limb is
+# inside the frustum.
+#
+# Using the diagonal instead let through frames where Didymos -- 650 m across the diagonal
+# and only 5 km away, so nearly 7 deg of angular radius -- was entirely outside the field,
+# and the only thing in the image was the in-scene companion. The frame then claimed a
+# TARGET it did not show.
+PREFLIGHT_RADIUS_M = {"DIMORPHOS": 57.6, "DIDYMOS": 303.5}
 
 
 def parse_iso(s):
@@ -259,7 +273,7 @@ def spice_frame(kernel, utc, out, gain, albedo):
             pass
 
 
-def preflight(epochs, kernel, instrument, target, observer):
+def preflight(epochs, kernel, instrument, target, observer, target_radius=None):
     """Which epochs actually have the instrument pointed at the target.
 
     The camera follows the CK, so an epoch where the spacecraft was observing something
@@ -272,6 +286,11 @@ def preflight(epochs, kernel, instrument, target, observer):
     requirement.
 
     Returns (angles, halffov, None) or (None, None, reason-it-was-skipped).
+
+    `angles` is NOT an angle from the boresight. It is how far the body's nearest limb
+    falls OUTSIDE the frustum edge, in degrees -- negative when the body is comfortably
+    inside. That is the quantity the caller filters on, and calling it a boresight offset
+    in the log said something untrue about frames where the body is simply large.
     """
     try:
         import spiceypy as sp
@@ -311,7 +330,9 @@ def preflight(epochs, kernel, instrument, target, observer):
                 # How far outside the square frustum the body CENTRE is, in degrees, with
                 # its own angular radius allowed: the tool keeps a body that clips an edge,
                 # so dropping one here would throw away a frame it would have rendered.
-                margin = np.degrees(np.arctan(TARGET_RADIUS_M / (r * 1000.0)))
+                radius = (target_radius if target_radius
+                          else PREFLIGHT_RADIUS_M.get(target, TARGET_RADIUS_M))
+                margin = np.degrees(np.arctan(radius / (r * 1000.0)))
                 ax = np.degrees(np.arctan(abs(v[0] / v[2])))
                 ay = np.degrees(np.arctan(abs(v[1] / v[2])))
                 angles[iso(e)] = float(max(ax, ay) - margin)
@@ -481,6 +502,16 @@ def main():
                     help="image to drape on --obj, for the delit/baked variants. The .png "
                          "beside each .bds in the kernel set is a PREVIEW RENDER, not a map")
     ap.add_argument("--out", required=True, help="where to write the series")
+    ap.add_argument("--body", default="DIMORPHOS",
+                    help="SPICE body being imaged (default DIMORPHOS). Use DIDYMOS with a "
+                         "Didymos shape model to cover the epochs where AFC-1 is pointed at "
+                         "the primary instead")
+    ap.add_argument("--frame", default=None,
+                    help="its body-fixed frame (default <body>_FIXED)")
+    ap.add_argument("--target-radius", type=float, default=None,
+                    help="the body's smallest semi-axis, metres; only a margin for the "
+                         "pointing pre-flight, and the smallest is what guarantees the "
+                         "target is actually in frame. Defaults per body")
     ap.add_argument("--start", default=DEFAULT_START,
                     help="first epoch, ISO-8601 UTC (default %s); must lie inside the "
                          "loaded kernels' coverage" % DEFAULT_START)
@@ -555,6 +586,9 @@ def main():
                     help="print the OPC's texture layers and exit")
     a = ap.parse_args()
 
+    if not a.frame:
+        a.frame = a.body + "_FIXED"
+
     try:
         start = parse_iso(a.start)
     except ValueError:
@@ -624,7 +658,7 @@ def main():
     shape = ["--obj", a.obj, "--obj-scale", a.obj_scale] if a.obj else ["--opc", a.opc]
     if a.obj and a.obj_texture:
         shape += ["--obj-texture", a.obj_texture]
-    common = shape + ["--body", "DIMORPHOS", "--frame", "DIMORPHOS_FIXED",
+    common = shape + ["--body", a.body, "--frame", a.frame,
                       "--observer", "HERA", "--instrument", "HERA_AFC-1"]
     # The occluder goes only to the RENDER, never to the scene or layer queries: it is a
     # shadow caster, not part of the body being imaged.
@@ -687,7 +721,8 @@ def main():
     # instrument was observing something else cannot produce a frame -- drop them here,
     # visibly, instead of rendering into a guaranteed failure at the end of a long run.
     offtarget = []
-    angles, halffov, why = preflight(epochs, kernel, "HERA_AFC-1", "DIMORPHOS", "HERA")
+    angles, halffov, why = preflight(epochs, kernel, "HERA_AFC-1", a.body, "HERA",
+                                     a.target_radius)
     if angles is None:
         print("pointing pre-flight skipped (%s); the tool still checks each frame" % why)
     else:
@@ -699,20 +734,21 @@ def main():
             else:
                 keep.append(e)
         if offtarget:
-            print("pointing: %d of %d epochs are OFF TARGET (%s half-FOV %.3f deg) and are excluded:"
+            print("pointing: %d of %d epochs are OFF TARGET (%s frustum edge %.3f deg) and are excluded:"
                   % (len(offtarget), len(epochs), "HERA_AFC-1", halffov))
             for t, ang in offtarget[:6]:
-                print("   %s  boresight %.3f deg off DIMORPHOS" % (t, ang))
+                print("   %s  %.3f deg outside the field" % (t, ang))
             if len(offtarget) > 6:
                 print("   ... and %d more" % (len(offtarget) - 6))
             print("   (the instrument was pointed elsewhere; these epochs cannot be rendered)")
         if not keep:
-            print("\nno epoch in this range has HERA_AFC-1 pointed at DIMORPHOS -- nothing to render.")
+            print("\nno epoch in this range has HERA_AFC-1 pointed at %s -- nothing to render."
+                  % a.body)
             return 2
         epochs = keep
         count = len(epochs)
         span = (epochs[-1] - epochs[0]).total_seconds() / 3600.0
-        print("pointing: %d epochs on target (max %.3f deg off, half-FOV %.3f deg)"
+        print("pointing: %d epochs on target (worst limb %.3f deg from the edge, edge at %.3f deg)"
               % (count, max((angles[iso(e)] or 0.0) for e in epochs), halffov))
     print("rendering %d frame(s) per epoch into %s" % (len(variants), ", ".join(sorted(vdir))))
 
@@ -864,8 +900,11 @@ def main():
 
     print("\nsidecar check -- A^T*TRG_POS must be close to (0, 0, +1):")
     bad, ranges = 0, {}
+    # the bounding-box half-diagonal here, not the inscribed radius above: this check
+    # must not reject a frame the renderer was right to produce
+    radius = {"DIMORPHOS": 136.0, "DIDYMOS": 650.0}.get(a.body, 136.0)
     for v in sorted(vdir):
-        b, r = check_sidecars(vdir[v])
+        b, r = check_sidecars(vdir[v], target_radius_m=radius)
         bad += b
         ranges.update(r)
 
@@ -954,7 +993,7 @@ def main():
             "opcProduct": shape_product if not a.obj else None,
         },
         "observation": {
-            "body": "DIMORPHOS", "frame": "DIMORPHOS_FIXED",
+            "body": a.body, "frame": a.frame,
             "observer": "HERA", "instrument": "HERA_AFC-1",
             "imageSize": [1020, 1020],
             "textureLayer": a.texture_layer,
@@ -1004,7 +1043,7 @@ def main():
         ],
         "issues": {
             "failed": [{"time": t, "variant": v, "error": w} for (t, v, w) in failed],
-            "skippedOffTarget": [{"time": t, "boresightOffDeg": round(ang, 4)}
+            "skippedOffTarget": [{"time": t, "degOutsideField": round(ang, 4)}
                                  for (t, ang) in offtarget],
         },
     }
@@ -1030,7 +1069,7 @@ def main():
     rs = [v for v in ranges.values() if v]
     readme = os.path.join(a.out, "README.md")
     write_readme(readme,
-                 instrument="HERA_AFC-1", body="DIMORPHOS", frame="DIMORPHOS_FIXED",
+                 instrument="HERA_AFC-1", body=a.body, frame=a.frame,
                  observer="HERA", generated=manifest["generated"],
                  kernel=kernel or "(tool default)", mkid=mkid or "UNKNOWN -- record it by hand",
                  shapekind="Wavefront OBJ" if a.obj else "OPC",

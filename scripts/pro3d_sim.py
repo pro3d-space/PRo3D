@@ -119,7 +119,7 @@ BORESIGHT_CORNER_DEG = 3.886
 BORESIGHT_TARGET_RADIUS_M = 136.0
 
 
-def check_sidecars(folder, quiet=False):
+def check_sidecars(folder, quiet=False, target_radius_m=None):
     """A^T * TRG_POS must point INTO THE FIELD OF VIEW, i.e. near (0, 0, +1).
 
     The check a real delivery can fail -- the HERA COP set conjugates the quaternion,
@@ -139,7 +139,8 @@ def check_sidecars(folder, quiet=False):
         v = A.T @ trg
         v = v / np.linalg.norm(v)
         rng_m = float(np.linalg.norm(trg)) * 1000.0
-        tol = np.radians(BORESIGHT_CORNER_DEG) + np.arctan(BORESIGHT_TARGET_RADIUS_M / max(1.0, rng_m))
+        radius = BORESIGHT_TARGET_RADIUS_M if target_radius_m is None else target_radius_m
+        tol = np.radians(BORESIGHT_CORNER_DEG) + np.arctan(radius / max(1.0, rng_m))
         ok = v[2] > np.cos(tol)
         bad += 0 if ok else 1
         stem = f[:-9]
