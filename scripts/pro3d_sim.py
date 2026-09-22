@@ -425,3 +425,76 @@ def print_validation(v):
             print("   %s %-7s %+.3f" % (w["time"], w["variant"], w["correlation"]))
     print("\nPASS: every pair aligns best under identity (%d weak of %d)"
           % (len(v["weak"]), v["checked"]))
+
+
+# ---------------------------------------------------------------------------------
+# Comparing a rendered frame against another renderer's.
+#
+# Silhouette overlap, not correlation of grey levels: two renderers using different shape
+# models disagree pixel by pixel whatever the orientation, so the grey-level correlation
+# says nothing (measured: all eight dihedral transforms negative on frames that overlap at
+# IoU 0.9). The outline is what carries the geometry.
+#
+# Compare like with like. A renderer that shades has a terminator and its mask is the LIT
+# region; one that does not light its output has no dark side and its mask is the whole
+# body. Comparing our crescent against a full disk measures nothing.
+
+def largest_blob(mask):
+    """The biggest connected component, so a cursor or a UI element cannot join the body."""
+    from collections import deque
+    if not mask.any():
+        return mask
+    lab = np.zeros(mask.shape, np.int32)
+    best, best_id, cur = 0, 0, 0
+    for sy in range(mask.shape[0]):
+        for sx in range(mask.shape[1]):
+            if mask[sy, sx] and lab[sy, sx] == 0:
+                cur += 1
+                n = 0
+                q = deque([(sy, sx)])
+                lab[sy, sx] = cur
+                while q:
+                    y, x = q.popleft()
+                    n += 1
+                    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < mask.shape[0] and 0 <= nx < mask.shape[1] \
+                           and mask[ny, nx] and lab[ny, nx] == 0:
+                            lab[ny, nx] = cur
+                            q.append((ny, nx))
+                if n > best:
+                    best, best_id = n, cur
+    return lab == best_id
+
+
+def body_mask(image, threshold=25):
+    return largest_blob(image > threshold)
+
+
+def normalised(mask, size=220):
+    """Same centre and scale, so what is left is orientation and shape."""
+    from PIL import Image
+    ys, xs = np.nonzero(mask)
+    r = int(0.62 * max(np.ptp(ys), np.ptp(xs)))
+    cy, cx = int(ys.mean()), int(xs.mean())
+    pad = np.zeros((2 * r, 2 * r), np.uint8)
+    y0, y1 = max(0, cy - r), min(mask.shape[0], cy + r)
+    x0, x1 = max(0, cx - r), min(mask.shape[1], cx + r)
+    pad[(y0 - (cy - r)):(y0 - (cy - r)) + (y1 - y0),
+        (x0 - (cx - r)):(x0 - (cx - r)) + (x1 - x0)] = mask[y0:y1, x0:x1]
+    return np.asarray(Image.fromarray(pad * 255).resize((size, size), Image.BILINEAR)) > 127
+
+
+def iou(a, b):
+    return float((a & b).sum()) / max(1, (a | b).sum())
+
+
+def screenshot_panel(path, dark=40):
+    """The render panel out of a browser screenshot: the big near-black rectangle."""
+    from PIL import Image
+    a = np.asarray(Image.open(path).convert("L")).astype(float)
+    rows = np.where(np.median(a, axis=1) < dark)[0]
+    cols = np.where(np.median(a, axis=0) < dark)[0]
+    if rows.size == 0 or cols.size == 0:
+        return a
+    return a[rows.min():rows.max(), cols.min():cols.max()]

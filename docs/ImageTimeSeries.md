@@ -229,6 +229,29 @@ living in a terminal that is gone by the time anyone asks:
 
 The README that travels with the folder says the same in prose.
 
+### Against other renderers
+
+`check-series.py` compares a series with **our own** SPICE ray-cast, so it cannot catch
+anything the two share — and they share our reading of the instrument kernel. The
+independent check is against somebody else's implementation:
+
+```
+python scripts/check-renderers.py --refs <screenshots> --ours <series>                                   --pilucas <their frames> --silhouettes <our --no-lighting renders>
+```
+
+It compares silhouette overlap, and puts each pairing on its own footing: a renderer that
+shades has a terminator, so the comparison is the lit region; one that does not light its
+output has no dark side, so it is the whole outline. Comparing our lit crescent against
+somebody's full disk measures nothing, which is the mistake the script exists to prevent.
+
+Epochs where the reference is not showing the same body are rejected on evidence, not by a
+hardcoded list: if its lit area differs by more than 2×, AFC-1 is pointed at Didymos and
+the frame is skipped. On 2027-02-25 that removes 11:45–13:30, where the ratio runs from
+4× to 21×.
+
+The thresholds are measurements. `--update-baseline` prints what a run would support, for
+when a deliberate change moves them.
+
 ### Re-checking later
 
 ```
