@@ -222,14 +222,31 @@ at all, so it is the silhouette. The first two columns are centred and scaled to
 size — they answer *is it rotated*. The third is not — it answers *is it pointed at the
 same place*.
 
+Each panel carries the silhouette overlap and, for comparison, the major-axis
+difference that earlier tables quoted:
+
+| epoch | ours vs comet-toolbox | ours vs Pilucas |
+|---|---|---|
+| 07:45 | 0.854 | 0.752 |
+| 09:00 | 0.892 | 0.859 |
+| 10:30 | **0.972** | 0.894 |
+| 14:15 | 0.835 | 0.928 |
+| 14:45 | 0.903 | **0.952** |
+
+**These are not identical images, and should not be read as such.** What is identical is
+the *geometry*: re-rendering our frames with comet-toolbox's own `v182_20260805` kernels
+reproduces our shipped frames to **0 DN** across ten frames. Their pictures still differ
+from ours because they use a finer shape model and their own photometry — which is
+exactly what the overlaps of 0.83–0.97 say.
+
 What the pictures show that the numbers did not:
 
 - **Pointing is not in question.** Third column: the outlines sit on top of each other at
   every epoch. Centres agree to 1–2 px.
 - **The quoted angles are the metric failing, not a rotation.** At 14:15 and 14:45 the
-  lit regions coincide almost exactly, yet the label reads −11.4° and −14.1°. The body is
-  nearly circular at those epochs, so its major axis is ill-defined. Trust the overlap,
-  not the angle.
+  overlap is 0.835 and 0.903 while the major-axis difference reads −11.4° and −14.1°. The
+  body is nearly circular at those epochs, so its axis is ill-defined. The two numbers sit
+  side by side in the figure; trust the overlap, not the angle.
 - **The real residual is at 07:45 and 09:00**, second column: a teal crescent along the
   top edge where our silhouette extends past hers. That is the ±6 % area difference, and
   it is a shape-extent difference, not a rotation — the outlines are parallel, not turned.
