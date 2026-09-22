@@ -244,7 +244,7 @@ Two renderers, sharing nothing but the kernels, on one shape. Measured over four
 
 | pair | footing | worst | mean |
 |---|---|---|---|
-| OPC vs ray-cast | silhouette | 0.972 | 0.977 |
+| OPC vs ray-cast | silhouette | 0.972 | 0.979 |
 | **OBJ vs ray-cast** | **silhouette** | **1.000** | **1.000** |
 | OPC vs ray-cast | lit region | 0.862 | 0.917 |
 | OBJ vs ray-cast | lit region | 0.897 | 0.938 |
@@ -256,6 +256,29 @@ uncentred, unscaled overlap is 1.000 as well, so it is not an artefact of the ce
 crop. The rasteriser, the camera construction, the instrument frame, the FOV and the units
 all agree with SPICE's own ray-cast to within a pixel of a 1020 x 1020 frame. Whatever is
 left between us and another implementation is not our geometry.
+
+That is easier to see than to read. Each row is one epoch; every panel of a row shares one
+crop box taken from the union of the masks, so what is on screen is the real alignment and
+not a re-centring of it. Red is PRo3D, green is the ray-cast:
+
+![](images/shapeCrosscheck/objMatrix.png)
+
+The two right-hand columns are the whole result. **OPC vs DSK** is a red and green pair of
+outlines with a visible fringe between them wherever the 1.96 m posts round off a limb the
+ray-cast resolves. **OBJ vs DSK** is one yellow line — red and green on the same pixels,
+everywhere, at every epoch. There is nothing to look at, which is the point.
+
+Per-epoch numbers, and the raw uncentred overlaps, are in
+[`objMatrix.json`](images/shapeCrosscheck/objMatrix.json) beside the figure; regenerate
+both with
+
+```
+python scripts/make-shape-crosscheck-figures.py
+```
+
+which re-renders every panel from the tool, so the figure cannot drift from what the tool
+actually does. The ray-cast is the slow part (~50 s an epoch) and is cached per epoch in
+the work directory.
 
 **The lit region cannot say that, and it is worth knowing why.** Two renderings of the
 *identical* mesh agree only to 0.897 there. The difference is the terminator: our lit mask
