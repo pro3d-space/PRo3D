@@ -16,11 +16,18 @@ python scripts/make-image-time-series.py --out <folder>
 With `$PRO3D_TEST_DATA` and `$PRO3D_SPICE_KERNELS` set, that is the whole command: the
 OPC, the scene template and the kernels are all defaulted from them.
 
+The lit frames come from [`pro3d-tool simulate-series`](./Pro3DTool-SimulateSeries.md) in
+a **single invocation** — 429 frames in 50 s, because the OPC load, the de-shading fit and
+the scene graph happen once instead of once per frame. What this script adds is the epoch
+list and its pointing pre-flight, the independent SPICE reference, the validation, the
+stack subset, the scene and the manifest.
+
 ## What it writes
 
 | path | content |
 |---|---|
 | `<out>/delit/` | every epoch, de-lit DRACO texture — the realistic variant |
+| `<out>/baked/` | the same texture **not** de-lit — the naive rendering, for testing whether de-lighting matters |
 | `<out>/micro/` | every epoch, constant albedo + micro-structure |
 | `<out>/smooth/` | every epoch, constant albedo, no micro-structure |
 | `<out>/spice/` | optional: an independent SPICE ray-cast of a few epochs, for checking the others |
@@ -32,7 +39,7 @@ OPC, the scene template and the kernels are all defaulted from them.
 ## The default series is one rotation
 
 Dimorphos turns in about **11.92 h**, so the default span shows every face once. At the
-default 15 min cadence that is **48 epochs**, and with all three variants **144 renders**.
+default 15 min cadence that is **48 epochs**, and with all four lit variants **192 renders** — about 25 seconds.
 
 The default start, `2027-03-21T13:00:00Z`, sits inside HERA's **COP** phase
 (2027-02-05 → 2027-04-30, continuous ephemeris in `hera_plan.tm`), in a stretch where the
@@ -93,21 +100,22 @@ look continuous, render a second dense pass over the same window:
 python scripts/make-image-time-series.py --out <folder>-5min     --start 2027-02-25T06:30:00Z --interval 5 --variants delit
 ```
 
-143 epochs instead of 48. Keep it to `--variants delit`: `MICRO` and `SMOOTH` exist to
-isolate what procedural structure contributes at a given illumination, and that question
-does not get a better answer from sampling the rotation three times as often. Use a
-**separate output folder** — mixing cadences in one folder interleaves the stamps, and
+143 epochs instead of 48 — and all of them, in every lit variant, render in under a minute, so
+there is no longer any reason to thin the dense pass down to `--variants delit`. Use a
+**separate output folder**: mixing cadences in one folder interleaves the stamps, and
 `series.json` then describes the union of both at a cadence that is neither.
 
-## Three lit variants per epoch
+## Four lit variants per epoch
 
-Same camera, same `--gain`, same `--micro-scale`; any pair differs in exactly one thing.
+Same camera, same `--gain`, same `--micro-scale`. They are ordered so that each adds
+exactly one thing to the one before it, which is what makes a comparison mean anything:
 
-| stem | what it is |
+| stem | what it adds |
 |---|---|
-| `AFC1_DELIT_<stamp>` | the **DRACO texture with its baked illumination divided out**, plus micro-structure — the realistic frame |
-| `AFC1_MICRO_<stamp>` | constant albedo + micro-structure — no texture at all |
 | `AFC1_SMOOTH_<stamp>` | constant albedo, micro-structure off — the bare shape |
+| `AFC1_MICRO_<stamp>` | + procedural micro-structure, still no texture |
+| `AFC1_BAKED_<stamp>` | + the real DRACO texture, **illumination and all** |
+| `AFC1_DELIT_<stamp>` | + that baked illumination divided back out — the realistic frame |
 
 `DELIT` is what you want for anything that should look like a real observation. It runs
 `--deshade --deshade-layer DRACO_2`, which de-lights the part of the mosaic that carries
@@ -116,14 +124,27 @@ because that part has none to remove (`r = 0.099` under its own best fit). `MICR
 `SMOOTH` keep the with/without-structure pair on a constant albedo, for isolating what
 the procedural roughness contributes.
 
-All three are lit — Lommel-Seeliger with cast shadows — and none is `--texture-only`.
+### `BAKED` vs `DELIT`: is de-lighting necessary?
+
+`BAKED` is `DELIT` with the division switched off and **nothing else changed** — same
+texture, same camera, same exposure, same normalisation. The mosaic's own illumination
+stays in it and this epoch's sun lights it a second time, which is what you get if you
+simply drape the texture and shade it.
+
+That is the naive rendering, and it ships on purpose. Whether de-lighting matters is a
+question about *your* reconstruction rather than about the renderer — shape-from-shading,
+photogrammetry and neural reconstruction are each affected differently, and some may not
+care. Run yours over both folders and compare: that is the measurement, and it needs the
+frame that skips the step.
+
+All four are lit — Lommel-Seeliger with cast shadows — and none is `--texture-only`.
 Keep in mind that micro-structure is *shading only*: it is not ground truth, and a
 shape-from-shading inversion will happily reconstruct it as relief (see the
 [caveats](./Pro3DTool-SimulateImage.md#caveats)).
 
-`--variants delit` renders only the realistic one and cuts the run to a third.
+`--variants delit` renders only the realistic one.
 
-### The fourth variant: an independent reference
+### The reference variant: not a rendering at all
 
 `--variants delit,micro,smooth,spice` adds `<out>/spice/`, the same epochs rendered by
 **SPICE ray-casting its own DSK shape model** — same kernels, same instrument, no PRo3D
@@ -133,12 +154,12 @@ against nothing. See [Cross-checking against SPICE](./ShapeModelCrosscheck.md) f
 that comparison established.
 
 **Only a few epochs get one** — `--spice-count`, 8 by default, spread evenly over the
-series. The reference costs ~50 s a frame against the tool's ~7 s, and it tests the
+series. The reference costs ~50 s a frame against the tool's ~0.12 s, and it tests the
 *renderer*, not the epoch: whether the detector axes and the FOV agree with the kernels is
 the same question at every frame, and a handful spread across the series asks it under
 every illumination and visible face the series contains. Rendering it 143 times costs two
-hours to re-answer what frame ten already answered. `--spice-count 0` renders one per
-epoch if you want that.
+hours to re-answer what frame ten already answered — which would be 99 % of a run whose
+lit frames take under a minute. `--spice-count 0` renders one per epoch if you want that.
 
 It does not parallelise, so do not try. CSPICE reads the DSK in 1 KB records through its
 DAS layer, and the per-read overhead is what dominates: fifteen worker processes on this
@@ -176,13 +197,48 @@ a 33rd layer.
    assumed), and *Transfer Function* **off** if you want the frames' own pixels.
 5. *Visibility* → **RelativeCount** shows how much of the body the series actually covers.
 
-## Validating a series
+## Validation is a stage, not a step you remember
 
-**Run this before handing a series to anyone.**
+Nothing here has to be run afterwards. A series is validated **as it is produced**, at
+three independent gates, and the run exits non-zero if any of them fails:
+
+| gate | what it catches | where |
+|---|---|---|
+| the sidecar round trip | a frame whose `.mbi.json` does not reconstruct the camera that rendered it — the frame cannot be projected | `simulate-series`, every frame |
+| the boresight invariant | `Aᵀ·TRG_POS` not pointing down the boresight, i.e. a sidecar that describes a different observation | the generator, every sidecar on disk |
+| the SPICE cross-check | the renderer and the kernels disagreeing about the detector axes | the generator, `--spice-count` epochs |
+
+The first two are self-consistency: they prove the frames agree with themselves. Only the
+third is independent, which is why it exists — see
+[3.1 in the cross-check](./ShapeModelCrosscheck.md).
+
+**The verdict goes into `series.json`**, so a folder carries its own proof rather than it
+living in a terminal that is gone by the time anyone asks:
+
+```json
+"validation": {
+  "verdict": "pass",
+  "what": "each tool frame against the SPICE DSK ray-cast of the same epoch, over the
+           eight dihedral transforms; the best must be identity",
+  "checked": 24,
+  "tally": { "identity": 24 },
+  "settings": { "cropPx": 340, "thresholdDn": 25, "minCorrelation": 0.5, "margin": 0.02 },
+  "failed": [], "weak": []
+}
+```
+
+The README that travels with the folder says the same in prose.
+
+### Re-checking later
 
 ```
 python scripts/check-series.py --series <folder>
 ```
+
+For a folder someone sent you, one whose frames have been touched since, or to try
+different thresholds. It calls the same `pro3d_sim.validate_series` the generator does —
+one implementation, so the recorded verdict and a later re-check cannot disagree for any
+reason but the data. It says so if they do.
 
 For every epoch holding both a tool frame and a `spice/` reference it finds which of the
 eight dihedral transforms aligns the two best. The answer must be `identity`. Anything
@@ -247,30 +303,30 @@ one series.
 | `--micro-scale <m>` | micro-structure feature size (default `3.0`) |
 | `--micro-amplitude <v>` | strength for the `MICRO` and `DELIT` variants (default `0.3`) |
 | `--distance <m>` | range override; default is the spacecraft's real range |
-| `--variants <list>` | any of `delit`, `micro`, `smooth`, `spice` (default the first three) |
+| `--variants <list>` | any of `delit`, `baked`, `micro`, `smooth`, `spice` (default all but `spice`) |
 | `--stack-count <n>` | frames copied into `stack/` (default `15`, cap `32`) |
-| `--stack-variant <v>` | which variant the subset takes (default `delit`) |
+| `--stack-variant <v>` | which variant the subset takes: `delit`, `baked`, `micro` or `smooth` (default `delit`) |
 | `--texture-layer <name>` | layer the scene shows under the projection (default `DRACO_2`) |
 | `--scene-template <file>` | `.pro3d` to derive the scene from; skipped if absent |
-| `--force` | re-render frames that already exist |
 | `--spice-count <n>` | how many `spice` reference frames to render, spread over the series (default `8`; `0` renders one per epoch) |
+| `--margin <v>` | validation: how far another dihedral transform must beat identity before a frame counts as failed (default `0.02`) |
 | `--list-layers` | print the OPC's texture layers and exit |
 
 ## Re-running it
 
-A frame whose PNG is already there is **skipped**, so an interrupted run continues where
-it stopped, and changing `--stack-count` or `--stack-variant` costs nothing but the copy.
-`--force` re-renders.
+Every run renders the whole series and **recreates** the variant folders. There is no
+`--force` and no skip-if-present, because there is nothing left for resuming to save: the
+143-epoch series above renders in 50 seconds.
+
+Resuming is what once left a folder holding `smooth/` frames 90° from its `delit/`
+frames, because the skip logic had no notion of which binary produced a file. Dropping it
+removes that whole class of bug rather than guarding against it.
 
 Changing `--interval`, `--start` or `--kernel` produces *different* frames at *new*
-stamps, which interleave with the old ones in the same folder. Use a different `--out`, or
-`--force` a clean one.
+stamps, which would interleave with the old ones. Use a different `--out`.
 
-`series.json` and the README describe the **folder**, not the run that last touched it:
-both are rebuilt by scanning every variant directory, so a repair pass over a single
-variant (`--variants micro`, say) no longer rewrites the manifest as though the others did
-not exist — which it used to, silently dropping the `spice/` reference and leaving the
-validator reporting *nothing to validate against*.
+`series.json` and the README describe the **folder**: both are built by scanning every
+variant directory, so what they claim and what is on disk cannot disagree.
 
 `--micro-scale` is 3.0 here against the tool's own 0.5: at 7–8 km AFC sees roughly
 0.7 m/px, and structure below the pixel averages out to nothing.

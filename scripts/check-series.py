@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
-"""Validate a rendered image series against its own SPICE reference.
+"""Re-check an existing series against its own SPICE reference.
 
     python scripts/check-series.py --series <folder>
 
-For every epoch that has both a `pro3d-tool` variant and a `spice/` frame, this finds
-which of the eight dihedral transforms best aligns them. The answer must be `identity`:
-anything else means the renderer and the kernels disagree about the detector axes, which
-is exactly the fault that shipped a folder holding frames 90 degrees apart earlier in this
-work. Run it before handing a series to anyone.
+`make-image-time-series.py` already runs this check as a stage of producing a series and
+records the verdict in `series.json`, so a folder arrives validated. This re-runs it --
+on a folder someone sent you, on one whose frames have been touched since, or with
+different thresholds than the run used.
 
-Two traps this avoids, both of which produced confident wrong answers by hand:
-
-  * **Unaligned frames.** A small field-of-view difference shifts the body by a pixel or
-    two; correlating whole frames then collapses to noise and a spurious transform wins.
-    Both frames are cropped around their own body centroid first.
-  * **Mismatched masks.** The tool's frames carry an ambient-lit night side, the SPICE
-    reference has none (it writes 0 where unlit). Thresholding both well above the ambient
-    floor makes the two masks comparable, so the centroids agree.
+The check itself lives in `pro3d_sim.validate_series`, not here: one implementation, so
+the verdict recorded at generation time and the verdict you get now cannot disagree for
+reasons other than the data.
 
 Needs numpy and pillow.
 """
@@ -24,40 +18,13 @@ Needs numpy and pillow.
 import argparse
 import json
 import os
+import sys
 
-import numpy as np
-from PIL import Image
-
-TRANSFORMS = {
-    "identity":       lambda z: z,
-    "rot90":          lambda z: np.rot90(z, 1),
-    "rot180":         lambda z: np.rot90(z, 2),
-    "rot270":         lambda z: np.rot90(z, 3),
-    "flipLR":         lambda z: z[:, ::-1],
-    "flipUD":         lambda z: z[::-1, :],
-    "transpose":      lambda z: z.T,
-    "anti-transpose": lambda z: np.rot90(z, 2).T,
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pro3d_sim import print_validation, validate_series
 
 
-def crop(a, size, thr):
-    m = a > thr
-    if m.sum() < 200:
-        return None
-    ys, xs = np.nonzero(m)
-    cx, cy, h = int(xs.mean()), int(ys.mean()), size // 2
-    if cx - h < 0 or cy - h < 0 or cx + h > a.shape[1] or cy + h > a.shape[0]:
-        return None
-    return a[cy - h:cy + h, cx - h:cx + h].astype(float)
-
-
-def corr(x, y):
-    m = (x > 0) | (y > 0)
-    if m.sum() < 200:
-        return 0.0
-    x, y = x[m] - x[m].mean(), y[m] - y[m].mean()
-    d = np.sqrt((x * x).sum() * (y * y).sum())
-    return float((x * y).sum() / d) if d > 0 else 0.0
+NOTE = ("how far another transform must beat identity before it counts as a failure (default 0.05). Calibrated, not guessed: across both series a CORRECT frame's identity beats the runner-up by 0.12 to 0.73, while the near-symmetric views where flipUD edges ahead do so by at most 0.023. 0.05 sits in the empty band between those two populations")
 
 
 def main():
@@ -68,72 +35,42 @@ def main():
     ap.add_argument("--threshold", type=int, default=25,
                     help="DN above which a pixel counts as body, for both sides (default 25)")
     ap.add_argument("--min-correlation", type=float, default=0.5,
-                    help="below this an epoch is reported as inconclusive (default 0.5)")
-    ap.add_argument("--margin", type=float, default=0.02,
-                    help="how far another transform must beat identity before it counts as "
-                         "a failure (default 0.02). Dimorphos is near-symmetric about some "
-                         "viewing axes, so flipUD can edge out identity by ~0.005 on a "
-                         "correct frame; a real axis error wins by tenths, not thousandths")
+                    help="below this a pair is reported as weak, never as failed (default 0.5)")
+    ap.add_argument("--margin", type=float, default=0.05, help="%s" % NOTE)
+    ap.add_argument("--update", action="store_true",
+                    help="write the result back into series.json, replacing the verdict "
+                         "recorded when the series was generated. For re-validating a "
+                         "folder after the check itself changed, without re-rendering it.")
+    ap.add_argument("--json", action="store_true",
+                    help="print the result as JSON -- the same object series.json carries")
     a = ap.parse_args()
 
-    m = json.load(open(os.path.join(a.series, "series.json"), encoding="utf-8"))
-    variants = [v for v in m.get("variants", {}) if v != "spice"]
-    if "spice" not in m.get("variants", {}):
-        print("no spice/ reference in this series -- nothing to validate against")
+    path = os.path.join(a.series, "series.json")
+    if not os.path.isfile(path):
+        print("no series.json in %s" % a.series)
         return 2
+    manifest = json.load(open(path, encoding="utf-8"))
 
-    tally, weak, bad = {}, [], []
-    checked = 0
-    for ep in m["epochs"]:
-        files = ep.get("files", {})
-        if "spice" not in files:
-            continue
-        ref = crop(np.asarray(Image.open(os.path.join(a.series, files["spice"])).convert("L")),
-                   a.size, a.threshold)
-        if ref is None:
-            continue
-        for v in variants:
-            if v not in files:
-                continue
-            img = crop(np.asarray(Image.open(os.path.join(a.series, files[v])).convert("L")),
-                       a.size, a.threshold)
-            if img is None:
-                continue
-            checked += 1
-            scores = sorted(((corr(img, f(ref)), k) for k, f in TRANSFORMS.items()),
-                            reverse=True)
-            best, name = scores[0]
-            tally[name] = tally.get(name, 0) + 1
-            ident = corr(img, ref)
-            if name != "identity" and best - ident > a.margin:
-                bad.append((ep["time"], v, name, best, ident))
-            elif name != "identity":
-                tally["identity (tie)"] = tally.get("identity (tie)", 0) + 1
-            elif best < a.min_correlation:
-                weak.append((ep["time"], v, best))
+    result = validate_series(a.series, manifest, size=a.size, threshold=a.threshold,
+                             min_correlation=a.min_correlation, margin=a.margin)
 
-    print("checked %d frame pairs across %d epochs" % (checked, len(m["epochs"])))
-    for k in sorted(tally, key=lambda k: -tally[k]):
-        print("   best transform %-15s %4d" % (k, tally[k]))
+    if a.update:
+        manifest["validation"] = result
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+        print("updated %s" % path)
 
-    if bad:
-        print("\nFAILED: %d pairs align better under something other than identity" % len(bad))
-        for t, v, name, best, ident in bad[:10]:
-            print("   %s %-7s best=%-14s %+.3f   identity %+.3f" % (t, v, name, best, ident))
-        if len(bad) > 10:
-            print("   ... and %d more" % (len(bad) - 10))
-        return 1
+    if a.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print_validation(result)
+        recorded = (manifest.get("validation") or {}).get("verdict")
+        if recorded and recorded != result["verdict"] and not a.update:
+            print("\nNOTE: series.json records '%s' but this run says '%s'. The frames or "
+                  "the thresholds have changed since the series was generated."
+                  % (recorded, result["verdict"]))
 
-    if weak:
-        print("\n%d pairs align under identity but weakly (< %.2f) -- usually a low-phase"
-              % (len(weak), a.min_correlation))
-        print("epoch where the disk is flat and there is little structure to match:")
-        for t, v, c in weak[:5]:
-            print("   %s %-7s %+.3f" % (t, v, c))
-
-    print("\nPASS: every pair aligns best under identity"
-          " (%d weak of %d)" % (len(weak), checked))
-    return 0
+    return {"pass": 0, "fail": 1, "skipped": 2}[result["verdict"]]
 
 
 if __name__ == "__main__":

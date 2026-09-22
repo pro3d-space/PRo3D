@@ -91,7 +91,7 @@ module OpcTextureLayers =
 /// Native detector sizes per SPICE instrument frame, from the instrument kernels
 /// (hera_afc_v06.ti: 1020x1020 active pixels). The FOV table lives in
 /// PRo3D.Base.InstrumentProjection; pixel counts are not part of a Frustum, hence here.
-let private nativeSizes =
+let nativeSizes =
     Map.ofList [
         "HERA_AFC-1", V2i(1020, 1020)
         "HERA_AFC-2", V2i(1020, 1020)
@@ -100,9 +100,9 @@ let private nativeSizes =
 /// Texture values at or below this are treated as shadow/nodata in the source mosaic
 /// (Dimorphos_DRACO1 marks nodata as DN 0 and has a hard shadowed tail below ~DN 16).
 /// Shared between the CPU fit and the shader's fallback test.
-let private deshadeShadowFloor = 0.06
+let deshadeShadowFloor = 0.06
 
-let private rootPatchOf (basePath : string) =
+let rootPatchOf (basePath : string) =
     let serializer = FsPickler.CreateBinarySerializer()
     let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
     match h.tree with
@@ -127,6 +127,11 @@ type DeshadeFit =
         /// Pearson correlation of brightness vs n·L on the lit samples -- how much of the
         /// texture the fit explains. Low correlation means the texture was already flat.
         correlation : float
+        /// Multiplier taking the RAW texture value to normal reflectance, i.e. with no
+        /// division by the baked illumination. Set so the mean lit texel maps to the
+        /// requested albedo. Used only by the un-de-shaded variant, where the overall
+        /// level is a radiometric calibration and not part of what is under test.
+        rawScale : float
     }
 
 /// Solve the 4x4 normal equations for dn ≈ c0 + c·n. Returns None when the system is
@@ -270,6 +275,11 @@ let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Re
         Result.Error "no vertices survived the de-shading scale estimate"
     else
     let meanRel = relSum / float relCount
+    // The same statistic without the division: what the mean lit texel is worth when the
+    // texture is used as albedo AS IT IS. Without this the un-de-shaded variant has to
+    // borrow the de-shaded scale, which is ~1.8x too bright on this mosaic and clipped
+    // 55-75 % of the body -- an exposure artefact masquerading as the effect under test.
+    let meanRaw = (lit |> Array.sumBy snd) / float lit.Length
     let nf = float lit.Length
     let cov = sxy - sx * sy / nf
     let varX = sxx - sx * sx / nf
@@ -281,6 +291,7 @@ let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Re
         scale = albedo / meanRel
         samples = lit.Length
         correlation = correlation
+        rawScale = if meanRaw > 0.0 then albedo / meanRaw else 1.0
     }
 
 // ---------------------------------------------------------------------------------
@@ -288,7 +299,7 @@ let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Re
 // body. At Dimorphos scale (~180 m) a 4096^2 map resolves ~5 cm/texel -- finer than the
 // mesh itself -- so nothing is gained by going larger.
 
-type private SunShadowMap =
+type SunShadowMap =
     {
         /// Body-fixed world -> sun-camera clip space (the shader's SunShadowViewProj).
         viewProj : Trafo3d
@@ -299,7 +310,7 @@ type private SunShadowMap =
 /// Rgba8 + Depth32f target for the shadow passes. The depth texture is the product; the
 /// colour attachment exists only because the pass needs one. Returns the pieces plus a
 /// cleanup closure that releases all of them.
-let private createShadowTarget (runtime : IRuntime) (size : V2i) =
+let createShadowTarget (runtime : IRuntime) (size : V2i) =
     let signature =
         runtime.CreateFramebufferSignature([
             DefaultSemantic.Colors, TextureFormat.Rgba8
@@ -322,7 +333,7 @@ let private createShadowTarget (runtime : IRuntime) (size : V2i) =
 
 /// A 1x1 far-plane depth texture for --no-shadows: the comparison sampler still needs a
 /// depth texture bound even though the shader never takes the shadow branch.
-let private dummyShadowMap (runtime : IRuntime) : SunShadowMap =
+let dummyShadowMap (runtime : IRuntime) : SunShadowMap =
     let signature, depth, output, cleanup = createShadowTarget runtime V2i.II
     let clear = runtime.CompileClear(signature, AVal.constant (C4f(0.0f, 0.0f, 0.0f, 0.0f)), AVal.constant 1.0)
     clear.Run(output)
@@ -333,7 +344,7 @@ let private dummyShadowMap (runtime : IRuntime) : SunShadowMap =
         cleanup = cleanup
     }
 
-let private renderSunShadowMap (runtime : IRuntime) (body : string)
+let renderSunShadowMap (runtime : IRuntime) (body : string)
                                (projectedImages : aval<Option<Sg.ProjectedImages>>)
                                (hierarchies : string[]) (sunDir : V3d) (bbox : Box3d) : SunShadowMap =
     let signature, depth, output, cleanup = createShadowTarget runtime (V2i(4096, 4096))
@@ -354,7 +365,7 @@ let private renderSunShadowMap (runtime : IRuntime) (body : string)
         { Frustum.ortho vbox with near = -vbox.Max.Z; far = -vbox.Min.Z }
         |> Frustum.projTrafo
 
-    let runner = runtime.CreateLoadRunner 1
+    let runner = SunAnglesVerb.loadRunner runtime
     let cfg =
         { OpcSg.defaultConfig signature runner DefaultMetrics.mars2 body with
             asyncLoading = false }
@@ -516,7 +527,7 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
 // covered pixels at DN 245 -- deterministic, headroom for the top half-percent, and
 // independent of how much sky the frame contains.
 
-let private toneMapToPng (img : PixImage<float32>) (explicitGain : float) : Result<PixImage<byte> * float, string> =
+let toneMapToPng (img : PixImage<float32>) (explicitGain : float) : Result<PixImage<byte> * float, string> =
     let size = img.Size
     let lum = img.GetChannel Col.Channel.Red
     let alpha = img.GetChannel Col.Channel.Alpha
@@ -620,6 +631,119 @@ let cameraFromMbi (observer : string) (frame : string) (body : string)
                     }
 
 // ---------------------------------------------------------------------------------
+
+/// Everything the shading shader needs that is neither the camera nor the epoch.
+///
+/// Lifted out of the options record so `simulate-image` and `simulate-series` drive the
+/// SAME uniform block. Two copies of it would be exactly the failure this whole area has
+/// already produced once: a second path that agrees with the first until someone changes
+/// one of them, and nothing in the output saying which you rendered through.
+type ShadingParams =
+    {
+        albedo         : float
+        microScale     : float
+        microAmplitude : float
+        ambient        : float
+        shadowBias     : float
+        noShadows      : bool
+        noLighting     : bool
+        textureOnly    : bool
+        /// Use the OPC texture as albedo as it is, baked illumination included.
+        textureAlbedo  : bool
+        /// Fit that illumination and divide it out first. Wins over `textureAlbedo`.
+        deshade        : bool
+    }
+
+module ShadingParams =
+    let ofSimulateImage (o : SimulateImageOptions) =
+        {
+            albedo = o.albedo; microScale = o.microScale; microAmplitude = o.microAmplitude
+            ambient = o.ambient; shadowBias = o.shadowBias; noShadows = o.noShadows
+            noLighting = o.noLighting; textureOnly = o.textureOnly
+            textureAlbedo = o.textureAlbedo; deshade = o.deshade
+        }
+
+/// The shading uniforms, the shadow map and the OPC scaffolding, applied to a shaded
+/// scene graph. The camera is NOT applied here: the series verb varies it per epoch over
+/// a graph it builds once.
+///
+/// `fit` is passed whenever one was made, whatever `p` asks for -- BOTH textured modes
+/// need a scale factor out of it, and which mode is wanted is `p`'s business alone. A
+/// missing fit therefore falls back to the constant albedo in either mode, rather than
+/// rendering a texture at an arbitrary brightness.
+let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>)
+                 (shadowViewProj : aval<M44d>) (shadowDepth : aval<ITexture>) (sg : ISg) =
+    sg
+    |> SunAnglesVerb.withOpcScaffolding
+    |> Sg.uniform' "SunShadowEnabled" (not p.noShadows)
+    |> Sg.uniform "SunShadowViewProj" shadowViewProj
+    |> Sg.texture "SunShadowMap" shadowDepth
+    |> Sg.uniform' "SunShadowBias" (float32 p.shadowBias)
+    |> Sg.uniform' "DeshadeEnabled" (p.deshade && Option.isSome fit)
+    |> Sg.uniform' "TextureAlbedo" (p.textureAlbedo && Option.isSome fit)
+    |> Sg.uniform' "BakedSunDirection" (V3f (fit |> Option.map (fun f -> f.direction) |> Option.defaultValue V3d.ZAxis))
+    |> Sg.uniform' "DeshadeScale" (float32 (fit |> Option.map (fun f -> f.scale) |> Option.defaultValue 1.0))
+    |> Sg.uniform' "RawTextureScale" (float32 (fit |> Option.map (fun f -> f.rawScale) |> Option.defaultValue 1.0))
+    |> Sg.uniform' "DeshadeShadowFloor" (float32 deshadeShadowFloor)
+    |> Sg.uniform' "AlbedoConst" (float32 p.albedo)
+    |> Sg.uniform' "MicroScale" (float32 p.microScale)
+    |> Sg.uniform' "MicroAmplitude" (float32 p.microAmplitude)
+    |> Sg.uniform' "AmbientFloor" (float32 p.ambient)
+    |> Sg.uniform' "NoLighting" p.noLighting
+    |> Sg.uniform' "TextureOnly" p.textureOnly
+
+/// The shader stack of the shaded body. Order is load-bearing -- see the comment inside.
+let shadedShaders (sg : ISg) =
+    sg
+    |> Sg.shader {
+        // Order is load-bearing (see SunAnglesVerb.applyAngleShaders):
+        // stableImageProjectionTrafo stashes the object-space position while
+        // [<Position>] still holds it, generateNormal builds the face normal from
+        // that stash, and stashSunShadowPos must equally precede stableTrafo.
+        do! ImageProjection.Shaders.stableImageProjectionTrafo
+        do! ImageProjection.Shaders.generateNormal
+        do! ImageProjection.Shaders.applyNormalFlip
+        do! SimulateShaders.stashSunShadowPos
+        do! PRo3D.SPICE.Shaders.stableTrafo
+        do! SimulateShaders.simulatedImage
+    }
+
+/// Is the body certainly outside the instrument's frustum at this pointing?
+///
+/// With --pointing ck the camera is aimed by the kernels, not at the body, so an epoch
+/// where the instrument was observing something else yields an empty frame. That is a
+/// correct answer and it deserves a correct explanation: the numbers are all known
+/// before any GPU work, and finding out afterwards from a blank image costs the whole
+/// render and says only "wrong time, body or instrument?".
+///
+/// Conservative on purpose -- it fires only when the body is CERTAINLY outside. The
+/// terrain lies inside its bounding box, so the rendered silhouette lies inside the
+/// convex hull of the box's eight projected corners; if that hull misses the unit square,
+/// no fragment can survive. A body clipping any edge still renders. Bounding the box by a
+/// sphere instead was too loose to catch a 4 deg miss on a 5.5 deg frustum -- the diagonal
+/// overstates a flat body.
+let pointingComplaint (bbox : Box3d) (cam : SimCamera) (body : string) (instrument : string)
+                      (time : DateTime) : Option<string> =
+    let vp = cam.view * cam.proj
+    let corners = bbox.ComputeCorners() |> Array.map (fun c -> vp.Forward.Transform(V4d(c, 1.0)))
+    // any corner at or behind the camera makes the projected hull meaningless
+    if corners |> Array.exists (fun c -> c.W <= 0.0 || not (Double.IsFinite c.W)) then None
+    else
+        let ndc = corners |> Array.map (fun c -> V2d(c.X / c.W, c.Y / c.W))
+        let lo = ndc |> Array.fold (fun (a : V2d) b -> V2d(min a.X b.X, min a.Y b.Y)) (V2d(infinity, infinity))
+        let hi = ndc |> Array.fold (fun (a : V2d) b -> V2d(max a.X b.X, max a.Y b.Y)) (V2d(-infinity, -infinity))
+        if lo.X > 1.0 || hi.X < -1.0 || lo.Y > 1.0 || hi.Y < -1.0 then
+            let camPos = cam.view.Backward.TransformPos V3d.Zero
+            let forward = (cam.view.Backward.TransformDir -V3d.OOI).Normalized
+            let toBody = bbox.Center - camPos
+            let theta = acos (clamp -1.0 1.0 (Vec.dot forward toBody.Normalized)) |> Conversion.DegreesFromRadians
+            let tanH = 1.0 / cam.proj.Forward.M00
+            let tanV = 1.0 / cam.proj.Forward.M11
+            let halfH = atan tanH |> Conversion.DegreesFromRadians
+            let halfV = atan tanV |> Conversion.DegreesFromRadians
+            Some (sprintf "%s is not in %s's field of view at %s: the boresight is %.3f deg off the body centre,                            and the frustum reaches %.3f x %.3f deg from it (range %.1f km).                            The kernels point the instrument elsewhere at this epoch -- pick an epoch inside an                            observation window, target the body it IS observing, or pass --pointing lookat to aim at                            %s regardless of the real attitude."
+                      body instrument (time.ToString "o") theta halfH halfV (toBody.Length / 1000.0) body)
+        else None
 
 /// Render one simulated image. Returns the written file, or why it could not.
 ///
@@ -728,7 +852,9 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         elif not (String.IsNullOrWhiteSpace o.textureLayer) then o.textureLayer
         else "DRACO"
     let deshade =
-        if not o.deshade then None
+        // Both textured modes need the fit: --deshade for the direction and the divisor,
+        // --texture-albedo for the raw scale that sets its overall level.
+        if not (o.deshade || o.textureAlbedo) then None
         else
             match Array.tryHead hierarchies with
             | None -> None
@@ -798,31 +924,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     // square, no fragment can survive. A body clipping any edge still renders and is left
     // to the coverage check below. Bounding the box by a sphere instead was too loose to
     // catch a 4 deg miss on a 5.5 deg frustum -- the diagonal overstates a flat body.
-    let pointingComplaint =
-        let vp = cam.view * cam.proj
-        let corners = bbox.ComputeCorners() |> Array.map (fun c -> vp.Forward.Transform(V4d(c, 1.0)))
-        // any corner at or behind the camera makes the projected hull meaningless
-        if corners |> Array.exists (fun c -> c.W <= 0.0 || not (Double.IsFinite c.W)) then None
-        else
-            let ndc = corners |> Array.map (fun c -> V2d(c.X / c.W, c.Y / c.W))
-            let lo = ndc |> Array.fold (fun (a : V2d) b -> V2d(min a.X b.X, min a.Y b.Y)) (V2d(infinity, infinity))
-            let hi = ndc |> Array.fold (fun (a : V2d) b -> V2d(max a.X b.X, max a.Y b.Y)) (V2d(-infinity, -infinity))
-            if lo.X > 1.0 || hi.X < -1.0 || lo.Y > 1.0 || hi.Y < -1.0 then
-                let camPos = cam.view.Backward.TransformPos V3d.Zero
-                let forward = (cam.view.Backward.TransformDir -V3d.OOI).Normalized
-                let toBody = bbox.Center - camPos
-                let theta = acos (clamp -1.0 1.0 (Vec.dot forward toBody.Normalized)) |> Conversion.DegreesFromRadians
-                let tanH = 1.0 / cam.proj.Forward.M00
-                let tanV = 1.0 / cam.proj.Forward.M11
-                let halfH = atan tanH |> Conversion.DegreesFromRadians
-                let halfV = atan tanV |> Conversion.DegreesFromRadians
-                Some (sprintf "%s is not in %s's field of view at %s: the boresight is %.3f deg off the body centre, \
-                               and the frustum reaches %.3f x %.3f deg from it (range %.1f km). \
-                               The kernels point the instrument elsewhere at this epoch -- pick an epoch inside an \
-                               observation window, target the body it IS observing, or pass --pointing lookat to aim at \
-                               %s regardless of the real attitude."
-                          body instrument (time.ToString "o") theta halfH halfV (toBody.Length / 1000.0) body)
-            else None
+    let pointingComplaint = pointingComplaint bbox cam body instrument time
 
     match pointingComplaint with
     | Some e -> Result.Error e
@@ -836,7 +938,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
 
     let target = SunAnglesVerb.FloatTarget.create runtime size
     try
-        let runner = runtime.CreateLoadRunner 1
+        let runner = SunAnglesVerb.loadRunner runtime
         let cfg =
             { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
                 // Blocking loads: reproducible offscreen output, same as sun-angles.
@@ -846,20 +948,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
 
         let opc = OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies |> Sg.ofList
 
-        let shaded =
-            opc
-            |> Sg.shader {
-                // Order is load-bearing (see SunAnglesVerb.applyAngleShaders):
-                // stableImageProjectionTrafo stashes the object-space position while
-                // [<Position>] still holds it, generateNormal builds the face normal from
-                // that stash, and stashSunShadowPos must equally precede stableTrafo.
-                do! ImageProjection.Shaders.stableImageProjectionTrafo
-                do! ImageProjection.Shaders.generateNormal
-                do! ImageProjection.Shaders.applyNormalFlip
-                do! SimulateShaders.stashSunShadowPos
-                do! PRo3D.SPICE.Shaders.stableTrafo
-                do! SimulateShaders.simulatedImage
-            }
+        let shaded = shadedShaders opc
 
         /// PRo3D's single-image projection, composed exactly as ProjectionTestbed and
         /// sun-angles compose it -- this verb's own shading is not involved at all, so
@@ -916,21 +1005,8 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                     (if useStackShader then "STACK" else "single-image")
                 if useStackShader then projectedStackSg imagePath else projectedSg imagePath
              | None -> shaded)
-            |> SunAnglesVerb.withOpcScaffolding
-            |> Sg.uniform' "SunShadowEnabled" (not o.noShadows)
-            |> Sg.uniform' "SunShadowViewProj" shadowMap.viewProj.Forward
-            |> Sg.texture "SunShadowMap" (AVal.constant shadowMap.depth)
-            |> Sg.uniform' "SunShadowBias" (float32 o.shadowBias)
-            |> Sg.uniform' "DeshadeEnabled" (Option.isSome deshade)
-            |> Sg.uniform' "BakedSunDirection" (V3f (deshade |> Option.map (fun f -> f.direction) |> Option.defaultValue V3d.ZAxis))
-            |> Sg.uniform' "DeshadeScale" (float32 (deshade |> Option.map (fun f -> f.scale) |> Option.defaultValue 1.0))
-            |> Sg.uniform' "DeshadeShadowFloor" (float32 deshadeShadowFloor)
-            |> Sg.uniform' "AlbedoConst" (float32 o.albedo)
-            |> Sg.uniform' "MicroScale" (float32 o.microScale)
-            |> Sg.uniform' "MicroAmplitude" (float32 o.microAmplitude)
-            |> Sg.uniform' "AmbientFloor" (float32 o.ambient)
-            |> Sg.uniform' "NoLighting" o.noLighting
-            |> Sg.uniform' "TextureOnly" o.textureOnly
+            |> applyShading (ShadingParams.ofSimulateImage o) deshade
+                   (AVal.constant shadowMap.viewProj.Forward) (AVal.constant shadowMap.depth)
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)
 

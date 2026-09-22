@@ -102,9 +102,16 @@ module private Fixtures =
             noLighting = false
             textureLayer = null
             textureOnly = false
+            // The de-shaded path is what these fixtures exercise (deshade = true above);
+            // --texture-albedo is the other branch and would bypass it.
+            textureAlbedo = false
             project = null
             projectShader = null
             shadowBias = 0.002
+            // 'lookat', not the verb's 'ck' default: these fixtures render Didymos from
+            // MILANI at epochs the CK does not necessarily cover, and the point of them is
+            // the shading and the sidecar, not the attitude.
+            pointing = "lookat"
         }
 
     /// A scratch copy: --forcekdtreerebuild rewrites .aakd files in place, and the test data

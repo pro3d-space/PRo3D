@@ -164,6 +164,9 @@ type SimulateImageOptions =
         [<Option("texture-only", HelpText = "Render the OPC's own texture as this camera sees it: no lighting, and no de-shading fit. Unlike --deshade, which fits a light direction, clamps the result and falls back to a constant albedo where it has no confidence. Use --texture-layer to choose which layer.")>]
         textureOnly : bool
 
+        [<Option("texture-albedo", HelpText = "Light the texture WITHOUT dividing its baked illumination out: the mosaic's own lighting stays in and this epoch's sun lights it a second time. Ignored with --deshade. The naive rendering, on purpose -- it is what a reconstruction is compared against to find out whether de-lighting was necessary at all.")>]
+        textureAlbedo : bool
+
         [<Option("project", HelpText = "Project this image onto the body instead of shading it, through PRo3D's projection shader, and render the result. With no --mbi the camera is that image's own, so the output must reproduce the input image -- which is what makes the projection checkable rather than merely plausible.")>]
         project : string
 
@@ -175,6 +178,99 @@ type SimulateImageOptions =
 
         [<Option("pointing", HelpText = "Where the camera orientation comes from: 'ck' (default) uses the spacecraft's measured/planned attitude and FAILS if the kernels have none at this epoch; 'lookat' aims the boresight at the body centre with an up-vector roll convention. 'ck' can legitimately produce no image -- if the instrument was pointed elsewhere, the body is not in the frame, and that is the answer, not a fault.")>]
         pointing : string
+    }
+
+/// Options for the `simulate-series` verb.
+///
+/// Many epochs, many variants, one process. The per-frame options are deliberately the
+/// same names as `simulate-image`'s, because they end up in the same shading uniforms --
+/// what this verb adds is the epoch list, the variant presets and the output layout.
+///
+/// There is no `--force` and no resume: a run renders every frame it was asked for and
+/// rewrites the variant folders. Resuming is what let a folder end up holding frames from
+/// two different builds, 90 degrees apart, with nothing in the data saying so -- and with
+/// the whole series rendering in one process, the thing resuming saved is no longer worth
+/// the class of bug it costs.
+[<Verb("simulate-series", HelpText = "Render a whole series of simulated instrument images in one process: many epochs x many shading variants, sharing one OPC load, one de-shading fit and one scene graph.")>]
+type SimulateSeriesOptions =
+    {
+        [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
+        opc : string
+
+        [<Option("times-file", HelpText = "File of observation times, one ISO-8601 UTC epoch per line; blank lines and lines starting with '#' are ignored", Required = true)>]
+        timesFile : string
+
+        [<Option("out", HelpText = "Output directory; each variant gets a subdirectory of frames and sidecars", Required = true)>]
+        out : string
+
+        [<Option("variants", Default = "delit,baked,micro,smooth", HelpText = "Which shading variants to render, comma-separated: 'delit' (texture with its baked illumination divided out, + micro-structure -- the realistic one), 'baked' (the same texture WITHOUT that division, so the mosaic's own lighting stays in and this epoch's sun lights it again -- the naive rendering, for testing whether de-lighting is necessary at all), 'micro' (constant albedo + micro-structure), 'smooth' (constant albedo, no micro-structure). All share one camera and one exposure, so any pair differs in exactly one thing.")>]
+        variants : string
+
+        [<Option("stem-prefix", HelpText = "Filename prefix for the frames (default: derived from the instrument, e.g. HERA_AFC-1 -> AFC1). Frames are <prefix>_<VARIANT>_<yyyyMMdd_HHmmss>.png")>]
+        stemPrefix : string
+
+        [<Option("instrument", HelpText = "SPICE instrument frame whose frustum to render with (default HERA_AFC-1)")>]
+        instrument : string
+
+        [<Option("observer", HelpText = "Spacecraft carrying the instrument (default HERA)")>]
+        observer : string
+
+        [<Option("body", HelpText = "SPICE body name of the OPC (default DIMORPHOS)")>]
+        body : string
+
+        [<Option("frame", HelpText = "Body-fixed reference frame (default DIMORPHOS_FIXED)")>]
+        frame : string
+
+        [<Option("kernel", HelpText = "Explicit SPICE metakernel; default: <kernel-root>/mk/hera_plan.tm")>]
+        kernel : string
+
+        [<Option("kernel-root", HelpText = "SPICE kernel tree, defaulting to $PRO3D_SPICE_KERNELS")>]
+        kernelRoot : string
+
+        [<Option("pointing", HelpText = "Where the camera orientation comes from: 'ck' (default) uses the spacecraft's attitude and fails where the kernels have none; 'lookat' aims at the body centre. With 'ck' an epoch outside an observation window renders nothing, and that is an answer, not a fault.")>]
+        pointing : string
+
+        [<Option("distance", Default = 0.0, HelpText = "Camera distance in metres; 0 (default) uses the spacecraft's real distance at each epoch")>]
+        distance : float
+
+        [<Option("width", HelpText = "Output width; 0 (default) uses the instrument's native width")>]
+        width : int
+
+        [<Option("height", HelpText = "Output height; 0 (default) uses the instrument's native height")>]
+        height : int
+
+        [<Option("albedo", Default = 0.16, HelpText = "Normal reflectance of the surface (default 0.16, the measured Dimorphos value)")>]
+        albedo : float
+
+        [<Option("deshade-layer", HelpText = "Texture layer the 'delit' variant de-shades and draws; also selects --texture-layer, so one name drives both the fit and the divisor")>]
+        deshadeLayer : string
+
+        [<Option("texture-layer", HelpText = "Texture layer to draw, by name or index. Defaults to --deshade-layer when that is given.")>]
+        textureLayer : string
+
+        [<Option("micro-scale", Default = 0.5, HelpText = "Feature size of the procedural micro-structure in metres (default 0.5)")>]
+        microScale : float
+
+        [<Option("micro-amplitude", Default = 0.3, HelpText = "Normal perturbation strength for the 'delit' and 'micro' variants; 'smooth' is always 0")>]
+        microAmplitude : float
+
+        [<Option("ambient", Default = 0.02, HelpText = "Ambient floor so the night side is distinguishable from space (default 0.02)")>]
+        ambient : float
+
+        [<Option("gain", Default = 0.0, HelpText = "Linear I/F -> DN gain. Give one: across a series a per-frame auto-exposure (0) removes the very thing the series shows, the body getting brighter and darker as the illumination changes.")>]
+        gain : float
+
+        [<Option("no-shadows", HelpText = "Skip the sun shadow map; shading then comes from the local sun angle alone")>]
+        noShadows : bool
+
+        [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002)")>]
+        shadowBias : float
+
+        [<Option("max-reprojection-error", Default = 0.1, HelpText = "How far, in pixels, the camera reconstructed from a frame's own sidecar may sit from the camera that rendered it before the frame counts as failed (default 0.1). This is checked for EVERY frame: a sidecar that does not reproduce its own render makes the frame unusable for projection, and finding that out later costs the whole series.")>]
+        maxReprojectionError : float
+
+        [<Option("keep-going", HelpText = "Render the remaining epochs after a failure instead of stopping. The run still exits non-zero and names every frame that failed.")>]
+        keepGoing : bool
     }
 
 /// Options for the `unproject` verb.

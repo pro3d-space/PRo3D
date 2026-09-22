@@ -25,10 +25,18 @@ type UniformScope with
     /// Divide the baked illumination out of the texture (true) or ignore the texture and
     /// use AlbedoConst (false).
     member x.DeshadeEnabled : bool = uniform?DeshadeEnabled
+    /// Use the texture as albedo WITHOUT dividing its baked illumination out. Ignored
+    /// when DeshadeEnabled. This is the naive thing to do, on purpose -- it is the frame
+    /// a reconstruction is compared against to find out whether de-lighting was necessary.
+    member x.TextureAlbedo : bool = uniform?TextureAlbedo
     /// Fitted direction of the illumination baked into the texture, body-fixed frame.
     member x.BakedSunDirection : V3f = uniform?BakedSunDirection
     /// Maps the de-shaded texture value (texture / cos incidence) to normal reflectance.
     member x.DeshadeScale : float32 = uniform?DeshadeScale
+    /// Maps the RAW texture value to normal reflectance, with no such division. Set so the
+    /// mean lit texel comes out at AlbedoConst, because the overall level of the
+    /// un-de-shaded variant is a radiometric calibration, not part of what it demonstrates.
+    member x.RawTextureScale : float32 = uniform?RawTextureScale
     /// Texture values at or below this are treated as shadowed/nodata in the source
     /// mosaic; the de-shade division is meaningless there.
     member x.DeshadeShadowFloor : float32 = uniform?DeshadeShadowFloor
@@ -219,6 +227,24 @@ let simulatedImage (v : SimVertex) =
                 let plain =
                     uniform.AlbedoConst * clamp 0.5f 2.0f (sqrt (max 0.0f plainRatio))
                 plain + w * (deshaded - plain)
+            elif uniform.TextureAlbedo then
+                // The texture as albedo with NO division: its baked illumination stays in
+                // and this frame's sun lights it a second time. Deliberately the naive
+                // rendering -- whether de-lighting is necessary is an empirical question
+                // about a given reconstruction, and it cannot be asked without the frame
+                // that skips the step.
+                //
+                // Straight through RawTextureScale, with none of the sqrt compression or
+                // [0.5x, 2x] clamping the branch above needs: those guard an ill-conditioned
+                // DIVISION, and there is no division here. What is kept is the overall
+                // level -- the mean lit texel maps to AlbedoConst -- so this frame and the
+                // de-lit one differ in the SPATIAL PATTERN of albedo, which is the thing
+                // under test, and not in exposure. Borrowing the de-shaded scale instead
+                // came out ~1.8x too bright and clipped 55-75 % of the body.
+                //
+                // The wide clamp only keeps a nodata texel from producing a non-finite
+                // albedo; on real data it does not bind.
+                clamp 0.0f (4.0f * uniform.AlbedoConst) (texVal * uniform.RawTextureScale)
             else
                 uniform.AlbedoConst
 

@@ -36,6 +36,7 @@
     <Compile Include="Unproject.fs" />
     <Compile Include="SimulateShaders.fs" />
     <Compile Include="SimulateImage.fs" />
+    <Compile Include="SimulateSeries.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

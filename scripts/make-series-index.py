@@ -13,21 +13,22 @@ import argparse
 import json
 import os
 
-HEADER = """# Simulated HERA/AFC-1 image series -- Dimorphos
+HEADER = """# Simulated HERA/AFC-1 images of Dimorphos
 
-Simulated images, not observations. Rendered from a shape model with PRo3D's
-`pro3d-tool simulate-image` using SPICE geometry, for testing reconstruction and
-projection workflows before real images exist.
+Rendered from a shape model with PRo3D using SPICE geometry, for building and testing
+pipelines before real images exist.
 
-**{n} series**, each self-contained in its own folder with its own README and manifest:
+**{n} series**, each self-contained in its own folder:
 
 {overview}
 ## Which one to use
 
 {guidance}
-## What every series folder contains
+## What is in a series folder
 
 {layout}
+Each folder's own README has the detail.
+
 ## Shared facts
 
 | | |
@@ -38,17 +39,9 @@ projection workflows before real images exist.
 | SPICE kernel | `{mkid}` |
 | shape model | `{opc}` |
 
-**The kernel version is load-bearing.** ESA regenerates the HERA kernels and they move the
-spacecraft: re-rendering these epochs against a different delivery gives different images,
-and an epoch framed in one set can be off-target in another. Quote `{mkid}`.
-
-**The frames belong to this shape model.** Each sidecar describes the camera that render
-actually used, so projecting a frame back onto *this* OPC reproduces it. Against a
-different shape model that guarantee is void.
-
-**Every frame in a series comes from one renderer build.** The generator records a build
-fingerprint in `series.json` and re-renders the whole series when it changes, because
-mixing builds silently mixes geometry.
+The frames go with that kernel version and that shape model. ESA regenerates the HERA
+kernels and they move the spacecraft, so the same epochs against another delivery give
+different images.
 """
 
 

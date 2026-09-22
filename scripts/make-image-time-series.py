@@ -3,11 +3,13 @@
 
     python scripts/make-image-time-series.py --out <folder>
 
-Drives `pro3d-tool simulate-image` once per epoch on a fixed cadence, writing lit frames
-with their `.mbi.json` sidecars, a coarsely sampled subset ready to import into the
-viewer, and a scene set up to project them.
+Drives `pro3d-tool simulate-series` ONCE for the whole series, writing lit frames with
+their `.mbi.json` sidecars, a coarsely sampled subset ready to import into the viewer, and
+a scene set up to project them. Adds the independent SPICE reference and the validation
+the tool cannot do for itself.
 
     <out>/delit/           every epoch, de-lit DRACO texture (the realistic variant)
+    <out>/baked/           the same texture NOT de-lit -- the naive rendering
     <out>/micro/           every epoch, constant albedo + micro-structure
     <out>/smooth/          every epoch, constant albedo, no micro-structure
     <out>/spice/           optional: an independent SPICE DSK ray-cast of --spice-count
@@ -17,15 +19,18 @@ viewer, and a scene set up to project them.
     <out>/series.json      one entry per epoch, naming its file in each variant
     <out>/README.md        the same, and the folder layout, for whoever receives it
 
-Three lit variants per epoch, same camera and same --gain, so any pair differs in exactly
-one thing -- DELIT adds the real texture, MICRO adds procedural structure to a constant
-albedo, SMOOTH is the bare shape:
+Four lit variants per epoch, same camera and same --gain, so any neighbouring pair differs
+in exactly one thing:
 
-    AFC1_DELIT_<stamp>     de-lit DRACO texture + micro-structure -- the realistic one
-    AFC1_MICRO_<stamp>     constant albedo + micro-structure -- no texture
     AFC1_SMOOTH_<stamp>    constant albedo, micro-structure off -- the bare shape
+    AFC1_MICRO_<stamp>     + procedural micro-structure, still no texture
+    AFC1_BAKED_<stamp>     + the real DRACO texture, illumination and all
+    AFC1_DELIT_<stamp>     + that baked illumination divided back out -- the realistic one
 
-All three are lit (Lommel-Seeliger, cast shadows); none is texture-only.
+BAKED and DELIT are the pair that answers "does de-lighting actually matter for my
+reconstruction?" -- a question about the reconstruction, which cannot be asked without the
+frame that skips the step. All four are lit (Lommel-Seeliger, cast shadows); none is
+texture-only.
 Across the series the illumination and the visible face change while the exposure does
 not, which is what makes it a series rather than a set of unrelated renders -- pass
 --gain 0 to auto-expose each frame separately and that property is gone.
@@ -43,13 +48,20 @@ rotation apart.
                 (the tool's default is <root>/mk/hera_plan.tm)
     python      numpy (for the sidecar check); no plotting
 
-Re-runnable: a frame whose PNG is already there is skipped, so an interrupted run
-continues where it stopped and a changed --stack-count costs nothing. Pass --force to
-re-render. Changing --interval, --start or --kernel produces different frames, so use a
-different --out (or --force) -- the stamps of a finer cadence otherwise interleave with a
-coarser earlier run. series.json and the README describe the FOLDER, rebuilt by scanning
-every variant directory, so a repair pass over one variant no longer rewrites them as if
-the other variants did not exist.
+Every run renders the whole series and rewrites the variant folders: no resume, no
+--force, no partially-updated folder. `simulate-series` renders all the lit frames in one
+process at ~0.12 s a frame, so there is nothing left for resuming to save -- and resuming
+is what once left a folder holding frames from two different builds, 90 degrees apart,
+with nothing in the data saying so.
+
+Use a separate --out per cadence: the stamps of a finer cadence interleave with a coarser
+earlier run, and series.json then describes the union of both.
+
+Validation is a stage of the run, not a thing to remember afterwards. The tool verifies
+every frame's sidecar against the camera that rendered it, and this script then checks the
+frames against an independent SPICE ray-cast (--spice-count of them) before it writes
+series.json. The verdict goes INTO series.json, so a folder carries its own proof; a
+failure means a non-zero exit and a README that says so.
 
 THE EPOCH AND THE KERNEL SET GO TOGETHER. ESA regenerates the HERA plan kernels, and they
 move the spacecraft: the default start lies inside hera_plan.tm's close-orbit coverage for
@@ -65,13 +77,15 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 import time
 
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pro3d_sim import (check_sidecars, dsk_render, list_layers, run_tool,
-                       texture_index, tool_error, write_scene)
+from pro3d_sim import (check_sidecars, dsk_render, list_layers, print_validation,
+                       run_tool, texture_index, tool_error, validate_series,
+                       write_scene)
 
 # Dimorphos' rotation period. Tidally locked to Didymos, 11.92 h after the DART impact
 # (Naidu et al. 2024) -- the pre-impact 11.92 h orbital period was shortened to ~11.37 h,
@@ -132,12 +146,16 @@ def mk_identifier(path):
 
 
 VARIANTS = {
-    "delit":  "DRACO texture with its baked illumination divided out, plus procedural "
-              "micro-structure -- the realistic frame",
-    "micro":  "constant albedo plus procedural micro-structure -- no texture",
-    "smooth": "constant albedo, no micro-structure -- the bare shape model",
-    "spice":  "independent reference: SPICE ray-casts its own DSK shape model. No PRo3D "
-              "code involved, no sidecars -- for checking the others, not for projecting",
+    # One line each. The detail belongs in the README's prose, not repeated per folder.
+    # alphabetical in the listing, so baked/ must stand on its own and delit/ refers back
+    "baked":  "DRACO image where available, rest filled with random texture. Since the "
+              "DRACO image has lighting baked in, this one might be confusing for "
+              "reconstruction methods",
+    "delit":  "the same, with that baked-in lighting fitted and removed",
+    "micro":  "no mosaic: one uniform brightness plus procedural surface roughness",
+    "smooth": "no mosaic, no roughness: the bare shape model, lit",
+    "spice":  "a few epochs ray-cast by SPICE from its own shape model, as a reference. "
+              "No sidecars, not for projecting",
 }
 
 
@@ -287,8 +305,8 @@ def preflight(epochs, kernel, instrument, target, observer):
 
 README = """# Simulated {instrument} images -- {body}
 
-Simulated images, not observations. Rendered from a shape model with PRo3D
-`pro3d-tool simulate-image` using SPICE geometry.
+Rendered from a shape model with PRo3D's `pro3d-tool simulate-series` using SPICE
+geometry.
 
 | | |
 |---|---|
@@ -303,36 +321,54 @@ Simulated images, not observations. Rendered from a shape model with PRo3D
 | gain | {gain} (fixed, not auto-exposed) |
 | generated | {generated} |
 
-## Folder structure
+## What is in this folder
 
 ```
 {folder}/
 {tree}```
 
-Every frame exists once per variant under its own folder, named
-`AFC1_<VARIANT>_<date>_<time>`, so the same epoch is the same stamp in each. Each
-`pro3d-tool` frame comes with two sidecars:
+The four image folders are the **same frames rendered four ways**: same camera, same
+epochs, same exposure, differing only in what the surface is made of. Pick the one that
+matches what you are testing, or compare a pair.
 
-| file | content |
+`baked/` and `delit/` both take surface brightness from the DRACO image where it covers
+the body, with random texture filling the rest. The DRACO image has lighting baked into
+it, which might confuse reconstruction methods -- `delit/` fits that lighting and removes
+it, `baked/` leaves it in. Both are here so you can see which your pipeline needs.
+
+A frame is named `AFC1_<VARIANT>_<date>_<time>`, so one epoch is the same stamp in every
+folder. Alongside each image:
+
+| file | what it is |
 |---|---|
-| `.png` | the image, 8-bit greyscale, {width} px |
-| `.mbi.json` | the observation: `SC_QUAT0..3` is the **spacecraft -> J2000** quaternion, `TRG_POSX/Y/Z` is **target minus spacecraft**, km, J2000 |
-| `.png.json` | statistics sidecar; its load-bearing field is the pixel size |
+| `.png` | the image itself: {width}, 8-bit greyscale |
+| `.mbi.json` | where the camera was and how it was pointed, in the usual instrument-image form: `SC_QUAT0..3` rotates spacecraft to J2000, `TRG_POSX/Y/Z` is the body's position relative to the spacecraft in km, J2000. This is what lets the image be projected back onto the shape model |
+| `.png.json` | per-image numbers that go with it, including the ground size of a pixel |
 
-`series.json` describes all of the above per epoch, machine-readable.
+`series.json` is the same information for the whole series in machine-readable form: one
+entry per epoch naming its file in each folder, plus the settings everything was rendered
+with.
 
-In PRo3D: open the scene, GIS tab -> Projected Images -> Import Directory -> `stack/`,
-`+` per row, Orientation Source MBI, Transfer Function off.
+## Using them in PRo3D
 
-## Facts to keep with the data
+Open `{scene}`, then: GIS tab -> Projected Images -> Import Directory -> `stack/`, `+` on
+each row you want, Orientation Source **MBI**, Transfer Function **off**.
 
-- Re-rendering against a different kernel delivery gives different images. Quote `{mkid}`.
-- The frames belong to this shape model; sidecars describe the camera each render used.
-- Pointing comes from the CK. Only epochs with {instrument} on target exist here.
-- No detector model (no PSF, noise, quantisation). No phase function.
-- Geometric positions: no light-time or stellar aberration.
-- Micro-structure is shading only, not topography.
-- All sidecars pass the boresight invariant.
+`stack/` holds {nstack} evenly spaced {stackvariant} frames rather than all {count},
+because the viewer projects at most 32 layers at once and frames minutes apart see nearly
+the same face.
+
+## What these images are, and are not
+
+- **Pointing is the planned spacecraft attitude.** Frames are not centred on the body;
+  they use where the plan actually pointed {instrument}, and epochs where it looked
+  elsewhere are simply absent from this series.
+- **No detector effects**: no blur, no noise, no 12-bit quantisation.
+- **No phase function.** Brightness is comparable across the series, but it is not
+  absolute radiometry.
+- **Surface roughness is shading only.** It is not in the geometry, so a reconstruction
+  will happily turn it into relief that the shape model does not have.
+- **Geometric positions**: no light-time or stellar aberration correction.
 """
 
 
@@ -380,24 +416,43 @@ def main():
                          "the SMOOTH variant is always 0")
     ap.add_argument("--distance", default=None,
                     help="camera range override in metres; default is the spacecraft's real range")
-    ap.add_argument("--variants", default="delit,micro,smooth",
-                    help="which variants to render, comma-separated (default delit,micro,smooth). "
+    ap.add_argument("--variants", default="delit,baked,micro,smooth",
+                    help="which variants to render, comma-separated (default delit,baked,micro,smooth). "
                          "'spice' adds an independent reference ray-cast from SPICE's own DSK "
                          "shape model -- same epochs, same camera, no PRo3D code involved")
     ap.add_argument("--stack-count", type=int, default=15,
                     help="how many frames to copy into <out>/stack/ (default 15, cap %d)" % MAX_STACK)
-    ap.add_argument("--stack-variant", default="delit", choices=["micro", "smooth", "delit"],
+    ap.add_argument("--stack-variant", default="delit",
+                    choices=["delit", "baked", "micro", "smooth"],
                     help="which variant the stack subset takes (default delit)")
     ap.add_argument("--texture-layer", default="DRACO_2",
                     help="texture layer the scene displays under the projection (default DRACO_2)")
     ap.add_argument("--scene-template", default=default_template,
                     help="a .pro3d to derive ImageSeries.pro3d from; skipped if absent")
-    ap.add_argument("--force", action="store_true", help="re-render frames that already exist")
+    ap.add_argument("--margin", type=float, default=0.05,
+                    help="validation: %s" % (
+                        "how far another dihedral transform must beat identity before a "
+                        "frame counts as failed (default 0.05). Calibrated from the data: "
+                        "a correct frame's identity wins by 0.12-0.73 where the view "
+                        "discriminates, and flipUD edges ahead by at most 0.023 where it "
+                        "does not"))
+    ap.add_argument("--spice-hours", type=float, default=0.0,
+                    help="confine the reference frames to the first N hours of the series "
+                         "(default 0 = spread over all of it). The reference validates the "
+                         "RENDERER, and the renderer does not change with the epoch -- so a "
+                         "series extended beyond the span that was checked does not need its "
+                         "own references, and rendering them at ~50 s each would be the "
+                         "longest part of the run for no extra answer")
     ap.add_argument("--spice-count", type=int, default=8,
                     help="how many spice reference frames to render, spread evenly over "
                          "the series (default 8; 0 renders one per epoch). The reference "
                          "costs ~50 s a frame and tests the renderer, not the epoch, so a "
                          "few spread over the series answer the same question as all of them")
+    ap.add_argument("--docs-only", action="store_true",
+                    help="rewrite README.md and series.json from the frames already in "
+                         "<out>, rendering nothing. For fixing the text without touching "
+                         "the data -- re-rendering a finished series to correct a sentence "
+                         "is a good way to damage it")
     ap.add_argument("--list-layers", action="store_true",
                     help="print the OPC's texture layers and exit")
     a = ap.parse_args()
@@ -416,9 +471,9 @@ def main():
     span = (epochs[-1] - epochs[0]).total_seconds() / 3600.0
 
     variants = [v.strip().lower() for v in a.variants.split(",") if v.strip()]
-    unknown = [v for v in variants if v not in ("micro", "smooth", "delit", "spice")]
+    unknown = [v for v in variants if v not in ("micro", "smooth", "delit", "baked", "spice")]
     if unknown or not variants:
-        print("--variants takes any of micro, smooth, delit, spice -- got %s" % a.variants)
+        print("--variants takes any of delit, baked, micro, smooth, spice -- got %s" % a.variants)
         return 2
     if a.stack_variant not in variants:
         # Not fatal: a pass that renders only one variant (e.g. the spice reference) into
@@ -445,33 +500,23 @@ def main():
     kernel = resolve_kernel(a.kernel, a.kernel_root)
     mkid = mk_identifier(kernel)
 
-    # Refuse to resume across a rebuild of the renderer: a different binary may place,
-    # orient or scale the body differently, and half-updated folders are worse than a
-    # re-render because nothing in the frames says which build made them.
+    # Recorded as provenance, not used to decide anything: `simulate-series` renders the
+    # whole series in one process and the folders are written fresh, so there is no
+    # half-updated folder for a build fingerprint to protect against any more. It stays
+    # in series.json because "which binary made these frames" is still the question
+    # nobody can answer from the frames themselves.
     build = tool_fingerprint(repo)
-    force = a.force
-    prev = os.path.join(a.out, "series.json")
-    if os.path.exists(prev) and not force:
-        try:
-            # written under `provenance` since the manifest was reshaped; the older flat
-            # key is still accepted so a folder from before that does not re-render
-            was = json.load(open(prev, encoding="utf-8"))
-            was = was.get("provenance", {}).get("toolBuild") or was.get("toolBuild")
-        except Exception:
-            was = None
-        if was != build:
-            # `was is None` means the folder predates this check, so its provenance is
-            # unknown -- treat that the same as a known mismatch rather than trusting it.
-            print("the renderer changed since this folder was written (%s -> %s):"
-                  % (was or "unrecorded", build))
-            print("   re-rendering every frame, because mixing builds silently mixes geometry")
-            force = True
+
     # One folder per variant, so each is directly importable: PRo3D's Import Directory
-    # takes a folder, and a folder holding both variants would load two layers per epoch.
-    # It also keeps the README, the scene and the stack out of the data.
+    # takes a folder, and a folder holding two variants would load two layers per epoch.
+    # It also keeps the README, the scene and the stack out of the data. The tool
+    # recreates the lit-variant folders itself; the reference is ours to manage.
     vdir = {v: os.path.join(a.out, v) for v in variants}
-    for d in vdir.values():
-        os.makedirs(d, exist_ok=True)
+    os.makedirs(a.out, exist_ok=True)
+    if "spice" in vdir and not a.docs_only:
+        if os.path.isdir(vdir["spice"]):
+            shutil.rmtree(vdir["spice"])
+        os.makedirs(vdir["spice"])
 
     print("%d epochs, %s .. %s, every %g min (%.2f h, %.2f rotations)"
           % (count, iso(epochs[0]), iso(epochs[-1]), a.interval, span, span / ROTATION_HOURS))
@@ -510,80 +555,99 @@ def main():
               % (count, max((angles[iso(e)] or 0.0) for e in epochs), halffov))
     print("rendering %d frame(s) per epoch into %s" % (len(variants), ", ".join(sorted(vdir))))
 
-    # micro-structure is the only difference between the two, so everything else that
-    # touches brightness is shared -- an unequal albedo or gain would make the pair
-    # incomparable and the comparison is the reason both exist
-    shared = ["--gain", a.gain, "--micro-scale", a.micro_scale, "--write-mbi"]
-    if a.albedo:
-        shared += ["--albedo", a.albedo]
-    if a.distance:
-        shared += ["--distance", a.distance]
-    flags = {"micro":  ["--micro-amplitude", a.micro_amplitude],
-             "smooth": ["--micro-amplitude", "0"],
-             # DELIT is the realistic one: the DRACO texture with its baked illumination
-             # divided out where there is any to divide, so the render's own sun lights a
-             # surface that carries real albedo detail. --deshade-layer also selects the
-             # texture layer, so one name drives both the fit and the divisor.
-             "delit":  ["--micro-amplitude", a.micro_amplitude,
-                        "--deshade", "--deshade-layer", a.texture_layer]}
+    lit = [v for v in variants if v != "spice"]
+    failed = []
 
-    failed, rendered, skipped = [], [], 0
+    if a.docs_only:
+        # Everything below the render is a function of what is on disk, so skipping both
+        # render stages regenerates the documents and nothing else.
+        lit = []
 
-    # The SPICE reference is the expensive one: ~50 s a frame against ~7 s for the tool,
+    # ONE tool invocation for every lit frame in the series.
+    #
+    # `simulate-image` is a complete program per frame: GL context, OPC load, de-shading
+    # fit, scene graph, LOD warm-up, all to emit one PNG. None of that depends on the
+    # epoch, so driving it 429 times put this series at ~50 minutes of which the rendering
+    # was a rounding error. `simulate-series` hoists all of it and renders the whole set
+    # in one process, at ~0.3 s a frame -- and it verifies every sidecar as it goes.
+    if lit:
+        # The epoch list is an INPUT to the tool, not part of the delivery -- series.json
+        # already names every epoch. Keeping it out of <out> keeps the data folder to
+        # things the recipient wants.
+        fd, times_file = tempfile.mkstemp(prefix="pro3d-epochs-", suffix=".txt", text=True)
+        os.close(fd)
+        with open(times_file, "w", encoding="utf-8") as f:
+            f.write("# epochs of this series, on target for HERA_AFC-1; written by %s\n"
+                    % os.path.basename(__file__))
+            for e in epochs:
+                f.write(iso(e) + "\n")
+
+        args = ["simulate-series"] + common + [
+            "--times-file", times_file,
+            "--out", a.out,
+            "--variants", ",".join(lit),
+            "--gain", a.gain,
+            "--micro-scale", a.micro_scale,
+            "--micro-amplitude", a.micro_amplitude,
+            # --deshade-layer drives both the fit and the divisor; DELIT is the only
+            # variant that uses it, and the other two never sample the texture.
+            "--deshade-layer", a.texture_layer,
+        ]
+        if a.albedo:
+            args += ["--albedo", a.albedo]
+        if a.distance:
+            args += ["--distance", a.distance]
+
+        print("rendering %d epochs x %d variants in one process" % (count, len(lit)))
+        t0 = time.time()
+        p = run_tool(repo, args, stream=True)
+        if p.returncode != 0:
+            # The verb names every frame it could not render, and has already said why on
+            # stderr. One entry here so the manifest records that this run failed.
+            failed.append((iso(epochs[0]), ",".join(lit), tool_error(p)))
+            print("\nsimulate-series FAILED (exit %d) -- see above" % p.returncode)
+        else:
+            print("   %d frames in %.1f s" % (count * len(lit), time.time() - t0))
+        try:
+            os.remove(times_file)
+        except OSError:
+            pass
+
+    # The SPICE reference is the expensive one: ~50 s a frame against the tool's ~0.3 s,
     # and it does not parallelise -- CSPICE reads the DSK in 1 KB records through its DAS
     # layer, and fifteen worker processes spent thirteen minutes reading 20 GB each before
-    # delivering their first frames. It renders serially, like everything else.
+    # delivering their first frames.
     #
     # It is also not needed at every epoch. The reference exists to show that the detector
     # axes and the FOV agree with the kernels, and that is a property of the *renderer*,
     # not of the epoch: a handful of frames spread over the series tests it under the
-    # illuminations and visible faces the series contains. Rendering it 143 times would
-    # cost two hours to re-answer a question already answered at frame ten.
-    spice_at = set()
-    if "spice" in variants:
-        n = len(epochs) if a.spice_count <= 0 else min(a.spice_count, len(epochs))
-        spice_at = {iso(e) for e in subset(epochs, n)}
-        print("spice: %d reference frame(s) spread over %d epochs "
-              "(--spice-count 0 renders every one)" % (len(spice_at), len(epochs)))
-
-    t0 = time.time()
-    for i, e in enumerate(epochs):
-        for v in variants:
-            stem = "AFC1_%s_%s" % (v.upper(), stamp(e))
-            png = os.path.join(vdir[v], stem + ".png")
-            if v == "spice" and iso(e) not in spice_at:
-                continue
-            if os.path.exists(png) and not force:
-                skipped += 1
-                rendered.append((stem, iso(e), v))
-                continue
-            done = len(rendered) - skipped
-            eta = ""
-            if done > 0:
-                per = (time.time() - t0) / done
-                left = (count - i) * len(variants) - variants.index(v)
-                eta = "  ~%d min left" % max(0, int(per * left / 60.0))
-            print(" [%d/%d] %s  %s%s" % (i + 1, count, iso(e), v, eta))
-            if v == "spice":
-                # Independent reference: SPICE ray-casts its own DSK. Scaled through the
-                # same albedo and gain as the tool's frames so the two are radiometrically
-                # comparable, not just geometrically.
-                p = spice_frame(kernel, iso(e), png, float(a.gain or 4.492),
-                                float(a.albedo or 0.16))
-            else:
-                p = run_tool(repo, ["simulate-image"] + common + shared + flags[v] +
-                             ["--time", iso(e), "--out", png])
-            # A failed render leaves no files behind, and the sidecar check below only
-            # looks at what IS there -- so without this a half-empty series reports "all
-            # sidecars pass". The usual cause is an epoch where the body is not in the
-            # instrument's field of view, or one outside the kernels' coverage.
+    # illuminations and visible faces the series contains.
+    if "spice" in variants and not a.docs_only:
+        # The pool the references are drawn from, which is not necessarily the whole
+        # series: --spice-hours confines them to the front of it.
+        pool = epochs
+        if a.spice_hours > 0:
+            cutoff = a.spice_hours * 3600.0
+            pool = [e for e in epochs if (e - epochs[0]).total_seconds() <= cutoff] or epochs
+        n = len(pool) if a.spice_count <= 0 else min(a.spice_count, len(pool))
+        chosen_spice = subset(pool, n)
+        print("spice: %d reference frame(s) spread over %d of %d epochs (%s), ~50 s each"
+              % (len(chosen_spice), len(pool), len(epochs),
+                 "the whole series" if len(pool) == len(epochs)
+                 else "the first %g h; the rest is unreferenced by design" % a.spice_hours))
+        t0 = time.time()
+        for i, e in enumerate(chosen_spice):
+            png = os.path.join(vdir["spice"], "AFC1_SPICE_%s.png" % stamp(e))
+            left = (len(chosen_spice) - i - 1) * ((time.time() - t0) / max(1, i))
+            print(" [%d/%d] %s  spice%s"
+                  % (i + 1, len(chosen_spice), iso(e),
+                     "  ~%d min left" % int(left / 60.0) if i else ""))
+            # Scaled through the same albedo and gain as the tool's frames so the two are
+            # radiometrically comparable, not just geometrically.
+            p = spice_frame(kernel, iso(e), png, float(a.gain or 4.492),
+                            float(a.albedo or 0.16))
             if p.returncode != 0:
-                failed.append((iso(e), v, tool_error(p)))
-            else:
-                rendered.append((stem, iso(e), v))
-
-    if skipped:
-        print("\n%d frame(s) already present, skipped (--force re-renders)" % skipped)
+                failed.append((iso(e), "spice", tool_error(p)))
 
     # Everything below this line describes the FOLDER, not this run. Building it from the
     # frames this invocation happened to render meant that a pass over one variant (say
@@ -591,7 +655,6 @@ def main():
     # variants did not exist -- which silently dropped the spice reference and made the
     # validator report "nothing to validate against" -- and left the README claiming one
     # epoch over a folder holding forty-eight.
-    run_attempts = count * len(variants)
     rendered = []
     for v in sorted(VARIANTS):
         d = os.path.join(a.out, v)
@@ -747,6 +810,18 @@ def main():
                                  for (t, ang) in offtarget],
         },
     }
+    # Validation is a STAGE, not an afterthought: the series is checked against the
+    # independent SPICE ray-cast here, and the verdict goes into the manifest. A folder
+    # then carries its own proof instead of it living in a terminal that is gone by the
+    # time anyone asks whether these frames were ever checked.
+    #
+    # The check itself is pro3d_sim.validate_series -- the same function check-series.py
+    # calls, so a re-check later cannot disagree with this one for any reason but the data.
+    print("\nvalidation -- each frame against the SPICE reference of its epoch:")
+    validation = validate_series(a.out, manifest, margin=a.margin)
+    print_validation(validation)
+    manifest["validation"] = validation
+
     with open(os.path.join(a.out, "series.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     print("wrote %s" % os.path.join(a.out, "series.json"))
@@ -776,16 +851,26 @@ def main():
                  scene=os.path.basename(scene) if scene else "ImageSeries.pro3d (not written)")
     print("wrote %s" % readme)
 
+    # Three independent gates, and the run passes only if all three do. They fail for
+    # different reasons on purpose: a render can fail, a sidecar can describe a camera the
+    # viewer does not reconstruct, and the frames can disagree with the kernels about
+    # which way the detector axes point -- none of which implies either of the others.
     if failed:
-        print("\n%d of %d renders FAILED:" % (len(failed), run_attempts))
+        print("\n%d render step(s) FAILED:" % len(failed))
         for t, v, w in failed:
             print("   %s %-6s  %s" % (t, v, w))
     if bad:
         print("\n%d sidecar(s) FAILED the boresight invariant" % bad)
-    if failed or bad:
+    if validation["verdict"] == "fail":
+        print("\nVALIDATION FAILED -- this series disagrees with the SPICE reference; "
+              "see series.json for every failing pair")
+    if failed or bad or validation["verdict"] == "fail":
         return 1
-    print("\nall %d frames present and every sidecar passes the boresight invariant"
-          % len(rendered))
+    print("\nall %d frames present, every sidecar passes the boresight invariant, and "
+          "%s" % (len(rendered),
+                  "the series validates against the SPICE reference"
+                  if validation["verdict"] == "pass"
+                  else "there was no reference to validate against (--variants spice)"))
     return 0
 
 

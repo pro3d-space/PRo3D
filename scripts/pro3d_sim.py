@@ -16,18 +16,38 @@ import subprocess
 import numpy as np
 
 
-def run_tool(repo, args, quiet=False):
-    """Run pro3d-tool: the built binary if there is one, otherwise `dotnet run`."""
+def run_tool(repo, args, quiet=False, stream=False):
+    """Run pro3d-tool: the built binary if there is one, otherwise `dotnet run`.
+
+    `stream` prints the interesting lines as they arrive instead of after the process
+    exits. A whole series is one invocation now, so buffering it would mean a run that
+    says nothing until it is over -- and a run that says nothing is indistinguishable
+    from a run that is stuck.
+    """
     exe = os.path.join(repo, "bin", "Release", "net9.0", "PRo3D.Tool.exe")
     cmd = ([exe] if os.path.exists(exe)
            else ["dotnet", "run", "--project",
                  os.path.join(repo, "src", "PRo3D.Tool", "PRo3D.Tool.fsproj"), "--"])
-    p = subprocess.run(cmd + args, capture_output=True, text=True)
-    if not quiet:
-        for line in (p.stdout or "").splitlines():
-            if any(k in line for k in ("[out]", "[mbi]", "[texture]", "ERROR", "round trip")):
-                print("   " + line.strip())
-    return p
+    keys = ("[out]", "[mbi]", "[texture]", "[series]", "[deshade]", "ERROR", "FAIL",
+            "round trip")
+    if not stream:
+        p = subprocess.run(cmd + args, capture_output=True, text=True)
+        if not quiet:
+            for line in (p.stdout or "").splitlines():
+                if any(k in line for k in keys):
+                    print("   " + line.strip())
+        return p
+
+    proc = subprocess.Popen(cmd + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, bufsize=1)
+    out = []
+    for line in proc.stdout:
+        out.append(line)
+        if not quiet and any(k in line for k in keys):
+            print("   " + line.strip(), flush=True)
+    err = proc.stderr.read()
+    proc.wait()
+    return subprocess.CompletedProcess(cmd + args, proc.returncode, "".join(out), err)
 
 
 def tool_error(p):
@@ -237,3 +257,164 @@ def dsk_render(utc, instrument, target, observer, frame, size, fov_deg):
             if mu0 > 0.0 and mu > 0.0 and f[6]:        # f[6] = lit: DSK self-shadowing
                 img[j, i] = 2.0 * mu0 / (mu0 + mu)     # Lommel-Seeliger
     return img, hit
+
+
+# ---------------------------------------------------------------------------------
+# Validating a rendered series against the independent SPICE reference.
+#
+# THE ONE implementation. It lives here, not in check-series.py, because validation is a
+# stage of producing a series rather than a thing to remember to run afterwards: the
+# generator calls it before it writes series.json, and check-series.py calls the same
+# function to re-check a folder later. Two copies would be the same failure this whole
+# area already produced once -- a second path that agrees with the first until one of them
+# changes, with nothing in the output saying which you ran.
+#
+# The question it answers: does the tool's frame agree with a ray-cast of SPICE's own DSK
+# about which way the detector axes point? Anything but `identity` means it does not.
+
+TRANSFORMS = {
+    "identity":       lambda z: z,
+    "rot90":          lambda z: np.rot90(z, 1),
+    "rot180":         lambda z: np.rot90(z, 2),
+    "rot270":         lambda z: np.rot90(z, 3),
+    "flipLR":         lambda z: z[:, ::-1],
+    "flipUD":         lambda z: z[::-1, :],
+    "transpose":      lambda z: z.T,
+    "anti-transpose": lambda z: np.rot90(z, 2).T,
+}
+
+
+def _crop(a, size, thr):
+    """The body, centred on its own centroid.
+
+    Correlating whole frames collapses to noise when a small field-of-view difference
+    shifts the body a pixel or two, and a spurious transform then wins. Thresholding well
+    above the ambient floor first is what makes the two centroids comparable at all: our
+    frames carry an ambient-lit night side, the reference writes 0 where unlit.
+    """
+    m = a > thr
+    if m.sum() < 200:
+        return None
+    ys, xs = np.nonzero(m)
+    cx, cy, h = int(xs.mean()), int(ys.mean()), size // 2
+    if cx - h < 0 or cy - h < 0 or cx + h > a.shape[1] or cy + h > a.shape[0]:
+        return None
+    return a[cy - h:cy + h, cx - h:cx + h].astype(float)
+
+
+def _corr(x, y):
+    m = (x > 0) | (y > 0)
+    if m.sum() < 200:
+        return 0.0
+    x, y = x[m] - x[m].mean(), y[m] - y[m].mean()
+    d = np.sqrt((x * x).sum() * (y * y).sum())
+    return float((x * y).sum() / d) if d > 0 else 0.0
+
+
+def validate_series(series_dir, manifest, size=340, threshold=25,
+                    min_correlation=0.5, margin=0.05):
+    """Check every epoch that has both a tool frame and a `spice/` reference.
+
+    Returns a dict, which is what goes into series.json verbatim -- the folder then
+    carries its own verdict instead of it living in a terminal that is gone by the time
+    anyone asks. `verdict` is one of:
+
+        pass      every pair aligns best under identity
+        fail      at least one pair aligns better under something else by > margin
+        skipped   no reference frames to compare against
+
+    `margin` exists because Dimorphos is near-symmetric about some viewing axes, so on a
+    CORRECT frame flipUD can edge out identity. It is calibrated from the two populations
+    rather than guessed: measured over both series, identity beats the runner-up by 0.12
+    to 0.73 wherever the view discriminates at all, and flipUD edges ahead by at most
+    0.023 where it does not. The default 0.05 lies in the empty band between them. An
+    earlier 0.02 was set when only a 0.005-0.009 artefact had been seen, and a longer
+    series then produced a 0.023 one -- a threshold is only as good as the range of data
+    it was calibrated on. `min_correlation` only marks a pair weak, never failed -- a low-phase epoch is
+    a flat featureless disk with nothing to correlate, which is inconclusive, not wrong.
+
+    A failing pair also records `selfSymmetry`: how well the frame matches its own winning
+    transform. On a near-symmetric view that sits close to the identity correlation, which
+    is what tells "the axes are wrong" apart from "this view cannot tell up from down".
+    """
+    from PIL import Image
+
+    variants = [v for v in manifest.get("variants", {}) if v != "spice"]
+    if "spice" not in manifest.get("variants", {}):
+        return {"verdict": "skipped", "reason": "no spice/ reference in this series",
+                "checked": 0}
+
+    tally, weak, bad, checked = {}, [], [], 0
+    for ep in manifest["epochs"]:
+        files = ep.get("files", {})
+        if "spice" not in files:
+            continue
+        ref = _crop(np.asarray(Image.open(os.path.join(series_dir, files["spice"])).convert("L")),
+                    size, threshold)
+        if ref is None:
+            continue
+        for v in variants:
+            if v not in files:
+                continue
+            img = _crop(np.asarray(Image.open(os.path.join(series_dir, files[v])).convert("L")),
+                        size, threshold)
+            if img is None:
+                continue
+            checked += 1
+            scores = sorted(((_corr(img, f(ref)), k) for k, f in TRANSFORMS.items()), reverse=True)
+            best, name = scores[0]
+            ident = _corr(img, ref)
+            if name != "identity" and best - ident > margin:
+                bad.append({"time": ep["time"], "variant": v, "best": name,
+                            "bestCorrelation": round(best, 4),
+                            "identityCorrelation": round(ident, 4),
+                            "selfSymmetry": round(_corr(img, TRANSFORMS[name](img)), 4)})
+                tally[name] = tally.get(name, 0) + 1
+            elif name != "identity":
+                tally["identity (tie)"] = tally.get("identity (tie)", 0) + 1
+            else:
+                tally["identity"] = tally.get("identity", 0) + 1
+                if best < min_correlation:
+                    weak.append({"time": ep["time"], "variant": v,
+                                 "correlation": round(best, 4)})
+
+    return {
+        "verdict": "fail" if bad else "pass",
+        "what": "each tool frame against the SPICE DSK ray-cast of the same epoch, over "
+                "the eight dihedral transforms; the best must be identity",
+        "checked": checked,
+        "tally": tally,
+        "settings": {"cropPx": size, "thresholdDn": threshold,
+                     "minCorrelation": min_correlation, "margin": margin},
+        "failed": bad,
+        "weak": weak,
+    }
+
+
+def print_validation(v):
+    """The same result, for a terminal."""
+    if v["verdict"] == "skipped":
+        print("validation SKIPPED: %s" % v.get("reason", ""))
+        return
+    print("checked %d frame pair(s) against the SPICE reference" % v["checked"])
+    for k in sorted(v["tally"], key=lambda k: -v["tally"][k]):
+        print("   best transform %-16s %4d" % (k, v["tally"][k]))
+    if v["failed"]:
+        print("\nFAILED: %d pair(s) align better under something other than identity"
+              % len(v["failed"]))
+        for f in v["failed"][:10]:
+            print("   %s %-7s best=%-14s %+.3f   identity %+.3f   (matches its own %s "
+                  "at %+.3f)"
+                  % (f["time"], f["variant"], f["best"], f["bestCorrelation"],
+                     f["identityCorrelation"], f["best"], f.get("selfSymmetry", 0.0)))
+        if len(v["failed"]) > 10:
+            print("   ... and %d more" % (len(v["failed"]) - 10))
+        return
+    if v["weak"]:
+        print("\n%d pair(s) align under identity but weakly (< %.2f) -- usually a low-phase"
+              % (len(v["weak"]), v["settings"]["minCorrelation"]))
+        print("epoch where the disk is flat and there is little structure to match:")
+        for w in v["weak"][:5]:
+            print("   %s %-7s %+.3f" % (w["time"], w["variant"], w["correlation"]))
+    print("\nPASS: every pair aligns best under identity (%d weak of %d)"
+          % (len(v["weak"]), v["checked"]))
