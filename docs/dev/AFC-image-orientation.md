@@ -226,6 +226,30 @@ that "PRo3D draws a scene and gets it for free" is **wrong for the tool**: it ho
 viewer with both bodies loaded, not for `simulate-series`, which renders the target OPC
 alone.
 
+## Rotation and pointing, all three, as pictures
+
+![three-way comparison](../images/afcOrientation/three-way-rotation.png)
+
+Ours in **cyan**, the other in **magenta**, agreement in grey. Each pairing is on its own
+footing: comet-toolbox shades, so the comparison is the lit region; Pilucas does not light
+at all, so it is the silhouette. The first two columns are centred and scaled to a common
+size — they answer *is it rotated*. The third is not — it answers *is it pointed at the
+same place*.
+
+What the pictures show that the numbers did not:
+
+- **Pointing is not in question.** Third column: the outlines sit on top of each other at
+  every epoch. Centres agree to 1–2 px.
+- **The quoted angles are the metric failing, not a rotation.** At 14:15 and 14:45 the
+  lit regions coincide almost exactly, yet the label reads −11.4° and −14.1°. The body is
+  nearly circular at those epochs, so its major axis is ill-defined. Trust the overlap,
+  not the angle.
+- **The real residual is at 07:45 and 09:00**, second column: a teal crescent along the
+  top edge where our silhouette extends past hers. That is the ±6 % area difference, and
+  it is a shape-extent difference, not a rotation — the outlines are parallel, not turned.
+- **Her frames have interior holes** (magenta speckles at 14:15 and 14:45): pixels below
+  the threshold inside the body. Worth knowing before trusting her masks for area work.
+
 ## What each comparison can and cannot validate
 
 A comparison only tests the parts the two sides do **not** share. Where a component is
