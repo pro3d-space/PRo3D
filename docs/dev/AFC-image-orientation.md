@@ -226,6 +226,39 @@ that "PRo3D draws a scene and gets it for free" is **wrong for the tool**: it ho
 viewer with both bodies loaded, not for `simulate-series`, which renders the target OPC
 alone.
 
+## What each comparison can and cannot validate
+
+A comparison only tests the parts the two sides do **not** share. Where a component is
+common, agreement proves nothing about it and disagreement cannot come from it.
+
+| component of the chain | ours | Pilucas | comet-toolbox | ours vs Pilucas | ours vs comet |
+|---|---|---|---|---|---|
+| SPICE kernels | `v182_20260820` | `v182_20260817` | `v182_20260805` | **shared** — measured identical to 0.00 m / 0.000000° | tests it (delivery untested, bounded to the same planning epoch) |
+| shape model | OPC `dtm_dimo_v003` | same OPC | its own, finer | **shared** | tests it |
+| renderer | PRo3D | **PRo3D** | independent | **shared** | tests it |
+| scene origin | Dimorphos | Didymos | unknown | tests it | tests it |
+| camera construction | `getLookAtQuat` + `specialTrafos` | her SPICE code → bookmark | unknown | **tests it** ✔ | tests it |
+| image axis convention | the `specialTrafos` entry | AFC-1 frame taken as-is | unknown | **tests it** ✔ | **tests it** ✔ |
+| field of view | 5.50° | viewer's ≈5.5307° | unknown | **tests it** ✔ (+0.44 % measured) | tests it |
+| photometry | Lommel-Seeliger + cast shadows | **none** | shaded | untestable — silhouette only | **tests it** ✔ |
+| Didymos eclipse | not modelled | n/a | modelled | untestable | **tests it** ✔ (we fail) |
+
+Read down the last two columns and the situation is plain:
+
+- **Pilucas validates exactly three things**: the camera construction, the image axis
+  convention and the FOV. Everything else is shared, so her agreement is not evidence
+  about kernels, shape or renderer — and cannot be. What it does test, it tests well,
+  because everything else is held fixed. That is the ideal instrument for the ±6 %
+  silhouette question, and useless for anything else.
+- **comet-toolbox validates everything, weakly.** It is the only independent
+  implementation, so it is the only check on the renderer, the shape and the photometry —
+  but its configuration is unknown, its kernel delivery is untested, and the measurements
+  come from screenshots. It is the only thing that caught the 90° and the eclipse.
+
+The 90° was found by the one comparison that could find it, and confirmed by the one that
+holds everything else constant. The remaining ±6 % is in Pilucas' column, which is where
+it should be chased.
+
 ## Current state: what each of the three actually does
 
 | | ours (`simulate-series`) | Pilucas | comet-toolbox |
