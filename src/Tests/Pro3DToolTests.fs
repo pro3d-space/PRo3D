@@ -111,8 +111,11 @@ module private Fixtures =
             textureAlbedo = false
             project = null
             projectShader = null
-            // the shipped default, swept against a SPICE ray-cast -- see check-lighting.py
+            // the shipped defaults, both swept against a SPICE ray-cast -- see
+            // check-lighting.py. 4096 over a body this size is already finer than its
+            // geometry, which is why raising it measured no better.
             shadowBias = 0.006
+            shadowMap = 4096
             // No binary companion in the scene: these fixtures render Didymos, which IS
             // the primary, and an eclipse cast by its own moon is not what they test.
             occluderBody = null
