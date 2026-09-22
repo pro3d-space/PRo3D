@@ -24,6 +24,22 @@ blob's shape centroid to its brightness centroid.*
 **Difference: 88.6°.** The extents are reciprocal (0.68 vs 1.41), which is what a 90°
 rotation does.
 
+Silhouettes overlaid — ours cyan, comet-toolbox magenta, agreement white. Both are
+normalised to the same centre and scale, so the picture shows orientation and shape only;
+apparent size already agreed to three digits before any of this.
+
+| as `ea3337cb` shipped it | after matching the dashboard |
+|---|---|
+| ![90° apart](../images/afcOrientation/overlay-before.png) | ![aligned](../images/afcOrientation/overlay-after.png) |
+| silhouette IoU **0.52** | silhouette IoU **0.81** |
+
+The residual fringe on the right-hand panel is not a rotation. The lit-region major axis
+agrees to **0.4°** (165.1° against 164.7°) and a fine rotation search peaks at −1.1° with
+almost no gain over 0° (IoU 0.8156 vs 0.8127) — there is no angle left to find. The
+coloured edge is relief: comet-toolbox uses a finer shape model, so its terminator carries
+more structure, which is also why the *brightness* centroid still differs by ~6° while the
+outline does not.
+
 ## What this is not
 
 - **Not a different kernel delivery.** Apparent size agrees to three digits — 30.7 % of
@@ -31,9 +47,11 @@ rotation does.
   the size.
 - **Not a different body.** At this epoch the kernels put Dimorphos at 5.17 km, ~369 px
   across a 1020 px frame; Didymos would be ~1444 px, overflowing the frame.
-- **Not a flip or a transpose.** All eight dihedral transforms correlate negatively
-  (−0.28 to −0.36), and a continuous rotation search peaks at −0.43. Only the rotation
-  *angle* matches; the shading does not, because the two use different shape models.
+- **Not a flip or a transpose.** The silhouettes align under a plain 90° rotation, as the
+  overlay above shows. Correlating the *grey levels* instead is useless here — all eight
+  dihedral transforms come out negative (−0.28 to −0.36) — because the two renders use
+  different shape models and so disagree pixel by pixel whatever the orientation. The
+  silhouette is what carries the orientation; the shading does not.
 
 ## What is established
 
@@ -121,8 +139,11 @@ We rotated to match comet-toolbox.
 basis `FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)` — with the one change that all
 three now share it, since the IK gives AFC-1 and AFC-2 the same layout and the old code
 had them 180° apart. Verified on 2027-02-25T06:30: extent 31.2 % × 20.4 % against
-comet-toolbox's 30.7 % × 21.8 %, illumination direction within 6.3°, which is the same
-order as the residual between two different shape models.
+comet-toolbox's 30.7 % × 21.8 %, and the lit-region major axis within 0.4°.
+
+The kernel delivery is not a factor: rendering the same epoch against
+`hera_plan_v182_20260817_001` (the workshop-3 tree) instead of `v182_20260820_001` gives
+the same size, the same illumination direction and the same major axis.
 
 `pro3d_sim.dsk_render` rotates its output by the same 90°, so the SPICE cross-check keeps
 measuring geometry rather than re-measuring the convention.
