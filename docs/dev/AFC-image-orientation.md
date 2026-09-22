@@ -226,6 +226,36 @@ that "PRo3D draws a scene and gets it for free" is **wrong for the tool**: it ho
 viewer with both bodies loaded, not for `simulate-series`, which renders the target OPC
 alone.
 
+## Current state: what each of the three actually does
+
+| | ours (`simulate-series`) | Pilucas | comet-toolbox |
+|---|---|---|---|
+| renderer | PRo3D | **PRo3D** (sequenced bookmarks) | independent |
+| camera built by | `getLookAtQuat` + `specialTrafos` | her own SPICE code, into a bookmark | unknown |
+| scene origin | Dimorphos | **Didymos** | unknown |
+| shape | OPC `..._dtm_dimo_v003` | same OPC | own, finer |
+| kernels | `v182_20260820` | `v182_20260817` — identical | `v182_20260805` — untested |
+| FOV | 5.50° | the viewer's, ≈5.5307° | unknown |
+| lighting | Lommel-Seeliger + cast shadows | **none** | shaded |
+| Didymos eclipse | **not modelled** | n/a | modelled |
+
+Her camera pose is `R_body⁻¹ · R_cam`, which is why her code transposes the body rotation
+and not the camera's: the two matrices have different jobs. `pxform('DIMORPHOS_FIXED',
+'J2000').transpose()` is `J2000 → DIMORPHOS_FIXED`, which is exactly what is needed to
+express the camera in the frame the OPC lives in. The asymmetry is correct.
+
+Her sidecars are Didymos-centric: `TRG_POS` matches HERA→DIDYMOS to five figures, not
+HERA→Dimorphos. They cannot be compared with ours field by field.
+
+**All three now agree on the gross orientation.** What remains:
+
+| difference | size | cause |
+|---|---|---|
+| ours vs hers, apparent size | +0.44 % mean | our 5.50° against the viewer's ≈5.5307° — the FOV that `ea3337cb` corrected |
+| ours vs hers, silhouette | IoU 0.75–0.97, area swinging ±6 % | **open** — centres agree to 1–2 px, so pointing is right; a small attitude difference between the two camera paths is the remaining candidate |
+| ours vs comet, lit-region axis | +4.4° drifting to −13.8° | a metric that moves with the terminator, plus a possibly-different CK within the August batch |
+| 11:00–11:45 | we render a lit body | we do not model the Didymos eclipse |
+
 ## What this is not
 
 - **Not a different kernel delivery.** Apparent size agrees to three digits — 30.7 % of
