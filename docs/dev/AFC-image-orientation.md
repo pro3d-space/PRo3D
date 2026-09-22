@@ -153,9 +153,20 @@ and is nothing like either:
 | J2000 → HERA_AFC-1 | **112–132°** |
 | J2000 → DIMORPHOS_FIXED | **118–125°** |
 
-So "same v182" means very little. `20260817` and `20260820` agree because they are three
-days apart in one planning batch, not because the version string matches. `20260805` sits
-two weeks before ours and could differ substantially.
+So "same v182" means very little — but the pattern is not gradual drift. Eleven May
+deliveries, `20260507` through `20260527`, are **identical to each other** at these epochs
+(0.0 m, 0.0000°), and then differ from August by 120°. Kernels do not creep between
+releases; they jump when the mission re-plans.
+
+That bounds comet-toolbox's `20260805` without having the file. Their frames match ours in
+apparent size to three digits and overlap our silhouette at IoU 0.81. Had they been on the
+May plan, the AFC-1 attitude would differ by ~120° and the body would not even be in the
+same part of the frame. **They are therefore on the same planning epoch as us**, and the
+gross-geometry explanation for the drift in (b) is excluded.
+
+A small CK refinement within the August batch is still possible and would still produce a
+per-epoch rotation, so the file is worth having — but it can no longer explain more than a
+few degrees.
 
 This is the live hypothesis for the ours-vs-comet drift in (b). The SPK and the CK move
 independently between deliveries: comet-toolbox's apparent *size* matched ours to three
@@ -163,7 +174,8 @@ digits at 06:30, so its trajectory is close to ours — but the **attitude** nee
 and attitude is precisely what rotates the image. A CK that differs by a few degrees, and
 differently at each epoch, produces exactly the drifting offset measured there.
 
-**Getting the `20260805` delivery and re-running the diff above would settle (b).**
+**Getting the `20260805` delivery and re-running the diff above would close (b)**, though
+the bound above already rules out the large explanation.
 
 ### (c) 11:30 is an eclipse, and we get it wrong
 
