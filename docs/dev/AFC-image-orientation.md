@@ -142,10 +142,28 @@ identical** at all five comparison epochs:
 So the delivery cannot explain anything between us and Pilucas. What is left is the shape
 model and the rendering method.
 
-comet-toolbox's `20260805` is not on this machine and remains untested. Two consecutive
-v182 deliveries being bit-identical in this window makes a third likely to be as well, but
-that is an expectation, not a measurement — and it is the one loose end behind the
-ours-vs-comet numbers in (b).
+comet-toolbox's `20260805` is not on this machine and remains untested.
+
+**Do not assume it is close to ours.** An older v182 delivery, `20260527`, is available
+and is nothing like either:
+
+| `v182_20260820` vs `v182_20260527` | difference |
+|---|---|
+| HERA→Dimorphos range | up to **780 m** |
+| J2000 → HERA_AFC-1 | **112–132°** |
+| J2000 → DIMORPHOS_FIXED | **118–125°** |
+
+So "same v182" means very little. `20260817` and `20260820` agree because they are three
+days apart in one planning batch, not because the version string matches. `20260805` sits
+two weeks before ours and could differ substantially.
+
+This is the live hypothesis for the ours-vs-comet drift in (b). The SPK and the CK move
+independently between deliveries: comet-toolbox's apparent *size* matched ours to three
+digits at 06:30, so its trajectory is close to ours — but the **attitude** need not be,
+and attitude is precisely what rotates the image. A CK that differs by a few degrees, and
+differently at each epoch, produces exactly the drifting offset measured there.
+
+**Getting the `20260805` delivery and re-running the diff above would settle (b).**
 
 ### (c) 11:30 is an eclipse, and we get it wrong
 
