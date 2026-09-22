@@ -1,6 +1,7 @@
-module Pro3DToolTests
+﻿module Pro3DToolTests
 
 open System
+open System.Globalization
 open System.IO
 
 open Expecto
@@ -75,6 +76,9 @@ module private Fixtures =
     let simulateImageDefaults : SimulateImageOptions =
         {
             opc = ""
+            obj = null
+            objScale = 1000.0
+            objTexture = null
             time = ""
             mbi = null
             writeMbi = false
@@ -108,6 +112,10 @@ module private Fixtures =
             project = null
             projectShader = null
             shadowBias = 0.002
+            // No binary companion in the scene: these fixtures render Didymos, which IS
+            // the primary, and an eclipse cast by its own moon is not what they test.
+            occluderBody = null
+            occluderFrame = null
             // 'lookat', not the verb's 'ck' default: these fixtures render Didymos from
             // MILANI at epochs the CK does not necessarily cover, and the point of them is
             // the shading and the sidecar, not the attitude.
@@ -293,10 +301,17 @@ let private simulateImageTests =
                 let o = { Fixtures.simulateImageDefaults with opc = opc }
                 let time = img.mbi.obs_date
 
+                // Through the same resolver the verb uses, so the test exercises the OPC
+                // branch of it rather than a hand-built shape only the test has.
+                let shape =
+                    match SimulateImageVerb.ShapeSource.resolve runtime "DIDYMOS" opc null 1000.0 null None with
+                    | Result.Error e -> failtest e
+                    | Result.Ok s -> s
+
                 let render (name : string) =
                     let path = Path.Combine(outDir, name)
                     match SimulateImageVerb.processImage runtime o "DIDYMOS" "DIDYMOS_FIXED" "MILANI"
-                              "MILANI_ASPECT_NIR1" time path HeraSpiceTests.spiceFileName hierarchies None with
+                              "MILANI_ASPECT_NIR1" time path HeraSpiceTests.spiceFileName shape with
                     | Result.Error e -> failtest e
                     | Result.Ok written ->
                         Expect.isTrue (File.Exists written) "PNG written"
@@ -331,9 +346,248 @@ let private simulateImageTests =
         }
     ]
 
+/// The OBJ reader, on meshes small enough to reason about by hand.
+///
+/// No GPU and no kernels: this is a parser, and the things it can get wrong -- units,
+/// winding, the V axis, 1-based and negative indices, polygon fans -- all show up as wrong
+/// numbers long before they show up as a wrong picture. The one that motivated writing
+/// them down is the scale: the shape models the SPICE kernels ship are in KILOMETRES, and
+/// a factor of 1000 renders a body a few pixels across that every downstream complaint
+/// then blames on the pointing.
+module private ObjFixtures =
+
+    /// A unit cube, ±1 in file units, every face wound outward.
+    let cube =
+        String.concat "\n" [
+            "# a cube"
+            "v -1 -1 -1"; "v 1 -1 -1"; "v 1 1 -1"; "v -1 1 -1"
+            "v -1 -1 1";  "v 1 -1 1";  "v 1 1 1";  "v -1 1 1"
+            "f 1 4 3"; "f 1 3 2"          // -Z
+            "f 5 6 7"; "f 5 7 8"          // +Z
+            "f 1 2 6"; "f 1 6 5"          // -Y
+            "f 2 3 7"; "f 2 7 6"          // +X
+            "f 3 4 8"; "f 3 8 7"          // +Y
+            "f 4 1 5"; "f 4 5 8"          // -X
+            ""
+        ]
+
+    /// Same cube with every triangle reversed, i.e. wound inward.
+    let flippedCube =
+        cube.Split('\n')
+        |> Array.map (fun l ->
+            match l.Split(' ') with
+            | [| "f"; a; b; c |] -> sprintf "f %s %s %s" a c b
+            | _ -> l)
+        |> String.concat "\n"
+
+    let write (dir : string) (name : string) (text : string) =
+        let p = Path.Combine(dir, name)
+        File.WriteAllText(p, text)
+        p
+
+    let writeGz (dir : string) (name : string) (text : string) =
+        let p = Path.Combine(dir, name)
+        use fs = File.Create p
+        use gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionMode.Compress)
+        let bytes = Text.Encoding.ASCII.GetBytes text
+        gz.Write(bytes, 0, bytes.Length)
+        p
+
+    /// A UV sphere the size of Dimorphos, in KILOMETRES so `--obj-scale 1000` applies, with
+    /// an equirectangular texture baked as if lit from `light`. Returns (obj, texture).
+    ///
+    /// A sphere rather than a cube because the fit solves for a direction from the spread
+    /// of surface normals, and six of them determine nothing.
+    let litSphere (dir : string) (light : V3d) =
+        let radius = 0.088
+        let nu, nv = 64, 32
+        let sb = Text.StringBuilder()
+        let vertex i j =
+            let theta = float j / float nv * Constant.Pi
+            let phi = float i / float nu * Constant.PiTimesTwo
+            V3d(radius * sin theta * cos phi, radius * sin theta * sin phi, radius * cos theta)
+        for j in 0 .. nv do
+            for i in 0 .. nu do
+                let p = vertex i j
+                sb.AppendFormat(CultureInfo.InvariantCulture, "v {0:R} {1:R} {2:R}\n", p.X, p.Y, p.Z) |> ignore
+        for j in 0 .. nv do
+            for i in 0 .. nu do
+                // OBJ counts V up from the bottom, so the north pole (j = 0) is v = 1
+                sb.AppendFormat(CultureInfo.InvariantCulture, "vt {0:R} {1:R}\n",
+                                float i / float nu, 1.0 - float j / float nv) |> ignore
+        let index i j = j * (nu + 1) + i + 1        // 1-based
+        for j in 0 .. nv - 1 do
+            for i in 0 .. nu - 1 do
+                let a, b = index i j, index (i + 1) j
+                let c, d = index (i + 1) (j + 1), index i (j + 1)
+                // wound outward, which the reader's winding vote must agree with
+                sb.AppendFormat("f {0}/{0} {1}/{1} {2}/{2}\n", a, d, c) |> ignore
+                sb.AppendFormat("f {0}/{0} {1}/{1} {2}/{2}\n", a, c, b) |> ignore
+        let objPath = Path.Combine(dir, "sphere.obj")
+        File.WriteAllText(objPath, sb.ToString())
+
+        // equirectangular, row 0 = the north pole = v 1
+        let w, h = 256, 128
+        let tex = PixImage<byte>(Col.Format.Gray, V2i(w, h))
+        let mutable m = tex.GetChannel Col.Channel.Gray
+        for y in 0 .. h - 1 do
+            let theta = (float y + 0.5) / float h * Constant.Pi
+            for x in 0 .. w - 1 do
+                let phi = (float x + 0.5) / float w * Constant.PiTimesTwo
+                let n = V3d(sin theta * cos phi, sin theta * sin phi, cos theta)
+                m.[x, y] <- byte (255.0 * max 0.0 (Vec.dot n light))
+        let texPath = Path.Combine(dir, "sphere.png")
+        tex.Save texPath
+        objPath, texPath
+
+    /// A scratch directory that cleans itself up.
+    let inScratch (f : string -> unit) =
+        let dir = Path.Combine(Path.GetTempPath(), "pro3d-obj-tests", Guid.NewGuid().ToString("N"))
+        Directory.CreateDirectory dir |> ignore
+        try f dir
+        finally try Directory.Delete(dir, true) with _ -> ()
+
+let private objShapeTests =
+    testList "obj" [
+
+        test "reads a cube, scales its units to metres and sees the winding" {
+            ObjFixtures.inScratch (fun dir ->
+                let path = ObjFixtures.write dir "cube.obj" ObjFixtures.cube
+                match ObjShape.read path 1000.0 with
+                | Result.Error e -> failtest e
+                | Result.Ok m ->
+                    Expect.equal m.positions.Length 8 "vertices"
+                    Expect.equal (m.index.Length / 3) 12 "triangles"
+                    Expect.isEmpty m.texCoords "no vt in this file"
+                    // ±1 file unit at 1000 m per unit is a 2 km cube
+                    Expect.equal m.bbox.Size (V3d(2000.0, 2000.0, 2000.0)) "extent in metres"
+                    Expect.equal m.sourceExtent (V3d(2.0, 2.0, 2.0)) "extent in the file's own units"
+                    Expect.equal m.normalFlip 0.0 "outward-wound: the shader must not flip")
+        }
+
+        test "an inward-wound mesh asks the shader to flip the generated normal" {
+            ObjFixtures.inScratch (fun dir ->
+                let path = ObjFixtures.write dir "flipped.obj" ObjFixtures.flippedCube
+                match ObjShape.read path 1.0 with
+                | Result.Error e -> failtest e
+                | Result.Ok m -> Expect.equal m.normalFlip 1.0 "inward-wound")
+        }
+
+        test "--obj-scale is metres per file unit" {
+            ObjFixtures.inScratch (fun dir ->
+                let path = ObjFixtures.write dir "cube.obj" ObjFixtures.cube
+                match ObjShape.read path 1.0, ObjShape.read path 1000.0 with
+                | Result.Ok a, Result.Ok b ->
+                    Expect.equal a.bbox.Size (V3d(2.0, 2.0, 2.0)) "unscaled"
+                    Expect.equal b.bbox.Size (V3d(2000.0, 2000.0, 2000.0)) "x1000"
+                | Result.Error e, _ | _, Result.Error e -> failtest e)
+        }
+
+        test "negative indices count back from the vertices defined so far" {
+            ObjFixtures.inScratch (fun dir ->
+                let text = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf -3 -2 -1\n"
+                let path = ObjFixtures.write dir "neg.obj" text
+                match ObjShape.read path 1.0 with
+                | Result.Error e -> failtest e
+                | Result.Ok m ->
+                    Expect.equal m.index [| 0; 1; 2 |] "resolved to the first three vertices")
+        }
+
+        test "a polygon is fan-triangulated" {
+            ObjFixtures.inScratch (fun dir ->
+                let text = "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n"
+                let path = ObjFixtures.write dir "quad.obj" text
+                match ObjShape.read path 1.0 with
+                | Result.Error e -> failtest e
+                | Result.Ok m ->
+                    Expect.equal (m.index.Length / 3) 2 "a quad is two triangles"
+                    Expect.equal m.index [| 0; 1; 2; 0; 2; 3 |] "fanned from the first corner")
+        }
+
+        test "texture coordinates arrive with the V axis flipped, and corners de-duplicate" {
+            ObjFixtures.inScratch (fun dir ->
+                // three positions, but the same position carries two different UVs --
+                // which is exactly the case a shared index array cannot represent
+                let text =
+                    "v 0 0 0\nv 1 0 0\nv 0 1 0\n\
+                     vt 0 0\nvt 1 0\nvt 0 1\nvt 1 1\n\
+                     f 1/1 2/2 3/3\nf 1/4 2/2 3/3\n"
+                let path = ObjFixtures.write dir "uv.obj" text
+                match ObjShape.read path 1.0 with
+                | Result.Error e -> failtest e
+                | Result.Ok m ->
+                    // 3 corners for the first face + 1 more for vertex 1's second UV
+                    Expect.equal m.positions.Length 4 "one slot per (position, uv) pair"
+                    Expect.equal m.texCoords.Length 4 "one uv per slot"
+                    Expect.equal (m.index.Length / 3) 2 "triangles"
+                    // OBJ counts V up from the bottom; the sampler counts it down
+                    Expect.equal m.texCoords.[0] (V2f(0.0f, 1.0f)) "vt 0 0 -> (0, 1)"
+                    Expect.equal m.texCoords.[2] (V2f(0.0f, 0.0f)) "vt 0 1 -> (0, 0)")
+        }
+
+        test "a gzipped OBJ reads exactly like the plain one" {
+            ObjFixtures.inScratch (fun dir ->
+                let plain = ObjFixtures.write dir "cube.obj" ObjFixtures.cube
+                let gz = ObjFixtures.writeGz dir "cube2.obj.gz" ObjFixtures.cube
+                match ObjShape.read plain 1000.0, ObjShape.read gz 1000.0 with
+                | Result.Ok a, Result.Ok b ->
+                    Expect.equal b.positions a.positions "positions"
+                    Expect.equal b.index a.index "indices"
+                    Expect.equal b.bbox a.bbox "bounds"
+                    Expect.equal b.normalFlip a.normalFlip "winding"
+                | Result.Error e, _ | _, Result.Error e -> failtest e)
+        }
+
+        test "a file with no geometry is an error, not an empty mesh" {
+            ObjFixtures.inScratch (fun dir ->
+                let noFaces = ObjFixtures.write dir "points.obj" "v 0 0 0\nv 1 0 0\n"
+                Expect.isError (ObjShape.read noFaces 1.0) "vertices but no faces"
+                Expect.isError (ObjShape.read (Path.Combine(dir, "nope.obj")) 1.0) "missing file"
+                let empty = ObjFixtures.write dir "empty.obj" "# nothing here\n"
+                Expect.isError (ObjShape.read empty 1.0) "no vertices")
+        }
+
+        // The mesh half of the de-shading fit, end to end on the CPU: texture coordinates,
+        // the V flip, the texture sampling and the area-weighted vertex normals all feed
+        // `fitFromSamples`, and every one of them can be wrong in a way that still produces
+        // a plausible-looking number. Baking a KNOWN light direction into the texture is
+        // what turns that into a checkable claim.
+        test "the de-shading fit recovers a light direction baked into a mesh's texture" {
+            ObjFixtures.inScratch (fun dir ->
+                let light = V3d(0.6, -0.8, 0.0).Normalized
+                let objPath, texPath = ObjFixtures.litSphere dir light
+                match ObjShape.read objPath 1000.0 with
+                | Result.Error e -> failtest e
+                | Result.Ok mesh ->
+                    Expect.isNonEmpty mesh.texCoords "the sphere carries texture coordinates"
+                    match ObjShape.deshadeSamples mesh texPath with
+                    | Result.Error e -> failtest e
+                    | Result.Ok samples ->
+                        match SimulateImageVerb.fitFromSamples 0.16 samples with
+                        | Result.Error e -> failtest e
+                        | Result.Ok fit ->
+                            let off =
+                                acos (clamp -1.0 1.0 (Vec.dot fit.direction light))
+                                * Constant.DegreesPerRadian
+                            Expect.isLessThan off 2.0
+                                (sprintf "fitted %A is %.2f deg off the baked %A"
+                                     fit.direction off light)
+                            Expect.isGreaterThan fit.correlation 0.95 "the fit explains the texture")
+        }
+
+        test "a non-positive scale is refused rather than rendering an inverted body" {
+            ObjFixtures.inScratch (fun dir ->
+                let path = ObjFixtures.write dir "cube.obj" ObjFixtures.cube
+                Expect.isError (ObjShape.read path 0.0) "zero"
+                Expect.isError (ObjShape.read path -1.0) "negative"
+                Expect.isError (ObjShape.read path nan) "not a number")
+        }
+    ]
+
 let tests () =
     testList "pro3d-tool" [
         kdTreeTests
         sunAngleTests
+        objShapeTests
         simulateImageTests
     ]

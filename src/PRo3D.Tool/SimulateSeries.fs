@@ -24,18 +24,21 @@ open PRo3D.Tool.SimulateImageVerb
 // The simulate-series verb: one process renders a whole series.
 //
 // `simulate-image` is a complete program per frame -- it initialises the GL context, loads
-// the OPC, fits the de-shading, builds a scene graph and warms the LOD tree, all to emit
-// one PNG. Driving it once per frame put a 143-epoch series at ~50 minutes, of which the
-// rendering was a rounding error.
+// the shape model, fits the de-shading, builds a scene graph and warms the LOD tree, all
+// to emit one PNG. Driving it once per frame put a 143-epoch series at ~50 minutes, of
+// which the rendering was a rounding error.
 //
-// Everything in that list depends on the OPC, not on the epoch, so it happens ONCE here:
+// Everything in that list depends on the shape model, not on the epoch, so it happens
+// ONCE here:
 //
 //   GL context and SPICE            once per process
-//   patch hierarchies, texture      once -- the OPC does not change between epochs
-//   the de-shading fit              once -- it reads a per-vertex layer and fits a baked
-//                                   light direction; no camera, sun or time enters it
+//   the shape model                 once -- OPC hierarchies and texture layer, or the
+//                                   OBJ parse (175 MB of ASCII for the DSK Dimorphos)
+//   the de-shading fit              once -- it fits a baked light direction against a
+//                                   per-vertex layer (OPC) or the texture (mesh); no
+//                                   camera, sun or time enters it
 //   bounding box                    once
-//   both OPC scene graphs           once -- the sun, the camera and the shadow frustum
+//   both scene graphs               once -- the sun, the camera and the shadow frustum
 //                                   are cvals, so an epoch is a transact, not a rebuild
 //   render targets and tasks        once per variant
 //
@@ -131,10 +134,10 @@ let readTimes (path : string) : Result<DateTime[], string> =
 // ---------------------------------------------------------------------------------
 // The sun-side shadow pass, built once and re-rendered per epoch.
 //
-// simulate-image's renderSunShadowMap builds a second OPC scene graph and warms its LOD
-// tree on every call. Across a series that is the single most expensive per-frame item,
-// and none of it depends on the epoch except the sun direction -- so the graph is built
-// once over cvals and `update` only moves the sun camera and re-runs the pass.
+// simulate-image's renderSunShadowMap builds a second scene graph and warms its LOD tree
+// on every call. Across a series that is the single most expensive per-frame item, and
+// none of it depends on the epoch except the sun direction -- so the graph is built once
+// over cvals and `update` only moves the sun camera and re-runs the pass.
 
 type private ShadowPass =
     {
@@ -146,9 +149,10 @@ type private ShadowPass =
         cleanup  : unit -> unit
     }
 
-let private createShadowPass (runtime : IRuntime) (body : string)
+let private createShadowPass (runtime : IRuntime) (shape : ShapeSource)
                              (projectedImages : aval<Option<Sg.ProjectedImages>>)
-                             (hierarchies : string[]) (bbox : Box3d) (noShadows : bool) : ShadowPass =
+                             (noShadows : bool) : ShadowPass =
+    let bbox = shape.bbox
     if noShadows then
         let dummy = dummyShadowMap runtime
         {
@@ -163,13 +167,8 @@ let private createShadowPass (runtime : IRuntime) (body : string)
     let projC = cval Trafo3d.Identity
     let viewProjC = cval M44d.Identity
 
-    let runner = SunAnglesVerb.loadRunner runtime
-    let cfg =
-        { OpcSg.defaultConfig signature runner DefaultMetrics.mars2 body with
-            asyncLoading = false }
     let sg =
-        OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies
-        |> Sg.ofList
+        shape.build signature projectedImages
         |> Sg.shader {
             do! PRo3D.SPICE.Shaders.stableTrafo
             do! DefaultSurfaces.constantColor C4f.White
@@ -200,10 +199,11 @@ let private createShadowPass (runtime : IRuntime) (body : string)
             viewC.Value <- view
             projC.Value <- proj
             viewProjC.Value <- (view * proj).Forward)
-        // Warm-up for the same reason as the main pass: the LOD tree refines only after a
-        // frame has been rendered with the final camera. Cheap after the first epoch --
-        // the patches are already resident, so this is GPU work, not disk.
-        for _ in 1 .. 8 do
+        // Warm-up for the same reason as the main pass: an OPC's LOD tree refines only
+        // after a frame has been rendered with the final camera. Cheap after the first
+        // epoch -- the patches are already resident, so this is GPU work, not disk. A mesh
+        // asks for one pass, and on 3.1 M triangles the difference is the run.
+        for _ in 1 .. max 1 shape.warmupFrames do
             clear.Run(output)
             task.Run(output)
 
@@ -238,7 +238,28 @@ let run (o : SimulateSeriesOptions) : int =
     | Result.Error e -> Log.error "%s" e; 1
     | Ok variants ->
 
-    if not (Directory.Exists o.opc) then Log.error "OPC directory not found: %s" o.opc; 1 else
+    // Before anything is deleted or loaded: the run recreates the variant folders further
+    // down, and a typo in --obj must not cost the frames that are already there.
+    match ShapeSource.precheck o.opc o.obj o.objTexture with
+    | Result.Error e -> Log.error "%s" e; 1
+    | Ok () ->
+
+    // Refused rather than degraded, and refused here for the same reason: a textured
+    // variant on a shape that carries no texture cannot be rendered as what it says on the
+    // folder. `delit` would come out pixel for pixel identical to `micro`, and nothing in
+    // the delivery would say so -- exactly the class of thing a variant folder exists to
+    // make visible. An OPC always declares texture layers; only a mesh can lack one.
+    let textured = variants |> List.filter (fun v -> v.texture)
+    if not (String.IsNullOrWhiteSpace o.obj) && String.IsNullOrWhiteSpace o.objTexture
+       && not (List.isEmpty textured) then
+        Log.error "this shape model carries no texture, so the %s variant(s) cannot be rendered: \
+                   they would be identical to 'micro' and the folder would not say so. \
+                   Pass --obj-texture, or --variants %s."
+            (textured |> List.map (fun v -> v.name) |> String.concat ", ")
+            (variants |> List.filter (fun v -> not v.texture) |> List.map (fun v -> v.name)
+             |> function [] -> "micro,smooth" | xs -> String.concat "," xs)
+        1
+    else
 
     match PointingSource.parse o.pointing with
     | Result.Error e -> Log.error "%s" e; 1
@@ -261,16 +282,14 @@ let run (o : SimulateSeriesOptions) : int =
     | Result.Error e -> Log.error "%s" e; 1
     | Ok kernel ->
 
-    let hierarchies = SunAnglesVerb.patchHierarchiesOf o.opc
-    if hierarchies.Length = 0 then
-        Log.error "no patch hierarchies (subdirectories containing 'Patches') under %s" o.opc
-        1
-    else
+    let usingObj = not (String.IsNullOrWhiteSpace o.obj)
 
     // --deshade-layer selects the texture layer too: the fit and the divisor must be the
     // same layer, and defaulting one from the other is what stops them drifting apart.
+    // A mesh has no layers -- it draws --obj-texture or nothing.
     let wantedTexture =
-        if not (String.IsNullOrWhiteSpace o.textureLayer) then o.textureLayer
+        if usingObj then ""
+        elif not (String.IsNullOrWhiteSpace o.textureLayer) then o.textureLayer
         else o.deshadeLayer
     let textureLayer =
         match wantedTexture with
@@ -323,36 +342,25 @@ let run (o : SimulateSeriesOptions) : int =
     use _spice = SpiceBoot.init (Some kernel)
     Log.line "[spice] %s" kernel
 
-    let bbox =
-        hierarchies
-        |> Array.map (fun h -> (rootPatchOf h).info.GlobalBoundingBox)
-        |> Array.fold (fun (b : Box3d) x -> b.ExtendedBy x) Box3d.Invalid
+    match ShapeSource.resolve runtime body o.opc o.obj o.objScale o.objTexture textureLayer with
+    | Result.Error e -> Log.error "%s" e; 1
+    | Ok shape ->
 
-    // Once for the whole series: the fit reads a per-vertex layer and solves for the
-    // baked light direction. No epoch, camera or sun enters it, so its three uniforms are
-    // constant across every frame and every variant.
+    Log.line "[shape] %s" shape.describe
+
+    let bbox = shape.bbox
+
+    // Once for the whole series: the fit solves for the baked light direction against a
+    // per-vertex layer (OPC) or the texture (mesh). No epoch, camera or sun enters it, so
+    // its three uniforms are constant across every frame and every variant.
     let deshade =
-        if not (variants |> List.exists (fun v -> v.texture)) then None
+        if List.isEmpty textured then None
         else
             let layerName =
                 if not (String.IsNullOrWhiteSpace o.deshadeLayer) then o.deshadeLayer
                 elif not (String.IsNullOrWhiteSpace o.textureLayer) then o.textureLayer
                 else "DRACO"
-            match Array.tryHead hierarchies with
-            | None -> None
-            | Some h ->
-                match fitBakedLight h layerName o.albedo with
-                | Ok fit ->
-                    Log.line "[deshade] baked light direction %.4f %.4f %.4f (r = %.2f over %d vertices, scale %.3f)"
-                        fit.direction.X fit.direction.Y fit.direction.Z fit.correlation fit.samples fit.scale
-                    if abs fit.correlation < 0.2 then
-                        Log.warn "[deshade] brightness barely follows the normals (r = %.2f) -- texture may already be flat"
-                            fit.correlation
-                    Some fit
-                | Result.Error e ->
-                    Log.warn "[deshade] %s" e
-                    Log.warn "[deshade] falling back to constant albedo %.2f" o.albedo
-                    None
+            fitOrFallBack shape layerName o.albedo
 
     // The epoch-varying inputs. Everything below is built once over these, so an epoch
     // costs a transact and a render rather than a scene graph.
@@ -386,16 +394,11 @@ let run (o : SimulateSeriesOptions) : int =
                 lightViewProj = AVal.constant None
             })
 
-    let shadow = createShadowPass runtime body projectedImages hierarchies bbox o.noShadows
+    let shadow = createShadowPass runtime shape projectedImages o.noShadows
     let target = SunAnglesVerb.FloatTarget.create runtime size
 
     try
-        let runner = SunAnglesVerb.loadRunner runtime
-        let cfg =
-            { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
-                asyncLoading = false
-                textureLayer = textureLayer }
-        let opc = OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies |> Sg.ofList
+        let opc = shape.build target.signature projectedImages
 
         // One compiled task per variant over the SAME geometry: they differ only in the
         // shading uniforms, and micro/smooth never sample the texture, so the texture
@@ -481,10 +484,12 @@ let run (o : SimulateSeriesOptions) : int =
                 let stem = sprintf "%s_%s_%s" stemPrefix v.tag (time.ToString "yyyyMMdd_HHmmss")
                 let outPath = Path.Combine(variantDir v, stem + ".png")
 
-                // More warm-up than sun-angles: the LOD tree descends one refinement per
-                // rendered frame. Cheap here -- after the first epoch the patches are
-                // resident and these are GPU passes, not disk reads.
-                for _ in 1 .. 8 do
+                // More warm-up than sun-angles on an OPC: the LOD tree descends one
+                // refinement per rendered frame. Cheap there -- after the first epoch the
+                // patches are resident and these are GPU passes, not disk reads. A mesh
+                // asks for one pass, which on 3.1 M triangles is the difference between a
+                // minute of rendering and eight.
+                for _ in 1 .. max 1 shape.warmupFrames do
                     clear.Run(target.output)
                     task.Run(target.output)
                 let rendered = runtime.Download(target.color).ToPixImage<float32>()

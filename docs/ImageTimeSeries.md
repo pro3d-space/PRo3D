@@ -315,6 +315,9 @@ one series.
 |---|---|
 | `--out <dir>` | where to write the series (required) |
 | `--opc <dir>` | body OPC (default `$PRO3D_TEST_DATA/HERA/Dimorphos_opc/Dimorphos`) |
+| `--obj <file>` | a Wavefront shape model instead of the OPC; `.obj.gz` works. See [Rendering from a mesh](#rendering-from-a-mesh-instead-of-the-opc) |
+| `--obj-scale <v>` | metres per `--obj` file unit (default `1000`) |
+| `--obj-texture <file>` | image to drape on `--obj`; without it `delit` and `baked` are refused |
 | `--start <iso>` | first epoch, UTC (default `2027-03-21T13:00:00Z`) |
 | `--interval <min>` | cadence in minutes (default `15`) |
 | `--duration <h>` | span in hours (default `11.92`, one rotation) |
@@ -334,6 +337,33 @@ one series.
 | `--spice-count <n>` | how many `spice` reference frames to render, spread over the series (default `8`; `0` renders one per epoch) |
 | `--margin <v>` | validation: how far another dihedral transform must beat identity before a frame counts as failed (default `0.02`) |
 | `--list-layers` | print the OPC's texture layers and exit |
+
+<a name="rendering-from-a-mesh-instead-of-the-opc"></a>
+## Rendering from a mesh instead of the OPC
+
+```
+python scripts/make-image-time-series.py --out <folder>     --obj $PRO3D_TEST_DATA/HERA/Dimorphos_dsk/g_00243mm_spc_obj_dimo_0000n00000_v004.obj.gz     --variants micro,smooth --stack-variant smooth
+```
+
+The OPC's posts are 1.96 m apart; at 5 km an AFC pixel covers 0.48 m. The delivered frames
+are therefore limited by the shape model rather than by the sensor. The shape model the
+SPICE kernels ship is 0.24 m per facet, and rendering from it closes that gap — the
+silhouette then matches a SPICE ray-cast of the kernels' own DSK exactly. See
+[ShapeModelCrosscheck.md](./ShapeModelCrosscheck.md#closing-it-rendering-the-dsks-own-shape).
+
+Three things change in the run:
+
+- **Only `micro` and `smooth`.** The mesh carries no texture — the `.png` beside each
+  `.bds` in the kernel set is a preview render, not a map — so `delit` and `baked` are
+  **refused** rather than silently rendered as flat albedo. `--obj-texture` brings them
+  back if you have a map of your own.
+- **No scene.** `ImageSeries.pro3d` binds an OPC surface with a `selectedTexture`, and a
+  mesh has neither. The run says `no scene written` and writes the frames and sidecars as
+  usual; these frames are for comparing renderers, not for projecting in the viewer.
+- **The README says which shape model it was**, and `series.json` gains
+  `provenance.shapeModel` / `shapeModelKind` / `shapeModelProduct`. The old `opc` and
+  `opcProduct` keys are still there and are `null` for an OBJ series, so an existing
+  consumer does not break but also cannot mistake one series for the other.
 
 ## Re-running it
 

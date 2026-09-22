@@ -156,74 +156,14 @@ let private solveLeastSquares (samples : (V3d * float)[]) : Option<float[]> =
             inv.[i, 0] * atb.[0] + inv.[i, 1] * atb.[1] + inv.[i, 2] * atb.[2] + inv.[i, 3] * atb.[3])
     if x |> Array.forall Double.IsFinite then Some x else None
 
-let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Result<DeshadeFit, string> =
-    match (try Ok (rootPatchOf basePath) with e -> Result.Error (sprintf "cannot load patch hierarchy: %s" e.Message)) with
-    | Result.Error e -> Result.Error e
-    | Ok root ->
-    let patchDir = Path.Combine(basePath, "Patches", root.info.Name)
-    let normalPath = Path.Combine(patchDir, "Normal.aara")
-    let layerPath = Path.Combine(patchDir, layerName + ".aara")
-    if not (File.Exists normalPath) then
-        Result.Error (sprintf "no per-vertex normals for the de-shading fit: %s" normalPath)
-    elif not (File.Exists layerPath) then
-        // Name what the patch actually has: the default 'DRACO' matches nothing on an OPC
-        // whose layers are DRACO_1/DRACO_2, and a bare "not found" sent people hunting.
-        let available =
-            try
-                Directory.GetFiles(patchDir, "*.aara")
-                |> Array.map Path.GetFileNameWithoutExtension
-                |> Array.filter (fun n -> n <> "Normal" && not (n.EndsWith "_Coordinates") && not (n.EndsWith "_Weights"))
-                |> String.concat ", "
-            with _ -> "(cannot list)"
-        Result.Error (sprintf "no per-vertex '%s' layer for the de-shading fit. This patch has: %s (see --deshade-layer)"
-                          layerName available)
-    else
-
-    // The brightness layer is stored either as V3f (grey replicated, e.g. DRACO_2) or as
-    // a scalar float (e.g. DRACO_1). Reading only V3f made the scalar layers unusable --
-    // "Unknown conversion from System.Single to Aardvark.Base.V3f" -- which silently
-    // disabled de-shading for half the layers an OPC offers.
-    let readBrightness () =
-        try Ok ((Aara.fromFile<V3f> layerPath).Data |> Array.map (fun v -> float v.X))
-        with _ ->
-            try Ok ((Aara.fromFile<float32> layerPath).Data |> Array.map float)
-            with e -> Result.Error (sprintf "cannot read fit inputs (%s): %s" layerName e.Message)
-
-    match
-        (try Ok (Aara.fromFile<V3f> normalPath).Data
-         with e -> Result.Error (sprintf "cannot read per-vertex normals: %s" e.Message))
-        |> Result.bind (fun normals -> readBrightness () |> Result.map (fun values -> normals, values))
-      with
-    | Result.Error e -> Result.Error e
-    | Ok (normals, values) ->
-
-    if normals.Length <> values.Length then
-        Result.Error (sprintf "grid mismatch: %d normals vs %d '%s' values" normals.Length values.Length layerName)
-    else
-
-    // Normals in the .aara are patch-local; the shader compares against the fitted
-    // direction in the BODY frame (it transforms LocalNormal by ModelTrafo). Apply the
-    // same Local2Global rotation here -- for typical OPCs it is a pure translation and
-    // this is a no-op, but a rotated patch frame would otherwise skew the fit silently.
-    let toBody = root.info.Local2Global.Forward
-
-    // The root patch is a decimated copy of the whole body -- ~1M vertices -- so a strided
-    // subsample is representative and keeps the fit instant.
-    let stride = max 1 (normals.Length / 30000)
-    let collected = ResizeArray<V3d * float>()
-    let mutable i = 0
-    while i < normals.Length do
-        let n = normals.[i]
-        let v = values.[i]
-        if not n.IsNaN && not (Double.IsNaN v) then
-            let len = n.Length
-            // brightness stored as 0..255; the shader samples the same layer as 0..1
-            let dn = v / 255.0
-            if len > 0.5f && len < 1.5f && dn > deshadeShadowFloor then
-                collected.Add ((toBody.TransformDir (V3d n)).Normalized, dn)
-        i <- i + stride
-    let candidates = collected.ToArray()
-
+/// The fit itself, over (unit normal in the body frame, brightness 0..1) samples.
+///
+/// Shared, because there are now two ways to get those samples and only one fit: an OPC
+/// reads a per-vertex `.aara` brightness layer (`fitBakedLight` below), a mesh samples its
+/// texture at each vertex (`ObjShape.deshadeSamples`). Two copies of the two-pass
+/// least-squares below would be the same failure this area has already produced once -- a
+/// second path that agrees with the first until someone changes one of them.
+let fitFromSamples (albedo : float) (candidates : (V3d * float)[]) : Result<DeshadeFit, string> =
     if candidates.Length < 100 then
         Result.Error (sprintf "only %d usable vertices for the de-shading fit" candidates.Length)
     else
@@ -294,6 +234,253 @@ let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Re
         rawScale = if meanRaw > 0.0 then albedo / meanRaw else 1.0
     }
 
+/// The OPC's samples: the root patch's per-vertex normals against a per-vertex brightness
+/// layer.
+let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Result<DeshadeFit, string> =
+    match (try Ok (rootPatchOf basePath) with e -> Result.Error (sprintf "cannot load patch hierarchy: %s" e.Message)) with
+    | Result.Error e -> Result.Error e
+    | Ok root ->
+    let patchDir = Path.Combine(basePath, "Patches", root.info.Name)
+    let normalPath = Path.Combine(patchDir, "Normal.aara")
+    let layerPath = Path.Combine(patchDir, layerName + ".aara")
+    if not (File.Exists normalPath) then
+        Result.Error (sprintf "no per-vertex normals for the de-shading fit: %s" normalPath)
+    elif not (File.Exists layerPath) then
+        // Name what the patch actually has: the default 'DRACO' matches nothing on an OPC
+        // whose layers are DRACO_1/DRACO_2, and a bare "not found" sent people hunting.
+        let available =
+            try
+                Directory.GetFiles(patchDir, "*.aara")
+                |> Array.map Path.GetFileNameWithoutExtension
+                |> Array.filter (fun n -> n <> "Normal" && not (n.EndsWith "_Coordinates") && not (n.EndsWith "_Weights"))
+                |> String.concat ", "
+            with _ -> "(cannot list)"
+        Result.Error (sprintf "no per-vertex '%s' layer for the de-shading fit. This patch has: %s (see --deshade-layer)"
+                          layerName available)
+    else
+
+    // The brightness layer is stored either as V3f (grey replicated, e.g. DRACO_2) or as
+    // a scalar float (e.g. DRACO_1). Reading only V3f made the scalar layers unusable --
+    // "Unknown conversion from System.Single to Aardvark.Base.V3f" -- which silently
+    // disabled de-shading for half the layers an OPC offers.
+    let readBrightness () =
+        try Ok ((Aara.fromFile<V3f> layerPath).Data |> Array.map (fun v -> float v.X))
+        with _ ->
+            try Ok ((Aara.fromFile<float32> layerPath).Data |> Array.map float)
+            with e -> Result.Error (sprintf "cannot read fit inputs (%s): %s" layerName e.Message)
+
+    match
+        (try Ok (Aara.fromFile<V3f> normalPath).Data
+         with e -> Result.Error (sprintf "cannot read per-vertex normals: %s" e.Message))
+        |> Result.bind (fun normals -> readBrightness () |> Result.map (fun values -> normals, values))
+      with
+    | Result.Error e -> Result.Error e
+    | Ok (normals, values) ->
+
+    if normals.Length <> values.Length then
+        Result.Error (sprintf "grid mismatch: %d normals vs %d '%s' values" normals.Length values.Length layerName)
+    else
+
+    // Normals in the .aara are patch-local; the shader compares against the fitted
+    // direction in the BODY frame (it transforms LocalNormal by ModelTrafo). Apply the
+    // same Local2Global rotation here -- for typical OPCs it is a pure translation and
+    // this is a no-op, but a rotated patch frame would otherwise skew the fit silently.
+    let toBody = root.info.Local2Global.Forward
+
+    // The root patch is a decimated copy of the whole body -- ~1M vertices -- so a strided
+    // subsample is representative and keeps the fit instant.
+    let stride = max 1 (normals.Length / 30000)
+    let collected = ResizeArray<V3d * float>()
+    let mutable i = 0
+    while i < normals.Length do
+        let n = normals.[i]
+        let v = values.[i]
+        if not n.IsNaN && not (Double.IsNaN v) then
+            let len = n.Length
+            // brightness stored as 0..255; the shader samples the same layer as 0..1
+            let dn = v / 255.0
+            if len > 0.5f && len < 1.5f && dn > deshadeShadowFloor then
+                collected.Add ((toBody.TransformDir (V3d n)).Normalized, dn)
+        i <- i + stride
+    let candidates = collected.ToArray()
+
+    fitFromSamples albedo candidates
+
+// ---------------------------------------------------------------------------------
+// Where the geometry comes from.
+//
+// Both verbs render through the same camera, the same shader stack and the same shading
+// uniforms whatever the shape model is; what an OPC and a mesh disagree about is how the
+// scene graph is built, how many frames a pass needs before the geometry is final, and
+// whether there is a texture to fit a baked light against. That is the whole of this
+// record, and it is what keeps `--obj` from being a second renderer.
+
+type ShapeSource =
+    {
+        /// The geometry for one framebuffer signature. Both verbs render into two
+        /// (the shadow map and the image), and the OPC's LOD runner is configured per
+        /// signature; a mesh ignores it.
+        ///
+        /// `projectedImages` carries the sun direction and the projector. The OPC installs
+        /// those as PER-PATCH uniforms through projectionUniformMap -- which is why they
+        /// travel in this record rather than as outer uniforms, a patch-level uniform
+        /// winning over any outer one of the same name -- and the mesh reads the same two
+        /// fields back out and binds them directly.
+        build : IFramebufferSignature -> aval<Option<Sg.ProjectedImages>> -> ISg
+
+        /// Body-fixed bounds in metres: the sun-side ortho frustum and the pointing
+        /// pre-flight are both fitted to this.
+        bbox : Box3d
+
+        /// How many frames a pass must render before its geometry is final. An OPC's LOD
+        /// tree descends one refinement per rendered frame, because the decider needs a
+        /// view to decide against; a mesh is complete in the first frame, and rendering a
+        /// 3.1 M triangle body eight times per frame to find that out is the single most
+        /// expensive thing the OBJ path could do.
+        warmupFrames : int
+
+        /// Whether this shape carries a texture at all. False means the textured shading
+        /// variants are impossible rather than merely unfitted, and the callers refuse
+        /// them by name: an untextured `delit` frame is indistinguishable from a `micro`
+        /// one, and nothing in the output would say which you rendered.
+        hasTexture : bool
+
+        /// The de-shading fit for this shape, given the per-vertex layer name (OPC only --
+        /// a mesh fits against its own texture and ignores it) and the nominal albedo.
+        fitBakedLight : string -> float -> Result<DeshadeFit, string>
+
+        /// One line naming the shape model, for the log.
+        describe : string
+    }
+
+module ShapeSource =
+
+    /// An OPC: exactly what both verbs built inline before there was anything else to
+    /// build.
+    let ofOpc (runtime : IRuntime) (body : string) (hierarchies : string[])
+              (textureLayer : Option<int>) (bbox : Box3d) : ShapeSource =
+        {
+            build = fun signature projectedImages ->
+                let runner = SunAnglesVerb.loadRunner runtime
+                let cfg =
+                    { OpcSg.defaultConfig signature runner DefaultMetrics.mars2 body with
+                        // Blocking loads: reproducible offscreen output, same as sun-angles.
+                        asyncLoading = false
+                        // None keeps the patch default, which is what this always rendered
+                        textureLayer = textureLayer }
+                OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies
+                |> Sg.ofList
+            bbox = bbox
+            warmupFrames = 8
+            hasTexture = true
+            fitBakedLight = fun layerName albedo ->
+                match Array.tryHead hierarchies with
+                | None -> Result.Error "no patch hierarchy to fit the de-shading on"
+                | Some h -> fitBakedLight h layerName albedo
+            describe =
+                sprintf "OPC, %d hierarch%s" hierarchies.Length
+                    (if hierarchies.Length = 1 then "y" else "ies")
+        }
+
+    /// A Wavefront mesh. The `texture` is given explicitly (`--obj-texture`): an OBJ names
+    /// its material map in a `.mtl`, and the shape models that make this verb worth having
+    /// ship neither.
+    let ofObj (mesh : ObjShape.Mesh) (texture : Option<string>) : ShapeSource =
+        {
+            build = fun _ projectedImages -> ObjShape.sg mesh texture projectedImages
+            bbox = mesh.bbox
+            warmupFrames = 1
+            hasTexture = Option.isSome texture
+            fitBakedLight = fun _ albedo ->
+                match texture with
+                | None ->
+                    Result.Error (sprintf "%s has no texture (pass --obj-texture), so there is no baked \
+                                           illumination to fit" (Path.GetFileName mesh.source))
+                | Some t ->
+                    ObjShape.deshadeSamples mesh t |> Result.bind (fitFromSamples albedo)
+            describe =
+                sprintf "OBJ %s, %d triangles, %.1f x %.1f x %.1f m%s"
+                    (Path.GetFileName mesh.source) (mesh.index.Length / 3)
+                    mesh.bbox.Size.X mesh.bbox.Size.Y mesh.bbox.Size.Z
+                    (match texture with
+                     | Some t -> sprintf ", texture %s" (Path.GetFileName t)
+                     | None -> ", no texture")
+        }
+
+    /// The part of `resolve` that needs neither a GPU nor SPICE: exactly one shape model,
+    /// and it is where the command line says.
+    ///
+    /// Separate so a typo costs a message instead of a GL context and a kernel load -- and,
+    /// in `simulate-series`, so it is caught before the run deletes the variant folders it
+    /// is about to write.
+    let precheck (opc : string) (obj : string) (objTexture : string) : Result<unit, string> =
+        let hasOpc = not (String.IsNullOrWhiteSpace opc)
+        let hasObj = not (String.IsNullOrWhiteSpace obj)
+        if hasOpc && hasObj then
+            Result.Error "--opc and --obj are two different shape models; pass one of them"
+        elif not hasOpc && not hasObj then
+            Result.Error "no shape model: pass --opc <dir> or --obj <file>"
+        elif hasObj && not (File.Exists obj) then
+            Result.Error (sprintf "OBJ not found: %s" obj)
+        elif hasObj && not (String.IsNullOrWhiteSpace objTexture) && not (File.Exists objTexture) then
+            Result.Error (sprintf "--obj-texture not found: %s" objTexture)
+        elif hasOpc && not (Directory.Exists opc) then
+            Result.Error (sprintf "OPC directory not found: %s" opc)
+        else Ok ()
+
+    /// Resolve `--opc` / `--obj` into one shape, or say why neither worked.
+    ///
+    /// Exactly one of the two, always: with both given there is no sensible answer to
+    /// "which body did this frame show?", and a precedence rule would make that answer
+    /// depend on a line of code rather than on the command.
+    let resolve (runtime : IRuntime) (body : string) (opc : string)
+                (obj : string) (objScale : float) (objTexture : string)
+                (textureLayer : Option<int>) : Result<ShapeSource, string> =
+        let hasOpc = not (String.IsNullOrWhiteSpace opc)
+        let hasObj = not (String.IsNullOrWhiteSpace obj)
+        if hasOpc && hasObj then
+            Result.Error "--opc and --obj are two different shape models; pass one of them"
+        elif hasObj then
+            ObjShape.read obj objScale
+            |> Result.map (fun mesh ->
+                let texture = if String.IsNullOrWhiteSpace objTexture then None else Some objTexture
+                ofObj mesh texture)
+        elif hasOpc then
+            if not (Directory.Exists opc) then
+                Result.Error (sprintf "OPC directory not found: %s" opc)
+            else
+            let hierarchies = SunAnglesVerb.patchHierarchiesOf opc
+            if hierarchies.Length = 0 then
+                Result.Error (sprintf "no patch hierarchies (subdirectories containing 'Patches') under %s" opc)
+            else
+            let bbox =
+                hierarchies
+                |> Array.map (fun h -> (rootPatchOf h).info.GlobalBoundingBox)
+                |> Array.fold (fun (b : Box3d) x -> b.ExtendedBy x) Box3d.Invalid
+            Ok (ofOpc runtime body hierarchies textureLayer bbox)
+        else
+            Result.Error "no shape model: pass --opc <dir> or --obj <file>"
+
+/// Fit the baked illumination, log what came out, and fall back to the constant albedo if
+/// it could not be made.
+///
+/// Shared between the two verbs because both fall back in the same way and for the same
+/// reason -- a wrong divisor is worse than none -- and because the warning about a flat
+/// texture is the only thing that tells a user their `delit` frame is not de-lit.
+let fitOrFallBack (shape : ShapeSource) (layerName : string) (albedo : float) : Option<DeshadeFit> =
+    match shape.fitBakedLight layerName albedo with
+    | Ok fit ->
+        Log.line "[deshade] baked light direction %.4f %.4f %.4f (r = %.2f over %d vertices, scale %.3f)"
+            fit.direction.X fit.direction.Y fit.direction.Z fit.correlation fit.samples fit.scale
+        if abs fit.correlation < 0.2 then
+            Log.warn "[deshade] brightness barely follows the normals (r = %.2f) -- texture may already be flat"
+                fit.correlation
+        Some fit
+    | Result.Error e ->
+        Log.warn "[deshade] %s" e
+        Log.warn "[deshade] falling back to constant albedo %.2f" albedo
+        None
+
 // ---------------------------------------------------------------------------------
 // Sun shadow map: one depth pass from an orthographic sun-side camera covering the whole
 // body. At Dimorphos scale (~180 m) a 4096^2 map resolves ~5 cm/texel -- finer than the
@@ -344,11 +531,12 @@ let dummyShadowMap (runtime : IRuntime) : SunShadowMap =
         cleanup = cleanup
     }
 
-let renderSunShadowMap (runtime : IRuntime) (body : string)
+let renderSunShadowMap (runtime : IRuntime) (shape : ShapeSource)
                                (projectedImages : aval<Option<Sg.ProjectedImages>>)
-                               (hierarchies : string[]) (sunDir : V3d) (bbox : Box3d) : SunShadowMap =
+                               (sunDir : V3d) : SunShadowMap =
     let signature, depth, output, cleanup = createShadowTarget runtime (V2i(4096, 4096))
 
+    let bbox = shape.bbox
     let center = bbox.Center
     let radius = 0.5 * bbox.Size.Length
     let up = if abs (Vec.dot sunDir V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
@@ -365,13 +553,8 @@ let renderSunShadowMap (runtime : IRuntime) (body : string)
         { Frustum.ortho vbox with near = -vbox.Max.Z; far = -vbox.Min.Z }
         |> Frustum.projTrafo
 
-    let runner = SunAnglesVerb.loadRunner runtime
-    let cfg =
-        { OpcSg.defaultConfig signature runner DefaultMetrics.mars2 body with
-            asyncLoading = false }
     let sg =
-        OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies
-        |> Sg.ofList
+        shape.build signature projectedImages
         |> Sg.shader {
             do! PRo3D.SPICE.Shaders.stableTrafo
             do! DefaultSurfaces.constantColor C4f.White
@@ -382,9 +565,10 @@ let renderSunShadowMap (runtime : IRuntime) (body : string)
 
     let clear = runtime.CompileClear(signature, AVal.constant (C4f(0.0f, 0.0f, 0.0f, 0.0f)), AVal.constant 1.0)
     let task = runtime.CompileRender(signature, sg)
-    // Warm-up for the same reason as FloatTarget.render: the LOD tree refines only after
-    // a frame has been rendered with the final (here: sun) camera.
-    for _ in 1 .. 8 do
+    // Warm-up for the same reason as FloatTarget.render: an OPC's LOD tree refines only
+    // after a frame has been rendered with the final (here: sun) camera. A mesh asks for
+    // one pass and gets one.
+    for _ in 1 .. max 1 shape.warmupFrames do
         clear.Run(output)
         task.Run(output)
     task.Dispose()
@@ -819,8 +1003,8 @@ let pointingComplaint (bbox : Box3d) (cam : SimCamera) (body : string) (instrume
 /// active kernel, adding no kernel swaps.
 let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                  (body : string) (frame : string) (observer : string) (instrument : string)
-                 (time : DateTime) (outPath : string) (kernel : string) (hierarchies : string[])
-                 (textureLayer : Option<int>) : Result<string, string> =
+                 (time : DateTime) (outPath : string) (kernel : string)
+                 (shape : ShapeSource) : Result<string, string> =
 
     // --project renders an existing image projected onto the body rather than a shaded
     // body. With no --mbi it also supplies the camera, so the render is taken from the
@@ -907,8 +1091,9 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     Log.line "[sun] direction in %s: %.4f %.4f %.4f (phase angle %.1f deg)"
         frame sun.X sun.Y sun.Z (phase * Constant.DegreesPerRadian)
 
-    // De-shading: fit on the first hierarchy's root patch (all hierarchies of one OPC
-    // share the acquisition, so one fit serves them all). A failed fit degrades loudly to
+    // De-shading: on an OPC the fit is made on the first hierarchy's root patch (all
+    // hierarchies of one OPC share the acquisition, so one fit serves them all); on a mesh
+    // it is made against the texture itself. Either way a failed fit degrades loudly to
     // the constant albedo -- a wrong divisor is worse than none.
     // The fit reads a per-vertex layer; the shader divides the TEXTURE layer. If those
     // two are different layers the correction is meaningless -- it was dividing DRACO_1
@@ -922,22 +1107,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         // Both textured modes need the fit: --deshade for the direction and the divisor,
         // --texture-albedo for the raw scale that sets its overall level.
         if not (o.deshade || o.textureAlbedo) then None
-        else
-            match Array.tryHead hierarchies with
-            | None -> None
-            | Some h ->
-                match fitBakedLight h layerName o.albedo with
-                | Ok fit ->
-                    Log.line "[deshade] baked light direction %.4f %.4f %.4f (r = %.2f over %d vertices, scale %.3f)"
-                        fit.direction.X fit.direction.Y fit.direction.Z fit.correlation fit.samples fit.scale
-                    if abs fit.correlation < 0.2 then
-                        Log.warn "[deshade] brightness barely follows the normals (r = %.2f) -- texture may already be flat"
-                            fit.correlation
-                    Some fit
-                | Result.Error e ->
-                    Log.warn "[deshade] %s" e
-                    Log.warn "[deshade] falling back to constant albedo %.2f" o.albedo
-                    None
+        else fitOrFallBack shape layerName o.albedo
 
     // The other body of the binary, if one was named: without it an eclipsed epoch
     // renders as full daylight.
@@ -991,10 +1161,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 lightViewProj = AVal.constant None
             })
 
-    let bbox =
-        hierarchies
-        |> Array.map (fun h -> (rootPatchOf h).info.GlobalBoundingBox)
-        |> Array.fold (fun (b : Box3d) x -> b.ExtendedBy x) Box3d.Invalid
+    let bbox = shape.bbox
 
     // Pre-flight the pointing, before the shadow map and the main render.
     //
@@ -1020,19 +1187,11 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         if o.noShadows then dummyShadowMap runtime
         else
             Log.line "[shadow] rendering sun depth map (4096^2, ortho over %.0f m)" bbox.Size.Length
-            renderSunShadowMap runtime body projectedImages hierarchies sun bbox
+            renderSunShadowMap runtime shape projectedImages sun
 
     let target = SunAnglesVerb.FloatTarget.create runtime size
     try
-        let runner = SunAnglesVerb.loadRunner runtime
-        let cfg =
-            { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
-                // Blocking loads: reproducible offscreen output, same as sun-angles.
-                asyncLoading = false
-                // None keeps the patch default, which is what this always rendered
-                textureLayer = textureLayer }
-
-        let opc = OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies |> Sg.ofList
+        let opc = shape.build target.signature projectedImages
 
         let shaded = shadedShaders opc
 
@@ -1096,10 +1255,11 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)
 
-        // More warm-up than sun-angles: the LOD tree descends one refinement per rendered
-        // frame, and with a distance override the camera can sit much closer than the
-        // spacecraft, needing every level the hierarchy has.
-        let rendered = SunAnglesVerb.FloatTarget.render target 8 sg
+        // More warm-up than sun-angles on an OPC: the LOD tree descends one refinement per
+        // rendered frame, and with a distance override the camera can sit much closer than
+        // the spacecraft, needing every level the hierarchy has. A mesh has no tree and
+        // asks for one pass.
+        let rendered = SunAnglesVerb.FloatTarget.render target shape.warmupFrames sg
 
         // --project must not auto-expose: the whole point is that the output equals the
         // input, and a percentile stretch would rescale it into looking like it does not.
@@ -1181,8 +1341,9 @@ let run (o : SimulateImageOptions) : int =
     | None -> Log.error "cannot parse --time '%s' (expected ISO-8601, e.g. 2027-03-15T12:00:00Z)" o.time; 1
     | Some time ->
 
-    if not (Directory.Exists o.opc) then Log.error "OPC directory not found: %s" o.opc; 1
-    else
+    match ShapeSource.precheck o.opc o.obj o.objTexture with
+    | Result.Error e -> Log.error "%s" e; 1
+    | Ok () ->
 
     match Spice.resolveKernelRoot o.kernelRoot with
     | Result.Error e ->
@@ -1217,11 +1378,14 @@ let run (o : SimulateImageOptions) : int =
     | Result.Error e -> Log.error "%s" e; 1
     | Ok kernel ->
 
-    let hierarchies = SunAnglesVerb.patchHierarchiesOf o.opc
-    if hierarchies.Length = 0 then
-        Log.error "no patch hierarchies (subdirectories containing 'Patches') under %s" o.opc
-        1
-    else
+    let usingObj = not (String.IsNullOrWhiteSpace o.obj)
+
+    // --texture-layer names a layer of an OPC's .opcx. A mesh has one texture or none, and
+    // it is named by --obj-texture, so saying both is a contradiction rather than a
+    // refinement.
+    if usingObj && not (String.IsNullOrWhiteSpace o.textureLayer) then
+        Log.warn "[texture] --texture-layer selects a layer of an OPC and means nothing with --obj; \
+                  the mesh draws --obj-texture"
 
     // Resolve before any GPU work, so a bad layer name fails immediately with the list of
     // what the OPC actually has, rather than after a minute of loading.
@@ -1240,7 +1404,7 @@ let run (o : SimulateImageOptions) : int =
         Log.warn "[deshade] fitting on '%s' but dividing texture '%s' -- these should be the same layer"
             o.deshadeLayer o.textureLayer
     let textureLayer =
-        match wantedTexture with
+        match (if usingObj then "" else wantedTexture) with
         | null | "" -> Ok None
         | wanted ->
             match OpcTextureLayers.resolve o.opc wanted with
@@ -1269,7 +1433,23 @@ let run (o : SimulateImageOptions) : int =
     // An unexpected exception (corrupt OPC, driver failure) should surface as a clean
     // error and exit code, not a raw stack trace.
     try
-        match processImage runtime o body frame observer instrument time outPath kernel hierarchies textureLayer with
+        match ShapeSource.resolve runtime body o.opc o.obj o.objScale o.objTexture textureLayer with
+        | Result.Error e -> Log.error "%s" e; 1
+        | Ok shape ->
+
+        Log.line "[shape] %s" shape.describe
+
+        // Refused, not degraded. Without a texture the textured modes have nothing to
+        // read, and a `--deshade` frame that quietly came out as the constant albedo is
+        // indistinguishable from one that did not ask for it.
+        if not shape.hasTexture && (o.deshade || o.textureAlbedo || o.textureOnly) then
+            Log.error "this shape model carries no texture, so --deshade / --texture-albedo / \
+                       --texture-only have nothing to read. Pass --obj-texture, or drop the flag \
+                       and render the constant albedo."
+            1
+        else
+
+        match processImage runtime o body frame observer instrument time outPath kernel shape with
         | Ok _ -> 0
         | Result.Error e -> Log.error "%s" e; 1
     with e ->

@@ -14,8 +14,8 @@ It supersedes the older `opc-tool` (see [Migrating](#migrating-from-opc-tool)).
 | `kdtree` | Validate OPC directories and generate KdTrees | **[Pro3DTool-KdTree.md](./Pro3DTool-KdTree.md)** |
 | `sun-angles` | Per-pixel illumination geometry for instrument images, for photometric work such as image calibration | **[Pro3DTool-SunAngles.md](./Pro3DTool-SunAngles.md)** |
 | `unproject` | Image pixel coordinates to body-fixed surface coordinates on a shape model | **[Pro3DTool-Unproject.md](./Pro3DTool-Unproject.md)** |
-| `simulate-image` | Simulated instrument image of a body at a SPICE time: Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo | **[Pro3DTool-SimulateImage.md](./Pro3DTool-SimulateImage.md)** |
-| `simulate-series` | A whole series of simulated images in one process: many epochs x many shading variants, sharing one OPC load and one de-shading fit -- 0.12 s a frame against 7 s | **[Pro3DTool-SimulateSeries.md](./Pro3DTool-SimulateSeries.md)** |
+| `simulate-image` | Simulated instrument image of a body at a SPICE time, from an OPC or a Wavefront mesh: Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo | **[Pro3DTool-SimulateImage.md](./Pro3DTool-SimulateImage.md)** |
+| `simulate-series` | A whole series of simulated images in one process: many epochs x many shading variants, sharing one shape-model load and one de-shading fit -- 0.12 s a frame against 7 s | **[Pro3DTool-SimulateSeries.md](./Pro3DTool-SimulateSeries.md)** |
 
 ## Install
 
@@ -66,7 +66,10 @@ git clone https://github.com/pro3d-space/PRo3D.Resources.TestData.git
 ```
 
 It contains an MSL/Stimson OPC surface, and under `HERA/` a Didymos OPC together with an
-ASPECT instrument image and its metadata sidecars.
+ASPECT instrument image and its metadata sidecars. `HERA/Dimorphos_dsk/` holds the
+Dimorphos shape model the Hera SPICE kernels ship, gzipped — the mesh `simulate-image
+--obj` renders from. It is **separately licensed (CC BY-NC 3.0 IGO)**; see its
+`CREDITS.md`.
 
 One runnable script per verb ships in the PRo3D source tree, in Windows and POSIX
 variants. They invoke the tool via `dotnet run`, so they work in a checkout before

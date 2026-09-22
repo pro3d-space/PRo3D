@@ -12,6 +12,7 @@ Part of [`pro3d-tool`](./Pro3DTool.md) — see there for installation, test data
 ```
 pro3d-tool simulate-image --opc <body-opc> --time <iso8601-utc> [options]
 pro3d-tool simulate-image --opc <body-opc> --mbi <image-or-sidecar> [options]
+pro3d-tool simulate-image --obj <shape.obj> --time <iso8601-utc> [options]
 ```
 
 The second form renders through the camera an existing image's `.mbi.json`
@@ -72,7 +73,10 @@ Output is one 8-bit greyscale PNG at the instrument's native size.
 
 | Option | Effect |
 |---|---|
-| `--opc <dir>` | OPC directory of the body (required) |
+| `--opc <dir>` | OPC directory of the body. Exactly one of `--opc` and `--obj` |
+| `--obj <file>` | Wavefront shape model instead of an OPC; `.obj.gz` is read directly. See [Rendering from a mesh](#rendering-from-a-mesh) |
+| `--obj-scale <v>` | metres per `--obj` file unit (default `1000`: the SPICE DSK shape models are in kilometres). The resulting extent in metres is logged |
+| `--obj-texture <file>` | image to drape on `--obj`, using the mesh's own texture coordinates. Required by `--deshade` / `--texture-albedo` / `--texture-only`, which are refused without it |
 | `--time <iso8601>` | observation time, UTC, e.g. `2027-03-15T19:00:00Z` (required unless `--mbi` is given) |
 | `--mbi <file>` | render the camera an existing image's `.mbi.json` declares; takes the image or the sidecar. Epoch, instrument and pointing all come from it |
 | `--write-mbi` | also write `<out>.mbi.json` and `<out>.json`, so the render can be imported into the viewer and projected back |
@@ -115,6 +119,67 @@ data is used to prove.
 verb on a fixed cadence instead — by default one Dimorphos rotation at 15 min, two lit
 variants per epoch (micro-structure on and off) at a fixed `--gain`, with a subset ready
 to import as a projection stack. See [ImageTimeSeries.md](./ImageTimeSeries.md).
+
+<a name="rendering-from-a-mesh"></a>
+## Rendering from a mesh
+
+`--obj` renders the body from a Wavefront shape model instead of an OPC. Everything else is
+identical — same camera, same photometry, same shadow pass, same shader stack, same sidecar
+and the same pointing pre-flight. What changes is the geometry and what it can carry.
+
+**Why it matters.** AFC is 1020 x 1020 at 93.7 urad/px, so at 5 km a detector pixel covers
+**0.48 m** while the posts of the Dimorphos OPC are **1.96 m** apart. One post spans about
+4 x 4 pixels: frames rendered from that OPC are limited by the shape model, not by the
+sensor, and do not resolve what AFC would see. The shape model the SPICE kernels ship is
+**0.243 m** per facet — twice as fine as a pixel.
+
+How far that goes is measurable. Against a `spiceypy` ray-cast of the kernels' own DSK, on
+four epochs of 2027-02-25:
+
+| | silhouette IoU | lit-region IoU |
+|---|---|---|
+| OPC render vs ray-cast | 0.972 | 0.862 |
+| **OBJ render vs ray-cast** | **1.000** | 0.897 |
+
+The silhouette is exact — 79 836 covered pixels against 79 837, uncentred and unscaled —
+because the DSK was built from this very OBJ, so the two renderers are drawing the same
+body and nothing but the renderers differ. The lit-region number stays near 0.90 for a
+reason that has nothing to do with the shape: our lit mask is thresholded at DN 25 while
+the ray-cast writes every pixel with mu0 > 0, which costs about 5 % of the lit area. That
+caps any lit comparison of ours against anyone else's at roughly 0.90 whatever the shape —
+see [ShapeModelCrosscheck.md](./ShapeModelCrosscheck.md).
+
+**Units.** `--obj-scale` is metres per file unit and defaults to **1000**, because the DSK
+shape models are in kilometres (`INPUT_DATA_UNITS = DISTANCES = KM` in their own MKDSK
+setup). The extent in metres is logged on load, and an implausible body is warned about:
+
+```
+[obj] 1579014 vertices, 3145728 triangles in 1.0 s
+[obj] extent 0.1795 x 0.1694 x 0.1152 (file units) x 1000 = 179.5 x 169.4 x 115.2 m
+```
+
+**No texture.** The kernel set's shape models carry `v` and `f` lines only — no `vt`, no
+`vn`, no `mtllib` — and the `.png` shipped beside each `.bds` is a **preview render, not a
+map** (its own `aareadme.txt`: "an image example in png format for convenience"). So
+`--deshade`, `--texture-albedo` and `--texture-only` are **refused** on an untextured mesh
+rather than quietly falling back to the constant albedo: a `--deshade` frame that came out
+as flat albedo is indistinguishable from one that never asked for it.
+
+With `--obj-texture` they all work again. The de-shading fit then samples the texture at
+each vertex's own UV and pairs it with the vertex normal, which is the mesh equivalent of
+the per-vertex `.aara` layer the OPC path fits against; both go through the same
+least-squares.
+
+**What is cheaper, and what is not.** A mesh has no LOD tree, so a pass is complete in its
+first frame instead of the eight an OPC needs to refine — which is the difference between a
+minute of rendering and eight on 3.1 M triangles. Parsing 175 MB of ASCII takes about a
+second, once per process, and `simulate-series` pays it once for the whole series. Reading
+`.obj.gz` directly costs nothing measurable and turns 175 MB into 39 MB.
+
+**What a mesh cannot do.** There is no `.opcx`, so `--texture-layer` means nothing and
+`--project` has no layer to project onto in the viewer: these frames are for comparing
+renderers, not for projecting back. The PRo3D scene the time-series generator writes is
+skipped for an OBJ run, and it says so.
 
 ## Cross-checking a render against SPICE
 
@@ -292,6 +357,12 @@ not project.
   body-frame coordinates in `float32` in the shader — comfortable for a body a few
   hundred metres across, but a deliberate deviation from PRo3D's planetary-scale
   precision rules. Do not point this verb at a Mars-sized OPC and expect clean output.
+  `--obj` is the same bargain and a little more so: the mesh is uploaded in `float32`
+  body coordinates with no per-patch local frame, which resolves ~10 microns at 180 m and
+  ~1 m at 10 000 km.
+- **A mesh is one draw call.** The whole shape is resident, so `--obj` trades the OPC's
+  level of detail for memory: 3.1 M triangles is about 60 MB of vertex and index buffers,
+  and a shape model an order of magnitude larger would need the LOD path back.
 
 ## Future work
 

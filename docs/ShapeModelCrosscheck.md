@@ -7,6 +7,7 @@ observation **twice, through two independent paths**, and comparing them.
 |  | ours | the cross-check |
 |---|---|---|
 | shape model | OPC `g_01960mm_spc_dtm_dimo_0000n00000_v003` | SPICE DSK `g_00243mm_spc_obj_dimo_0000n00000_v004` |
+|  | (`--obj` renders the DSK's own mesh instead — see [below](#closing-it-rendering-the-dsks-own-shape)) | |
 | resolution | 1.96 m GSD, gridded DTM | 0.243 m, 3 145 728 facets |
 | renderer | PRo3D, rasterised, Aardvark scene graph | `spiceypy`, ray-cast, ~40 lines |
 | field of view | 5.5307° (`InstrumentProjection.fs`) | 5.5000° (`hera_afc_v06.ti`) |
@@ -229,6 +230,51 @@ What these show that the distant frames could not:
 > **No re-orientation is applied to any panel.** Both renderers follow the IK layout, and
 > the two agree at correlation **+0.915** under the identity transform. The head-on epoch
 > scores lower simply because a disk at 2.7° phase has almost no features to match.
+
+## Closing it: rendering the DSK's own shape
+
+Everything above measures PRo3D-on-the-OPC against a ray-cast of the DSK, so a
+disagreement has two possible causes — the renderer or the shape model — and the page
+cannot separate them. `simulate-image --obj` removes the second one: it renders **the same
+mesh the DSK was built from**, the `g_00243mm_spc_obj_dimo_0000n00000_v004.obj` that the
+kernel set ships beside `…v004.bds` and that its MKDSK setup names as its own input.
+
+Two renderers, sharing nothing but the kernels, on one shape. Measured over four epochs of
+2027-02-25 by [`scripts/check-renderers.py`](../scripts/check-renderers.py):
+
+| pair | footing | worst | mean |
+|---|---|---|---|
+| OPC vs ray-cast | silhouette | 0.972 | 0.977 |
+| **OBJ vs ray-cast** | **silhouette** | **1.000** | **1.000** |
+| OPC vs ray-cast | lit region | 0.862 | 0.917 |
+| OBJ vs ray-cast | lit region | 0.897 | 0.938 |
+| comet-toolbox vs OPC | lit region | 0.856 | 0.905 |
+| comet-toolbox vs OBJ | lit region | 0.890 | 0.931 |
+
+**The silhouette is exact.** 79 836 covered pixels against 79 837 at 06:30, and the raw
+uncentred, unscaled overlap is 1.000 as well, so it is not an artefact of the centroid
+crop. The rasteriser, the camera construction, the instrument frame, the FOV and the units
+all agree with SPICE's own ray-cast to within a pixel of a 1020 x 1020 frame. Whatever is
+left between us and another implementation is not our geometry.
+
+**The lit region cannot say that, and it is worth knowing why.** Two renderings of the
+*identical* mesh agree only to 0.897 there. The difference is the terminator: our lit mask
+is everything above DN 25, while the ray-cast writes every pixel with mu0 > 0 and its mask
+therefore runs all the way to the terminator — about 5 % more area. That is a property of
+the metric, not of either renderer, and it caps any lit-region comparison of ours against
+anyone else's at roughly 0.90 whatever the shape model is.
+
+This is why `check-renderers.py` keeps the two footings as separate rows with separate
+floors. A lit floor says *the shading is still comparable*; a silhouette floor says *this
+is the same body*. Collapsing them to "the strongest footing both can supply" — which the
+script used to do — hid the one measurement that isolates the shape, and set the OBJ's
+acceptance criterion at a lit-region 0.93 that no PRo3D render could reach for reasons
+having nothing to do with the shape. The criterion is now the silhouette, at 0.99.
+
+**What the fine shape buys against a third renderer.** comet-toolbox reaches 0.890 against
+our OBJ render and 0.856 against our OPC render — the OPC's 1.96 m posts, against an AFC
+pixel of 0.48 m at 5 km, were costing real agreement, and the mesh recovers most of it.
+The remainder is the terminator ceiling above.
 
 ## Where PRo3D goes beyond the cross-check
 

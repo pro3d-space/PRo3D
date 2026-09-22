@@ -86,11 +86,20 @@ type SunAnglesOptions =
 ///
 /// Defaults for the string options are applied in code rather than through the attribute,
 /// because an unsupplied string field arrives as null. Numeric defaults use the attribute.
-[<Verb("simulate-image", HelpText = "Render a simulated instrument image of a body: OPC geometry, Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo.")>]
+[<Verb("simulate-image", HelpText = "Render a simulated instrument image of a body: OPC or OBJ geometry, Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo.")>]
 type SimulateImageOptions =
     {
-        [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
+        [<Option("opc", HelpText = "OPC directory of the body. Exactly one of --opc and --obj.")>]
         opc : string
+
+        [<Option("obj", HelpText = "Shape model as a Wavefront OBJ instead of --opc; `.obj.gz` is read directly. Use this to render from the shape model the SPICE kernels ship (kernels/dsk/*.obj): at 5 km an AFC pixel covers 0.48 m while the Dimorphos OPC's posts are 1.96 m apart, so OPC frames are shape-limited rather than sensor-limited. Exactly one of --opc and --obj.")>]
+        obj : string
+
+        [<Option("obj-scale", Default = 1000.0, HelpText = "Metres per --obj file unit (default 1000, i.e. the file is in kilometres -- which is what the SPICE DSK shape models are). The body's extent in metres is logged, so a wrong scale is visible immediately.")>]
+        objScale : float
+
+        [<Option("obj-texture", HelpText = "Image to drape on --obj, using the mesh's own texture coordinates. Required by --deshade / --texture-albedo / --texture-only, which are refused without it. NOTE the `.png` beside each `.bds` in the kernel set is a preview render, not a map.")>]
+        objTexture : string
 
         [<Option("time", HelpText = "Observation time, ISO-8601 UTC (e.g. 2027-03-15T12:00:00Z). Required unless --mbi supplies the observation.")>]
         time : string
@@ -197,11 +206,20 @@ type SimulateImageOptions =
 /// two different builds, 90 degrees apart, with nothing in the data saying so -- and with
 /// the whole series rendering in one process, the thing resuming saved is no longer worth
 /// the class of bug it costs.
-[<Verb("simulate-series", HelpText = "Render a whole series of simulated instrument images in one process: many epochs x many shading variants, sharing one OPC load, one de-shading fit and one scene graph.")>]
+[<Verb("simulate-series", HelpText = "Render a whole series of simulated instrument images in one process: many epochs x many shading variants, sharing one shape-model load, one de-shading fit and one scene graph.")>]
 type SimulateSeriesOptions =
     {
-        [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
+        [<Option("opc", HelpText = "OPC directory of the body. Exactly one of --opc and --obj.")>]
         opc : string
+
+        [<Option("obj", HelpText = "Shape model as a Wavefront OBJ instead of --opc; `.obj.gz` is read directly. Use this to render from the shape model the SPICE kernels ship (kernels/dsk/*.obj): at 5 km an AFC pixel covers 0.48 m while the Dimorphos OPC's posts are 1.96 m apart, so OPC frames are shape-limited rather than sensor-limited. Exactly one of --opc and --obj.")>]
+        obj : string
+
+        [<Option("obj-scale", Default = 1000.0, HelpText = "Metres per --obj file unit (default 1000, i.e. the file is in kilometres -- which is what the SPICE DSK shape models are). The body's extent in metres is logged, so a wrong scale is visible immediately.")>]
+        objScale : float
+
+        [<Option("obj-texture", HelpText = "Image to drape on --obj, using the mesh's own texture coordinates. Required by --deshade / --texture-albedo / --texture-only, which are refused without it. NOTE the `.png` beside each `.bds` in the kernel set is a preview render, not a map.")>]
+        objTexture : string
 
         [<Option("times-file", HelpText = "File of observation times, one ISO-8601 UTC epoch per line; blank lines and lines starting with '#' are ignored", Required = true)>]
         timesFile : string

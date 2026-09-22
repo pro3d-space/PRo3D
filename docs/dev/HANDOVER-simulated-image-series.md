@@ -18,7 +18,8 @@ previous version of this file. `git stash pop` on the right branch to get them b
 | | |
 |---|---|
 | `src/PRo3D.Tool/SimulateSeries.fs` | **`simulate-series`**: a whole series in one process |
-| `src/PRo3D.Tool/SimulateImage.fs` | shared shading params, de-shading fit, eclipse occluder, pointing pre-flight |
+| `src/PRo3D.Tool/SimulateImage.fs` | shared shading params, de-shading fit, `ShapeSource` (OPC or mesh), eclipse occluder, pointing pre-flight |
+| `src/PRo3D.Tool/ObjShape.fs` | the Wavefront reader, the winding vote and the mesh scene graph |
 | `scripts/make-image-time-series.py` | drives it once: epochs, SPICE reference, validation, stack, scene, manifest |
 | `scripts/check-series.py` | re-checks a series against **our own** ray-cast |
 | `scripts/check-renderers.py` | checks against **other people's** renderers — the independent test |
@@ -54,6 +55,46 @@ brightness, via its own `rawScale`. The first attempt reused `delit`'s internal 
 normalisation, came out 1.8× too bright and clipped 55–75 % of the body: an exposure
 artefact that would have read as the effect the variant exists to demonstrate.
 
+**`--obj`: rendering from a mesh.** Both verbs take `--obj <file>` (`.obj.gz` read
+directly) instead of `--opc`, behind a `ShapeSource` record that is the only thing the two
+shape models disagree about — how the scene graph is built, how many warm-up frames a pass
+needs, and whether there is a texture to fit. Camera, photometry, shadow pass, shader
+stack, sidecar and pointing pre-flight are shared unchanged. The reader is our own: the
+delivered file is `v`/`f` lines and nothing else, and `ObjParser` → `GetFaceSetMeshes` →
+`PolyMesh` would build double-precision meshes and per-vertex crease normals we throw away.
+175 MB parses in **1.0 s**; `simulate-series` pays it once.
+
+**And it is exact.** The silhouette of a PRo3D render of the kernels' Dimorphos OBJ against
+a `spiceypy` ray-cast of the DSK built from that same OBJ: **IoU 1.000** over four epochs —
+79 836 covered pixels against 79 837, raw and uncentred. The OPC manages 0.972. That closes
+"the remaining difference is the shape model": our rasteriser, camera, instrument frame,
+FOV and units agree with SPICE's own ray-cast to under a pixel of 1020.
+
+**The OBJ has no texture, and the `.png` beside it is a preview render**, not a map — the
+kernel set's own `aareadme.txt` says so ("an image example in png format for convenience").
+So `delit`/`baked` (and `--deshade`/`--texture-albedo`/`--texture-only`) are **refused** on
+an untextured mesh instead of falling back to the constant albedo: an untextured `delit/`
+folder is pixel for pixel `micro/`, and the README would have claimed otherwise. With
+`--obj-texture` they work again — the fit then samples the texture per vertex and goes
+through the same `fitFromSamples` the OPC path uses.
+
+**Units.** `--obj-scale` is metres per file unit, default **1000**: the DSK models are in
+km (`INPUT_DATA_UNITS = DISTANCES = KM` in their own MKDSK setup). The extent in metres is
+logged on load and an implausible body is warned about.
+
+**The model is in the test repo.** `PRo3D.Resources.TestData/HERA/Dimorphos_dsk/` —
+`g_00243mm_spc_obj_dimo_0000n00000_v004.obj.gz` (175 MB → 39 MB; GitHub refuses >100 MB),
+the preview PNG, and a `CREDITS.md` with the provenance out of the `.bds` comment area
+(DART SOC, 2023-05-30; ESS DSK 2023-07-31; SPC from DRACO). **It is CC BY-NC 3.0 IGO**, the
+ESA SPICE dataset licence, which is not the licence of the rest of that repo — the
+CREDITS.md and the repo README both say so.
+
+**`check-renderers.py` now compares per footing.** It used to pick "the strongest footing
+both can supply", which for our renders is always the lit region — and that hid the one
+measurement that isolates geometry. Each pair now gets a row per footing with its own
+floor, and a floor whose footing has no frames prints `NO DATA` and fails rather than
+passing silently.
+
 **No resume.** Folders are recreated per run. Resuming is what once left a folder holding
 frames from two builds 90° apart, and at 0.12 s a frame it saves nothing.
 
@@ -72,7 +113,11 @@ onto the GLFW instance's thread — which in the test process is the main thread
 inside Expecto waiting for the very test asking for a runner. PRo3D's convention is one
 runner per process via `Surface.Sg.hackRunner`; all five now use it. **628 tests, 620
 passed, 6 ignored, 8 failed** — all eight pre-existing SPICE kernel-swap failures that
-fail in isolation too, including a `J2000 → J2000` identity.
+fail in isolation too, including a `J2000 → J2000` identity. With the OBJ reader's ten
+tests it is **638 run, 630 passed, 6 ignored, 8 failed** — the same eight. One of the ten
+bakes a known light direction into a UV sphere's texture and asserts the mesh de-shading
+fit recovers it to under 2°; it comes back 0.13° off at r = 1.00, which is what makes the
+V-flip and the vertex normals checkable rather than merely plausible.
 
 ## 3. The orientation question — read `AFC-image-orientation.md`
 
@@ -103,46 +148,21 @@ What the investigation established:
 - **comet-toolbox is, to the accuracy a screenshot allows, a SPICE ray-cast of the
   kernels' DSK.** Our `dsk_render` on their kernels reaches 0.944–0.982 silhouette overlap
   against their frames — the limit of what a downscaled screenshot can resolve.
-- **The remaining difference against comet-toolbox is the shape model.** Our OPC gives
-  0.856–0.972; the DSK gives 0.944–0.982 on the same epochs and kernels.
+- **The remaining difference against comet-toolbox was the shape model, and `--obj` closes
+  most of it.** comet vs our OPC render: 0.856 worst / 0.905 mean over four epochs of
+  2027-02-25. comet vs our OBJ render: **0.890 / 0.931**. The rest is the metric, not the
+  shape — see the terminator ceiling in §5.
 
 ## 4. What is open, in order
 
-**1. OBJ support — the next task.** The kernels ship `g_00243mm_spc_obj_dimo_v004.obj`
-(175 MB ASCII, 1.58 M vertices, 3.15 M faces) with a 537 KB texture.
-`Aardvark.Data.Wavefront 5.3.10` is already in `paket.lock` and used by `PRo3D.Core`; it
-needs a line in `src/PRo3D.Tool/paket.references`.
-
-Why it matters beyond agreeing with comet-toolbox: **AFC is 1020 × 1020 at 93.7 µrad/px, so
-at 5 km a pixel is 0.48 m while an OPC post is 1.96 m.** One post covers about 4 × 4
-detector pixels — the delivered frames are shape-limited, not sensor-limited, and do not
-resolve what AFC would see. The DSK at 0.24 m is twice as fine as a pixel.
-
-The mesh path is *simpler* than the OPC path: body-local position and normals come straight
-from the file, and `stableTrafo`'s precision trick is unnecessary at 177 m. The parse cost
-is paid once per `simulate-series` process. `delit` is the hard part — the de-shading fit
-reads per-vertex `.aara` layers that an OBJ does not have, so it would need refitting
-against the texture.
-
-**Acceptance criterion, already encoded**: `FLOORS[("comet", "obj")] = 0.93` in
-`check-renderers.py`. Rendering from the OBJ must reach what the ray-cast of that same
-shape reaches; if it does not, the shape was not the problem.
-
-**The cost to weigh**: the sidecars currently promise that projecting a frame back onto
-*this OPC* reproduces it. Rendering from the OBJ breaks that unless the delivery moves to
-the OBJ shape as a whole.
-
-**2. Verify the eclipse.** Implemented (`181aff62`) and **unverified** — it builds, the
+**1. Verify the eclipse.** Implemented (`181aff62`) and **unverified** — it builds, the
 geometry is computed, no render has been checked. Render 10:30–12:10 on 2027-02-25 and
 confirm the body goes dark 10:45–12:00 with partial phases at 10:35 and 12:00, then
 compare 11:30 against comet-toolbox, which renders it black.
 
-**3. Re-render both series** once the OBJ and the eclipse are in, and re-run
-`check-renderers.py`.
+**2. Re-render both series** once the eclipse is in, and re-run `check-renderers.py`.
 
-**4. The export scripts** still need adapting to whatever the OBJ path changes.
-
-**5. Ship**: push the branch and open the PR.
+**3. Ship**: push the branch and open the PR.
 
 **Also open**, not blocking:
 
@@ -162,6 +182,15 @@ compare 11:30 against comet-toolbox, which renders it black.
 contamination gate compared raw pixel counts, so a 518 px screenshot panel against a
 1020 px render looked like a different body and every comet-toolbox pair was dropped —
 while the run reported success. Check a new test against values you already know.
+
+**Our lit mask is not a ray-cast's, and that caps the lit metric at ~0.90.** Two renderings
+of the SAME mesh — our `--obj` render and `dsk_render` of the DSK built from it — agree to
+IoU 1.000 on the silhouette and only **0.897** on the lit region. Ours thresholds at DN 25,
+the ray-cast writes every pixel with μ₀ > 0, and the ~5 % of lit area between them is the
+whole difference. So a lit-region floor of 0.93 for `comet vs obj` — which is what the
+previous version of this file proposed, copied from the `comet vs spice` measurement — was
+a test of our *shading* wearing the label of a test of our *shape*, and no correct render
+could have passed it. The acceptance criterion is now the silhouette, where it is exact.
 
 **Correlating grey levels between renderers measures nothing.** Two shape models disagree
 pixel by pixel whatever the orientation: all eight dihedral transforms came out negative on
@@ -186,7 +215,15 @@ reading of the same IK diagram, so they cannot disagree about a convention they 
 there; use absolute paths for everything else.
 
 **Heredocs mangle Python.** Writing `\n` inside a heredoc-fed script corrupted files
-repeatedly. Use the Write/Edit tools for code.
+repeatedly. The same thing silently eats F# string line continuations: a trailing `\` in a
+`Log.error` format string comes out flattened, with the next line's indentation left
+sitting in the middle of the message. Use the Write/Edit tools for code.
+
+**The eclipse commit broke the test build and nobody noticed.** `181aff62` added
+`occluderBody`/`occluderFrame` to `SimulateImageOptions` without the fixture in
+`Pro3DToolTests.fs`, so the suite would not compile at all. Fixed here. A field added to an
+options record is a compile error in a project the verb itself does not reference — run the
+suite after touching `Cli.fs`.
 
 **Renders hold `PRo3D.Base.dll`**; a build during one fails with MSB3027.
 

@@ -44,6 +44,11 @@ rotation apart.
     test data   the OPC itself; the frames are only meaningful on the shape model they
                 were rendered against, so keep them together. Defaults to
                 $PRO3D_TEST_DATA/HERA/Dimorphos_opc/Dimorphos.
+    --obj       renders from a Wavefront shape model instead -- the one the SPICE kernels
+                ship has 0.24 m facets against the OPC's 1.96 m posts, and at 5 km an AFC
+                pixel is 0.48 m, so the OPC frames are shape-limited rather than
+                sensor-limited. It carries no texture: only micro and smooth, no scene,
+                and the frames are for comparing renderers rather than for projecting.
     kernels     $PRO3D_SPICE_KERNELS, or --kernel-root; --kernel picks the metakernel
                 (the tool's default is <root>/mk/hera_plan.tm)
     python      numpy (for the sidecar check); no plotting
@@ -164,8 +169,9 @@ def folder_tree(variant_dirs, chosen, stack_variant, scene):
     rows = [(v + '/', VARIANTS.get(v, '')) for v in variant_dirs]
     rows.append(("stack/", "%d %s frames, thinned for the 32-layer projection stack"
                  % (len(chosen), stack_variant)))
-    rows.append((os.path.basename(scene) if scene else '(no scene)',
-                 'PRo3D scene: body, frame, kernel, epoch, focal length'))
+    if scene:
+        rows.append((os.path.basename(scene),
+                     'PRo3D scene: body, frame, kernel, epoch, focal length'))
     rows.append(('README.md', 'this file'))
     rows.append(('series.json', 'the same, machine-readable, one entry per epoch'))
     out = []
@@ -310,7 +316,7 @@ Rendered from a shape model with PRo3D using SPICE geometry.
 | | |
 |---|---|
 | kernel | `{mkid}` |
-| shape model | `{opcname}` |
+| shape model | `{opcname}` ({shapekind}) |
 | body / frame | {body} / {frame} |
 | observer / instrument | {observer} / {instrument} |
 | epochs | {start} .. {end} UTC |
@@ -326,15 +332,7 @@ Rendered from a shape model with PRo3D using SPICE geometry.
 {folder}/
 {tree}```
 
-The four image folders are the **same frames rendered four ways**: same camera, same
-epochs, same exposure, differing only in what the surface is made of. Pick the one that
-matches what you are testing, or compare a pair.
-
-`baked/` and `delit/` both take surface brightness from the DRACO image where it covers
-the body, with random texture filling the rest. The DRACO image has lighting baked into
-it, which might confuse reconstruction methods -- `delit/` fits that lighting and removes
-it, `baked/` leaves it in. Both are here so you can see which your pipeline needs.
-
+{whatvariants}
 A frame is named `AFC1_<VARIANT>_<date>_<time>`, so one epoch is the same stamp in every
 folder. Alongside each image:
 
@@ -348,15 +346,7 @@ folder. Alongside each image:
 entry per epoch naming its file in each folder, plus the settings everything was rendered
 with.
 
-## Using them in PRo3D
-
-Open `{scene}`, then: GIS tab -> Projected Images -> Import Directory -> `stack/`, `+` on
-each row you want, Orientation Source **MBI**, Transfer Function **off**.
-
-`stack/` holds {nstack} evenly spaced {stackvariant} frames rather than all {count},
-because the viewer projects at most 32 layers at once and frames minutes apart see nearly
-the same face.
-
+{usinginpro3d}
 ## What these images are, and are not
 
 - **Pointing is the planned spacecraft attitude.** Frames are not centred on the body;
@@ -369,6 +359,58 @@ the same face.
   will happily turn it into relief that the shape model does not have.
 - **Geometric positions**: no light-time or stellar aberration correction.
 """
+
+
+# The "what are these folders" paragraph, written from the variants the folder actually
+# holds. A fixed paragraph about four folders and the DRACO mosaic was wrong the moment a
+# run produced two folders and no mosaic -- which is what an OBJ series is.
+WHAT_VARIANTS = {
+    "many": """The {n} image folders are the **same frames rendered {n} ways**: same camera, same
+epochs, same exposure, differing only in what the surface is made of. Pick the one that
+matches what you are testing, or compare a pair.
+""",
+    "one": """`{only}/` holds the lit frames: one rendering of each epoch.
+""",
+    "texture": """
+`baked/` and `delit/` both take surface brightness from the DRACO image where it covers
+the body, with random texture filling the rest. The DRACO image has lighting baked into
+it, which might confuse reconstruction methods -- `delit/` fits that lighting and removes
+it, `baked/` leaves it in. Both are here so you can see which your pipeline needs.
+""",
+    "noTexture": """
+There is no mosaic in this series: the shape model carries no texture, so the surface is a
+constant albedo and every difference between frames is geometry and illumination.
+""",
+}
+
+
+USING_IN_PRO3D = """## Using them in PRo3D
+
+Open `{scene}`, then: GIS tab -> Projected Images -> Import Directory -> `stack/`, `+` on
+each row you want, Orientation Source **MBI**, Transfer Function **off**.
+
+`stack/` holds {nstack} evenly spaced {stackvariant} frames rather than all {count},
+because the viewer projects at most 32 layers at once and frames minutes apart see nearly
+the same face.
+"""
+
+# Without a scene there is nothing to open, and the projection needs an OPC surface to
+# land on. Saying so is more use than instructions for a file that is not in the folder.
+NO_SCENE = """## Projecting them in PRo3D
+
+These frames were rendered from a Wavefront shape model, which the viewer cannot bind a
+projection to -- projection lands on an OPC surface. They are here to be compared against
+other renderings of the same epochs, not to be projected.
+"""
+
+
+def what_variants(lit):
+    """The paragraph describing the lit variant folders of THIS series."""
+    out = (WHAT_VARIANTS["many"].format(n=len(lit)) if len(lit) > 1
+           else WHAT_VARIANTS["one"].format(only=(lit or ["(none)"])[0]))
+    textured = [v for v in lit if v in ("delit", "baked")]
+    return out + (WHAT_VARIANTS["texture"] if len(textured) == 2
+                  else "" if textured else WHAT_VARIANTS["noTexture"])
 
 
 def write_readme(path, **kw):
@@ -385,8 +427,21 @@ def main():
 
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--opc", default=default_opc, required=default_opc is None,
+    ap.add_argument("--opc", default=default_opc,
                     help="Dimorphos OPC directory (default: $PRO3D_TEST_DATA/HERA/Dimorphos_opc/Dimorphos)")
+    ap.add_argument("--obj", default=None,
+                    help="render from a Wavefront OBJ shape model instead of the OPC "
+                         "(`.obj.gz` works). The kernels' own Dimorphos model has 0.24 m "
+                         "facets against the OPC's 1.96 m posts -- at 5 km an AFC pixel is "
+                         "0.48 m, so OPC frames are shape-limited rather than sensor-limited. "
+                         "It carries no texture, so only micro and smooth can be rendered "
+                         "from it unless --obj-texture is given")
+    ap.add_argument("--obj-scale", default="1000",
+                    help="metres per --obj file unit (default 1000: the SPICE DSK shape "
+                         "models are in kilometres)")
+    ap.add_argument("--obj-texture", default=None,
+                    help="image to drape on --obj, for the delit/baked variants. The .png "
+                         "beside each .bds in the kernel set is a PREVIEW RENDER, not a map")
     ap.add_argument("--out", required=True, help="where to write the series")
     ap.add_argument("--start", default=DEFAULT_START,
                     help="first epoch, ISO-8601 UTC (default %s); must lie inside the "
@@ -474,6 +529,33 @@ def main():
     if unknown or not variants:
         print("--variants takes any of delit, baked, micro, smooth, spice -- got %s" % a.variants)
         return 2
+
+    # Exactly one shape model. With both there is no answer to "which body is this frame
+    # of?", and a precedence rule would make that answer depend on a line of code.
+    if a.obj and a.opc and a.opc != default_opc:
+        print("--opc and --obj are two different shape models; pass one of them")
+        return 2
+    if not a.obj and not a.opc:
+        print("no shape model: pass --opc <dir> or --obj <file>")
+        return 2
+    if a.obj and not os.path.exists(a.obj):
+        print("--obj not found: %s" % a.obj)
+        return 2
+    if not a.obj and not os.path.isdir(a.opc):
+        print("--opc directory not found: %s" % a.opc)
+        return 2
+    # The textured variants are refused rather than degraded, for the same reason the tool
+    # refuses them: an untextured `delit` frame is pixel for pixel a `micro` frame, and
+    # nothing in the delivery would say so.
+    if a.obj and not a.obj_texture:
+        textured = [v for v in variants if v in ("delit", "baked")]
+        if textured:
+            print("--obj carries no texture, so %s cannot be rendered from it "
+                  "(they would be identical to micro). Pass --obj-texture, or "
+                  "--variants %s"
+                  % (", ".join(textured),
+                     ",".join(v for v in variants if v not in textured) or "micro,smooth"))
+            return 2
     if a.stack_variant not in variants:
         # Not fatal: a pass that renders only one variant (e.g. the spice reference) into
         # an existing series should leave the stack it already has alone rather than
@@ -485,14 +567,30 @@ def main():
               % (a.stack_count, MAX_STACK))
     stack_count = max(0, min(a.stack_count, MAX_STACK))
 
-    common = ["--opc", a.opc, "--body", "DIMORPHOS", "--frame", "DIMORPHOS_FIXED",
-              "--observer", "HERA", "--instrument", "HERA_AFC-1"]
+    shape = ["--obj", a.obj, "--obj-scale", a.obj_scale] if a.obj else ["--opc", a.opc]
+    if a.obj and a.obj_texture:
+        shape += ["--obj-texture", a.obj_texture]
+    common = shape + ["--body", "DIMORPHOS", "--frame", "DIMORPHOS_FIXED",
+                      "--observer", "HERA", "--instrument", "HERA_AFC-1"]
+
+    # What the frames were rendered against, for series.json and the README. The product
+    # id -- an OPC's .opcx basename, an OBJ's file name -- carries the GSD, the source and
+    # the version; the absolute path is this machine's and means nothing to a recipient.
+    shape_path = os.path.abspath(a.obj or a.opc)
+    if a.obj:
+        shape_product = os.path.basename(shape_path)
+    else:
+        shape_product = next((os.path.splitext(f)[0] for f in sorted(os.listdir(a.opc))
+                              if f.endswith(".opcx")), os.path.basename(shape_path))
     if a.kernel:
         common += ["--kernel", a.kernel]
     if a.kernel_root:
         common += ["--kernel-root", a.kernel_root]
 
     if a.list_layers:
+        if a.obj:
+            print("--list-layers lists an OPC's texture layers; a mesh draws --obj-texture")
+            return 2
         print(list_layers(repo, common, iso(epochs[0])))
         return 0
 
@@ -588,10 +686,12 @@ def main():
             "--gain", a.gain,
             "--micro-scale", a.micro_scale,
             "--micro-amplitude", a.micro_amplitude,
-            # --deshade-layer drives both the fit and the divisor; DELIT is the only
-            # variant that uses it, and the other two never sample the texture.
-            "--deshade-layer", a.texture_layer,
         ]
+        if not a.obj:
+            # --deshade-layer drives both the fit and the divisor; DELIT is the only
+            # variant that uses it, and the other two never sample the texture. A mesh
+            # has no layers -- it draws --obj-texture, already in `shape`.
+            args += ["--deshade-layer", a.texture_layer]
         if a.albedo:
             args += ["--albedo", a.albedo]
         if a.distance:
@@ -718,7 +818,14 @@ def main():
         print("   import this folder in the GIS tab (Projected Images -> Import Directory)")
 
     scene = None
-    if a.scene_template and os.path.exists(a.scene_template) and chosen:
+    if a.obj and chosen:
+        # The .pro3d template binds an OPC surface; a mesh shape model has no .opcx, no
+        # texture layer and no selectedTexture to point the scene at. Rendering from the
+        # OBJ is a comparison against other renderers, not a delivery to project in the
+        # viewer -- and saying so beats writing a scene that opens onto nothing.
+        print("no scene written: --obj frames are not projected in the viewer "
+              "(the scene binds an OPC surface)")
+    elif a.scene_template and os.path.exists(a.scene_template) and chosen:
         idx = texture_index(repo, common, times[0], a.texture_layer)
         if idx is None:
             print("could not resolve '%s' to an index; scene not written" % a.texture_layer)
@@ -755,9 +862,13 @@ def main():
             "toolBuild": build,
             "kernel": kernel,
             "mkIdentifier": mkid,
-            "opc": os.path.abspath(a.opc),
-            "opcProduct": next((os.path.splitext(f)[0] for f in sorted(os.listdir(a.opc))
-                                if f.endswith(".opcx")), None),
+            "shapeModel": shape_path,
+            "shapeModelKind": "obj" if a.obj else "opc",
+            "shapeModelProduct": shape_product,
+            # kept under their old names so an existing consumer of series.json does not
+            # break; they are null for an OBJ series
+            "opc": os.path.abspath(a.opc) if not a.obj else None,
+            "opcProduct": shape_product if not a.obj else None,
         },
         "observation": {
             "body": "DIMORPHOS", "frame": "DIMORPHOS_FIXED",
@@ -834,20 +945,25 @@ def main():
                  instrument="HERA_AFC-1", body="DIMORPHOS", frame="DIMORPHOS_FIXED",
                  observer="HERA", generated=manifest["generated"],
                  kernel=kernel or "(tool default)", mkid=mkid or "UNKNOWN -- record it by hand",
-                 opc=os.path.abspath(a.opc),
-                 # the .opcx basename is the product id (GSD, source, version); the path
-                 # above is this machine's and means nothing to whoever receives the data
-                 opcname=next((os.path.splitext(f)[0] for f in sorted(os.listdir(a.opc))
-                               if f.endswith(".opcx")), os.path.basename(os.path.abspath(a.opc))),
+                 shapekind="Wavefront OBJ" if a.obj else "OPC",
+                 whatvariants=what_variants([v for v in variants if v != "spice"]),
+                 opc=shape_path,
+                 # the .opcx basename (or the OBJ's file name) is the product id -- GSD,
+                 # source, version; the path above is this machine's and means nothing to
+                 # whoever receives the data
+                 opcname=shape_product,
                  start=times[0], end=times[-1],
                  interval=interval, count=count, span=span,
                  rotations=span / ROTATION_HOURS,
                  rmin=(min(rs) / 1000.0 if rs else 0.0), rmax=(max(rs) / 1000.0 if rs else 0.0),
                  width="1020x1020", gain=a.gain,
                  nstack=len(chosen), stackvariant=a.stack_variant,
+                 usinginpro3d=(USING_IN_PRO3D.format(
+                                   scene=os.path.basename(scene), nstack=len(chosen),
+                                   stackvariant=a.stack_variant, count=count)
+                               if scene else NO_SCENE),
                  folder=os.path.basename(os.path.abspath(a.out)),
-                 tree=folder_tree(sorted(vdir), chosen, a.stack_variant, scene),
-                 scene=os.path.basename(scene) if scene else "ImageSeries.pro3d (not written)")
+                 tree=folder_tree(sorted(vdir), chosen, a.stack_variant, scene))
     print("wrote %s" % readme)
 
     # Three independent gates, and the run passes only if all three do. They fail for

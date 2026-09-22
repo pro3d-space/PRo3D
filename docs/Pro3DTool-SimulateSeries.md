@@ -1,10 +1,11 @@
 # `pro3d-tool simulate-series`
 
 Render a whole series of simulated instrument images in **one process**: many epochs ×
-many shading variants, sharing one OPC load, one de-shading fit and one scene graph.
+many shading variants, sharing one shape-model load, one de-shading fit and one scene graph.
 
 ```
-pro3d-tool simulate-series --opc <dir> --times-file <epochs.txt> --out <folder> --gain 4.492
+pro3d-tool simulate-series --opc <dir>       --times-file <epochs.txt> --out <folder> --gain 4.492
+pro3d-tool simulate-series --obj <shape.obj> --times-file <epochs.txt> --out <folder> --gain 4.492
 ```
 
 Where [`simulate-image`](./Pro3DTool-SimulateImage.md) renders one frame, this renders a
@@ -32,15 +33,15 @@ the per-frame path. This is a restructure, not an approximation.
 
 ## What is hoisted, and what is not
 
-Once per process, because it is a property of the OPC rather than of the epoch:
+Once per process, because it is a property of the shape model rather than of the epoch:
 
 | | |
 |---|---|
 | GL context, SPICE kernels | process-level setup |
-| patch hierarchies, texture layer | the OPC does not change between epochs |
-| **the de-shading fit** | reads a per-vertex layer and solves for the baked light direction — no camera, sun or time enters it, so its three uniforms are constant for the whole series |
+| the shape model | OPC patch hierarchies and texture layer, or the OBJ parse — 175 MB of ASCII for the kernels' Dimorphos mesh, about a second, once for the series |
+| **the de-shading fit** | solves for the baked light direction against a per-vertex layer (OPC) or the texture (mesh) — no camera, sun or time enters it, so its three uniforms are constant for the whole series |
 | bounding box | |
-| both OPC scene graphs | the sun, the camera and the shadow frustum are `cval`s, so an epoch is a `transact`, not a rebuild |
+| both scene graphs | the sun, the camera and the shadow frustum are `cval`s, so an epoch is a `transact`, not a rebuild |
 | render target, one compiled task per variant | |
 
 Per epoch there remains the camera and sun from SPICE, a shadow-map pass (the sun moves),
@@ -82,6 +83,23 @@ texture through the same `DeshadeScale` at the same fixed mid incidence that `de
 low-confidence fallback uses. The de-shading fit therefore runs whenever *either* is
 requested — otherwise `baked`'s brightness would depend on whether `delit` happened to be
 in the same run.
+
+### Variants a shape model cannot supply
+
+`delit` and `baked` both read a texture. A shape model that carries none — every OBJ in the
+SPICE kernel set, whose `.png` is a preview render rather than a map — makes them
+**impossible, not merely unfitted**, and the verb refuses them by name:
+
+```
+ERROR: this shape model carries no texture, so the delit, baked variant(s) cannot be
+rendered: they would be identical to 'micro' and the folder would not say so.
+Pass --obj-texture, or --variants micro,smooth.
+```
+
+The alternative was to fall back to the constant albedo, which is what happens when a *fit*
+fails on a textured shape. That is right there and wrong here: a `delit/` folder of frames
+pixel for pixel identical to `micro/`, with a README saying they are de-lit, is exactly the
+kind of delivery a variant folder exists to prevent.
 
 ### Give it a gain
 
@@ -148,7 +166,10 @@ bug.
 
 | Option | Effect |
 |---|---|
-| `--opc <dir>` | OPC directory of the body (required) |
+| `--opc <dir>` | OPC directory of the body. Exactly one of `--opc` and `--obj` |
+| `--obj <file>` | Wavefront shape model instead of an OPC; `.obj.gz` is read directly. See [Rendering from a mesh](./Pro3DTool-SimulateImage.md#rendering-from-a-mesh) |
+| `--obj-scale <v>` | metres per `--obj` file unit (default `1000`) |
+| `--obj-texture <file>` | image to drape on `--obj`; without it the `delit` and `baked` variants are refused |
 | `--times-file <file>` | epochs, one ISO-8601 UTC time per line (required) |
 | `--out <dir>` | output directory; one subdirectory per variant (required) |
 | `--variants <list>` | any of `delit`, `baked`, `micro`, `smooth` (default all four) |
@@ -188,3 +209,10 @@ the viewer's *Import Directory* expects them there.
 Everything in [`simulate-image`'s caveats](./Pro3DTool-SimulateImage.md#caveats) applies
 unchanged — same renderer, same shaders, same geometry. In particular there is no detector
 model and no phase function, and micro-structure is shading only.
+
+With `--obj` the series is a little slower per frame and a lot simpler per pass: 0.23 s a
+frame against the OPC's 0.12 s on the kernels' 3.1 M triangle Dimorphos, because the frame
+is one large draw call rather than a refined LOD tree — but a mesh pass needs **one**
+warm-up frame where the OPC needs eight, so the two nearly cancel. No PRo3D scene is
+written for an OBJ series: the scene binds an OPC surface, and these frames are for
+comparing renderers rather than for projecting back.
