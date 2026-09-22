@@ -182,7 +182,7 @@ type SimulateImageOptions =
         [<Option("project-shader", HelpText = "Which projection shader --project goes through: 'single' (default, stableImageProjection -- what sun-angles and the testbeds use) or 'stack' (stableImageProjectionStack, a one-layer stack -- what the viewer renders). Rendering the same image both ways isolates the stack path.")>]
         projectShader : string
 
-        [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002); raise against acne, lower against peter-panning")>]
+        [<Option("shadow-bias", Default = 0.006, HelpText = "Shadow-map depth bias in normalized depth (default 0.006). Raise against acne, lower against peter-panning. The default was swept against a SPICE ray-cast of the same mesh (scripts/check-lighting.py): 0.002 wrongly darkened 2.6-6 % of the sun-facing body, mostly as isolated pixels, and 0.02 left a fifth of the real shadow lit.")>]
         shadowBias : float
 
 
@@ -296,7 +296,7 @@ type SimulateSeriesOptions =
         [<Option("no-lighting", HelpText = "Render a flat disk instead of a shaded body: the frame is then the silhouette. For comparing geometry against a renderer that does not light its output, where shading is only a source of disagreement.")>]
         noLighting : bool
 
-        [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002)")>]
+        [<Option("shadow-bias", Default = 0.006, HelpText = "Shadow-map depth bias in normalized depth (default 0.006); swept against a SPICE ray-cast, see scripts/check-lighting.py")>]
         shadowBias : float
 
         [<Option("max-reprojection-error", Default = 0.1, HelpText = "How far, in pixels, the camera reconstructed from a frame's own sidecar may sit from the camera that rendered it before the frame counts as failed (default 0.1). This is checked for EVERY frame: a sidecar that does not reproduce its own render makes the frame unusable for projection, and finding that out later costs the whole series.")>]

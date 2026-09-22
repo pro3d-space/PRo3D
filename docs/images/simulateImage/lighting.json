@@ -1,0 +1,96 @@
+{
+  "generated": "2026-09-22T16:26:43Z",
+  "generator": "scripts/check-lighting.py",
+  "obj": "C:\\Users\\haral\\Desktop\\pro3d\\PRo3D.Resources.TestData\\HERA\\Dimorphos_dsk\\g_00243mm_spc_obj_dimo_0000n00000_v004.obj.gz",
+  "kernel": "C:\\Users\\haral\\Desktop\\pro3d\\spice2\\kernels\\mk\\hera_plan.tm",
+  "settings": {
+    "albedo": 0.16,
+    "gain": 4.492,
+    "ambient": 0.02,
+    "shadowBias": null
+  },
+  "floors": {
+    "shadowIoU": 0.85,
+    "wronglyDarkenedFrac": 0.007,
+    "acneSpeckle": 0.0063,
+    "shadowLeak": 0.1,
+    "brightnessR": 0.99
+  },
+  "epochs": [
+    {
+      "time": "2027-02-25T07:45:00Z",
+      "phaseDeg": 51.87,
+      "sunFacingPx": 58594,
+      "refShadowPx": 541,
+      "ourShadowPx": 550,
+      "shadowIoU": 0.9836,
+      "shadowAreaRatio": 1.0166,
+      "wronglyDarkenedFrac": 0.0008,
+      "acneSpeckle": 0.00075,
+      "refSpeckle": 0.00188,
+      "shadowLeak": 0.0,
+      "brightnessR": 0.9936,
+      "brightnessRmsPct": 4.75
+    },
+    {
+      "time": "2027-02-25T09:00:00Z",
+      "phaseDeg": 40.57,
+      "sunFacingPx": 59638,
+      "refShadowPx": 151,
+      "ourShadowPx": 151,
+      "shadowIoU": 1.0,
+      "shadowAreaRatio": 1.0,
+      "wronglyDarkenedFrac": 0.00022,
+      "acneSpeckle": 0.0002,
+      "refSpeckle": 0.00017,
+      "shadowLeak": 0.0,
+      "brightnessR": 0.9937,
+      "brightnessRmsPct": 3.84
+    },
+    {
+      "time": "2027-02-25T10:30:00Z",
+      "phaseDeg": 35.76,
+      "sunFacingPx": 47256,
+      "refShadowPx": 83,
+      "ourShadowPx": 83,
+      "shadowIoU": 1.0,
+      "shadowAreaRatio": 1.0,
+      "wronglyDarkenedFrac": 2e-05,
+      "acneSpeckle": 2e-05,
+      "refSpeckle": 0.00036,
+      "shadowLeak": 0.0,
+      "brightnessR": 0.9937,
+      "brightnessRmsPct": 3.29
+    },
+    {
+      "time": "2027-02-25T14:45:00Z",
+      "phaseDeg": 57.27,
+      "sunFacingPx": 38837,
+      "refShadowPx": 42,
+      "ourShadowPx": 44,
+      "shadowIoU": 0.9111,
+      "shadowAreaRatio": 1.0476,
+      "wronglyDarkenedFrac": 0.00049,
+      "acneSpeckle": 0.00046,
+      "refSpeckle": 0.00036,
+      "shadowLeak": 0.0238,
+      "brightnessR": 0.9934,
+      "brightnessRmsPct": 4.56
+    },
+    {
+      "time": "2027-02-25T16:00:00Z",
+      "phaseDeg": 62.82,
+      "sunFacingPx": 44541,
+      "refShadowPx": 584,
+      "ourShadowPx": 619,
+      "shadowIoU": 0.8915,
+      "shadowAreaRatio": 1.0599,
+      "wronglyDarkenedFrac": 0.00402,
+      "acneSpeckle": 0.00384,
+      "refSpeckle": 0.00361,
+      "shadowLeak": 0.0291,
+      "brightnessR": 0.9937,
+      "brightnessRmsPct": 4.59
+    }
+  ]
+}

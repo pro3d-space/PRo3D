@@ -124,6 +124,58 @@ verb on a fixed cadence instead — by default one Dimorphos rotation at 15 min,
 variants per epoch (micro-structure on and off) at a fixed `--gain`, with a subset ready
 to import as a projection stack. See [ImageTimeSeries.md](./ImageTimeSeries.md).
 
+## Checking the shading against SPICE
+
+Rendering from the kernels' own mesh makes a question askable that was not askable before:
+`check-renderers.py` compares *outlines*, because two renderers on different shape models
+disagree pixel by pixel whatever the lighting does — but the OBJ and the DSK are the same
+body, so a per-pixel comparison now measures the **shading** and nothing else.
+
+```
+python scripts/check-lighting.py --figure lighting.png
+```
+
+![](images/simulateImage/lighting.png)
+
+Left our render, middle a `spiceypy` ray-cast of the same mesh, right where they disagree:
+**red** is ground we darkened that the ray-cast says is lit, **blue** ground we left lit
+that it says is shadowed, grey the reference's shadow for context. Measured over five
+epochs of 2027-02-25 at phase 35.8–62.8°:
+
+| | |
+|---|---|
+| cast shadows | IoU **0.891 – 0.984** against `illumf`'s own lit flag, over sun-facing facets only |
+| wrongly darkened | **0.002 – 0.40 %** of the sun-facing body, and the picture shows an outline rather than a stipple |
+| shadow leak | **0 – 2.9 %** of the reference's shadow — no peter-panning |
+| brightness | Pearson **r = 0.9934 – 0.9937**, RMS **3.3 – 4.8 %** of the mean |
+
+The brightness residual is expected and is ours: the ray-cast is pure Lommel-Seeliger while
+we add 5 % Lambert (Li et al. 2024). Facets turned *away* from the sun are excluded
+throughout — that is the terminator, which every renderer gets right, and including it
+grades a shadow map on something else.
+
+### `--shadow-bias` was measured, not guessed
+
+The default is **0.006**, swept against the ray-cast:
+
+| `--shadow-bias` | wrongly darkened | of it isolated | shadow leak |
+|---|---|---|---|
+| 0.0005 | 18 – 20 % | 4.1 – 6.7 % | 1.3 – 11.5 % |
+| 0.002 (the old default) | 2.6 – 6.1 % | 1.0 – 3.2 % | 0 – 2.4 % |
+| **0.006** | **0.002 – 0.40 %** | **0.002 – 0.38 %** | **0 – 2.9 %** |
+| 0.02 | 0.002 – 0.07 % | ditto | 19 – 24 % |
+
+At 0.0005 the disagreement panel is solid red — acne, a stipple at the scale of a
+shadow-map texel across every sun-grazing slope. At 0.02 the shadows detach from their
+contact points and a fifth of the real shadow renders lit. The old 0.002 sat in between and
+was visibly stippled.
+
+Slope-scaling the bias — which the viewer's own `terrainSunShadow` does — was tried and
+**measured no better**: it moves the optimum (base 0.0005 rather than 0.006) without
+improving either end. The reason it buys nothing here is that this map is *finer* than the
+geometry it renders: 4096² over ~270 m is 6.6 cm a texel against 0.24 m facets, so the depth
+error is not the sampling footprint slope-scaling models. It is not in the shader.
+
 <a name="eclipse-by-the-other-body"></a>
 ## Eclipse by the other body
 

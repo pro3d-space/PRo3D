@@ -210,8 +210,23 @@ def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso
 # tool at comet-toolbox.com shows, which is what recipients compare against. Our reading of
 # hera_afc_v06.ti's FOV diagram says otherwise, and that disagreement is unresolved.
 
-def dsk_render(utc, instrument, target, observer, frame, size, fov_deg):
-    """One ray-cast frame. Kernels must already be furnshed. Returns (image, hit mask).
+def dsk_illumination(utc, instrument, target, observer, frame, size, fov_deg):
+    """One ray-cast frame, with the illumination terms it was built from.
+
+    Returns a dict of same-shape arrays:
+
+        img   Lommel-Seeliger radiance, 0 wherever the surface is not lit
+        hit   the ray found the body -- the silhouette
+        mu0   cos(incidence). > 0 means the facet FACES the sun, whether or not it is
+              actually reached by it
+        mu    cos(emission)
+        lit   illumf's own flag: the facet is reached by the sun, i.e. not self-shadowed
+
+    `mu0` and `lit` are what separate the two reasons a pixel is dark. A facet turned away
+    from the sun (mu0 <= 0) is the terminator and every renderer agrees about it; a facet
+    turned TOWARD the sun and still dark (mu0 > 0, lit false) is a cast shadow, which is
+    the thing a shadow map can get wrong. Comparing total darkness against total darkness
+    conflates the two and grades a shadow map on the terminator.
 
     Only the body's projected bounding box is traced: it covers a few percent of the
     frame, and a miss costs a raised SPICE error plus a reset, so tracing the full grid
@@ -228,13 +243,19 @@ def dsk_render(utc, instrument, target, observer, frame, size, fov_deg):
     half = np.tan(np.radians(fov_deg / 2.0))
     img = np.zeros((size, size), np.float32)
     hit = np.zeros((size, size), bool)
+    mu0a = np.zeros((size, size), np.float32)
+    mua = np.zeros((size, size), np.float32)
+    lita = np.zeros((size, size), bool)
+    turn = lambda z: np.rot90(z, 1)
+    out = lambda: {"img": turn(img), "hit": turn(hit), "mu0": turn(mu0a),
+                   "mu": turn(mua), "lit": turn(lita)}
 
     pos, _ = sp.spkpos(target, et, "J2000", "NONE", observer)
     dist = float(np.linalg.norm(pos)) * 1000.0
     radius = float(max(sp.bodvrd(target, "RADII", 3)[1])) * 1000.0
     v = sp.pxform("J2000", instrument, et) @ (pos / np.linalg.norm(pos))
     if v[2] <= 0.0:
-        return np.rot90(img, 1), np.rot90(hit, 1)   # body behind the camera
+        return out()                              # body behind the camera
     cx, cy = v[0] / v[2], v[1] / v[2]         # tangent-plane centre
     ang = (radius / dist) * 1.35              # angular radius plus margin
     px = lambda t: (t / half + 1.0) * 0.5 * size - 0.5
@@ -259,11 +280,23 @@ def dsk_render(utc, instrument, target, observer, frame, size, fov_deg):
             except Exception:
                 sp.reset(); continue
             mu0, mu = np.cos(f[3]), np.cos(f[4])
+            mu0a[j, i], mua[j, i], lita[j, i] = mu0, mu, bool(f[6])
             if mu0 > 0.0 and mu > 0.0 and f[6]:        # f[6] = lit: DSK self-shadowing
                 img[j, i] = 2.0 * mu0 / (mu0 + mu)     # Lommel-Seeliger
     # into the delivered orientation, so a comparison against the tool's frames measures
     # the geometry and not the convention
-    return np.rot90(img, 1), np.rot90(hit, 1)
+    return out()
+
+
+def dsk_render(utc, instrument, target, observer, frame, size, fov_deg):
+    """The radiance and the silhouette alone -- `dsk_illumination` without the terms.
+
+    THE one ray-cast implementation is the function above; this is the two-tuple its
+    original callers take, kept so a comparison and an illumination check cannot end up
+    tracing the body two slightly different ways.
+    """
+    r = dsk_illumination(utc, instrument, target, observer, frame, size, fov_deg)
+    return r["img"], r["hit"]
 
 
 # ---------------------------------------------------------------------------------

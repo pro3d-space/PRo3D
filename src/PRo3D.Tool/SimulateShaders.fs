@@ -297,6 +297,17 @@ let simulatedImage (v : SimVertex) =
                 if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f then 1.0f
                 else
                     let r = 1.5f / float32 (Vec.MaxElement sunShadowSampler.Size)
+                    // A CONSTANT bias, deliberately, although the viewer's
+                    // terrainSunShadow slope-scales its own. Slope-scaling was tried here
+                    // and measured no better against a ray-cast of the same mesh: it moves
+                    // where the optimum sits (base 0.0005 instead of 0.006) without
+                    // improving it at either end. The reason it buys nothing is that this
+                    // map is FINER than the geometry it renders -- 4096^2 over ~270 m is
+                    // 6.6 cm a texel against 0.24 m facets -- so the depth error is not
+                    // the sampling footprint that slope-scaling models.
+                    //
+                    // What the bias IS worth is large: see --shadow-bias and
+                    // scripts/check-lighting.py, which sweeps it.
                     let z = tc.Z - uniform.SunShadowBias
                     (sunShadowSampler.Sample(tc.XY + V2f(-r, -r), z)
                      + sunShadowSampler.Sample(tc.XY + V2f(r, -r), z)

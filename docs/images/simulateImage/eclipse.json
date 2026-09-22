@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22T15:59:34Z",
+  "generated": "2026-09-22T16:26:00Z",
   "generator": "scripts/make-eclipse-figure.py",
   "what": "mean DN over the body, same camera and same fixed gain, rendered with no occluder / the reference radii / the primary's shape model",
   "target": "C:\\Users\\haral\\Desktop\\pro3d\\PRo3D.Resources.TestData\\HERA\\Dimorphos_dsk\\g_00243mm_spc_obj_dimo_0000n00000_v004.obj.gz",
@@ -7,153 +7,153 @@
   "epochs": [
     {
       "time": "2027-02-25T10:20:00Z",
-      "none": 137.1,
-      "radii": 137.1,
-      "mesh": 137.1
+      "none": 138.65,
+      "radii": 138.65,
+      "mesh": 138.65
     },
     {
       "time": "2027-02-25T10:25:00Z",
-      "none": 137.69,
-      "radii": 137.69,
-      "mesh": 137.69
+      "none": 139.22,
+      "radii": 139.22,
+      "mesh": 139.22
     },
     {
       "time": "2027-02-25T10:30:00Z",
-      "none": 138.22,
-      "radii": 138.22,
-      "mesh": 138.22
+      "none": 139.75,
+      "radii": 139.75,
+      "mesh": 139.75
     },
     {
       "time": "2027-02-25T10:35:00Z",
-      "none": 138.8,
-      "radii": 138.8,
-      "mesh": 138.66
+      "none": 140.31,
+      "radii": 140.31,
+      "mesh": 140.17
     },
     {
       "time": "2027-02-25T10:40:00Z",
-      "none": 139.31,
-      "radii": 134.85,
-      "mesh": 119.48
+      "none": 140.82,
+      "radii": 136.34,
+      "mesh": 120.92
     },
     {
       "time": "2027-02-25T10:45:00Z",
-      "none": 139.78,
-      "radii": 103.0,
-      "mesh": 80.26
+      "none": 141.28,
+      "radii": 104.37,
+      "mesh": 81.46
     },
     {
       "time": "2027-02-25T10:50:00Z",
-      "none": 140.19,
-      "radii": 55.75,
-      "mesh": 24.56
+      "none": 141.66,
+      "radii": 56.84,
+      "mesh": 25.4
     },
     {
       "time": "2027-02-25T10:55:00Z",
-      "none": 140.55,
-      "radii": 8.02,
+      "none": 142.03,
+      "radii": 8.53,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:00:00Z",
-      "none": 140.88,
+      "none": 142.35,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:05:00Z",
-      "none": 141.11,
+      "none": 142.58,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:10:00Z",
-      "none": 141.23,
+      "none": 142.72,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:15:00Z",
-      "none": 141.25,
+      "none": 142.76,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:20:00Z",
-      "none": 141.18,
+      "none": 142.72,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:25:00Z",
-      "none": 141.03,
+      "none": 142.55,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:30:00Z",
-      "none": 140.89,
+      "none": 142.38,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:35:00Z",
-      "none": 140.76,
+      "none": 142.24,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:40:00Z",
-      "none": 140.47,
+      "none": 141.93,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:45:00Z",
-      "none": 140.11,
+      "none": 141.55,
       "radii": 3.0,
       "mesh": 3.0
     },
     {
       "time": "2027-02-25T11:50:00Z",
-      "none": 139.8,
+      "none": 141.22,
       "radii": 9.21,
       "mesh": 4.23
     },
     {
       "time": "2027-02-25T11:55:00Z",
-      "none": 139.42,
-      "radii": 44.89,
-      "mesh": 18.58
+      "none": 140.83,
+      "radii": 45.04,
+      "mesh": 18.61
     },
     {
       "time": "2027-02-25T12:00:00Z",
-      "none": 139.02,
-      "radii": 96.58,
-      "mesh": 64.63
+      "none": 140.41,
+      "radii": 97.03,
+      "mesh": 64.89
     },
     {
       "time": "2027-02-25T12:05:00Z",
-      "none": 138.4,
-      "radii": 137.36,
-      "mesh": 130.99
+      "none": 139.79,
+      "radii": 138.6,
+      "mesh": 131.92
     },
     {
       "time": "2027-02-25T12:10:00Z",
-      "none": 137.81,
-      "radii": 137.81,
-      "mesh": 137.81
+      "none": 139.23,
+      "radii": 139.23,
+      "mesh": 139.23
     },
     {
       "time": "2027-02-25T12:15:00Z",
-      "none": 137.04,
-      "radii": 137.04,
-      "mesh": 137.04
+      "none": 138.49,
+      "radii": 138.49,
+      "mesh": 138.49
     },
     {
       "time": "2027-02-25T12:20:00Z",
-      "none": 136.21,
-      "radii": 136.21,
-      "mesh": 136.21
+      "none": 137.7,
+      "radii": 137.7,
+      "mesh": 137.7
     }
   ]
 }
