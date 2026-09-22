@@ -201,9 +201,14 @@ def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso
 # Shares nothing with PRo3D but the kernels, so it is a genuine cross-check rather than a
 # second opinion from the same code. See docs/ShapeModelCrosscheck.md.
 #
-# Rays follow the IK's detector layout (+X image right, +Y image DOWN, boresight +Z), the
-# same convention PRo3D uses after the specialTrafos fix, so the two line up with no
-# transform.
+# Rays are built with +X image right and +Y image down, then the frame is rotated 90 deg
+# counter-clockwise to land on the orientation PRo3D emits (see
+# docs/dev/AFC-image-orientation.md). Rotating the finished frame rather than the ray grid
+# keeps the ray maths readable and makes the convention a single, visible step.
+#
+# The rotation is NOT derived from the kernels -- it is the orientation the HERA community
+# tool at comet-toolbox.com shows, which is what recipients compare against. Our reading of
+# hera_afc_v06.ti's FOV diagram says otherwise, and that disagreement is unresolved.
 
 def dsk_render(utc, instrument, target, observer, frame, size, fov_deg):
     """One ray-cast frame. Kernels must already be furnshed. Returns (image, hit mask).
@@ -229,7 +234,7 @@ def dsk_render(utc, instrument, target, observer, frame, size, fov_deg):
     radius = float(max(sp.bodvrd(target, "RADII", 3)[1])) * 1000.0
     v = sp.pxform("J2000", instrument, et) @ (pos / np.linalg.norm(pos))
     if v[2] <= 0.0:
-        return img, hit                       # body behind the camera
+        return np.rot90(img, 1), np.rot90(hit, 1)   # body behind the camera
     cx, cy = v[0] / v[2], v[1] / v[2]         # tangent-plane centre
     ang = (radius / dist) * 1.35              # angular radius plus margin
     px = lambda t: (t / half + 1.0) * 0.5 * size - 0.5
@@ -256,7 +261,9 @@ def dsk_render(utc, instrument, target, observer, frame, size, fov_deg):
             mu0, mu = np.cos(f[3]), np.cos(f[4])
             if mu0 > 0.0 and mu > 0.0 and f[6]:        # f[6] = lit: DSK self-shadowing
                 img[j, i] = 2.0 * mu0 / (mu0 + mu)     # Lommel-Seeliger
-    return img, hit
+    # into the delivered orientation, so a comparison against the tool's frames measures
+    # the geometry and not the convention
+    return np.rot90(img, 1), np.rot90(hit, 1)
 
 
 # ---------------------------------------------------------------------------------

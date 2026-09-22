@@ -173,9 +173,17 @@ module InstrumentProjection =
     /// never wrong, only the roll, which is why nothing self-generated ever caught it.
     let specialTrafos =
         Map.ofList [
-            "HERA_AFC-2", Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, V3d.OOI)
-            "HERA_AFC-1", Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, V3d.OOI)
-            "HERA_HSH", Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, V3d.OOI)
+            // The image orientation the HERA community tool at comet-toolbox.com shows,
+            // which is what recipients of our frames compare against. NOT what our reading
+            // of hera_afc_v06.ti's "Apparent FOV Layout" gives -- that diagram draws +X
+            // image right and +Y image down, which is a further 90 deg from this and is
+            // what #801 briefly shipped. The disagreement is unresolved and written up in
+            // docs/dev/AFC-image-orientation.md, including what would settle it and how to
+            // switch back. All three share one basis because the IK gives AFC-1 and AFC-2
+            // the same layout; an earlier version had them 180 deg apart.
+            "HERA_AFC-2", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
+            "HERA_AFC-1", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
+            "HERA_HSH", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
             // hera_milani_v05.tf defines all four ASPECT channel frames (VIS/NIR1/NIR2/SWIR)
             // as a zero-degree TKFRAME offset from MILANI_SPACECRAFT, so unlike the Hera-mounted
             // instruments above there is no known axis remap to apply here. Identity until this
