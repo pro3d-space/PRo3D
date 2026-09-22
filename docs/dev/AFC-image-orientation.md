@@ -40,6 +40,46 @@ coloured edge is relief: comet-toolbox uses a finer shape model, so its terminat
 more structure, which is also why the *brightness* centroid still differs by ~6° while the
 outline does not.
 
+## Comparison against two independent renderers
+
+Repeated after the change, against comet-toolbox and against Pilucas' COP set
+(`HERA_AFC_*_COP.png`, 1020x1020, same epochs).
+
+**Compare like with like, or the numbers are meaningless.** The two references render
+illumination differently, and our four variants exist precisely so a comparison can be
+made against the matching one:
+
+| | night side | so compare |
+|---|---|---|
+| comet-toolbox | has a terminator, dark side unlit | lit region vs our lit region |
+| Pilucas | **no dark side** — 7.6 % of her frame is above DN 1 and 7.5 % above DN 60 | full disk vs our full disk (ours at DN > 1, which includes the ambient night side) |
+
+Our full disk covers 7.9 % of the frame against her 7.6 %, so the bodies are the same
+size; it is only the shading that differs. Measured on `smooth`, our untextured variant,
+so albedo cannot bias the shape:
+
+| reference | epoch | compared | axis difference | IoU at 0° | best rotation |
+|---|---|---|---|---|---|
+| comet-toolbox | 06:30 | lit region | **+0.4°** | 0.810 | −4.0° (0.824) |
+| Pilucas | 14:30 | full disk | **+4.6°** | 0.941 | +4.0° (0.949) |
+| Pilucas | 06:30 | full disk | −28.1° | 0.865 | −24.5° (0.924) |
+
+**No 90° anywhere.** The 06:30 row against Pilucas is the weakest: the full disk is
+near-circular there (elongation 1.23 and 1.27), so the major axis is poorly constrained,
+and unlike every other case a rotation does improve the overlap materially. It is not a
+consistent angle — +4° at one epoch, −24° at the other — so it is not a systematic
+rotation, but it is not nothing either and is the residual worth chasing if this matters.
+
+Over a longer stretch the two track each other closely. Lit-region major axis every
+30 min from 06:30 to 11:00, ten samples: ours −47.3° net, Pilucas −48.0° net, **same
+sense, mean agreement 4.0°, worst 10.1°.**
+
+Beyond 11:00 her frames stop being comparable, for a good reason: they contain **both
+bodies**. At 11:30 her frame has two lit blobs, and by 12:30 one covers 77 % of it — the
+kernels put Didymos at 5.0 km there, 1748 px across a 1020 px frame. We render the target
+body only. An earlier version of this note read that as an opposite rotation sense; it was
+Didymos entering the frame.
+
 ## What this is not
 
 - **Not a different kernel delivery.** Apparent size agrees to three digits — 30.7 % of
