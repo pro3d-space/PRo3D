@@ -305,8 +305,7 @@ def preflight(epochs, kernel, instrument, target, observer):
 
 README = """# Simulated {instrument} images -- {body}
 
-Rendered from a shape model with PRo3D's `pro3d-tool simulate-series` using SPICE
-geometry.
+Rendered from a shape model with PRo3D using SPICE geometry.
 
 | | |
 |---|---|

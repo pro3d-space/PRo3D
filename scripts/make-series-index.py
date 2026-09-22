@@ -15,8 +15,7 @@ import os
 
 HEADER = """# Simulated HERA/AFC-1 images of Dimorphos
 
-Rendered from a shape model with PRo3D using SPICE geometry, for building and testing
-pipelines before real images exist.
+Rendered from a shape model with PRo3D using SPICE geometry.
 
 **{n} series**, each self-contained in its own folder:
 
