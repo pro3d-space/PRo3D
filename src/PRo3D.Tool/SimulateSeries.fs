@@ -398,7 +398,7 @@ let run (o : SimulateSeriesOptions) : int =
                     {
                         albedo = o.albedo; microScale = o.microScale; microAmplitude = v.micro
                         ambient = o.ambient; shadowBias = o.shadowBias; noShadows = o.noShadows
-                        noLighting = false; textureOnly = false
+                        noLighting = o.noLighting; textureOnly = false
                         textureAlbedo = v.texture && not v.deshade
                         deshade = v.deshade
                     }

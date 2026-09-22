@@ -40,45 +40,106 @@ coloured edge is relief: comet-toolbox uses a finer shape model, so its terminat
 more structure, which is also why the *brightness* centroid still differs by ~6° while the
 outline does not.
 
-## Comparison against two independent renderers
+## Three renderers, and what separates them
 
-Repeated after the change, against comet-toolbox and against Pilucas' COP set
-(`HERA_AFC_*_COP.png`, 1020x1020, same epochs).
+Against comet-toolbox (screenshots at five epochs) and Pilucas' COP set
+(`HERA_AFC_*_COP.png`, 1020x1020, 15 min cadence), all on 2027-02-25.
 
-**Compare like with like, or the numbers are meaningless.** The two references render
-illumination differently, and our four variants exist precisely so a comparison can be
-made against the matching one:
+### They shade differently, so compare the right thing
 
-| | night side | so compare |
+| | lighting | night side | so compare |
+|---|---|---|---|
+| comet-toolbox | shaded, models the Didymos eclipse | dark | lit region |
+| **Pilucas** | **none at all** | n/a — the frame is the silhouette | silhouette |
+| ours | shaded, Lommel-Seeliger + cast shadows | ambient floor | either; `--no-lighting` gives the exact silhouette |
+
+Our `--no-lighting` variant exists for exactly this: against an unlit reference, shading is
+only a source of disagreement.
+
+### (a) Why Pilucas never had the 90° problem
+
+She has no axis-remap step to get wrong. Her camera basis *is* the SPICE frame:
+
+```python
+heraRot = np.array(spice.pxform('HERA_AFC-1', 'J2000', et))
+heraTransformation = _BuildTransformationMatrix(heraRot, heraPos)
+```
+
+PRo3D does not do that. It builds the camera with `getLookAtQuat`, whose basis is
+`FromBasis(-C0, -C1, -C2)` — improper, determinant −1 — and then corrects it per
+instrument through `specialTrafos`, which must also carry determinant −1 so the pair
+composes back to a proper rotation. **The 90° ambiguity lives entirely in that correction
+table.** Taking the instrument frame directly, as she does, leaves nothing to choose and
+nothing to get wrong.
+
+Her code does treat body and camera asymmetrically — `pxform('DIMORPHOS_FIXED','J2000')`
+is transposed, `pxform('HERA_AFC-1','J2000')` is not — which on paper inverts the body's
+attitude. The images say otherwise: if her Dimorphos attitude were inverted, the body
+would appear to rotate the wrong way, and over ten samples from 06:30 to 11:00 hers and
+ours turn in the **same sense** (−48.0° against −47.3°, mean agreement 4.0°). Whatever her
+renderer's matrix convention is, it accounts for it. Reading code is not evidence;
+the measurement is.
+
+### (b) The residual few degrees
+
+Silhouette against silhouette — our `--no-lighting` render against her unlit frame, 40
+epochs from 07:00 to 16:45:
+
+| | |
+|---|---|
+| mean IoU at **zero** rotation | **0.818** |
+| mean IoU gain from rotating at all | +0.024 |
+| best-fit rotation | mean −8.7°, **spread 80°** |
+| best epochs | 15:00 → 0.974, 15:30 → 0.972, 14:30 → 0.941 |
+| worst epochs | 12:00 → 0.570, 13:30 → 0.621 |
+
+**There is no systematic rotation.** A real one would show the same angle at every epoch;
+this scatters across 80° while gaining almost nothing in overlap. The worst rows are
+12:00–13:30, which is precisely when Didymos is inside AFC-1's field of view and
+contaminates her silhouette.
+
+Lit-region major axis, where both references are compared against us on their own footing:
+
+| time | ours − comet (lit region) | ours − Pilucas (silhouette) |
 |---|---|---|
-| comet-toolbox | has a terminator, dark side unlit | lit region vs our lit region |
-| Pilucas | **no dark side** — 7.6 % of her frame is above DN 1 and 7.5 % above DN 60 | full disk vs our full disk (ours at DN > 1, which includes the ambient night side) |
+| 07:45 | +4.4° | −23.7° |
+| 09:00 | +1.7° | −15.3° |
+| 10:30 | −0.8° | −2.8° |
+| 14:15 | −11.7° | +5.8° |
+| 14:45 | −13.8° | +3.5° |
 
-Our full disk covers 7.9 % of the frame against her 7.6 %, so the bodies are the same
-size; it is only the shading that differs. Measured on `smooth`, our untextured variant,
-so albedo cannot bias the shape:
+Both wander by 18–30° across the day and in opposite senses, which is what a *lit-extent*
+metric does when three renderers use three shape models: the terminator falls in different
+places, so the lit region's axis moves even though the body does not. It is not evidence
+of an attitude difference in any of the three. The silhouette numbers above are the ones
+to trust, because they do not depend on where the terminator lands.
 
-| reference | epoch | compared | axis difference | IoU at 0° | best rotation |
-|---|---|---|---|---|---|
-| comet-toolbox | 06:30 | lit region | **+0.4°** | 0.810 | −4.0° (0.824) |
-| Pilucas | 14:30 | full disk | **+4.6°** | 0.941 | +4.0° (0.949) |
-| Pilucas | 06:30 | full disk | −28.1° | 0.865 | −24.5° (0.924) |
+**Is Pilucas closer to comet-toolbox than we are?** Not answerable from these images. She
+is unlit and he is shaded, so the two have no directly comparable region — only their
+separate agreement with us can be measured, and both are within a few degrees once each is
+compared on its own footing.
 
-**No 90° anywhere.** The 06:30 row against Pilucas is the weakest: the full disk is
-near-circular there (elongation 1.23 and 1.27), so the major axis is poorly constrained,
-and unlike every other case a rotation does improve the overlap materially. It is not a
-consistent angle — +4° at one epoch, −24° at the other — so it is not a systematic
-rotation, but it is not nothing either and is the residual worth chasing if this matters.
+### (c) 11:30 is an eclipse, and we get it wrong
 
-Over a longer stretch the two track each other closely. Lit-region major axis every
-30 min from 06:30 to 11:00, ten samples: ours −47.3° net, Pilucas −48.0° net, **same
-sense, mean agreement 4.0°, worst 10.1°.**
+comet-toolbox renders 2027-02-25T11:30 **black**. It is right to: Dimorphos is inside
+Didymos' shadow. From the kernels, the perpendicular distance from the Didymos–anti-Sun
+axis is 0.17 km against Didymos' 0.409 km radius, and Dimorphos is on the anti-sunward
+side — a true eclipse from 11:00 to 11:45.
 
-Beyond 11:00 her frames stop being comparable, for a good reason: they contain **both
-bodies**. At 11:30 her frame has two lit blobs, and by 12:30 one covers 77 % of it — the
-kernels put Didymos at 5.0 km there, 1748 px across a 1020 px frame. We render the target
-body only. An earlier version of this note read that as an opposite rotation sense; it was
-Didymos entering the frame.
+We render it fully lit, because the scene contains only the target body: no Didymos, so
+nothing to cast the shadow. Pilucas is unaffected because she does not light anything.
+
+This is a defect in the delivered data, not just in one frame:
+
+| series | eclipsed epochs rendered as lit |
+|---|---|
+| `close-2027-02-25` | **29 of 244 (11.9 %)** — runs 10:45→11:55 and 22:10→23:15 |
+| `rotation-2027-03-21` | **5 of 48 (10.4 %)** — 14:00→15:00 |
+
+That matches the ~11.6 % of COP the earlier survey found. Note the claim in the handover
+that "PRo3D draws a scene and gets it for free" is **wrong for the tool**: it holds for the
+viewer with both bodies loaded, not for `simulate-series`, which renders the target OPC
+alone.
 
 ## What this is not
 

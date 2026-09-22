@@ -1,4 +1,4 @@
-namespace PRo3D.Tool
+﻿namespace PRo3D.Tool
 
 open CommandLine
 
@@ -262,6 +262,9 @@ type SimulateSeriesOptions =
 
         [<Option("no-shadows", HelpText = "Skip the sun shadow map; shading then comes from the local sun angle alone")>]
         noShadows : bool
+
+        [<Option("no-lighting", HelpText = "Render a flat disk instead of a shaded body: the frame is then the silhouette. For comparing geometry against a renderer that does not light its output, where shading is only a source of disagreement.")>]
+        noLighting : bool
 
         [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002)")>]
         shadowBias : float
