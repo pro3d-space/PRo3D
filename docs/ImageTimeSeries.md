@@ -318,6 +318,10 @@ one series.
 | `--obj <file>` | a Wavefront shape model instead of the OPC; `.obj.gz` works. See [Rendering from a mesh](#rendering-from-a-mesh-instead-of-the-opc) |
 | `--obj-scale <v>` | metres per `--obj` file unit (default `1000`) |
 | `--obj-texture <file>` | image to drape on `--obj`; without it `delit` and `baked` are refused |
+| `--body <name>`, `--frame <name>` | which body is being imaged (default `DIMORPHOS` / `<body>_FIXED`) |
+| `--target-radius <m>` | the body's smallest semi-axis; only a pre-flight margin, defaulted per body |
+| `--day-folders` | split each variant folder by UTC date (`<variant>/yyyy-MM-dd/`) |
+| `--occluder-in-scene` | draw the occluder in the image too, not only as a shadow caster |
 | `--interval-seconds <s>` | cadence in **seconds**, overriding `--interval`. Below a minute this is the honest unit: 8 s as 0.1333.. minutes accumulates float error that truncates a stamp to the wrong second, and the stamp is the filename |
 | `--occluder-body <name>` | cast the other body of the binary as a shadow (`DIDYMOS`). Without it an eclipsed epoch renders in full daylight |
 | `--occluder-obj <file>`, `--occluder-obj-scale <v>` | the occluder's shape model; without one, a tessellation of its reference radii |
@@ -409,6 +413,35 @@ ffmpeg -framerate 25 -pattern_type glob -i 'delit/*.png'        -vf "select='lt(
 
 Frame 160 is 10:53:20 and frame 590 is 11:50:40 — the first and last frames either side of
 totality. `series.json` carries every epoch's stamp, so any other cut is one lookup away.
+
+## Covering both bodies of the binary
+
+Over the close-orbit phase AFC-1 is pointed at **Dimorphos for 53 %** of the epochs and at
+**Didymos for most of the rest** — so a single-target run leaves a third of the phase on the
+floor. `--body` covers the other side, at the same `--gain` so the two sets are
+radiometrically comparable:
+
+```
+# the secondary, de-lit mosaic
+python scripts/make-image-time-series.py --out COP-2027 --opc <dimorphos-opc>     --variants delitplain,delit --texture-layer DRACO_2 --gain 3.35 --day-folders     --occluder-body DIDYMOS --occluder-in-scene --occluder-obj <didymos-obj>
+
+# the primary
+python scripts/make-image-time-series.py --out COP-2027-didymos --body DIDYMOS --obj <didymos-obj>     --variants smooth,micro --gain 3.35 --day-folders     --occluder-body DIMORPHOS --occluder-in-scene --occluder-obj <dimorphos-obj>
+```
+
+Two things to know before reading the Didymos set:
+
+- **There is no mosaic of Didymos**, so its variants are `smooth` and `micro` — constant
+  albedo, without and with micro-structure — rather than `delitplain` and `delit`.
+- **Didymos is usually larger than the field.** At 6 km it spans about 8° against AFC-1's
+  5.5°, so many frames show a limb crossing the frame rather than a whole body. The
+  pre-flight margin is therefore the body's *smallest* semi-axis, which is what guarantees
+  the limb is inside the frustum; the bounding-box diagonal admitted epochs where Didymos
+  was entirely outside the field and the only thing in the image was the in-scene
+  companion.
+
+The two sets overlap: an epoch with both bodies in frame appears in each, targeted
+differently, and the `TARGET` in each frame's sidecar says which.
 
 ## Re-running it
 
