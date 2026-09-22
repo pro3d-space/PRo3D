@@ -187,6 +187,9 @@ bug.
 | `--ambient <v>` | ambient floor so the night side is distinguishable from space |
 | `--gain <v>` | fixed I/F→DN gain; 0 auto-exposes each frame and is warned about |
 | `--no-shadows`, `--shadow-bias <v>` | the sun-side depth pass |
+| `--occluder-body <name>` | cast the other body of a binary as a shadow; its own depth map, re-aimed per epoch. See [Eclipse by the other body](./Pro3DTool-SimulateImage.md#eclipse-by-the-other-body) |
+| `--occluder-frame <name>` | its body-fixed frame (default `<body>_FIXED`) |
+| `--occluder-obj <file>`, `--occluder-obj-scale <v>` | its shape model; without one, a tessellation of its reference radii |
 | `--max-reprojection-error <px>` | how far a frame's own sidecar may sit from the camera that rendered it (default 0.1) |
 | `--keep-going` | render the remaining epochs after a failure; still exits non-zero |
 

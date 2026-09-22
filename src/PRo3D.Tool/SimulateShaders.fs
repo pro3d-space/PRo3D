@@ -57,14 +57,16 @@ type UniformScope with
     member x.TextureOnly : bool = uniform?TextureOnly
     /// Cast the shadow of a second body -- the primary of a binary -- onto this one.
     member x.EclipseEnabled : bool = uniform?EclipseEnabled
-    /// Centre of the occluding body in THIS body's fixed frame, metres.
-    member x.OccluderCentre : V3f = uniform?OccluderCentre
-    /// Maps a body-fixed offset into a space where the occluder is the unit sphere, so
-    /// the triaxial ellipsoid test becomes a ray/sphere test.
-    member x.OccluderToUnit : M33f = uniform?OccluderToUnit
-    /// Half-width of the penumbra in occluder radii: the Sun is not a point, so the
-    /// umbra boundary is a gradient rather than an edge.
-    member x.EclipseSoftness : float32 = uniform?EclipseSoftness
+    /// This body's fixed frame -> the occluder's own sun-camera clip space.
+    member x.EclipseShadowViewProj : M44f = uniform?EclipseShadowViewProj
+    /// PCF radius in texture units, sized to the penumbra: the Sun is not a point, so the
+    /// umbra boundary is a gradient rather than an edge, and at this separation it is a
+    /// few metres across a 177 m body.
+    member x.EclipseShadowRadius : float32 = uniform?EclipseShadowRadius
+    /// Depth bias for the occluder lookup, in normalized depth. Larger than the target's
+    /// own: this map spans the gap to the occluder as well as the occluder itself, so a
+    /// unit of normalized depth is worth far more metres here.
+    member x.EclipseShadowBias : float32 = uniform?EclipseShadowBias
 
 type SimVertex =
     {
@@ -74,6 +76,8 @@ type SimVertex =
         [<Semantic("BodyLocalPos")>] localPos : V4f
         /// Fragment position in sun-camera clip space, stashed before stableTrafo.
         [<Semantic("SunShadowNdc")>] shadowPos : V4f
+        /// The same, in the OCCLUDER's sun-camera clip space (the eclipse map).
+        [<Semantic("EclipseShadowNdc")>] eclipsePos : V4f
     }
 
 /// The OPC patch's own diffuse texture (for Dimorphos_DRACO1: the DRACO mosaic).
@@ -95,12 +99,28 @@ let private sunShadowSampler =
         comparison ComparisonFunction.LessOrEqual
     }
 
-/// Stash the fragment's sun-camera clip position while [<Position>] still holds the
-/// patch-local coordinate, i.e. this must precede stableTrafo -- same rule as
+/// The OCCLUDER's depth map -- the other body of a binary, seen from the sun. Separate
+/// from the target's own map because it is fitted to a different body at a different
+/// scale; see EclipseShadow.
+let private eclipseShadowSampler =
+    sampler2dShadow {
+        texture uniform?EclipseShadowMap
+        filter Filter.MinMagLinear
+        addressU WrapMode.Border
+        addressV WrapMode.Border
+        borderColor C4f.White
+        comparison ComparisonFunction.LessOrEqual
+    }
+
+/// Stash the fragment's position in both sun-camera clip spaces while [<Position>] still
+/// holds the patch-local coordinate, i.e. this must precede stableTrafo -- same rule as
 /// stableImageProjectionTrafo, and for the same reason.
-let stashSunShadowPos (v : SimVertex) =
+let stashShadowPositions (v : SimVertex) =
     vertex {
-        return { v with shadowPos = uniform.SunShadowViewProj * (uniform.ModelTrafo * v.pos) }
+        let world = uniform.ModelTrafo * v.pos
+        return { v with
+                    shadowPos = uniform.SunShadowViewProj * world
+                    eclipsePos = uniform.EclipseShadowViewProj * world }
     }
 
 // --- value noise ------------------------------------------------------------------
@@ -289,22 +309,29 @@ let simulatedImage (v : SimVertex) =
         // nothing in it can cast this shadow -- and Dimorphos sits inside Didymos' umbra
         // for ~12 % of the close-orbit phase, which was rendered as full daylight.
         //
-        // The occluder is a triaxial ellipsoid taken from the kernel pool's RADII.
-        // Transforming the fragment-to-Sun ray into the space where that ellipsoid is the
-        // unit sphere turns the test into a ray/sphere intersection, which is a dot
-        // product and a square root rather than a second shadow map over a 2 km scene.
+        // The occluder has a depth map of its own (EclipseShadow), fitted to the occluder
+        // rather than to the pair, so the target keeps its 5 cm self-shadow map while this
+        // one resolves the primary at 0.3 m. Same lookup as above; what differs is the
+        // kernel, whose radius is the penumbra -- the Sun is not a point, and across a
+        // kilometre of separation its angular radius smears the umbra edge over metres.
         let eclipse =
             if uniform.EclipseEnabled then
-                let o = uniform.OccluderToUnit * (pBody - uniform.OccluderCentre)
-                let d = uniform.OccluderToUnit * uniform.SunDirectionWorld
-                let b = Vec.dot o d
-                // b >= 0 means the Sun is on the near side: the occluder is behind the
-                // fragment and cannot shadow it.
-                if b >= 0.0f then 1.0f
+                let p = v.eclipsePos.XYZ / v.eclipsePos.W
+                let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
+                // outside the occluder's footprint there is nothing to be shadowed by
+                if tc.X < -1.0f || tc.X > 2.0f || tc.Y < -1.0f || tc.Y > 2.0f then 1.0f
                 else
-                    let closest = sqrt (max 0.0f (Vec.dot o o - b * b / Vec.dot d d))
-                    smoothstep (1.0f - uniform.EclipseSoftness)
-                               (1.0f + uniform.EclipseSoftness) closest
+                    let r = max (0.5f / float32 (Vec.MaxElement eclipseShadowSampler.Size))
+                                uniform.EclipseShadowRadius
+                    let z = tc.Z - uniform.EclipseShadowBias
+                    // 3x3 rather than the 2x2 above: this kernel spans the penumbra, so
+                    // its taps are the gradient rather than an anti-aliasing of an edge.
+                    let mutable sum = 0.0f
+                    for j in -1 .. 1 do
+                        for i in -1 .. 1 do
+                            sum <- sum + eclipseShadowSampler.Sample(
+                                        tc.XY + V2f(float32 i * r, float32 j * r), z)
+                    sum / 9.0f
             else
                 1.0f
 

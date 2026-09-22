@@ -97,7 +97,11 @@ Output is one 8-bit greyscale PNG at the instrument's native size.
 | `--ambient <v>` | night-side floor (default `0.02`) |
 | `--gain <v>` | fixed I/F→DN gain; `0` (default) auto-exposes |
 | `--pointing <ck\|lookat>` | where the orientation comes from. `ck` (default) uses the attitude in the kernels and **fails** if there is none at this epoch — it never substitutes a synthetic camera. `lookat` aims the boresight at the body centre with an up-vector roll convention: useful for a picture, but not what the instrument saw |
-| `--no-shadows` | skip the sun shadow map |
+| `--no-shadows` | skip the sun shadow map. Does **not** disable the eclipse: that is the other body blocking the sun, not this body shadowing itself |
+| `--occluder-body <name>` | cast the other body of a binary as a shadow — see [Eclipse by the other body](#eclipse-by-the-other-body) |
+| `--occluder-frame <name>` | its body-fixed frame (default `<body>_FIXED`) |
+| `--occluder-obj <file>` | its shape model; without one the occluder is a tessellation of its reference radii |
+| `--occluder-obj-scale <v>` | metres per `--occluder-obj` file unit (default `1000`) |
 | `--shadow-bias <v>` | shadow depth bias (default `0.002`) |
 | `--no-lighting` | flat white disk instead of a shaded body — the silhouette, for comparing pointing and shape without shading in the way |
 | `--texture-only` | the OPC's own texture as this camera sees it: no lighting, no de-shading fit |
@@ -119,6 +123,75 @@ data is used to prove.
 verb on a fixed cadence instead — by default one Dimorphos rotation at 15 min, two lit
 variants per epoch (micro-structure on and off) at a fixed `--gain`, with a subset ready
 to import as a projection stack. See [ImageTimeSeries.md](./ImageTimeSeries.md).
+
+<a name="eclipse-by-the-other-body"></a>
+## Eclipse by the other body
+
+The scene holds one body. In a binary that is wrong for a measurable fraction of the time:
+**Dimorphos lies inside Didymos' shadow for about 12 % of the close-orbit phase — some 235
+hours**, and with nothing in the scene to cast that shadow those epochs rendered in full
+daylight.
+
+`--occluder-body DIDYMOS` fixes it. The occluder gets a **sun-side depth map of its own**,
+fitted to itself, and the shading shader takes a second lookup into it.
+
+Why a second map rather than putting the primary into the target's: the target's map is a
+4096² ortho over ~180 m — 5 cm a texel — and stretching it to cover a pair 1.2 km apart
+drops it to 0.5 m. That would throw away the target's own self-shadowing to buy a shadow
+whose penumbra is a few metres wide. A map fitted to Didymos alone resolves it at 0.3 m,
+and the two passes cost each other nothing.
+
+The occluder's **geometry is a shape model like any other**:
+
+| | |
+|---|---|
+| `--occluder-body <name>` | the other body; empty (the default) disables the whole thing |
+| `--occluder-frame <name>` | its body-fixed frame (default `<body>_FIXED`) |
+| `--occluder-obj <file>` | its shape model, `.obj`/`.obj.gz`. The kernels ship one: `dsk/g_01165mm_spc_obj_didy_0000n00000_v003.obj` |
+| `--occluder-obj-scale <v>` | metres per file unit (default `1000`) |
+
+Without `--occluder-obj` the occluder is a **tessellation of the body's reference radii**
+(Didymos: 409.5 × 400.5 × 303.5 m, hard-coded — `CooTransformation` exposes no `bodvrd`,
+see [#801](https://github.com/pro3d-space/PRo3D/issues/801)). That is a coarse shape model,
+not a special case: it goes through the same depth pass and the same lookup, so there is no
+second implementation of "is the sun blocked" to drift.
+
+### What it does, measured
+
+One full event on 2027-02-25, rendered three ways at a fixed gain — the same camera, the
+same exposure, differing only in what is casting the shadow:
+
+![](images/simulateImage/eclipse.png)
+
+| | |
+|---|---|
+| first contact | just after 10:35 |
+| totality | 10:55 – 11:45, at the `--ambient` floor (DN 3 of 140) |
+| last contact | just after 12:05 |
+
+The dashed line is the bug: without an occluder the body sits at DN ~140 straight through
+its own eclipse.
+
+**The real shape and the radii disagree where it matters.** Through ingress and egress the
+mesh is ahead of the ellipsoid by up to 30 percentage points of the disk — at 10:40 it is
+at 86 % of unshadowed brightness against the ellipsoid's 97 %, and at 11:55 13 % against
+32 %. During totality they agree exactly, because a body fully inside the umbra does not
+care about the shape of the limb that put it there. So the radii are enough to say *when*,
+and only the shape model says *how much*, which is the half the light curve is made of.
+
+Per-epoch numbers in [`eclipse.json`](images/simulateImage/eclipse.json); regenerate both
+with `python scripts/make-eclipse-figure.py`.
+
+### Caveats
+
+- **The penumbra is approximated by a blur.** The Sun's angular radius at 1.6 AU, across a
+  1.2 km separation, smears the umbra edge over a few metres; the shader spreads its
+  lookup by that width in texels. It is not a real integration over the solar disk, and
+  the gradient's shape is a 3×3 kernel's rather than a limb-darkened Sun's.
+- **The occluder is a shadow caster and nothing else.** It is not in the image: if the
+  primary is inside the instrument's field of view it will not appear. Rendering both
+  bodies is a different job.
+- **No light-time correction** between the two bodies — 4 µs across 1.2 km.
 
 <a name="rendering-from-a-mesh"></a>
 ## Rendering from a mesh

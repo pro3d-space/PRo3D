@@ -461,6 +461,21 @@ module ShapeSource =
         else
             Result.Error "no shape model: pass --opc <dir> or --obj <file>"
 
+    /// The shadow caster of a binary.
+    ///
+    /// A mesh when one is named, otherwise a tessellation of the body's reference radii --
+    /// which is a shape model too, just a coarse one. Making the fallback geometry rather
+    /// than an analytic special case is what keeps ONE eclipse path: the ellipsoid and the
+    /// real primary go through the same depth pass and the same lookup, so there is no
+    /// second implementation to drift.
+    ///
+    /// The bbox here is the occluder's own LOCAL bounds; `EclipseOccluder.at` places it.
+    let occluder (obj : string) (objScale : float) (radii : V3d) : Result<ShapeSource, string> =
+        if String.IsNullOrWhiteSpace obj then
+            Ok (ofObj (ObjShape.ellipsoid radii 64) None)
+        else
+            ObjShape.read obj objScale |> Result.map (fun mesh -> ofObj mesh None)
+
 /// Fit the baked illumination, log what came out, and fall back to the constant albedo if
 /// it could not be made.
 ///
@@ -819,22 +834,32 @@ let cameraFromMbi (observer : string) (frame : string) (body : string)
 /// The other body of a binary, as a shadow caster.
 ///
 /// Dimorphos is inside Didymos' umbra for ~12 % of the close-orbit phase, and the scene
-/// holds only the target body, so nothing in it casts that shadow. Rather than load the
-/// primary's OPC and grow the sun-side depth map from 180 m to 2 km -- losing an order of
-/// magnitude of resolution on the target's own self-shadowing -- the occluder is carried
-/// as the reference ellipsoid and tested analytically in the shader.
+/// holds only the target body, so nothing in it casts that shadow.
 ///
-/// The penumbra at this separation is ~9 m across a 177 m body, so the approximation is
-/// well inside what the geometry can resolve: the ellipsoid misses the real shape by tens
-/// of metres, which moves ingress and egress by seconds.
+/// The obvious fix -- put the primary into the target's own sun-side depth map -- is the
+/// wrong one: that map is a 4096^2 ortho over ~180 m, i.e. 5 cm a texel, and growing it to
+/// cover a binary 1.2 km apart drops it to 0.5 m. That throws away the target's own
+/// self-shadowing to buy a shadow whose penumbra is a few metres wide. So the occluder gets
+/// a depth map OF ITS OWN, fitted to itself (0.3 m a texel over Didymos) and sampled as a
+/// second lookup. The two passes are independent and neither costs the other anything.
+///
+/// This record is only the placement. The geometry is a `ShapeSource` like any other --
+/// `--occluder-obj` for the real shape, otherwise a tessellation of the reference radii --
+/// so the coarse case and the real case go through the same pass, rather than through an
+/// analytic ellipsoid test that agrees with the mesh path until one of them changes.
 type EclipseOccluder =
     {
-        /// centre of the occluding body in the target's body-fixed frame, metres
+        /// occluder-local -> the TARGET's body-fixed frame, metres. The occluder's mesh
+        /// lives in its own frame; this is what puts it where SPICE says it is, turned the
+        /// way SPICE says it is turned.
+        toTarget : Trafo3d
+        /// centre of the occluding body in the target's frame, metres
         centre : V3d
-        /// body-fixed offset -> a space where the occluder is the unit sphere
-        toUnit : M33d
-        /// half-width of the penumbra, in occluder radii
-        softness : float
+        /// bounds of the PLACED occluder in the target's frame, for fitting its depth map
+        bounds : Box3d
+        /// Half-width of the penumbra at the target, METRES. The Sun is not a point, so the
+        /// umbra boundary is a gradient this wide rather than an edge.
+        penumbra : float
     }
 
 module EclipseOccluder =
@@ -844,10 +869,11 @@ module EclipseOccluder =
     /// #801. These are DIDYMOS' RADII from the HERA kernel pool, in metres.
     let didymosRadii = V3d(409.5, 400.5, 303.5)
 
-    /// Where the occluder sits relative to the target, and how big it looks, at one epoch.
+    /// Where the occluder sits at one epoch, given the bounds of its own shape model.
+    ///
     /// Returns None when SPICE cannot place or orient it, so a missing kernel degrades to
     /// "no eclipse" rather than to a wrong one.
-    let at (occluder : string) (occluderFrame : string) (radii : V3d)
+    let at (occluder : string) (occluderFrame : string) (localBounds : Box3d)
            (target : string) (targetFrame : string) (time : DateTime) : Option<EclipseOccluder> =
         match CooTransformation.getRelState occluder "SUN" target time targetFrame,
               CooTransformation.getRotationTrafo targetFrame occluderFrame time with
@@ -856,25 +882,130 @@ module EclipseOccluder =
             let d = centre.Length
             if d <= 0.0 || not (Double.IsFinite d) then None
             else
-                // diag(1/r) * R: rotate into the occluder's own frame, then scale each
-                // axis by its radius, and the ellipsoid becomes the unit sphere.
-                let r = toOccluder.Forward
-                let toUnit =
-                    M33d(r.M00 / radii.X, r.M01 / radii.X, r.M02 / radii.X,
-                         r.M10 / radii.Y, r.M11 / radii.Y, r.M12 / radii.Y,
-                         r.M20 / radii.Z, r.M21 / radii.Z, r.M22 / radii.Z)
-                // The Sun's angular radius seen from here, expressed in occluder radii:
-                // the umbra edge is a gradient this wide rather than a step.
+                // getRotationTrafo gives target -> occluder; placing geometry needs the
+                // other direction, and then the translation SPICE measured.
+                let toTarget =
+                    Trafo3d(toOccluder.Backward, toOccluder.Forward) * Trafo3d.Translation centre
                 let sunRadius = 695700000.0
                 let sunDistance =
                     match CooTransformation.getRelState "SUN" "SUN" target time targetFrame with
                     | Some sun when sun.pos.Length > 0.0 -> sun.pos.Length
                     | _ -> 1.6 * 1.495978707e11
-                let meanRadius = (radii.X + radii.Y + radii.Z) / 3.0
-                Some { centre = centre
-                       toUnit = toUnit
-                       softness = (sunRadius / sunDistance) * d / meanRadius }
+                Some { toTarget = toTarget
+                       centre = centre
+                       bounds = localBounds.Transformed toTarget
+                       // the Sun's angular radius times the gap the shadow is cast across
+                       penumbra = (sunRadius / sunDistance) * d }
         | _ -> None
+
+/// The occluder's own sun-side depth pass.
+///
+/// Built once over `cval`s and re-aimed per epoch, exactly like the target's shadow pass:
+/// the occluder moves and turns between epochs, and so does the sun, but none of that is a
+/// reason to rebuild a scene graph.
+type EclipseShadow =
+    {
+        /// target body-fixed world -> the occluder's sun-camera clip space
+        viewProj : aval<M44d>
+        depth    : aval<ITexture>
+        /// PCF radius in TEXTURE units, sized to the penumbra at this epoch
+        radius   : aval<float32>
+        /// place the occluder, aim its sun camera, re-render its depth map
+        update   : Option<EclipseOccluder> -> V3d -> unit
+        enabled  : aval<bool>
+        cleanup  : unit -> unit
+    }
+
+module EclipseShadow =
+
+    /// 4096^2 over a 1.2 km primary is 0.3 m a texel, against a penumbra measured in
+    /// metres -- the map is not what limits this.
+    let private mapSize = V2i(4096, 4096)
+
+    /// No occluder named: a 1x1 far-plane map and a disabled flag. The comparison sampler
+    /// still needs something bound, for the same reason `dummyShadowMap` exists.
+    let disabled (runtime : IRuntime) : EclipseShadow =
+        let dummy = dummyShadowMap runtime
+        {
+            viewProj = AVal.constant M44d.Identity
+            depth = AVal.constant dummy.depth
+            radius = AVal.constant 0.0f
+            update = fun _ _ -> ()
+            enabled = AVal.constant false
+            cleanup = dummy.cleanup
+        }
+
+    let create (runtime : IRuntime) (occluder : ShapeSource) : EclipseShadow =
+        let signature, depth, output, cleanup = createShadowTarget runtime mapSize
+        let modelC = cval Trafo3d.Identity
+        let viewC = cval Trafo3d.Identity
+        let projC = cval Trafo3d.Identity
+        let viewProjC = cval M44d.Identity
+        let radiusC = cval 0.0f
+        let enabledC = cval false
+
+        // ONLY the occluder goes in here. The target has its own map at forty times the
+        // resolution, and drawing it into this one as well would buy nothing.
+        let sg =
+            occluder.build signature (AVal.constant None)
+            |> Sg.trafo modelC
+            |> Sg.shader {
+                do! PRo3D.SPICE.Shaders.stableTrafo
+                do! DefaultSurfaces.constantColor C4f.White
+            }
+            |> SunAnglesVerb.withOpcScaffolding
+            |> Sg.viewTrafo viewC
+            |> Sg.projTrafo projC
+
+        let clear = runtime.CompileClear(signature, AVal.constant (C4f(0.0f, 0.0f, 0.0f, 0.0f)), AVal.constant 1.0)
+        let task = runtime.CompileRender(signature, sg)
+
+        let update (o : Option<EclipseOccluder>) (sunDir : V3d) =
+            match o with
+            | None -> transact (fun () -> enabledC.Value <- false)
+            | Some o ->
+                let centre = o.bounds.Center
+                let radius = 0.5 * o.bounds.Size.Length
+                let up = if abs (Vec.dot sunDir V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
+                let view =
+                    CameraView.lookAt (centre + sunDir * (3.0 * radius)) centre up
+                    |> CameraView.viewTrafo
+                // X and Y are fitted to the OCCLUDER -- that is what sets the resolution.
+                // Near and far have to reach past it to the RECEIVER, a kilometre further
+                // from the sun, or every fragment of the target lands outside the clip
+                // volume and reads as unshadowed. The target sits at the frame origin, so
+                // extending far by the occluder's own distance plus its size covers it.
+                let vbox = o.bounds.Transformed view
+                let reach = o.centre.Length + o.bounds.Size.Length
+                let proj =
+                    { Frustum.ortho vbox with near = -vbox.Max.Z; far = -vbox.Min.Z + reach }
+                    |> Frustum.projTrafo
+                // The penumbra as a fraction of the map's width: the shader blurs the
+                // lookup by this much, which is what turns a depth test into a gradient.
+                // Clamped so a degenerate geometry cannot ask for a 4096-tap kernel.
+                let extent = max 1.0 vbox.Size.XY.NormMax
+                transact (fun () ->
+                    modelC.Value <- o.toTarget
+                    viewC.Value <- view
+                    projC.Value <- proj
+                    viewProjC.Value <- (view * proj).Forward
+                    radiusC.Value <- float32 (clamp 0.0 0.05 (o.penumbra / extent))
+                    enabledC.Value <- true)
+                for _ in 1 .. max 1 occluder.warmupFrames do
+                    clear.Run(output)
+                    task.Run(output)
+
+        {
+            viewProj = viewProjC :> aval<M44d>
+            depth = AVal.constant (depth :> ITexture)
+            radius = radiusC :> aval<float32>
+            update = update
+            enabled = enabledC :> aval<bool>
+            cleanup = fun () ->
+                task.Dispose()
+                clear.Dispose()
+                cleanup ()
+        }
 
 /// Everything the shading shader needs that is neither the camera nor the epoch.
 ///
@@ -915,7 +1046,7 @@ module ShadingParams =
 /// need a scale factor out of it, and which mode is wanted is `p`'s business alone. A
 /// missing fit therefore falls back to the constant albedo in either mode, rather than
 /// rendering a texture at an arbitrary brightness.
-let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>) (eclipse : aval<Option<EclipseOccluder>>)
+let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>) (eclipse : EclipseShadow)
                  (shadowViewProj : aval<M44d>) (shadowDepth : aval<ITexture>) (sg : ISg) =
     sg
     |> SunAnglesVerb.withOpcScaffolding
@@ -935,13 +1066,14 @@ let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>) (eclipse : aval<
     |> Sg.uniform' "AmbientFloor" (float32 p.ambient)
     |> Sg.uniform' "NoLighting" p.noLighting
     |> Sg.uniform' "TextureOnly" p.textureOnly
-    |> Sg.uniform "EclipseEnabled" (eclipse |> AVal.map Option.isSome)
-    |> Sg.uniform "OccluderCentre" (eclipse |> AVal.map (fun e ->
-           V3f (e |> Option.map (fun x -> x.centre) |> Option.defaultValue V3d.Zero)))
-    |> Sg.uniform "OccluderToUnit" (eclipse |> AVal.map (fun e ->
-           M33f (e |> Option.map (fun x -> x.toUnit) |> Option.defaultValue M33d.Identity)))
-    |> Sg.uniform "EclipseSoftness" (eclipse |> AVal.map (fun e ->
-           float32 (e |> Option.map (fun x -> x.softness) |> Option.defaultValue 0.0)))
+    |> Sg.uniform "EclipseEnabled" eclipse.enabled
+    |> Sg.uniform "EclipseShadowViewProj" eclipse.viewProj
+    |> Sg.texture "EclipseShadowMap" eclipse.depth
+    |> Sg.uniform "EclipseShadowRadius" eclipse.radius
+    // Ten times the target's own bias: this map's depth range spans the gap to the
+    // occluder as well as the occluder itself, so a unit of normalized depth is worth
+    // far more metres here and the same number would stripe the receiver with acne.
+    |> Sg.uniform' "EclipseShadowBias" (float32 (10.0 * p.shadowBias))
 
 /// The shader stack of the shaded body. Order is load-bearing -- see the comment inside.
 let shadedShaders (sg : ISg) =
@@ -950,11 +1082,11 @@ let shadedShaders (sg : ISg) =
         // Order is load-bearing (see SunAnglesVerb.applyAngleShaders):
         // stableImageProjectionTrafo stashes the object-space position while
         // [<Position>] still holds it, generateNormal builds the face normal from
-        // that stash, and stashSunShadowPos must equally precede stableTrafo.
+        // that stash, and stashShadowPositions must equally precede stableTrafo.
         do! ImageProjection.Shaders.stableImageProjectionTrafo
         do! ImageProjection.Shaders.generateNormal
         do! ImageProjection.Shaders.applyNormalFlip
-        do! SimulateShaders.stashSunShadowPos
+        do! SimulateShaders.stashShadowPositions
         do! PRo3D.SPICE.Shaders.stableTrafo
         do! SimulateShaders.simulatedImage
     }
@@ -1004,7 +1136,7 @@ let pointingComplaint (bbox : Box3d) (cam : SimCamera) (body : string) (instrume
 let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                  (body : string) (frame : string) (observer : string) (instrument : string)
                  (time : DateTime) (outPath : string) (kernel : string)
-                 (shape : ShapeSource) : Result<string, string> =
+                 (shape : ShapeSource) (occluder : Option<ShapeSource>) : Result<string, string> =
 
     // --project renders an existing image projected onto the body rather than a shaded
     // body. With no --mbi it also supplies the camera, so the render is taken from the
@@ -1111,17 +1243,17 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
 
     // The other body of the binary, if one was named: without it an eclipsed epoch
     // renders as full daylight.
-    let eclipse =
-        if String.IsNullOrWhiteSpace o.occluderBody then None
-        else
+    let eclipseAt =
+        match occluder with
+        | None -> None
+        | Some occ ->
             let occFrame =
                 if String.IsNullOrWhiteSpace o.occluderFrame then o.occluderBody + "_FIXED"
                 else o.occluderFrame
-            match EclipseOccluder.at o.occluderBody occFrame EclipseOccluder.didymosRadii
-                                    body frame time with
+            match EclipseOccluder.at o.occluderBody occFrame occ.bbox body frame time with
             | Some e ->
-                Log.line "[eclipse] %s is %.3f km away, penumbra %.3f radii"
-                    o.occluderBody (e.centre.Length / 1000.0) e.softness
+                Log.line "[eclipse] %s is %.3f km away, penumbra %.1f m (%s)"
+                    o.occluderBody (e.centre.Length / 1000.0) e.penumbra occ.describe
                 Some e
             | None ->
                 Log.warn "[eclipse] could not place %s at this epoch -- no eclipse applied"
@@ -1189,6 +1321,15 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             Log.line "[shadow] rendering sun depth map (4096^2, ortho over %.0f m)" bbox.Size.Length
             renderSunShadowMap runtime shape projectedImages sun
 
+    // The occluder's own depth map. Created even with --no-shadows: an eclipse is not the
+    // target's self-shadowing, it is the other body blocking the sun, and switching off
+    // the first has never been a reason to switch off the second.
+    let eclipse =
+        match occluder with
+        | Some occ when Option.isSome eclipseAt -> EclipseShadow.create runtime occ
+        | _ -> EclipseShadow.disabled runtime
+    eclipse.update eclipseAt sun
+
     let target = SunAnglesVerb.FloatTarget.create runtime size
     try
         let opc = shape.build target.signature projectedImages
@@ -1250,7 +1391,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                     (if useStackShader then "STACK" else "single-image")
                 if useStackShader then projectedStackSg imagePath else projectedSg imagePath
              | None -> shaded)
-            |> applyShading (ShadingParams.ofSimulateImage o) deshade (AVal.constant eclipse)
+            |> applyShading (ShadingParams.ofSimulateImage o) deshade eclipse
                    (AVal.constant shadowMap.viewProj.Forward) (AVal.constant shadowMap.depth)
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)
@@ -1310,6 +1451,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     finally
         SunAnglesVerb.FloatTarget.dispose target
         shadowMap.cleanup ()
+        eclipse.cleanup ()
 
 /// Entry point for the `simulate-image` verb.
 let run (o : SimulateImageOptions) : int =
@@ -1449,7 +1591,15 @@ let run (o : SimulateImageOptions) : int =
             1
         else
 
-        match processImage runtime o body frame observer instrument time outPath kernel shape with
+        // The shadow caster of the binary, when one was named. Resolved here so a bad
+        // --occluder-obj is a message rather than a frame rendered in full daylight.
+        match (if String.IsNullOrWhiteSpace o.occluderBody then Ok None
+               else ShapeSource.occluder o.occluderObj o.occluderObjScale
+                        EclipseOccluder.didymosRadii |> Result.map Some) with
+        | Result.Error e -> Log.error "[eclipse] %s" e; 1
+        | Ok occluder ->
+
+        match processImage runtime o body frame observer instrument time outPath kernel shape occluder with
         | Ok _ -> 0
         | Result.Error e -> Log.error "%s" e; 1
     with e ->

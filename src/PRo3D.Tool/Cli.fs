@@ -191,6 +191,12 @@ type SimulateImageOptions =
 
         [<Option("occluder-frame", HelpText = "Body-fixed frame of --occluder-body (default: <body>_FIXED)")>]
         occluderFrame : string
+
+        [<Option("occluder-obj", HelpText = "Shape model of --occluder-body as a Wavefront OBJ (`.obj.gz` works), so the eclipse is cast by the primary's real shape. Without it the occluder is a tessellation of the body's reference radii, which puts ingress and egress within seconds but cannot give the shadow's edge the right shape.")>]
+        occluderObj : string
+
+        [<Option("occluder-obj-scale", Default = 1000.0, HelpText = "Metres per --occluder-obj file unit (default 1000, i.e. kilometres)")>]
+        occluderObjScale : float
         [<Option("pointing", HelpText = "Where the camera orientation comes from: 'ck' (default) uses the spacecraft's measured/planned attitude and FAILS if the kernels have none at this epoch; 'lookat' aims the boresight at the body centre with an up-vector roll convention. 'ck' can legitimately produce no image -- if the instrument was pointed elsewhere, the body is not in the frame, and that is the answer, not a fault.")>]
         pointing : string
     }
@@ -302,6 +308,12 @@ type SimulateSeriesOptions =
 
         [<Option("occluder-frame", HelpText = "Body-fixed frame of --occluder-body (default: <body>_FIXED)")>]
         occluderFrame : string
+
+        [<Option("occluder-obj", HelpText = "Shape model of --occluder-body as a Wavefront OBJ (`.obj.gz` works), so the eclipse is cast by the primary's real shape. Without it the occluder is a tessellation of the body's reference radii, which puts ingress and egress within seconds but cannot give the shadow's edge the right shape.")>]
+        occluderObj : string
+
+        [<Option("occluder-obj-scale", Default = 1000.0, HelpText = "Metres per --occluder-obj file unit (default 1000, i.e. kilometres)")>]
+        occluderObjScale : float
 
         [<Option("keep-going", HelpText = "Render the remaining epochs after a failure instead of stopping. The run still exits non-zero and names every frame that failed.")>]
         keepGoing : bool

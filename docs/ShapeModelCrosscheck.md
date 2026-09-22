@@ -309,9 +309,21 @@ not only speed. These are capabilities SPICE's geometry API structurally does no
 body casting a shadow is not modelled. Measured over COP at 5 min sampling: Dimorphos lies
 inside Didymos' shadow cylinder for **11.6 % of the phase — about 235 hours**, beginning
 2027-02-05T02:30. Those are real mutual events, they change the observed brightness, and
-the cross-check renders them fully lit. PRo3D draws a scene, so putting both bodies in it
-yields mutual eclipses with no new physics. Nothing else in this comparison is a *science*
+the cross-check renders them fully lit. Nothing else in this comparison is a *science*
 capability gap; this one is.
+
+PRo3D draws a scene, so it needs no new physics for it: `--occluder-body` gives the primary
+a sun-side depth map of its own and the shading shader takes a second lookup. Verified
+against one full event on 2027-02-25 — first contact just after 10:35, totality 10:55 to
+11:45 at the ambient floor, last contact just after 12:05 — with `--occluder-obj` putting
+the primary's real shape in it. See
+[Eclipse by the other body](./Pro3DTool-SimulateImage.md#eclipse-by-the-other-body).
+
+**This is the one place where the ray-cast on this page cannot be the oracle**, and it is
+worth being explicit about that: an eclipsed epoch has no independent reference here, so
+what is checked is the light curve's timing and its floor, not a second opinion on the
+shadow. Making `dsk_render` cast a ray from each surface point toward the Sun and test it
+against the *primary's* DSK would give one; it is not written.
 
 **2. The surface, not just the shape.** A DSK carries geometry and nothing else. PRo3D
 carries the DRACO mosaic and nine other layers, projects real instrument imagery onto the

@@ -116,6 +116,8 @@ module private Fixtures =
             // the primary, and an eclipse cast by its own moon is not what they test.
             occluderBody = null
             occluderFrame = null
+            occluderObj = null
+            occluderObjScale = 1000.0
             // 'lookat', not the verb's 'ck' default: these fixtures render Didymos from
             // MILANI at epochs the CK does not necessarily cover, and the point of them is
             // the shading and the sidecar, not the attitude.
@@ -311,7 +313,7 @@ let private simulateImageTests =
                 let render (name : string) =
                     let path = Path.Combine(outDir, name)
                     match SimulateImageVerb.processImage runtime o "DIDYMOS" "DIDYMOS_FIXED" "MILANI"
-                              "MILANI_ASPECT_NIR1" time path HeraSpiceTests.spiceFileName shape with
+                              "MILANI_ASPECT_NIR1" time path HeraSpiceTests.spiceFileName shape None with
                     | Result.Error e -> failtest e
                     | Result.Ok written ->
                         Expect.isTrue (File.Exists written) "PNG written"
@@ -573,6 +575,50 @@ let private objShapeTests =
                                 (sprintf "fitted %A is %.2f deg off the baked %A"
                                      fit.direction off light)
                             Expect.isGreaterThan fit.correlation 0.95 "the fit explains the texture")
+        }
+
+        // The eclipse occluder's fallback geometry. It is a shape model like any other so
+        // that the coarse case and the real primary go through the SAME depth pass; if the
+        // tessellation were wrong the only symptom would be a slightly wrong shadow, which
+        // is exactly the kind of thing nobody notices.
+        test "the reference radii tessellate into an outward-wound ellipsoid" {
+            let radii = V3d(409.5, 400.5, 303.5)     // Didymos, from the kernel pool
+            let m = ObjShape.ellipsoid radii 64
+            Expect.equal m.normalFlip 0.0 "outward-wound, like the shape models"
+            Expect.isGreaterThan (m.index.Length / 3) 1000 "tessellated finely enough to be round"
+            // the bbox is exact by construction; the vertices have to actually reach it
+            Expect.equal m.bbox (Box3d(-radii, radii)) "bounds are the radii"
+            let extent =
+                m.positions
+                |> Array.fold (fun (b : Box3d) p -> b.ExtendedBy(V3d p)) Box3d.Invalid
+            Expect.isLessThan (extent.Min - m.bbox.Min).Length 0.01 "vertices reach the minimum"
+            Expect.isLessThan (extent.Max - m.bbox.Max).Length 0.01 "vertices reach the maximum"
+            // every vertex on the ellipsoid: (x/a)^2 + (y/b)^2 + (z/c)^2 = 1
+            let worst =
+                m.positions
+                |> Array.map (fun p ->
+                    let v = V3d p / radii
+                    abs (v.LengthSquared - 1.0))
+                |> Array.max
+            Expect.isLessThan worst 1e-6 "every vertex lies on the ellipsoid"
+        }
+
+        test "the occluder falls back to the radii and reads a mesh when given one" {
+            let radii = V3d(409.5, 400.5, 303.5)
+            match SimulateImageVerb.ShapeSource.occluder null 1000.0 radii with
+            | Result.Error e -> failtest e
+            | Result.Ok s ->
+                Expect.equal s.bbox (Box3d(-radii, radii)) "the tessellated radii"
+                Expect.isFalse s.hasTexture "a shadow caster needs none"
+            ObjFixtures.inScratch (fun dir ->
+                let path = ObjFixtures.write dir "cube.obj" ObjFixtures.cube
+                match SimulateImageVerb.ShapeSource.occluder path 1000.0 radii with
+                | Result.Error e -> failtest e
+                | Result.Ok s ->
+                    Expect.equal s.bbox.Size (V3d(2000.0, 2000.0, 2000.0))
+                        "the mesh, not the radii")
+            Expect.isError (SimulateImageVerb.ShapeSource.occluder "Z:/no-such.obj" 1000.0 radii)
+                "a missing occluder mesh is an error, not a silent fallback to the radii"
         }
 
         test "a non-positive scale is refused rather than rendering an inverted body" {

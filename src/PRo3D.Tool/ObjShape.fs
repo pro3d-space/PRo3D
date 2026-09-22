@@ -334,6 +334,45 @@ let read (path : string) (scale : float) : Result<Mesh, string> =
         source = path
     }
 
+/// A triaxial ellipsoid as a mesh, in metres.
+///
+/// The shadow caster of a binary is a shape like any other, and a body with no shape model
+/// to hand is still a body with RADII in the kernel pool. Tessellating those radii puts the
+/// coarse case and the real case through exactly the same depth pass, instead of keeping an
+/// analytic ellipsoid test in the shader that agrees with the mesh path until one of them
+/// changes.
+///
+/// `steps` is the longitude count; latitude gets half. 64 gives 8 192 triangles and a limb
+/// smooth to ~2 % of a radius, far finer than the metre the penumbra is measured in.
+let ellipsoid (radii : V3d) (steps : int) : Mesh =
+    let nu = max 8 steps
+    let nv = max 4 (steps / 2)
+    let positions =
+        [| for j in 0 .. nv do
+             let theta = float j / float nv * Constant.Pi
+             for i in 0 .. nu do
+                 let phi = float i / float nu * Constant.PiTimesTwo
+                 yield V3f(float32 (radii.X * sin theta * cos phi),
+                           float32 (radii.Y * sin theta * sin phi),
+                           float32 (radii.Z * cos theta)) |]
+    let index = ResizeArray<int>()
+    let at i j = j * (nu + 1) + i
+    for j in 0 .. nv - 1 do
+        for i in 0 .. nu - 1 do
+            let a, b, c, d = at i j, at (i + 1) j, at (i + 1) (j + 1), at i (j + 1)
+            // outward, matching what generateNormal's cross product expects
+            index.Add a; index.Add d; index.Add c
+            index.Add a; index.Add c; index.Add b
+    {
+        positions = positions
+        texCoords = [||]
+        index = index.ToArray()
+        bbox = Box3d(-radii, radii)
+        sourceExtent = 2.0 * radii
+        normalFlip = 0.0
+        source = sprintf "ellipsoid %.1f x %.1f x %.1f m" radii.X radii.Y radii.Z
+    }
+
 // ---------------------------------------------------------------------------------
 // The de-shading fit's inputs.
 //

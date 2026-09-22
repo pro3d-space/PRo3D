@@ -348,6 +348,12 @@ let run (o : SimulateSeriesOptions) : int =
 
     Log.line "[shape] %s" shape.describe
 
+    match (if String.IsNullOrWhiteSpace o.occluderBody then Ok None
+           else ShapeSource.occluder o.occluderObj o.occluderObjScale
+                    EclipseOccluder.didymosRadii |> Result.map Some) with
+    | Result.Error e -> Log.error "[eclipse] %s" e; 1
+    | Ok occluderShape ->
+
     let bbox = shape.bbox
 
     // Once for the whole series: the fit solves for the baked light direction against a
@@ -368,15 +374,12 @@ let run (o : SimulateSeriesOptions) : int =
     let projC = cval Trafo3d.Identity
     let sunC  = cval (None : Option<V3d>)
     let imageProjC = cval (None : Option<Trafo3d>)
-    // The occluding body moves relative to the target, so this is per epoch like the sun.
-    let eclipseC = cval (None : Option<EclipseOccluder>)
     let occluderFrame =
         if String.IsNullOrWhiteSpace o.occluderFrame then o.occluderBody + "_FIXED"
         else o.occluderFrame
     if not (String.IsNullOrWhiteSpace o.occluderBody) then
-        Log.line "[eclipse] %s cast onto %s as a triaxial ellipsoid (%.1f x %.1f x %.1f m)"
-            o.occluderBody body
-            EclipseOccluder.didymosRadii.X EclipseOccluder.didymosRadii.Y EclipseOccluder.didymosRadii.Z
+        Log.line "[eclipse] %s cast onto %s (%s)" o.occluderBody body
+            (occluderShape |> Option.map (fun s -> s.describe) |> Option.defaultValue "no shape")
 
     let projectedImages : aval<Option<Sg.ProjectedImages>> =
         // Must go through this record, not Sg.uniform': projectionUniformMap installs
@@ -395,6 +398,14 @@ let run (o : SimulateSeriesOptions) : int =
             })
 
     let shadow = createShadowPass runtime shape projectedImages o.noShadows
+    // The occluder's own sun-side depth map, built once and re-aimed per epoch like the
+    // target's. Created even with --no-shadows: an eclipse is the other body blocking the
+    // sun, not the target's self-shadowing, and switching off the one has never been a
+    // reason to switch off the other.
+    let eclipse =
+        match occluderShape with
+        | Some occ -> EclipseShadow.create runtime occ
+        | None -> EclipseShadow.disabled runtime
     let target = SunAnglesVerb.FloatTarget.create runtime size
 
     try
@@ -420,7 +431,7 @@ let run (o : SimulateSeriesOptions) : int =
                 // constant albedo.
                 let sg =
                     shadedShaders opc
-                    |> applyShading shading deshade (eclipseC :> aval<_>) shadow.viewProj shadow.depth
+                    |> applyShading shading deshade eclipse shadow.viewProj shadow.depth
                     |> Sg.viewTrafo viewC
                     |> Sg.projTrafo projC
                 v, runtime.CompileRender(target.signature, sg))
@@ -465,20 +476,23 @@ let run (o : SimulateSeriesOptions) : int =
                     Log.warn "output %dx%d (ratio %.3f) does not match %s's frustum aspect %.3f -- the images will be stretched"
                         size.X size.Y (float size.X / float size.Y) instrument cam.aspect
 
-            let occluder =
-                if String.IsNullOrWhiteSpace o.occluderBody then None
-                else EclipseOccluder.at o.occluderBody occluderFrame
-                                        EclipseOccluder.didymosRadii body frame time
+            // The occluding body moves and turns relative to the target, so this is per
+            // epoch like the sun.
+            let occluderAt =
+                match occluderShape with
+                | None -> None
+                | Some occ ->
+                    EclipseOccluder.at o.occluderBody occluderFrame occ.bbox body frame time
 
             transact (fun () ->
                 viewC.Value <- cam.view
                 projC.Value <- cam.proj
                 sunC.Value <- Some sun
-                imageProjC.Value <- Some (cam.view * cam.proj)
-                eclipseC.Value <- occluder)
+                imageProjC.Value <- Some (cam.view * cam.proj))
 
-            // The sun moves between epochs, so the depth map does too.
+            // The sun moves between epochs, so both depth maps do.
             shadow.update sun
+            eclipse.update occluderAt sun
 
             for (v, task) in tasks do
                 let stem = sprintf "%s_%s_%s" stemPrefix v.tag (time.ToString "yyyyMMdd_HHmmss")
@@ -562,3 +576,4 @@ let run (o : SimulateSeriesOptions) : int =
     finally
         SunAnglesVerb.FloatTarget.dispose target
         shadow.cleanup ()
+        eclipse.cleanup ()

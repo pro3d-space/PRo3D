@@ -89,6 +89,19 @@ the preview PNG, and a `CREDITS.md` with the provenance out of the `.bds` commen
 ESA SPICE dataset licence, which is not the licence of the rest of that repo — the
 CREDITS.md and the repo README both say so.
 
+**The eclipse is a real shadow pass now, and it is verified.** `181aff62` tested a triaxial
+ellipsoid analytically in the fragment shader. It is now a second sun-side depth map fitted
+to the OCCLUDER -- 0.3 m a texel over Didymos, against the 5 cm the target's own map keeps
+-- and the occluder's geometry is a `ShapeSource` like any other: `--occluder-obj` for the
+primary's real shape, otherwise a tessellation of its reference radii. One path, so the
+coarse case and the real case cannot disagree for any reason but the shape.
+
+Measured on 2027-02-25 at 5 min: first contact just after 10:35, totality 10:55-11:45 at
+the ambient floor (DN 3 of 140), last contact just after 12:05. The real shape and the
+radii agree exactly during totality and differ by up to 30 percentage points of the disk
+through ingress and egress -- the radii say WHEN, only the shape says HOW MUCH.
+`scripts/make-eclipse-figure.py` renders the window three ways and writes the light curve.
+
 **`check-renderers.py` now compares per footing.** It used to pick "the strongest footing
 both can supply", which for our renders is always the lit region — and that hid the one
 measurement that isolates geometry. Each pair now gets a row per footing with its own
@@ -114,7 +127,8 @@ inside Expecto waiting for the very test asking for a runner. PRo3D's convention
 runner per process via `Surface.Sg.hackRunner`; all five now use it. **628 tests, 620
 passed, 6 ignored, 8 failed** — all eight pre-existing SPICE kernel-swap failures that
 fail in isolation too, including a `J2000 → J2000` identity. With the OBJ reader's ten
-tests it is **638 run, 630 passed, 6 ignored, 8 failed** — the same eight. One of the ten
+tests plus the eclipse occluder's two it is **640 run, 632 passed, 6 ignored, 8 failed** —
+the same eight. One of them
 bakes a known light direction into a UV sphere's texture and asserts the mesh de-shading
 fit recovers it to under 2°; it comes back 0.13° off at r = 1.00, which is what makes the
 V-flip and the vertex normals checkable rather than merely plausible.
@@ -155,12 +169,24 @@ What the investigation established:
 
 ## 4. What is open, in order
 
-**1. Verify the eclipse.** Implemented (`181aff62`) and **unverified** — it builds, the
-geometry is computed, no render has been checked. Render 10:30–12:10 on 2027-02-25 and
-confirm the body goes dark 10:45–12:00 with partial phases at 10:35 and 12:00, then
-compare 11:30 against comet-toolbox, which renders it black.
+**1. An independent eclipse reference.** The eclipse is implemented, rebuilt around a real
+depth pass, and **verified against itself** — timing and floor, on 2027-02-25: first contact
+just after 10:35, totality 10:55–11:45 at the ambient floor, last contact just after 12:05.
+What it does not have is a second opinion, and this is the one place on the whole page where
+`dsk_render` cannot be the oracle: `illumf` takes a single target body, so the ray-cast
+renders an eclipsed epoch fully lit. Two ways to get one:
 
-**2. Re-render both series** once the eclipse is in, and re-run `check-renderers.py`.
+- **Extend `dsk_render`.** From each surface point, cast a ray toward the Sun and test it
+  against the PRIMARY's DSK (`sincpt` with `DIDYMOS` as the target, the fragment as the
+  ray origin). ~20 lines, no new data, and it gives the oracle the one answer it currently
+  cannot produce.
+- **Cosmographia.** The kernel tree ships a full configuration at `misc/cosmo/`, including
+  `config/spice_hera_plan.json` — the same planning kernels we render against, and the
+  Didymos DSK arcs. It is an interactive app, so this is a screenshot, like the
+  comet-toolbox ones in `C:\pro3ddata\HERA\workshop3\ref\`. None of those is at an eclipsed
+  epoch, so one would have to be taken.
+
+**2. Re-render both series** with the eclipse on, and re-run `check-renderers.py`.
 
 **3. Ship**: push the branch and open the PR.
 
