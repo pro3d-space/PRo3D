@@ -253,6 +253,52 @@ What the pictures show that the numbers did not:
 - **Her frames have interior holes** (magenta speckles at 14:15 and 14:45): pixels below
   the threshold inside the body. Worth knowing before trusting her masks for area work.
 
+## The remaining difference against comet-toolbox is the shape model
+
+![shape model comparison](../images/afcOrientation/shape-model.png)
+
+Both of ours are rendered with **comet-toolbox's own `v182_20260805` kernels**, so the only
+thing that differs between the two overlay columns is which shape the surface came from.
+
+| epoch | ours on the DSK/OBJ | ours on the OPC |
+|---|---|---|
+| 07:45 | **0.957** | 0.855 |
+| 09:00 | **0.975** | 0.889 |
+| 10:30 | **0.982** | 0.972 |
+| 14:45 | **0.944** | 0.901 |
+
+Look at 07:45 and 14:45 rather than the numbers: comet-toolbox and our DSK render show the
+same boulder field along the lower limb, and the OPC render smooths it away. The DSK rows
+sit at 0.944–0.982, which is at the limit of what a comparison against a downscaled
+screenshot can resolve.
+
+**comet-toolbox is, to the accuracy we can measure, a SPICE ray-cast of the kernels' own
+DSK.** With their kernels and that shape, our ray-caster reproduces their images.
+
+### Our delivered frames are shape-limited, not sensor-limited
+
+AFC is 1020 × 1020 px at 93.7 µrad/px (`hera_afc_v06.ti`: 106 mm f/4.2, 5.5°, 10 µm
+pixels). Against the two shape models available:
+
+| range | AFC pixel | our OPC, 1.96 m posts | kernels' DSK, 0.24 m |
+|---|---|---|---|
+| 4.78 km | 0.45 m | **4.4 px per post** | 0.5 px per post |
+| 5.17 km | 0.48 m | **4.0 px per post** | 0.5 px per post |
+| 9.97 km | 0.93 m | 2.1 px per post | 0.3 px per post |
+
+At close range one OPC post covers about 4 × 4 detector pixels: every surface feature is
+smeared over sixteen pixels because the *shape* is coarser than the sensor. The DSK is
+twice as fine as a pixel, on the right side of the sampling limit.
+
+That is an argument for rendering from the OBJ independent of agreeing with anybody: as
+delivered, these frames do not resolve what AFC would see. `Aardvark.Data.Wavefront` is
+already in the lock file; the OBJ is 175 MB, 1.58 M vertices, 3.15 M faces, and would be
+parsed once per `simulate-series` process rather than once per frame.
+
+The catch is that the sidecars currently promise that projecting a frame back onto *this
+OPC* reproduces it. Rendering from the OBJ breaks that unless the delivery moves to the
+OBJ shape as a whole.
+
 ## What each comparison can and cannot validate
 
 A comparison only tests the parts the two sides do **not** share. Where a component is
