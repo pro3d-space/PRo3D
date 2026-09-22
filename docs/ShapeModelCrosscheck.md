@@ -280,6 +280,11 @@ which re-renders every panel from the tool, so the figure cannot drift from what
 actually does. The ray-cast is the slow part (~50 s an epoch) and is cached per epoch in
 the work directory.
 
+Once the shape is shared, the *shading* becomes measurable too — a per-pixel comparison
+that means nothing between different shape models. That is a separate page:
+[Checking the shading against SPICE](./Pro3DTool-SimulateImage.md#checking-the-shading-against-spice),
+which found and fixed shadow acne in the default `--shadow-bias`.
+
 **The lit region cannot say that, and it is worth knowing why.** Two renderings of the
 *identical* mesh agree only to 0.897 there. The difference is the terminator: our lit mask
 is everything above DN 25, while the ray-cast writes every pixel with mu0 > 0 and its mask

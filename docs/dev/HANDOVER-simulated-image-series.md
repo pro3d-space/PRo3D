@@ -22,6 +22,9 @@ previous version of this file. `git stash pop` on the right branch to get them b
 | `src/PRo3D.Tool/ObjShape.fs` | the Wavefront reader, the winding vote and the mesh scene graph |
 | `scripts/make-image-time-series.py` | drives it once: epochs, SPICE reference, validation, stack, scene, manifest |
 | `scripts/check-series.py` | re-checks a series against **our own** ray-cast |
+| `scripts/check-lighting.py` | checks the SHADING -- shadows, acne, photometry -- against a ray-cast of the same mesh |
+| `scripts/make-shape-crosscheck-figures.py` | the OPC/OBJ/DSK comparison matrix in `ShapeModelCrosscheck.md` |
+| `scripts/make-eclipse-figure.py` | the eclipse light curve and ingress strip |
 | `scripts/check-renderers.py` | checks against **other people's** renderers — the independent test |
 | `scripts/pro3d_sim.py` | shared: tool invocation, sidecar check, scene writer, `dsk_render`, validation, comparison helpers |
 | `docs/dev/AFC-image-orientation.md` | the orientation investigation, with figures — **read this before touching `specialTrafos`** |
@@ -35,6 +38,9 @@ Reference data (outside the repo):
 | | |
 |---|---|
 | `C:\pro3ddata\HERA\workshop3\ref\` | comet-toolbox screenshots, `HHMM.png` |
+| `…\image-series\eclipse-2027-02-25\` | eclipse series, OPC + delit, 750 epochs at 8 s — its `delit` is 97 % filler texture, see §2 |
+| `…\image-series\eclipse-2027-04-08-fullframe\` | eclipse series from the **OBJ** (no invented texture), 750 epochs at 7 s, `--distance 2600`, real Didymos casting |
+| `C:\Users\haral\Desktop\pro3d\spice2\misc\cosmo\` | a full Cosmographia config on the same planning kernels — the unused third renderer |
 | `C:\pro3ddata\HERA\workshop3\COP\COP\<date>\` | Pilucas' COP set, 85 days, 8065 frames |
 | `C:\pro3ddata\HERA\Workshop2\OPC\Didymos\` | Didymos OPC, 341 MB |
 | `C:\Users\haral\Desktop\pro3d\spice2\kernels\` | our kernels, plus `mk/former_versions/hera_plan_v182_20260805_001.tm` fetched from ESA |
@@ -101,6 +107,42 @@ the ambient floor (DN 3 of 140), last contact just after 12:05. The real shape a
 radii agree exactly during totality and differ by up to 30 percentage points of the disk
 through ingress and egress -- the radii say WHEN, only the shape says HOW MUCH.
 `scripts/make-eclipse-figure.py` renders the window three ways and writes the light curve.
+
+**The shading is checked against SPICE now, and that found acne.** Rendering from the
+kernels' own mesh makes a per-pixel comparison meaningful -- it measures the SHADING, not
+the shape -- and `scripts/check-lighting.py` asks it over sun-facing facets only (a facet
+turned away from the sun is the terminator, which every renderer gets right).
+
+`--shadow-bias 0.002`, the old default, wrongly darkened **2.6-6.1 %** of the sun-facing
+body, 1.0-3.2 % of it isolated pixels: acne, visible in the figure as a stipple across every
+sun-grazing slope and invisible in the greyscale render. The default is **0.006** now,
+swept: 0.0005 gives 18-20 % darkened, 0.02 leaves 19-24 % of the real shadow lit. At 0.006,
+cast shadows agree at IoU **0.891-0.984**, leak 0-2.9 %, brightness r **0.9934-0.9937** with
+RMS 3.3-4.8 % -- and that residual is our 5 % Lambert admixture, which the ray-cast has not.
+
+Slope-scaling the bias, as the viewer's `terrainSunShadow` does, was tried and **measured no
+better**: this map is FINER than the geometry it renders (6.6 cm a texel against 0.24 m
+facets), so the depth error is not the sampling footprint slope-scaling models. Not in the
+shader; the reason is written where the constant bias is subtracted.
+
+`pro3d_sim.dsk_illumination` exposes mu0, mu and the lit flag, which is what makes any of
+this askable -- `illumf`'s image is zero exactly where the interesting pixels are.
+`dsk_render` is a two-line wrapper on it, so there is still one ray loop.
+
+**No eclipse shows the DRACO mosaic lit, and no epoch list fixes that.** Over all 188 umbra
+events between 2027-02-01 and 2027-05-01 the sub-solar point sits **94-97 deg** from the
+DRACO footprint centre -- a three-degree spread across three months. An eclipse happens when
+Dimorphos is anti-sunward of Didymos, which pins the sub-solar longitude in the body-fixed
+frame, and the footprint is a fixed patch of that frame. So an eclipse series lights the
+SYNTHETICALLY FILLED hemisphere and its `delit` frames show procedural texture.
+
+The footprint, measured from the OPC's own `LonLatRad` and `DRACO_1` layers: centre **lon
+264.6, lat -1.9**, covering **46.2 %** of the body. `DRACO_1` is the real mosaic and is black
+outside it; `DRACO_2` is the same mosaic with the other 54 % filled in. 137 of the 188
+eclipses have AFC-1 on target, and at the best of them the footprint centre is still 75 deg
+from the disk centre. If the mosaic is what you want to show, it is both facing HERA and lit
+at **138 epochs**, best around **2027-02-28T22:00** (10 deg from disk centre, 11 deg from the
+sub-solar point, 6.70 km, phase 20.5 deg) -- a different series, not an eclipse.
 
 **`check-renderers.py` now compares per footing.** It used to pick "the strongest footing
 both can supply", which for our renders is always the lit region — and that hid the one
@@ -186,9 +228,38 @@ renders an eclipsed epoch fully lit. Two ways to get one:
   comet-toolbox ones in `C:\pro3ddata\HERA\workshop3\ref\`. None of those is at an eclipsed
   epoch, so one would have to be taken.
 
-**2. Re-render both series** with the eclipse on, and re-run `check-renderers.py`.
+**2. Both bodies in one frame — the missing feature.** The occluder is a shadow caster and
+nothing else: it is placed, it is rendered into its own depth map, and it never appears in
+the image. That is a real gap, because the pair is spectacular and reachable. At
+**2027-04-25T03:00–04:00** Didymos is 2.6–3.6° from Dimorphos with an angular diameter of
+**7.1°** — wider than AFC-1's whole 5.5° field — and both are inside the frame; phase drops
+to 0.6°. There are 100+ such epochs (see the `didySep` column of the showcase scan). The
+scene graph already has the occluder's geometry and its placement trafo; putting it in the
+MAIN render as well as the shadow pass is a small change, and it would make transits,
+occultations and mutual events renderable instead of merely computable.
 
-**3. Ship**: push the branch and open the PR.
+**3. A showcase set.** Measured over 2027-02-01 .. 2027-05-01 at 10 min, with the DRACO
+footprint centre at lon 264.6 / lat −1.9 (see section 2):
+
+| what | best epoch | why |
+|---|---|---|
+| **dramatic terminator on real mosaic** | **2027-03-18T11:50** | 4.77 km, phase 58.2°, footprint 2.6° off disk centre, boresight on target. The best frame this tool has produced |
+| closest with the mosaic in view | 2027-04-01T14:20 | 4.47 km, phase 35.7° |
+| closest overall, on target | 2027-04-22T13:00 | 3.88 km — but phase 2.7°, a flat disk |
+| mosaic face-on and lit | 2027-02-28T22:00 | 87.6 % of the lit disk is real DRACO_1 |
+| deep partial eclipse | 2027-04-08T13:18–14:45 | dims to 19 % of unshadowed; rendered, 750 frames at 7 s |
+| both bodies in frame | 2027-04-25T03:00 | **not renderable yet** — see item 2 |
+
+Two traps in there. Epochs the user picks by eye are often **off target** — 2027-03-08T14:15
+has the boresight 5.27° away, so it needs `--pointing lookat`, whose roll is a convention.
+And `--distance` is what makes any of these full-frame: no eclipse gets nearer than 5.5 km,
+where the body is 34 % of the frame width.
+
+**4. Re-render both existing series** with the eclipse on and at `--shadow-bias 0.006`, and
+re-run `check-renderers.py` and `check-lighting.py`. Everything delivered before this branch
+carries the acne.
+
+**5. Ship**: push the branch and open the PR.
 
 **Also open**, not blocking:
 

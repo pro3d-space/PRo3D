@@ -234,6 +234,31 @@ and only the shape model says *how much*, which is the half the light curve is m
 Per-epoch numbers in [`eclipse.json`](images/simulateImage/eclipse.json); regenerate both
 with `python scripts/make-eclipse-figure.py`.
 
+### Which eclipse to render — and what you cannot have
+
+There are **188 umbra events** between 2027-02-01 and 2027-05-01, about two a day, of which
+**137 have AFC-1 actually pointed at Dimorphos**. So there is plenty of choice, and the
+choice is worth making deliberately, because one thing is not available at any of them:
+
+> **No eclipse shows the DRACO mosaic lit.** Over all 188 events the sub-solar point sits
+> **94–97°** from the centre of the DRACO footprint — a three-degree spread across three
+> months. The mosaic is behind the terminator during every single one.
+
+That is the orbit, not the epoch list. An eclipse happens when Dimorphos is anti-sunward of
+Didymos, which pins the sub-solar longitude in the body-fixed frame; the DRACO footprint is
+a fixed patch of that frame, centred at **lon 264.6°, lat −1.9°** and covering **46 % of the
+body** (measured from the OPC's own `LonLatRad` and `DRACO_1` layers — `DRACO_1` is the real
+mosaic, black outside its footprint, while `DRACO_2` is the same mosaic with the remaining
+54 % filled in synthetically).
+
+So an eclipse series lights the **filled** hemisphere, and `delit` frames of it show
+procedural texture rather than DRACO imagery. Nothing is wrong with the render; it is what
+that side of the body is made of in this OPC. If the mosaic itself is what you want to show,
+that is a different series — the DRACO side is both facing HERA and lit at **138 epochs** of
+the phase, best around **2027-02-28T22:00** (footprint centre 10° from the disk centre, 11°
+from the sub-solar point, range 6.70 km, phase 20.5°). Rendering from `--obj` sidesteps the
+question entirely, at the cost of having no texture at all.
+
 ### Caveats
 
 - **The penumbra is approximated by a blur.** The Sun's angular radius at 1.6 AU, across a

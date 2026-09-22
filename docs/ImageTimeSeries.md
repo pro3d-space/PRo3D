@@ -392,6 +392,14 @@ a poor thing to watch end to end. The cadence is uniform because a series with a
 is not a series; the *edit* is where totality gets dropped:
 
 ```
+python scripts/make-series-video.py --series <folder> --variant delit --dark-speedup 12
+```
+
+writes the MP4 directly (through OpenCV, no ffmpeg on PATH needed) and keeps every 12th
+frame while the body is below 15 % of its unshadowed brightness, so ingress and egress stay
+at full cadence and totality becomes a beat rather than a wait. With ffmpeg instead:
+
+```
 # straight through: 30 s, 18 s of it dark
 ffmpeg -framerate 25 -pattern_type glob -i 'delit/*.png' -c:v libx264 -pix_fmt yuv420p eclipse.mp4
 

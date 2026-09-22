@@ -17,6 +17,21 @@ It supersedes the older `opc-tool` (see [Migrating](#migrating-from-opc-tool)).
 | `simulate-image` | Simulated instrument image of a body at a SPICE time, from an OPC or a Wavefront mesh: Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo | **[Pro3DTool-SimulateImage.md](./Pro3DTool-SimulateImage.md)** |
 | `simulate-series` | A whole series of simulated images in one process: many epochs x many shading variants, sharing one shape-model load and one de-shading fit -- 0.12 s a frame against 7 s | **[Pro3DTool-SimulateSeries.md](./Pro3DTool-SimulateSeries.md)** |
 
+## Is it right?
+
+The simulate verbs are checked against renderers that share nothing with PRo3D but the
+kernels, and each check answers a different question and fails for a different reason:
+
+| | what it asks | where |
+|---|---|---|
+| [`scripts/check-lighting.py`](../scripts/check-lighting.py) | Does the **shading** match a SPICE ray-cast of the same mesh — cast shadows, acne, photometry? | [Checking the shading against SPICE](./Pro3DTool-SimulateImage.md#checking-the-shading-against-spice) |
+| [`scripts/check-renderers.py`](../scripts/check-renderers.py) | Does the **geometry** match other people's renderers — comet-toolbox, a SPICE ray-cast, a second PRo3D pipeline? | [ShapeModelCrosscheck.md](./ShapeModelCrosscheck.md#closing-it-rendering-the-dsks-own-shape) |
+| [`scripts/check-series.py`](../scripts/check-series.py) | Does a delivered series still agree with our own ray-cast about which way the detector axes point? | [ImageTimeSeries.md](./ImageTimeSeries.md#validation-is-a-stage-not-a-step-you-remember) |
+
+Rendering from the shape model the kernels themselves ship is what makes the first two
+sharp: the mesh and the DSK are then the same body, so a silhouette comparison comes out
+**exact** (IoU 1.000) and a per-pixel comparison measures the shading rather than the shape.
+
 ## Install
 
 ```
