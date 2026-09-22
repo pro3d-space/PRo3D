@@ -450,6 +450,9 @@ def main():
                          "limb; without it a tessellation of its reference radii is used")
     ap.add_argument("--occluder-obj-scale", default="1000",
                     help="metres per --occluder-obj file unit (default 1000)")
+    ap.add_argument("--occluder-in-scene", action="store_true",
+                    help="draw the occluder in the image too, not only as a shadow caster: "
+                         "both bodies then go through one sun and one photometry")
     ap.add_argument("--obj-texture", default=None,
                     help="image to drape on --obj, for the delit/baked variants. The .png "
                          "beside each .bds in the kernel set is a PREVIEW RENDER, not a map")
@@ -604,6 +607,8 @@ def main():
         if a.occluder_obj:
             eclipse += ["--occluder-obj", a.occluder_obj,
                         "--occluder-obj-scale", a.occluder_obj_scale]
+        if a.occluder_in_scene:
+            eclipse += ["--occluder-in-scene"]
 
     # What the frames were rendered against, for series.json and the README. The product
     # id -- an OPC's .opcx basename, an OBJ's file name -- carries the GSD, the source and
@@ -911,6 +916,7 @@ def main():
             "occluderBody": a.occluder_body,
             "occluderShapeModel": (os.path.abspath(a.occluder_obj) if a.occluder_obj
                                    else ("reference radii" if a.occluder_body else None)),
+            "occluderInScene": bool(a.occluder_in_scene),
         },
         "series": {
             "start": times[0], "end": times[-1],
@@ -996,9 +1002,11 @@ def main():
                           else "%g min" % interval),
                  eclipse=("none -- an eclipsed epoch in this series renders in full daylight"
                           if not a.occluder_body else
-                          "%s, cast from %s" % (a.occluder_body,
-                                                os.path.basename(a.occluder_obj) if a.occluder_obj
-                                                else "its reference radii")),
+                          "%s, cast from %s%s" % (a.occluder_body,
+                                                  os.path.basename(a.occluder_obj) if a.occluder_obj
+                                                  else "its reference radii",
+                                                  " -- and drawn in the image" if a.occluder_in_scene
+                                                  else "")),
                  count=count, span=span,
                  rotations=span / ROTATION_HOURS,
                  rmin=(min(rs) / 1000.0 if rs else 0.0), rmax=(max(rs) / 1000.0 if rs else 0.0),

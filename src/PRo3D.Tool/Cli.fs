@@ -198,6 +198,9 @@ type SimulateImageOptions =
         [<Option("occluder-obj-scale", Default = 1000.0, HelpText = "Metres per --occluder-obj file unit (default 1000, i.e. kilometres)")>]
         occluderObjScale : float
 
+        [<Option("shadow-map", Default = 4096, HelpText = "Edge length of the sun-side depth maps, in texels (default 4096). The target's map is fitted to the target's own bounds, so 4096 over a 180 m body is 6.6 cm a texel -- already finer than the 0.24 m facets of the kernels' shape model and thirty times finer than an OPC post, which is why raising it has no measurable effect. Costs 2 x (n^2 x 8) bytes of VRAM across the two maps: 268 MB at 4096, 1.1 GB at 8192, 4.3 GB at 16384.")>]
+        shadowMap : int
+
         [<Option("occluder-in-scene", HelpText = "Draw --occluder-body in the image too, not only as a shadow caster. Both bodies are then lit by one sun with one photometry, which is what makes a conjunction renderable: at 2027-04-25T03:00 Didymos is 2.6 deg from Dimorphos and 7.1 deg across, wider than AFC-1's whole field. Off by default, because it changes every frame of an existing eclipse series.")>]
         occluderInScene : bool
         [<Option("pointing", HelpText = "Where the camera orientation comes from: 'ck' (default) uses the spacecraft's measured/planned attitude and FAILS if the kernels have none at this epoch; 'lookat' aims the boresight at the body centre with an up-vector roll convention. 'ck' can legitimately produce no image -- if the instrument was pointed elsewhere, the body is not in the frame, and that is the answer, not a fault.")>]
@@ -317,6 +320,9 @@ type SimulateSeriesOptions =
 
         [<Option("occluder-obj-scale", Default = 1000.0, HelpText = "Metres per --occluder-obj file unit (default 1000, i.e. kilometres)")>]
         occluderObjScale : float
+
+        [<Option("shadow-map", Default = 4096, HelpText = "Edge length of the sun-side depth maps, in texels (default 4096). The target's map is fitted to the target's own bounds, so 4096 over a 180 m body is 6.6 cm a texel -- already finer than the 0.24 m facets of the kernels' shape model and thirty times finer than an OPC post, which is why raising it has no measurable effect. Costs 2 x (n^2 x 8) bytes of VRAM across the two maps: 268 MB at 4096, 1.1 GB at 8192, 4.3 GB at 16384.")>]
+        shadowMap : int
 
         [<Option("occluder-in-scene", HelpText = "Draw --occluder-body in the image too, not only as a shadow caster. Both bodies are then lit by one sun with one photometry, which is what makes a conjunction renderable: at 2027-04-25T03:00 Didymos is 2.6 deg from Dimorphos and 7.1 deg across, wider than AFC-1's whole field. Off by default, because it changes every frame of an existing eclipse series.")>]
         occluderInScene : bool

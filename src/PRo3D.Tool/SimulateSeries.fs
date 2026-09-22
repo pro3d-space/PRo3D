@@ -151,7 +151,7 @@ type private ShadowPass =
 
 let private createShadowPass (runtime : IRuntime) (shape : ShapeSource)
                              (projectedImages : aval<Option<Sg.ProjectedImages>>)
-                             (noShadows : bool) : ShadowPass =
+                             (mapSize : int) (noShadows : bool) : ShadowPass =
     let bbox = shape.bbox
     if noShadows then
         let dummy = dummyShadowMap runtime
@@ -162,7 +162,7 @@ let private createShadowPass (runtime : IRuntime) (shape : ShapeSource)
             cleanup = dummy.cleanup
         }
     else
-    let signature, depth, output, cleanup = createShadowTarget runtime (V2i(4096, 4096))
+    let signature, depth, output, cleanup = createShadowTarget runtime (V2i(mapSize, mapSize))
     let viewC = cval Trafo3d.Identity
     let projC = cval Trafo3d.Identity
     let viewProjC = cval M44d.Identity
@@ -402,14 +402,16 @@ let run (o : SimulateSeriesOptions) : int =
                 lightViewProj = AVal.constant None
             })
 
-    let shadow = createShadowPass runtime shape projectedImages o.noShadows
+    Log.line "[shadow] sun depth map %d^2 over %.0f m = %.3f m a texel"
+        o.shadowMap bbox.Size.Length (bbox.Size.Length / float o.shadowMap)
+    let shadow = createShadowPass runtime shape projectedImages o.shadowMap o.noShadows
     // The occluder's own sun-side depth map, built once and re-aimed per epoch like the
     // target's. Created even with --no-shadows: an eclipse is the other body blocking the
     // sun, not the target's self-shadowing, and switching off the one has never been a
     // reason to switch off the other.
     let eclipse =
         match occluderShape with
-        | Some occ -> EclipseShadow.create runtime occ
+        | Some occ -> EclipseShadow.create runtime occ o.shadowMap
         | None -> EclipseShadow.disabled runtime
     let target = SunAnglesVerb.FloatTarget.create runtime size
 

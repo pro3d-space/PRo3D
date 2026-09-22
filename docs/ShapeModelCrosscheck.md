@@ -304,6 +304,44 @@ our OBJ render and 0.856 against our OPC render — the OPC's 1.96 m posts, agai
 pixel of 0.48 m at 5 km, were costing real agreement, and the mesh recovers most of it.
 The remainder is the terminator ceiling above.
 
+## Against an external renderer, both bodies at once
+
+A reference frame of **Didymos at 2027-03-29T03:00:00** was supplied for comparison. It is
+a demanding epoch to agree on: the primary is 6.77 km away and **6.92° across a 5.50° field**,
+so it overflows the frame and the whole test is the position of one limb; and Dimorphos sits
+0.15° off the boresight but 1.14 km *further* away, so it is hidden behind the primary and
+must not appear.
+
+![](images/shapeCrosscheck/externalPair_20270329.png)
+
+| | |
+|---|---|
+| silhouette IoU | **0.974**, raw — no centring, no rescaling |
+| body covers | 64.6 % of the reference frame, 65.0 % of ours |
+| limb column, per row | within −10 … +7 px of 512, most rows within 2–7 |
+| Dimorphos | hidden behind the primary in both |
+
+The alignment is deliberately raw. Both renders come from the same instrument at the same
+FOV, so the frames are directly comparable after a resize, and a body that overflows the
+frame is clipped — re-centring a clipped silhouette is meaningless and would hide exactly the
+disagreement this is looking for.
+
+What is left is mostly shape model: the reference is visibly faceted, ours is the kernels'
+1.16 m SPC Didymos, and the residual drifts monotonically from −10 px at the top of the limb
+to +7 px at the bottom, which is the signature of a small pose or figure difference rather
+than of a camera error. The shading differs more than the geometry does — the reference is
+brighter and flatter — but that is photometry, and this comparison is not about photometry.
+
+Rendered with:
+
+```
+pro3d-tool simulate-image --obj <didymos-obj> --body DIDYMOS --frame DIDYMOS_FIXED     --time 2027-03-29T03:00:00Z --micro-amplitude 0     --occluder-body DIMORPHOS --occluder-obj <dimorphos-obj> --occluder-in-scene
+```
+
+**The provenance of the reference frame is not recorded here** — it was handed over without
+one. Before this table is quoted anywhere, the renderer and its kernel set should be named:
+a 0.974 against an unidentified image is an encouraging number, not evidence.
+
 ## Where PRo3D goes beyond the cross-check
 
 The 17-line ray-tracer is a better *oracle* than PRo3D — it cannot drift, because it never

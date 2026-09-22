@@ -574,8 +574,8 @@ let dummyShadowMap (runtime : IRuntime) : SunShadowMap =
 
 let renderSunShadowMap (runtime : IRuntime) (shape : ShapeSource)
                                (projectedImages : aval<Option<Sg.ProjectedImages>>)
-                               (sunDir : V3d) : SunShadowMap =
-    let signature, depth, output, cleanup = createShadowTarget runtime (V2i(4096, 4096))
+                               (mapSize : int) (sunDir : V3d) : SunShadowMap =
+    let signature, depth, output, cleanup = createShadowTarget runtime (V2i(mapSize, mapSize))
 
     let bbox = shape.bbox
     let center = bbox.Center
@@ -944,10 +944,6 @@ type EclipseShadow =
 
 module EclipseShadow =
 
-    /// 4096^2 over a 1.2 km primary is 0.3 m a texel, against a penumbra measured in
-    /// metres -- the map is not what limits this.
-    let private mapSize = V2i(4096, 4096)
-
     /// No occluder named: a 1x1 far-plane map and a disabled flag. The comparison sampler
     /// still needs something bound, for the same reason `dummyShadowMap` exists.
     let disabled (runtime : IRuntime) : EclipseShadow =
@@ -961,8 +957,8 @@ module EclipseShadow =
             cleanup = dummy.cleanup
         }
 
-    let create (runtime : IRuntime) (occluder : ShapeSource) : EclipseShadow =
-        let signature, depth, output, cleanup = createShadowTarget runtime mapSize
+    let create (runtime : IRuntime) (occluder : ShapeSource) (mapSize : int) : EclipseShadow =
+        let signature, depth, output, cleanup = createShadowTarget runtime (V2i(mapSize, mapSize))
         let modelC = cval Trafo3d.Identity
         let viewC = cval Trafo3d.Identity
         let projC = cval Trafo3d.Identity
@@ -1344,15 +1340,16 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     let shadowMap =
         if o.noShadows then dummyShadowMap runtime
         else
-            Log.line "[shadow] rendering sun depth map (4096^2, ortho over %.0f m)" bbox.Size.Length
-            renderSunShadowMap runtime shape projectedImages sun
+            Log.line "[shadow] rendering sun depth map (%d^2, ortho over %.0f m = %.3f m a texel)"
+                o.shadowMap bbox.Size.Length (bbox.Size.Length / float o.shadowMap)
+            renderSunShadowMap runtime shape projectedImages o.shadowMap sun
 
     // The occluder's own depth map. Created even with --no-shadows: an eclipse is not the
     // target's self-shadowing, it is the other body blocking the sun, and switching off
     // the first has never been a reason to switch off the second.
     let eclipse =
         match occluder with
-        | Some occ when Option.isSome eclipseAt -> EclipseShadow.create runtime occ
+        | Some occ when Option.isSome eclipseAt -> EclipseShadow.create runtime occ o.shadowMap
         | _ -> EclipseShadow.disabled runtime
     eclipse.update eclipseAt sun
 
