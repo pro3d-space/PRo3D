@@ -318,6 +318,9 @@ one series.
 | `--obj <file>` | a Wavefront shape model instead of the OPC; `.obj.gz` works. See [Rendering from a mesh](#rendering-from-a-mesh-instead-of-the-opc) |
 | `--obj-scale <v>` | metres per `--obj` file unit (default `1000`) |
 | `--obj-texture <file>` | image to drape on `--obj`; without it `delit` and `baked` are refused |
+| `--interval-seconds <s>` | cadence in **seconds**, overriding `--interval`. Below a minute this is the honest unit: 8 s as 0.1333.. minutes accumulates float error that truncates a stamp to the wrong second, and the stamp is the filename |
+| `--occluder-body <name>` | cast the other body of the binary as a shadow (`DIDYMOS`). Without it an eclipsed epoch renders in full daylight |
+| `--occluder-obj <file>`, `--occluder-obj-scale <v>` | the occluder's shape model; without one, a tessellation of its reference radii |
 | `--start <iso>` | first epoch, UTC (default `2027-03-21T13:00:00Z`) |
 | `--interval <min>` | cadence in minutes (default `15`) |
 | `--duration <h>` | span in hours (default `11.92`, one rotation) |
@@ -364,6 +367,40 @@ Three things change in the run:
   `provenance.shapeModel` / `shapeModelKind` / `shapeModelProduct`. The old `opc` and
   `opcProduct` keys are still there and are `null` for an OBJ series, so an existing
   consumer does not break but also cannot mistake one series for the other.
+
+## A series at video cadence
+
+A mutual eclipse happens over about ninety minutes, which is short enough to render at a
+cadence a video can use. Worked example — Dimorphos through Didymos' shadow on 2027-02-25:
+
+```
+python scripts/make-image-time-series.py --out <folder>     --start 2027-02-25T10:32:00Z --interval-seconds 8 --count 750     --variants delit,smooth --texture-layer DRACO_2 --gain 4.492     --micro-scale 3.0 --micro-amplitude 0.3     --occluder-body DIDYMOS --occluder-obj <kernels>/dsk/g_01165mm_spc_obj_didy_0000n00000_v003.obj
+```
+
+**750 frames is exactly 30 s at 25 fps**, so the frame count comes first and the cadence
+follows from the span: 750 × 8 s = 100 min, which brackets the event (first contact
+10:36:08, last 12:06) by about five minutes at each end. 1500 frames — both variants —
+render in 212 s.
+
+Why 8 s and not finer: the shadow's edge crosses the body in 16 min, and the body is ~250 px
+wide, so the edge moves **1.9 px a frame** at 8 s. Below about 4 s the motion is smaller
+than the penumbra is wide and nothing is gained; above about 15 s it starts to step.
+
+**Totality is 60 % of it.** The body sits at the ambient floor from 10:52:08 to 11:52:00 —
+450 of the 750 frames, 18 s of a 30 s video. That is the event, not a defect, but it makes
+a poor thing to watch end to end. The cadence is uniform because a series with a hole in it
+is not a series; the *edit* is where totality gets dropped:
+
+```
+# straight through: 30 s, 18 s of it dark
+ffmpeg -framerate 25 -pattern_type glob -i 'delit/*.png' -c:v libx264 -pix_fmt yuv420p eclipse.mp4
+
+# ingress and egress only, totality cut: ~12 s
+ffmpeg -framerate 25 -pattern_type glob -i 'delit/*.png'        -vf "select='lt(n,160)+gte(n,590)',setpts=N/25/TB" -c:v libx264 -pix_fmt yuv420p eclipse-cut.mp4
+```
+
+Frame 160 is 10:53:20 and frame 590 is 11:50:40 — the first and last frames either side of
+totality. `series.json` carries every epoch's stamp, so any other cut is one lookup away.
 
 ## Re-running it
 

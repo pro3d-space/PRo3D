@@ -317,10 +317,11 @@ Rendered from a shape model with PRo3D using SPICE geometry.
 |---|---|
 | kernel | `{mkid}` |
 | shape model | `{opcname}` ({shapekind}) |
+| eclipse | {eclipse} |
 | body / frame | {body} / {frame} |
 | observer / instrument | {observer} / {instrument} |
 | epochs | {start} .. {end} UTC |
-| cadence | {interval:g} min, {count} epochs ({span:.2f} h = {rotations:.2f} rotations) |
+| cadence | {cadence}, {count} epochs ({span:.2f} h = {rotations:.2f} rotations) |
 | range | {rmin:.2f} .. {rmax:.2f} km |
 | image | {width} px, 8-bit greyscale PNG |
 | gain | {gain} (fixed, not auto-exposed) |
@@ -439,6 +440,16 @@ def main():
     ap.add_argument("--obj-scale", default="1000",
                     help="metres per --obj file unit (default 1000: the SPICE DSK shape "
                          "models are in kilometres)")
+    ap.add_argument("--occluder-body", default=None,
+                    help="cast the other body of the binary as a shadow -- 'DIDYMOS' when "
+                         "rendering Dimorphos. Without it an eclipsed epoch renders in full "
+                         "daylight, and Dimorphos is inside Didymos' umbra for ~12 %% of the "
+                         "close-orbit phase")
+    ap.add_argument("--occluder-obj", default=None,
+                    help="the occluder's shape model, so the shadow has the primary's real "
+                         "limb; without it a tessellation of its reference radii is used")
+    ap.add_argument("--occluder-obj-scale", default="1000",
+                    help="metres per --occluder-obj file unit (default 1000)")
     ap.add_argument("--obj-texture", default=None,
                     help="image to drape on --obj, for the delit/baked variants. The .png "
                          "beside each .bds in the kernel set is a PREVIEW RENDER, not a map")
@@ -448,6 +459,11 @@ def main():
                          "loaded kernels' coverage" % DEFAULT_START)
     ap.add_argument("--interval", type=float, default=15.0,
                     help="cadence in minutes (default 15)")
+    ap.add_argument("--interval-seconds", type=float, default=None,
+                    help="cadence in SECONDS, overriding --interval. For a video cadence: "
+                         "8 s expressed as 0.1333.. minutes accumulates float error that "
+                         "truncates a stamp to the wrong second, and the stamp is the "
+                         "filename")
     ap.add_argument("--duration", type=float, default=ROTATION_HOURS,
                     help="span in hours (default %.2f, one Dimorphos rotation); ignored "
                          "when --count is given" % ROTATION_HOURS)
@@ -516,12 +532,20 @@ def main():
     except ValueError:
         print("--start is not an ISO-8601 time: %s" % a.start)
         return 2
-    if a.interval <= 0:
+    # Seconds are the honest unit below about a minute; --interval stays the default
+    # because every existing series is expressed in minutes.
+    step_s = a.interval_seconds if a.interval_seconds else a.interval * 60.0
+    if step_s <= 0:
         print("--interval must be positive")
         return 2
+    a.interval = step_s / 60.0
 
-    count = a.count if a.count else max(1, int(round(a.duration * 60.0 / a.interval)))
-    epochs = [start + datetime.timedelta(minutes=a.interval * i) for i in range(count)]
+    count = a.count if a.count else max(1, int(round(a.duration * 3600.0 / step_s)))
+    # integer seconds where the cadence is integral, so a stamp cannot land a second off
+    if abs(step_s - round(step_s)) < 1e-9:
+        epochs = [start + datetime.timedelta(seconds=int(round(step_s)) * i) for i in range(count)]
+    else:
+        epochs = [start + datetime.timedelta(seconds=step_s * i) for i in range(count)]
     span = (epochs[-1] - epochs[0]).total_seconds() / 3600.0
 
     variants = [v.strip().lower() for v in a.variants.split(",") if v.strip()]
@@ -572,6 +596,14 @@ def main():
         shape += ["--obj-texture", a.obj_texture]
     common = shape + ["--body", "DIMORPHOS", "--frame", "DIMORPHOS_FIXED",
                       "--observer", "HERA", "--instrument", "HERA_AFC-1"]
+    # The occluder goes only to the RENDER, never to the scene or layer queries: it is a
+    # shadow caster, not part of the body being imaged.
+    eclipse = []
+    if a.occluder_body:
+        eclipse = ["--occluder-body", a.occluder_body]
+        if a.occluder_obj:
+            eclipse += ["--occluder-obj", a.occluder_obj,
+                        "--occluder-obj-scale", a.occluder_obj_scale]
 
     # What the frames were rendered against, for series.json and the README. The product
     # id -- an OPC's .opcx basename, an OBJ's file name -- carries the GSD, the source and
@@ -692,6 +724,7 @@ def main():
             # variant that uses it, and the other two never sample the texture. A mesh
             # has no layers -- it draws --obj-texture, already in `shape`.
             args += ["--deshade-layer", a.texture_layer]
+        args += eclipse
         if a.albedo:
             args += ["--albedo", a.albedo]
         if a.distance:
@@ -875,10 +908,14 @@ def main():
             "observer": "HERA", "instrument": "HERA_AFC-1",
             "imageSize": [1020, 1020],
             "textureLayer": a.texture_layer,
+            "occluderBody": a.occluder_body,
+            "occluderShapeModel": (os.path.abspath(a.occluder_obj) if a.occluder_obj
+                                   else ("reference radii" if a.occluder_body else None)),
         },
         "series": {
             "start": times[0], "end": times[-1],
-            "intervalMinutes": interval, "epochs": count,
+            "intervalMinutes": interval, "intervalSeconds": round(interval * 60.0, 3),
+            "epochs": count,
             "spanHours": round(span, 3),
             "rotations": round(span / ROTATION_HOURS, 3),
             "rotationPeriodHours": ROTATION_HOURS,
@@ -953,7 +990,16 @@ def main():
                  # whoever receives the data
                  opcname=shape_product,
                  start=times[0], end=times[-1],
-                 interval=interval, count=count, span=span,
+                 # a video cadence in minutes reads as "0.133333 min"; below a minute the
+                 # honest unit is seconds
+                 cadence=("%g s" % round(interval * 60.0, 3) if interval < 1.0
+                          else "%g min" % interval),
+                 eclipse=("none -- an eclipsed epoch in this series renders in full daylight"
+                          if not a.occluder_body else
+                          "%s, cast from %s" % (a.occluder_body,
+                                                os.path.basename(a.occluder_obj) if a.occluder_obj
+                                                else "its reference radii")),
+                 count=count, span=span,
                  rotations=span / ROTATION_HOURS,
                  rmin=(min(rs) / 1000.0 if rs else 0.0), rmax=(max(rs) / 1000.0 if rs else 0.0),
                  width="1020x1020", gain=a.gain,
