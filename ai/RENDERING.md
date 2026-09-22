@@ -72,24 +72,7 @@ Each surface picks its variant through `ViewerUtils.surfaceEffectPool`, an Aardv
 
 That one link costs ~6 s, and the layout is exactly what GL keys its on-disk programs by, so it is stored next to the shader cache (`<ShaderCachePath>/PRo3D.EffectInputLayouts`). A **cold** start (first after a shader change) links once; a **warm** start links nothing at all.
 
-**Adding a stage to the surface effect:** if it reads `LocalNormal`, it only works on surfaces that keep the geometry stage. If it adds a new vertex input, check `SurfaceEffectVariantTest`.
-
-### One return per fragment stage
-
-**Write every fragment stage with a single `return` and a mutable accumulator**, never `if cond then return a else return b`:
-
-```fsharp
-fragment {
-    let mutable c = v.c
-    if uniform.SomethingEnabled then
-        c <- ...
-    return c
-}
-```
-
-FShade inlines the *rest of the effect* once per return path of a stage, so the generated GLSL is the **product** of the return counts down the stack, not their sum ([krauthaufen/FShade#39](https://github.com/krauthaufen/FShade/issues/39)). The OPC surface effect has ~28 stages; with a handful of two-return stages it generated **21971 lines with 861 copies of the last stage**, taking tens of seconds per variant to compile and producing a fragment shader no driver is happy with. Rewriting every stage to a single return brought the same effect to **~1000 lines**, cold codegen for all four variants from minutes to **8 s**, and GL compile to **3 s** (warm: 0.1 s).
-
-`SurfaceEffectVariantTest` pins the GLSL size so a reintroduced second return fails a test instead of quietly halving start-up speed.
+**Adding a stage to the surface effect:** if it reads `LocalNormal`, it only works on surfaces that keep the geometry stage. If it adds a new vertex input, check `SurfaceEffectVariantTest`. The effect's composition time grows faster than its stage count, so measure a cold start.
 
 ---
 
