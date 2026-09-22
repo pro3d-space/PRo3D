@@ -24,6 +24,8 @@ nuget Aardvark.Rendering.GL                 ~> 5.6.9
 nuget Aardvark.GPGPU                        ~> 5.6.9
 nuget Aardvark.SceneGraph.Assimp            ~> 5.6.9
 
+nuget FShade                                ~> 5.7.19
+
 nuget Aardvark.Geometry.Intersection        ~> 5.5.0
 nuget Aardvark.Geometry.PointTree           ~> 5.5.0
 nuget Aardvark.Geometry.PolyMesh            ~> 5.5.0
