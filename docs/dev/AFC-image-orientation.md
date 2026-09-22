@@ -253,6 +253,31 @@ What the pictures show that the numbers did not:
 - **Her frames have interior holes** (magenta speckles at 14:15 and 14:45): pixels below
   the threshold inside the body. Worth knowing before trusting her masks for area work.
 
+## comet-toolbox as the reference, traced onto everyone else
+
+![golden reference](../images/afcOrientation/golden-reference.png)
+
+comet-toolbox's lit-region outline in yellow, drawn over every other renderer's frame for
+the same epoch, all normalised to a common centre and scale. Where a body fills its
+outline the two agree; where yellow stands off the limb they do not.
+
+| epoch | ours: SPICE on the DSK | ours: PRo3D on the OPC |
+|---|---|---|
+| 07:45 | **0.957** | 0.857 |
+| 09:00 | **0.981** | 0.892 |
+| 10:30 | **0.981** | 0.971 |
+| 14:45 | **0.945** | 0.903 |
+
+At 07:45 the yellow line runs through the boulder field along the lower limb; the DSK
+column has those boulders, the OPC column has smoothed them into a curve.
+
+One caveat the picture cannot state for itself: comet-toolbox shades, so its outline is
+the **lit region**. Over our shaded frames that is like for like. Over Pilucas' frame it is
+not — she does not light her output, so her disk is the whole body and the yellow line
+marks where the terminator would fall. That is also why `check-renderers.py` reports
+*no overlap* for comet against Pilucas: he always shades, she never lights, and there is
+no footing they share.
+
 ## The remaining difference against comet-toolbox is the shape model
 
 ![shape model comparison](../images/afcOrientation/shape-model.png)
