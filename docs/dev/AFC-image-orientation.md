@@ -56,6 +56,34 @@ Against comet-toolbox (screenshots at five epochs) and Pilucas' COP set
 Our `--no-lighting` variant exists for exactly this: against an unlit reference, shading is
 only a source of disagreement.
 
+### Pilucas is not an independent renderer
+
+**She drives PRo3D itself, through sequenced bookmarks.** Both sets of frames therefore
+come from the same renderer, the same OPC shape model and — measured above — identical
+kernels. The only variable left is **how the camera is built**: her SPICE extraction
+feeding the viewer, against `simulate-series` going through `getLookAtQuat` and
+`specialTrafos`.
+
+This matters for everything below. Two of the three "renderers" are one renderer, so the
+count of independent implementations we can check against is **one — comet-toolbox** — not
+two. An earlier version of this note leaned on her as corroboration; that was wrong.
+
+It also rules out the explanations that were on the table for the ours-vs-hers residual:
+
+| candidate | status |
+|---|---|
+| kernel delivery | ruled out — identical to 0.00 m and 0.000000° |
+| shape model | ruled out — same OPC. Testing our OPC against the kernels' finer DSK changes the agreement with her by ±0.01 either way, i.e. nothing |
+| time offset | ruled out — best-fit shifts of −8, −10, +8 min with negligible IoU gain |
+| the renderer | ruled out — it is PRo3D on both sides |
+
+What remains is the camera. The body centres agree to 1–2 px, so the pointing is
+essentially identical, but the silhouette area oscillates by ±6 % across the day with the
+same shape — which is what a small attitude difference does as an elongated body turns.
+**One of the two camera paths is slightly wrong, and this comparison is the way to find
+out which.** That is a better use of her frames than treating them as an external
+reference.
+
 ### (a) Why Pilucas never had the 90° problem
 
 She has no axis-remap step to get wrong. Her camera basis *is* the SPICE frame:
@@ -74,11 +102,10 @@ nothing to get wrong.
 
 Her code does treat body and camera asymmetrically — `pxform('DIMORPHOS_FIXED','J2000')`
 is transposed, `pxform('HERA_AFC-1','J2000')` is not — which on paper inverts the body's
-attitude. The images say otherwise: if her Dimorphos attitude were inverted, the body
-would appear to rotate the wrong way, and over ten samples from 06:30 to 11:00 hers and
-ours turn in the **same sense** (−48.0° against −47.3°, mean agreement 4.0°). Whatever her
-renderer's matrix convention is, it accounts for it. Reading code is not evidence;
-the measurement is.
+attitude. The images rule that out: an inverted attitude is a rotation of 2θ, with θ the
+full J2000→body angle, so the body would present a completely different face. At 15:00 our
+silhouettes overlap at IoU 0.974. Her matrix convention evidently absorbs the transpose.
+Reading code is not evidence; the measurement is.
 
 ### (b) The residual few degrees
 
