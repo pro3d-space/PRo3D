@@ -152,6 +152,55 @@ silhouettes **370 836 vs 370 826** lit pixels (0.003 % — the OPC and the OBJ a
 shape), mean DN **138.8 → 153.0**, spread **12.2 → 27.8**. A body that gained *pattern*, not
 brightness. That is the test for the exposure rule below.
 
+### Sidecar conventions — ours against the delivered COP set
+
+Measured 2026-09-23, our `COP-2027-v2` against `C:\pro3ddata\HERA\workshop3\COP`, both
+checked against SPICE with our kernels. **Four things differ, and only one of them is a
+mistake.** Anything that consumes both must be told which convention it is reading.
+
+Ours, over 40 sampled sidecars:
+
+| | |
+|---|---|
+| `TRG_POS` vs `spkpos(TARGET, et, "J2000", "NONE", "HERA")` | **0.0000 mm** median and max |
+| `SC_QUAT` vs `m2q(pxform("HERA_AFC-1", "J2000", et))` | **1.1e-16** median, 3.9e-16 max |
+| the target off the +Z boresight, `A.T @ û` | 0.147° median, 3.04° max — which is the CK's own offset, not an error of ours |
+
+So ours is: target-from-spacecraft, J2000, **kilometres**, and the quaternion is
+instrument→J2000 scalar-first, reproducing SPICE bit for bit.
+
+Theirs, over the same test:
+
+| | ours | the delivered COP set |
+|---|---|---|
+| units | km, and the comment says km | **metres**, and the comment still says km (`SUN_POS` is exactly ours × 1000) |
+| what `TRG_POS` is | the target, from the spacecraft | the **spacecraft, from the body** — negated |
+| which body it is centred on | the frame's own `TARGET` | **always Didymos** |
+| `SC_QUAT` | `m2q(inst→J2000)` | its **conjugate**, to 1.35e-16 — i.e. J2000→instrument |
+
+**The two sign flips cancel.** Their quaternion is the inverse rotation *and* their vector
+points the other way, so `A · (−û)` lands on +Z and their sidecar is internally coherent. A
+reader who knows the convention gets a correct boresight out of it. It is a different
+convention, not a broken one.
+
+**Centring is the real defect.** `TRG_POS` is Didymos-relative in every frame sampled,
+including the 14 of 40 whose own `TARGET` field says `Dimorphos`. Where the instrument is
+genuinely on Dimorphos that vector is **9.6° off the boresight**, against a 5.5° field — so
+the named target is not in the frame the sidecar describes. A projector that follows the
+sidecar faithfully follows it off the body.
+
+**A residual 1.2 m remains** (0.02 % of a 6.8 km range; mean offset (−0.10, 0.90, 0.26) m,
+std 0.4 m). It is not aberration — `NONE` fits better than `LT`, `LT+S` and `CN+S`. It is
+the kernel delivery: their set ships *HERA Dataset v182 — Planning 20260817_001*, ours is
+*v182_20260820_001*. Same dataset version, three days apart in planning. Consistent with
+what this branch measured earlier: "same v182" says very little.
+
+**For a rebuild:** keep our convention, because it is the one that round-trips through SPICE
+with no sign to remember, and put the convention in the sidecar rather than in a reader's
+head. If interoperating with the delivered set matters, write the conversion as an explicit
+adapter — negate, conjugate, scale by 1000, and re-centre on the frame's own `TARGET` — and
+never as a flag on the writer.
+
 ---
 
 ## 3. The four decisions worth carrying over
