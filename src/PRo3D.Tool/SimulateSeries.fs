@@ -364,12 +364,28 @@ let run (o : SimulateSeriesOptions) : int =
     Log.line "[shape] %s" shape.describe
 
     match (if String.IsNullOrWhiteSpace o.occluderBody then Ok None
-           else ShapeSource.occluder o.occluderObj o.occluderObjScale
-                    EclipseOccluder.didymosRadii |> Result.map Some) with
+           else ShapeSource.occluder runtime o.occluderBody o.occluderOpc o.occluderObj
+                    o.occluderObjScale EclipseOccluder.didymosRadii |> Result.map Some) with
     | Result.Error e -> Log.error "[eclipse] %s" e; 1
     | Ok occluderShape ->
 
     let bbox = shape.bbox
+
+    // The primary's own exposure, when --occluder-texture-albedo draws it with its texture.
+    // Its own and not the target's: the two bodies carry different mosaics at different
+    // mean levels. Once for the run, like the fit below -- no epoch enters it.
+    let occluderRawScale =
+        if not o.occluderTextureAlbedo then None
+        else
+            match occluderShape |> Option.bind (fun occ -> occ.meanTextureBrightness ()) with
+            | Some m when m > 0.0 ->
+                Log.line "[eclipse] %s drawn with its own texture as albedo (mean texel %.3f, scale %.3f)"
+                    o.occluderBody m (o.albedo / m)
+                Some (float32 (o.albedo / m))
+            | _ ->
+                Log.warn "[eclipse] --occluder-texture-albedo: %s has no texture this can \
+                          measure; drawing it at the constant albedo instead" o.occluderBody
+                None
 
     // Once for the whole series: the fit solves for the baked light direction against a
     // per-vertex layer (OPC) or the texture (mesh). No epoch, camera or sun enters it, so
@@ -441,7 +457,7 @@ let run (o : SimulateSeriesOptions) : int =
             | Some occ when o.occluderInScene ->
                 Log.line "[eclipse] %s is in the scene as well as casting" o.occluderBody
                 Sg.ofList [ opc
-                            occluderSg occ target.signature projectedImages
+                            occluderSg occ target.signature projectedImages occluderRawScale
                                 (occluderPlacementC :> aval<_>) (occluderVisibleC :> aval<_>) ]
             | _ -> opc
 

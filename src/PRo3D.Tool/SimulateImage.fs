@@ -306,6 +306,37 @@ let fitBakedLight (basePath : string) (layerName : string) (albedo : float) : Re
 
     fitFromSamples albedo candidates
 
+/// The mean brightness of an image, 0..1, or None when it cannot be read.
+///
+/// `--texture-albedo` needs exactly this one number out of everything the de-shading fit
+/// produces: the scale that maps the mean texel to the nominal albedo, so that a textured
+/// frame and a constant-albedo one differ in the PATTERN of albedo rather than in exposure.
+/// The fit reports it as well, but it also needs per-vertex normals and a per-vertex
+/// brightness layer, and a textured OPC does not have to ship either -- the Didymos OPC
+/// that carries a mosaic has neither, and before this it could only be drawn unlit.
+let meanBrightnessOf (path : string) : Option<float> =
+    try
+        let pi = PixImage.Load(path).ToPixImage<byte>(Col.Format.Gray)
+        let d = pi.Volume.Data
+        if d.Length = 0 then None
+        else
+            let mutable sum = 0.0
+            for i in 0 .. d.Length - 1 do
+                sum <- sum + float d.[i]
+            Some (sum / (255.0 * float d.Length))
+    with e ->
+        Log.warn "[texture] cannot read %s: %s" (Path.GetFileName path) e.Message
+        None
+
+/// The texture file an OPC's root patch draws, as its `patch.xml` names it.
+let opcTexturePath (basePath : string) : Option<string> =
+    try
+        let root = rootPatchOf basePath
+        match root.info.Textures with
+        | [] -> None
+        | _ -> Some (Patch.extractTexturePath (OpcPaths.OpcPaths basePath) root.info 0)
+    with _ -> None
+
 // ---------------------------------------------------------------------------------
 // Where the geometry comes from.
 //
@@ -349,6 +380,12 @@ type ShapeSource =
         /// a mesh fits against its own texture and ignores it) and the nominal albedo.
         fitBakedLight : string -> float -> Result<DeshadeFit, string>
 
+        /// Mean brightness of this shape's texture, 0..1, or None when it has none or it
+        /// cannot be read. Only the exposure of `--texture-albedo` depends on it, which is
+        /// why it is separate from the fit above: a shape can be drawable with its texture
+        /// as albedo without being de-shadeable. Evaluated at most once per run.
+        meanTextureBrightness : unit -> Option<float>
+
         /// One line naming the shape model, for the log.
         describe : string
     }
@@ -359,6 +396,11 @@ module ShapeSource =
     /// build.
     let ofOpc (runtime : IRuntime) (body : string) (hierarchies : string[])
               (textureLayer : Option<int>) (bbox : Box3d) : ShapeSource =
+        // lazy, not eager: a mosaic is tens of megapixels and most runs never ask for it,
+        // and a series would otherwise re-read it once per frame
+        let opcMean =
+            lazy (hierarchies |> Array.tryHead |> Option.bind opcTexturePath
+                              |> Option.bind meanBrightnessOf)
         {
             build = fun signature projectedImages ->
                 let runner = SunAnglesVerb.loadRunner runtime
@@ -377,6 +419,7 @@ module ShapeSource =
                 match Array.tryHead hierarchies with
                 | None -> Result.Error "no patch hierarchy to fit the de-shading on"
                 | Some h -> fitBakedLight h layerName albedo
+            meanTextureBrightness = fun () -> opcMean.Force()
             describe =
                 sprintf "OPC, %d hierarch%s" hierarchies.Length
                     (if hierarchies.Length = 1 then "y" else "ies")
@@ -386,6 +429,7 @@ module ShapeSource =
     /// its material map in a `.mtl`, and the shape models that make this verb worth having
     /// ship neither.
     let ofObj (mesh : ObjShape.Mesh) (texture : Option<string>) : ShapeSource =
+        let objMean = lazy (texture |> Option.bind meanBrightnessOf)
         {
             build = fun _ projectedImages -> ObjShape.sg mesh texture projectedImages
             bbox = mesh.bbox
@@ -398,6 +442,7 @@ module ShapeSource =
                                            illumination to fit" (Path.GetFileName mesh.source))
                 | Some t ->
                     ObjShape.deshadeSamples mesh t |> Result.bind (fitFromSamples albedo)
+            meanTextureBrightness = fun () -> objMean.Force()
             describe =
                 sprintf "OBJ %s, %d triangles, %.1f x %.1f x %.1f m%s"
                     (Path.GetFileName mesh.source) (mesh.index.Length / 3)
@@ -463,15 +508,26 @@ module ShapeSource =
 
     /// The shadow caster of a binary.
     ///
-    /// A mesh when one is named, otherwise a tessellation of the body's reference radii --
-    /// which is a shape model too, just a coarse one. Making the fallback geometry rather
-    /// than an analytic special case is what keeps ONE eclipse path: the ellipsoid and the
-    /// real primary go through the same depth pass and the same lookup, so there is no
-    /// second implementation to drift.
+    /// An OPC or a mesh when one is named, otherwise a tessellation of the body's reference
+    /// radii -- which is a shape model too, just a coarse one. Making the fallback geometry
+    /// rather than an analytic special case is what keeps ONE eclipse path: the ellipsoid
+    /// and the real primary go through the same depth pass and the same lookup, so there is
+    /// no second implementation to drift.
+    ///
+    /// An OPC costs more than the OBJ of the same body and resolves no better as a shadow
+    /// caster, so it is worth passing for one reason: it can carry a texture, and the OBJs
+    /// these shape models ship have no texture coordinates at all. That is the difference
+    /// between a primary that is a grey shape in the frame and one that has a surface.
     ///
     /// The bbox here is the occluder's own LOCAL bounds; `EclipseOccluder.at` places it.
-    let occluder (obj : string) (objScale : float) (radii : V3d) : Result<ShapeSource, string> =
-        if String.IsNullOrWhiteSpace obj then
+    let occluder (runtime : IRuntime) (body : string) (opc : string) (obj : string)
+                 (objScale : float) (radii : V3d) : Result<ShapeSource, string> =
+        if not (String.IsNullOrWhiteSpace opc) then
+            if not (String.IsNullOrWhiteSpace obj) then
+                Result.Error "--occluder-opc and --occluder-obj are two shape models of the \
+                              same body; pass one of them"
+            else resolve runtime body opc "" objScale "" None
+        elif String.IsNullOrWhiteSpace obj then
             Ok (ofObj (ObjShape.ellipsoid radii 64) None)
         else
             ObjShape.read obj objScale |> Result.map (fun mesh -> ofObj mesh None)
@@ -489,16 +545,24 @@ module ShapeSource =
 /// well be drawing a de-shaded mosaic, and the primary must not be de-shaded against the
 /// black stand-in texture bound for it.
 ///
+/// `rawScale` turns the primary's own texture into its albedo (`--occluder-texture-albedo`).
+/// Its own scale, not the target's: the two bodies carry different mosaics at different
+/// mean levels, and borrowing one exposure for both is how the primary comes out several
+/// times too bright. Still no de-shading -- see the flag's help for why the textured
+/// Didymos OPC has nothing to divide out.
+///
 /// `visible` exists because the placement comes from SPICE, which can fail at an epoch the
 /// target still renders at. A missing occluder then disappears rather than freezing at
 /// wherever it was last seen.
 let occluderSg (shape : ShapeSource) (signature : IFramebufferSignature)
                (projectedImages : aval<Option<Sg.ProjectedImages>>)
+               (rawScale : Option<float32>)
                (placement : aval<Trafo3d>) (visible : aval<bool>) : ISg =
     shape.build signature projectedImages
     |> Sg.trafo placement
     |> Sg.uniform' "DeshadeEnabled" false
-    |> Sg.uniform' "TextureAlbedo" false
+    |> Sg.uniform' "TextureAlbedo" (Option.isSome rawScale)
+    |> Sg.uniform' "RawTextureScale" (Option.defaultValue 1.0f rawScale)
     |> Sg.uniform' "TextureOnly" false
     |> Sg.onOff visible
 
@@ -1263,6 +1327,27 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         if not (o.deshade || o.textureAlbedo) then None
         else fitOrFallBack shape layerName o.albedo
 
+    // What the primary is drawn with, when --occluder-in-scene puts it in the frame.
+    //
+    // Only the LEVEL comes from its texture -- the mean texel maps to the nominal albedo,
+    // exactly as --texture-albedo does for the target. Nothing is divided out, and not for
+    // want of a fit: the textured Didymos OPC carries a global lunar mosaic, whose
+    // brightness follows that shape's normals at r = 0.22 against an amplitude of 0.055 on
+    // an ambient of 0.61. There is no single baked light direction in it to remove, because
+    // the relief the shading belongs to is not this body's.
+    let occluderRawScale =
+        if not o.occluderTextureAlbedo then None
+        else
+            match occluder |> Option.bind (fun occ -> occ.meanTextureBrightness ()) with
+            | Some m when m > 0.0 ->
+                Log.line "[eclipse] %s drawn with its own texture as albedo (mean texel %.3f, scale %.3f)"
+                    o.occluderBody m (o.albedo / m)
+                Some (float32 (o.albedo / m))
+            | _ ->
+                Log.warn "[eclipse] --occluder-texture-albedo: %s has no texture this can \
+                          measure; drawing it at the constant albedo instead" o.occluderBody
+                None
+
     // The other body of the binary, if one was named: without it an eclipsed epoch
     // renders as full daylight.
     let eclipseAt =
@@ -1369,7 +1454,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                         (2.0 * atan (0.5 * occ.bbox.Size.NormMax /
                                      max 1.0 (cam.view.Forward.TransformPos e.centre).Length)))
                 Sg.ofList [ opc
-                            occluderSg occ target.signature projectedImages
+                            occluderSg occ target.signature projectedImages occluderRawScale
                                 (AVal.constant e.toTarget) (AVal.constant true) ]
             | Some _, None when o.occluderInScene ->
                 Log.warn "[eclipse] --occluder-in-scene: %s could not be placed at this epoch"
@@ -1637,8 +1722,8 @@ let run (o : SimulateImageOptions) : int =
         // The shadow caster of the binary, when one was named. Resolved here so a bad
         // --occluder-obj is a message rather than a frame rendered in full daylight.
         match (if String.IsNullOrWhiteSpace o.occluderBody then Ok None
-               else ShapeSource.occluder o.occluderObj o.occluderObjScale
-                        EclipseOccluder.didymosRadii |> Result.map Some) with
+               else ShapeSource.occluder runtime o.occluderBody o.occluderOpc o.occluderObj
+                        o.occluderObjScale EclipseOccluder.didymosRadii |> Result.map Some) with
         | Result.Error e -> Log.error "[eclipse] %s" e; 1
         | Ok occluder ->
 

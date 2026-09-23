@@ -201,6 +201,9 @@ bug.
 | `--occluder-body <name>` | cast the other body of a binary as a shadow; its own depth map, re-aimed per epoch. See [Eclipse by the other body](./Pro3DTool-SimulateImage.md#eclipse-by-the-other-body) |
 | `--occluder-frame <name>` | its body-fixed frame (default `<body>_FIXED`) |
 | `--occluder-obj <file>`, `--occluder-obj-scale <v>` | its shape model; without one, a tessellation of its reference radii |
+| `--occluder-opc <dir>` | its shape model as an OPC instead, which is the only way it can carry a texture |
+| `--occluder-in-scene` | draw it in the **image** too, not only as a shadow caster |
+| `--occluder-texture-albedo` | with `--occluder-in-scene`, draw it with that texture as albedo, at its own exposure. See [Giving the primary a surface](./Pro3DTool-SimulateImage.md#giving-the-primary-a-surface) |
 | `--max-reprojection-error <px>` | how far a frame's own sidecar may sit from the camera that rendered it (default 0.1) |
 | `--day-folders` | split each variant folder by UTC date (`<variant>/yyyy-MM-dd/`) — an 85-day set is thousands of files and one flat directory is not navigable |
 | `--shadow-map <n>` | edge length of the sun-side depth maps (default 4096); see [`--shadow-bias`](./Pro3DTool-SimulateImage.md#-shadow-bias-was-measured-not-guessed) |

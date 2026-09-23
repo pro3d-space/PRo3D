@@ -192,6 +192,9 @@ type SimulateImageOptions =
         [<Option("occluder-frame", HelpText = "Body-fixed frame of --occluder-body (default: <body>_FIXED)")>]
         occluderFrame : string
 
+        [<Option("occluder-opc", HelpText = "Shape model of --occluder-body as an OPC directory, instead of --occluder-obj. Worth the extra cost for one reason: an OPC can carry a texture and the shape-model OBJs have no texture coordinates, so with --occluder-in-scene this is the difference between a grey primary and one with a surface. See --occluder-texture-albedo.")>]
+        occluderOpc : string
+
         [<Option("occluder-obj", HelpText = "Shape model of --occluder-body as a Wavefront OBJ (`.obj.gz` works), so the eclipse is cast by the primary's real shape. Without it the occluder is a tessellation of the body's reference radii, which puts ingress and egress within seconds but cannot give the shadow's edge the right shape.")>]
         occluderObj : string
 
@@ -200,6 +203,9 @@ type SimulateImageOptions =
 
         [<Option("shadow-map", Default = 4096, HelpText = "Edge length of the sun-side depth maps, in texels (default 4096). The target's map is fitted to the target's own bounds, so 4096 over a 180 m body is 6.6 cm a texel -- already finer than the 0.24 m facets of the kernels' shape model and thirty times finer than an OPC post, which is why raising it has no measurable effect. Costs 2 x (n^2 x 8) bytes of VRAM across the two maps: 268 MB at 4096, 1.1 GB at 8192, 4.3 GB at 16384.")>]
         shadowMap : int
+
+        [<Option("occluder-texture-albedo", HelpText = "Draw --occluder-body with its own texture as albedo (needs --occluder-opc and --occluder-in-scene). Only the level is taken from the texture -- its mean texel maps to --albedo, so the primary is exposed like the target rather than several times brighter. Nothing is de-shaded: the textured Didymos OPC carries a global lunar mosaic, whose brightness follows that shape's normals at r = 0.22, so there is no baked light direction in it to divide out.")>]
+        occluderTextureAlbedo : bool
 
         [<Option("occluder-in-scene", HelpText = "Draw --occluder-body in the image too, not only as a shadow caster. Both bodies are then lit by one sun with one photometry, which is what makes a conjunction renderable: at 2027-04-25T03:00 Didymos is 2.6 deg from Dimorphos and 7.1 deg across, wider than AFC-1's whole field. Off by default, because it changes every frame of an existing eclipse series.")>]
         occluderInScene : bool
@@ -315,6 +321,9 @@ type SimulateSeriesOptions =
         [<Option("occluder-frame", HelpText = "Body-fixed frame of --occluder-body (default: <body>_FIXED)")>]
         occluderFrame : string
 
+        [<Option("occluder-opc", HelpText = "Shape model of --occluder-body as an OPC directory, instead of --occluder-obj. Worth the extra cost for one reason: an OPC can carry a texture and the shape-model OBJs have no texture coordinates, so with --occluder-in-scene this is the difference between a grey primary and one with a surface. See --occluder-texture-albedo.")>]
+        occluderOpc : string
+
         [<Option("occluder-obj", HelpText = "Shape model of --occluder-body as a Wavefront OBJ (`.obj.gz` works), so the eclipse is cast by the primary's real shape. Without it the occluder is a tessellation of the body's reference radii, which puts ingress and egress within seconds but cannot give the shadow's edge the right shape.")>]
         occluderObj : string
 
@@ -323,6 +332,9 @@ type SimulateSeriesOptions =
 
         [<Option("shadow-map", Default = 4096, HelpText = "Edge length of the sun-side depth maps, in texels (default 4096). The target's map is fitted to the target's own bounds, so 4096 over a 180 m body is 6.6 cm a texel -- already finer than the 0.24 m facets of the kernels' shape model and thirty times finer than an OPC post, which is why raising it has no measurable effect. Costs 2 x (n^2 x 8) bytes of VRAM across the two maps: 268 MB at 4096, 1.1 GB at 8192, 4.3 GB at 16384.")>]
         shadowMap : int
+
+        [<Option("occluder-texture-albedo", HelpText = "Draw --occluder-body with its own texture as albedo (needs --occluder-opc and --occluder-in-scene). Only the level is taken from the texture -- its mean texel maps to --albedo, so the primary is exposed like the target rather than several times brighter. Nothing is de-shaded: the textured Didymos OPC carries a global lunar mosaic, whose brightness follows that shape's normals at r = 0.22, so there is no baked light direction in it to divide out.")>]
+        occluderTextureAlbedo : bool
 
         [<Option("occluder-in-scene", HelpText = "Draw --occluder-body in the image too, not only as a shadow caster. Both bodies are then lit by one sun with one photometry, which is what makes a conjunction renderable: at 2027-04-25T03:00 Didymos is 2.6 deg from Dimorphos and 7.1 deg across, wider than AFC-1's whole field. Off by default, because it changes every frame of an existing eclipse series.")>]
         occluderInScene : bool

@@ -102,6 +102,8 @@ Output is one 8-bit greyscale PNG at the instrument's native size.
 | `--occluder-frame <name>` | its body-fixed frame (default `<body>_FIXED`) |
 | `--occluder-obj <file>` | its shape model; without one the occluder is a tessellation of its reference radii |
 | `--occluder-obj-scale <v>` | metres per `--occluder-obj` file unit (default `1000`) |
+| `--occluder-opc <dir>` | its shape model as an OPC instead — the only way to give it a texture |
+| `--occluder-texture-albedo` | draw it with that texture as albedo, at its own exposure |
 | `--shadow-bias <v>` | shadow depth bias (default `0.002`) |
 | `--no-lighting` | flat white disk instead of a shaded body — the silhouette, for comparing pointing and shape without shading in the way |
 | `--texture-only` | the OPC's own texture as this camera sees it: no lighting, no de-shading fit |
@@ -201,7 +203,9 @@ The occluder's **geometry is a shape model like any other**:
 | `--occluder-frame <name>` | its body-fixed frame (default `<body>_FIXED`) |
 | `--occluder-obj <file>` | its shape model, `.obj`/`.obj.gz`. The kernels ship one: `dsk/g_01165mm_spc_obj_didy_0000n00000_v003.obj` |
 | `--occluder-obj-scale <v>` | metres per file unit (default `1000`) |
+| `--occluder-opc <dir>` | its shape model as an OPC instead of an OBJ. Costs more and resolves no better as a caster; worth it only because an OPC can carry a texture — see [Giving the primary a surface](#giving-the-primary-a-surface) |
 | `--occluder-in-scene` | draw the occluder in the **image** too, not only as a shadow caster |
+| `--occluder-texture-albedo` | with the two above, draw it with its own texture as albedo |
 
 Without `--occluder-obj` the occluder is a **tessellation of the body's reference radii**
 (Didymos: 409.5 × 400.5 × 303.5 m, hard-coded — `CooTransformation` exposes no `bodvrd`,
@@ -258,6 +262,58 @@ its far plane is one the map holds no information about. That case is explicitly
 lit; before it was, the primary acquired a dark region exactly the shape of the target's
 shadow-map footprint.
 
+<a name="giving-the-primary-a-surface"></a>
+### Giving the primary a surface
+
+`--occluder-obj` draws a grey body, and not for want of shading: the shape models these
+kernels ship are `v`/`f` only, with no texture coordinates at all, so there is nothing to
+map an image onto. `--occluder-opc` takes the primary from an OPC instead, which carries its
+texture, and `--occluder-texture-albedo` uses that texture as the body's albedo.
+
+```
+pro3d-tool simulate-image --opc <dimorphos-opc> --time 2027-04-25T03:30:00Z ^
+    --deshade --deshade-layer DRACO_2 --texture-layer DRACO_2 --micro-amplitude 0 ^
+    --occluder-body DIDYMOS --occluder-opc <didymos-opc> ^
+    --occluder-in-scene --occluder-texture-albedo
+```
+
+![the same eclipse with an untextured and a textured primary](images/simulateImage/texturedPrimary.png)
+
+Both panels are the same epoch, camera, sun and gain, and the target is the same de-lit
+DRACO mosaic on the Dimorphos OPC with the micro-structure off. Only the primary differs.
+Dimorphos is inside Didymos' umbra here, down to a lit crescent, against the primary's limb.
+
+Two things are worth reading off the pair. The silhouettes agree to **370 836 vs 370 826 lit
+pixels — 0.003 %** — because the OPC and the OBJ are the same shape model, so the texture is
+genuinely all that changed. And the exposure holds: the primary's mean DN goes 138.8 → 153.0
+while its spread goes 12.2 → 27.8, which is a body that gained *pattern*, not brightness.
+That is what `--occluder-texture-albedo` normalises for — it maps the mean texel of the
+primary's *own* texture to `--albedo`, rather than borrowing the target's scale, which would
+put the two bodies several times apart.
+
+**No de-shading, on purpose.** The textured mode here is the naive one: the texture is
+albedo and this frame's sun lights it, with nothing divided out. For the Didymos OPC that is
+the honest choice rather than a shortcut — see below.
+
+> **The only textured Didymos OPC available carries a lunar mosaic.** The shape is right:
+> `Didymos_SK_OPC__texture/Didymos_ASPECT_texture` is the product
+> `g_01165mm_spc_obj_didy_0000n00000_v003`, and against `latsrf` on the kernels' own DSK
+> along the same directions it matches to **mean 0.00 m, std 0.00 m, |max| 0.02 m** — it *is*
+> the DSK. Its one texture layer is called `Moon`, and it is the Moon: mare basins, the
+> farside highlands and a visible map seam.
+>
+> It has **no baked light direction to remove**. Its brightness follows *this* shape's
+> normals at **r = 0.22**, with an amplitude of 0.055 on an ambient of 0.61 — the crater
+> shading in it is the Moon's own relief at the Moon's scale, which has nothing to do with
+> where Didymos' surface points. A directional de-shading fit has nothing to fit, which is
+> why this path normalises the level and stops there. (For contrast, the Dimorphos DRACO
+> mosaic fits at r = 0.40, and that one *is* worth dividing out.)
+>
+> So the primary in these frames is textured, not imaged. It is the right silhouette, the
+> right relief and the right photometry with a stand-in surface — fine for a showcase or for
+> exercising the renderer, and not a product anyone should measure Didymos from.
+
+<a name="which-eclipse-to-render"></a>
 ### Which eclipse to render — and what you cannot have
 
 There are **188 umbra events** between 2027-02-01 and 2027-05-01, about two a day, of which
@@ -289,9 +345,9 @@ question entirely, at the cost of having no texture at all.
   1.2 km separation, smears the umbra edge over a few metres; the shader spreads its
   lookup by that width in texels. It is not a real integration over the solar disk, and
   the gradient's shape is a 3×3 kernel's rather than a limb-darkened Sun's.
-- **The occluder is a shadow caster and nothing else.** It is not in the image: if the
-  primary is inside the instrument's field of view it will not appear. Rendering both
-  bodies is a different job.
+- **The primary is not in the image unless you ask.** `--occluder-in-scene` is off by
+  default, so by default an occluder casts a shadow and nothing else, and a primary inside
+  the instrument's field of view will not appear.
 - **No light-time correction** between the two bodies — 4 µs across 1.2 km.
 
 <a name="rendering-from-a-mesh"></a>

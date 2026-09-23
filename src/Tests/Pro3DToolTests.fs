@@ -120,8 +120,10 @@ module private Fixtures =
             // the primary, and an eclipse cast by its own moon is not what they test.
             occluderBody = null
             occluderFrame = null
+            occluderOpc = null
             occluderObj = null
             occluderObjScale = 1000.0
+            occluderTextureAlbedo = false
             occluderInScene = false
             // 'lookat', not the verb's 'ck' default: these fixtures render Didymos from
             // MILANI at epochs the CK does not necessarily cover, and the point of them is
@@ -610,20 +612,45 @@ let private objShapeTests =
 
         test "the occluder falls back to the radii and reads a mesh when given one" {
             let radii = V3d(409.5, 400.5, 303.5)
-            match SimulateImageVerb.ShapeSource.occluder null 1000.0 radii with
+            match SimulateImageVerb.ShapeSource.occluder null "DIDYMOS" null null 1000.0 radii with
             | Result.Error e -> failtest e
             | Result.Ok s ->
                 Expect.equal s.bbox (Box3d(-radii, radii)) "the tessellated radii"
                 Expect.isFalse s.hasTexture "a shadow caster needs none"
             ObjFixtures.inScratch (fun dir ->
                 let path = ObjFixtures.write dir "cube.obj" ObjFixtures.cube
-                match SimulateImageVerb.ShapeSource.occluder path 1000.0 radii with
+                match SimulateImageVerb.ShapeSource.occluder null "DIDYMOS" null path 1000.0 radii with
                 | Result.Error e -> failtest e
                 | Result.Ok s ->
                     Expect.equal s.bbox.Size (V3d(2000.0, 2000.0, 2000.0))
                         "the mesh, not the radii")
-            Expect.isError (SimulateImageVerb.ShapeSource.occluder "Z:/no-such.obj" 1000.0 radii)
+            Expect.isError (SimulateImageVerb.ShapeSource.occluder null "DIDYMOS" null "Z:/no-such.obj" 1000.0 radii)
                 "a missing occluder mesh is an error, not a silent fallback to the radii"
+            // two shape models of one body have no precedence rule worth inventing, the
+            // same as --opc against --obj for the target
+            Expect.isError
+                (SimulateImageVerb.ShapeSource.occluder null "DIDYMOS" "Z:/some.opc" "Z:/some.obj" 1000.0 radii)
+                "--occluder-opc and --occluder-obj together are refused"
+        }
+
+        test "an untextured shape reports no mean brightness, so the textured modes fall back" {
+            let radii = V3d(409.5, 400.5, 303.5)
+            match SimulateImageVerb.ShapeSource.occluder null "DIDYMOS" null null 1000.0 radii with
+            | Result.Error e -> failtest e
+            | Result.Ok s ->
+                Expect.isNone (s.meanTextureBrightness ())
+                    "the tessellated radii carry no texture to expose against"
+            // and a real image does have one, in 0..1
+            ObjFixtures.inScratch (fun dir ->
+                let tex = Path.Combine(dir, "grey.png")
+                let pi = PixImage<byte>(Col.Format.Gray, V2i(8, 8))
+                pi.GetChannel(0L).Set(128uy) |> ignore
+                pi.SaveAsPng tex
+                match SimulateImageVerb.meanBrightnessOf tex with
+                | None -> failtest "a readable image has a mean"
+                | Some m ->
+                    Expect.floatClose Accuracy.medium m (128.0 / 255.0)
+                        "the mean is the texel value, normalised to 0..1")
         }
 
         test "a non-positive scale is refused rather than rendering an inverted body" {
