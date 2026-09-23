@@ -54,10 +54,25 @@ function startBusyIndicator(id, thresholdMs) {
 		if (on) { text.textContent = label + '  ' + (ms / 1000).toFixed(1) + 's'; }
 	};
 
+	// One request at a time. /busy itself cannot block, but the process can stop answering
+	// HTTP for a while (a GC pause, a saturated thread pool). Without this guard the page
+	// would keep queueing 5 requests a second against a browser origin limit of ~6 sockets,
+	// and every other same-origin request - the scripts and stylesheets aardvark pulls in
+	// after a DOM diff - would end up waiting behind them.
+	var inFlight = false;
+	var canTimeout = typeof AbortSignal !== 'undefined' && !!AbortSignal.timeout;
+
 	setInterval(function () {
-		fetch('/busy', { cache: 'no-store' })
+		if (inFlight) { return; }
+		inFlight = true;
+		// the signal has to be built per request - one made up front would fire once and
+		// then abort every later request forever
+		var opts = { cache: 'no-store' };
+		if (canTimeout) { opts.signal = AbortSignal.timeout(2000); }
+		fetch('/busy', opts)
 			.then(function (r) { return r.json(); })
 			.then(function (s) { show(s.busy === true && s.ms >= thresholdMs, s.op, s.ms); })
-			.catch(function () { show(false); });   // shutting down, or gone - never throw
+			.catch(function () { show(false); })    // shutting down, or gone - never throw
+			.then(function () { inFlight = false; });
 	}, 200);
 }
