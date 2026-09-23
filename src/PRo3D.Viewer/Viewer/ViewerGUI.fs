@@ -319,7 +319,30 @@ module Gui =
             ]                              
         ]
     
-    let textOverlaysUserFeedback (m : AdaptiveScene)  = 
+    /// Busy indicator: a small pill that fades in while an update has been blocking longer
+    /// than `Config.busyIndicatorMilliseconds`.
+    ///
+    /// Everything about it is client side, and has to be: during the stall it reports on,
+    /// the server holds `app.lock` and cannot touch this DOM at all, so a model-driven
+    /// indicator could only ever say "that was slow" afterwards. The boot script polls
+    /// `/busy` and animates with CSS. Do not "simplify" this into an adaptive value.
+    /// See docs/BusyIndicator.md.
+    ///
+    /// A function, not a value: the threshold has to be read when the page is built, after
+    /// `Program.fs` has applied `-nobusy` / `-busyms`, not whenever this module happens to
+    /// be initialised.
+    let busyOverlay () : DomNode<'msg> =
+        onBoot (sprintf "startBusyIndicator('__ID__', %d);" Config.busyIndicatorMilliseconds) (
+            // Hidden and inert *inline*, not via the class. `startBusyIndicator` returns
+            // before it injects its stylesheet when the indicator is off (-nobusy), and
+            // an unstyled div would then sit visible in the page's normal flow and could
+            // take a click. The script only ever overrides `display`.
+            div [ clazz "pro3d-busy"; style "display:none; pointer-events:none" ] [
+                div [ clazz "pro3d-busy-spinner" ] []
+                div [ clazz "pro3d-busy-text" ] []
+            ])
+
+    let textOverlaysUserFeedback (m : AdaptiveScene)  =
         div [js "oncontextmenu" "event.preventDefault();"] [ 
             let style' = "color: white; font-family: Roboto Mono; font-size:16;"
             
@@ -2281,6 +2304,8 @@ module Gui =
                             |> UI.map ViewerMessage
                             LayoutApp.UI.dialogs m.layout
                             |> UI.map (LayoutMessage >> ViewerMessage)
+                            // Outermost page, so this one pill covers every docked panel.
+                            busyOverlay ()
                         ]
                     )
                 )

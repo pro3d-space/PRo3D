@@ -2415,14 +2415,46 @@ module ViewerApp =
             m
                    
    //let mutable lastMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
-    let updateInternal 
-        (runtime   : IRuntime) 
-        (signature : IFramebufferSignature) 
-        (sendQueue : BlockingCollection<string>) 
-        (mailbox   : MessagingMailbox) 
-        (m         : Model) 
+    /// The operations worth telling the user about while they block the UI - the stalls
+    /// inventoried in plans/stallFeedback.md. `None` for everything else, so an ordinary
+    /// message never touches the busy cell at all.
+    ///
+    /// `NavigationMessage` is in here for the camera-mode switch, which picks the centre ray
+    /// against every active surface synchronously (`Navigation.pickOrbitCenter`). It also
+    /// fires on every mouse move, which is harmless: the indicator only shows past
+    /// `Config.busyIndicatorMilliseconds`, so ordinary navigation never lights it up.
+    let busyLabel (msg : ViewerAnimationAction) : Option<string> =
+        match msg with
+        | ViewerMessage m ->
+            match m with
+            // fully qualified: several of these names also exist on SurfaceAppAction,
+            // which is opened here and would otherwise win
+            | ViewerAction.NavigationMessage _               -> Some "camera"
+            | ViewerAction.PickSurface _
+            | ViewerAction.PreviewPickSurfaceFinished _      -> Some "picking"
+            | ViewerAction.ImportSurface _
+            | ViewerAction.DiscoverAndImportOpcs _
+            | ViewerAction.ImportDiscoveredSurfacesThreads _ -> Some "importing surfaces"
+            | ViewerAction.LoadScene _
+            | ViewerAction.OpenScene _
+            | ViewerAction.SaveScene _
+            | ViewerAction.SaveAs _                          -> Some "scene file"
+            | ViewerAction.AnnotationExportMessage _         -> Some "exporting annotations"
+            | ViewerAction.DrawingMessage
+                (DrawingAction.ColorByCategoryMessage
+                    ColorByCategoryAction.ResampleSurface)   -> Some "sampling surface"
+            | _                                              -> None
+        | _ -> None
+
+    let updateInternal
+        (runtime   : IRuntime)
+        (signature : IFramebufferSignature)
+        (sendQueue : BlockingCollection<string>)
+        (mailbox   : MessagingMailbox)
+        (m         : Model)
         (msg       : ViewerAnimationAction) =
 
+        Busy.scopeOpt (busyLabel msg) (fun () ->
         match msg with
         | ViewerMessage msg ->
             updateViewer runtime signature sendQueue mailbox m msg
@@ -2435,11 +2467,12 @@ module ViewerApp =
             //    ()
             //| _ -> 
             //    ()
-            Animation.Animator.update msg m   
+            Animation.Animator.update msg m
 
-        | ProvenanceMessage msg -> 
+        | ProvenanceMessage msg ->
             ProvenanceApp.update msg m
-            
+        )
+
     let updateWithProvenanceTracking 
         (runtime   : IRuntime) 
         (enableProvenance : bool)
