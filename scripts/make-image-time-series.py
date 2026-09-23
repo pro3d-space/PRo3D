@@ -491,6 +491,14 @@ def main():
                          "limb; without it a tessellation of its reference radii is used")
     ap.add_argument("--occluder-obj-scale", default="1000",
                     help="metres per --occluder-obj file unit (default 1000)")
+    ap.add_argument("--occluder-opc", default=None,
+                    help="the occluder's shape model as an OPC instead of --occluder-obj. "
+                         "The only way it can carry a texture: the shape-model OBJs have no "
+                         "texture coordinates, so with --occluder-in-scene the primary is "
+                         "otherwise a grey body")
+    ap.add_argument("--occluder-texture-albedo", action="store_true",
+                    help="draw the occluder with its own texture as albedo. Only its level "
+                         "is normalised (mean texel -> --albedo); nothing is de-shaded")
     ap.add_argument("--day-folders", action="store_true",
                     help="split each variant folder by UTC date (<variant>/yyyy-MM-dd/). "
                          "An 85-day set is thousands of files and one flat directory is "
@@ -665,11 +673,15 @@ def main():
     eclipse = []
     if a.occluder_body:
         eclipse = ["--occluder-body", a.occluder_body]
-        if a.occluder_obj:
+        if a.occluder_opc:
+            eclipse += ["--occluder-opc", a.occluder_opc]
+        elif a.occluder_obj:
             eclipse += ["--occluder-obj", a.occluder_obj,
                         "--occluder-obj-scale", a.occluder_obj_scale]
         if a.occluder_in_scene:
             eclipse += ["--occluder-in-scene"]
+        if a.occluder_texture_albedo:
+            eclipse += ["--occluder-texture-albedo"]
 
     # What the frames were rendered against, for series.json and the README. The product
     # id -- an OPC's .opcx basename, an OBJ's file name -- carries the GSD, the source and
@@ -998,9 +1010,11 @@ def main():
             "imageSize": [1020, 1020],
             "textureLayer": a.texture_layer,
             "occluderBody": a.occluder_body,
-            "occluderShapeModel": (os.path.abspath(a.occluder_obj) if a.occluder_obj
+            "occluderShapeModel": (os.path.abspath(a.occluder_opc) if a.occluder_opc
+                                   else os.path.abspath(a.occluder_obj) if a.occluder_obj
                                    else ("reference radii" if a.occluder_body else None)),
             "occluderInScene": bool(a.occluder_in_scene),
+            "occluderTextureAlbedo": bool(a.occluder_texture_albedo),
         },
         "series": {
             "start": times[0], "end": times[-1],
@@ -1087,7 +1101,9 @@ def main():
                  eclipse=("none -- an eclipsed epoch in this series renders in full daylight"
                           if not a.occluder_body else
                           "%s, cast from %s%s" % (a.occluder_body,
-                                                  os.path.basename(a.occluder_obj) if a.occluder_obj
+                                                  os.path.basename(a.occluder_opc.rstrip("/\\"))
+                                                  if a.occluder_opc
+                                                  else os.path.basename(a.occluder_obj) if a.occluder_obj
                                                   else "its reference radii",
                                                   " -- and drawn in the image" if a.occluder_in_scene
                                                   else "")),

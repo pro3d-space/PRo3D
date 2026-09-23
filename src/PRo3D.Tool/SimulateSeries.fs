@@ -363,29 +363,25 @@ let run (o : SimulateSeriesOptions) : int =
 
     Log.line "[shape] %s" shape.describe
 
+    // empty is "the patch default", not "look up the empty layer"
+    let occluderLayer =
+        if String.IsNullOrWhiteSpace o.occluderOpc
+           || String.IsNullOrWhiteSpace o.occluderTextureLayer then None
+        else OpcTextureLayers.resolve o.occluderOpc o.occluderTextureLayer
     match (if String.IsNullOrWhiteSpace o.occluderBody then Ok None
            else ShapeSource.occluder runtime o.occluderBody o.occluderOpc o.occluderObj
-                    o.occluderObjScale EclipseOccluder.didymosRadii |> Result.map Some) with
+                    o.occluderObjScale occluderLayer EclipseOccluder.didymosRadii
+                |> Result.map Some) with
     | Result.Error e -> Log.error "[eclipse] %s" e; 1
     | Ok occluderShape ->
 
     let bbox = shape.bbox
 
-    // The primary's own exposure, when --occluder-texture-albedo draws it with its texture.
-    // Its own and not the target's: the two bodies carry different mosaics at different
-    // mean levels. Once for the run, like the fit below -- no epoch enters it.
-    let occluderRawScale =
-        if not o.occluderTextureAlbedo then None
-        else
-            match occluderShape |> Option.bind (fun occ -> occ.meanTextureBrightness ()) with
-            | Some m when m > 0.0 ->
-                Log.line "[eclipse] %s drawn with its own texture as albedo (mean texel %.3f, scale %.3f)"
-                    o.occluderBody m (o.albedo / m)
-                Some (float32 (o.albedo / m))
-            | _ ->
-                Log.warn "[eclipse] --occluder-texture-albedo: %s has no texture this can \
-                          measure; drawing it at the constant albedo instead" o.occluderBody
-                None
+    // How the primary is surfaced. Its own numbers, and worked out once for the run like
+    // the target's fit below -- no epoch enters either.
+    let occluderSurface =
+        occluderSurfaceOf occluderShape o.occluderBody o.occluderDeshade o.occluderTextureAlbedo
+            (occluderLayerName o.occluderDeshadeLayer o.occluderTextureLayer) o.albedo
 
     // Once for the whole series: the fit solves for the baked light direction against a
     // per-vertex layer (OPC) or the texture (mesh). No epoch, camera or sun enters it, so
@@ -398,6 +394,13 @@ let run (o : SimulateSeriesOptions) : int =
                 elif not (String.IsNullOrWhiteSpace o.textureLayer) then o.textureLayer
                 else "DRACO"
             fitOrFallBack shape layerName o.albedo
+
+    // The exposure of the `baked` variant, which needs no fit -- see `rawScaleFor`. Asked
+    // for unconditionally because `shading` decides per variant whether it is used, the
+    // same way the fit is.
+    let targetRawScale =
+        if List.isEmpty textured then None
+        else rawScaleFor shape deshade o.albedo body
 
     // The epoch-varying inputs. Everything below is built once over these, so an epoch
     // costs a transact and a render rather than a scene graph.
@@ -457,7 +460,7 @@ let run (o : SimulateSeriesOptions) : int =
             | Some occ when o.occluderInScene ->
                 Log.line "[eclipse] %s is in the scene as well as casting" o.occluderBody
                 Sg.ofList [ opc
-                            occluderSg occ target.signature projectedImages occluderRawScale
+                            occluderSg occ target.signature projectedImages occluderSurface
                                 (occluderPlacementC :> aval<_>) (occluderVisibleC :> aval<_>) ]
             | _ -> opc
 
@@ -481,7 +484,7 @@ let run (o : SimulateSeriesOptions) : int =
                 // constant albedo.
                 let sg =
                     shadedShaders scene
-                    |> applyShading shading deshade eclipse shadow.viewProj shadow.depth
+                    |> applyShading shading deshade targetRawScale eclipse shadow.viewProj shadow.depth
                     |> Sg.viewTrafo viewC
                     |> Sg.projTrafo projC
                 v, runtime.CompileRender(target.signature, sg))

@@ -521,16 +521,33 @@ module ShapeSource =
     ///
     /// The bbox here is the occluder's own LOCAL bounds; `EclipseOccluder.at` places it.
     let occluder (runtime : IRuntime) (body : string) (opc : string) (obj : string)
-                 (objScale : float) (radii : V3d) : Result<ShapeSource, string> =
+                 (objScale : float) (textureLayer : Option<int>) (radii : V3d)
+                 : Result<ShapeSource, string> =
         if not (String.IsNullOrWhiteSpace opc) then
             if not (String.IsNullOrWhiteSpace obj) then
                 Result.Error "--occluder-opc and --occluder-obj are two shape models of the \
                               same body; pass one of them"
-            else resolve runtime body opc "" objScale "" None
+            else resolve runtime body opc "" objScale "" textureLayer
         elif String.IsNullOrWhiteSpace obj then
             Ok (ofObj (ObjShape.ellipsoid radii 64) None)
         else
             ObjShape.read obj objScale |> Result.map (fun mesh -> ofObj mesh None)
+
+/// How the primary is surfaced when it is drawn in the scene.
+///
+/// A separate type rather than two booleans because the three cases need different numbers
+/// and only one of them is reachable at a time: `PlainAlbedo` needs none, `TexturedAlbedo`
+/// only an exposure, `DeshadedTexture` a whole fit. Written as flags it would be possible
+/// to ask for a de-shaded frame and supply no fit, which is the one combination that
+/// renders a body at an arbitrary brightness with nothing in the output saying so.
+type OccluderSurface =
+    /// The constant albedo: the shape model's relief and nothing else.
+    | PlainAlbedo
+    /// Its own texture as albedo at the given raw scale, baked illumination left in.
+    | TexturedAlbedo of rawScale : float32
+    /// Its own texture with its own baked illumination fitted and divided out -- what the
+    /// target does with `--deshade`, so a body looks the same whichever role it is in.
+    | DeshadedTexture of DeshadeFit
 
 /// The occluder as a VISIBLE body in the scene, not only as a shadow caster.
 ///
@@ -545,24 +562,34 @@ module ShapeSource =
 /// well be drawing a de-shaded mosaic, and the primary must not be de-shaded against the
 /// black stand-in texture bound for it.
 ///
-/// `rawScale` turns the primary's own texture into its albedo (`--occluder-texture-albedo`).
-/// Its own scale, not the target's: the two bodies carry different mosaics at different
-/// mean levels, and borrowing one exposure for both is how the primary comes out several
-/// times too bright. Still no de-shading -- see the flag's help for why the textured
-/// Didymos OPC has nothing to divide out.
+/// `surface` says how the primary's own surface is drawn, with its OWN numbers: the two
+/// bodies carry different mosaics at different mean levels, and borrowing one exposure or
+/// one baked light direction for both is how the primary comes out several times too bright
+/// or de-shaded against the wrong sun.
 ///
 /// `visible` exists because the placement comes from SPICE, which can fail at an epoch the
 /// target still renders at. A missing occluder then disappears rather than freezing at
 /// wherever it was last seen.
 let occluderSg (shape : ShapeSource) (signature : IFramebufferSignature)
                (projectedImages : aval<Option<Sg.ProjectedImages>>)
-               (rawScale : Option<float32>)
+               (surface : OccluderSurface)
                (placement : aval<Trafo3d>) (visible : aval<bool>) : ISg =
+    let deshaded = match surface with DeshadedTexture _ -> true | _ -> false
+    let textured = match surface with TexturedAlbedo _ -> true | _ -> false
+    let fit = match surface with DeshadedTexture f -> Some f | _ -> None
+    let rawScale =
+        match surface with
+        | TexturedAlbedo s -> s
+        | DeshadedTexture f -> float32 f.rawScale
+        | PlainAlbedo -> 1.0f
     shape.build signature projectedImages
     |> Sg.trafo placement
-    |> Sg.uniform' "DeshadeEnabled" false
-    |> Sg.uniform' "TextureAlbedo" (Option.isSome rawScale)
-    |> Sg.uniform' "RawTextureScale" (Option.defaultValue 1.0f rawScale)
+    |> Sg.uniform' "DeshadeEnabled" deshaded
+    |> Sg.uniform' "TextureAlbedo" textured
+    |> Sg.uniform' "BakedSunDirection"
+        (V3f (fit |> Option.map (fun f -> f.direction) |> Option.defaultValue V3d.ZAxis))
+    |> Sg.uniform' "DeshadeScale" (float32 (fit |> Option.map (fun f -> f.scale) |> Option.defaultValue 1.0))
+    |> Sg.uniform' "RawTextureScale" rawScale
     |> Sg.uniform' "TextureOnly" false
     |> Sg.onOff visible
 
@@ -585,6 +612,46 @@ let fitOrFallBack (shape : ShapeSource) (layerName : string) (albedo : float) : 
         Log.warn "[deshade] %s" e
         Log.warn "[deshade] falling back to constant albedo %.2f" albedo
         None
+
+/// Which per-vertex layer the OCCLUDER's fit reads, which is not the target's: the two
+/// bodies carry different mosaics under different names.
+let occluderLayerName (deshadeLayer : string) (textureLayer : string) =
+    if not (String.IsNullOrWhiteSpace deshadeLayer) then deshadeLayer
+    elif not (String.IsNullOrWhiteSpace textureLayer) then textureLayer
+    else "DRACO"
+
+/// How to surface the primary, from the flags and from what its shape model can actually
+/// supply. Shared by both verbs, for the same reason `fitOrFallBack` is: the fallback --
+/// a wrong divisor is worse than none -- has to be the same one in both, and the warning
+/// is the only thing that says a frame is not what was asked for.
+let occluderSurfaceOf (occluder : Option<ShapeSource>) (body : string) (deshade : bool)
+                      (textureAlbedo : bool) (layerName : string) (albedo : float)
+                      : OccluderSurface =
+    match occluder with
+    | None -> PlainAlbedo
+    | Some occ when deshade ->
+        // its OWN fit, against its own layer: de-shading the primary with the target's
+        // baked sun direction would carve a terminator into it at the wrong angle
+        match occ.fitBakedLight layerName albedo with
+        | Ok fit ->
+            Log.line "[eclipse] %s de-lit with its own fit (dir %.4f %.4f %.4f, r = %.2f over %d vertices)"
+                body fit.direction.X fit.direction.Y fit.direction.Z fit.correlation fit.samples
+            DeshadedTexture fit
+        | Result.Error e ->
+            Log.warn "[eclipse] --occluder-deshade: %s" e
+            Log.warn "[eclipse] drawing %s at the constant albedo instead" body
+            PlainAlbedo
+    | Some occ when textureAlbedo ->
+        match occ.meanTextureBrightness () with
+        | Some m when m > 0.0 ->
+            Log.line "[eclipse] %s drawn with its own texture as albedo (mean texel %.3f, scale %.3f)"
+                body m (albedo / m)
+            TexturedAlbedo (float32 (albedo / m))
+        | _ ->
+            Log.warn "[eclipse] --occluder-texture-albedo: %s has no texture this can \
+                      measure; drawing it at the constant albedo instead" body
+            PlainAlbedo
+    | Some _ -> PlainAlbedo
 
 // ---------------------------------------------------------------------------------
 // Sun shadow map: one depth pass from an orthographic sun-side camera covering the whole
@@ -1124,15 +1191,40 @@ module ShadingParams =
             textureAlbedo = o.textureAlbedo; deshade = o.deshade
         }
 
+/// The exposure for `--texture-albedo`: the fit's when there is one, otherwise measured
+/// straight off the texture.
+///
+/// Both are the same number -- albedo over the mean raw brightness -- and the fit is
+/// preferred only because it averages over LIT vertices rather than over every texel,
+/// which is closer to what the frame shows. Shared by both verbs so a `baked` frame is
+/// exposed identically whichever produced it.
+let rawScaleFor (shape : ShapeSource) (fit : Option<DeshadeFit>) (albedo : float) (body : string)
+                : Option<float32> =
+    match fit with
+    | Some f -> Some (float32 f.rawScale)
+    | None ->
+        match shape.meanTextureBrightness () with
+        | Some m when m > 0.0 ->
+            Log.line "[texture] %s exposed off its texture directly (mean texel %.3f, scale %.3f) \
+                      -- no de-shading fit was available" body m (albedo / m)
+            Some (float32 (albedo / m))
+        | _ -> None
+
 /// The shading uniforms, the shadow map and the OPC scaffolding, applied to a shaded
 /// scene graph. The camera is NOT applied here: the series verb varies it per epoch over
 /// a graph it builds once.
 ///
-/// `fit` is passed whenever one was made, whatever `p` asks for -- BOTH textured modes
-/// need a scale factor out of it, and which mode is wanted is `p`'s business alone. A
-/// missing fit therefore falls back to the constant albedo in either mode, rather than
-/// rendering a texture at an arbitrary brightness.
-let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>) (eclipse : EclipseShadow)
+/// `fit` is passed whenever one was made, whatever `p` asks for, and `--deshade` needs
+/// it: a missing fit falls back to the constant albedo rather than dividing by something
+/// invented.
+///
+/// `rawScale` is separate BECAUSE `--texture-albedo` does not need the fit -- it divides
+/// nothing, and the only number it wants is the one that maps the mean texel to the
+/// nominal albedo. Tying it to the fit made the mode unusable on any textured OPC without
+/// per-vertex normals and a per-vertex brightness layer, which it then rendered at the
+/// constant albedo while reporting success. `rawScaleFor` below is how both callers get it.
+let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>) (rawScale : Option<float32>)
+                 (eclipse : EclipseShadow)
                  (shadowViewProj : aval<M44d>) (shadowDepth : aval<ITexture>) (sg : ISg) =
     sg
     |> SunAnglesVerb.withOpcScaffolding
@@ -1141,10 +1233,10 @@ let applyShading (p : ShadingParams) (fit : Option<DeshadeFit>) (eclipse : Eclip
     |> Sg.texture "SunShadowMap" shadowDepth
     |> Sg.uniform' "SunShadowBias" (float32 p.shadowBias)
     |> Sg.uniform' "DeshadeEnabled" (p.deshade && Option.isSome fit)
-    |> Sg.uniform' "TextureAlbedo" (p.textureAlbedo && Option.isSome fit)
+    |> Sg.uniform' "TextureAlbedo" (p.textureAlbedo && Option.isSome rawScale)
     |> Sg.uniform' "BakedSunDirection" (V3f (fit |> Option.map (fun f -> f.direction) |> Option.defaultValue V3d.ZAxis))
     |> Sg.uniform' "DeshadeScale" (float32 (fit |> Option.map (fun f -> f.scale) |> Option.defaultValue 1.0))
-    |> Sg.uniform' "RawTextureScale" (float32 (fit |> Option.map (fun f -> f.rawScale) |> Option.defaultValue 1.0))
+    |> Sg.uniform' "RawTextureScale" (Option.defaultValue 1.0f rawScale)
     |> Sg.uniform' "DeshadeShadowFloor" (float32 deshadeShadowFloor)
     |> Sg.uniform' "AlbedoConst" (float32 p.albedo)
     |> Sg.uniform' "MicroScale" (float32 p.microScale)
@@ -1327,26 +1419,15 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         if not (o.deshade || o.textureAlbedo) then None
         else fitOrFallBack shape layerName o.albedo
 
+    // The target's own exposure for --texture-albedo, which does NOT need the fit.
+    let targetRawScale =
+        if not o.textureAlbedo then None
+        else rawScaleFor shape deshade o.albedo body
+
     // What the primary is drawn with, when --occluder-in-scene puts it in the frame.
-    //
-    // Only the LEVEL comes from its texture -- the mean texel maps to the nominal albedo,
-    // exactly as --texture-albedo does for the target. Nothing is divided out, and not for
-    // want of a fit: the textured Didymos OPC carries a global lunar mosaic, whose
-    // brightness follows that shape's normals at r = 0.22 against an amplitude of 0.055 on
-    // an ambient of 0.61. There is no single baked light direction in it to remove, because
-    // the relief the shading belongs to is not this body's.
-    let occluderRawScale =
-        if not o.occluderTextureAlbedo then None
-        else
-            match occluder |> Option.bind (fun occ -> occ.meanTextureBrightness ()) with
-            | Some m when m > 0.0 ->
-                Log.line "[eclipse] %s drawn with its own texture as albedo (mean texel %.3f, scale %.3f)"
-                    o.occluderBody m (o.albedo / m)
-                Some (float32 (o.albedo / m))
-            | _ ->
-                Log.warn "[eclipse] --occluder-texture-albedo: %s has no texture this can \
-                          measure; drawing it at the constant albedo instead" o.occluderBody
-                None
+    let occluderSurface =
+        occluderSurfaceOf occluder o.occluderBody o.occluderDeshade o.occluderTextureAlbedo
+            (occluderLayerName o.occluderDeshadeLayer o.occluderTextureLayer) o.albedo
 
     // The other body of the binary, if one was named: without it an eclipsed epoch
     // renders as full daylight.
@@ -1454,7 +1535,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                         (2.0 * atan (0.5 * occ.bbox.Size.NormMax /
                                      max 1.0 (cam.view.Forward.TransformPos e.centre).Length)))
                 Sg.ofList [ opc
-                            occluderSg occ target.signature projectedImages occluderRawScale
+                            occluderSg occ target.signature projectedImages occluderSurface
                                 (AVal.constant e.toTarget) (AVal.constant true) ]
             | Some _, None when o.occluderInScene ->
                 Log.warn "[eclipse] --occluder-in-scene: %s could not be placed at this epoch"
@@ -1519,7 +1600,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                     (if useStackShader then "STACK" else "single-image")
                 if useStackShader then projectedStackSg imagePath else projectedSg imagePath
              | None -> shaded)
-            |> applyShading (ShadingParams.ofSimulateImage o) deshade eclipse
+            |> applyShading (ShadingParams.ofSimulateImage o) deshade targetRawScale eclipse
                    (AVal.constant shadowMap.viewProj.Forward) (AVal.constant shadowMap.depth)
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)
@@ -1721,9 +1802,16 @@ let run (o : SimulateImageOptions) : int =
 
         // The shadow caster of the binary, when one was named. Resolved here so a bad
         // --occluder-obj is a message rather than a frame rendered in full daylight.
+        // empty is "the patch default", not "look up the empty layer": resolve logs and
+        // lists the available layers when it cannot find what it was asked for
+        let occluderLayer =
+            if String.IsNullOrWhiteSpace o.occluderOpc
+               || String.IsNullOrWhiteSpace o.occluderTextureLayer then None
+            else OpcTextureLayers.resolve o.occluderOpc o.occluderTextureLayer
         match (if String.IsNullOrWhiteSpace o.occluderBody then Ok None
                else ShapeSource.occluder runtime o.occluderBody o.occluderOpc o.occluderObj
-                        o.occluderObjScale EclipseOccluder.didymosRadii |> Result.map Some) with
+                        o.occluderObjScale occluderLayer EclipseOccluder.didymosRadii
+                    |> Result.map Some) with
         | Result.Error e -> Log.error "[eclipse] %s" e; 1
         | Ok occluder ->
 

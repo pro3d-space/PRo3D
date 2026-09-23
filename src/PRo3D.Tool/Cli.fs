@@ -204,6 +204,15 @@ type SimulateImageOptions =
         [<Option("shadow-map", Default = 4096, HelpText = "Edge length of the sun-side depth maps, in texels (default 4096). The target's map is fitted to the target's own bounds, so 4096 over a 180 m body is 6.6 cm a texel -- already finer than the 0.24 m facets of the kernels' shape model and thirty times finer than an OPC post, which is why raising it has no measurable effect. Costs 2 x (n^2 x 8) bytes of VRAM across the two maps: 268 MB at 4096, 1.1 GB at 8192, 4.3 GB at 16384.")>]
         shadowMap : int
 
+        [<Option("occluder-texture-layer", HelpText = "Texture layer of --occluder-opc to draw, by name, e.g. 'DRACO_2'. Empty draws the patch default, which is not necessarily the layer a scene shows -- the same trap as --texture-layer for the target.")>]
+        occluderTextureLayer : string
+
+        [<Option("occluder-deshade", HelpText = "De-light --occluder-body the way --deshade de-lights the target: fit the illumination baked into its own texture and divide it out, using its OWN fit. Wins over --occluder-texture-albedo. Worth it when the primary carries a real mosaic of itself; it falls back to the constant albedo, with a warning, when the fit cannot be made.")>]
+        occluderDeshade : bool
+
+        [<Option("occluder-deshade-layer", HelpText = "Per-vertex layer the occluder's fit reads (default: --occluder-texture-layer, then 'DRACO').")>]
+        occluderDeshadeLayer : string
+
         [<Option("occluder-texture-albedo", HelpText = "Draw --occluder-body with its own texture as albedo (needs --occluder-opc and --occluder-in-scene). Only the level is taken from the texture -- its mean texel maps to --albedo, so the primary is exposed like the target rather than several times brighter. Nothing is de-shaded: the textured Didymos OPC carries a global lunar mosaic, whose brightness follows that shape's normals at r = 0.22, so there is no baked light direction in it to divide out.")>]
         occluderTextureAlbedo : bool
 
@@ -332,6 +341,15 @@ type SimulateSeriesOptions =
 
         [<Option("shadow-map", Default = 4096, HelpText = "Edge length of the sun-side depth maps, in texels (default 4096). The target's map is fitted to the target's own bounds, so 4096 over a 180 m body is 6.6 cm a texel -- already finer than the 0.24 m facets of the kernels' shape model and thirty times finer than an OPC post, which is why raising it has no measurable effect. Costs 2 x (n^2 x 8) bytes of VRAM across the two maps: 268 MB at 4096, 1.1 GB at 8192, 4.3 GB at 16384.")>]
         shadowMap : int
+
+        [<Option("occluder-texture-layer", HelpText = "Texture layer of --occluder-opc to draw, by name, e.g. 'DRACO_2'. Empty draws the patch default, which is not necessarily the layer a scene shows -- the same trap as --texture-layer for the target.")>]
+        occluderTextureLayer : string
+
+        [<Option("occluder-deshade", HelpText = "De-light --occluder-body the way --deshade de-lights the target: fit the illumination baked into its own texture and divide it out, using its OWN fit. Wins over --occluder-texture-albedo. Worth it when the primary carries a real mosaic of itself; it falls back to the constant albedo, with a warning, when the fit cannot be made.")>]
+        occluderDeshade : bool
+
+        [<Option("occluder-deshade-layer", HelpText = "Per-vertex layer the occluder's fit reads (default: --occluder-texture-layer, then 'DRACO').")>]
+        occluderDeshadeLayer : string
 
         [<Option("occluder-texture-albedo", HelpText = "Draw --occluder-body with its own texture as albedo (needs --occluder-opc and --occluder-in-scene). Only the level is taken from the texture -- its mean texel maps to --albedo, so the primary is exposed like the target rather than several times brighter. Nothing is de-shaded: the textured Didymos OPC carries a global lunar mosaic, whose brightness follows that shape's normals at r = 0.22, so there is no baked light direction in it to divide out.")>]
         occluderTextureAlbedo : bool
