@@ -31,13 +31,18 @@ function startBusyIndicator(id, thresholdMs) {
 			// set inline on the element, because this stylesheet does not exist at all when
 			// the indicator is switched off; same for the hidden-by-default state, which is
 			// why there is no `display` here.
-			'.pro3d-busy { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);' +
-			'  z-index: 30000; pointer-events: none; align-items: center; gap: 10px;' +
-			'  padding: 8px 16px; border-radius: 16px; background: rgba(20,21,23,0.88);' +
-			'  color: #eee; font-family: "Roboto Mono", monospace; font-size: 13px;' +
-			'  box-shadow: 0 2px 10px rgba(0,0,0,0.45); }' +
-			'.pro3d-busy-spinner { width: 14px; height: 14px; border-radius: 50%;' +
-			'  border: 2px solid rgba(255,255,255,0.25); border-top-color: #eee;' +
+			// Lighter than the app's own #1B1C1E, and opaque: a translucent near-black
+			// chip on a near-black UI is invisible, which defeats the point of it.
+			'.pro3d-busy { position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%);' +
+			'  z-index: 30000; pointer-events: none; align-items: center; gap: 14px;' +
+			'  padding: 14px 26px; border-radius: 28px; background: #2b2e33;' +
+			'  border: 1px solid rgba(227,179,65,0.55);' +
+			'  color: #f2f2f2; font-family: "Roboto Mono", monospace; font-size: 19px;' +
+			'  letter-spacing: 0.3px; white-space: nowrap;' +
+			'  box-shadow: 0 6px 22px rgba(0,0,0,0.65); }' +
+			// amber, the same accent the tool strip uses for the selection group
+			'.pro3d-busy-spinner { width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto;' +
+			'  border: 3px solid rgba(255,255,255,0.22); border-top-color: #e3b341;' +
 			'  animation: pro3dBusySpin 0.8s linear infinite; }';
 		document.head.appendChild(css);
 	}
