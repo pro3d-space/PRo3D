@@ -499,6 +499,16 @@ def main():
     ap.add_argument("--occluder-texture-albedo", action="store_true",
                     help="draw the occluder with its own texture as albedo. Only its level "
                          "is normalised (mean texel -> --albedo); nothing is de-shaded")
+    ap.add_argument("--occluder-texture-layer", default=None,
+                    help="texture layer of --occluder-opc to draw, by name (e.g. DRACO_2). "
+                         "The patch default is not necessarily the layer a scene shows")
+    ap.add_argument("--occluder-deshade", action="store_true",
+                    help="de-light the occluder the way the target is de-lit, using its OWN "
+                         "fit. Wins over --occluder-texture-albedo. This is what keeps a "
+                         "body looking the same whether it is the target or the companion")
+    ap.add_argument("--occluder-deshade-layer", default=None,
+                    help="per-vertex layer the occluder's fit reads "
+                         "(default: --occluder-texture-layer)")
     ap.add_argument("--day-folders", action="store_true",
                     help="split each variant folder by UTC date (<variant>/yyyy-MM-dd/). "
                          "An 85-day set is thousands of files and one flat directory is "
@@ -680,7 +690,13 @@ def main():
                         "--occluder-obj-scale", a.occluder_obj_scale]
         if a.occluder_in_scene:
             eclipse += ["--occluder-in-scene"]
-        if a.occluder_texture_albedo:
+        if a.occluder_texture_layer:
+            eclipse += ["--occluder-texture-layer", a.occluder_texture_layer]
+        if a.occluder_deshade:
+            eclipse += ["--occluder-deshade"]
+            if a.occluder_deshade_layer:
+                eclipse += ["--occluder-deshade-layer", a.occluder_deshade_layer]
+        elif a.occluder_texture_albedo:
             eclipse += ["--occluder-texture-albedo"]
 
     # What the frames were rendered against, for series.json and the README. The product
@@ -1014,7 +1030,10 @@ def main():
                                    else os.path.abspath(a.occluder_obj) if a.occluder_obj
                                    else ("reference radii" if a.occluder_body else None)),
             "occluderInScene": bool(a.occluder_in_scene),
-            "occluderTextureAlbedo": bool(a.occluder_texture_albedo),
+            "occluderTextureAlbedo": bool(a.occluder_texture_albedo
+                                          and not a.occluder_deshade),
+            "occluderDeshaded": bool(a.occluder_deshade),
+            "occluderTextureLayer": a.occluder_texture_layer,
         },
         "series": {
             "start": times[0], "end": times[-1],

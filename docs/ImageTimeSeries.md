@@ -325,6 +325,10 @@ one series.
 | `--interval-seconds <s>` | cadence in **seconds**, overriding `--interval`. Below a minute this is the honest unit: 8 s as 0.1333.. minutes accumulates float error that truncates a stamp to the wrong second, and the stamp is the filename |
 | `--occluder-body <name>` | cast the other body of the binary as a shadow (`DIDYMOS`). Without it an eclipsed epoch renders in full daylight |
 | `--occluder-obj <file>`, `--occluder-obj-scale <v>` | the occluder's shape model; without one, a tessellation of its reference radii |
+| `--occluder-opc <dir>` | the occluder's shape model as an OPC instead, which is the only way it can carry a texture |
+| `--occluder-texture-layer <name>` | which of its layers to draw (the patch default is not necessarily the one a scene shows) |
+| `--occluder-texture-albedo` | draw it with that texture as albedo, at its own exposure |
+| `--occluder-deshade`, `--occluder-deshade-layer <name>` | de-light it with its **own** fit, the way `--deshade` de-lights the target |
 | `--start <iso>` | first epoch, UTC (default `2027-03-21T13:00:00Z`) |
 | `--interval <min>` | cadence in minutes (default `15`) |
 | `--duration <h>` | span in hours (default `11.92`, one rotation) |
@@ -422,26 +426,45 @@ floor. `--body` covers the other side, at the same `--gain` so the two sets are
 radiometrically comparable:
 
 ```
-# the secondary, de-lit mosaic
-python scripts/make-image-time-series.py --out COP-2027 --opc <dimorphos-opc>     --variants delitplain,delit --texture-layer DRACO_2 --gain 3.35 --day-folders     --occluder-body DIDYMOS --occluder-in-scene --occluder-obj <didymos-obj>
+# where AFC-1 is on Dimorphos: the de-lit DRACO mosaic, Didymos in the frame beside it
+python scripts/make-image-time-series.py --out COP --opc <dimorphos-opc>     --body DIMORPHOS --variants delitplain --texture-layer DRACO_2     --gain 3.35 --micro-amplitude 0 --day-folders     --occluder-body DIDYMOS --occluder-opc <didymos-opc>     --occluder-in-scene --occluder-texture-albedo
 
-# the primary
-python scripts/make-image-time-series.py --out COP-2027-didymos --body DIDYMOS --obj <didymos-obj>     --variants smooth,micro --gain 3.35 --day-folders     --occluder-body DIMORPHOS --occluder-in-scene --occluder-obj <dimorphos-obj>
+# where it is on Didymos: the same two bodies, the roles swapped
+python scripts/make-image-time-series.py --out COP-didy --opc <didymos-opc>     --body DIDYMOS --frame DIDYMOS_FIXED --variants baked --texture-layer Moon     --gain 3.35 --micro-amplitude 0 --day-folders     --occluder-body DIMORPHOS --occluder-opc <dimorphos-opc>     --occluder-texture-layer DRACO_2 --occluder-deshade --occluder-deshade-layer DRACO_2     --occluder-in-scene
 ```
 
-Two things to know before reading the Didymos set:
+Then fold them into one series and give it a single tag:
 
-- **There is no mosaic of Didymos**, so its variants are `smooth` and `micro` — constant
-  albedo, without and with micro-structure — rather than `delitplain` and `delit`.
+```
+python scripts/merge-series.py   --into COP --add COP-didy
+python scripts/relabel-series.py --series COP --map delitplain=cop --map baked=cop --flatten
+```
+
+**Why `--occluder-deshade` is not optional here.** The companion used to be drawn flat
+whatever the target was doing. In a merged series that shows the same body in both roles,
+Dimorphos would then be de-lit in the frames that target it and grey in the frames that
+target Didymos — one folder, one body, two appearances. Its **own** fit, not the target's:
+de-shading it with the target's baked sun direction carves a terminator into it at the
+wrong angle.
+
+Three more things to know:
+
+- **There is no mosaic of Didymos.** The only textured Didymos OPC carries a *lunar*
+  mosaic — the shape is the kernels' own DSK to 0.02 m, the imagery is the Moon. Hence
+  `baked` (texture as albedo, nothing divided out) rather than `delit`: there is no baked
+  light direction in it to remove, because the relief the shading belongs to is not that
+  body's. Say so in the README of anything you ship.
 - **Didymos is usually larger than the field.** At 6 km it spans about 8° against AFC-1's
   5.5°, so many frames show a limb crossing the frame rather than a whole body. The
   pre-flight margin is therefore the body's *smallest* semi-axis, which is what guarantees
   the limb is inside the frustum; the bounding-box diagonal admitted epochs where Didymos
   was entirely outside the field and the only thing in the image was the in-scene
   companion.
-
-The two sets overlap: an epoch with both bodies in frame appears in each, targeted
-differently, and the `TARGET` in each frame's sidecar says which.
+- **The two runs overlap heavily** — over the close-orbit phase, 4035 epochs have AFC-1 on
+  Dimorphos and 5930 on Didymos, out of 8107 covered epochs. `merge-series.py` keeps the
+  *first* source's frame for an epoch both cover, so list the run whose target carries the
+  richer surface first. The `TARGET` in each frame's sidecar, and `target` per epoch in
+  `series.json`, say which body a given frame is of.
 
 ## Re-running it
 

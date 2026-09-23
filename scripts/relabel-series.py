@@ -45,6 +45,11 @@ def main():
     ap.add_argument("--series", required=True)
     ap.add_argument("--map", action="append", required=True, metavar="OLD=NEW",
                     help="variant folder OLD becomes part of folder NEW; repeatable")
+    ap.add_argument("--flatten", action="store_true",
+                    help="when the mapping leaves exactly ONE variant, lift its day folders "
+                         "to the series root, so the layout is <series>/yyyy-MM-dd/. A "
+                         "variant folder is a way to tell variants apart; with one variant "
+                         "it is a level that says nothing")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
@@ -156,7 +161,11 @@ def main():
     # rebuild the manifest against what is now on disk, keeping the per-epoch target
     js = os.path.join(a.series, "series.json")
     d = json.load(open(js, encoding="utf-8"))
-    target = {e["time"]: e.get("target") for e in d["epochs"]}
+    # everything an epoch carried except where its files are: target, range, whatever a
+    # later version adds. Rebuilding an epoch from the filenames alone silently dropped
+    # rangeMeters, and the README that reads it then printed "0.0 .. 0.0 km".
+    keep = {e["time"]: {k: v for k, v in e.items() if k not in ("files", "time")}
+            for e in d["epochs"]}
     files = {}
     for v in sorted(set(mapping.values())):
         for stem, full in frame_paths(os.path.join(a.series, v)).items():
@@ -165,8 +174,7 @@ def main():
             t = "%s-%s-%sT%s:%s:%sZ" % (day[0:4], day[4:6], day[6:8],
                                         hms[0:2], hms[2:4], hms[4:6])
             files.setdefault(t, {})[v] = "%s/%s/%s.png" % (v, t[:10], stem)
-    d["epochs"] = [{"time": t, "target": target.get(t), "files": files[t]}
-                   for t in sorted(files)]
+    d["epochs"] = [dict(keep.get(t, {}), time=t, files=files[t]) for t in sorted(files)]
     d["variants"] = {v: {"dir": v, "frames": sum(1 for e in d["epochs"] if v in e["files"])}
                      for v in sorted(set(mapping.values()))}
     d["series"]["epochs"] = len(d["epochs"])
@@ -179,6 +187,32 @@ def main():
         json.dump(d, f, indent=2)
     print("wrote %s (%d epochs, variants %s)"
           % (js, len(d["epochs"]), ",".join(sorted(d["variants"]))))
+
+    if a.flatten:
+        dests = sorted(set(mapping.values()))
+        if len(dests) != 1:
+            raise SystemExit("--flatten needs exactly one destination variant, got %s"
+                             % ",".join(dests))
+        v = dests[0]
+        vd = os.path.join(a.series, v)
+        for day in sorted(os.listdir(vd)):
+            src = os.path.join(vd, day)
+            dst = os.path.join(a.series, day)
+            if os.path.exists(dst):
+                raise SystemExit("--flatten: %s already exists -- nothing moved" % dst)
+            shutil.move(src, dst)
+        os.rmdir(vd)
+        # the manifest's paths lose the same level
+        for e in d["epochs"]:
+            e["files"] = {k: "/".join(p.split("/")[1:]) for k, p in e["files"].items()}
+        d["variants"][v]["dir"] = "."
+        d["flattened"] = ("one variant, so its folder was lifted away: frames live in "
+                          "<series>/yyyy-MM-dd/")
+        with open(js, "w", encoding="utf-8") as f:
+            json.dump(d, f, indent=2)
+        days = [x for x in os.listdir(a.series)
+                if os.path.isdir(os.path.join(a.series, x)) and x[:4].isdigit()]
+        print("flattened %s/ into %d day folders at the series root" % (v, len(days)))
     return 0
 
 

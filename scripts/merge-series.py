@@ -51,6 +51,10 @@ def main():
     a = ap.parse_args()
 
     base, kept = epochs_of(a.into)
+    # what each epoch carried besides its files -- range and anything a later version
+    # adds. Rebuilt from the filenames alone, those fields would be lost for every epoch.
+    keep = {e["time"]: {k: v for k, v in e.items() if k not in ("files", "time", "target")}
+            for e in base["epochs"]}
     print("%-28s %5d epochs, variants %s"
           % (os.path.basename(a.into), len(kept), ",".join(sorted(base["variants"]))))
 
@@ -72,6 +76,9 @@ def main():
         if a.dry_run:
             continue
         for t in new:
+            keep.setdefault(t, {k: v for k, v in
+                                next((x for x in d["epochs"] if x["time"] == t), {}).items()
+                                if k not in ("files", "time", "target")})
             day = t[:10]
             for v, stem in eps[t].items():
                 sd = os.path.join(src, v, day)
@@ -115,7 +122,7 @@ def main():
                 files.setdefault(t, {})[v] = "%s/%s/%s.png" % (v, t[:10], stem)
 
     base["epochs"] = [
-        {"time": t, "target": targets.get(t), "files": files[t]}
+        dict(keep.get(t, {}), time=t, target=targets.get(t), files=files[t])
         for t in sorted(files)
     ]
     base["observation"]["body"] = "DIMORPHOS+DIDYMOS"
