@@ -145,6 +145,22 @@ module Sg =
     }
 
     let mutable hackRunner : Option<Load.Runner> = None
+
+    /// The load runner to build an OPC scene graph with, for code that is handed a runtime.
+    ///
+    /// Creating a runner goes through Glfw.Instance.Invoke. From any thread but the one that
+    /// created the GL application, that posts to the application thread's queue and waits
+    /// for it to be drained -- which only Instance.Run does. A headless host that created
+    /// its runtime on another thread never drains it, so the call hangs forever (the test
+    /// suite did: Render.context is created by whichever Expecto worker gets there first,
+    /// and sun-angles then asked for a runner from a different one). Hosts publish a runner
+    /// made on the right thread in `hackRunner`; reuse it, and create one only where none
+    /// was published -- the command line tools, whose main thread owns GLFW.
+    let loadRunnerFor (runtime : IRuntime) : Load.Runner =
+        match hackRunner with
+        | Some runner -> runner
+        | None -> runtime.CreateLoadRunner 1
+
     let mutable useAsyncLoading = true
     
     let lodDeciderMars 

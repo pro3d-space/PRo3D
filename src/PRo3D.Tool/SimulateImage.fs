@@ -12,7 +12,7 @@ open FSharp.Data.Adaptive
 
 open Aardvark.Data.Opc
 open Aardvark.GeoSpatial.Opc
-open Aardvark.GeoSpatial.Opc.Load   // IRuntime.CreateLoadRunner
+open Aardvark.GeoSpatial.Opc.Load   // OPC load runners (Sg.loadRunnerFor)
 
 open MBrace.FsPickler
 
@@ -395,7 +395,7 @@ let private renderSunShadowMap (runtime : IRuntime) (body : string)
         { Frustum.ortho vbox with near = -vbox.Max.Z; far = -vbox.Min.Z }
         |> Frustum.projTrafo
 
-    let runner = runtime.CreateLoadRunner 1
+    let runner = PRo3D.Core.Surface.Sg.loadRunnerFor runtime
     let cfg =
         { OpcSg.defaultConfig signature runner DefaultMetrics.mars2 body with
             asyncLoading = false }
@@ -795,7 +795,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
 
     let target = SunAnglesVerb.FloatTarget.create runtime size
     try
-        let runner = runtime.CreateLoadRunner 1
+        let runner = PRo3D.Core.Surface.Sg.loadRunnerFor runtime
         let cfg =
             { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
                 // Blocking loads: reproducible offscreen output, same as sun-angles.
