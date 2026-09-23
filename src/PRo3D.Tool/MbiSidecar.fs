@@ -138,11 +138,29 @@ let private ephemeris (ctx : Context) =
     let earth = posOf "EARTH" |> Option.defaultValue V3d.Zero
     sun, earth
 
-/// Write `<image>.mbi.json` next to a rendered image, describing the camera it was rendered
-/// with. `view` is the render's view trafo in the body-fixed frame.
+/// One image file of an observation as its sidecar declares it. An AFC frame is a single
+/// band file; an ASPECT cube is one file per band; a HyperScout cube is one file holding
+/// every band.
+type BandFile =
+    {
+        /// file name, relative to the sidecar
+        file       : string
+        label      : Option<string>
+        /// centre wavelength in nm, for single-band files
+        wavelength : Option<float>
+    }
+
+let bandFile (file : string) (label : Option<string>) (wavelength : Option<float>) : BandFile =
+    { file = file; label = label; wavelength = wavelength }
+
+/// Write `sidecarPath` describing an observation made of `bands`, taken with the camera
+/// `view` (the render's view trafo in the body-fixed frame). `bitpix`/`planes` describe the
+/// data for the NAXIS keywords: 8 and 1 for an 8-bit frame, -32 and the band count for a
+/// float cube.
 ///
 /// Returns the sidecar path, or why the geometry could not be expressed.
-let write (ctx : Context) (imagePath : string) (view : Trafo3d) : Result<string, string> =
+let writeObservation (ctx : Context) (sidecarPath : string) (bands : list<BandFile>)
+                     (bitpix : int) (planes : int) (view : Trafo3d) : Result<string, string> =
     match fitsInstrumentName ctx.instrument with
     | None ->
         Result.Error (sprintf "no FITS INSTRUME name known for the SPICE frame '%s' -- the viewer could not map it back" ctx.instrument)
@@ -151,17 +169,19 @@ let write (ctx : Context) (imagePath : string) (view : Trafo3d) : Result<string,
         | Result.Error e -> Result.Error e
         | Ok obs ->
             let sun, earth = ephemeris ctx
-            let imageName = Path.GetFileName imagePath
 
             let h = JsonObject()
             h.["SIMPLE"]   <- header (JsonValue.Create true) "conforms to mbi standard"
-            h.["BITPIX"]   <- header (JsonValue.Create 8) ""
-            h.["NAXIS"]    <- header (JsonValue.Create 2) ""
+            h.["BITPIX"]   <- header (JsonValue.Create bitpix) ""
+            h.["NAXIS"]    <- header (JsonValue.Create (if planes > 1 then 3 else 2)) ""
             h.["NAXIS1"]   <- header (JsonValue.Create ctx.size.X) ""
             h.["NAXIS2"]   <- header (JsonValue.Create ctx.size.Y) ""
+            if planes > 1 then
+                h.["NAXIS3"] <- header (JsonValue.Create planes) ""
             h.["INSTRUME"] <- header (str instrume) ""
             h.["ORIGIN"]   <- header (str "pro3d-tool simulate-image") "simulated instrument image"
-            h.["FILENAME"] <- header (str imageName) ""
+            // the image, as before cubes existed; for a cube its first band file
+            h.["FILENAME"] <- header (str (bands |> List.tryHead |> Option.map (fun b -> b.file) |> Option.defaultValue (Path.GetFileName sidecarPath))) ""
             // ISO-8601 with a Z: parseDate reads it with AssumeUniversal, so an explicit
             // zone is what keeps the epoch from drifting by the local offset
             h.["DATE"]     <- header (str (DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture))) "File creation time UTC"
@@ -188,24 +208,34 @@ let write (ctx : Context) (imagePath : string) (view : Trafo3d) : Result<string,
 
             // The reader indexes a directory's sidecars by the band file names they declare
             // and only falls back to the <image base>.mbi.json naming convention when a
-            // sidecar declares none -- so declare it, and use the conventional name too.
-            let band = JsonObject()
-            band.["file_path"] <- str imageName
-            let bands = JsonArray()
-            bands.Add band
+            // sidecar declares none -- so declare every one.
+            let bandArray = JsonArray()
+            bands |> List.iteri (fun i b ->
+                let band = JsonObject()
+                band.["index"] <- JsonValue.Create i
+                band.["file_path"] <- str b.file
+                b.label |> Option.iter (fun l -> band.["label"] <- str l)
+                b.wavelength |> Option.iter (fun w -> band.["wavelength"] <- num w)
+                bandArray.Add band)
 
             let root = JsonObject()
             root.["instrument"] <- str instrume
             root.["fits_hdu_headers"] <- headers
-            root.["bands"] <- bands
+            root.["bands"] <- bandArray
 
-            let path = Path.Combine(Path.GetDirectoryName(Path.GetFullPath imagePath),
-                                    Path.GetFileNameWithoutExtension imagePath + ".mbi.json")
             try
-                File.WriteAllText(path, root.ToJsonString(Text.Json.JsonSerializerOptions(WriteIndented = true)))
-                Ok path
+                File.WriteAllText(sidecarPath, root.ToJsonString(Text.Json.JsonSerializerOptions(WriteIndented = true)))
+                Ok sidecarPath
             with e ->
-                Result.Error (sprintf "could not write %s: %s" path e.Message)
+                Result.Error (sprintf "could not write %s: %s" sidecarPath e.Message)
+
+/// Write `<image>.mbi.json` next to a rendered 8-bit frame, describing the camera it was
+/// rendered with. `view` is the render's view trafo in the body-fixed frame.
+let write (ctx : Context) (imagePath : string) (view : Trafo3d) : Result<string, string> =
+    let sidecar = Path.Combine(Path.GetDirectoryName(Path.GetFullPath imagePath),
+                               Path.GetFileNameWithoutExtension imagePath + ".mbi.json")
+    let band = { file = Path.GetFileName imagePath; label = None; wavelength = None }
+    writeObservation ctx sidecar [ band ] 8 1 view
 
 /// The statistics sidecar (`<image>.json`). Optional for the projection itself, but it is
 /// the only place the image's pixel dimensions are declared in a form the readers use, so
@@ -260,6 +290,79 @@ let writeStatistics (ctx : Context) (imagePath : string) (image : PixImage<byte>
     root.["image_statistics"] <- statsArray
     root.["mission_name"] <- str "HERA"
     root.["camera_system"] <- str (fitsInstrumentName ctx.instrument |> Option.defaultValue ctx.instrument)
+
+    let path = Path.GetFullPath imagePath + ".json"
+    try
+        File.WriteAllText(path, root.ToJsonString(Text.Json.JsonSerializerOptions(WriteIndented = true)))
+        Ok path
+    with e ->
+        Result.Error (sprintf "could not write %s: %s" path e.Message)
+
+/// The statistics sidecar for a float band file: one entry per plane, in the file's own
+/// units (I/F for a simulated cube) -- unlike an 8-bit frame, nothing is normalised.
+/// `wavelengths` has one entry per plane when known; a single-plane file also gets the
+/// `mbi_frame` block an ASPECT band carries, a multi-plane one the `wavelengths` list of a
+/// HyperScout `_Stacked.tif`.
+let writeFloatStatistics (ctx : Context) (imagePath : string) (label : string)
+                         (planes : float32[][]) (wavelengths : list<float>) : Result<string, string> =
+    let statsArray = JsonArray()
+    for plane in planes do
+        let mutable mn = Double.MaxValue
+        let mutable mx = Double.MinValue
+        let mutable sum = 0.0
+        let mutable sumSq = 0.0
+        let mutable n = 0
+        for v in plane do
+            if Single.IsFinite v then
+                let v = float v
+                if v < mn then mn <- v
+                if v > mx then mx <- v
+                sum <- sum + v
+                sumSq <- sumSq + v * v
+                n <- n + 1
+        let mean = if n > 0 then sum / float n else 0.0
+        let variance = if n > 0 then max 0.0 (sumSq / float n - mean * mean) else 0.0
+        let stats = JsonObject()
+        stats.["minimum"] <- num (if n > 0 then mn else 0.0)
+        stats.["maximum"] <- num (if n > 0 then mx else 0.0)
+        stats.["mean"] <- num mean
+        stats.["median"] <- num mean
+        stats.["standard_deviation"] <- num (sqrt variance)
+        stats.["variance"] <- num variance
+        statsArray.Add stats
+
+    let info = JsonObject()
+    info.["schema_id"] <- str "https://www.joanneum.at/jim/product_information.schema.json"
+    info.["schema_version"] <- JsonValue.Create 7262
+    info.["product_type"] <- str "simulated image"
+    info.["product_state"] <- str "generated"
+    info.["creator_id"] <- str "pro3d-tool simulate-image"
+    info.["creation_datetime"] <- str (DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture))
+
+    let root = JsonObject()
+    root.["product_information"] <- info
+    root.["label"] <- str label
+    root.["image_width"] <- JsonValue.Create ctx.size.X
+    root.["image_height"] <- JsonValue.Create ctx.size.Y
+    root.["channels"] <- JsonValue.Create planes.Length
+    root.["data_type"] <- str "float"
+    root.["file_md5"] <- str ""
+    root.["image_file_format"] <- str "tif"
+    root.["compression_type"] <- str "deflate"
+    root.["image_statistics"] <- statsArray
+    root.["mission_name"] <- str "HERA"
+    root.["camera_system"] <- str (fitsInstrumentName ctx.instrument |> Option.defaultValue ctx.instrument)
+    match wavelengths with
+    | [ w ] when planes.Length = 1 ->
+        let frame = JsonObject()
+        frame.["label"] <- str label
+        frame.["wavelength"] <- num w
+        root.["mbi_frame"] <- frame
+    | ws when not ws.IsEmpty ->
+        let arr = JsonArray()
+        for w in ws do arr.Add (num w)
+        root.["wavelengths"] <- arr
+    | _ -> ()
 
     let path = Path.GetFullPath imagePath + ".json"
     try

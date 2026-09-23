@@ -58,9 +58,10 @@ Output is one 8-bit greyscale PNG at the instrument's native size.
 | `--time <iso8601>` | observation time, UTC, e.g. `2027-03-15T19:00:00Z` (required unless `--mbi` is given) |
 | `--mbi <file>` | render the camera an existing image's `.mbi.json` declares; takes the image or the sidecar. Epoch, instrument and pointing all come from it |
 | `--write-mbi` | also write `<out>.mbi.json` and `<out>.json`, so the render can be imported into the viewer and projected back |
-| `--out <file>` | output PNG (default `./simulated.png`) |
+| `--out <file>` | output PNG (default `./simulated.png`); with `--product` the extension is dropped and the rest is the file stem |
 | `--instrument <frame>` | SPICE instrument frame (default `HERA_AFC-1`) |
-| `--observer <name>` | spacecraft carrying the instrument (default `HERA`) |
+| `--product` | write the instrument's delivered product layout — a [spectral cube](#spectral-cubes-hyperscout-and-aspect) for `HERA_HSH` and `MILANI_ASPECT_NIR1` — instead of a PNG; no effect for AFC |
+| `--observer <name>` | spacecraft carrying the instrument (default: the one `--instrument` flies on — `MILANI` for ASPECT, `HERA` otherwise) |
 | `--body <name>` | SPICE body of the OPC (default `DIMORPHOS`) |
 | `--frame <name>` | body-fixed reference frame (default `DIMORPHOS_FIXED`) |
 | `--kernel <file>` | explicit metakernel (default `<kernel-root>/mk/hera_plan.tm`) |
@@ -184,6 +185,45 @@ and pins the convention against the three real HERA sidecars in the fixtures.)
 Because the sidecar states the convention in a file that demonstrably works, it
 also serves as the reference to hand to a data generator whose own sidecars do
 not project.
+
+## Spectral cubes: HyperScout and ASPECT
+
+With `--product` and `--instrument HERA_HSH` or `--instrument MILANI_ASPECT_NIR1`, the render is written the way
+the delivered products are laid out, so that the viewer and
+[`sample-layers`](./Pro3DTool-SampleLayers.md) read a simulated observation exactly like a real
+one:
+
+| Instrument | Size | Files |
+|---|---|---|
+| `HERA_HSH` (HyperScout 1B) | 409×217 | `<stem>_Stacked.tif` — one float TIFF, 25 planes (661–952 nm), with its `.tif.json` listing the `wavelengths` |
+| `MILANI_ASPECT_NIR1` (ASPECT 2B) | 640×512 | `<stem>_Vis_0.tif` … `<stem>_NIR2_12.tif` — 37 single-band float TIFFs (675–1575 nm), each with a `.tif.json` carrying its `mbi_frame` label and wavelength |
+
+plus one `<stem>.mbi.json` that declares every band file with its label and wavelength. A cube
+cannot be read back without its sidecar, so it is always written — `--write-mbi` is implied.
+Without `--product` these instruments render a PNG like AFC, now at their product size
+(409×217, 640×512) rather than the old 1024×1024 fallback.
+
+**The band values are made up.** The render's linear I/F is multiplied per band by a smooth
+synthetic reflectance curve (a red slope with a shallow 1 µm absorption, normalised at 550 nm —
+`syntheticReflectance` in `SimulateImage.fs`). It is not a measured spectrum: it exists so that
+the bands of a cube differ, and a band read from the wrong file or plane shows up as a wrong
+value instead of hiding behind identical copies. Values are float I/F, not tone-mapped, and
+`--gain` does not apply; sky is `0`, the NoData value of the delivered cubes.
+
+ASPECT renders all 37 bands through the NIR1 frustum, as the delivered 2B cube is co-registered
+at 640×512 for every channel. That frustum (6.7°×5.4°, from the IK) is 0.7% narrower in aspect
+than 640×512, which the verb reports as a stretch warning; the sidecar and every consumer use
+the same frustum, so the cube is self-consistent.
+
+A series over several epochs is one run per epoch:
+
+```
+for %t in (14 17 20 23) do (
+  pro3d-tool simulate-image --opc Dimorphos --time 2027-03-21T%t:00:00Z --instrument HERA_AFC-1 --write-mbi --gain 4.5 --out AFC\AFC1_SIM_20270321_%t0000.png
+  pro3d-tool simulate-image --opc Dimorphos --time 2027-03-21T%t:00:00Z --instrument HERA_HSH           --product --out HSH\HSH_SIM_20270321_%t0000.tif
+  pro3d-tool simulate-image --opc Dimorphos --time 2027-03-21T%t:00:00Z --instrument MILANI_ASPECT_NIR1 --product --out ASPECT\ASP_SIM_20270321_%t0000.tif
+)
+```
 
 ## Caveats
 

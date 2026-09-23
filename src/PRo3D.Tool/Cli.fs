@@ -101,13 +101,16 @@ type SimulateImageOptions =
         [<Option("write-mbi", HelpText = "Also write <out>.mbi.json and <out>.json describing the camera used, so the render can be imported into the PRo3D viewer and projected back onto the same body")>]
         writeMbi : bool
 
-        [<Option("out", HelpText = "Output PNG path (default: ./simulated.png)")>]
+        [<Option("product", HelpText = "Write the instrument's delivered product layout instead of a PNG, with its .mbi.json: for HERA_HSH one <out>_Stacked.tif of 25 float bands (HyperScout 1B), for MILANI_ASPECT_NIR1 37 float <out>_<band>.tif (ASPECT 2B). The band values are the render's I/F times a made-up spectrum. No effect for AFC")>]
+        product : bool
+
+        [<Option("out", HelpText = "Output PNG path (default: ./simulated.png); with --product, the extension is dropped and the rest is the file stem")>]
         out : string
 
         [<Option("instrument", HelpText = "SPICE instrument frame whose frustum to render with (default HERA_AFC-1)")>]
         instrument : string
 
-        [<Option("observer", HelpText = "Spacecraft carrying the instrument (default HERA)")>]
+        [<Option("observer", HelpText = "Spacecraft carrying the instrument (default: the one --instrument flies on -- MILANI for ASPECT, HERA otherwise)")>]
         observer : string
 
         [<Option("body", HelpText = "SPICE body name of the OPC (default DIMORPHOS)")>]

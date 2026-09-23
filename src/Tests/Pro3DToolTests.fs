@@ -78,6 +78,7 @@ module private Fixtures =
             time = ""
             mbi = null
             writeMbi = false
+            product = false
             out = ""
             instrument = "MILANI_ASPECT_NIR1"
             observer = "MILANI"
