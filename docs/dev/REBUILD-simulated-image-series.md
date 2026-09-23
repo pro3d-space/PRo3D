@@ -136,8 +136,11 @@ Two bugs that will come back if the structure does:
 | Didymos OPC `Didymos_ASPECT_texture` | **is** the kernels' DSK: against `latsrf` along the same directions, mean 0.00 m, std 0.00 m, **abs max 0.02 m**; render-vs-mesh IoU 0.9998 |
 | its texture layer, named `Moon` | **is the Moon** — mare, farside highlands, a visible map seam |
 | that texture's fit | **r = 0.22**, amplitude 0.055 on ambient 0.61 → *no baked light direction to divide out*. The shading in it is the Moon's relief, not this body's |
-| `Workshop2/OPC/Didymos` | **rejected**: partial patch, 43 m RMS against the DSK, IoU 0.754 |
+| `Workshop2/OPC/Didymos` | **rejected**: partial patch, 43 m RMS against the DSK, IoU 0.754. Its one layer, `Texture`, is *also* a lunar mosaic |
+| so: **both** Didymos OPCs on this machine | carry a lunar stand-in. There is no imagery of Didymos here at all |
 | the shape-model OBJs | `v`/`f` only — **no texture coordinates at all**. That is why a textured primary needs an OPC |
+
+![the two Didymos candidates against the DSK and an external reference](../images/shapeCrosscheck/didymosModels_20270329.png)
 
 **No eclipse shows the DRACO mosaic lit.** Over all **188** umbra events between 2027-02-01
 and 2027-05-01 the sub-solar point sits **94–97°** from the footprint centre — a three-degree
