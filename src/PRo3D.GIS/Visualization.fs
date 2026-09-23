@@ -32,7 +32,7 @@ module Visualization =
 
     let createProjectedExrTexture (path : string) (channel : int) : aval<ITexture> = 
         let stream = File.OpenRead path
-        let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel) (Some TextureLoading.TextureFormat.OpenEXR)
+        let exrTexture = TextureLoading.loadImageFromStream PixFileFormat.Exr (ChannelReference.ChannelWithIndex channel) stream
         PixTexture2d(exrTexture, true) :> ITexture |> AVal.constant
 
     let createProjectedTiffTexture (path : string) (channel : int) : aval<ITexture> = 

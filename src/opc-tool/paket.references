@@ -8,6 +8,7 @@ Aardvark.Base.FSharp
 Aardvark.Data.Opc 
 Aardvark.GeoSpatial.Opc
 OPCViewer.Base
+Aardvark.PixImage.DevIL
 
 Uncodium.Eigensystems
 

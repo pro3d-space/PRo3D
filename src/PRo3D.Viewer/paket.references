@@ -12,7 +12,6 @@ Aardvark.Geometry
 Aardvark.Geometry.Intersection
 Aardvark.Geometry.PointTree
 
-Aardvark.PixImage.DevIL
 Aardvark.PixImage.FreeImage
 
 Aardvark.UI.Primitives
