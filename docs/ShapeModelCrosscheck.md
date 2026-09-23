@@ -342,6 +342,74 @@ pro3d-tool simulate-image --obj <didymos-obj> --body DIDYMOS --frame DIDYMOS_FIX
 one. Before this table is quoted anywhere, the renderer and its kernel set should be named:
 a 0.974 against an unidentified image is an encouraging number, not evidence.
 
+<a name="against-cosmographia"></a>
+## Against Cosmographia — and a mutual eclipse
+
+The comparison above has a hole in it: the reference frame arrived without provenance, so
+0.974 is encouraging rather than evidential. **Cosmographia closes that hole.** It reads the
+same kernels and the same DSK, it is maintained by NASA/NAIF rather than by us, and its
+renderer shares no code with ours. Where it agrees, the agreement means something.
+
+The epoch is **2027-01-29T17:45:00**, and it was chosen because it is not just a silhouette
+test:
+
+| | |
+|---|---|
+| Didymos | 28.70 km, 1.641° across, 0.146° off the AFC-1 boresight |
+| Dimorphos | 27.78 km, 0.363° across, 1.527° off the boresight |
+| phase at Didymos | 40.7° |
+| Dimorphos relative to Didymos | **1.145 km sunward, 0.119 km off the sun-line** |
+
+That last row is the point. Dimorphos is almost exactly between the Sun and Didymos, so it
+**casts its umbra onto the primary** — and Cosmographia draws it, independently, as a dark
+ellipse on the lit face. A mutual eclipse is the one thing a SPICE ray-cast cannot check for
+us, because `illumf` takes one target body.
+
+![Cosmographia against PRo3D at 2027-01-29T17:45](images/simulateImage/cosmographia.png)
+
+| | ours | Cosmographia | |
+|---|---|---|---|
+| Didymos silhouette, centroid-aligned | | | **IoU 0.967** |
+| Dimorphos silhouette, centroid-aligned | | | **IoU 0.904** |
+| Didymos area | 11 944 px | 12 336 px | ratio **0.968** |
+| Dimorphos area | 509 px | 527 px | ratio **0.966** |
+| separation of the two bodies | 130.13 px | 130.76 px | **0.5 %** apart |
+| umbra on Didymos | 457 px | 217 px | see below |
+
+**The frames do not share an origin, and that is not a disagreement.** Raw IoU is 0.700 and
+0.146, because everything in our frame sits **16 px** from where Cosmographia puts it — in
+one direction, for both bodies. Measured against the frame centre, Cosmographia has Didymos
+**0.063°** off centre while we have it **0.219°**; the difference is **0.146°**, which is
+exactly the offset the CK gives between the AFC-1 boresight and the body. Cosmographia's
+camera was aimed at the target; ours takes the spacecraft attitude from the kernels. Once
+that shift is removed the silhouettes are the fourth panel: white nearly everywhere, with a
+thin red rim where Cosmographia's disk is 3 % larger.
+
+Rendering the same epoch with `--pointing lookat` does **not** fix it: that aims the
+boresight at the body but picks its own roll, which swings Dimorphos 207 px around the
+primary. The roll is a convention in both tools, and they do not share it.
+
+**The umbra is where the two renderers differ most** — ours covers 457 px against their
+217 px, a factor of two. Both put it in the same place on the disk, so this is not geometry;
+it is the shadow's edge. Ours is a 4096² depth map with a PCF lookup and a penumbra
+approximated by a 5.1 m blur, theirs is whatever Cosmographia does, and their image is
+saturated, which by itself moves a threshold-defined boundary. **This is measured, not
+explained**, and it is the first independent look at the eclipse pass at all.
+
+Rendered with:
+
+```
+pro3d-tool simulate-image --obj <didymos-obj> --body DIDYMOS --frame DIDYMOS_FIXED ^
+    --time 2027-01-29T17:45:00Z --micro-amplitude 0 --width 519 --height 519 ^
+    --occluder-body DIMORPHOS --occluder-obj <dimorphos-obj> --occluder-in-scene
+
+python scripts/compare-cosmographia.py --ours ours_519.png --theirs cosmographia_519.png ^
+    --epoch 2027-01-29T17:45:00Z --out docs/images/simulateImage/cosmographia.png
+```
+
+Both bodies are rendered from the DSK meshes, constant albedo, no micro-structure — so what
+is being compared is shape, pose and shadow, with nothing of ours in the surface.
+
 ## Where PRo3D goes beyond the cross-check
 
 The 17-line ray-tracer is a better *oracle* than PRo3D — it cannot drift, because it never

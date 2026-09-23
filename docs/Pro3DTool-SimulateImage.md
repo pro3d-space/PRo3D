@@ -419,6 +419,20 @@ apparent size and **0.014** in axis ratio. See
 [ShapeModelCrosscheck.md](./ShapeModelCrosscheck.md), which also shows how much surface
 detail the 1.96 m OPC loses against the 0.243 m DSK.
 
+**And against a renderer that is not ours at all.** Cosmographia, on the same kernels and
+the same DSK, at 2027-01-29T17:45 — an epoch where Dimorphos casts its umbra onto Didymos:
+
+![Cosmographia against PRo3D at 2027-01-29T17:45](images/simulateImage/cosmographia.png)
+
+Centroid-aligned silhouette **IoU 0.967** on Didymos and **0.904** on Dimorphos, areas
+within 3.4 %, and the separation of the two bodies within **0.5 %**. The 16 px offset
+between the frames is the CK: Cosmographia aimed its camera at the target, we take the
+spacecraft attitude from the kernels, and the difference is the 0.146° the CK puts between
+the boresight and the body. This is also the **first independent check on the eclipse
+pass** — a SPICE ray-cast cannot do it, because `illumf` takes one target body. Full
+numbers, including where the two disagree, in
+[ShapeModelCrosscheck.md](./ShapeModelCrosscheck.md#against-cosmographia).
+
 <a name="pointing-and-observation-windows"></a>
 ## Pointing and observation windows
 

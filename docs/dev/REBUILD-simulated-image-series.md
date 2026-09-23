@@ -93,6 +93,7 @@ becomes a beat rather than 17 seconds of black.
 | comet-toolbox vs our OBJ, lit region | 0.890 (vs 0.856 for the OPC) |
 | lit-region IoU, ours vs *anyone* | capped around **0.90** by the terminator threshold — so the acceptance criterion is the silhouette, not the lit region |
 | external reference at 2027-03-29T03:00 | raw silhouette IoU **0.974** (provenance of that reference is unrecorded — treat as indicative) |
+| **Cosmographia** at 2027-01-29T17:45, same kernels and DSK | centroid-aligned silhouette **IoU 0.967** (Didymos) and **0.904** (Dimorphos), areas within 3.4 %, separation within **0.5 %** — and it draws the mutual eclipse too |
 | AFC-1 frustum | square, **2.750° edge**, corner at **3.886°** |
 
 **The boresight tolerance is the corner angle plus the body's angular radius**, and the
@@ -291,9 +292,12 @@ sentences are in §2. The rest is process.
 
 ## 5. Still open
 
-- **No independent eclipse reference.** Nothing outside this repo has confirmed a mutual
-  eclipse. Either extend `dsk_render` to trace toward the Sun against the primary's DSK, or
-  get a Cosmographia screenshot of one.
+- **The eclipse now has one independent look, and it disagrees about the umbra's size.**
+  Cosmographia at 2027-01-29T17:45 puts the umbra in the same place on the disk but covers
+  **217 px against our 457** — a factor of two on a shadow edge, with their image saturated
+  and our penumbra a 5.1 m blur through a PCF lookup. Measured, not explained. A second
+  epoch, and a `dsk_render` extended to trace toward the Sun against the primary's DSK,
+  would separate "their threshold" from "our penumbra".
 - **Two older eclipse series still carry the shadow acne** from bias 0.002
   (`eclipse-2027-02-25`, `eclipse-2027-04-08-fullframe`). Re-render or delete.
 - **The penumbra is a blur, not an integration** over the solar disk. A few metres wide at
