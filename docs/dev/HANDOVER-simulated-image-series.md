@@ -3,10 +3,15 @@
 Written to be read cold. Every number below was measured in this repo; the command that
 produced it is named nearby. Where something is unverified it says so.
 
+> **This branch is a concept spike and is not meant to be merged as it stands.** For the
+> distilled version -- the measurements worth keeping, the four decisions that turned out to
+> be load-bearing, and an honest list of what grew over time and should not be carried --
+> read **[REBUILD-simulated-image-series.md](REBUILD-simulated-image-series.md)**. This file
+> is the narrative of how it got here.
+
 ## 1. Where things stand
 
-**Branch** `features/801_simulate-series`, 21 commits off `origin/releases/6.2.0`,
-**not pushed**. Built from `releases/6.2.0` by cherry-picking only the #801 commits, so it
+**Branch** `features/801_simulate-series`, 40 commits off `origin/releases/6.2.0`. Built from `releases/6.2.0` by cherry-picking only the #801 commits, so it
 does *not* carry the two annotation-profile-export commits that sat on the older
 `features/801_instrument-geometry-and-deshading` branch (those belong to
 `origin/features/annotation-profile-export-test`).
