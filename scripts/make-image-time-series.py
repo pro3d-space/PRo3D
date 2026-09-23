@@ -509,6 +509,12 @@ def main():
     ap.add_argument("--occluder-deshade-layer", default=None,
                     help="per-vertex layer the occluder's fit reads "
                          "(default: --occluder-texture-layer)")
+    ap.add_argument("--width", default=None,
+                    help="output width in pixels; default is the instrument's native size. "
+                         "Oversampling is for showcase renders: the FOV is unchanged, so a "
+                         "frame wider than the detector is not what AFC-1 would deliver")
+    ap.add_argument("--height", default=None,
+                    help="output height in pixels (default: --width, then native)")
     ap.add_argument("--day-folders", action="store_true",
                     help="split each variant folder by UTC date (<variant>/yyyy-MM-dd/). "
                          "An 85-day set is thousands of files and one flat directory is "
@@ -678,6 +684,8 @@ def main():
         shape += ["--obj-texture", a.obj_texture]
     common = shape + ["--body", a.body, "--frame", a.frame,
                       "--observer", "HERA", "--instrument", "HERA_AFC-1"]
+    if a.width:
+        common += ["--width", a.width, "--height", a.height or a.width]
     # The occluder goes only to the RENDER, never to the scene or layer queries: it is a
     # shadow caster, not part of the body being imaged.
     eclipse = []
