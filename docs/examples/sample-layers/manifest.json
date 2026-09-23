@@ -1,0 +1,440 @@
+{
+  "opc": "<PRo3D.Resources.TestData>/HERA/Dimorphos_opc/Dimorphos",
+  "body": "DIMORPHOS",
+  "frame": "DIMORPHOS_FIXED",
+  "kernel": "<kernel-root>/mk/hera_plan.tm",
+  "method": "mbi",
+  "occlusionToleranceMetres": 0.05,
+  "vertices": 2328412,
+  "attributes": [
+    {
+      "name": "Slope",
+      "csv": "attributes/Slope.csv",
+      "components": 1
+    }
+  ],
+  "images": [
+    {
+      "name": "AFC1_SIM_20270321_200000",
+      "csv": "images/AFC1_SIM_20270321_200000.csv",
+      "sidecar": "<PRo3D.Resources.TestData>/HERA/Dimorphos_opc/SampleLayers_2027-03-21/AFC/AFC1_SIM_20270321_200000.mbi.json",
+      "instrument": "AFC1",
+      "spiceFrame": "HERA_AFC-1",
+      "observer": "HERA",
+      "time": "2027-03-21T20:00:00.0000000Z",
+      "width": 1020,
+      "height": 1020,
+      "rangeMetres": 6706.761931353359,
+      "verticesSeen": 1137142,
+      "bands": [
+        {
+          "column": "AFC1_SIM_20270321_200000",
+          "file": "AFC1_SIM_20270321_200000.png",
+          "plane": 0
+        }
+      ]
+    },
+    {
+      "name": "ASP_SIM_20270321_200000",
+      "csv": "images/ASP_SIM_20270321_200000.csv",
+      "sidecar": "<PRo3D.Resources.TestData>/HERA/Dimorphos_opc/SampleLayers_2027-03-21/ASPECT/ASP_SIM_20270321_200000.mbi.json",
+      "instrument": "ASPECT",
+      "spiceFrame": "MILANI_ASPECT_NIR1",
+      "observer": "MILANI",
+      "time": "2027-03-21T20:00:00.0000000Z",
+      "width": 640,
+      "height": 512,
+      "rangeMetres": 16793.298912048536,
+      "verticesSeen": 1136050,
+      "bands": [
+        {
+          "column": "Vis_0",
+          "file": "ASP_SIM_20270321_200000_Vis_0.tif",
+          "plane": 0,
+          "wavelengthNm": 675
+        },
+        {
+          "column": "Vis_1",
+          "file": "ASP_SIM_20270321_200000_Vis_1.tif",
+          "plane": 0,
+          "wavelengthNm": 690
+        },
+        {
+          "column": "Vis_2",
+          "file": "ASP_SIM_20270321_200000_Vis_2.tif",
+          "plane": 0,
+          "wavelengthNm": 705
+        },
+        {
+          "column": "Vis_3",
+          "file": "ASP_SIM_20270321_200000_Vis_3.tif",
+          "plane": 0,
+          "wavelengthNm": 720
+        },
+        {
+          "column": "Vis_4",
+          "file": "ASP_SIM_20270321_200000_Vis_4.tif",
+          "plane": 0,
+          "wavelengthNm": 735
+        },
+        {
+          "column": "Vis_5",
+          "file": "ASP_SIM_20270321_200000_Vis_5.tif",
+          "plane": 0,
+          "wavelengthNm": 750
+        },
+        {
+          "column": "Vis_6",
+          "file": "ASP_SIM_20270321_200000_Vis_6.tif",
+          "plane": 0,
+          "wavelengthNm": 765
+        },
+        {
+          "column": "Vis_7",
+          "file": "ASP_SIM_20270321_200000_Vis_7.tif",
+          "plane": 0,
+          "wavelengthNm": 780
+        },
+        {
+          "column": "Vis_8",
+          "file": "ASP_SIM_20270321_200000_Vis_8.tif",
+          "plane": 0,
+          "wavelengthNm": 795
+        },
+        {
+          "column": "Vis_9",
+          "file": "ASP_SIM_20270321_200000_Vis_9.tif",
+          "plane": 0,
+          "wavelengthNm": 810
+        },
+        {
+          "column": "Vis_10",
+          "file": "ASP_SIM_20270321_200000_Vis_10.tif",
+          "plane": 0,
+          "wavelengthNm": 825
+        },
+        {
+          "column": "NIR1_0",
+          "file": "ASP_SIM_20270321_200000_NIR1_0.tif",
+          "plane": 0,
+          "wavelengthNm": 875
+        },
+        {
+          "column": "NIR1_1",
+          "file": "ASP_SIM_20270321_200000_NIR1_1.tif",
+          "plane": 0,
+          "wavelengthNm": 904.20738725
+        },
+        {
+          "column": "NIR1_2",
+          "file": "ASP_SIM_20270321_200000_NIR1_2.tif",
+          "plane": 0,
+          "wavelengthNm": 933.40538359
+        },
+        {
+          "column": "NIR1_3",
+          "file": "ASP_SIM_20270321_200000_NIR1_3.tif",
+          "plane": 0,
+          "wavelengthNm": 962.41926832
+        },
+        {
+          "column": "NIR1_4",
+          "file": "ASP_SIM_20270321_200000_NIR1_4.tif",
+          "plane": 0,
+          "wavelengthNm": 991.59052354
+        },
+        {
+          "column": "NIR1_5",
+          "file": "ASP_SIM_20270321_200000_NIR1_5.tif",
+          "plane": 0,
+          "wavelengthNm": 1020.78790557
+        },
+        {
+          "column": "NIR1_6",
+          "file": "ASP_SIM_20270321_200000_NIR1_6.tif",
+          "plane": 0,
+          "wavelengthNm": 1050
+        },
+        {
+          "column": "NIR1_7",
+          "file": "ASP_SIM_20270321_200000_NIR1_7.tif",
+          "plane": 0,
+          "wavelengthNm": 1079.21475545
+        },
+        {
+          "column": "NIR1_8",
+          "file": "ASP_SIM_20270321_200000_NIR1_8.tif",
+          "plane": 0,
+          "wavelengthNm": 1108.41876944
+        },
+        {
+          "column": "NIR1_9",
+          "file": "ASP_SIM_20270321_200000_NIR1_9.tif",
+          "plane": 0,
+          "wavelengthNm": 1137.4036651
+        },
+        {
+          "column": "NIR1_10",
+          "file": "ASP_SIM_20270321_200000_NIR1_10.tif",
+          "plane": 0,
+          "wavelengthNm": 1166.57594038
+        },
+        {
+          "column": "NIR1_11",
+          "file": "ASP_SIM_20270321_200000_NIR1_11.tif",
+          "plane": 0,
+          "wavelengthNm": 1195.77918273
+        },
+        {
+          "column": "NIR1_12",
+          "file": "ASP_SIM_20270321_200000_NIR1_12.tif",
+          "plane": 0,
+          "wavelengthNm": 1225
+        },
+        {
+          "column": "NIR2_0",
+          "file": "ASP_SIM_20270321_200000_NIR2_0.tif",
+          "plane": 0,
+          "wavelengthNm": 1225
+        },
+        {
+          "column": "NIR2_1",
+          "file": "ASP_SIM_20270321_200000_NIR2_1.tif",
+          "plane": 0,
+          "wavelengthNm": 1254.2242793
+        },
+        {
+          "column": "NIR2_2",
+          "file": "ASP_SIM_20270321_200000_NIR2_2.tif",
+          "plane": 0,
+          "wavelengthNm": 1283.43620514
+        },
+        {
+          "column": "NIR2_3",
+          "file": "ASP_SIM_20270321_200000_NIR2_3.tif",
+          "plane": 0,
+          "wavelengthNm": 1312.38308545
+        },
+        {
+          "column": "NIR2_4",
+          "file": "ASP_SIM_20270321_200000_NIR2_4.tif",
+          "plane": 0,
+          "wavelengthNm": 1341.55680112
+        },
+        {
+          "column": "NIR2_5",
+          "file": "ASP_SIM_20270321_200000_NIR2_5.tif",
+          "plane": 0,
+          "wavelengthNm": 1370.76774434
+        },
+        {
+          "column": "NIR2_6",
+          "file": "ASP_SIM_20270321_200000_NIR2_6.tif",
+          "plane": 0,
+          "wavelengthNm": 1400
+        },
+        {
+          "column": "NIR2_7",
+          "file": "ASP_SIM_20270321_200000_NIR2_7.tif",
+          "plane": 0,
+          "wavelengthNm": 1429.23686478
+        },
+        {
+          "column": "NIR2_8",
+          "file": "ASP_SIM_20270321_200000_NIR2_8.tif",
+          "plane": 0,
+          "wavelengthNm": 1458.45946423
+        },
+        {
+          "column": "NIR2_9",
+          "file": "ASP_SIM_20270321_200000_NIR2_9.tif",
+          "plane": 0,
+          "wavelengthNm": 1487.35519223
+        },
+        {
+          "column": "NIR2_10",
+          "file": "ASP_SIM_20270321_200000_NIR2_10.tif",
+          "plane": 0,
+          "wavelengthNm": 1516.5310435
+        },
+        {
+          "column": "NIR2_11",
+          "file": "ASP_SIM_20270321_200000_NIR2_11.tif",
+          "plane": 0,
+          "wavelengthNm": 1545.75237632
+        },
+        {
+          "column": "NIR2_12",
+          "file": "ASP_SIM_20270321_200000_NIR2_12.tif",
+          "plane": 0,
+          "wavelengthNm": 1575
+        }
+      ]
+    },
+    {
+      "name": "HSH_SIM_20270321_200000",
+      "csv": "images/HSH_SIM_20270321_200000.csv",
+      "sidecar": "<PRo3D.Resources.TestData>/HERA/Dimorphos_opc/SampleLayers_2027-03-21/HSH/HSH_SIM_20270321_200000.mbi.json",
+      "instrument": "HSH",
+      "spiceFrame": "HERA_HSH",
+      "observer": "HERA",
+      "time": "2027-03-21T20:00:00.0000000Z",
+      "width": 409,
+      "height": 217,
+      "rangeMetres": 6706.761931353359,
+      "verticesSeen": 1137142,
+      "bands": [
+        {
+          "column": "Stacked_0",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 0,
+          "wavelengthNm": 661
+        },
+        {
+          "column": "Stacked_1",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 1,
+          "wavelengthNm": 670
+        },
+        {
+          "column": "Stacked_2",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 2,
+          "wavelengthNm": 688
+        },
+        {
+          "column": "Stacked_3",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 3,
+          "wavelengthNm": 702
+        },
+        {
+          "column": "Stacked_4",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 4,
+          "wavelengthNm": 713
+        },
+        {
+          "column": "Stacked_5",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 5,
+          "wavelengthNm": 730
+        },
+        {
+          "column": "Stacked_6",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 6,
+          "wavelengthNm": 741
+        },
+        {
+          "column": "Stacked_7",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 7,
+          "wavelengthNm": 754
+        },
+        {
+          "column": "Stacked_8",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 8,
+          "wavelengthNm": 769
+        },
+        {
+          "column": "Stacked_9",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 9,
+          "wavelengthNm": 782
+        },
+        {
+          "column": "Stacked_10",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 10,
+          "wavelengthNm": 790
+        },
+        {
+          "column": "Stacked_11",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 11,
+          "wavelengthNm": 806
+        },
+        {
+          "column": "Stacked_12",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 12,
+          "wavelengthNm": 817
+        },
+        {
+          "column": "Stacked_13",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 13,
+          "wavelengthNm": 830
+        },
+        {
+          "column": "Stacked_14",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 14,
+          "wavelengthNm": 844
+        },
+        {
+          "column": "Stacked_15",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 15,
+          "wavelengthNm": 855
+        },
+        {
+          "column": "Stacked_16",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 16,
+          "wavelengthNm": 867
+        },
+        {
+          "column": "Stacked_17",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 17,
+          "wavelengthNm": 881
+        },
+        {
+          "column": "Stacked_18",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 18,
+          "wavelengthNm": 893
+        },
+        {
+          "column": "Stacked_19",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 19,
+          "wavelengthNm": 901
+        },
+        {
+          "column": "Stacked_20",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 20,
+          "wavelengthNm": 916
+        },
+        {
+          "column": "Stacked_21",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 21,
+          "wavelengthNm": 924
+        },
+        {
+          "column": "Stacked_22",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 22,
+          "wavelengthNm": 934
+        },
+        {
+          "column": "Stacked_23",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 23,
+          "wavelengthNm": 944
+        },
+        {
+          "column": "Stacked_24",
+          "file": "HSH_SIM_20270321_200000_Stacked.tif",
+          "plane": 24,
+          "wavelengthNm": 952
+        }
+      ]
+    }
+  ]
+}

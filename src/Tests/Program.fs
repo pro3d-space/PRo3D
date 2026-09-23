@@ -96,6 +96,10 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // cross-check reuses the same kernel tracking and self-skips without kernels.
         UnprojectTest.tests()
 
+        // sample-layers: band readers and discovery need nothing; the shape-model case
+        // uses a made-up camera, so it needs the Dimorphos OPC but no kernels or GPU.
+        SampleLayersTest.tests()
+
         // end-to-end batch rendering with sun lighting; self-skips without the
         // C:\pro3ddata workshop fixture, $PRO3D_SPICE_KERNELS, a GPU, or a built
         // PRo3D.Snapshots.exe. Uses its own kernel tree (the env var), not the suite's.

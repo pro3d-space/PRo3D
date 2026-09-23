@@ -220,3 +220,44 @@ type UnprojectOptions =
         [<Option("pixel-convention", HelpText = "How the input addresses pixels: 'image' (default, 0-based, top-left, y down) or 'fits' (1-based, bottom-left, y up)")>]
         pixelConvention : string
     }
+
+/// Options for the `sample-layers` verb.
+///
+/// Same convention as `unproject`: string defaults are applied in code, because an
+/// unsupplied string field arrives as null.
+[<Verb("sample-layers", HelpText = "Assemble instrument observations (AFC, ASPECT, HyperScout, ...) onto a body: for every OPC vertex, which image sees it, where, under which sun geometry, and every band's value at the nearest pixel. Writes vertices.csv, one CSV per image and one per OPC attribute layer, keyed by vertex id.")>]
+type SampleLayersOptions =
+    {
+        [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
+        opc : string
+
+        [<Option("images", HelpText = "One or more folders of observations: every .mbi.json with the band files it declares", Required = true, Min = 1)>]
+        images : seq<string>
+
+        [<Option("out", HelpText = "Output directory (default: ./sample-layers)")>]
+        out : string
+
+        [<Option("attributes", Separator = ',', HelpText = "Per-vertex OPC layers to write as attributes/<name>.csv, comma separated (default Slope; 'none' for none)")>]
+        attributes : seq<string>
+
+        [<Option("body", HelpText = "SPICE body name of the OPC (default: the images' TARGET)")>]
+        body : string
+
+        [<Option("frame", HelpText = "Body-fixed frame the coordinates are in (default <body>_FIXED)")>]
+        frame : string
+
+        [<Option("observer", HelpText = "Observing spacecraft; default is derived per image from the instrument")>]
+        observer : string
+
+        [<Option("kernel", HelpText = "Explicit SPICE metakernel; overrides the sidecar")>]
+        kernel : string
+
+        [<Option("kernel-root", HelpText = "SPICE kernel tree. Defaults to $PRO3D_SPICE_KERNELS.")>]
+        kernelRoot : string
+
+        [<Option("method", HelpText = "Projection method: spice or mbi (default mbi)")>]
+        method : string
+
+        [<Option("occlusion-tolerance", Default = 0.05, HelpText = "A vertex counts as hidden only if something lies on its line of sight more than this many metres in front of it (default 0.05)")>]
+        occlusionTolerance : float
+    }
