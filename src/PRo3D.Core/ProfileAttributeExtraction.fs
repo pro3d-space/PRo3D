@@ -172,16 +172,28 @@ module ProfileAttributeExtraction =
     /// Indices into `patchInfo.Textures` that denote actual attribute textures.
     /// `PatchFileInfo.Textures` interleaves DiffuseColorNTexture with DiffuseColorNWeights
     /// entries; the weights are *.aara files and are dropped here. The first remaining
-    /// entry is the patch's base colour texture and carries no attribute meaning.
+    /// entry is normally the patch's base colour texture and carries no attribute meaning
+    /// (Earth8K in the HERA/Dimorphos export) -- unless the patch declares it as an
+    /// attribute: the Dimorphos_DRACO1_DRACO2_Earth export puts DRACO_1 first, which is
+    /// also a per-vertex layer, and dropping it made DRACO_1 unreachable here.
     let private attributeTextureIndices (patchInfo: PatchFileInfo) =
         let textures =
             patchInfo.Textures
             |> List.indexed
             |> List.filter (fun (_, t) -> not (t.fileName.EndsWith(".aara", StringComparison.OrdinalIgnoreCase)))
-            |> List.map fst
+        // the attribute name of a texture is its folder, as in Patch.tryExtractTexturePath
+        let nameOf (fileName : string) =
+            let fn = fileName.Replace('\\', Path.DirectorySeparatorChar)
+            match Path.GetDirectoryName fn with
+            | null | "" -> Path.GetFileNameWithoutExtension fn
+            | dir -> dir
+        let declared =
+            patchInfo.Attributes |> List.map Path.GetFileNameWithoutExtension
+        let isDeclared (name : string) =
+            declared |> List.exists (fun d -> String.Equals(d, name, StringComparison.OrdinalIgnoreCase))
         match textures with
-        | _ :: rest -> rest
-        | []        -> []
+        | (_, first) :: rest when not (isDeclared (nameOf first.fileName)) -> rest |> List.map fst
+        | all -> all |> List.map fst
 
     /// Sentinel the exports write into attribute textures where a layer has no value.
     /// Normalised samples live in [0, 1], so anything this negative is nodata.
