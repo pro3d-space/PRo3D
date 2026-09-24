@@ -357,8 +357,17 @@ module ProfileAttributeExtraction =
                             | TextureFallback.Disabled -> []
                             | TextureFallback.Enabled _ when attributeTextureIndices patchInfo |> List.isEmpty -> []
                             | TextureFallback.Enabled scalarLayers ->
+                                // Only layers the *.opcx declares as a `Map` are attributes;
+                                // a texture without one (e.g. an `Earth` colour image) has no
+                                // physical value, and decoding it per point is what made a
+                                // profile export on Dimorphos run for hours at ~10 GB.
+                                let attributes =
+                                    System.Collections.Generic.HashSet<string>(
+                                        scalarLayers |> HashMap.toValueList |> List.map (fun l -> l.label),
+                                        StringComparer.OrdinalIgnoreCase)
+                                let skip (name : string) = covered.Contains name || not (attributes.Contains name)
                                 match getUVAtHit kd.coordinatesPath positionsGridSize gridIndices weights with
-                                | Some uv -> extractAttributesAtUV uv patchInfo opcPaths (rangeLookup scalarLayers) covered.Contains
+                                | Some uv -> extractAttributesAtUV uv patchInfo opcPaths (rangeLookup scalarLayers) skip
                                 | None ->
                                     Log.warn "[Extraction] no texture coordinates for %s" patchDir
                                     []
