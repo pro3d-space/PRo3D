@@ -121,7 +121,7 @@ and it does not fail the run. `no-image`, `no-pointing` and `bad-input` do.
 Where the OPC ships per-vertex `*.aara` layers (see [VertexAttributes.md](./VertexAttributes.md))
 they are interpolated at the hit point and added as columns: `Slope`, `Potential`, `Elevation`,
 `Magnitude`, and the vector layers `Normal`, `Gravity` and `LonLatRad` split into `_x` `_y` `_z`.
-Not every export has them — the HERA `AARA_Textures` products do, others do not — and the run
+Not every export has them — the Dimorphos OPC (`HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos`) does, others do not — and the run
 says so once when none are found.
 
 Only the per-vertex layers are read, never the texture fallback: that decodes an image per layer

@@ -14,7 +14,7 @@ Two features use this:
 
 ## What the data looks like
 
-A patch directory of such an OPC (HERA Dimorphos, `AARA_Textures` export):
+A patch directory of such an OPC (`HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos`; the listing shows the older HERA export this page was first written against, the layer set is the same):
 
 ```
 Patches/0_0_2/
@@ -261,7 +261,7 @@ Two defects it pins down, both fixed:
   `*.aara` weights entries and reached only `LonLatRad`, `Normal` and `Gravity` —
   three of seven layers, as raw normalised samples, and
 * dropping the first texture as the patch's base colour unconditionally. That is right
-  for `HERA/Dimorphos`, whose first texture is `Earth8K`, but the
+  for older exports whose first texture is plain colour (`Earth8K`), but the
   `Dimorphos_DRACO1_DRACO2_Earth` export puts `DRACO_1` first — a declared attribute
   with its own `DRACO_1.aara` — and the fallback could never reach it. The first texture
   is now dropped only when the patch does not declare it in `<Attributes>`.

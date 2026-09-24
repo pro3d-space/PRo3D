@@ -29,15 +29,11 @@ module private Fixtures =
         ]
 
     /// Directory holding an OPC whose `*.opcx` declares multi-channel attribute layers.
-    /// PRO3D_AARA_OPC names it directly; else the test data's Dimorphos OPC, else the
-    /// private copy under PRO3D_PRIVATE_TESTDATA.
+    /// PRO3D_AARA_OPC names it directly; else the test data's Dimorphos OPC.
     let aaraOpcDir =
         TestUtils.Roots.firstExisting [
             Environment.GetEnvironmentVariable "PRO3D_AARA_OPC"
             TestUtils.Roots.dimorphosOpc None |> Option.defaultValue ""
-            TestUtils.Roots.privateDir
-                [ "HERA"; "OPCUpdate"; "AARA_Textures"; "AARA_Textures"; "Dimorphos" ]
-            |> Option.defaultValue ""
         ]
 
     let tryOpcx (dir : string) =

@@ -97,12 +97,12 @@ data is used to prove.
 
 ## Example
 
-Against the Hera workshop Dimorphos OPC (note the doubled folder — the OPC surface folder
-is the inner one):
+Against the Dimorphos OPC of the test data (the OPC surface folder is the inner
+`Dimorphos` one):
 
 ```
 pro3d-tool simulate-image ^
-  --opc  C:\data\Dimorphos_DRACO1\Dimorphos_DRACO1 ^
+  --opc  <PRo3D.Resources.TestData>\HERA\Dimorphos_opc\Dimorphos_DRACO1_DRACO2_Earth\Dimorphos ^
   --time 2027-03-15T16:00:00Z ^
   --distance 2500 ^
   --micro-scale 3 ^

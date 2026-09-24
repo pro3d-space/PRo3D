@@ -17,15 +17,15 @@ open PRo3D.Core.Drawing
 // Fixture data
 // ---------------------------------------------------------------------------
 //
-// Import fixtures live under `imports/` in a PRo3D.Resources.TestData checkout,
-// resolved the same way every other data-backed list resolves it: PRO3D_TEST_DATA
-// first, the suite-wide --testdatasource second. See docs/SbmtImport.md.
+// SBMT fixtures are private: they are never read from the public
+// PRo3D.Resources.TestData checkout, only from the private roots
+// (TestUtils.Roots.privateRoots: PRO3D_TEST_DATA_PRIVATE, then the legacy
+// PRO3D_PRIVATE_TESTDATA). See docs/SbmtImport.md.
 //
-//   imports/basicSBMT-dimorphos-v4/   a complete SBMT v4 export of Dimorphos,
-//                                     one file per structure kind. Committed, so
-//                                     the tests using it run for everyone.
+//   <private root>/imports/basicSBMT-dimorphos-v4/   a complete SBMT v4 export of
+//                                     Dimorphos, one file per structure kind.
 //
-// Two fixtures are not in the checkout and are looked for at an external root:
+//   <private root>/shapemodels/testdata/ (or the directory named by PRO3D_SBMT_TESTDATA):
 //
 //   pointOnPike.points.txt + anno.json    the same "Pike" feature of the Dimorphos
 //     shape model, once as an SBMT point export (centerXYZ in km, SHM frame) and
@@ -34,14 +34,8 @@ open PRo3D.Core.Drawing
 //     precision on a ~170 m asteroid.
 //
 //   Dimo_Bould_Glob_7_Maurizio            a ~4,800-ellipse boulder catalog, used for
-//     the bulk import and drawing-model timings. Too large to redistribute.
+//     the bulk import and drawing-model timings.
 //
-// Both are searched under <root>/imports first, so dropping them into the checkout
-// is enough; otherwise <private root>/shapemodels/testdata (or the exact directory
-// named by PRO3D_SBMT_TESTDATA) still finds them where they are.
-//
-// The basic SBMT v4 export (imports/basicSBMT-dimorphos-v4) left the public
-// checkout in its restructure; it is found under <private root>/imports as well.
 // Every test that needs a missing fixture skips.
 
 module private Data =
@@ -49,32 +43,27 @@ module private Data =
     let private existingFile (path : string) =
         if File.Exists path then Some path else None
 
-    /// Root of a PRo3D.Resources.TestData checkout.
-    let root = TestUtils.Roots.testData
-
-    /// Where the non-redistributable catalogs live when they are not in the
-    /// checkout: <private root>/shapemodels/testdata, or the exact
-    /// directory named by PRO3D_SBMT_TESTDATA.
+    /// Where the catalogs live: the directory named by PRO3D_SBMT_TESTDATA, else
+    /// <private root>/shapemodels/testdata.
     let private externalRoot =
         TestUtils.Roots.firstExisting [
             Environment.GetEnvironmentVariable "PRO3D_SBMT_TESTDATA"
             TestUtils.Roots.privateDir [ "shapemodels"; "testdata" ] |> Option.defaultValue ""
         ]
 
-    /// One file of the SBMT v4 sample export, e.g. "points" or "ellipses": under
-    /// <root>/imports, else under <private root>/imports (see TestUtils.Roots.privateRoots).
-    let basicSbmt (root : Option<string>) (kind : string) =
-        Option.toList root @ TestUtils.Roots.privateRoots ()
+    /// One file of the SBMT v4 sample export, e.g. "points" or "ellipses", under
+    /// <private root>/imports.
+    let basicSbmt (kind : string) =
+        TestUtils.Roots.privateRoots ()
         |> List.tryPick (fun r ->
             Path.Combine(r, "imports", "basicSBMT-dimorphos-v4", sprintf "sbmtimport.%s.txt" kind)
             |> existingFile)
 
-    /// A fixture kept outside the checkout: <root>/imports first, external root second.
-    let external' (root : Option<string>) (fileName : string) =
-        [ root         |> Option.map (fun r -> Path.Combine(r, "imports", fileName))
-          externalRoot |> Option.map (fun r -> Path.Combine(r, fileName)) ]
-        |> List.choose id
-        |> List.tryPick existingFile
+    /// A catalog fixture, from the external root.
+    let external' (fileName : string) =
+        externalRoot
+        |> Option.map (fun r -> Path.Combine(r, fileName))
+        |> Option.bind existingFile
 
     /// Skip message naming the variable that fixes it.
     let missing (what : string) =
@@ -457,16 +446,14 @@ let private groupingTests =
 // ---------------------------------------------------------------------------
 
 let private fixtureTests (parameters : TestUtils.TestParameters) =
-    let root = Data.root parameters.testDataSource
 
-    // The committed SBMT v4 sample export - available wherever the checkout is.
-    let basicPointsFile  = Data.basicSbmt root "points"   |> Option.defaultValue ""
-    let basicEllipseFile = Data.basicSbmt root "ellipses" |> Option.defaultValue ""
+    // Private fixtures only; never read from the public test-data checkout.
+    let basicPointsFile  = Data.basicSbmt "points"   |> Option.defaultValue ""
+    let basicEllipseFile = Data.basicSbmt "ellipses" |> Option.defaultValue ""
 
-    // Not redistributable; resolved under <root>/imports or the external root.
-    let sbmtPointsFile     = Data.external' root "pointOnPike.points.txt"     |> Option.defaultValue ""
-    let annoFile           = Data.external' root "anno.json"                  |> Option.defaultValue ""
-    let sbmtBigEllipseFile = Data.external' root "Dimo_Bould_Glob_7_Maurizio" |> Option.defaultValue ""
+    let sbmtPointsFile     = Data.external' "pointOnPike.points.txt"     |> Option.defaultValue ""
+    let annoFile           = Data.external' "anno.json"                  |> Option.defaultValue ""
+    let sbmtBigEllipseFile = Data.external' "Dimo_Bould_Glob_7_Maurizio" |> Option.defaultValue ""
 
     testList "fixtures" [
         test "SBMT-imported Pike point aligns with PRo3D-native annotation within 10m (identity trafo)" {
