@@ -209,7 +209,17 @@ module DrawingApp =
                         match EllipticAnnotations.constructAndSampleGeographical planet referenceSystem (IndexList.toArray w.points) sampleSurface with
                         | Some (ellipses, sampledPoints) ->
                             let points = IndexList.ofArray sampledPoints
-                            Some { w with points = points; ellipticResults = Some { geographicalEllipse = ellipses.[0]; geographicalEllipseAssym = None }}
+                            let result =
+                                ellipses |> List.tryHead |> Option.map (fun e ->
+                                    {
+                                        geographicalEllipse      = Some e
+                                        geographicalEllipseAssym = None
+                                        center                   = V3d.NaN
+                                        semiMajorAxis            = V3d.NaN
+                                        semiMinorAxis            = V3d.NaN
+                                        majorAxisAzimuth         = Double.NaN
+                                    })
+                            Some { w with points = points; ellipticResults = result }
                         | _ ->
                             Some w
                     else
@@ -219,8 +229,10 @@ module DrawingApp =
                             match EllipticAnnotations.constructAndSampleFromPlane dns.plane (IndexList.toArray w.points) sampleSurface with
                             | Some r when r.surfaceProjectedEllipsePoints.Length >= 3 ->
                                 let points = IndexList.ofArray r.surfaceProjectedEllipsePoints
-                                let ellipses = EllipticAnnotations.ConstructedEllipse.createGeographicalEllipse  planet referenceSystem r
-                                Some { w with points = points; ellipticResults = None }
+                                // the plane ellipse itself, in metres, with its long-axis azimuth at
+                                // the centre; the export and colour by category read it back
+                                let result = EllipticAnnotations.Measures.ofConstructed planet up north r
+                                Some { w with points = points; ellipticResults = Some result }
                             | Some r ->
                                 // the ellipse outline could not be draped onto the surface (e.g. the
                                 // reference system has no body, so the Sky projection has no valid

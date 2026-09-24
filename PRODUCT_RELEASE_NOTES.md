@@ -1,3 +1,13 @@
+## 6.3.4
+Boulders and fractures as tables: ellipse axes and orientation, the surface inside each ellipse, and one row per fracture segment.
+
+- Annotations: **the *Boulders (ellipses)* export preset writes one CSV row per ellipse** with its semi-major and semi-minor axis in metres and the azimuth of its long axis (clockwise from local north, 0–180°), at the ellipse centre. Ellipses now keep their shape from the moment they are drawn or imported from an SBMT catalog; a new *Annotation types: ellipses only* filter keeps lines and points out. The `majorDiameter` / `minorDiameter` columns are gone: they were empty for every drawn ellipse and in degrees otherwise (#644, docs/AnnotationExport-CSV.md)
+- Annotations: **statistics of the surface inside each ellipse.** With *Ellipse statistics* ticked (the Boulders preset ticks it), every ellipse row carries its true surface area, footprint area and vertex count and, per per-vertex OPC layer, the covered area and the area-weighted mean, std, min and max, integrated over the mesh of the surface the ellipse was drawn on, visible or not. `statisticsNote` says why a row has none (imported ellipse, surface not loaded, a mesh). A 4,800-boulder catalog on Dimorphos takes about 3 s (docs/EllipseStatistics.md)
+- Annotations: **the *Fractures (segments)* preset writes one CSV row per segment**, clicked point to clicked point, with its length along the surface, its straight length, its azimuth and both endpoints; `wayLength` repeats the line's total. New granularity *one record per segment*, CSV only
+- Color by Category: **semi-major axis, semi-minor axis and long-axis azimuth** of ellipses, the azimuth on the 0–180° hue wheel
+- Color by Category: **resampling a surface layer no longer decodes textures per point.** On an imported SBMT catalog (~4,800 ellipses on Dimorphos) it ran for minutes at ~10 GB, decoding every attribute texture at every control point although the chosen layer is per-vertex; it now reads only the chosen per-vertex layer (100 s, +1.3 GB). Point samplers read per-vertex `.aara` layers only (#817, docs/VertexAttributes.md)
+- Scenes saved with 6.3.4 still open in earlier versions: the ellipse shape is stored under a new key they skip
+
 ## 6.3.3
 Feedback while PRo3D is busy, a map that follows the 3D cursor, and a per-point export that no longer takes hours.
 

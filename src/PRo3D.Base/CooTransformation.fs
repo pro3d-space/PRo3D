@@ -543,6 +543,24 @@ module CooTransformation =
                 | None    -> radial ()
 
 
+    /// Local north at a point, from the local up there: `east = pole x up`,
+    /// `north = up x east`, with the body's polar axis taken as body-fixed +Z.
+    /// Both results are *tangent* to the surface - north points along the ground
+    /// toward the pole, it does not point at it.
+    ///
+    /// `pole x up` collapses to the zero vector when up runs parallel to the polar
+    /// axis: standing on a pole, and - because `getUpVector` falls back to +Z there -
+    /// at the body centre, which is where `InferCoordSystem` puts the origin for an
+    /// OPC that wraps a whole body. North is genuinely undefined in that case, so
+    /// pick a stable arbitrary tangent rather than normalise a zero vector.
+    /// `MapViewController.mapFrame` guards the same singularity the same way.
+    let getNorthVector (up : V3d) =
+        let east = V3d.OOI.Cross(up)
+        let east =
+            if east.LengthSquared > 1e-12 then east.Normalized
+            else V3d.IOO.Cross(up).Normalized   // up ∥ pole, so up ∦ X
+        up.Cross(east).Normalized
+
     let planetFromString (spiceBodyName : string) = 
         match spiceBodyName.ToLower() with
         | "earth" -> Some Planet.Earth

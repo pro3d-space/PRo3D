@@ -29,11 +29,16 @@ export rather than writing a file.
 
 ```
 File type      CSV table / GeoJSON / Attitude planes / Continuous GeoJSON
-Preset         Custom / GIS-QGIS / Annotation table / Profile / Attitude planes /
-               Continuous GeoJSON
+Preset         Custom / GIS-QGIS / Annotation table / Profile / Boulders (ellipses) /
+               Fractures (segments) / Attitude planes / Continuous GeoJSON
 Scope          All / Visible only / Selected only
+Annotation     all / ellipses only
+  types
+Ellipse        ☐ statistics inside each ellipse (per-annotation exports; reads the OPC)
+  statistics
 ─────────────────────────────────────────────────────────────
-Granularity    one record per annotation | one record per point
+Granularity    one record per annotation | one record per point |
+               one record per segment (CSV only)
 Coordinates    Cartesian / Geographic / Both       Longitude convention
                (Both is CSV only)
                ☑ write longitude as -180...180
@@ -99,12 +104,19 @@ switches the preset back to *Custom*; nothing is locked.
 | GIS / QGIS | GeoJSON, geographic, longitude *Native*, `colorHex` + `groupPath` + the common measurements |
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
 | Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
+| Fractures (segments) | CSV, per segment, scope *All*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `wayLength`, `groupPath`, then the fixed segment columns |
+| Boulders (ellipses) | CSV, per annotation, scope *All*, annotation types *ellipses only*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `groupPath`, `semiMajorAxis`, `semiMinorAxis`, `majorAxisAzimuth`, then the surface statistics inside each ellipse ([AnnotationExport-CSV.md](AnnotationExport-CSV.md#boulders-surface-statistics-inside-the-ellipse)) |
 | Attitude planes | file type *Attitude planes* |
 | Continuous GeoJSON | file type *Continuous GeoJSON* — arms the background export |
 
 Every preset also sets the **signed −180…180 longitude range** and the **SPICE** lat/lon/alt
 source, both of which are the defaults anyway; only an explicit change (which switches the
-preset to *Custom*) moves off them. Selecting *Custom* is not a preset and changes nothing.
+preset to *Custom*) moves off them. Every preset except *Boulders* sets **annotation types:
+all**, so leaving *Boulders* never keeps the ellipse filter on by surprise. Selecting *Custom*
+is not a preset and changes nothing.
+
+Every column of the *Profile* and *Boulders* CSV files is described in
+[AnnotationExport-CSV.md](AnnotationExport-CSV.md).
 
 ### Scope
 
@@ -118,6 +130,14 @@ Which annotations are exported, independent of everything else.
 
 Annotations are written in **group-tree order** (the order shown in the annotation list).
 The old exports iterated the flat hash map, so their row order varied between runs.
+
+### Annotation types
+
+Applied after the scope. **all** exports every geometry; **ellipses only** keeps the ellipse
+annotations (*AxisEllipse*, *Axis4PEllipse*, *Ellipse*) and drops lines, points, polygons and
+dip-and-strike planes. It is a visible row rather than a hidden rule of the *Boulders* preset,
+which sets it. When the scope has annotations but none of them is an ellipse, nothing is
+written and the window says "No ellipses in scope, so there is nothing to export."
 
 If the chosen scope matches **no** annotations, no file is written and the window stays open
 with a warning in its header saying which scope came up empty and what to change. The same
@@ -137,6 +157,7 @@ file types. It applies to CSV and GeoJSON alike; only *Attitude planes* ignores 
 |---|---|---|
 | **one record per annotation** | one row; the coordinate columns hold the **bounding-box centre** and the individual vertices are not in the file — what the old *visible as table* CSV did, without saying so | one `Feature` per annotation carrying its **full** `LineString` / `Polygon` geometry; only the `lat/lon/alt` *attribute* columns hold the centre |
 | **one record per point** | one row per point of every exported annotation, with the annotation attributes repeated on each row | one **`Point`** feature per vertex |
+| **one record per segment** | one row per segment (clicked point to clicked point) of every line and polygon, with fixed columns: start and end point, `segmentLength` (along the surface), `segmentChord` (straight), `segmentAzimuth`. Ellipses give no rows. Lat/lon/alt from SPICE; *Sampled points*, *Lat/Lon/Alt Source* and the point attributes are hidden | not offered; switching the file type away from CSV falls back to *one record per annotation* |
 
 In GeoJSON this also decides the layer's geometry type, which matters because a GIS layer
 has one geometry type and one renderer.
@@ -302,9 +323,9 @@ its triangle set and grid mapping, and everything after that is cheap. Those cac
 shared with interactive picking, so a patch you have already clicked on costs nothing. PRo3D
 is unresponsive while the export runs.
 
-Ticking *Surface properties* as well is free — both read the same sample, so the point is
-only picked once. Leaving it off is what keeps the attribute *textures* out of the picture,
-which is the genuinely expensive part.
+Ticking *Surface properties* as well is cheap — both read the same sample, so the point is
+only picked once; it only adds a few reads per extra layer. Without it only the `LonLatRad`
+layer is read.
 
 ### Sampled segment points
 
@@ -320,9 +341,9 @@ exports used the sampled points, the CSV, QGIS and Attitude exports used the con
 
 ### Annotation attributes
 
-32 attributes read straight off the annotation model, in four groups: *Identity*,
+33 attributes read straight off the annotation model, in four groups: *Identity*,
 *Measurements*, *Ellipse*, *Dip and strike*. Column names match the old CSV export's names
-(`wayLength`, `dipAzimuth`, `manualDip`, …) so existing downstream scripts keep working.
+(`wayLength`, `dipAzimuth`, `manualDip`, …) so existing downstream scripts keep working, except for the retired `majorDiameter` / `minorDiameter` (see below).
 
 The **planar-fit error measures** (`errorAvg`, `errorMin`, `errorMax`, `errorStd`,
 `sumOfSquares`, `minAngularError`, `maxAngularError`) are deliberately **not** offered here.
@@ -340,9 +361,22 @@ Four in the *Identity* group are worth knowing about:
 | Group path (nested) | `groupPath` | the full chain, `"Outcrop A/Bedding"`, root excluded |
 | Colour | `color` / `colorHex` | `color` is Aardvark's exact format (reimports losslessly); `colorHex` is `#RRGGBB` for GIS styling |
 
-Values that were never computed (a polyline asked for a diameter, an annotation with no
+Values that were never computed (a polyline asked for a semi-axis, an annotation with no
 planar fit asked for dip) are written as **empty cells** / JSON `null`, not as the text
 `NaN`.
+
+The *Ellipse* group reads the shape stored with the ellipse when it was drawn or imported:
+
+| Attribute | Column | Unit | Notes |
+|---|---|---|---|
+| Semi-major axis | `semiMajorAxis` | m | half the long axis, on the plane the ellipse was constructed on |
+| Semi-minor axis | `semiMinorAxis` | m | half the short axis |
+| Long-axis azimuth | `majorAxisAzimuth` | deg | clockwise from local north at the centre, **axial 0–180**; empty for a vertical long axis |
+
+A per-annotation row of an ellipse takes its `x, y, z` / `lat, lon, alt` from the stored
+centre, not from the bounding box of the draped outline. The former `majorDiameter` /
+`minorDiameter` columns are **retired**: they read a longitude/latitude ellipse (degrees,
+although labelled metres) and were empty for every ellipse drawn on a plane.
 
 Two length attributes are worth calling out:
 
@@ -394,11 +428,11 @@ two diverge (chords versus the draped path).
 ### Surface properties
 
 The one point attribute that is not read off the annotation. Tick **Surface properties** and
-every exported point is sampled against the **OPC layers** of the surface underneath it — the
-scalar and texture attributes an OPC dataset carries besides its base texture (gravity,
-altitude, slope maps, whatever the dataset ships). Only layers the `*.opcx` declares as a
-`Map` count; plain colour textures (e.g. an `Earth` image layer) are not exported — see
-[VertexAttributes](VertexAttributes.md#texture-sampling-fallback). This reproduces
+every exported point is sampled against the **per-vertex OPC layers** (`*.aara`) of the
+surface underneath it (gravity, elevation, slope, whatever the dataset ships). Layers that
+exist only as textures are **not** exported — decoding an image per point is what made this
+export run for hours; see
+[VertexAttributes](VertexAttributes.md#texture-sampling-not-used-for-point-sampling). This reproduces
 the old *selected as multi-attribute profile* export, with the rest of the window's columns
 available alongside.
 
@@ -411,7 +445,7 @@ One column per layer found, named `surface_<layer>` after the layer in the patch
 |---|---|
 | Prefix | `surface_` — the layer names come from the *data*, so without a namespace of their own a layer called `alt` or `x` would shadow a coordinate column |
 | Order | after every column the settings named, alphabetically among themselves — so the table does not reorder itself depending on which patch was hit first |
-| Multi-channel layers | kept in **one** cell, `0.25;0.5;0.75` (a JSON array in GeoJSON), because the channel *count* would otherwise depend on which texture a point landed on |
+| Multi-channel layers | kept in **one** cell, `0.25;0.5;0.75` (a JSON array in GeoJSON), because the channel *count* would otherwise depend on which layer a point landed on |
 | Points that hit nothing | empty cells; the export still succeeds |
 
 Only offered for **one record per point**, and ignored by the fixed-schema file types. It works
@@ -424,9 +458,9 @@ terrain would be attributed to the wrong place with nothing to signal it.
 
 An annotation point does not remember where it came from, so each point is **re-picked**: a
 ray is shot from 10 m above the point, along the reference system's up axis, into the visible
-and active surfaces' KdTrees. The patch that is hit identifies the textures; barycentric
-coordinates on the hit triangle interpolate the UV, and each layer image is sampled at that
-UV (nearest pixel, no filtering). The value therefore comes from the same patch the renderer
+and active surfaces' KdTrees. The patch that is hit identifies the `*.aara` layers;
+barycentric coordinates on the hit triangle interpolate each layer's three corner values.
+The value therefore comes from the same patch the renderer
 draws there, and *not* from the annotation's `surfaceName`.
 
 Consequences worth knowing:
@@ -437,16 +471,14 @@ Consequences worth knowing:
 - **Only OPC surfaces.** Mesh (`.obj` and friends) data sources have no layers to sample.
 - **KdTrees are required**, as for any picking — build them with `opc-tool` if picking does
   not work on the surface either.
-- The first layer of a patch (the base texture) is skipped; it is the colour PRo3D renders,
-  not an attribute.
+- Texture-only layers, including the base texture PRo3D renders, give no column.
 
 #### It is slow, on purpose off by default
 
-A ray cast plus one texture read per layer per point. With *include sampled segment points*
+A ray cast plus three small reads per layer per point. With *include sampled segment points*
 on, a drawn polyline easily has thousands of points, and PRo3D is **busy** — the whole export
-runs synchronously — until it finishes. Decoded layer images and per-patch texture
-coordinates are cached (bounded, oldest-first), so consecutive points on the same patch are
-cheap and the cost scales with the number of *patches* crossed rather than points sampled.
+runs synchronously — until it finishes. The first hit on a patch loads its triangle mapping,
+so the cost is dominated by the number of *patches* crossed.
 No preset switches it on; the *Profile* preset does not either, so an ordinary profile export
 stays fast. The accordion's **all** / **none** buttons do cover it.
 
@@ -616,6 +648,9 @@ Beyond the GeoJSON coordinate order, two other behaviours changed on purpose:
 | `src/PRo3D.Core/ProfileAttributeExtraction.fs` | `sampleAt` — the KdTree re-pick, UV interpolation and layer sampling behind *Surface properties*; `tryLonLatRadius` / `hasLonLatRadLayer` behind the *File (.aara)* source |
 | `src/PRo3D.Viewer/Viewer/AnnotationExportViewer.fs` | scope resolution, the surface sampler, and running the export |
 | `src/Tests/AnnotationExportTest.fs` | schema, lengths, culture-invariance, presets, surface columns |
+| `src/PRo3D.Core/EllipseStatistics.fs` | the surface statistics inside an ellipse, and `EllipseStatisticsColumns`, their export columns |
+| `src/PRo3D.Core/Drawing/EllipseAnnotation.fs` | `EllipticAnnotations.Measures` — the stored ellipse shape and its azimuth, used by drawing and the SBMT import |
+| `src/Tests/EllipseExportTest.fs` | stored ellipse shape, *Boulders* columns and values, the type filter, colour by category |
 
 Adding an annotation-level attribute means adding one enum case in `AnnotationFields.fs`
 plus its `columnName`, `label`, `groupOf` and `valueOf` branch — the window, the schema and

@@ -14,7 +14,7 @@ Two features use this:
 
 ## What the data looks like
 
-A patch directory of such an OPC (HERA Dimorphos, `AARA_Textures` export):
+A patch directory of such an OPC (`HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos`; the listing shows the older HERA export this page was first written against, the layer set is the same):
 
 ```
 Patches/0_0_2/
@@ -34,11 +34,14 @@ Patches/0_0_2/
 `patch.xml` lists them in its `<Attributes>` element; the layer name is the file's base
 name.
 
-Layers hold whatever units the exporter wrote. `LonLatRad` is **not** in degrees: on the HERA
-exports its first two channels are gradians -- longitude x 10/9 (0..400) and (latitude + 90)
-x 10/9 (0..200, from the south pole) -- while the third channel, the radius, is in metres.
-Established by comparing the layer against lat/lon/alt computed from the same intersection
-points via `CooTransformation`; they agree to 1e-4 degrees once converted. Only layers whose resolution matches the geometry can be exported this way, so an
+Layers hold whatever units the exporter wrote. For `LonLatRad` the third channel, the radius,
+is always metres; the first two depend on the export. The current Dimorphos OPC
+(`HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth`) stores plain **degrees** (longitude 0..360,
+planetocentric latitude −90..90). Older HERA exports stored **gradians**: longitude x 10/9
+(0..400) and (latitude + 90) x 10/9 (0..200, from the south pole). The `.opcx` tells them apart:
+its `ChannelsDefinedRange` for `LonLatRad` ends the latitude channel at 90 or at 200. Both were
+established by comparing the layer against lat/lon/alt computed from the same points via
+`CooTransformation`; they agree to 1e-4 degrees once converted. Only layers whose resolution matches the geometry can be exported this way, so an
 OPC may well ship a subset — or none at all.
 
 ### The attribute grid is smaller than the position grid
@@ -81,20 +84,26 @@ Interpolation is component-wise. A layer that wraps — the longitude channel of
 values near the seam can be misleading.
 
 Vertices in the skirt have no attribute values. A hit whose triangle touches the skirt
-yields no per-vertex value for that layer, and the texture fallback takes over.
+yields no value for that layer.
 
-## Texture sampling fallback
+## Texture sampling (not used for point sampling)
 
-Layers the per-vertex data does not cover are read from the patch's attribute textures.
-This costs a full image decode per layer per sample, so it is used for profile extraction
-but **never** for the 3D cursor — a surface without per-vertex layers shows nothing in the
-*Under Cursor* readout and says so.
+Every point-sampling path — the 3D cursor, the annotation export's *Surface properties*, the
+multi-attribute profile and Color by Category's *resample surface* — reads **per-vertex
+layers only**. A layer that exists only as an attribute texture yields no value there; a
+surface without per-vertex layers shows nothing in the *Under Cursor* readout and says so.
 
-Only layers the `*.opcx` declares as a **`Map`** (with a `ChannelsDefinedRange`) are
-attributes. A texture that only has a `Texture` entry — a colour image such as the `Earth`
-layer of `Dimorphos_DRACO1_DRACO2_Earth` — carries no physical value and is never sampled.
-Sampling it used to decode that 8652×4324 image once per exported point: a ~450 point
-profile ran for hours at ~10 GB.
+The texture path used to be a fallback for layers the per-vertex data did not cover. It
+decoded a whole image per layer **per sampled point**. #809 stopped it decoding plain colour
+textures (the 8652×4324 `Earth` image of `Dimorphos_DRACO1_DRACO2_Earth`, which made a ~450
+point profile run for hours at ~10 GB), but every declared `Map` layer without a per-vertex
+twin was still decoded per point — and Color by Category's resample asked for *every* layer
+at every control point of an imported SBMT catalog (~4,800 ellipses × 60 points: minutes and
+~10 GB, for a layer that had per-vertex data all along). The fallback is therefore gone
+from all point samplers, not cached.
+
+`extractAttributesAtUV` and the helpers below remain as library functions; the tests call
+them directly to check the textures against the per-vertex layers.
 
 Attribute textures store each layer **normalised into the layer's `ChannelsDefinedRange`**
 from the `*.opcx` (EXR layers hold `[0,1]` floats; 8/16 bit images are normalised on read).
@@ -200,7 +209,7 @@ Example output for the Deimos BDS export:
 | File | Contents |
 |------|----------|
 | `src/PRo3D.Core/VertexAttributes.fs` | `*.aara` header reading, layer discovery, grid offset, barycentric sampling |
-| `src/PRo3D.Core/ProfileAttributeExtraction.fs` | triangle-to-grid mapping, texture fallback, profile walk, CSV export |
+| `src/PRo3D.Core/ProfileAttributeExtraction.fs` | triangle-to-grid mapping, per-vertex extraction (`extractLayersFromHit`, `sampleAt` with a layer filter), texture sampling helpers, profile walk, CSV export |
 | `src/PRo3D.Core/TriangleSet.fs` | `computeValidQuadStarts` — the compact triangle-to-grid form |
 | `src/PRo3D.Core/OpcMetadata.fs` | `*.opc.json` / DSKBRIEF parsing |
 | `src/PRo3D.Core/Surface/SurfaceApp.fs` | `SurfaceUtils.SurfaceAttributes` — `*.opcx` attribute layer parsing |
@@ -218,11 +227,9 @@ every one of them skips rather than fails. Paths are resolved relative to that r
 
 | Fixture | Path under the checkout | Used for |
 |---|---|---|
-| Dimorphos DRACO1 OPC | `Dimorphos_DRACO1/Dimorphos_DRACO1` | grid mapping, aara header, kd-tree intersection |
-| test annotation | `Dimorphos_DRACO1/testAnnotatation.pro3d.ann` | end-to-end profile extraction |
-| HERA Dimorphos OPC | `HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos` | per-vertex layers, texture fallback, attribute coverage (preferred; its first texture, `DRACO_1`, is itself an attribute) |
-| HERA Dimorphos AARA export | `HERA/Dimorphos` | the same, as a fallback for older checkouts (its first texture, `Earth8K`, is plain colour) |
-| slow profile export scene | `cases/slowProfileExport.pro3d` | `SlowProfileExportTest`: the real annotation export (Profile preset + surface properties) must finish within 60 s, grow memory by < 2 GB, and — with the KdTrees loaded — allocate < 250 MB. Needs a GL context; the scene references its OPC by absolute path |
+| Dimorphos OPC | `HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos` | grid mapping, aara header, kd-tree intersection, per-vertex layers, texture fallback, attribute coverage (its first texture, `DRACO_1`, is itself an attribute) |
+| profile annotation | `cases/slowProfileExport.pro3d.ann` | end-to-end profile extraction |
+| slow profile export scene | `cases/slowProfileExport.pro3d` | `SlowProfileExportTest`: the real annotation export (Profile preset + surface properties) must finish within 60 s and — with the KdTrees loaded — allocate < 250 MB on its own thread (process-wide counters would include tests running in parallel). Needs a GL context; the scene references its OPC by absolute path |
 
 ```
 set PRO3D_TEST_DATA=C:\Users\<you>\Desktop\pro3d\PRo3D.Resources.TestData
@@ -231,8 +238,8 @@ dotnet run --project src/Tests -- --filter "all.profile tests.ProfileAttributeEx
 
 The suite-wide `--testdatasource` is still honoured as a fallback root, so
 `run-tests.cmd` keeps working. Two narrower overrides remain for exports kept
-outside the checkout. Those live under `PRO3D_PRIVATE_TESTDATA` (default
-`C:\pro3ddata`), and `PRO3D_AARA_OPC` / `PRO3D_BDS_OPC` name an individual OPC
+outside the checkout. Those live under the private roots — `PRO3D_TEST_DATA_PRIVATE`,
+then the legacy `PRO3D_PRIVATE_TESTDATA` (default `C:\pro3ddata`) — and `PRO3D_AARA_OPC` / `PRO3D_BDS_OPC` name an individual OPC
 directly — the first with per-vertex attribute layers, the second with a
 `*.opc.json` carrying a `DskBrief`.
 
@@ -242,8 +249,8 @@ same root.
 *profile export covers every declared attribute layer* is the regression test for
 exports that lost attributes. It reads each hit patch's `<Attributes>` and requires
 every layer named there to reach the CSV — with all of its components, and with one
-column per attribute and no empty cells. It also requires the texture fallback to be
-able to reach each layer on its own, which the per-vertex path would otherwise mask.
+column per attribute and no empty cells. It also requires the texture sampling helpers to be
+able to reach each layer on their own, which the per-vertex path would otherwise mask.
 Two defects it pins down, both fixed:
 
 * per-vertex `*.aara` layers not being read at all, which left the scalar layers
@@ -254,7 +261,7 @@ Two defects it pins down, both fixed:
   `*.aara` weights entries and reached only `LonLatRad`, `Normal` and `Gravity` —
   three of seven layers, as raw normalised samples, and
 * dropping the first texture as the patch's base colour unconditionally. That is right
-  for `HERA/Dimorphos`, whose first texture is `Earth8K`, but the
+  for older exports whose first texture is plain colour (`Earth8K`), but the
   `Dimorphos_DRACO1_DRACO2_Earth` export puts `DRACO_1` first — a declared attribute
   with its own `DRACO_1.aara` — and the fallback could never reach it. The first texture
   is now dropped only when the patch does not declare it in `<Attributes>`.

@@ -143,10 +143,10 @@ What is inside:
 
 | Folder | Content | Good for |
 |---|---|---|
-| `HERA/Dimorphos_opc/Dimorphos/` | Dimorphos shape model | first steps in the viewer ([2.2](#22-open-dimorphos-hera)) |
+| `HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/` | Dimorphos shape model | first steps in the viewer ([2.2](#22-open-dimorphos-hera)) |
 | `HERA/Dimorphos_opc/AFC_2027-03-21/` | simulated HERA/AFC frames of that model | image projection |
 | `HERA/Didymos_ASPECT/` | Didymos shape model | `pro3d-tool simulate-image` |
-| `1087_004779_MSLMST_0011/` | small part of the MSL *Stimson* outcrop on Mars | a Mars surface ([2.3](#23-open-the-msl-stimson-outcrop-mars)); the full dataset is at [download.vrvis.at](http://download.vrvis.at/acquisition/32987e2792e0/PRo3D/Stimson_1087.zip) |
+| `MSL/1087_004779_MSLMST_0011/` | small part of the MSL *Stimson* outcrop on Mars | a Mars surface ([2.3](#23-open-the-msl-stimson-outcrop-mars)); the full dataset is at [download.vrvis.at](http://download.vrvis.at/acquisition/32987e2792e0/PRo3D/Stimson_1087.zip) |
 | `HERA/Instrument Data/` | an ASPECT instrument image with metadata | `pro3d-tool sun-angles`, `unproject` |
 | `annotations/`, `cases/`, `imports/` | annotation files and example scenes | annotation features |
 
@@ -160,7 +160,7 @@ What is inside:
 
 ![Surfaces → Import OPCs menu](images/installation/pro3d-import-opcs.png)
 
-In the folder dialog select `PRo3D.Resources.TestData-main\HERA\Dimorphos_opc\Dimorphos` and confirm. Dimorphos appears in the **Surfaces** list on the right. If the 3D view does not show it, click the **house** icon next to its name (*Fly to surface*), and scroll the mouse wheel to zoom out until you see the whole body.
+In the folder dialog select `PRo3D.Resources.TestData-main\HERA\Dimorphos_opc\Dimorphos_DRACO1_DRACO2_Earth\Dimorphos` and confirm. Dimorphos appears in the **Surfaces** list on the right. If the 3D view does not show it, click the **house** icon next to its name (*Fly to surface*), and scroll the mouse wheel to zoom out until you see the whole body.
 
 **3. Rotate around the body.** Click into the 3D view and press **C**. This switches to **ArcBall** navigation with the **centre of the body** as the pivot — in PRo3D 6.3 and newer the ArcBall button in the toolbar next to the view lights up. Now:
 

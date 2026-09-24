@@ -427,10 +427,10 @@ let private renderSunShadowMap (runtime : IRuntime) (body : string)
     }
 
 // ---------------------------------------------------------------------------------
-// Camera: position from the spacecraft SPK, orientation looking at the body centre.
-// Deliberately NOT the CK attitude: coverage-independent, and AFC tracks the asteroid
-// anyway. The roll around the boresight follows the up convention and is therefore
-// arbitrary -- documented as a caveat.
+// Camera: position from the spacecraft SPK, orientation and roll from the kernels'
+// attitude of the instrument frame (the planned one with hera_plan.tm), optionally
+// turned onto a body with --aim. A look-at camera with an invented roll is only the
+// fallback where the kernels have no attitude -- see cameraAt.
 
 type SimCamera =
     {
@@ -1191,5 +1191,8 @@ let run (o : SimulateImageOptions) : int =
         | Ok _ -> 0
         | Result.Error e -> Log.error "%s" e; 1
     with e ->
+        // The clean line for the user; the details for a bug report, without which an
+        // intermittent failure cannot be traced back to where it happened.
         Log.error "unhandled: %s" e.Message
+        Log.line "details for a bug report: %s" (string e)
         1

@@ -21,6 +21,7 @@
     <Compile Include="TestUtils.fs" />
     <Compile Include="GeoJsonExportTest.fs" />
     <Compile Include="AnnotationExportTest.fs" />
+    <Compile Include="EllipseExportTest.fs" />
     <Compile Include="ColorByCategoryPersistenceTest.fs" />
     <Compile Include="ColorByCategoryColorTest.fs" />
     <Compile Include="SpiceTests.fs" />
@@ -47,6 +48,7 @@
     <Compile Include="AnnotationRegionOpsTests.fs" />
     <None Include="data\regions\seed-basic.region" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
+    <Compile Include="EllipseStatisticsTest.fs" />
     <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="UnprojectTest.fs" />
     <Compile Include="SampleLayersTest.fs" />
@@ -90,6 +92,7 @@
     <Compile Include="SurfaceEffectSwitchTest.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />
+    <Compile Include="BoulderStatisticsExportTest.fs" />
     <Compile Include="SurfaceEffectBenchmark.fs" />
     <Compile Include="MapProjectionBenchmark.fs" />
     <Compile Include="Program.fs" />

@@ -24,11 +24,22 @@ type ExportGranularity =
     | PerAnnotation = 0
     /// one row / feature per point of every exported annotation
     | PerPoint      = 1
+    /// one row per segment (clicked point to clicked point) of every exported
+    /// line or polygon, with fixed segment columns. CSV only.
+    | PerSegment    = 2
 
 type ExportScope =
     | All      = 0
     | Visible  = 1
     | Selected = 2
+
+/// Which annotation geometries an export includes, applied after the scope.
+/// A visible setting in the window, so a preset that narrows it never hides
+/// annotations silently.
+type ExportTypeFilter =
+    | All          = 0
+    /// `AxisEllipse`, `Axis4PEllipse` and `Ellipse`
+    | EllipsesOnly = 1
 
 type CoordinateMode =
     | Cartesian  = 0
@@ -72,6 +83,10 @@ type ExportPreset =
     | Profile           = 3
     | AttitudePlanes    = 4
     | ContinuousGeoJson = 5
+    /// one row per ellipse: semi-axes, long-axis azimuth, centre
+    | Boulders          = 6
+    /// one row per segment of every line: lengths, endpoints, azimuth
+    | Fractures         = 7
 
 /// Immutable snapshot handed to the record builder and the writers. Contains no
 /// adaptive types and no reference to the surface model, so it can live in
@@ -80,6 +95,8 @@ type AnnotationExportSettings = {
     format            : ExportFormat
     granularity       : ExportGranularity
     scope             : ExportScope
+    /// applied after `scope`; see `ExportTypeFilter.admits`
+    typeFilter        : ExportTypeFilter
     coordinates       : CoordinateMode
     longitude         : LongitudeConvention
     /// write longitudes as (-180, 180] instead of [0, 360)
@@ -95,6 +112,10 @@ type AnnotationExportSettings = {
     /// only. Costly (a ray cast plus a texture lookup per point), which is why
     /// it is off by default and no preset switches it on.
     sampleSurfaceProperties : bool
+    /// integrate the surface inside every ellipse and add the statistics columns
+    /// (EllipseStatistics) to its per-annotation row. Reads the OPC meshes, so it
+    /// is off by default; only the Boulders preset switches it on.
+    ellipseStatistics : bool
     annotationFields  : list<AnnotationField>
     pointFields       : list<PointField>
 }
@@ -103,7 +124,8 @@ module ExportPreset =
 
     let all =
         [ ExportPreset.Custom; ExportPreset.QgisFeatures; ExportPreset.AnnotationTable
-          ExportPreset.Profile; ExportPreset.AttitudePlanes; ExportPreset.ContinuousGeoJson ]
+          ExportPreset.Profile; ExportPreset.Boulders; ExportPreset.Fractures
+          ExportPreset.AttitudePlanes; ExportPreset.ContinuousGeoJson ]
 
     let label (preset : ExportPreset) =
         match preset with
@@ -113,7 +135,29 @@ module ExportPreset =
         | ExportPreset.Profile           -> "Profile"
         | ExportPreset.AttitudePlanes    -> "Attitude planes"
         | ExportPreset.ContinuousGeoJson -> "Continuous GeoJSON"
+        | ExportPreset.Boulders          -> "Boulders (ellipses)"
+        | ExportPreset.Fractures         -> "Fractures (segments)"
         | _                              -> string preset
+
+module ExportTypeFilter =
+
+    let all = [ ExportTypeFilter.All; ExportTypeFilter.EllipsesOnly ]
+
+    let label (filter : ExportTypeFilter) =
+        match filter with
+        | ExportTypeFilter.EllipsesOnly -> "ellipses only"
+        | _                             -> "all"
+
+    let isEllipse (g : Geometry) =
+        match g with
+        | Geometry.AxisEllipse | Geometry.Axis4PEllipse | Geometry.Ellipse -> true
+        | _ -> false
+
+    /// Whether an annotation passes the filter.
+    let admits (filter : ExportTypeFilter) (a : Annotation) =
+        match filter with
+        | ExportTypeFilter.EllipsesOnly -> isEllipse a.geometry
+        | _                             -> true
 
 module AnnotationExportSettings =
 
@@ -130,12 +174,14 @@ module AnnotationExportSettings =
         format            = ExportFormat.Csv
         granularity       = ExportGranularity.PerAnnotation
         scope             = ExportScope.Visible
+        typeFilter        = ExportTypeFilter.All
         coordinates       = CoordinateMode.Both
         longitude         = LongitudeConvention.Flipped
         signedLongitude   = true
         latLonAltSource   = LatLonAltSource.Spice
         useSampledPoints  = true
         sampleSurfaceProperties = false
+        ellipseStatistics = false
         annotationFields  =
             [ AnnotationField.Key; AnnotationField.Text; AnnotationField.GroupName
               AnnotationField.GroupPath; AnnotationField.SurfaceName
@@ -158,13 +204,17 @@ module AnnotationExportSettings =
         //   which is the less accurate of the two wherever a kernel is available.
         //   Selecting `File (.aara)` is a deliberate manual choice, and the
         //   export window warns when it is made.
+        // - every annotation type: only *Boulders* narrows the filter, so moving
+        //   on to any other preset must not leave it narrowed by surprise.
         let settings =
             match preset with
             | ExportPreset.Custom -> settings
             | _                   ->
                 { settings with
                     signedLongitude = true
-                    latLonAltSource = LatLonAltSource.Spice }
+                    latLonAltSource = LatLonAltSource.Spice
+                    typeFilter      = ExportTypeFilter.All
+                    ellipseStatistics = false }
 
         match preset with
         | ExportPreset.QgisFeatures ->
@@ -207,6 +257,35 @@ module AnnotationExportSettings =
                 useSampledPoints = true
                 annotationFields = [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName ]
                 pointFields      = AnnotationFields.allPointFields }
+        | ExportPreset.Boulders ->
+            // One row per ellipse. The row's coordinates are the stored ellipse
+            // centre; the body's own longitudes, like the GIS preset.
+            { settings with
+                format           = ExportFormat.Csv
+                granularity      = ExportGranularity.PerAnnotation
+                scope            = ExportScope.All
+                typeFilter       = ExportTypeFilter.EllipsesOnly
+                ellipseStatistics = true
+                coordinates      = CoordinateMode.Both
+                longitude        = LongitudeConvention.Native
+                // in enum order, which is the order the export window writes them in
+                annotationFields =
+                    [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
+                      AnnotationField.GroupPath; AnnotationField.SemiMajorAxis
+                      AnnotationField.SemiMinorAxis; AnnotationField.MajorAxisAzimuth ] }
+        | ExportPreset.Fractures ->
+            // One row per segment. Ellipses have no clicked-to-clicked segments and
+            // produce no rows, so no type filter is needed.
+            { settings with
+                format           = ExportFormat.Csv
+                granularity      = ExportGranularity.PerSegment
+                scope            = ExportScope.All
+                coordinates      = CoordinateMode.Both
+                longitude        = LongitudeConvention.Native
+                // in enum order, which is the order the export window writes them in
+                annotationFields =
+                    [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
+                      AnnotationField.WayLength; AnnotationField.GroupPath ] }
         | ExportPreset.AttitudePlanes ->
             { settings with format = ExportFormat.Attitude }
         | ExportPreset.ContinuousGeoJson ->
@@ -238,7 +317,15 @@ module AnnotationExportSettings =
     let granularityLabel (granularity : ExportGranularity) =
         match granularity with
         | ExportGranularity.PerAnnotation -> "one record per annotation"
+        | ExportGranularity.PerSegment    -> "one record per segment"
         | _                               -> "one record per point"
+
+    /// Per segment is a CSV table only: a GeoJSON feature per segment would need a
+    /// geometry model of its own, and nobody asked for one.
+    let granularitiesFor (format : ExportFormat) =
+        match format with
+        | ExportFormat.Csv -> [ ExportGranularity.PerAnnotation; ExportGranularity.PerPoint; ExportGranularity.PerSegment ]
+        | _                -> [ ExportGranularity.PerAnnotation; ExportGranularity.PerPoint ]
 
     let scopeLabel (scope : ExportScope) =
         match scope with

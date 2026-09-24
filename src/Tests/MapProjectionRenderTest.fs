@@ -7,7 +7,7 @@
 /// `Projection` gives. A broken projection, a y-flip, a torn seam or a missing pole cap all
 /// fail that check -- "something was drawn" would pass all of them.
 ///
-/// Self-skips without a GL context or without PRO3D_TEST_DATA (HERA/Dimorphos_opc/Dimorphos).
+/// Self-skips without a GL context or without PRO3D_TEST_DATA (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos).
 module MapProjectionRenderTest
 
 open System
@@ -29,8 +29,7 @@ open PRo3D.Tests
 open PRo3D.Tool.SunAnglesVerb
 
 let private dimorphosOpc () =
-    TestUtils.Roots.testData None
-    |> Option.map (fun root -> Path.Combine(root, "HERA", "Dimorphos_opc", "Dimorphos"))
+    TestUtils.Roots.dimorphosOpc None
     |> Option.filter Directory.Exists
 
 let private outputDir () =
@@ -310,7 +309,7 @@ let tests () =
         test "equirectangular: every pixel shows the surface point at its own longitude and latitude" {
             match Render.context.Value, dimorphosOpc () with
             | None, _ -> skiptest "no OpenGL runtime in this environment"
-            | _, None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos)"
+            | _, None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)"
             | Some (runtime, _), Some opc ->
 
             Startup.init ()
@@ -347,7 +346,7 @@ let tests () =
         test "polar stereographic: the hemisphere disc shows the surface point at each pixel" {
             match Render.context.Value, dimorphosOpc () with
             | None, _ -> skiptest "no OpenGL runtime in this environment"
-            | _, None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos)"
+            | _, None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)"
             | Some (runtime, _), Some opc ->
 
             Startup.init ()
@@ -370,7 +369,7 @@ let tests () =
 
         test "map LoD (phase 1.5) draws the root at zoom 1 and refines where the view zooms in" {
             match dimorphosOpc () with
-            | None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos)"
+            | None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)"
             | Some opc ->
             let serializer = MBrace.FsPickler.FsPickler.CreateBinarySerializer()
             let hierarchy = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths (MapSg.hierarchiesOf opc).[0])
@@ -404,7 +403,7 @@ let tests () =
         test "map LoD (phase 1.5): whole map and zoomed-in window still show every surface point exactly" {
             match Render.context.Value, dimorphosOpc () with
             | None, _ -> skiptest "no OpenGL runtime in this environment"
-            | _, None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos)"
+            | _, None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)"
             | Some (runtime, _), Some opc ->
 
             Startup.init ()
@@ -434,7 +433,7 @@ let tests () =
         test "textured equirectangular map renders deterministically with image content" {
             match Render.context.Value, dimorphosOpc () with
             | None, _ -> skiptest "no OpenGL runtime in this environment"
-            | _, None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos)"
+            | _, None -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)"
             | Some (runtime, _), Some opc ->
 
             Startup.init ()
