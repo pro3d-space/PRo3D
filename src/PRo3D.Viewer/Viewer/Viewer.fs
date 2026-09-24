@@ -1543,13 +1543,22 @@ module ViewerApp =
                             let ct = Async.DefaultCancellationToken
                             while not ct.IsCancellationRequested do
                                 let! (m, sceneHit, name) = Async.AwaitTask <| m.pickPreviewRequested.WaitAsync()
-                                let pick = Picking.pickRayInfo m sceneHit.globalRay.Ray (Some name)
-                                // per-vertex attribute layers only - the texture fallback
-                                // decodes one image per layer and cannot run per mouse move
-                                let attributes =
-                                    pick
-                                    |> Option.bind (fun (hitInfo, _) ->
-                                        ProfileAttributeExtraction.extractAttributesFromHit TextureFallback.Disabled hitInfo sceneHit.globalRay.Ray
+                                // Reported as background work: this does not block the UI,
+                                // but the first hover over a cold patch loads its KdTree and
+                                // triangle set, and until that returns the 3D cursor and the
+                                // Under Cursor read-out are showing the *previous* hit. That
+                                // lag is what the indicator names. See docs/BusyIndicator.md.
+                                let pick, attributes =
+                                    Busy.scopeBackground "picking" (fun () ->
+                                        let pick = Picking.pickRayInfo m sceneHit.globalRay.Ray (Some name)
+                                        // per-vertex attribute layers only - the texture fallback
+                                        // decodes one image per layer and cannot run per mouse move
+                                        let attributes =
+                                            pick
+                                            |> Option.bind (fun (hitInfo, _) ->
+                                                ProfileAttributeExtraction.extractAttributesFromHit TextureFallback.Disabled hitInfo sceneHit.globalRay.Ray
+                                            )
+                                        pick, attributes
                                     )
                                 let hit = pick |> Option.map (fun (hitInfo, hitPosOnRay) -> hitInfo.hit, hitPosOnRay)
                                 let previewIntersection = PreviewPickSurfaceFinished(p, name, hit, attributes)

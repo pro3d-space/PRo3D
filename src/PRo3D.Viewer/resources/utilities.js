@@ -49,9 +49,22 @@ function startBusyIndicator(id, thresholdMs) {
 
 	var text = el.querySelector('.pro3d-busy-text');
 
-	var show = function (on, label, ms) {
-		el.style.display = on ? 'flex' : 'none';
-		if (on) { text.textContent = label + '  ' + (ms / 1000).toFixed(1) + 's'; }
+	var show = function (label) {
+		el.style.display = label ? 'flex' : 'none';
+		if (label) { text.textContent = label; }
+	};
+
+	// More than one thing can be busy at once - a blocked update and a hover pick loading a
+	// cold patch are independent. Each is held to the threshold on its own, so a brief one
+	// alongside a long one adds nothing, and whatever is left is joined into one line.
+	var describe = function (s) {
+		if (s.busy !== true) { return null; }
+		var ops = s.ops || [{ op: s.op, ms: s.ms }];
+		var active = ops.filter(function (o) { return o && o.ms >= thresholdMs; });
+		if (active.length === 0) { return null; }
+		return active.map(function (o) {
+			return o.op + '  ' + (o.ms / 1000).toFixed(1) + 's';
+		}).join('   ·   ');
 	};
 
 	// One request at a time. /busy itself cannot block, but the process can stop answering
@@ -71,8 +84,8 @@ function startBusyIndicator(id, thresholdMs) {
 		if (canTimeout) { opts.signal = AbortSignal.timeout(2000); }
 		fetch('/busy', opts)
 			.then(function (r) { return r.json(); })
-			.then(function (s) { show(s.busy === true && s.ms >= thresholdMs, s.op, s.ms); })
-			.catch(function () { show(false); })    // shutting down, or gone - never throw
+			.then(function (s) { show(describe(s)); })
+			.catch(function () { show(null); })     // shutting down, or gone - never throw
 			.then(function () { inFlight = false; });
 	}, 200);
 }
