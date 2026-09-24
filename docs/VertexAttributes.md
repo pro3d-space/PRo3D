@@ -214,7 +214,8 @@ every one of them skips rather than fails. Paths are resolved relative to that r
 |---|---|---|
 | Dimorphos DRACO1 OPC | `Dimorphos_DRACO1/Dimorphos_DRACO1` | grid mapping, aara header, kd-tree intersection |
 | test annotation | `Dimorphos_DRACO1/testAnnotatation.pro3d.ann` | end-to-end profile extraction |
-| HERA Dimorphos AARA export | `HERA/Dimorphos` | per-vertex layers, texture fallback, attribute coverage |
+| HERA Dimorphos OPC | `HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos` | per-vertex layers, texture fallback, attribute coverage (preferred; its first texture, `DRACO_1`, is itself an attribute) |
+| HERA Dimorphos AARA export | `HERA/Dimorphos` | the same, as a fallback for older checkouts (its first texture, `Earth8K`, is plain colour) |
 
 ```
 set PRO3D_TEST_DATA=C:\Users\<you>\Desktop\pro3d\PRo3D.Resources.TestData
@@ -244,4 +245,9 @@ Two defects it pins down, both fixed:
   assumes the list is `[textures; weights]`. `patch.xml` interleaves them
   (`DiffuseColorNTexture`, `DiffuseColorNWeights`), so that walk landed on the
   `*.aara` weights entries and reached only `LonLatRad`, `Normal` and `Gravity` —
-  three of seven layers, as raw normalised samples.
+  three of seven layers, as raw normalised samples, and
+* dropping the first texture as the patch's base colour unconditionally. That is right
+  for `HERA/Dimorphos`, whose first texture is `Earth8K`, but the
+  `Dimorphos_DRACO1_DRACO2_Earth` export puts `DRACO_1` first — a declared attribute
+  with its own `DRACO_1.aara` — and the fallback could never reach it. The first texture
+  is now dropped only when the patch does not declare it in `<Attributes>`.
