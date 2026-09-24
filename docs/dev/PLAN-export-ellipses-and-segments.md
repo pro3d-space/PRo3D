@@ -7,6 +7,20 @@ Goal: two clean CSV exports, one per question.
 - **Boulders**: one row per ellipse, with semi-axes (m) and long-axis azimuth (deg).
 - **Fractures**: one row per segment, with that segment's length and the line's total.
 
+## Outcome (2026-09-24)
+
+Landed as **one PR, #819**, instead of the five below: the metric ellipse and *Boulders* (B), the `EllipseStatistics` library taken over from session `sampling` (A) and its columns (D), and *Fractures* (C). E (`groundDistance` 0 on small bodies) is still open. Follow-ups: #820 (statistics pick the surface by name), #821 (closing segment of drawn polygons stored reversed).
+
+Decisions taken after this plan was written:
+
+- Statistics are an explicit *Ellipse statistics* setting, ticked only by *Boulders*; every other preset clears it.
+- Each ellipse integrates only the surface it was drawn on, hidden or not. Imported ellipses (no surface) get `footprintArea` only, a later phase. `statisticsNote` says why a row has no or partial statistics.
+- Per-layer coverage `surface_<layer>_area` is exported; `LonLatRad` is not (a mean longitude breaks at 0/360). Circles get no azimuth.
+- Scenes saved by this build must open in older releases: the metric shape is stored under a new annotation key, `ellipseShape`; `ellipseResults` keeps its old schema (see *Corrections*).
+- Cost: 4,800 ellipses on the Dimorphos OPC 100 s → ~3 s (patch blocks, clipping only against edges that cut, ellipses in parallel).
+
+Build and test, as used for #819: run `adapt.cmd` in a fresh worktree (and after model changes); run each test list in its own process (`--filter "all.all tests.<list>"` or `--filter-test-list`), since the full suite can deadlock in GL tests (#816). Data: `PRO3D_TEST_DATA` (Dimorphos OPC `HERA\Dimorphos_opc\Dimorphos_DRACO1_DRACO2_Earth`, scene `cases/slowProfileExport.pro3d`), `PRO3D_TEST_DATA_PRIVATE` (SBMT catalogs), `PRO3D_SPICE_KERNELS` (pinned set).
+
 ## Landing plan (issue #644)
 
 State on 2026-09-24, against `origin/develop` 1ed7c3a3 (#810, #811, #813, #815, #817 and #818 merged):
