@@ -113,6 +113,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
 let profileTests (parameters : TestUtils.TestParameters) : Test =
     testList "profile tests" [
         ProfileAttributeExtractionTest.tests(parameters)
+        PRo3D.Tests.SlowProfileExportTest.tests parameters
     ]
 
 
