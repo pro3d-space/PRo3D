@@ -58,6 +58,10 @@ type SurfaceSample = {
 /// never knows what a surface is.
 type SurfacePropertySampler = V3d -> SurfaceSample
 
+/// Columns a caller adds to an annotation's per-annotation record, already named and
+/// ordered; the empty list for an annotation it has nothing for.
+type AnnotationColumns = Annotation -> list<string * ExportValue>
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SurfaceSample =
 

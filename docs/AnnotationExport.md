@@ -29,11 +29,16 @@ export rather than writing a file.
 
 ```
 File type      CSV table / GeoJSON / Attitude planes / Continuous GeoJSON
-Preset         Custom / GIS-QGIS / Annotation table / Profile / Attitude planes /
-               Continuous GeoJSON
+Preset         Custom / GIS-QGIS / Annotation table / Profile / Boulders (ellipses) /
+               Fractures (segments) / Attitude planes / Continuous GeoJSON
 Scope          All / Visible only / Selected only
+Annotation     all / ellipses only
+  types
+Ellipse        ☐ statistics inside each ellipse (per-annotation exports; reads the OPC)
+  statistics
 ─────────────────────────────────────────────────────────────
-Granularity    one record per annotation | one record per point
+Granularity    one record per annotation | one record per point |
+               one record per segment (CSV only)
 Coordinates    Cartesian / Geographic / Both       Longitude convention
                (Both is CSV only)
                ☑ write longitude as -180...180
@@ -99,12 +104,19 @@ switches the preset back to *Custom*; nothing is locked.
 | GIS / QGIS | GeoJSON, geographic, longitude *Native*, `colorHex` + `groupPath` + the common measurements |
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
 | Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
+| Fractures (segments) | CSV, per segment, scope *All*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `wayLength`, `groupPath`, then the fixed segment columns |
+| Boulders (ellipses) | CSV, per annotation, scope *All*, annotation types *ellipses only*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `groupPath`, `semiMajorAxis`, `semiMinorAxis`, `majorAxisAzimuth`, then the surface statistics inside each ellipse ([AnnotationExport-CSV.md](AnnotationExport-CSV.md#boulders-surface-statistics-inside-the-ellipse)) |
 | Attitude planes | file type *Attitude planes* |
 | Continuous GeoJSON | file type *Continuous GeoJSON* — arms the background export |
 
 Every preset also sets the **signed −180…180 longitude range** and the **SPICE** lat/lon/alt
 source, both of which are the defaults anyway; only an explicit change (which switches the
-preset to *Custom*) moves off them. Selecting *Custom* is not a preset and changes nothing.
+preset to *Custom*) moves off them. Every preset except *Boulders* sets **annotation types:
+all**, so leaving *Boulders* never keeps the ellipse filter on by surprise. Selecting *Custom*
+is not a preset and changes nothing.
+
+Every column of the *Profile* and *Boulders* CSV files is described in
+[AnnotationExport-CSV.md](AnnotationExport-CSV.md).
 
 ### Scope
 
@@ -118,6 +130,14 @@ Which annotations are exported, independent of everything else.
 
 Annotations are written in **group-tree order** (the order shown in the annotation list).
 The old exports iterated the flat hash map, so their row order varied between runs.
+
+### Annotation types
+
+Applied after the scope. **all** exports every geometry; **ellipses only** keeps the ellipse
+annotations (*AxisEllipse*, *Axis4PEllipse*, *Ellipse*) and drops lines, points, polygons and
+dip-and-strike planes. It is a visible row rather than a hidden rule of the *Boulders* preset,
+which sets it. When the scope has annotations but none of them is an ellipse, nothing is
+written and the window says "No ellipses in scope, so there is nothing to export."
 
 If the chosen scope matches **no** annotations, no file is written and the window stays open
 with a warning in its header saying which scope came up empty and what to change. The same
@@ -137,6 +157,7 @@ file types. It applies to CSV and GeoJSON alike; only *Attitude planes* ignores 
 |---|---|---|
 | **one record per annotation** | one row; the coordinate columns hold the **bounding-box centre** and the individual vertices are not in the file — what the old *visible as table* CSV did, without saying so | one `Feature` per annotation carrying its **full** `LineString` / `Polygon` geometry; only the `lat/lon/alt` *attribute* columns hold the centre |
 | **one record per point** | one row per point of every exported annotation, with the annotation attributes repeated on each row | one **`Point`** feature per vertex |
+| **one record per segment** | one row per segment (clicked point to clicked point) of every line and polygon, with fixed columns: start and end point, `segmentLength` (along the surface), `segmentChord` (straight), `segmentAzimuth`. Ellipses give no rows. Lat/lon/alt from SPICE; *Sampled points*, *Lat/Lon/Alt Source* and the point attributes are hidden | not offered; switching the file type away from CSV falls back to *one record per annotation* |
 
 In GeoJSON this also decides the layer's geometry type, which matters because a GIS layer
 has one geometry type and one renderer.
@@ -320,9 +341,9 @@ exports used the sampled points, the CSV, QGIS and Attitude exports used the con
 
 ### Annotation attributes
 
-32 attributes read straight off the annotation model, in four groups: *Identity*,
+33 attributes read straight off the annotation model, in four groups: *Identity*,
 *Measurements*, *Ellipse*, *Dip and strike*. Column names match the old CSV export's names
-(`wayLength`, `dipAzimuth`, `manualDip`, …) so existing downstream scripts keep working.
+(`wayLength`, `dipAzimuth`, `manualDip`, …) so existing downstream scripts keep working, except for the retired `majorDiameter` / `minorDiameter` (see below).
 
 The **planar-fit error measures** (`errorAvg`, `errorMin`, `errorMax`, `errorStd`,
 `sumOfSquares`, `minAngularError`, `maxAngularError`) are deliberately **not** offered here.
@@ -340,9 +361,22 @@ Four in the *Identity* group are worth knowing about:
 | Group path (nested) | `groupPath` | the full chain, `"Outcrop A/Bedding"`, root excluded |
 | Colour | `color` / `colorHex` | `color` is Aardvark's exact format (reimports losslessly); `colorHex` is `#RRGGBB` for GIS styling |
 
-Values that were never computed (a polyline asked for a diameter, an annotation with no
+Values that were never computed (a polyline asked for a semi-axis, an annotation with no
 planar fit asked for dip) are written as **empty cells** / JSON `null`, not as the text
 `NaN`.
+
+The *Ellipse* group reads the shape stored with the ellipse when it was drawn or imported:
+
+| Attribute | Column | Unit | Notes |
+|---|---|---|---|
+| Semi-major axis | `semiMajorAxis` | m | half the long axis, on the plane the ellipse was constructed on |
+| Semi-minor axis | `semiMinorAxis` | m | half the short axis |
+| Long-axis azimuth | `majorAxisAzimuth` | deg | clockwise from local north at the centre, **axial 0–180**; empty for a vertical long axis |
+
+A per-annotation row of an ellipse takes its `x, y, z` / `lat, lon, alt` from the stored
+centre, not from the bounding box of the draped outline. The former `majorDiameter` /
+`minorDiameter` columns are **retired**: they read a longitude/latitude ellipse (degrees,
+although labelled metres) and were empty for every ellipse drawn on a plane.
 
 Two length attributes are worth calling out:
 
@@ -614,6 +648,9 @@ Beyond the GeoJSON coordinate order, two other behaviours changed on purpose:
 | `src/PRo3D.Core/ProfileAttributeExtraction.fs` | `sampleAt` — the KdTree re-pick, UV interpolation and layer sampling behind *Surface properties*; `tryLonLatRadius` / `hasLonLatRadLayer` behind the *File (.aara)* source |
 | `src/PRo3D.Viewer/Viewer/AnnotationExportViewer.fs` | scope resolution, the surface sampler, and running the export |
 | `src/Tests/AnnotationExportTest.fs` | schema, lengths, culture-invariance, presets, surface columns |
+| `src/PRo3D.Core/EllipseStatistics.fs` | the surface statistics inside an ellipse, and `EllipseStatisticsColumns`, their export columns |
+| `src/PRo3D.Core/Drawing/EllipseAnnotation.fs` | `EllipticAnnotations.Measures` — the stored ellipse shape and its azimuth, used by drawing and the SBMT import |
+| `src/Tests/EllipseExportTest.fs` | stored ellipse shape, *Boulders* columns and values, the type filter, colour by category |
 
 Adding an annotation-level attribute means adding one enum case in `AnnotationFields.fs`
 plus its `columnName`, `label`, `groupOf` and `valueOf` branch — the window, the schema and

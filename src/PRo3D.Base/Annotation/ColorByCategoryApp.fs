@@ -35,6 +35,9 @@ module ColorByCategory =
         | ColorCategoryAttribute.DipAngle          -> "Dip angle"
         | ColorCategoryAttribute.DipAzimuth        -> "Dip azimuth"
         | ColorCategoryAttribute.StrikeAzimuth     -> "Strike azimuth"
+        | ColorCategoryAttribute.SemiMajorAxis     -> "Semi-major axis"
+        | ColorCategoryAttribute.SemiMinorAxis     -> "Semi-minor axis"
+        | ColorCategoryAttribute.MajorAxisAzimuth  -> "Long-axis azimuth"
         | _                                       -> sprintf "%A" a
 
     /// Shown when hovering an entry of the attribute dropdown. Says what the value is
@@ -72,6 +75,12 @@ module ColorByCategory =
             "DnS: Compass direction the fitted plane dip (0 deg = north, clockwise). It is colored directional (0-360 deg)."
         | ColorCategoryAttribute.StrikeAzimuth ->
             "DnS: Compass direction of the strike line, perpendicular to the dip direction. It is colored non-directional (0-180 deg), i.e. -v = v."
+        | ColorCategoryAttribute.SemiMajorAxis ->
+            "Ellipses: Half the long axis, in meters, measured on the plane the ellipse was constructed on."
+        | ColorCategoryAttribute.SemiMinorAxis ->
+            "Ellipses: Half the short axis, in meters, measured on the plane the ellipse was constructed on."
+        | ColorCategoryAttribute.MajorAxisAzimuth ->
+            "Ellipses: Compass direction of the long axis at the ellipse centre (0 deg = north, clockwise). It is colored non-directional (0-180 deg), i.e. -v = v."
         | _ -> ""
 
     let isCategorical (a : ColorCategoryAttribute) =
@@ -109,8 +118,9 @@ module ColorByCategory =
         match a with
         | ColorCategoryAttribute.DipAzimuth    -> Some 360.0
         | ColorCategoryAttribute.Bearing
-        | ColorCategoryAttribute.StrikeAzimuth -> Some 180.0
-        | _                                    -> None
+        | ColorCategoryAttribute.StrikeAzimuth
+        | ColorCategoryAttribute.MajorAxisAzimuth -> Some 180.0
+        | _                                       -> None
 
     let isCyclic (a : ColorCategoryAttribute) = (cyclicPeriod a).IsSome
 
@@ -125,7 +135,8 @@ module ColorByCategory =
         | ColorCategoryAttribute.Bearing
         | ColorCategoryAttribute.DipAngle
         | ColorCategoryAttribute.DipAzimuth
-        | ColorCategoryAttribute.StrikeAzimuth -> "°"
+        | ColorCategoryAttribute.StrikeAzimuth
+        | ColorCategoryAttribute.MajorAxisAzimuth -> "°"
         | ColorCategoryAttribute.Area          -> "m²"
         | a when isCategorical a               -> ""
         | _                                    -> "m"
@@ -287,6 +298,8 @@ module ColorByCategory =
             if hasDipAndStrike a.geometry then
                 match a.dnsResults with | Some r -> f r | None -> Double.NaN
             else Double.NaN
+        let fromEllipse (f : EllipticAnnotationResult -> float) =
+            match a.ellipticResults with | Some r -> f r | None -> Double.NaN
 
         match attr with
         | ColorCategoryAttribute.Slope             -> fromResults (fun r -> r.slope)
@@ -301,6 +314,9 @@ module ColorByCategory =
         | ColorCategoryAttribute.DipAngle          -> fromDns (fun r -> r.dipAngle)
         | ColorCategoryAttribute.DipAzimuth        -> fromDns (fun r -> r.dipAzimuth)
         | ColorCategoryAttribute.StrikeAzimuth     -> fromDns (fun r -> r.strikeAzimuth)
+        | ColorCategoryAttribute.SemiMajorAxis     -> fromEllipse (fun r -> r.semiMajorAxis.Length)
+        | ColorCategoryAttribute.SemiMinorAxis     -> fromEllipse (fun r -> r.semiMinorAxis.Length)
+        | ColorCategoryAttribute.MajorAxisAzimuth  -> fromEllipse (fun r -> r.majorAxisAzimuth)
         | _                                        -> Double.NaN
 
     let colorOf (s : Settings) (a : Annotation) =
@@ -369,6 +385,11 @@ module ColorByCategory =
                 | AdaptiveSome r -> (f r).GetValue t
                 | _ -> Double.NaN
             else Double.NaN
+        // not a model type, so the whole result is one aval
+        let fromEllipse (f : EllipticAnnotationResult -> float) =
+            match a.ellipticResults.GetValue t with
+            | Some r -> f r
+            | None -> Double.NaN
 
         match attr with
         | ColorCategoryAttribute.Slope             -> fromResults (fun r -> r.slope)
@@ -383,6 +404,9 @@ module ColorByCategory =
         | ColorCategoryAttribute.DipAngle          -> fromDns (fun r -> r.dipAngle)
         | ColorCategoryAttribute.DipAzimuth        -> fromDns (fun r -> r.dipAzimuth)
         | ColorCategoryAttribute.StrikeAzimuth     -> fromDns (fun r -> r.strikeAzimuth)
+        | ColorCategoryAttribute.SemiMajorAxis     -> fromEllipse (fun r -> r.semiMajorAxis.Length)
+        | ColorCategoryAttribute.SemiMinorAxis     -> fromEllipse (fun r -> r.semiMinorAxis.Length)
+        | ColorCategoryAttribute.MajorAxisAzimuth  -> fromEllipse (fun r -> r.majorAxisAzimuth)
         | _                                        -> Double.NaN
 
     /// Token-based resolution for the packed renderer. Every input is pulled with

@@ -40,6 +40,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // kernel-independent tests (use only the default SPICE kernels)
         GeoJsonRework.Tests.tests()
         AnnotationExportTest.tests()
+        EllipseExportTest.tests()
         ColorByCategoryPersistence.Tests.tests()
         ColorByCategoryColor.Tests.tests()
         SpiceTests.tests()
@@ -117,7 +118,9 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
 let profileTests (parameters : TestUtils.TestParameters) : Test =
     testList "profile tests" [
         ProfileAttributeExtractionTest.tests(parameters)
+        EllipseStatisticsTest.tests parameters
         PRo3D.Tests.SlowProfileExportTest.tests parameters
+        PRo3D.Tests.BoulderStatisticsExportTest.tests parameters
     ]
 
 

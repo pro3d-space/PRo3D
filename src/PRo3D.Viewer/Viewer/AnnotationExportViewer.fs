@@ -69,6 +69,15 @@ module AnnotationExportViewer =
         | _ ->
             "There are no annotations to export."
 
+    /// The scope had annotations, but the type filter left none of them.
+    let private emptyTypeFilterMessage (filter : ExportTypeFilter) =
+        match filter with
+        | ExportTypeFilter.EllipsesOnly ->
+            "No ellipses in scope, so there is nothing to export. Set Annotation types to \
+             all, or choose a different scope."
+        | _ ->
+            "There are no annotations to export."
+
     /// The file was written, but without a geographic frame every geographic
     /// value in it is empty. Worth saying out loud: the export looks successful
     /// and the emptiness only shows up once the file is opened elsewhere.
@@ -184,6 +193,73 @@ module AnnotationExportViewer =
           withoutLonLatRad = fun () -> withoutLonLatRad
           total            = fun () -> total }
 
+    /// Some ellipses have no or only partial statistics; the rows say why.
+    let private incompleteStatisticsMessage (ellipses : int) =
+        sprintf
+            "The file was written, but %d ellipse(s) have no or incomplete surface statistics (a surface that is not loaded, a mesh, an unreadable patch). The statisticsNote column says why for each row."
+            ellipses
+
+    /// Surface statistics inside every ellipse with a stored shape, as the columns of
+    /// its per-annotation record (`EllipseStatisticsColumns`). Each ellipse integrates
+    /// only the surface it was drawn on, whether that is visible or not: the ellipse was
+    /// measured on it, and hiding a surface for viewing must not blank the numbers.
+    /// Ellipses without a surface (SBMT imports) get the footprint only.
+    ///
+    /// Also returns how many ellipses have no or only partial statistics.
+    /// Every per-vertex layer except LonLatRad: the row already has the centre's
+    /// lat/lon/alt, and a mean longitude is wrong for an ellipse across the 0/360 seam.
+    let private statisticsLayer (name : string) =
+        not (String.Equals(name, ProfileAttributeExtraction.LonLatRadLayer, StringComparison.OrdinalIgnoreCase))
+
+    let private ellipseStatistics
+        (refSys      : ReferenceSystem)
+        (surfaces    : SurfaceSamplingContext)
+        (annotations : list<Annotation>) =
+
+        let loaded =
+            surfaces.surfaces.surfaces.flat
+            |> HashMap.toList
+            |> List.map (fun (_, leaf) -> (Leaf.toSurface leaf).name)
+            |> HashSet.ofList
+
+        let perEllipse =
+            annotations
+            |> List.choose (fun a -> EllipseStatisticsColumns.tryEllipse a |> Option.map (fun e -> a, e))
+            |> List.groupBy (fun (a, _) -> a.surfaceName)
+            |> List.collect (fun (name, group) ->
+                let all (why : string) = group |> List.map (fun (a, e) -> a, e, Result.Error why)
+                if String.IsNullOrEmpty name then
+                    all "no surface: an imported ellipse is not bound to one"
+                elif not (loaded |> HashSet.contains name) then
+                    all (sprintf "surface %s is not loaded" name)
+                else
+                    match EllipseStatistics.compute
+                            surfaces.surfaces refSys surfaces.observedSystem surfaces.observerSystem
+                            (fun _ leaf _ -> (Leaf.toSurface leaf).name = name)
+                            statisticsLayer EllipseStatistics.defaultDepth
+                            (group |> List.map snd |> List.toArray) with
+                    | Result.Error why -> all (sprintf "surface %s: %s" name why)
+                    | Result.Ok results ->
+                        group |> List.mapi (fun i (a, e) ->
+                            match results |> Array.tryItem i |> Option.flatten with
+                            | Some s -> a, e, Result.Ok s
+                            | None   -> a, e, Result.Error "the ellipse has no area"))
+
+        let columns =
+            perEllipse
+            |> List.map (fun (a, e, result) -> a.key, EllipseStatisticsColumns.columnsOf e result)
+            |> HashMap.ofList
+        // imported ellipses are expected to have none (a later phase), so they are not
+        // worth a warning; everything else is
+        let incomplete =
+            perEllipse
+            |> List.filter (fun (a, _, result) ->
+                match result with
+                | Result.Ok s    -> not s.notes.IsEmpty
+                | Result.Error _ -> not (String.IsNullOrEmpty a.surfaceName))
+            |> List.length
+        columns, incomplete
+
     /// Performs the export described by `settings`. `path` comes from the save
     /// dialog.
     ///
@@ -203,11 +279,15 @@ module AnnotationExportViewer =
             // the save dialog was cancelled; nothing went wrong
             None
         else
-            let annotations = annotationsInScope settings.scope drawing.annotations
+            let inScope = annotationsInScope settings.scope drawing.annotations
+            let annotations = inScope |> List.filter (ExportTypeFilter.admits settings.typeFilter)
 
-            if List.isEmpty annotations then
+            if List.isEmpty inScope then
                 Log.warn "[AnnotationExport] nothing to export for scope %A" settings.scope
                 Some (emptyScopeMessage settings.scope)
+            elif List.isEmpty annotations then
+                Log.warn "[AnnotationExport] nothing to export for type filter %A" settings.typeFilter
+                Some (emptyTypeFilterMessage settings.typeFilter)
             else
                 let up = refSys.up.value.Normalized
                 // full path, not just the immediate parent: keeps nested groups
@@ -235,6 +315,8 @@ module AnnotationExportViewer =
                     settings.latLonAltSource = LatLonAltSource.AaraFile
                     && AnnotationExport.wantsGeographic settings.coordinates
                     && not (AnnotationExportSettings.hasFixedSchema settings.format)
+                    // per-segment rows always take SPICE (the window hides the choice)
+                    && settings.granularity <> ExportGranularity.PerSegment
 
                 if wantsAaraCoordinates
                    && not (ProfileAttributeExtraction.hasLonLatRadLayer surfaces.surfaces) then
@@ -247,9 +329,22 @@ module AnnotationExportViewer =
                         Some (surfaceSampler refSys surfaces wantsProperties)
                     else None
 
+                // Per-annotation rows of ellipses carry the statistics inside them (the
+                // Boulders preset); per-point rows and the fixed schemas do not.
+                let statistics, incompleteStatistics =
+                    if settings.ellipseStatistics
+                       && settings.granularity = ExportGranularity.PerAnnotation
+                       && not (AnnotationExportSettings.hasFixedSchema settings.format) then
+                        ellipseStatistics refSys surfaces annotations
+                    else HashMap.empty, 0
+                let columns (a : Annotation) =
+                    statistics |> HashMap.tryFind a.key |> Option.defaultValue []
+
                 try
-                    AnnotationExport.write
-                        settings (sampler |> Option.map fst) groupPath refSys.planet up path annotations
+                    // north with the user's offset, as drawing measures bearing and dip
+                    // with; only the per-segment azimuth in a flat frame uses it
+                    AnnotationExport.writeWith
+                        settings (sampler |> Option.map fst) columns groupPath refSys.planet up refSys.northO path annotations
 
                     // written successfully, but possibly without values the
                     // settings asked for
@@ -271,7 +366,11 @@ module AnnotationExportViewer =
                               Log.warn "[AnnotationExport] %d of %d points fell back to SPICE lat/lon/alt"
                                        (tally.withoutLonLatRad ()) (tally.total ())
                               yield partialAaraMessage (tally.withoutLonLatRad ()) (tally.total ())
-                      | None -> () ]
+                      | None -> ()
+
+                      if incompleteStatistics > 0 then
+                          Log.warn "[AnnotationExport] %d ellipses with no or incomplete statistics" incompleteStatistics
+                          yield incompleteStatisticsMessage incompleteStatistics ]
                     |> function
                        | []       -> None
                        | messages -> Some (messages |> String.concat " ")

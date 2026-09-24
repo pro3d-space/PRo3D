@@ -145,6 +145,15 @@ Two approximations are baked in here:
 - **Pole singularity**: when `C` is parallel to `+Z` the east direction is
   undefined, and the code falls back to a basis derived from the world X axis.
 
+The catalog's own ellipse is stored with the annotation (`ellipticResults`):
+centre `C`, semi-major `majorDir * a`, semi-minor `minorDir * b` (the longer of
+the two becomes the major axis should a catalog carry `flattening > 1`), and the
+long axis's azimuth clockwise from `north`, folded into 0–180:
+`majorAxisAzimuth = (90 − regularAngle) mod 180`, since SBMT measures from east
+toward north. The *Boulders* CSV export and colour by category read these
+values; nothing is re-measured from the sampled boundary. See
+[AnnotationExport-CSV.md](AnnotationExport-CSV.md#boulders).
+
 `dnsResults` and `results` are deliberately **not** computed per annotation
 during import. The per-row dip-and-strike regression and SVD dominate import
 time on large catalogs, points have no meaningful dip and strike, and an

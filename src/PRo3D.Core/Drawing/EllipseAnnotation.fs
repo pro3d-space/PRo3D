@@ -1,7 +1,11 @@
 ﻿namespace PRo3D.Core.Drawing
 
+open System
+
 open Aardvark.Base
 open PRo3D.Base
+open PRo3D.Base.Annotation
+open PRo3D.Core
 
 module EllipticAnnotations =
     let sampleNumber = 50
@@ -62,7 +66,66 @@ module EllipticAnnotations =
             | _ ->
                 Log.warn "[EllipseAnnotation] could not construct geographical ellipse."
                 None
-   
+
+    /// The metric shape stored with an ellipse annotation (`EllipticAnnotationResult`),
+    /// computed once when the ellipse is constructed, so that the export and colour by
+    /// category only read stored values.
+    module Measures =
+
+        /// See `Calculations.axialAzimuth`.
+        let axialAzimuth (up : V3d) (north : V3d) (axis : V3d) = Calculations.axialAzimuth up north axis
+
+        /// See `Calculations.localFrame`.
+        let localFrame (planet : Planet) (up : V3d) (north : V3d) (p : V3d) = Calculations.localFrame planet up north p
+
+        /// A result from a centre and two perpendicular semi-axes (world space, metres),
+        /// in any order: the longer one becomes the major axis. `up` and `north` are the
+        /// local frame at `center`. A circle (axes equal to a millionth) has no long axis,
+        /// so no azimuth either.
+        let ofAxes (up : V3d) (north : V3d) (center : V3d) (axis0 : V3d) (axis1 : V3d) : EllipticAnnotationResult =
+            let major, minor =
+                if axis1.Length > axis0.Length then axis1, axis0 else axis0, axis1
+            {
+                geographicalEllipse      = None
+                geographicalEllipseAssym = None
+                center                   = center
+                semiMajorAxis            = major
+                semiMinorAxis            = minor
+                majorAxisAzimuth         =
+                    if major.Length - minor.Length <= 1e-6 * major.Length then Double.NaN
+                    else axialAzimuth up north major
+            }
+
+        /// The result for an ellipse constructed on its fitted plane.
+        ///
+        /// A four-point ellipse is two half-ellipses sharing the clicked axis, each with
+        /// its own semi-minor on its own side. It is stored as the symmetric ellipse with
+        /// the same extent: the minor semi-axis is half the full width across the clicked
+        /// axis, and the centre sits in the middle of that width.
+        let ofConstructed (planet : Planet) (up : V3d) (north : V3d) (c : ConstructedEllipse) =
+            let toWorld = c.constructionPlane.GetPlaneToWorld()
+            let e = c.ellipseOnPlane
+
+            let centerOnPlane, minorOnPlane =
+                match c.ellipseOnPlaneAssym with
+                | None -> e.Center, e.Axis1
+                | Some other ->
+                    // both halves share the clicked axis, so their minor axes are parallel
+                    let d =
+                        if e.Axis1.Length > 0.0 then e.Axis1.Normalized
+                        else V2d(-e.Axis0.Y, e.Axis0.X).Normalized
+                    let s0 = Vec.dot e.Axis1 d
+                    let s1 = Vec.dot other.Axis1 d
+                    let lo = min 0.0 (min s0 s1)
+                    let hi = max 0.0 (max s0 s1)
+                    e.Center + d * ((hi + lo) * 0.5), d * ((hi - lo) * 0.5)
+
+            let center = toWorld.TransformPos(V3d(centerOnPlane, 0.0))
+            let axis0  = toWorld.TransformDir(V3d(e.Axis0, 0.0))
+            let axis1  = toWorld.TransformDir(V3d(minorOnPlane, 0.0))
+            let up, north = localFrame planet up north center
+            ofAxes up north center axis0 axis1
+
 
     let constructAndSampleFromPlane (fittedPlane : Plane3d) (points : array<V3d>) (projectToSurface : V3d -> Option<V3d>) = 
         let w2Plane = fittedPlane.GetWorldToPlane()
