@@ -289,6 +289,12 @@ module ProfileAttributeExtraction =
             dict
         )
 
+    /// The patch a KdTree's object set (its `XYZ_Local.aara` / `Positions.aara`) belongs to.
+    let tryFindPatchInfo (sgSurface : SgSurface) (objectSetPath : string) =
+        match (buildPatchInfoLookup sgSurface).TryGetValue(normalizeSeparators objectSetPath) with
+        | true, entry -> Some entry
+        | _ -> None
+
     /// Drops all cached per-patch data. Called when surfaces are removed.
     let clearCaches () =
         lock triGridMappingCache (fun () -> triGridMappingCache.Clear())

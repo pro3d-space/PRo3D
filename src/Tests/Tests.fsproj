@@ -48,6 +48,7 @@
     <Compile Include="AnnotationRegionOpsTests.fs" />
     <None Include="data\regions\seed-basic.region" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
+    <Compile Include="EllipseStatisticsTest.fs" />
     <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="UnprojectTest.fs" />
     <Compile Include="SampleLayersTest.fs" />
