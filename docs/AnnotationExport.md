@@ -302,9 +302,9 @@ its triangle set and grid mapping, and everything after that is cheap. Those cac
 shared with interactive picking, so a patch you have already clicked on costs nothing. PRo3D
 is unresponsive while the export runs.
 
-Ticking *Surface properties* as well is free — both read the same sample, so the point is
-only picked once. Leaving it off is what keeps the attribute *textures* out of the picture,
-which is the genuinely expensive part.
+Ticking *Surface properties* as well is cheap — both read the same sample, so the point is
+only picked once; it only adds a few reads per extra layer. Without it only the `LonLatRad`
+layer is read.
 
 ### Sampled segment points
 
@@ -394,11 +394,11 @@ two diverge (chords versus the draped path).
 ### Surface properties
 
 The one point attribute that is not read off the annotation. Tick **Surface properties** and
-every exported point is sampled against the **OPC layers** of the surface underneath it — the
-scalar and texture attributes an OPC dataset carries besides its base texture (gravity,
-altitude, slope maps, whatever the dataset ships). Only layers the `*.opcx` declares as a
-`Map` count; plain colour textures (e.g. an `Earth` image layer) are not exported — see
-[VertexAttributes](VertexAttributes.md#texture-sampling-fallback). This reproduces
+every exported point is sampled against the **per-vertex OPC layers** (`*.aara`) of the
+surface underneath it (gravity, elevation, slope, whatever the dataset ships). Layers that
+exist only as textures are **not** exported — decoding an image per point is what made this
+export run for hours; see
+[VertexAttributes](VertexAttributes.md#texture-sampling-not-used-for-point-sampling). This reproduces
 the old *selected as multi-attribute profile* export, with the rest of the window's columns
 available alongside.
 
@@ -411,7 +411,7 @@ One column per layer found, named `surface_<layer>` after the layer in the patch
 |---|---|
 | Prefix | `surface_` — the layer names come from the *data*, so without a namespace of their own a layer called `alt` or `x` would shadow a coordinate column |
 | Order | after every column the settings named, alphabetically among themselves — so the table does not reorder itself depending on which patch was hit first |
-| Multi-channel layers | kept in **one** cell, `0.25;0.5;0.75` (a JSON array in GeoJSON), because the channel *count* would otherwise depend on which texture a point landed on |
+| Multi-channel layers | kept in **one** cell, `0.25;0.5;0.75` (a JSON array in GeoJSON), because the channel *count* would otherwise depend on which layer a point landed on |
 | Points that hit nothing | empty cells; the export still succeeds |
 
 Only offered for **one record per point**, and ignored by the fixed-schema file types. It works
@@ -424,9 +424,9 @@ terrain would be attributed to the wrong place with nothing to signal it.
 
 An annotation point does not remember where it came from, so each point is **re-picked**: a
 ray is shot from 10 m above the point, along the reference system's up axis, into the visible
-and active surfaces' KdTrees. The patch that is hit identifies the textures; barycentric
-coordinates on the hit triangle interpolate the UV, and each layer image is sampled at that
-UV (nearest pixel, no filtering). The value therefore comes from the same patch the renderer
+and active surfaces' KdTrees. The patch that is hit identifies the `*.aara` layers;
+barycentric coordinates on the hit triangle interpolate each layer's three corner values.
+The value therefore comes from the same patch the renderer
 draws there, and *not* from the annotation's `surfaceName`.
 
 Consequences worth knowing:
@@ -437,16 +437,14 @@ Consequences worth knowing:
 - **Only OPC surfaces.** Mesh (`.obj` and friends) data sources have no layers to sample.
 - **KdTrees are required**, as for any picking — build them with `opc-tool` if picking does
   not work on the surface either.
-- The first layer of a patch (the base texture) is skipped; it is the colour PRo3D renders,
-  not an attribute.
+- Texture-only layers, including the base texture PRo3D renders, give no column.
 
 #### It is slow, on purpose off by default
 
-A ray cast plus one texture read per layer per point. With *include sampled segment points*
+A ray cast plus three small reads per layer per point. With *include sampled segment points*
 on, a drawn polyline easily has thousands of points, and PRo3D is **busy** — the whole export
-runs synchronously — until it finishes. Decoded layer images and per-patch texture
-coordinates are cached (bounded, oldest-first), so consecutive points on the same patch are
-cheap and the cost scales with the number of *patches* crossed rather than points sampled.
+runs synchronously — until it finishes. The first hit on a patch loads its triangle mapping,
+so the cost is dominated by the number of *patches* crossed.
 No preset switches it on; the *Profile* preset does not either, so an ordinary profile export
 stays fast. The accordion's **all** / **none** buttons do cover it.
 

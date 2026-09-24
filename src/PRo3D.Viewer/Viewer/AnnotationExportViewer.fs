@@ -146,10 +146,11 @@ module AnnotationExportViewer =
                 // Handing it refSys.up made the export depend on the camera - see its docs
                 ProfileAttributeExtraction.sampleAt
                     context.surfaces refSys context.observedSystem context.observerSystem
-                    // chasing layers into the attribute textures costs an image
-                    // decode per layer per patch, so only pay for it when the
-                    // surface-property columns were actually asked for
-                    wantsProperties
+                    // every layer costs reads per point, so without the surface-property
+                    // columns only the LonLatRad grid is fetched
+                    (fun name ->
+                        wantsProperties
+                        || String.Equals(name, ProfileAttributeExtraction.LonLatRadLayer, StringComparison.OrdinalIgnoreCase))
                     PRo3D.Picking.cache position
 
             // shared with interactive picking on purpose: the KdTrees loaded for

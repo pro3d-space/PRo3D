@@ -54,18 +54,6 @@ type PatchTriangleGrid =
                 if triangleIndex % 2 = 0 then Some [| a; b; a + 1 |]
                 else Some [| a + 1; b; b + 1 |]
 
-/// What to do for layers the per-vertex `*.aara` data does not cover.
-[<RequireQualifiedAccess>]
-type TextureFallback =
-    /// Never decode textures. Required for interactive per-frame use such as the 3D
-    /// cursor, where one image decode per layer per mouse move is not affordable.
-    | Disabled
-    /// Decode and point sample the patch's attribute textures. `scalarLayers` are the
-    /// surface's `*.opcx` attribute layers as stored on `Surface.scalarLayers`; they carry
-    /// the range the texture values are normalised into, which is needed to recover
-    /// physical values.
-    | Enabled of scalarLayers : HashMap<int, ScalarLayer>
-
 /// Attributes sampled at a single picked surface point.
 type AttributeHit = {
     position   : V3d
@@ -307,11 +295,14 @@ module ProfileAttributeExtraction =
         lock patchInfoLookupCache (fun () -> patchInfoLookupCache.Clear())
         VertexAttributes.clearCache ()
 
-    /// Extract attributes at a KdTree hit point.
+    /// Extract the per-vertex `*.aara` layers `wanted` accepts (by name) at a KdTree hit
+    /// point - three small random-access reads per layer.
     ///
-    /// Per-vertex `*.aara` layers are read first - three small random-access reads per
-    /// layer. Layers the vertex data does not cover fall back to `textureFallback`.
-    let extractAttributesFromHit (textureFallback : TextureFallback) (hitInfo : KdTreeHitInfo) (ray : FastRay3d) =
+    /// Layers that exist only as attribute textures are not sampled. Decoding a whole
+    /// image to read one texel per point is what made a profile export on Dimorphos run
+    /// for hours at ~10 GB, and Color by Category's resample do the same over every
+    /// control point of an imported catalog.
+    let extractLayersFromHit (wanted : string -> bool) (hitInfo : KdTreeHitInfo) (ray : FastRay3d) =
         let sgSurf = hitInfo.sgSurface
 
         // find the Level0KdTree for the hit bounding box
@@ -336,46 +327,15 @@ module ProfileAttributeExtraction =
                         Log.warn "[Extraction] triangle %d outside the grid mapping of %s (%d triangles)"
                             triIdx patchDir mapping.TriangleCount
                         None
-                    | Some gridIndices, (true, (patchInfo, opcPaths)) ->
-                        let fromVertices =
-                            let layers = VertexAttributes.getLayers patchDir patchInfo
-                            VertexAttributes.sample layers positionsGridSize gridIndices weights
-
-                        // texture layer names come from the Images/<Layer> folder, per-vertex
-                        // ones from the *.aara base name - compared case-insensitively so a
-                        // spelling difference cannot let the less accurate texture value
-                        // through and override the per-vertex one
-                        let covered =
-                            // System's HashSet - FSharp.Data.Adaptive.HashSet has no comparer
-                            System.Collections.Generic.HashSet<string>(
-                                fromVertices |> List.map (fun a -> a.name), StringComparer.OrdinalIgnoreCase)
-
-                        let fromTextures =
-                            // Only pay for image decoding when the per-vertex layers are
-                            // missing or do not cover a layer.
-                            match textureFallback with
-                            | TextureFallback.Disabled -> []
-                            | TextureFallback.Enabled _ when attributeTextureIndices patchInfo |> List.isEmpty -> []
-                            | TextureFallback.Enabled scalarLayers ->
-                                // Only layers the *.opcx declares as a `Map` are attributes;
-                                // a texture without one (e.g. an `Earth` colour image) has no
-                                // physical value, and decoding it per point is what made a
-                                // profile export on Dimorphos run for hours at ~10 GB.
-                                let attributes =
-                                    System.Collections.Generic.HashSet<string>(
-                                        scalarLayers |> HashMap.toValueList |> List.map (fun l -> l.label),
-                                        StringComparer.OrdinalIgnoreCase)
-                                let skip (name : string) = covered.Contains name || not (attributes.Contains name)
-                                match getUVAtHit kd.coordinatesPath positionsGridSize gridIndices weights with
-                                | Some uv -> extractAttributesAtUV uv patchInfo opcPaths (rangeLookup scalarLayers) skip
-                                | None ->
-                                    Log.warn "[Extraction] no texture coordinates for %s" patchDir
-                                    []
+                    | Some gridIndices, (true, (patchInfo, _)) ->
+                        let layers =
+                            VertexAttributes.getLayers patchDir patchInfo
+                            |> Array.filter (fun l -> wanted l.name)
 
                         Some {
                             position   = hitPoint
                             patchName  = patchInfo.Name
-                            attributes = fromVertices @ fromTextures
+                            attributes = VertexAttributes.sample layers positionsGridSize gridIndices weights
                         }
                     | _ ->
                         Log.warn "[Extraction] no patch info found for %s" kd.objectSetPath
@@ -393,14 +353,18 @@ module ProfileAttributeExtraction =
             Log.warn "[Extraction] surface picking is not KdTree-based"
             None
 
-    /// Attributes under a single position, by casting a ray straight down onto the
-    /// visible surfaces. Used by the annotation export, which samples exactly the
-    /// points it is exporting rather than a profile of its own.
+    /// Every per-vertex `*.aara` layer at a KdTree hit point.
+    let extractAttributesFromHit (hitInfo : KdTreeHitInfo) (ray : FastRay3d) =
+        extractLayersFromHit (fun _ -> true) hitInfo ray
+
+    /// Per-vertex layers under a single position, by casting a ray straight down onto
+    /// the visible surfaces. Used by the annotation export, which samples exactly the
+    /// points it is exporting rather than a profile of its own, and by Color by
+    /// Category's surface resample.
     ///
-    /// `withTextureFallback` decides whether layers the per-vertex data misses are
-    /// chased into the attribute textures. That costs an image decode per layer per
-    /// patch, so it is worth it when the caller wants every layer it can get, and
-    /// pure waste when it only came for the per-vertex LonLatRad grid.
+    /// `wanted` picks the layers by name. Every layer costs three reads per point, so a
+    /// caller that only came for one (a single colouring layer, the LonLatRad grid)
+    /// should not pay for the rest.
     ///
     /// The question this answers - "what is the surface at this world position?" - is a
     /// point location, not a ray: the direction is not a parameter of it and the caller
@@ -420,7 +384,7 @@ module ProfileAttributeExtraction =
         (refSys              : ReferenceSystem)
         (observedSystem      : SurfaceId -> Option<SpiceReferenceSystem>)
         (observerSystem      : Option<ObserverSystem>)
-        (withTextureFallback : bool)
+        (wanted              : string -> bool)
         (cache               : HashMap<string, ConcreteKdIntersectionTree>)
         (position            : V3d)
         : Option<AttributeHit> * HashMap<string, ConcreteKdIntersectionTree> =
@@ -430,16 +394,7 @@ module ProfileAttributeExtraction =
         let ray = FastRay3d(Ray3d(position + up * 10.0, -up))
 
         match SurfaceIntersection.doKdTreeIntersection surfacesModel refSys observedSystem observerSystem ray surfaceFilter cache false with
-        | Some hitInfo, cache ->
-            // the *.opcx attribute layer ranges of the surface that was hit - needed
-            // to turn normalised texture samples back into physical values
-            let fallback =
-                if not withTextureFallback then TextureFallback.Disabled
-                else
-                    match SurfaceModel.getSurface surfacesModel hitInfo.sgSurface.surface with
-                    | Some leaf -> TextureFallback.Enabled (Leaf.toSurface leaf).scalarLayers
-                    | None      -> TextureFallback.Enabled HashMap.empty
-            extractAttributesFromHit fallback hitInfo ray, cache
+        | Some hitInfo, cache -> extractLayersFromHit wanted hitInfo ray, cache
         | None, cache -> None, cache
 
     /// The per-vertex layer carrying (longitude, latitude, radius-in-metres) at
@@ -506,8 +461,6 @@ module ProfileAttributeExtraction =
         let mutable allAttributeNames = Set.empty<string>
         let samples = List<ProfileSample>(points.Length)
         let mutable accDistance = 0.0
-        let mutable vertexSourced = 0
-        let mutable textureSourced = 0
 
         let pointArray = points |> List.toArray
 
@@ -522,21 +475,12 @@ module ProfileAttributeExtraction =
             match SurfaceIntersection.doKdTreeIntersection surfacesModel refSys observedSystem observerSystem ray surfaceFilter cache false with
             | Some hitInfo, c ->
                 cache <- c
-                // the *.opcx attribute layer ranges of the surface that was hit - needed to
-                // turn normalised texture samples back into physical values
-                let scalarLayers =
-                    match SurfaceModel.getSurface surfacesModel hitInfo.sgSurface.surface with
-                    | Some leaf -> (Leaf.toSurface leaf).scalarLayers
-                    | None      -> HashMap.empty
-                match extractAttributesFromHit (TextureFallback.Enabled scalarLayers) hitInfo ray with
+                match extractAttributesFromHit hitInfo ray with
                 | Some hit ->
                     let attributes = Dictionary<string, float[]>()
                     for a in hit.attributes do
                         attributes.[a.name] <- a.values
                         allAttributeNames <- allAttributeNames |> Set.add a.name
-                        match a.source with
-                        | AttributeSource.VertexData      -> vertexSourced <- vertexSourced + 1
-                        | AttributeSource.TextureSampling -> textureSourced <- textureSourced + 1
                     samples.Add { position = hit.position; distance = accDistance; attributes = attributes }
                 | None ->
                     Log.warn $"[MultiAttrProfile] point {i}: attribute extraction failed"
@@ -544,8 +488,6 @@ module ProfileAttributeExtraction =
                 cache <- c
                 Log.warn $"[MultiAttrProfile] point {i}: no surface hit"
 
-        Log.line "[MultiAttrProfile] %d values from per-vertex layers, %d from texture sampling"
-            vertexSourced textureSourced
 
         samples |> List.ofSeq, allAttributeNames, cache
 

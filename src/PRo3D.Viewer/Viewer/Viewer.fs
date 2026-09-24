@@ -128,8 +128,8 @@ module ViewerApp =
     /// `.aara` grid) — the same primitive the annotation export and the 3D cursor use, and the
     /// same shared `Picking.cache`. Runs on the UI thread: O(total control points) ray casts, and
     /// the first hit on a cold patch pulls its ~4 MB position grid, so it is manual (a button) and
-    /// not automatic. `withTextureFallback = true` chases layers that have no per-vertex data
-    /// into the attribute textures (an image decode per layer per patch, cold).
+    /// not automatic. Only the chosen per-vertex layer is read; a layer that exists only as an
+    /// attribute texture is not sampled and shows as "no value".
     ///
     /// The sampled values depend only on the control points, the surfaces and the planet — never
     /// on the camera. `sampleAt` derives its own body-local up per point for exactly that reason,
@@ -142,6 +142,7 @@ module ViewerApp =
             let observerSystem     = Gis.GisApp.getObserverSystem m.scene.gisApp
             let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
             let mutable cache = PRo3D.Picking.cache
+            let wanted (name : string) = String.Equals(name, layer, StringComparison.OrdinalIgnoreCase)
 
             let annos = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toList
 
@@ -153,7 +154,7 @@ module ViewerApp =
                         pts |> Array.map (fun p ->
                             let hit, c =
                                 ProfileAttributeExtraction.sampleAt
-                                    surfaces refSys observedSystem observerSystem true cache p
+                                    surfaces refSys observedSystem observerSystem wanted cache p
                             cache <- c
                             match hit with
                             | Some h ->
@@ -1551,12 +1552,10 @@ module ViewerApp =
                                 let pick, attributes =
                                     Busy.scopeBackground "picking" (fun () ->
                                         let pick = Picking.pickRayInfo m sceneHit.globalRay.Ray (Some name)
-                                        // per-vertex attribute layers only - the texture fallback
-                                        // decodes one image per layer and cannot run per mouse move
                                         let attributes =
                                             pick
                                             |> Option.bind (fun (hitInfo, _) ->
-                                                ProfileAttributeExtraction.extractAttributesFromHit TextureFallback.Disabled hitInfo sceneHit.globalRay.Ray
+                                                ProfileAttributeExtraction.extractAttributesFromHit hitInfo sceneHit.globalRay.Ray
                                             )
                                         pick, attributes
                                     )

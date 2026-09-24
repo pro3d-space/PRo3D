@@ -63,7 +63,7 @@ afterwards moves the label to *Custom* without undoing what the preset set.
 Press **Export…** and choose a file.
 
 > **It re-picks every exported point.** Reading the layers means casting a ray per point
-> and sampling a texture per layer, so expect seconds rather than milliseconds, and PRo3D
+> and reading each per-vertex layer there, so expect seconds rather than milliseconds, and PRo3D
 > is unresponsive while it runs. Cost is dominated by how many *patches* the line crosses,
 > not how many points it has.
 
@@ -104,10 +104,10 @@ The ten `surface_` columns are the whole point: `surface_Elevation`, `surface_Gr
 this OPC ships, sampled at each point of the line.
 
 Multi-channel layers stay in **one** cell, semicolon-separated. In this dataset
-`surface_DRACO_2`, `surface_Earth`, `surface_Gravity`, `surface_LonLatRad` and
+`surface_DRACO_2`, `surface_Gravity`, `surface_LonLatRad` and
 `surface_Normal` have three components, while `surface_DRACO_1`, `surface_Elevation`,
 `surface_Magnitude`, `surface_Potential` and `surface_Slope` are single values. Splitting
-them would make the column count depend on which texture a point landed on.
+them would make the column count depend on which layer a point landed on.
 
 ### ⚠ `groundDistance` is 0 on Dimorphos
 
