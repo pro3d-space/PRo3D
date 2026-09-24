@@ -302,6 +302,8 @@ module AnnotationExportViewer =
                     settings.latLonAltSource = LatLonAltSource.AaraFile
                     && AnnotationExport.wantsGeographic settings.coordinates
                     && not (AnnotationExportSettings.hasFixedSchema settings.format)
+                    // per-segment rows always take SPICE (the window hides the choice)
+                    && settings.granularity <> ExportGranularity.PerSegment
 
                 if wantsAaraCoordinates
                    && not (ProfileAttributeExtraction.hasLonLatRadLayer surfaces.surfaces) then
@@ -325,8 +327,10 @@ module AnnotationExportViewer =
                     statistics |> HashMap.tryFind a.key |> Option.defaultValue []
 
                 try
+                    // north with the user's offset, as drawing measures bearing and dip
+                    // with; only the per-segment azimuth in a flat frame uses it
                     AnnotationExport.writeWith
-                        settings (sampler |> Option.map fst) columns groupPath refSys.planet up path annotations
+                        settings (sampler |> Option.map fst) columns groupPath refSys.planet up refSys.northO path annotations
 
                     // written successfully, but possibly without values the
                     // settings asked for

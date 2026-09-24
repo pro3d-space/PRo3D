@@ -30,12 +30,13 @@ export rather than writing a file.
 ```
 File type      CSV table / GeoJSON / Attitude planes / Continuous GeoJSON
 Preset         Custom / GIS-QGIS / Annotation table / Profile / Boulders (ellipses) /
-               Attitude planes / Continuous GeoJSON
+               Fractures (segments) / Attitude planes / Continuous GeoJSON
 Scope          All / Visible only / Selected only
 Annotation     all / ellipses only
   types
 ─────────────────────────────────────────────────────────────
-Granularity    one record per annotation | one record per point
+Granularity    one record per annotation | one record per point |
+               one record per segment (CSV only)
 Coordinates    Cartesian / Geographic / Both       Longitude convention
                (Both is CSV only)
                ☑ write longitude as -180...180
@@ -101,6 +102,7 @@ switches the preset back to *Custom*; nothing is locked.
 | GIS / QGIS | GeoJSON, geographic, longitude *Native*, `colorHex` + `groupPath` + the common measurements |
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
 | Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
+| Fractures (segments) | CSV, per segment, scope *All*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `wayLength`, `groupPath`, then the fixed segment columns |
 | Boulders (ellipses) | CSV, per annotation, scope *All*, annotation types *ellipses only*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `groupPath`, `semiMajorAxis`, `semiMinorAxis`, `majorAxisAzimuth`, then the surface statistics inside each ellipse ([AnnotationExport-CSV.md](AnnotationExport-CSV.md#boulders-surface-statistics-inside-the-ellipse)) |
 | Attitude planes | file type *Attitude planes* |
 | Continuous GeoJSON | file type *Continuous GeoJSON* — arms the background export |
@@ -153,6 +155,7 @@ file types. It applies to CSV and GeoJSON alike; only *Attitude planes* ignores 
 |---|---|---|
 | **one record per annotation** | one row; the coordinate columns hold the **bounding-box centre** and the individual vertices are not in the file — what the old *visible as table* CSV did, without saying so | one `Feature` per annotation carrying its **full** `LineString` / `Polygon` geometry; only the `lat/lon/alt` *attribute* columns hold the centre |
 | **one record per point** | one row per point of every exported annotation, with the annotation attributes repeated on each row | one **`Point`** feature per vertex |
+| **one record per segment** | one row per segment (clicked point to clicked point) of every line and polygon, with fixed columns: start and end point, `segmentLength` (along the surface), `segmentChord` (straight), `segmentAzimuth`. Ellipses give no rows. Lat/lon/alt from SPICE; *Sampled points*, *Lat/Lon/Alt Source* and the point attributes are hidden | not offered; switching the file type away from CSV falls back to *one record per annotation* |
 
 In GeoJSON this also decides the layer's geometry type, which matters because a GIS layer
 has one geometry type and one renderer.

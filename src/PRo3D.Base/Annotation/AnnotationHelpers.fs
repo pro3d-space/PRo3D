@@ -38,6 +38,34 @@ module Calculations =
                 | -1 -> angle + 90.0
                 | _  -> 90.0 - angle
     
+    /// Direction of `axis` projected into the local horizontal, in degrees clockwise
+    /// from `north`, folded into [0, 180): an axis or a lineament has no head, so 10
+    /// and 190 are the same direction. NaN when the axis is (near) parallel to `up`.
+    let axialAzimuth (up : V3d) (north : V3d) (axis : V3d) =
+        let u = up.Normalized
+        let horizontal = axis - u * Vec.dot axis u
+        let n = (north - u * Vec.dot north u).Normalized
+        let e = Vec.cross n u
+        if axis.Length = 0.0 || horizontal.Length < 1e-9 * axis.Length || n.AnyNaN then
+            Double.NaN
+        else
+            let azimuth = atan2 (Vec.dot horizontal e) (Vec.dot horizontal n) * Constant.DegreesPerRadian
+            let folded = azimuth % 180.0
+            let folded = if folded < 0.0 then folded + 180.0 else folded
+            // an axis due north comes out a hair below 180 as often as a hair above
+            // 0; both are north, and [0, 180) says which one to write
+            if 180.0 - folded < 1e-6 then 0.0 else folded
+
+    /// Local up and north at `p`. On a body both are re-derived there, like
+    /// `ReferenceSystemApp.updateCoordSystemAt` does, because the reference system's
+    /// own vectors belong to its origin. Flat frames keep the given ones.
+    let localFrame (planet : Planet) (up : V3d) (north : V3d) (p : V3d) =
+        match planet with
+        | Planet.None | Planet.JPL | Planet.ENU -> up, north
+        | _ ->
+            let localUp = CooTransformation.getUpVector p planet |> Vec.normalize
+            localUp, CooTransformation.getNorthVector localUp
+
     let bearing (up:V3d) (north : V3d) (dir:V3d) =
         computeAzimuth dir north up
     

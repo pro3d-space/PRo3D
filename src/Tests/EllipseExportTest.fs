@@ -308,15 +308,119 @@ let private statisticsTests =
             let settings =
                 { AnnotationExportSettings.applyPreset ExportPreset.Boulders AnnotationExportSettings.initial with
                     coordinates = CoordinateMode.Cartesian }
-            match AnnotationExport.buildRecordsWith settings None extra HashMap.empty Planet.None up [ boulder () ] with
+            match AnnotationExport.buildRecordsWith settings None extra HashMap.empty Planet.None up north [ boulder () ] with
             | [ row ] ->
                 Expect.equal (row.fields |> List.map fst |> List.skip (row.fields.Length - 4)) [ "x"; "y"; "z"; "surfaceArea" ] "after the coordinates"
                 Expect.equal (AnnotationExport.schemaFor settings [ row ] |> List.tryLast) (Some "surfaceArea") "and in the header"
             | rows -> failtestf "expected one row, got %d" rows.Length
 
             let perPoint = { settings with granularity = ExportGranularity.PerPoint }
-            let rows = AnnotationExport.buildRecordsWith perPoint None extra HashMap.empty Planet.None up [ boulder () ]
+            let rows = AnnotationExport.buildRecordsWith perPoint None extra HashMap.empty Planet.None up north [ boulder () ]
             Expect.isTrue (rows |> List.forall (fun r -> r.fields |> List.forall (fst >> (<>) "surfaceArea"))) "not on point rows"
+        }
+    ]
+
+/// A fracture traced with two segments on a flat frame (up +Z, north +Y): 10 m east,
+/// then 6 m north, each draped over a bump 1 m high at its middle.
+let private fracture () =
+    let p0 = V3d(0.0, 0.0, 0.0)
+    let p1 = V3d(10.0, 0.0, 0.0)
+    let p2 = V3d(10.0, 6.0, 0.0)
+    let segment (a : V3d) (b : V3d) =
+        { startPoint = a; endPoint = b; points = IndexList.ofList [ (a + b) * 0.5 + V3d(0.0, 0.0, 1.0) ] }
+    { Annotation.initial with
+        key      = Guid.NewGuid()
+        text     = "F-01"
+        geometry = Geometry.Polyline
+        points   = IndexList.ofList [ p0; p1; p2 ]
+        segments = IndexList.ofList [ segment p0 p1; segment p1 p2 ] }
+
+let private fractureSettings () =
+    { AnnotationExportSettings.applyPreset ExportPreset.Fractures AnnotationExportSettings.initial with
+        coordinates = CoordinateMode.Cartesian }
+
+let private segmentRows settings annotations =
+    AnnotationExport.buildRecordsWith settings None AnnotationExport.noColumns HashMap.empty Planet.None up north annotations
+
+let private fractureTests =
+    testList "fractures" [
+        test "the Fractures columns are exactly the documented ones" {
+            let settings = AnnotationExportSettings.initial |> AnnotationExportSettings.applyPreset ExportPreset.Fractures
+            Expect.equal (AnnotationExport.schemaOf settings)
+                [ "key"; "text"; "surfaceName"; "wayLength"; "groupPath"; "segmentIndex"
+                  "startX"; "startY"; "startZ"; "startLat"; "startLon"; "startAlt"
+                  "endX"; "endY"; "endZ"; "endLat"; "endLon"; "endAlt"; "body"; "latLonAltSource"
+                  "segmentLength"; "segmentChord"; "segmentAzimuth" ]
+                "docs/AnnotationExport-CSV.md, Fractures"
+            let throughWindow =
+                AnnotationExportApp.update AnnotationExportModel.initial (SetPreset ExportPreset.Fractures)
+                |> AnnotationExportModel.toSettings
+            Expect.equal (AnnotationExport.schemaOf throughWindow) (AnnotationExport.schemaOf settings)
+                "the window writes the same columns in the same order"
+            Expect.equal settings.granularity ExportGranularity.PerSegment "one record per segment"
+            Expect.equal settings.typeFilter ExportTypeFilter.All "no type filter: ellipses give no rows anyway"
+            Expect.equal settings.longitude LongitudeConvention.Native "native longitudes"
+            Expect.equal settings.scope ExportScope.All "all annotations"
+        }
+
+        test "a two-segment line gives two rows whose lengths add up to the draped total" {
+            let a = fracture ()
+            let rows = segmentRows (fractureSettings ()) [ a ]
+            Expect.hasLength rows 2 "one row per segment"
+            let number column (r : ExportRecord) =
+                match r.fields |> List.tryFind (fst >> (=) column) with
+                | Some (_, VNum v) -> v
+                | Some (_, VInt i) -> float i
+                | _ -> nan
+            let draped (run : float) = 2.0 * sqrt ((run / 2.0) ** 2.0 + 1.0)
+            match rows with
+            | [ first; second ] ->
+                Expect.equal (number "segmentIndex" first, number "segmentIndex" second) (0.0, 1.0) "drawing order"
+                Expect.floatClose Accuracy.high (number "segmentLength" first) (draped 10.0) "draped over the bump"
+                Expect.floatClose Accuracy.high (number "segmentLength" second) (draped 6.0) "draped over the bump"
+                Expect.floatClose Accuracy.high (number "segmentChord" first) 10.0 "straight start to end"
+                Expect.isLessThanOrEqual (number "segmentChord" second) (number "segmentLength" second) "chord never exceeds the draped length"
+                let total = a.segments |> IndexList.toList |> List.sumBy Calculations.getSegmentDistance
+                Expect.floatClose Accuracy.high (number "segmentLength" first + number "segmentLength" second) total "sum = total"
+                Expect.floatClose Accuracy.high (number "segmentAzimuth" first) 90.0 "first segment runs east"
+                Expect.floatClose Accuracy.high (number "segmentAzimuth" second) 0.0 "second runs north"
+                Expect.equal (number "startX" second, number "startY" second) (10.0, 0.0) "the second starts where the first ends"
+                Expect.equal (number "endX" second, number "endY" second) (10.0, 6.0) "and ends at the last click"
+            | _ -> ()
+        }
+
+        test "a line drawn with the Linear projection uses its clicked points" {
+            let a = { fracture () with segments = IndexList.empty; projection = Projection.Linear }
+            let rows = segmentRows (fractureSettings ()) [ a ]
+            Expect.hasLength rows 2 "clicked point i to i+1"
+            for r in rows do
+                let cell c = r.fields |> List.tryFind (fst >> (=) c) |> Option.map snd
+                Expect.equal (cell "segmentLength") (cell "segmentChord") "no drape: length = chord"
+        }
+
+        test "ellipses give no rows, polygon edges do, and nothing else is on a segment row" {
+            let ellipse = { boulder () with segments = IndexList.empty }
+            let square =
+                { Annotation.initial with
+                    key      = Guid.NewGuid()
+                    geometry = Geometry.Polygon
+                    // closed like a drawn polygon: the first point repeats
+                    points   = IndexList.ofList [ V3d.Zero; V3d(1.0, 0.0, 0.0); V3d(1.0, 1.0, 0.0); V3d(0.0, 1.0, 0.0); V3d.Zero ] }
+            Expect.isEmpty (segmentRows (fractureSettings ()) [ ellipse ]) "an ellipse's outline is not segments"
+            Expect.hasLength (segmentRows (fractureSettings ()) [ square ]) 4 "four edges"
+            let extra (a : Annotation) = [ "surfaceArea", VNum 7.0 ]
+            let rows = AnnotationExport.buildRecordsWith (fractureSettings ()) None extra HashMap.empty Planet.None up north [ fracture () ]
+            Expect.isTrue (rows |> List.forall (fun r -> r.fields |> List.forall (fst >> (<>) "surfaceArea"))) "no per-annotation columns"
+        }
+
+        test "per segment is offered for CSV only, and leaving CSV falls back to per annotation" {
+            Expect.contains (AnnotationExportSettings.granularitiesFor ExportFormat.Csv) ExportGranularity.PerSegment "CSV offers it"
+            Expect.isFalse (AnnotationExportSettings.granularitiesFor ExportFormat.GeoJson |> List.contains ExportGranularity.PerSegment) "GeoJSON does not"
+            let window = AnnotationExportApp.update AnnotationExportModel.initial (SetPreset ExportPreset.Fractures)
+            let geoJson = AnnotationExportApp.update window (SetFormat ExportFormat.GeoJson)
+            Expect.equal geoJson.granularity ExportGranularity.PerAnnotation "falls back"
+            let perPoint = AnnotationExportApp.update { window with granularity = ExportGranularity.PerPoint } (SetFormat ExportFormat.GeoJson)
+            Expect.equal perPoint.granularity ExportGranularity.PerPoint "an offered granularity is left alone"
         }
     ]
 
@@ -347,4 +451,5 @@ let tests () =
         exportTests
         colorTests
         statisticsTests
+        fractureTests
     ]

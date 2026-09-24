@@ -6,6 +6,8 @@
 
 **Status, evening of 2026-09-24:** session `boulders` took over the statistics from `sampling` (which stood down; its worktree `pro3d-ellipse-stats` is left untouched and can be removed). Branch `features/644_ellipse-stats-export`, on top of PR B: first commit = the `EllipseStatistics` library as `sampling` wrote it (encoding repaired; it can be cut out as PR A), then the speed-up (4,800 ellipses: 100 s → ~3 s) and the export wiring (PR D). Decisions: statistics always on for per-annotation ellipse rows, no switch; each ellipse integrates only the surface it was drawn on, hidden or not; imported ellipses (no surface) get `footprintArea` only, a later phase; per-layer coverage `surface_<layer>_area` added; `LonLatRad` left out; circles get no azimuth.
 
+**Status, later that evening:** PR C (*Fractures*, one record per segment) is on the same branch too, at the user's request: B, A, D and C go in **one PR** from `features/644_ellipse-stats-export`. The per-segment azimuth and the local frame moved to `PRo3D.Base` (`Calculations.axialAzimuth`, `Calculations.localFrame`, `CooTransformation.getNorthVector`); Core delegates.
+
 ## Where you work
 
 | | |

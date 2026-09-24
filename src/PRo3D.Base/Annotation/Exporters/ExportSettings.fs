@@ -24,6 +24,9 @@ type ExportGranularity =
     | PerAnnotation = 0
     /// one row / feature per point of every exported annotation
     | PerPoint      = 1
+    /// one row per segment (clicked point to clicked point) of every exported
+    /// line or polygon, with fixed segment columns. CSV only.
+    | PerSegment    = 2
 
 type ExportScope =
     | All      = 0
@@ -82,6 +85,8 @@ type ExportPreset =
     | ContinuousGeoJson = 5
     /// one row per ellipse: semi-axes, long-axis azimuth, centre
     | Boulders          = 6
+    /// one row per segment of every line: lengths, endpoints, azimuth
+    | Fractures         = 7
 
 /// Immutable snapshot handed to the record builder and the writers. Contains no
 /// adaptive types and no reference to the surface model, so it can live in
@@ -115,8 +120,8 @@ module ExportPreset =
 
     let all =
         [ ExportPreset.Custom; ExportPreset.QgisFeatures; ExportPreset.AnnotationTable
-          ExportPreset.Profile; ExportPreset.Boulders; ExportPreset.AttitudePlanes
-          ExportPreset.ContinuousGeoJson ]
+          ExportPreset.Profile; ExportPreset.Boulders; ExportPreset.Fractures
+          ExportPreset.AttitudePlanes; ExportPreset.ContinuousGeoJson ]
 
     let label (preset : ExportPreset) =
         match preset with
@@ -127,6 +132,7 @@ module ExportPreset =
         | ExportPreset.AttitudePlanes    -> "Attitude planes"
         | ExportPreset.ContinuousGeoJson -> "Continuous GeoJSON"
         | ExportPreset.Boulders          -> "Boulders (ellipses)"
+        | ExportPreset.Fractures         -> "Fractures (segments)"
         | _                              -> string preset
 
 module ExportTypeFilter =
@@ -260,6 +266,19 @@ module AnnotationExportSettings =
                     [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
                       AnnotationField.GroupPath; AnnotationField.SemiMajorAxis
                       AnnotationField.SemiMinorAxis; AnnotationField.MajorAxisAzimuth ] }
+        | ExportPreset.Fractures ->
+            // One row per segment. Ellipses have no clicked-to-clicked segments and
+            // produce no rows, so no type filter is needed.
+            { settings with
+                format           = ExportFormat.Csv
+                granularity      = ExportGranularity.PerSegment
+                scope            = ExportScope.All
+                coordinates      = CoordinateMode.Both
+                longitude        = LongitudeConvention.Native
+                // in enum order, which is the order the export window writes them in
+                annotationFields =
+                    [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
+                      AnnotationField.WayLength; AnnotationField.GroupPath ] }
         | ExportPreset.AttitudePlanes ->
             { settings with format = ExportFormat.Attitude }
         | ExportPreset.ContinuousGeoJson ->
@@ -291,7 +310,15 @@ module AnnotationExportSettings =
     let granularityLabel (granularity : ExportGranularity) =
         match granularity with
         | ExportGranularity.PerAnnotation -> "one record per annotation"
+        | ExportGranularity.PerSegment    -> "one record per segment"
         | _                               -> "one record per point"
+
+    /// Per segment is a CSV table only: a GeoJSON feature per segment would need a
+    /// geometry model of its own, and nobody asked for one.
+    let granularitiesFor (format : ExportFormat) =
+        match format with
+        | ExportFormat.Csv -> [ ExportGranularity.PerAnnotation; ExportGranularity.PerPoint; ExportGranularity.PerSegment ]
+        | _                -> [ ExportGranularity.PerAnnotation; ExportGranularity.PerPoint ]
 
     let scopeLabel (scope : ExportScope) =
         match scope with

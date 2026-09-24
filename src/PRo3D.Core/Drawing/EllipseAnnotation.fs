@@ -72,33 +72,11 @@ module EllipticAnnotations =
     /// category only read stored values.
     module Measures =
 
-        /// Direction of `axis` projected into the local horizontal, in degrees clockwise
-        /// from `north`, folded into [0, 180): an axis has no head, so 10 and 190 are the
-        /// same direction. NaN when the axis is (near) parallel to `up`.
-        let axialAzimuth (up : V3d) (north : V3d) (axis : V3d) =
-            let u = up.Normalized
-            let horizontal = axis - u * Vec.dot axis u
-            let n = (north - u * Vec.dot north u).Normalized
-            let e = Vec.cross n u
-            if axis.Length = 0.0 || horizontal.Length < 1e-9 * axis.Length || n.AnyNaN then
-                Double.NaN
-            else
-                let azimuth = atan2 (Vec.dot horizontal e) (Vec.dot horizontal n) * Constant.DegreesPerRadian
-                let folded = azimuth % 180.0
-                let folded = if folded < 0.0 then folded + 180.0 else folded
-                // an axis due north comes out a hair below 180 as often as a hair above
-                // 0; both are north, and [0, 180) says which one to write
-                if 180.0 - folded < 1e-6 then 0.0 else folded
+        /// See `Calculations.axialAzimuth`.
+        let axialAzimuth (up : V3d) (north : V3d) (axis : V3d) = Calculations.axialAzimuth up north axis
 
-        /// Local up and north at `p`. On a body both are re-derived there, like
-        /// `ReferenceSystemApp.updateCoordSystemAt` does, because the reference system's
-        /// own vectors belong to its origin, not to the ellipse. Flat frames keep the given ones.
-        let localFrame (planet : Planet) (up : V3d) (north : V3d) (p : V3d) =
-            match planet with
-            | Planet.None | Planet.JPL | Planet.ENU -> up, north
-            | _ ->
-                let localUp = ReferenceSystemApp.upVector p planet
-                localUp, ReferenceSystemApp.northVector localUp
+        /// See `Calculations.localFrame`.
+        let localFrame (planet : Planet) (up : V3d) (north : V3d) (p : V3d) = Calculations.localFrame planet up north p
 
         /// A result from a centre and two perpendicular semi-axes (world space, metres),
         /// in any order: the longer one becomes the major axis. `up` and `north` are the

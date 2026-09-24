@@ -1,6 +1,6 @@
 # CSV export: field reference
 
-What every column of the annotation CSV export means, for the three presets users work with: **Profiles** and **Boulders** (available), and **Fractures** (planned, issue #644, see [dev/PLAN-export-ellipses-and-segments.md](dev/PLAN-export-ellipses-and-segments.md)). The export window itself is described in [AnnotationExport.md](AnnotationExport.md).
+What every column of the annotation CSV export means, for the three presets users work with: **Profiles**, **Boulders** and **Fractures** (issue #644). The export window itself is described in [AnnotationExport.md](AnnotationExport.md).
 
 Columns come in a fixed order: the annotation columns in the order of the window's attribute list, then the coordinates.
 
@@ -206,7 +206,7 @@ How to read it:
 
 ## Fractures
 
-**Preset *Fractures*** · one row per segment of each line · scope: all · longitude: *Native* · planned.
+**Preset *Fractures (segments)*** · one row per segment of each line · scope: all · longitude: *Native*.
 
 A segment is the stretch between two clicked points. A line with 4 clicked points has 3 segments, so 3 rows. Ellipses produce no rows (they have no clicked-to-clicked segments); polygon edges do.
 
@@ -222,11 +222,31 @@ A segment is the stretch between two clicked points. A line with 4 clicked point
 | `startLat, startLon, startAlt` | | Segment start point, geographic; see *Geographic columns*. |
 | `endX, endY, endZ` | m | Segment end point. |
 | `endLat, endLon, endAlt` | | Segment end point, geographic. |
-| `body, latLonAltSource` | | As in *Geographic columns*; one value for both endpoints. |
+| `body, latLonAltSource` | | As in *Geographic columns*; one value for both endpoints. Always a SPICE routine: the *File (.aara)* source is a per-point setting and is not offered for segments. |
 | `segmentLength` | m | Length of the segment **along the surface** (draped). |
 | `segmentChord` | m | Straight 3D distance from start to end. Never larger than `segmentLength`; the difference is terrain. |
 | `segmentAzimuth` | deg | Direction start → end, clockwise from local north at the segment's midpoint, 0–180. |
 
+Where the segments come from: a line drawn with *Sky* or *Viewpoint* projection stores each segment with its draped points, and `segmentLength` is the length along those points (the same value as the *Profile* rows' `segmentLength`). A line drawn with *Linear* projection stores no segments; its segments are then clicked point *i* to *i + 1*, and `segmentLength` equals `segmentChord`. The start and end columns are the clicked points.
+
+`segmentAzimuth` is axial, like the ellipse's long-axis azimuth: a lineament has no head, so a segment drawn the other way round gives the same value.
+
 For a total-length-only table, keep one row per `key`: `key, text, wayLength`.
 
-An example output follows once the preset ships (issue #644, PR C).
+### Example
+
+The fracture `F-01` from the *Profile* example above (Gale crater, Mars), exported with the *Fractures (segments)* preset. This is the exporter's actual output:
+
+```csv
+key,text,surfaceName,wayLength,groupPath,segmentIndex,startX,startY,startZ,startLat,startLon,startAlt,endX,endY,endZ,endLat,endLon,endAlt,body,latLonAltSource,segmentLength,segmentChord,segmentAzimuth
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,84.82669265945103,Gale/fractures,0,-2488533.042481201,2288403.5967716263,-271980.3869067464,-4.599499999999999,-137.399,-4499.999999999484,-2488556.226917929,2288384.8360203668,-271951.04449888744,-4.599,-137.3995,-4498.000000000339,Mars,spice_recpgr,41.840414962850396,41.83850849624824,44.90760305435428
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,84.82669265945103,Gale/fractures,1,-2488556.226917929,2288384.8360203668,-271951.04449888744,-4.599,-137.3995,-4498.000000000339,-2488582.7521122536,2288353.115143978,-271962.7654316903,-4.5992,-137.40020000000004,-4498.999999999665,Mars,spice_recpgr,42.98627769660064,42.978834309381995,105.99427314320522
+```
+
+How to read it:
+
+- Two clicked segments, two rows. `wayLength` (84.83 m) repeats on both and equals the sum of their `segmentLength` (41.84 m + 42.99 m), the same lengths the *Profile* rows carry.
+- `segmentChord` is a few millimetres shorter than `segmentLength`: the terrain along this fracture is almost flat.
+- The first segment runs north-east (`segmentAzimuth` 44.9°), the second east-south-east (106.0°). Each is measured at the segment's own midpoint.
+- `startLon` is −137.399: *Native* Mars longitudes are planetographic and west-positive (see the *Boulders* example); choose *Flipped* for east-positive ones.
+- Row 1 starts where row 0 ends (the second clicked point).
