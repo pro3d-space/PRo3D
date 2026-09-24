@@ -37,8 +37,11 @@ open PRo3D.Core.Drawing
 //     the bulk import and drawing-model timings. Too large to redistribute.
 //
 // Both are searched under <root>/imports first, so dropping them into the checkout
-// is enough; otherwise <PRO3D_PRIVATE_TESTDATA>/shapemodels/testdata (or the exact
-// directory named by PRO3D_SBMT_TESTDATA) still finds them where they are.
+// is enough; otherwise <private root>/shapemodels/testdata (or the exact directory
+// named by PRO3D_SBMT_TESTDATA) still finds them where they are.
+//
+// The basic SBMT v4 export (imports/basicSBMT-dimorphos-v4) left the public
+// checkout in its restructure; it is found under <private root>/imports as well.
 // Every test that needs a missing fixture skips.
 
 module private Data =
@@ -50,7 +53,7 @@ module private Data =
     let root = TestUtils.Roots.testData
 
     /// Where the non-redistributable catalogs live when they are not in the
-    /// checkout: <PRO3D_PRIVATE_TESTDATA>/shapemodels/testdata, or the exact
+    /// checkout: <private root>/shapemodels/testdata, or the exact
     /// directory named by PRO3D_SBMT_TESTDATA.
     let private externalRoot =
         TestUtils.Roots.firstExisting [
@@ -58,12 +61,13 @@ module private Data =
             TestUtils.Roots.privateDir [ "shapemodels"; "testdata" ] |> Option.defaultValue ""
         ]
 
-    /// One file of the committed SBMT v4 sample export, e.g. "points" or "ellipses".
+    /// One file of the SBMT v4 sample export, e.g. "points" or "ellipses": under
+    /// <root>/imports, else under <private root>/imports (see TestUtils.Roots.privateRoots).
     let basicSbmt (root : Option<string>) (kind : string) =
-        root
-        |> Option.map (fun r ->
-            Path.Combine(r, "imports", "basicSBMT-dimorphos-v4", sprintf "sbmtimport.%s.txt" kind))
-        |> Option.bind existingFile
+        Option.toList root @ TestUtils.Roots.privateRoots ()
+        |> List.tryPick (fun r ->
+            Path.Combine(r, "imports", "basicSBMT-dimorphos-v4", sprintf "sbmtimport.%s.txt" kind)
+            |> existingFile)
 
     /// A fixture kept outside the checkout: <root>/imports first, external root second.
     let external' (root : Option<string>) (fileName : string) =
@@ -75,7 +79,7 @@ module private Data =
     /// Skip message naming the variable that fixes it.
     let missing (what : string) =
         sprintf "missing fixture: %s (set PRO3D_TEST_DATA to a PRo3D.Resources.TestData \
-                 checkout, PRO3D_PRIVATE_TESTDATA for the external catalogs)" what
+                 checkout, PRO3D_TEST_DATA_PRIVATE for the private fixtures)" what
 // ---------------------------------------------------------------------------
 // Synthetic SBMT files
 // ---------------------------------------------------------------------------

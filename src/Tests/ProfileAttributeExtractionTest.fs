@@ -51,8 +51,11 @@ module Data =
           Path.Combine(root, "HERA", "Dimorphos") ]
         |> List.tryPick existingDir
 
+    /// A ~450 point draped profile across Dimorphos. `Dimorphos_DRACO1/testAnnotatation`
+    /// went with the test-data restructure; this is the annotation of the
+    /// slow-profile-export case, drawn on the same geometry.
     let annotationPath (root : string) =
-        let path = Path.Combine(root, "Dimorphos_DRACO1", "testAnnotatation.pro3d.ann")
+        let path = Path.Combine(root, "cases", "slowProfileExport.pro3d.ann")
         if File.Exists path then Some path else None
 
     /// Directory holding OPC hierarchies that ship per-vertex attribute layers
@@ -615,7 +618,7 @@ let tests (parameters : TestUtils.TestParameters) =
 
         testCase "end-to-end profile extraction from annotation file" <| fun () ->
             let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
-            let annotationPath = require "Dimorphos_DRACO1/testAnnotatation.pro3d.ann" annotationPath'
+            let annotationPath = require "cases/slowProfileExport.pro3d.ann" annotationPath'
 
             let sw = System.Diagnostics.Stopwatch()
             let mb () = float (GC.GetTotalMemory(false)) / (1024.0 * 1024.0)
@@ -734,9 +737,13 @@ let tests (parameters : TestUtils.TestParameters) =
                             let layers = VertexAttributes.getLayers patchDir patchInfo
                             let fromVertices = VertexAttributes.sample layers gridSize gridIndices weights
                             let covered = fromVertices |> List.map (fun a -> a.name) |> Set.ofList
+                            // Only *.opcx `Map` layers are attributes (they have a range);
+                            // a colour texture such as Earth would otherwise be decoded in
+                            // full at every one of the ~450 points, as #809 did in the export
+                            let skip (name : string) = covered.Contains name || Option.isNone (rangeOf name)
                             let fromTextures =
                                 match uv with
-                                | Some uv -> ProfileAttributeExtraction.extractAttributesAtUV uv patchInfo opcPaths rangeOf covered.Contains
+                                | Some uv -> ProfileAttributeExtraction.extractAttributesAtUV uv patchInfo opcPaths rangeOf skip
                                 | None    -> []
                             stepSw.Stop(); tExtract <- tExtract + stepSw.Elapsed.TotalMilliseconds
 

@@ -56,8 +56,7 @@ let run () : int =
     let opcDir =
         match Environment.GetEnvironmentVariable "PRO3D_BENCH_OPC" with
         | null | "" ->
-            TestUtils.Roots.testData None
-            |> Option.map (fun root -> Path.Combine(root, "HERA", "Dimorphos_opc", "Dimorphos"))
+            TestUtils.Roots.dimorphosOpc None
             |> Option.defaultValue ""
         | dir -> dir
 

@@ -212,6 +212,9 @@ checkout, resolved the way the rest of the data-backed suite resolves it:
 | `imports/basicSBMT-dimorphos-v4/sbmtimport.paths.xml` | path export — the importer does not read lines yet |
 | `imports/basicSBMT-dimorphos-v4/sbmtimport.polygons.xml` | polygon export — likewise |
 
+The basic export left the public checkout in its restructure. It is looked for under
+`<root>/imports` first and then under `<private root>/imports` — see below.
+
 Two fixtures are too large or not redistributable and are therefore **not** in
 the checkout:
 
@@ -223,8 +226,9 @@ the checkout:
 
 They are searched under `<root>/imports` first, so dropping them into the
 checkout is enough. Otherwise they are looked for at
-`<PRO3D_PRIVATE_TESTDATA>/shapemodels/testdata` — the root for fixtures that
-cannot be committed, defaulting to `C:\pro3ddata` when the variable is unset.
+`<private root>/shapemodels/testdata`. The private roots hold fixtures that cannot
+be committed and are searched in order: `PRO3D_TEST_DATA_PRIVATE`, then the legacy
+`PRO3D_PRIVATE_TESTDATA` (defaulting to `C:\pro3ddata` when unset).
 `PRO3D_SBMT_TESTDATA` names that one directory directly if it sits elsewhere.
 
 ```

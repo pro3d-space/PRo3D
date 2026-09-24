@@ -16,11 +16,10 @@ let private noOpcData =
 
 let private dimorphosPatch (patch : string) =
     let below (root : string) =
-        Path.Combine(root, "Dimorphos_DRACO1", "Dimorphos_DRACO1",
-                     "g_01960mm_spc_dtm_dimo_0000n00000_v003_0_0", "Patches", patch,
+        Path.Combine(root, "g_01960mm_spc_dtm_dimo_0000n00000_v003_0_0", "Patches", patch,
                      "XYZ_Local.aara")
-    [ TestUtils.Roots.testData None
-      TestUtils.Roots.privateDir [ "testdata" ] ]
+    [ TestUtils.Roots.dimorphosOpc None
+      TestUtils.Roots.privateDir [ "testdata"; "Dimorphos_DRACO1"; "Dimorphos_DRACO1" ] ]
     |> List.choose (Option.map below)
     |> List.tryFind File.Exists
 

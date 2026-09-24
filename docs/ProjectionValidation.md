@@ -139,7 +139,7 @@ an `.mbi.json` describing **the camera it actually used**.
 single-image projection shader, rendering from the same camera:
 
 ```
-pro3d-tool simulate-image --opc <test data>/HERA/Dimorphos_opc/Dimorphos \
+pro3d-tool simulate-image --opc <test data>/HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos \
     --project <test data>/HERA/Dimorphos_opc/AFC_2027-03-21/AFC1_DRACO2_20270321_200000.png \
     --texture-layer DRACO_2 --body DIMORPHOS --frame DIMORPHOS_FIXED \
     --observer HERA --instrument HERA_AFC-1 --out reprojected.png
@@ -292,7 +292,7 @@ together with the OPC it was rendered from:
 
 | path | content |
 |---|---|
-| `HERA/Dimorphos_opc/Dimorphos` | the Dimorphos OPC (DRACO_1/DRACO_2 layers, outward-wound) |
+| `HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos` | the Dimorphos OPC (DRACO_1/DRACO_2 layers, outward-wound) |
 | `HERA/Dimorphos_opc/AFC_2027-03-21` | eight AFC-1 frames (texture-only and lit, four epochs), their sidecars, a README and the scene template |
 
 Every sidecar passes the boresight invariant — `TRG_POS` transformed into the
@@ -484,7 +484,7 @@ up so that projection works the moment it opens:
 
 ```
 python scripts/make-projection-test-data.py \
-    --opc <test data>/HERA/Dimorphos_opc/Dimorphos --out <folder> \
+    --opc <test data>/HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos --out <folder> \
     --texture-layer DRACO_2 \
     --scene-template <test data>/HERA/Dimorphos_opc/AFC_2027-03-21/ProjectionTest.pro3d
 
@@ -500,14 +500,14 @@ The frames it produces are what this page measures: the numbers above were
 re-derived from a freshly generated set, and reproduce to the digit
 (registration 0.9705, identity, zero shift).
 
-Shape model: `<test data>/HERA/Dimorphos_opc/Dimorphos`. The frames are only
+Shape model: `<test data>/HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos`. The frames are only
 meaningful on the shape model they were rendered against, so keep them together;
 the README beside them covers the viewer settings that matter.
 
 ```
 # the frames (--texture-layer matters: without it the tool draws the patch's
 # DEFAULT layer, which is not necessarily the one a scene displays)
-pro3d-tool simulate-image --opc <...>/Dimorphos_opc/Dimorphos \
+pro3d-tool simulate-image --opc <...>/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos \
     --time 2027-03-21T20:00:00Z --body DIMORPHOS --frame DIMORPHOS_FIXED \
     --observer HERA --instrument HERA_AFC-1 \
     --texture-only --texture-layer DRACO_2 --write-mbi \

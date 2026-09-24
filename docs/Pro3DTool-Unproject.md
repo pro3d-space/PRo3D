@@ -128,9 +128,11 @@ Only the per-vertex layers are read, never the texture fallback: that decodes an
 per sample, which is fine for a cursor readout and not for a list of points.
 
 Attribute columns are the layer's **raw stored values**, not converted. That matters for
-`LonLatRad`, which on the HERA exports is in **gradians**: `LonLatRad_x` is longitude x 10/9
-(0..400) and `LonLatRad_y` is (latitude + 90) x 10/9 (0..200, counted from the south pole); only
-`LonLatRad_z`, the radius, is in metres. For degrees use the `lat_deg`/`lon_deg`/`alt_m` columns.
+`LonLatRad`: on the current Dimorphos OPC `LonLatRad_x`/`LonLatRad_y` are longitude and latitude
+in degrees, but older HERA exports stored **gradians** (longitude x 10/9, 0..400, and
+(latitude + 90) x 10/9, 0..200); the OPC's `.opcx` range says which. `LonLatRad_z`, the radius,
+is metres either way. For degrees regardless of the export, use the `lat_deg`/`lon_deg`/`alt_m`
+columns.
 
 ### Coordinates
 
