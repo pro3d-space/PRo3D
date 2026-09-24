@@ -253,14 +253,23 @@ test("a long operation is reported while it blocks the UI", async ({ browser }) 
     expect(labels, `the ArcBall switch was not reported; saw ${labels}`).toContain("camera");
     expect(labels, `the OPC import was not reported; saw ${labels}`).toContain("importing surfaces");
 
-    // 2. it answered promptly *throughout* - a route that took app.lock would have blocked
-    //    here for as long as the operation did, which is the whole failure mode this design
-    //    exists to avoid. The blocked operations themselves are far longer than this bound.
-    expect(slowest, `/busy stalled for ${slowest} ms - is it taking app.lock?`).toBeLessThan(2000);
+    const longestStall = maxOf(Object.values(longest) as number[]);
     expect(
-        maxOf(Object.values(longest) as number[]),
+        longestStall,
         "no operation blocked long enough to be worth reporting - the spec is not exercising a stall"
     ).toBeGreaterThan(400);
+
+    // 2. it answered promptly *throughout*. A route behind app.lock would have blocked for
+    //    as long as the operation did, so the meaningful bound is relative to that, not a
+    //    constant: on a big data set the whole machine is slower and an absolute 2 s had
+    //    only 1.7x headroom (measured: a 19.4 s stall pushed the worst poll to 1.2 s), while
+    //    the failure this guards against would put it at ~19 s. The absolute floor keeps the
+    //    check meaningful when the stall is short.
+    const bound = Math.max(2000, longestStall / 4);
+    expect(
+        slowest,
+        `/busy took ${slowest} ms while the longest operation blocked ${longestStall} ms - is it taking app.lock?`
+    ).toBeLessThan(bound);
 
     // 3. the page reacted while the server was busy
     expect(seen.length, "the overlay never became visible during the long operations").toBeGreaterThan(0);
