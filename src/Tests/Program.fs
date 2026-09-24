@@ -159,6 +159,11 @@ let main args =
     // lazy here, while the main thread is still ours, makes the GL-dependent tests runnable
     // on macOS at all; they otherwise hang rather than skip.
     if args |> Array.contains "--gl-init-main" then
+        // Aardvark.Init() first, as --bench already does: it unpacks the native deps
+        // (glvm et al) OpenGlApplication needs, and without it Render.context swallows
+        // the load failure and reports "no GL runtime" -- which is what this flag looked
+        // like it was doing wrong.
+        Aardvark.Base.Aardvark.Init()
         match PRo3D.Tests.Render.context.Value with
         | Some _ -> printfn "[gl-init-main] GL runtime created on the main thread"
         | None -> printfn "[gl-init-main] WARNING: no GL runtime"
@@ -268,9 +273,10 @@ let main args =
         0
     | None ->
 
-    // --skip-hera is consumed by HeraSpiceTests via the process command line;
-    // strip it so Expecto doesn't reject it as an unknown argument.
-    let config = parseArgs (args |> Array.filter (fun a -> a <> "--skip-hera"))
+    // --skip-hera is consumed by HeraSpiceTests via the process command line, and
+    // --gl-init-main above; strip both so Expecto does not reject them as unknown.
+    let config =
+        parseArgs (args |> Array.filter (fun a -> a <> "--skip-hera" && a <> "--gl-init-main"))
 
     let parameters : TestUtils.TestParameters = { testDataSource = config.testDataSource }
 

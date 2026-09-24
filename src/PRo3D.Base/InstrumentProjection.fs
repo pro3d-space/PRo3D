@@ -61,8 +61,16 @@ module InstrumentProjection =
     let private fovs =
         Map.ofList [
             // name, (vertical fov in degrees, aspect = width / height)
-            "HERA_AFC-1",         (5.5306897076421, 1.0)
-            "HERA_AFC-2",         (5.5306897076421, 1.0)
+            // 5.50 exactly: hera_afc_v06.ti declares INS-91110_FOV_REF_ANGLE =
+            // INS-91120_FOV_REF_ANGLE = 2.75 deg half-angle, and the detector agrees
+            // (1024 px x 93.7 urad IFOV = 5.4975 deg). The previous 5.5306897076421
+            // corresponded to a ~106.0 mm focal length against the IK's ~106.7 and was
+            // 0.558 % too wide -- ~2.8 px of radial error at the corner of a 1020 px
+            // frame. It never showed up in our own tests because the same value was used
+            // to render and to reconstruct, so the error cancelled; against a real AFC
+            // frame it does not. Still hardcoded -- see #801 for reading it via getfov.
+            "HERA_AFC-1",         (5.50, 1.0)
+            "HERA_AFC-2",         (5.50, 1.0)
             "HERA_HSH",           (15.23999,        409.0 / 217.0)
             // hera_milani_aspect_v02.ti: INS-9102120 (NIR1) FOV_REF_ANGLE/FOV_CROSS_ANGLE
             // are half-angles of 3.35/2.7 degrees -> full FOV 6.7 x 5.4 degrees.
@@ -143,9 +151,37 @@ module InstrumentProjection =
             | _ ->
                 None)
 
+    /// Camera-space axis remap per instrument: which instrument axis becomes image right
+    /// and which becomes image down.
+    ///
+    /// The instrument kernels draw this and all three HERA entries below share one layout
+    /// (hera_afc_v06.ti, hera_hsh_v03.ti): boresight +Z into the page, **+X to image
+    /// right, +Y to image down**, pixel (0,0) lower left.
+    ///
+    /// The basis columns are the images of the camera-space axes, and the camera basis
+    /// feeding them is (right, up, forward) = (-X, -Y, +Z) of the instrument frame. So a
+    /// feature along instrument +X arrives at camera x = -1: to land it on image right the
+    /// first column must be (-1, 0, 0), and by the same argument +Y lands on image down
+    /// with a second column of (0, +1, 0).
+    ///
+    /// Determinant must stay -1: getLookAtQuat builds its basis as FromBasis(-C0,-C1,-C2),
+    /// det = -1, and these entries cancel it back to a proper rotation. (-1, +1, +1) does.
+    ///
+    /// This replaced (-Y, -X, Z) for AFC-1/HSH and (+Y, +X, Z) for AFC-2, which put
+    /// instrument +X on image *up* -- a 90 degree rotation away from the kernels, measured
+    /// two ways in docs/ShapeModelCrosscheck.md and tracked in issue #801. Handedness was
+    /// never wrong, only the roll, which is why nothing self-generated ever caught it.
     let specialTrafos =
         Map.ofList [
-            "HERA_AFC-2", Trafo3d.FromOrthoNormalBasis(V3d.OIO, V3d.IOO, V3d.OOI)
+            // The image orientation the HERA community tool at comet-toolbox.com shows,
+            // which is what recipients of our frames compare against. NOT what our reading
+            // of hera_afc_v06.ti's "Apparent FOV Layout" gives -- that diagram draws +X
+            // image right and +Y image down, which is a further 90 deg from this and is
+            // what #801 briefly shipped. The disagreement is unresolved and written up in
+            // docs/dev/AFC-image-orientation.md, including what would settle it and how to
+            // switch back. All three share one basis because the IK gives AFC-1 and AFC-2
+            // the same layout; an earlier version had them 180 deg apart.
+            "HERA_AFC-2", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
             "HERA_AFC-1", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
             "HERA_HSH", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
             // hera_milani_v05.tf defines all four ASPECT channel frames (VIS/NIR1/NIR2/SWIR)
