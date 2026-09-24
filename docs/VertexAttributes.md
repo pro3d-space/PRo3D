@@ -81,20 +81,26 @@ Interpolation is component-wise. A layer that wraps — the longitude channel of
 values near the seam can be misleading.
 
 Vertices in the skirt have no attribute values. A hit whose triangle touches the skirt
-yields no per-vertex value for that layer, and the texture fallback takes over.
+yields no value for that layer.
 
-## Texture sampling fallback
+## Texture sampling (not used for point sampling)
 
-Layers the per-vertex data does not cover are read from the patch's attribute textures.
-This costs a full image decode per layer per sample, so it is used for profile extraction
-but **never** for the 3D cursor — a surface without per-vertex layers shows nothing in the
-*Under Cursor* readout and says so.
+Every point-sampling path — the 3D cursor, the annotation export's *Surface properties*, the
+multi-attribute profile and Color by Category's *resample surface* — reads **per-vertex
+layers only**. A layer that exists only as an attribute texture yields no value there; a
+surface without per-vertex layers shows nothing in the *Under Cursor* readout and says so.
 
-Only layers the `*.opcx` declares as a **`Map`** (with a `ChannelsDefinedRange`) are
-attributes. A texture that only has a `Texture` entry — a colour image such as the `Earth`
-layer of `Dimorphos_DRACO1_DRACO2_Earth` — carries no physical value and is never sampled.
-Sampling it used to decode that 8652×4324 image once per exported point: a ~450 point
-profile ran for hours at ~10 GB.
+The texture path used to be a fallback for layers the per-vertex data did not cover. It
+decoded a whole image per layer **per sampled point**. #809 stopped it decoding plain colour
+textures (the 8652×4324 `Earth` image of `Dimorphos_DRACO1_DRACO2_Earth`, which made a ~450
+point profile run for hours at ~10 GB), but every declared `Map` layer without a per-vertex
+twin was still decoded per point — and Color by Category's resample asked for *every* layer
+at every control point of an imported SBMT catalog (~4,800 ellipses × 60 points: minutes and
+~10 GB, for a layer that had per-vertex data all along). The fallback is therefore gone
+from all point samplers, not cached.
+
+`extractAttributesAtUV` and the helpers below remain as library functions; the tests call
+them directly to check the textures against the per-vertex layers.
 
 Attribute textures store each layer **normalised into the layer's `ChannelsDefinedRange`**
 from the `*.opcx` (EXR layers hold `[0,1]` floats; 8/16 bit images are normalised on read).
@@ -200,7 +206,7 @@ Example output for the Deimos BDS export:
 | File | Contents |
 |------|----------|
 | `src/PRo3D.Core/VertexAttributes.fs` | `*.aara` header reading, layer discovery, grid offset, barycentric sampling |
-| `src/PRo3D.Core/ProfileAttributeExtraction.fs` | triangle-to-grid mapping, texture fallback, profile walk, CSV export |
+| `src/PRo3D.Core/ProfileAttributeExtraction.fs` | triangle-to-grid mapping, per-vertex extraction (`extractLayersFromHit`, `sampleAt` with a layer filter), texture sampling helpers, profile walk, CSV export |
 | `src/PRo3D.Core/TriangleSet.fs` | `computeValidQuadStarts` — the compact triangle-to-grid form |
 | `src/PRo3D.Core/OpcMetadata.fs` | `*.opc.json` / DSKBRIEF parsing |
 | `src/PRo3D.Core/Surface/SurfaceApp.fs` | `SurfaceUtils.SurfaceAttributes` — `*.opcx` attribute layer parsing |
@@ -242,8 +248,8 @@ same root.
 *profile export covers every declared attribute layer* is the regression test for
 exports that lost attributes. It reads each hit patch's `<Attributes>` and requires
 every layer named there to reach the CSV — with all of its components, and with one
-column per attribute and no empty cells. It also requires the texture fallback to be
-able to reach each layer on its own, which the per-vertex path would otherwise mask.
+column per attribute and no empty cells. It also requires the texture sampling helpers to be
+able to reach each layer on their own, which the per-vertex path would otherwise mask.
 Two defects it pins down, both fixed:
 
 * per-vertex `*.aara` layers not being read at all, which left the scalar layers

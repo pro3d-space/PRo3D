@@ -49,7 +49,11 @@ user clicked when drawing each annotation, rather than by anything measured on t
 - The *attribute* dropdown lists the distinct scalar-layer **labels** across every loaded
   surface's `.opcx` (`Surface.scalarLayers`). A layer only appears if that file lists it. The
   label is matched against the per-vertex `.aara` name **case-insensitively**; multi-channel
-  layers use channel 0.
+  layers use channel 0. Only that one per-vertex layer is read per point; a layer that exists
+  only as an attribute texture is not sampled and comes out *no value*. (The sampler used to
+  read every layer and decode the attribute textures at each control point, which took
+  minutes and ~10 GB on an imported SBMT catalog; it now takes ~100 s and ~1.3 GB there,
+  most of that ray casting over ~288k points.)
 - Each point is sampled by casting a ray straight down and reading whichever visible surface it
   hits (`ProfileAttributeExtraction.sampleAt`) — not pinned to the annotation's origin surface.
   A point that misses, or whose surface has no such layer, is *no value*.
