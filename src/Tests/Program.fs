@@ -96,6 +96,10 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // cross-check reuses the same kernel tracking and self-skips without kernels.
         UnprojectTest.tests()
 
+        // sample-layers: band readers and discovery need nothing; the shape-model case
+        // uses a made-up camera, so it needs the Dimorphos OPC but no kernels or GPU.
+        SampleLayersTest.tests()
+
         // end-to-end batch rendering with sun lighting; self-skips without the
         // C:\pro3ddata workshop fixture, $PRO3D_SPICE_KERNELS, a GPU, or a built
         // PRo3D.Snapshots.exe. Uses its own kernel tree (the env var), not the suite's.
@@ -317,5 +321,19 @@ let main args =
     | None, path -> printfn "Test data source (PRO3D_TEST_DATA): %s" path
 
     let tests = testList "all" [ allTests parameters; profileTests parameters ]
+
+    // The GL runtime is created here, on the main thread, before Expecto hands the tests to
+    // its workers. Created lazily instead, it lands on whichever worker forces it first, and
+    // which one that is depends on which tests happen to run or skip. Two failures followed
+    // from that: CreateLoadRunner from another worker waited forever for the creating thread
+    // to pump GLFW (the sun-angles hang), and a later render on the creating worker found
+    // its ResourceLock taken without a current context (ValueOption.Value in
+    // RenderTask.Perform). Nothing may ask the main thread to pump from here on, as it is
+    // blocked in Expecto: Render.context publishes its load runner as Sg.hackRunner, which
+    // Sg.loadRunnerFor hands out. Without a GL context this is None and the GL tests skip.
+    Aardvark.Base.Aardvark.Init()
+    match PRo3D.Tests.Render.context.Value with
+    | Some _ -> printfn "GL runtime created on the main thread"
+    | None -> printfn "no GL runtime: the GL tests will skip"
 
     runTestsWithCLIArgs [] (Array.ofList config.expectoArgs) tests

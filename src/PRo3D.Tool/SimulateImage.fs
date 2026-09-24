@@ -12,7 +12,7 @@ open FSharp.Data.Adaptive
 
 open Aardvark.Data.Opc
 open Aardvark.GeoSpatial.Opc
-open Aardvark.GeoSpatial.Opc.Load   // IRuntime.CreateLoadRunner
+open Aardvark.GeoSpatial.Opc.Load   // OPC load runners (Sg.loadRunnerFor)
 
 open MBrace.FsPickler
 
@@ -21,6 +21,7 @@ open PRo3D.SPICE
 open PRo3D.ImageMapping
 open PRo3D.InstrumentVisualization   // VisualizationProperties
 open PRo3D.Core.Surface               // SurfaceUtils, SurfaceProperties -- .opcx layer lists
+open Aardvark.PixImage.LibTiff        // Float32Writer -- spectral cubes
 
 /// Resolving `--texture-layer` against what an OPC actually declares.
 ///
@@ -91,11 +92,72 @@ module OpcTextureLayers =
 /// Native detector sizes per SPICE instrument frame, from the instrument kernels
 /// (hera_afc_v06.ti: 1020x1020 active pixels). The FOV table lives in
 /// PRo3D.Base.InstrumentProjection; pixel counts are not part of a Frustum, hence here.
+///
+/// HyperScout and ASPECT are the sizes of their delivered products rather than of the raw
+/// detector: a HyperScout 1B `_Stacked.tif` is 409x217 (the 2048x1088 mosaic sensor after
+/// demosaicing into 25 bands), and every band of an ASPECT 2B cube is 640x512, the Vis
+/// channel included.
 let private nativeSizes =
     Map.ofList [
         "HERA_AFC-1", V2i(1020, 1020)
         "HERA_AFC-2", V2i(1020, 1020)
+        "HERA_HSH", V2i(409, 217)
+        "MILANI_ASPECT_NIR1", V2i(640, 512)
     ]
+
+/// How an instrument's product is laid out on disk, which is what simulate-image writes so
+/// that the viewer and sample-layers read a simulated observation like a delivered one.
+type BandLayout =
+    /// one 8-bit greyscale PNG (AFC)
+    | Frame
+    /// one single-band float TIFF per band, `<stem>_<label>.tif` (ASPECT 2B)
+    | BandPerFile of list<string * float>
+    /// one float TIFF holding every band as a plane, `<stem>_Stacked.tif` (HyperScout 1B)
+    | Stacked of list<float>
+
+/// ASPECT 2B band labels and centre wavelengths in nm, as the delivered cube
+/// ASP_000000_270323T060000_2B declares them: 11 Vis, 13 NIR1 and 13 NIR2 frames.
+let private aspectBands =
+    let channel (name : string) (wavelengths : list<float>) =
+        wavelengths |> List.mapi (fun i w -> sprintf "%s_%d" name i, w)
+    [
+        yield! channel "Vis" [ 675.0 .. 15.0 .. 825.0 ]
+        yield! channel "NIR1" [ 875.0; 904.20738725; 933.40538359; 962.41926832; 991.59052354
+                                1020.78790557; 1050.0; 1079.21475545; 1108.41876944; 1137.4036651
+                                1166.57594038; 1195.77918273; 1225.0 ]
+        yield! channel "NIR2" [ 1225.0; 1254.2242793; 1283.43620514; 1312.38308545; 1341.55680112
+                                1370.76774434; 1400.0; 1429.23686478; 1458.45946423; 1487.35519223
+                                1516.5310435; 1545.75237632; 1575.0 ]
+    ]
+
+/// HyperScout 1B band centres in nm, as a delivered `_Stacked.tif.json` lists them.
+let private hyperScoutWavelengths =
+    [ 661.0; 670.0; 688.0; 702.0; 713.0; 730.0; 741.0; 754.0; 769.0; 782.0; 790.0; 806.0; 817.0
+      830.0; 844.0; 855.0; 867.0; 881.0; 893.0; 901.0; 916.0; 924.0; 934.0; 944.0; 952.0 ]
+
+let bandLayoutOf (instrument : string) =
+    match instrument with
+    | "MILANI_ASPECT_NIR1" -> BandPerFile aspectBands
+    | "HERA_HSH" -> Stacked hyperScoutWavelengths
+    | _ -> Frame
+
+/// A made-up reflectance spectrum, relative to 550 nm: a red slope with a shallow 1 um
+/// absorption, roughly the shape of an S-type asteroid. It is NOT a measurement -- it only
+/// makes the bands of a simulated cube differ, so that a band read from the wrong file or
+/// plane shows up as a wrong value rather than hiding behind identical copies.
+let syntheticReflectance (wavelengthNm : float) =
+    let slope = 1.0 + 0.45 * (wavelengthNm - 550.0) / 1000.0
+    let d = (wavelengthNm - 950.0) / 110.0
+    let band = 1.0 - 0.12 * exp (-(d * d))
+    slope * band
+
+/// The spacecraft carrying a SPICE instrument frame: MILANI for ASPECT, HERA otherwise.
+let defaultObserver (instrument : string) =
+    InstrumentProjection.instrumentNames
+    |> Map.toSeq
+    |> Seq.tryPick (fun (fits, spice) -> if spice = instrument then Some fits else None)
+    |> Option.map InstrumentProjection.instrument2CameraSource
+    |> Option.defaultValue "HERA"
 
 /// Texture values at or below this are treated as shadow/nodata in the source mosaic
 /// (Dimorphos_DRACO1 marks nodata as DN 0 and has a hard shadowed tail below ~DN 16).
@@ -333,7 +395,7 @@ let private renderSunShadowMap (runtime : IRuntime) (body : string)
         { Frustum.ortho vbox with near = -vbox.Max.Z; far = -vbox.Min.Z }
         |> Frustum.projTrafo
 
-    let runner = runtime.CreateLoadRunner 1
+    let runner = PRo3D.Core.Surface.Sg.loadRunnerFor runtime
     let cfg =
         { OpcSg.defaultConfig signature runner DefaultMetrics.mars2 body with
             asyncLoading = false }
@@ -400,8 +462,16 @@ let private viewTrafoOfBasis (right : V3d) (up : V3d) (forward : V3d) (location 
 /// `distanceOverride` > 0 moves the camera to that range along the direction SPICE puts
 /// the spacecraft -- the viewpoint stays real, only the standoff changes. Useful when the
 /// body would otherwise be a handful of pixels, and for validation renders.
+///
+/// `aim` turns the instrument onto the centre of that SPICE body (`body` itself or another
+/// one, e.g. DIDYMOS while rendering the Dimorphos OPC). The planned attitude does not
+/// necessarily point the instrument at the body being rendered: Milani's puts Dimorphos
+/// 3 deg off ASPECT's boresight, at the edge of its 6.7 x 5.4 deg field. The aim is the
+/// SMALLEST rotation taking the planned boresight onto the target, applied to the whole
+/// instrument basis -- so the roll around the boresight stays the planned one (to within
+/// the size of the correction) instead of being replaced by an up-vector convention.
 let cameraAt (observer : string) (frame : string) (body : string) (instrument : string)
-             (distanceOverride : float) (time : DateTime) : Result<SimCamera, string> =
+             (aim : Option<string>) (distanceOverride : float) (time : DateTime) : Result<SimCamera, string> =
     match CooTransformation.getRelState observer "SUN" body time frame with
     | None ->
         Result.Error (sprintf "no ephemeris for %s relative to %s in %s at %s (kernel coverage?)"
@@ -414,6 +484,28 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
         if not (Double.IsFinite distance) || distance <= 0.0 then
             Result.Error (sprintf "SPICE returned a degenerate position for %s (|r| = %f)" observer distance)
         else
+
+        // Where the aim point is, in the render frame: the body's own centre is the origin.
+        let aimPoint =
+            match aim with
+            | None -> Ok None
+            | Some target when String.Equals(target, body, StringComparison.OrdinalIgnoreCase) -> Ok (Some V3d.Zero)
+            | Some target ->
+                match CooTransformation.getRelState target "SUN" body time frame with
+                | Some t ->
+                    // Only the --opc body is drawn. Aimed at another one, the centre of the
+                    // frame is that body's empty place, and the rendered body is pushed
+                    // towards the edge or out: at 6.7 km, AFC-1 aimed at Didymos shows
+                    // Dimorphos clipped at the frame edge and nothing in the middle.
+                    Log.warn "[camera] --aim %s is not the rendered body %s: %s is NOT drawn, the frame centre is empty and %s sits %.0f m off the boresight"
+                        target body target body t.pos.Length
+                    Ok (Some t.pos)
+                | None -> Result.Error (sprintf "--aim: no ephemeris for %s relative to %s at %s" target body (time.ToString "o"))
+
+        match aimPoint with
+        | Result.Error e -> Result.Error e
+        | Ok aimPoint ->
+
         let near, far = InstrumentProjection.nearFarForDistance distance
         match Map.tryFind instrument (InstrumentProjection.instruments near far) with
         | None ->
@@ -439,7 +531,23 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
                       Map.tryFind instrument InstrumentProjection.specialTrafos with
                 | Some instrumentToBody, Some mounting ->
                     let m = instrumentToBody.Forward.UpperLeftM33()
-                    Some (viewTrafoOfBasis -m.C0 -m.C1 m.C2 pos * mounting)
+                    // Every mounting keeps the camera's Z, so the boresight is the
+                    // instrument's +Z (C2) whatever the image-axis convention.
+                    let aimRotation =
+                        match aimPoint with
+                        | None -> M33d.Identity
+                        | Some p ->
+                            let target = (p - pos).Normalized
+                            let r = Rot3d.RotateInto(m.C2.Normalized, target)
+                            // A warning, not a line: from here on the frame is NOT the
+                            // planned observation, and nothing downstream can tell unless
+                            // it is said -- see the sidecar's PRO3DAIM keyword.
+                            Log.warn "[camera] AIMED %s at %s: the planned boresight was turned by %.3f deg -- this frame is not the planned observation"
+                                instrument (defaultArg aim body)
+                                (acos (clamp -1.0 1.0 (Vec.dot m.C2.Normalized target)) * Constant.DegreesPerRadian)
+                            M33d.Rotation r
+                    let x, y, z = aimRotation * m.C0, aimRotation * m.C1, aimRotation * m.C2
+                    Some (viewTrafoOfBasis -x -y z pos * mounting)
                 | missing ->
                     // No attitude (or no known mounting) at this epoch: fall back, and say
                     // so -- the roll is then an arbitrary convention again and the frame
@@ -451,9 +559,10 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
                     | _ ->
                         Log.warn "[camera] no mounting trafo known for %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
                             instrument
-                    let boresight = (-pos).Normalized
+                    let lookAt = aimPoint |> Option.defaultValue V3d.Zero
+                    let boresight = (lookAt - pos).Normalized
                     let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
-                    Some (CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo)
+                    Some (CameraView.lookAt pos lookAt up |> CameraView.viewTrafo)
             Ok {
                 view = view |> Option.defaultValue Trafo3d.Identity
                 proj = Frustum.projTrafo frustum
@@ -501,11 +610,11 @@ let private toneMapToPng (img : PixImage<float32>) (explicitGain : float) : Resu
     Ok (out, gain)
 
 // ---------------------------------------------------------------------------------
-// Camera from an existing observation. `cameraAt` above points the instrument at the body
-// centre with an arbitrary roll -- fine for making a picture, useless for comparing with a
-// real frame. Taking the camera from an image's own mbi sidecar instead runs the render
-// through the viewer's projection path, so the result is directly comparable with that
-// image and any disagreement is the projection's, not the camera's.
+// Camera from an existing observation. `cameraAt` above takes the planned attitude at a
+// time -- a plan, not what an instrument actually did. Taking the camera from an image's
+// own mbi sidecar instead runs the render through the viewer's projection path, so the
+// result is directly comparable with that image and any disagreement is the projection's,
+// not the camera's.
 
 /// An observation resolved from an existing image's mbi sidecar.
 ///
@@ -635,11 +744,15 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     let camera =
         match observation with
         | Some obs ->
+            if not (String.IsNullOrWhiteSpace o.aim) then
+                Log.warn "[camera] --aim is ignored with --mbi/--project: the camera is the observation's own"
             if o.distance > 0.0 then
                 Log.warn "[camera] --distance is ignored with --mbi: the standoff is the observation's own"
             Log.line "[camera] from %s (%s at %s)" (Path.GetFileName cameraSource) instrument (obs.time.ToString "o")
             Ok obs.camera
-        | None -> cameraAt observer frame body instrument o.distance time
+        | None ->
+            let aim = if String.IsNullOrWhiteSpace o.aim then None else Some (o.aim.ToUpperInvariant())
+            cameraAt observer frame body instrument aim o.distance time
 
     match camera with
     | Result.Error e -> Result.Error e
@@ -733,7 +846,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
 
     let target = SunAnglesVerb.FloatTarget.create runtime size
     try
-        let runner = runtime.CreateLoadRunner 1
+        let runner = PRo3D.Core.Surface.Sg.loadRunnerFor runtime
         let cfg =
             { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
                 // Blocking loads: reproducible offscreen output, same as sun-angles.
@@ -840,48 +953,131 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         // input, and a percentile stretch would rescale it into looking like it does not.
         let gain = if Option.isSome projected && o.gain <= 0.0 then 1.0 else o.gain
 
-        match toneMapToPng rendered gain with
-        | Result.Error e -> Result.Error e
-        | Ok (png, gain) ->
-            if o.gain <= 0.0 && Option.isNone projected then
-                Log.line "[expose] auto gain %.3f (pass --gain %.3f to reproduce across a series)" gain gain
-            png.Save(outPath)
-            Log.line "[out] %s" outPath
+        // The sidecar is written from cam.view, the trafo the render actually used, and
+        // then read back through the viewer's own path -- so the numbers reported here
+        // are the real round-trip error, not a restatement of what we just wrote.
+        let ctx : MbiSidecar.Context =
+            {
+                instrument = instrument
+                body = body
+                frame = frame
+                time = time
+                kernel = kernel
+                size = size
+                // only the look-at path aims; --mbi/--project take the observation's own camera
+                aimedAt =
+                    if Option.isSome observation || String.IsNullOrWhiteSpace o.aim then None
+                    else Some (o.aim.ToUpperInvariant())
+            }
 
-            // The sidecar is written from cam.view, the trafo the render actually used, and
-            // then read back through the viewer's own path -- so the numbers reported here
-            // are the real round-trip error, not a restatement of what we just wrote.
-            if o.writeMbi then
-                let ctx : MbiSidecar.Context =
-                    {
-                        instrument = instrument
-                        body = body
-                        frame = frame
-                        time = time
-                        kernel = kernel
-                        size = size
-                    }
-                match MbiSidecar.write ctx outPath cam.view with
-                | Result.Error e ->
-                    Log.warn "[mbi] no sidecar written: %s" e
+        let verifySidecar (imagePath : string) =
+            match MbiSidecar.verify ctx imagePath (cam.view * cam.proj) observer with
+            | Result.Error e ->
+                Log.warn "[mbi] could not verify the sidecar: %s" e
+            | Ok r ->
+                Log.line "[mbi] round trip: boresight %.6f deg, worst corner %.3f px, max matrix element %.3e"
+                    r.boresight r.pixels r.matrix
+                // A tenth of a pixel is far below anything visible and still well
+                // above the double-precision noise of the frame chain.
+                if r.pixels > 0.1 then
+                    Log.warn "[mbi] the viewer reconstructs a DIFFERENT camera from this sidecar (%.3f px) -- projecting this image will not overlay the render"
+                        r.pixels
+
+        // A cube only when asked for (--product): the PNG is what every existing caller
+        // expects. --project renders a picture OF the projection, to compare with its input:
+        // a PNG whatever the instrument, never a synthetic cube built on top of it.
+        match (if o.product && Option.isNone projected then bandLayoutOf instrument else Frame) with
+        | Frame ->
+            match toneMapToPng rendered gain with
+            | Result.Error e -> Result.Error e
+            | Ok (png, gain) ->
+                if o.gain <= 0.0 && Option.isNone projected then
+                    Log.line "[expose] auto gain %.3f (pass --gain %.3f to reproduce across a series)" gain gain
+                png.Save(outPath)
+                Log.line "[out] %s" outPath
+
+                if o.writeMbi then
+                    match MbiSidecar.write ctx outPath cam.view with
+                    | Result.Error e ->
+                        Log.warn "[mbi] no sidecar written: %s" e
+                    | Ok sidecar ->
+                        Log.line "[mbi] %s" sidecar
+                        match MbiSidecar.writeStatistics ctx outPath png with
+                        | Result.Error e -> Log.warn "[mbi] no statistics sidecar: %s" e
+                        | Ok stats -> Log.line "[mbi] %s" stats
+                        verifySidecar outPath
+
+                Ok outPath
+
+        | BandPerFile _ | Stacked _ as layout ->
+            // A spectral cube: the linear I/F of the render times a made-up spectrum per
+            // band (syntheticReflectance), in float, with no tone mapping -- a delivered
+            // cube carries calibrated values, not display DN. Sky is 0, the NoData value
+            // of the delivered HERA cubes. Deflate-compressed, unlike a delivered cube: the
+            // frames are mostly sky, and every LibTiff reader decompresses transparently.
+            if o.gain > 0.0 then
+                Log.warn "[expose] --gain is ignored for %s: its bands are written as linear I/F" instrument
+
+            let lum = rendered.GetChannel Col.Channel.Red
+            let alpha = rendered.GetChannel Col.Channel.Alpha
+            let reflectance = Array.zeroCreate<float32> (size.X * size.Y)
+            let mutable covered = 0
+            for y in 0 .. size.Y - 1 do
+                for x in 0 .. size.X - 1 do
+                    if alpha.[x, y] > 0.5f then
+                        reflectance.[y * size.X + x] <- lum.[x, y]
+                        covered <- covered + 1
+
+            if covered = 0 then
+                Result.Error "the body does not appear in the frame (no covered pixels) -- wrong time, body or instrument?"
+            else
+
+            let plane (wavelength : float) =
+                let k = float32 (syntheticReflectance wavelength)
+                reflectance |> Array.map (fun v -> v * k)
+
+            let dir = Path.GetDirectoryName(Path.GetFullPath outPath)
+            let stem = Path.GetFileNameWithoutExtension outPath
+
+            let written : Result<list<MbiSidecar.BandFile>, string> =
+                match layout with
+                | BandPerFile bands ->
+                    let files =
+                        bands |> List.map (fun (label, wavelength) ->
+                            let file = sprintf "%s_%s.tif" stem label
+                            let path = Path.Combine(dir, file)
+                            let data = plane wavelength
+                            Float32Writer.writeBandsCompressed path size.X size.Y [| data |]
+                            |> Result.bind (fun () -> MbiSidecar.writeFloatStatistics ctx path label [| data |] [ wavelength ])
+                            |> Result.map (fun _ -> MbiSidecar.bandFile file (Some label) (Some wavelength)))
+                    match files |> List.tryPick (function Result.Error e -> Some e | Ok _ -> None) with
+                    | Some e -> Result.Error e
+                    | None -> Ok (files |> List.choose (function Ok f -> Some f | Result.Error _ -> None))
+                | Stacked wavelengths ->
+                    let file = stem + "_Stacked.tif"
+                    let path = Path.Combine(dir, file)
+                    let planes = wavelengths |> List.map plane |> List.toArray
+                    Float32Writer.writeBandsCompressed path size.X size.Y planes
+                    |> Result.bind (fun () -> MbiSidecar.writeFloatStatistics ctx path "Stacked" planes wavelengths)
+                    |> Result.map (fun _ -> [ MbiSidecar.bandFile file (Some "Stacked") None ])
+                | Frame -> Ok []
+
+            match written with
+            | Result.Error e -> Result.Error e
+            | Ok [] -> Result.Error "no band files were written"
+            | Ok (first :: _ as files) ->
+                let planes = match layout with Stacked ws -> ws.Length | _ -> files.Length
+                Log.line "[out] %d band(s) of %s in %d file(s) under %s" planes instrument files.Length dir
+
+                // A cube without its sidecar cannot be read back at all, so --write-mbi is
+                // implied rather than optional here.
+                let sidecar = Path.Combine(dir, stem + ".mbi.json")
+                match MbiSidecar.writeObservation ctx sidecar files -32 planes cam.view with
+                | Result.Error e -> Result.Error (sprintf "no sidecar written: %s" e)
                 | Ok sidecar ->
                     Log.line "[mbi] %s" sidecar
-                    match MbiSidecar.writeStatistics ctx outPath png with
-                    | Result.Error e -> Log.warn "[mbi] no statistics sidecar: %s" e
-                    | Ok stats -> Log.line "[mbi] %s" stats
-                    match MbiSidecar.verify ctx outPath (cam.view * cam.proj) observer with
-                    | Result.Error e ->
-                        Log.warn "[mbi] could not verify the sidecar: %s" e
-                    | Ok r ->
-                        Log.line "[mbi] round trip: boresight %.6f deg, worst corner %.3f px, max matrix element %.3e"
-                            r.boresight r.pixels r.matrix
-                        // A tenth of a pixel is far below anything visible and still well
-                        // above the double-precision noise of the frame chain.
-                        if r.pixels > 0.1 then
-                            Log.warn "[mbi] the viewer reconstructs a DIFFERENT camera from this sidecar (%.3f px) -- projecting this image will not overlay the render"
-                                r.pixels
-
-            Ok outPath
+                    verifySidecar (Path.Combine(dir, first.file))
+                    Ok sidecar
     finally
         SunAnglesVerb.FloatTarget.dispose target
         shadowMap.cleanup ()
@@ -890,8 +1086,9 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
 let run (o : SimulateImageOptions) : int =
     let body       = if String.IsNullOrWhiteSpace o.body       then "DIMORPHOS"       else o.body
     let frame      = if String.IsNullOrWhiteSpace o.frame      then "DIMORPHOS_FIXED" else o.frame
-    let observer   = if String.IsNullOrWhiteSpace o.observer   then "HERA"            else o.observer
     let instrument = if String.IsNullOrWhiteSpace o.instrument then "HERA_AFC-1"      else o.instrument
+    // the spacecraft follows the instrument: ASPECT flies on Milani, not on Hera
+    let observer   = if String.IsNullOrWhiteSpace o.observer   then defaultObserver instrument else o.observer
     let outPath    = if String.IsNullOrWhiteSpace o.out        then Path.Combine(".", "simulated.png") else o.out
 
     // --mbi carries its own epoch (the sidecar's DATE-OBS), so --time is only required

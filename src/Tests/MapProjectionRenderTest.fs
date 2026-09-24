@@ -78,7 +78,7 @@ let private renderAt (runtime : IRuntime) (opc : string) (kind : MapProjectionKi
     let viewProj = Projection.viewProj kind Projection.defaultMaxColatitude center zoom size
     let target = FloatTarget.create runtime size
     try
-        let runner = runtime.CreateLoadRunner 1
+        let runner = PRo3D.Core.Surface.Sg.loadRunnerFor runtime
         let decider =
             match lod with
             | Finest -> MapSg.finestLod
