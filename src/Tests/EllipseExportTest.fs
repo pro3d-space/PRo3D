@@ -92,6 +92,11 @@ let private azimuthTests =
                 Expect.floatClose Accuracy.high (azimuth v) expected (sprintf "azimuth of %A" v)
         }
 
+        test "an axis a hair west of north is 0, not 180" {
+            let azimuth = EllipticAnnotations.Measures.axialAzimuth up north (V3d(-1e-10, 1.0, 0.0))
+            Expect.equal azimuth 0.0 "north is written as 0"
+        }
+
         test "only the horizontal part of a tilted axis counts" {
             let azimuth = EllipticAnnotations.Measures.axialAzimuth up north (V3d(1.0, 0.0, 5.0))
             Expect.floatClose Accuracy.high azimuth 90.0 "steep, but pointing east"

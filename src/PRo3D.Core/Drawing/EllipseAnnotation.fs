@@ -85,7 +85,10 @@ module EllipticAnnotations =
             else
                 let azimuth = atan2 (Vec.dot horizontal e) (Vec.dot horizontal n) * Constant.DegreesPerRadian
                 let folded = azimuth % 180.0
-                if folded < 0.0 then folded + 180.0 else folded
+                let folded = if folded < 0.0 then folded + 180.0 else folded
+                // an axis due north comes out a hair below 180 as often as a hair above
+                // 0; both are north, and [0, 180) says which one to write
+                if 180.0 - folded < 1e-6 then 0.0 else folded
 
         /// Local up and north at `p`. On a body both are re-derived there, like
         /// `ReferenceSystemApp.updateCoordSystemAt` does, because the reference system's

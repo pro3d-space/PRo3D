@@ -54,6 +54,28 @@ A profile is the line followed across the surface point by point. Each segment (
 
 To plot a profile: `distance` (or, once fixed, `groundDistance`) on the horizontal axis, `alt` or a `surface_<layer>` on the vertical.
 
+### Example
+
+A line of three clicked points on the floor of Gale crater (Mars, 4.6° S 137.4° E), each segment draped as one interior sample, exported with the *Profile* preset. This is the exporter's actual output, full precision included:
+
+```csv
+key,text,surfaceName,pointIndex,segmentIndex,x,y,z,lat,lon,alt,body,latLonAltSource,stepLength,segmentLength,distance,groundDistance
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,0,0,-2488533.042481201,2288403.5967716263,-271980.3869067464,-4.599499999999999,137.399,-4499.999999999484,Mars,spice_recpgr,0,41.840414962850396,0,0
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,1,0,-2488544.487996643,2288394.081505143,-271965.6996725798,-4.599250000000001,137.39925,-4499.199999999805,Mars,spice_recpgr,20.9106424446417,41.840414962850396,20.9106424446417,20.923054508441023
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,2,0,-2488556.226917929,2288384.8360203668,-271951.04449888744,-4.599,137.3995,-4498.000000000339,Mars,spice_recpgr,20.929772518208697,41.840414962850396,41.840414962850396,41.846112677470586
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,3,1,-2488556.226917929,2288384.8360203668,-271951.04449888744,-4.599,137.3995,-4498.000000000339,Mars,spice_recpgr,0,42.98627769660064,41.840414962850396,41.846112677470586
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,4,1,-2488569.78305936,2288369.245503309,-271956.93703987973,-4.599099999999999,137.39985,-4498.100000000383,Mars,spice_recpgr,21.483836528073553,42.98627769660064,63.32425149092395,63.35820795108502
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,5,1,-2488582.7521122536,2288353.115143978,-271962.7654316903,-4.5992,137.40020000000004,-4498.999999999665,Mars,spice_recpgr,21.50244116852709,42.98627769660064,84.82669265945104,84.87030043736804
+```
+
+How to read it:
+
+- `pointIndex` 2 and 3 are the same point, the joint between the two segments: the last row of segment 0 and the first of segment 1, with `stepLength` 0 on the repeat.
+- The two `segmentLength` values (41.84 m, 42.99 m) add up to the last `distance` (84.83 m), the line's total draped length.
+- `lon` is 137.4, the familiar east longitude of Gale. Mars coordinates come from SPICE's planetographic routine (`spice_recpgr`), whose longitudes are **west-positive** (Gale = 222.6° W). *Profile* writes *Flipped* longitudes, 360 − 222.6 = 137.4, which turns them east-positive.
+- `alt` is the height above the Mars reference spheroid, here about 4.5 km below it, on the crater floor.
+- `groundDistance` is measured on the reference surface, 4.5 km above the line, so it comes out slightly longer than `distance`.
+
 ---
 
 ## Boulders
@@ -78,9 +100,32 @@ Where the numbers come from: the ellipse is fitted on a plane through the clicke
 - **Four-point ellipse** (*Axis4PEllipse*): two half-ellipses on either side of the clicked axis, each with its own width. It is reported as the symmetric ellipse of the same extent: `semiMinorAxis` is half the full width across the clicked axis (the mean of the two half-widths), and the centre sits in the middle of that width, so it can lie off the clicked axis.
 - An ellipse saved before these values existed exports empty cells, and its row falls back to the outline's bounding-box centre.
 
+### Example
+
+Three boulders on the floor of Gale crater (Mars) and one traced fracture, exported with the *Boulders (ellipses)* preset. This is the exporter's actual output, full precision included. The fracture line has no row, because the preset exports ellipses only:
+
+```csv
+key,text,surfaceName,groupPath,semiMajorAxis,semiMinorAxis,majorAxisAzimuth,x,y,z,lat,lon,alt,body,latLonAltSource
+88f31cf1-1a64-434e-96c0-4dfe369faef5,B-001,Gale_HiRISE,Gale/boulders,2.9999999999361315,1.9999999999962261,29.999999998045922,-2488571.2350755627,2288358.55669152,-272009.8896569475,-4.600000000000001,-137.40000000000003,-4500.000000000831,Mars,spice_recpgr
+f742b572-34d3-4879-a419-4270b1d69ac3,B-002,Gale_HiRISE,Gale/boulders,4.999999999970896,1.5,0,-2488611.5125193717,2288314.7545268126,-272009.88965694746,-4.599999999999949,-137.4010084737893,-4499.99999996358,Mars,spice_recpgr
+d26a3ca7-93d9-4ece-8d02-c94d591edb5e,B-003,,Gale/boulders/catalog,4.5,2.7,70.00000000000001,-2488567.7400990394,2288355.342895861,-272068.89509520313,-4.601000000000001,-137.40000000000003,-4500.000000000362,Mars,spice_recpgr
+```
+
+Where each row comes from:
+
+| Row | Source | Input | Result |
+| --- | --- | --- | --- |
+| B-001 | drawn, three clicks | axis clicks 3 m either side of the centre, rotated 30° east of north; third click 2 m off the axis | semi-axes 3 m / 2 m, azimuth 30° |
+| B-002 | drawn, four clicks | axis clicks 5 m north and south of a point at 137.401° E; width clicks 2 m east and 1 m west | semi-axes 5 m / 1.5 m (half the 3 m width); azimuth 0° (due north); the centre sits 0.5 m east of the clicked axis, which is why `lon` is −137.4010085 rather than −137.401 |
+| B-003 | SBMT catalog row | diameter 0.009 km, flattening 0.6, regular angle 20° | semi-axes 4.5 m / 2.7 m, azimuth 90 − 20 = 70°; `surfaceName` empty, because imports are not bound to a surface |
+
+`lon` is −137.4 for Gale because *Boulders* writes *Native* longitudes: for Mars those are planetographic and **west-positive** (222.6° W, written in the signed −180…180 range). Choose *Flipped* in the window for east-positive longitudes, as *Profile* does.
+
+The trailing digits (2.9999999999361315 for 3 m) are the round trip through the fitted plane, written at full double precision like every number in the export. Round them in the tool you read the file with.
+
 ### Boulders: surface statistics inside the ellipse (planned)
 
-Added after the columns above, from `EllipseStatistics` (issue #644, PR D). Every statistic integrates the OPC's per-vertex layers over the mesh triangles inside the ellipse (clipped at the rim), weighted by surface area.
+Not in the export yet. The statistics library is being written separately and is not merged; these columns follow it (issue #644, PR D). They will be added after the columns above, from `EllipseStatistics`. Every statistic integrates the OPC's per-vertex layers over the mesh triangles inside the ellipse (clipped at the rim), weighted by surface area.
 
 | Column | Unit | Meaning |
 | --- | --- | --- |
@@ -119,3 +164,5 @@ A segment is the stretch between two clicked points. A line with 4 clicked point
 | `segmentAzimuth` | deg | Direction start → end, clockwise from local north at the segment's midpoint, 0–180. |
 
 For a total-length-only table, keep one row per `key`: `key, text, wayLength`.
+
+An example output follows once the preset ships (issue #644, PR C).
