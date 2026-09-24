@@ -31,7 +31,7 @@ module private Fixtures =
     /// Dimorphos with kd-trees, per-vertex normals and a Slope layer.
     let dimorphosOpc =
         testData
-        |> Option.map (fun root -> Path.Combine(root, "HERA", "Dimorphos"))
+        |> Option.map (fun root -> Path.Combine(root, "HERA", "Dimorphos_opc", "Dimorphos_DRACO1_DRACO2_Earth", "Dimorphos"))
         |> Option.filter Directory.Exists
 
     let scratch () =

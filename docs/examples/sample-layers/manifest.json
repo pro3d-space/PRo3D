@@ -1,5 +1,5 @@
 {
-  "opc": "<PRo3D.Resources.TestData>/HERA/Dimorphos_opc/Dimorphos",
+  "opc": "<PRo3D.Resources.TestData>/HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos",
   "body": "DIMORPHOS",
   "frame": "DIMORPHOS_FIXED",
   "kernel": "<kernel-root>/mk/hera_plan.tm",
@@ -24,7 +24,7 @@
       "time": "2027-03-21T20:00:00.0000000Z",
       "width": 1020,
       "height": 1020,
-      "rangeMetres": 6706.761931353359,
+      "rangeMetres": 6706.7619313533605,
       "verticesSeen": 1137142,
       "bands": [
         {
@@ -281,7 +281,7 @@
       "time": "2027-03-21T20:00:00.0000000Z",
       "width": 409,
       "height": 217,
-      "rangeMetres": 6706.761931353359,
+      "rangeMetres": 6706.761931353358,
       "verticesSeen": 1137142,
       "bands": [
         {

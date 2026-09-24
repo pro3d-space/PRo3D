@@ -1,7 +1,7 @@
 # `pro3d-tool sample-layers`
 
-Assemble observations from several instruments — AFC, ASPECT, HyperScout — onto the surface of
-a body, as one dataset keyed by surface point.
+Assemble observations from several instruments onto the surface of a body, as one dataset
+keyed by surface point. Tested on simulated images of HERA's AFC-1/-2 and HyperScout and Milani's ASPECT.
 
 Part of [`pro3d-tool`](./Pro3DTool.md) — see there for installation, test data and
 **[SPICE kernel setup](./Pro3DTool.md#spice-kernels)**, which this verb requires.
@@ -10,32 +10,29 @@ Part of [`pro3d-tool`](./Pro3DTool.md) — see there for installation, test data
 pro3d-tool sample-layers --opc <body-opc> --images <folder> [<folder> ...] --out <dir> [options]
 ```
 
-Every instrument has its own pixel grid, field of view, resolution and viewpoint, so its
-pixels cannot be compared with another instrument's pixels directly. What they have in common
-is the body. This verb fixes a set of surface points — in stage 1, **every vertex of the shape
-model** — and for each point and each image works out:
+Instruments differ in pixel grid, field of view, resolution and viewpoint, so their pixels
+cannot be compared directly. This tool compares them on the shape model instead: for every
+vertex of the OPC and every image, it works out
 
 - whether the image **sees** the point (in the frame, facing the camera, not hidden by terrain),
 - **where** in the image it lands (continuous pixel coordinates),
 - the **illumination geometry** there (incidence, emission, phase),
 - the value of **every band** at the nearest pixel.
 
-Each result is written against the point's id, so every instrument and every epoch line up by
-construction. Per-vertex layers the OPC itself carries (slope, gravity, …) are written against
-the same ids.
+All results are keyed by vertex id, so instruments and epochs line up by construction; OPC
+properties such as slope or gravity are written against the same ids.
 
 ![three instruments, three pixel grids](./images/sample-layers-inputs.png)
 
 ![the same vertices, sampled from each](./images/sample-layers-assembled.png)
 
-These figures, and every excerpt on this page, come from a real run over the simulated test set
-(see [Test data](#test-data)). `scripts/make-sample-layers-figures.py` regenerates them.
+Figures and excerpts on this page come from a real run over the [test data](#test-data).
 
 ## Example
 
 ```
 pro3d-tool sample-layers ^
-  --opc    PRo3D.Resources.TestData\HERA\Dimorphos_opc\Dimorphos ^
+  --opc    PRo3D.Resources.TestData\HERA\Dimorphos_opc\Dimorphos_DRACO1_DRACO2_Earth\Dimorphos ^
   --images PRo3D.Resources.TestData\HERA\Dimorphos_opc\SampleLayers_2027-03-21\AFC ^
            PRo3D.Resources.TestData\HERA\Dimorphos_opc\SampleLayers_2027-03-21\ASPECT ^
            PRo3D.Resources.TestData\HERA\Dimorphos_opc\SampleLayers_2027-03-21\HSH ^
@@ -57,9 +54,8 @@ pro3d-tool sample-layers ^
 [HSH_SIM_20270321_230000] HERA_HSH at 2027-03-21T23:00:00.0000000Z: 1122653 vertices seen, 25 band(s) (6.3 s)
 ```
 
-The whole set — 2.3 million vertices, 12 observations, 252 band columns — takes about 75 s. No GPU is
-needed. The OPC must have kd-trees; build them once with
-[`pro3d-tool kdtree`](./Pro3DTool-KdTree.md).
+2.3 million vertices × 12 observations × 252 band columns take about 75 s, without a GPU. The
+OPC needs kd-trees: build them once with [`pro3d-tool kdtree`](./Pro3DTool-KdTree.md).
 
 ## Options
 
@@ -77,15 +73,13 @@ needed. The OPC must have kd-trees; build them once with
 | `--method <spice\|mbi>` | projection method, as in [`unproject`](./Pro3DTool-Unproject.md) (default `mbi`) |
 | `--occlusion-tolerance <m>` | how far in front of a vertex something must be to hide it (default `0.05`) |
 
-The body defaults to what the images say they observed rather than to a fixed name. Sampling a
-stack of Dimorphos frames against `DIDYMOS_FIXED` would produce plausible-looking nonsense.
+The body defaults to the images' own target, not a fixed name: Dimorphos frames sampled in
+`DIDYMOS_FIXED` would give plausible-looking nonsense.
 
 ## Input: observations
 
-An observation is one `.mbi.json` sidecar with the band files it declares (`mbi_bands` in
-ASPECT exports, `bands` elsewhere). A sidecar that declares no usable file falls back to the
-image named like it (`X.mbi.json` → `X.png`/`X.tif`), which is how the COP delivery works. The
-three HERA layouts are all read as delivered:
+An observation is one `.mbi.json` sidecar with the band files it lists, or, if it lists none,
+the image of the same name (`X.mbi.json` → `X.png`/`X.tif`). Products are read as delivered:
 
 | Instrument | Layout | Columns in the output |
 |---|---|---|
@@ -93,10 +87,10 @@ three HERA layouts are all read as delivered:
 | ASPECT 2B | one single-band float TIFF per band | one per band, named by its label (`Vis_0` … `NIR2_12`) |
 | HyperScout 1B | one float TIFF holding 25 planes (`_Stacked.tif`) | one per plane (`Stacked_0` … `Stacked_24`) |
 
-The pointing comes from the sidecar through the viewer's own reader, exactly as in
+Pointing is read as in the PRo3D viewer and
 [`unproject`](./Pro3DTool-Unproject.md#what-the-image-folder-needs), so the same folders work in
-both. All bands of one observation must share one pixel grid; an observation whose bands do not
-is reported and skipped.
+all three. All bands of an observation must share one pixel grid, or it is skipped with a
+message.
 
 ## Output
 
@@ -112,8 +106,7 @@ Complete excerpts are in [`docs/examples/sample-layers/`](./examples/sample-laye
 
 ### `vertices.csv`
 
-Every vertex of the finest level of detail, in the body-fixed frame, metres. The row index is
-the id.
+Every vertex of the finest level of detail, body-fixed, metres; the row is the id.
 
 ```
 id,x,y,z
@@ -122,16 +115,13 @@ id,x,y,z
 2,-0.16609,-0.00097,57.09905
 ```
 
-Each surface point appears **once**. An OPC stores more than that: neighbouring patches share
-their edges, and a global lon/lat grid collapses a whole row onto each pole and doubles the
-0/360° seam. Vertices are therefore merged by position, to 1 mm. The Dimorphos OPC has 2 342 530
-valid grid vertices, which merge into 2 328 412 points. Only vertices under the attribute grid are
-taken. The position grid's skirt duplicates the neighbour's geometry and carries no attributes.
+Each point appears **once**. OPCs repeat points at patch edges, the poles and the 0/360° seam,
+so points within 1 mm are merged (Dimorphos: 2 342 530 grid vertices → 2 328 412 points).
 
 ### `attributes/<layer>.csv`
 
-A per-vertex layer of the OPC, against the same ids. Multi-component layers get one column per
-component (`Gravity_0,Gravity_1,Gravity_2`). A vertex whose patch lacks the layer is empty.
+One per-vertex OPC layer per file, one column per component (`Gravity_0,Gravity_1,Gravity_2`);
+empty where a patch lacks the layer.
 
 ```
 id,Slope
@@ -141,23 +131,23 @@ id,Slope
 
 ### `images/<observation>.csv`
 
-One row per vertex the observation **sees**. Vertices it does not see have no row.
+One row per vertex the observation **sees**; unseen vertices have no row.
 
 ```
 id,imageCoordX,imageCoordY,incidence_deg,emission_deg,phase_deg,AFC1_SIM_20270321_200000
-483986,564.734,423.241,23.3778,49.8239,33.3411,207
-659123,556.389,487.991,38.4388,6.0704,32.9894,159
-864290,563.726,571.908,94.4795,62.6612,32.5344,3
+483986,552.227,447.086,23.3778,49.8239,33.3411,223
+659123,543.883,511.835,38.4388,6.0704,32.9894,151
+864290,551.220,595.752,94.4795,62.6612,32.5344,3
 ```
 
 ```
 id,imageCoordX,imageCoordY,incidence_deg,emission_deg,phase_deg,Vis_0,Vis_1,...,NIR2_12
-483986,16.717,313.227,23.3778,30.0049,47.2654,0.170540929,0.171593338,...
+483986,306.171,257.406,23.3778,30.0049,47.2654,0.172721446,0.173787326,...
 ```
 
 ```
 id,imageCoordX,imageCoordY,incidence_deg,emission_deg,phase_deg,Stacked_0,Stacked_1,...,Stacked_24
-483986,228.743,94.364,23.3778,49.8239,33.3411,0.197273195,0.198021531,...
+483986,210.167,98.952,23.3778,49.8239,33.3411,0.20219703,0.202964053,...
 ```
 
 | Column | Meaning |
@@ -169,61 +159,62 @@ id,imageCoordX,imageCoordY,incidence_deg,emission_deg,phase_deg,Stacked_0,Stacke
 | `phase_deg` | angle between sun and camera, seen from the vertex |
 | one column per band | the value at the **nearest pixel** (the one whose centre is closest), as stored: float TIFFs in their own units, 8/16-bit images as raw DN |
 
-Vertex 483986 appears in all three. Its incidence depends only on the epoch and the sun, so it is
-the same in every row. Emission and phase are the same for AFC and HyperScout, both of which fly
-on Hera, and differ for ASPECT, which flies on Milani.
-
-Together, the per-image files give one surface point every instrument's view of it. Joining the
-ASPECT and HyperScout rows of one vertex by `id` gives its spectrum across both instruments:
+Vertex 483986 is in all three. Incidence depends only on epoch and sun, so it is the same in
+every row; emission and phase match for AFC and HyperScout (both on Hera) and differ for ASPECT
+(on Milani). Joining the rows by `id` gives the point's spectrum across instruments:
 
 ![one point, two instruments' bands](./images/sample-layers-spectrum.png)
 
+### Viewpoint and roll differ per image
+
+ASPECT views from Milani, 55° around the body from Hera, and every image has its own roll: at
+20:00, north is 16.8° from image up in AFC-1 and HyperScout and 2.6° in ASPECT, and Hera's roll
+drifts by 46° over 9 hours. Nothing needs correcting, because every value is looked up through
+its own image's camera. Details: [simulate-image: Pointing, aiming and roll](./Pro3DTool-SimulateImage.md#pointing-aiming-and-roll).
+
 ### `manifest.json`
 
-What the run used and where each file came from: OPC, body, frame, metakernel, and per image
-its sidecar, instrument, SPICE frame, observer, epoch, size, range and number of vertices seen,
-plus every band column with its file, plane and wavelength. A downstream tool should read the
-band wavelengths from here rather than parse column names.
+The run's OPC, body, frame and metakernel; per image its sidecar, instrument, SPICE frame,
+observer, epoch, size, range and vertices seen; per band column its file, plane and wavelength.
+Read wavelengths from here, not from column names.
 
 ## What "seen" means
 
-A vertex is seen by an observation when all of these hold:
+A vertex is seen by an image when it is
 
-1. **In front of the camera and inside the frame.** The vertex is projected through the
-   observation's camera, the same one the viewer projects that image with.
-2. **Facing the camera.** Its normal (the OPC's per-vertex `Normal` layer, oriented outwards)
-   points towards the camera.
-3. **Not occluded.** A ray from the camera to the vertex, cast through the OPC's kd-trees in
-   double precision, meets nothing more than `--occlusion-tolerance` in front of the vertex.
-   The ray ends on the surface, so without a tolerance a vertex would hide behind its own
-   triangles.
+1. **in the frame**, in front of the camera (the camera the PRo3D viewer projects the image with);
+2. **facing the camera**, by its outward per-vertex normal;
+3. **not occluded**: nothing on the line of sight lies more than `--occlusion-tolerance` in front
+   of it. The tolerance keeps a vertex from hiding behind its own triangles. Only the `--opc`
+   body occludes: see [Limitations](#limitations).
 
-The log prints the count after each step. On Dimorphos from 7 to 8 km, occlusion removes 3–6% of
-the vertices that face the camera: crater walls and boulders hiding what lies behind them.
+The log counts each step. On Dimorphos at 7–8 km, occlusion removes 3–6% of the facing vertices:
+crater walls and boulders.
 
-![coverage of the combined dataset](./images/sample-layers-coverage.png)
+Each image (one epoch of one instrument) is decided separately. The figure counts how many of
+the test set's 12 images (4 epochs × 3 instruments) see each vertex. Dimorphos turns in 11.9 h,
+so each epoch sees a partly different face; the maximum, 9, is 3 epochs × 3 instruments.
 
-The tests check visibility against an independent ray cast. For a strided subset of the seen
-vertices, the ray through the reported pixel may meet nothing in front of the vertex.
+![how many images see each vertex](./images/sample-layers-coverage.png)
 
-## How it was checked
+## Accuracy
 
-On the simulated test set, whose sidecars describe the exact render camera:
+On the test set, whose sidecars hold the exact render cameras:
 
-| Check | Result |
+| What | Result |
 |---|---|
-| each ASPECT/HyperScout band divided by the spectrum it was simulated with, per vertex | identical across all bands to 5·10⁻⁸ — every band comes from the right file and plane |
-| sampled value vs. the Lommel-Seeliger term `cos i / (cos i + cos e)` from the output angles | correlation 0.89–0.97, the rest being the simulator's micro-structure and cast shadows |
-| AFC vs. HyperScout at the same epoch, per vertex | correlation 0.92–0.99 |
-| well-lit vertices (i < 60°, e < 70°) that sample a 0 (sky) pixel | 0, for every instrument. Zeros occur only at grazing emission, where the nearest pixel is off the limb |
-| 300 sampled `(image, x, y)` rows fed to [`unproject`](./Pro3DTool-Unproject.md) | back to the vertex: median 0.8 mm, p99 3 cm |
-| two runs | byte-identical output (the kd-tree queries run in parallel) |
+| every band lands in the right column | each ASPECT/HyperScout band, divided by the spectrum it was simulated with, agrees across all bands to 5·10⁻⁸ |
+| pixel values match the illumination geometry | correlation 0.88–0.97 with the Lommel-Seeliger term `cos i / (cos i + cos e)` from the output angles; the rest is simulated surface roughness and cast shadows |
+| instruments agree with each other | AFC and HyperScout at the same epoch, per point: correlation 0.92–0.99 |
+| points land on the body, not beside it | no well-lit point (incidence < 60°, emission < 70°) samples an empty (sky) pixel; zeros occur only near the limb |
+| image coordinates lead back to the point | 299 of 300 sampled rows fed to [`unproject`](./Pro3DTool-Unproject.md) return their vertex (median 0.6 mm, p99 4.5 cm); the 300th is seen exactly edge-on at the limb |
+| results are reproducible | two runs give byte-identical output |
 
 ## Test data
 
-`PRo3D.Resources.TestData/HERA/Dimorphos_opc/SampleLayers_2027-03-21/` holds simulated
-observations of Dimorphos by all three instruments at 14:00, 17:00, 20:00 and 23:00 UTC,
-rendered from the OPC next to it:
+`PRo3D.Resources.TestData/HERA/Dimorphos_opc/SampleLayers_2027-03-21/`: Dimorphos by all three
+instruments at 14:00, 17:00, 20:00 and 23:00 UTC, rendered from
+`HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth`:
 
 ```
 AFC/     AFC1_SIM_<epoch>.png (+ .png.json, .mbi.json)            HERA/AFC-1, 1020x1020
@@ -231,48 +222,40 @@ ASPECT/  ASP_SIM_<epoch>_<band>.tif (+ .tif.json), .mbi.json       Milani/ASPECT
 HSH/     HSH_SIM_<epoch>_Stacked.tif (+ .tif.json), .mbi.json      HERA/HyperScout, 25 x 409x217
 ```
 
-The ASPECT and HyperScout values are the render's I/F times a made-up spectrum. They check
-where bands land and are no use as spectroscopy — see
-[simulate-image](./Pro3DTool-SimulateImage.md#spectral-cubes-hyperscout-and-aspect).
-`scripts/make-sample-layers-test-data.py` regenerates the set.
+ASPECT and HyperScout values are rendered I/F times a made-up spectrum: fit for checking where
+bands land, not for spectroscopy ([details](./Pro3DTool-SimulateImage.md#spectral-cubes-hyperscout-and-aspect)).
+`scripts/make-sample-layers-test-data.py` regenerates the set, `scripts/make-sample-layers-figures.py`
+this page's figures and excerpts.
 
-The observations import into the viewer like delivered data (GIS tab → Projected Images →
-Import Directory, one folder at a time) and project onto the same OPC. Rendered through the
-viewer's projection shader from their own camera, each reproduces its input image:
+> **⚠ Not planned observations.** Every instrument is [aimed](./Pro3DTool-SimulateImage.md#aiming-a-deliberate-departure-from-the-plan)
+> at Dimorphos (`--aim DIMORPHOS`), because Milani's planned pointing leaves it at or beyond
+> the edge of ASPECT's field. Epochs, positions, sun and roll are planned; the pointing is not,
+> and each sidecar says so (`PRO3DAIM`). Do not use this set to study what the mission will see.
 
-| Layout | Reproduction |
-|---|---|
-| AFC | exact |
-| ASPECT | correlation 0.9998, p95 difference under 1 DN |
-| HyperScout | correlation 0.9998, p95 difference under 1 DN |
+The images also open in the PRo3D viewer (GIS tab → Projected Images → Import Directory, one
+folder at a time) and project exactly onto the OPC. Dimorphos is 40–50 pixels across in ASPECT
+and HyperScout: real geometry at these ranges, not a flaw.
 
-At these ranges Dimorphos is only 40–50 pixels across in ASPECT and HyperScout, which is the
-real geometry and not a flaw of the data.
+## Limitations
 
-## Caveats
-
-- **Stage 1 samples at vertices only.** The points are the OPC's own vertices, a 1.96 m grid
-  on Dimorphos (denser towards the poles). Sampling at arbitrary points or on a regular grid is not implemented yet.
-- **Nearest pixel, no footprint.** Every band is read at one pixel. An 8.6 m HyperScout pixel
-  therefore gives the same value to every vertex under it. The blocks in the figure above are
-  this, not an error. No resampling or area weighting is done.
-- **Vertex normals.** Facing and the incidence/emission angles use the OPC's per-vertex normal.
-  [`sun-angles`](./Pro3DTool-SunAngles.md) uses face normals, so the two differ slightly on
-  rough terrain. An OPC without a `Normal` layer gets no facing test (occlusion still applies)
-  and empty incidence/emission.
-- **Cast shadows are not flagged.** `incidence_deg` is local. A vertex in the shadow of a
-  boulder has a normal incidence but a dark value. Flagging it would take a sun-side occlusion
-  test.
-- **One metakernel per run.** SPICE holds one at a time, so the whole run uses the one the first
-  sidecar names (or `--kernel`).
-- **Size.** Values are written at full float precision. An ASPECT observation of 1.1 million
-  seen vertices × 37 bands is about 550 MB of CSV. A columnar format (Parquet) would be a
-  natural next step.
+- **Vertices only.** Points are the OPC's vertices (Dimorphos: 1.96 m grid, denser at the poles).
+- **Nearest pixel.** No interpolation: all points under one 8.6 m HyperScout pixel share its value
+  (the blocks in the figure).
+- **One body.** Only the `--opc` body occludes or shadows. Didymos in front of Dimorphos, or its
+  shadow on it, goes undetected: those points count as seen and lit.
+- **No cast shadows.** `incidence_deg` is local; a point shadowed by a boulder has an ordinary
+  incidence but a dark value.
+- **Vertex normals.** Facing and angles use per-vertex normals, [`sun-angles`](./Pro3DTool-SunAngles.md)
+  face normals, so they differ slightly on rough terrain. Without normals: no facing test, empty
+  incidence/emission.
+- **One kernel set per run**: the first sidecar's metakernel, or `--kernel`.
+- **Size.** Full-precision CSV: one ASPECT image (1.1 million points × 37 bands) is about 550 MB.
 
 ## Future work
 
-- Stage 2: sample at arbitrary points (a regular lon/lat grid, or user-supplied points), not
-  only at vertices.
-- A cast-shadow flag per vertex and image, from a sun-side ray cast through the same kd-trees.
-- Bilinear sampling, or pixel-footprint integration, as an option next to nearest-pixel.
-- Parquet output.
+- **Occlusion and shadowing by other bodies**: Didymos hiding Dimorphos, and mutual shadowing.
+- **Interpolated instrument values**: bilinear, or integrated over each point's image footprint;
+  matters most for coarse pixels such as HyperScout's.
+- **Chosen points**: a regular lat/lon grid or your own list, besides the vertices.
+- **Cast-shadow flag** per point and image.
+- **Compact output** (e.g. Parquet) for large runs.

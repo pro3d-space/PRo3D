@@ -29,6 +29,7 @@ from PIL import Image
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.patches
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, '..', 'docs')
@@ -36,7 +37,7 @@ EPOCH = '20270321_200000'
 
 
 def run_tool(tool, testdata, out, kernel_root):
-    opc = os.path.join(testdata, 'HERA', 'Dimorphos_opc', 'Dimorphos')
+    opc = os.path.join(testdata, 'HERA', 'Dimorphos_opc', 'Dimorphos_DRACO1_DRACO2_Earth', 'Dimorphos')
     data = os.path.join(testdata, 'HERA', 'Dimorphos_opc', 'SampleLayers_2027-03-21')
     cmd = [tool, 'sample-layers', '--opc', opc, '--images',
            os.path.join(data, 'AFC'), os.path.join(data, 'ASPECT'), os.path.join(data, 'HSH'), '--out', out]
@@ -67,18 +68,27 @@ def figure_inputs(data, path):
         ('Milani / ASPECT', asp, '640 x 512, 37 bands, one float TIFF each\n(shown: NIR1_0, 875 nm)'),
         ('HERA / HyperScout', hsh[0], '409 x 217, 25 bands in one float TIFF\n(shown: plane 0, 661 nm)'),
     ]
-    fig, axes = plt.subplots(1, 3, figsize=(12, 4.4))
-    for ax, (title, img, sub) in zip(axes, panels):
-        c, _ = crop_to_body(img)
-        ax.imshow(c, cmap='gray', interpolation='nearest')
-        ax.set_title(f'{title}\n{sub}', fontsize=9)
-        ax.set_xticks([]); ax.set_yticks([])
-        ax.text(0.02, 0.02, f'{c.shape[1]} x {c.shape[0]} px shown', transform=ax.transAxes,
-                color='w', fontsize=8, va='bottom')
-    fig.suptitle('Dimorphos, 2027-03-21 20:00 UTC -- the same body, three instruments, three pixel grids '
-                 '(cropped to the body)', fontsize=10)
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
-    fig.savefig(path, dpi=110)
+    # Top row: the whole frame, so where the body sits (and whether it is clipped) is
+    # visible. Bottom row: the crop around the body. A crop alone hid that ASPECT's planned
+    # pointing put Dimorphos at the frame edge.
+    fig, axes = plt.subplots(2, 3, figsize=(12, 7.4), gridspec_kw={'height_ratios': [1, 1.3], 'hspace': 0.12})
+    for col, (title, img, sub) in enumerate(panels):
+        full, crop = axes[0, col], axes[1, col]
+        c, (x0, y0) = crop_to_body(img)
+        full.imshow(img, cmap='gray', interpolation='nearest')
+        full.add_patch(matplotlib.patches.Rectangle((x0 - 0.5, y0 - 0.5), c.shape[1], c.shape[0],
+                                                    fill=False, edgecolor='#e8a33d', lw=1.2))
+        full.axhline(img.shape[0] / 2 - 0.5, color='#4a90d9', lw=0.5, alpha=0.6)
+        full.axvline(img.shape[1] / 2 - 0.5, color='#4a90d9', lw=0.5, alpha=0.6)
+        full.set_title(f'{title}\n{sub}', fontsize=9)
+        full.set_xticks([]); full.set_yticks([])
+        crop.imshow(c, cmap='gray', interpolation='nearest')
+        crop.set_xticks([]); crop.set_yticks([])
+        crop.set_title(f'crop: {c.shape[1]} x {c.shape[0]} px', fontsize=8)
+    fig.suptitle('Dimorphos, 2027-03-21 20:00 UTC, every instrument aimed at Dimorphos -- full frames '
+                 '(blue: frame centre, orange: crop) and the body at native pixel size', fontsize=10)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.savefig(path, dpi=110, bbox_inches='tight')
     plt.close(fig)
 
 
@@ -154,8 +164,8 @@ def figure_coverage(out, manifest, path):
     for ax, direction, label in [(axes[0], np.array([1.0, 0.3, 0.2]), 'from +X'),
                                  (axes[1], np.array([-1.0, -0.3, 0.2]), 'from -X')]:
         sc = draw_cloud(ax, P, np.where(count > 0, count, np.nan), direction, 'magma', label)
-    fig.colorbar(sc, ax=axes, fraction=0.03, pad=0.02, label=f'observations seeing the vertex (of {len(manifest["images"])})')
-    fig.suptitle('Coverage of the combined dataset: 4 epochs x 3 instruments', fontsize=10)
+    fig.colorbar(sc, ax=axes, fraction=0.03, pad=0.02, label=f'images seeing the vertex (of {len(manifest["images"])})')
+    fig.suptitle('Coverage: how many of the 12 images (4 epochs x 3 instruments) see each vertex', fontsize=10)
     fig.savefig(path, dpi=110, bbox_inches='tight')
     plt.close(fig)
     return count
@@ -206,7 +216,7 @@ def excerpts(out, target, vertex_id):
         head(os.path.join(out, 'images', f'{name}.csv'), os.path.join(target, f'{name}.csv'), rows=10, ids=ids)
     # the manifest of the same three images, without this machine's absolute paths
     m = json.load(open(os.path.join(out, 'manifest.json')))
-    m['opc'] = '<PRo3D.Resources.TestData>/HERA/Dimorphos_opc/Dimorphos'
+    m['opc'] = '<PRo3D.Resources.TestData>/HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos'
     m['kernel'] = '<kernel-root>/mk/' + os.path.basename(m['kernel'])
     m['images'] = [img for img in m['images'] if img['name'].endswith(EPOCH)]
     for img in m['images']:
