@@ -90,6 +90,12 @@ This costs a full image decode per layer per sample, so it is used for profile e
 but **never** for the 3D cursor — a surface without per-vertex layers shows nothing in the
 *Under Cursor* readout and says so.
 
+Only layers the `*.opcx` declares as a **`Map`** (with a `ChannelsDefinedRange`) are
+attributes. A texture that only has a `Texture` entry — a colour image such as the `Earth`
+layer of `Dimorphos_DRACO1_DRACO2_Earth` — carries no physical value and is never sampled.
+Sampling it used to decode that 8652×4324 image once per exported point: a ~450 point
+profile ran for hours at ~10 GB.
+
 Attribute textures store each layer **normalised into the layer's `ChannelsDefinedRange`**
 from the `*.opcx` (EXR layers hold `[0,1]` floats; 8/16 bit images are normalised on read).
 Per-vertex layers hold physical values. Texture samples are therefore mapped back onto the
@@ -214,7 +220,9 @@ every one of them skips rather than fails. Paths are resolved relative to that r
 |---|---|---|
 | Dimorphos DRACO1 OPC | `Dimorphos_DRACO1/Dimorphos_DRACO1` | grid mapping, aara header, kd-tree intersection |
 | test annotation | `Dimorphos_DRACO1/testAnnotatation.pro3d.ann` | end-to-end profile extraction |
-| HERA Dimorphos AARA export | `HERA/Dimorphos` | per-vertex layers, texture fallback, attribute coverage |
+| HERA Dimorphos OPC | `HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos` | per-vertex layers, texture fallback, attribute coverage (preferred; its first texture, `DRACO_1`, is itself an attribute) |
+| HERA Dimorphos AARA export | `HERA/Dimorphos` | the same, as a fallback for older checkouts (its first texture, `Earth8K`, is plain colour) |
+| slow profile export scene | `cases/slowProfileExport.pro3d` | `SlowProfileExportTest`: the real annotation export (Profile preset + surface properties) must finish within 60 s, grow memory by < 2 GB, and — with the KdTrees loaded — allocate < 250 MB. Needs a GL context; the scene references its OPC by absolute path |
 
 ```
 set PRO3D_TEST_DATA=C:\Users\<you>\Desktop\pro3d\PRo3D.Resources.TestData
@@ -244,4 +252,9 @@ Two defects it pins down, both fixed:
   assumes the list is `[textures; weights]`. `patch.xml` interleaves them
   (`DiffuseColorNTexture`, `DiffuseColorNWeights`), so that walk landed on the
   `*.aara` weights entries and reached only `LonLatRad`, `Normal` and `Gravity` —
-  three of seven layers, as raw normalised samples.
+  three of seven layers, as raw normalised samples, and
+* dropping the first texture as the patch's base colour unconditionally. That is right
+  for `HERA/Dimorphos`, whose first texture is `Earth8K`, but the
+  `Dimorphos_DRACO1_DRACO2_Earth` export puts `DRACO_1` first — a declared attribute
+  with its own `DRACO_1.aara` — and the fallback could never reach it. The first texture
+  is now dropped only when the patch does not declare it in `<Attributes>`.

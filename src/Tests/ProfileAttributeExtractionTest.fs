@@ -42,11 +42,12 @@ module Data =
           testDataSource ]
         |> List.tryPick existingDir
 
-    /// Any OPC hierarchy is enough for the geometry-level tests. Prefer the DRACO1
-    /// export they were written against; fall back to the HERA Dimorphos export,
-    /// which is the same body with per-vertex attribute layers added.
+    /// Any OPC hierarchy is enough for the geometry-level tests. The Dimorphos OPC every
+    /// test uses (DRACO_1/DRACO_2/Earth layers plus per-vertex attributes) comes first; the
+    /// older exports remain as fallbacks for checkouts that predate it.
     let opcBasePath (root : string) =
-        [ Path.Combine(root, "Dimorphos_DRACO1", "Dimorphos_DRACO1")
+        [ Path.Combine(root, "HERA", "Dimorphos_opc", "Dimorphos_DRACO1_DRACO2_Earth", "Dimorphos")
+          Path.Combine(root, "Dimorphos_DRACO1", "Dimorphos_DRACO1")
           Path.Combine(root, "HERA", "Dimorphos") ]
         |> List.tryPick existingDir
 
@@ -59,6 +60,7 @@ module Data =
     /// overrides the location for an export kept outside the test-data checkout.
     let aaraOpcBasePath (root : string) =
         [ Environment.GetEnvironmentVariable "PRO3D_AARA_OPC"
+          Path.Combine(root, "HERA", "Dimorphos_opc", "Dimorphos_DRACO1_DRACO2_Earth", "Dimorphos")
           Path.Combine(root, "HERA", "Dimorphos")
           Path.Combine(root, "AARA_Textures", "Dimorphos") ]
         |> List.tryPick existingDir

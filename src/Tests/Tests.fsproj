@@ -49,6 +49,7 @@
     <Compile Include="ProfileAttributeExtractionTest.fs" />
     <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="UnprojectTest.fs" />
+    <Compile Include="SampleLayersTest.fs" />
     <Compile Include="BaseTests.fs" />
     <None Include="data\bulk-rose-annotations.pro3d.ann" />
     <Compile Include="BulkAnnotationRoseTest.fs" />
@@ -88,6 +89,7 @@
     <Compile Include="VertexEditingTests.fs" />
     <Compile Include="SurfaceEffectSwitchTest.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
+    <Compile Include="SlowProfileExportTest.fs" />
     <Compile Include="SurfaceEffectBenchmark.fs" />
     <Compile Include="MapProjectionBenchmark.fs" />
     <Compile Include="Program.fs" />

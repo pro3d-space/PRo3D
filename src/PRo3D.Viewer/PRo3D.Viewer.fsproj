@@ -64,6 +64,7 @@
     <Compile Include="ProvenanceModel.g.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Viewer-Model.g.fs" />
+    <Compile Include="Busy.fs" />
     <Compile Include="ProvenanceApp.fs" />
     <Compile Include="InitialViewerModel.fs" />
     <Compile Include="Bookmarks.fs" />

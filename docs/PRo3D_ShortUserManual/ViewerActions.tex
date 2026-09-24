@@ -11,6 +11,10 @@
    \end{figure}
 
 Once the surface is loaded there are different actions to choose (Figure~\ref{fig:Interactions}).
+
+\furtherreading{\onlinedoc{ToolStrip.md}{ToolStrip.md} --- the icon rail on the right edge
+of the render view, which offers the same actions without leaving the 3D view;
+\onlinedoc{DirectToolMode.md}{DirectToolMode.md} --- picking without holding CTRL.}
 %----------------------------------------------------------------------------------------
 %	SubSection: Pick Explore Center
 %----------------------------------------------------------------------------------------
@@ -39,6 +43,12 @@ The Free Fly Mode is the standard 3D fly-through navigation, as for instance, in
 \subsubsection{ArcBall}
 
 When the viewer is in ArcBall mode the camera can be rotated around the explore center by holding down the LMB. Panning and strafing are possible as described above, but be aware that this moves the explore center (otherwise panning would break the view matrix of the camera). To set a new explore point, make sure the ``PickExploreCenter'' action is active (as shown in Figure~\ref{fig:exploreCenter}) and press CTRL + LMB on the surface. The explore center is indicated by a pink dot. Forward and backward movement is performed either by the keys W/S, rotating the mouse wheel, or clicking the RMB.
+
+\furtherreading{\onlinedoc{Navigation.md}{Navigation.md} --- how the camera works, which
+frame it lives in and all navigation settings;
+\onlinedoc{MapView.md}{MapView.md} --- the map-like third navigation mode next to FreeFly
+and ArcBall; \onlinedoc{NavigationGizmo.md}{NavigationGizmo.md} --- the orientation gizmo
+in the lower-left corner of the render view.}
 %----------------------------------------------------------------------------------------
 %	SubSection: Place Coordinate System
 %----------------------------------------------------------------------------------------
@@ -95,6 +105,14 @@ For all annotations (except Point) you can choose between ``Linear'', ``ViewPoin
 	
 Finally you can set the color and thickness of the annotation (D in Figure~\ref{fig:drawAnnotations}).
 Section~\ref{sec:annotations} shows how to maintain, group and edit existing annotations.
+
+\furtherreading{\onlinedoc{AnnotationToolbar.md}{AnnotationToolbar.md} --- the in-view
+toolbar that appears while ``DrawAnnotation'' is active;
+\onlinedoc{AdvancedAnnotations.md}{AdvancedAnnotations.md} --- preview picking and the
+advanced picking options; \onlinedoc{AnnotationVertexEditing.md}{AnnotationVertexEditing.md}
+--- moving the individual points of an annotation after it has been drawn;
+\onlinedoc{EllipseAnnotations.md}{EllipseAnnotations.md} --- the two ellipse geometry types
+(see also Section~\ref{sec:ellipseAnnotations}).}
 
 %----------------------------------------------------------------------------------------
 %	SubSection: Pick Annotation

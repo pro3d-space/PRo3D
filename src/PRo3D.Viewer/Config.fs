@@ -19,3 +19,8 @@ module Config =
   let mutable previewIntersections = true
 
   let diagnosticTimings = false
+
+  /// Show the busy indicator once an update has been running this long, in
+  /// milliseconds. 0 disables it (and the polling) entirely: `-nobusy`.
+  /// See docs/BusyIndicator.md.
+  let mutable busyIndicatorMilliseconds = 400
