@@ -88,6 +88,7 @@
     <Compile Include="VertexEditingTests.fs" />
     <Compile Include="SurfaceEffectSwitchTest.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
+    <Compile Include="SlowProfileExportTest.fs" />
     <Compile Include="SurfaceEffectBenchmark.fs" />
     <Compile Include="MapProjectionBenchmark.fs" />
     <Compile Include="Program.fs" />

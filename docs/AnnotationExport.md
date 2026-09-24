@@ -396,7 +396,9 @@ two diverge (chords versus the draped path).
 The one point attribute that is not read off the annotation. Tick **Surface properties** and
 every exported point is sampled against the **OPC layers** of the surface underneath it — the
 scalar and texture attributes an OPC dataset carries besides its base texture (gravity,
-altitude, slope maps, secondary image layers, whatever the dataset ships). This reproduces
+altitude, slope maps, whatever the dataset ships). Only layers the `*.opcx` declares as a
+`Map` count; plain colour textures (e.g. an `Earth` image layer) are not exported — see
+[VertexAttributes](VertexAttributes.md#texture-sampling-fallback). This reproduces
 the old *selected as multi-attribute profile* export, with the rest of the window's columns
 available alongside.
 
