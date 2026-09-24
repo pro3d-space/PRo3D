@@ -228,7 +228,8 @@ let dimorphosTests (parameters : TestUtils.TestParameters) =
     let root = ProfileAttributeExtractionTest.Data.root (parameters.testDataSource |> Option.defaultValue "")
     let opc = root |> Option.bind ProfileAttributeExtractionTest.Data.aaraOpcBasePath
 
-    testCase "Dimorphos: integration agrees with brute-force ray sampling" <| fun () ->
+    let accuracy =
+      testCase "Dimorphos: integration agrees with brute-force ray sampling" <| fun () ->
         let opcBasePath =
             match opc with
             | Some p -> p
@@ -310,6 +311,69 @@ let dimorphosTests (parameters : TestUtils.TestParameters) =
                         // the brute force samples a grid, so its error scales with the spread
                         close (0.05 * c.std + 1e-9 * abs c.mean) expected c.mean $"ellipse {e} {layer.name} mean"
                     | _ -> ()
+
+    /// The size of a real boulder catalog (the Dimorphos SBMT one has ~4,800 rows),
+    /// scattered over the whole body. Pins the cost, not the values.
+    let catalog =
+        testCase "Dimorphos: a 4,800-boulder catalog integrates in seconds" <| fun () ->
+            let opcBasePath =
+                match opc with
+                | Some p -> p
+                | None -> skiptest "Dimorphos OPC with per-vertex layers not found (PRO3D_TEST_DATA)"
+
+            ProfileAttributeExtractionTest.init ()
+            let serializer = Serialization.binarySerializer
+            let hierarchies =
+                Directory.GetDirectories opcBasePath
+                |> Array.map (fun dir -> PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths dir))
+            let infos = Dictionary<string, PatchFileInfo>(StringComparer.OrdinalIgnoreCase)
+            for h in hierarchies do
+                for leaf in QTree.getLeaves h.tree do
+                    infos.[Path.GetFullPath(h.opcPaths.Patches_DirAbsPath +/ leaf.info.Name +/ leaf.info.Positions)] <- leaf.info
+            let kdTreeMap =
+                hierarchies |> Array.fold (fun acc h ->
+                    KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ serializer false true DebugKdTreesX.loadTriangles' false
+                    |> HashMap.union acc
+                ) HashMap.empty
+            let patches =
+                kdTreeMap |> HashMap.toList |> List.choose (fun (box, level0) ->
+                    match level0 with
+                    | Level0KdTree.LazyKdTree kd ->
+                        let info = match infos.TryGetValue(Path.GetFullPath kd.objectSetPath) with | true, i -> Some i | _ -> None
+                        Some { box = box; surfaceTrafo = Trafo3d.Identity; kd = kd; patchInfo = fun () -> info }
+                    | _ -> None
+                )
+
+            let bounds = kdTreeMap |> HashMap.toList |> List.fold (fun (b : Box3d) (bb, _) -> b.ExtendedBy bb) Box3d.Invalid
+            let cache = ref HashMap.empty
+            let random = RandomSystem(644)
+            let ellipses =
+                Array.init 4800 (fun _ ->
+                    let direction = random.UniformV3dDirection()
+                    let origin = bounds.Center - direction * bounds.Size.NormMax * 2.0
+                    match intersect kdTreeMap cache (FastRay3d(Ray3d(origin, direction))) with
+                    | None -> None
+                    | Some (hit, _) ->
+                        let p = origin + direction * hit.RayHit.T
+                        let up = p.Normalized
+                        let major = Vec.cross up V3d.OOI |> Vec.normalize
+                        let minor = Vec.cross up major
+                        let a = 0.5 + 4.5 * random.UniformDouble()
+                        let b = a * (0.4 + 0.6 * random.UniformDouble())
+                        Some { center = p; semiMajor = major * a; semiMinor = minor * b })
+                |> Array.choose id
+
+            let sw = Diagnostics.Stopwatch.StartNew()
+            let results = EllipseStatistics.computeOnPatches (fun _ -> true) EllipseStatistics.defaultDepth ellipses patches
+            sw.Stop()
+            let covered = results |> Array.filter (function Some s -> s.surfaceArea > 0.0 | None -> false) |> Array.length
+            Log.line "[EllipseStatistics] %d ellipses over %d patches integrated in %d ms; %d on the surface"
+                ellipses.Length patches.Length sw.ElapsedMilliseconds covered
+            Expect.isGreaterThan covered (ellipses.Length * 9 / 10) "nearly every ellipse lies on the surface"
+            Expect.isLessThan sw.Elapsed.TotalSeconds 30.0 "a catalog export stays interactive"
+
+    // one after the other: both load the whole OPC, and the brute force would skew the timing
+    testSequenced <| testList "Dimorphos" [ accuracy; catalog ]
 
 let tests (parameters : TestUtils.TestParameters) =
     testList "EllipseStatistics" [

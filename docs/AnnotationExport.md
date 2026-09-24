@@ -101,7 +101,7 @@ switches the preset back to *Custom*; nothing is locked.
 | GIS / QGIS | GeoJSON, geographic, longitude *Native*, `colorHex` + `groupPath` + the common measurements |
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
 | Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
-| Boulders (ellipses) | CSV, per annotation, scope *All*, annotation types *ellipses only*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `groupPath`, `semiMajorAxis`, `semiMinorAxis`, `majorAxisAzimuth` |
+| Boulders (ellipses) | CSV, per annotation, scope *All*, annotation types *ellipses only*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `groupPath`, `semiMajorAxis`, `semiMinorAxis`, `majorAxisAzimuth`, then the surface statistics inside each ellipse ([AnnotationExport-CSV.md](AnnotationExport-CSV.md#boulders-surface-statistics-inside-the-ellipse)) |
 | Attitude planes | file type *Attitude planes* |
 | Continuous GeoJSON | file type *Continuous GeoJSON* — arms the background export |
 
@@ -643,6 +643,7 @@ Beyond the GeoJSON coordinate order, two other behaviours changed on purpose:
 | `src/PRo3D.Core/ProfileAttributeExtraction.fs` | `sampleAt` — the KdTree re-pick, UV interpolation and layer sampling behind *Surface properties*; `tryLonLatRadius` / `hasLonLatRadLayer` behind the *File (.aara)* source |
 | `src/PRo3D.Viewer/Viewer/AnnotationExportViewer.fs` | scope resolution, the surface sampler, and running the export |
 | `src/Tests/AnnotationExportTest.fs` | schema, lengths, culture-invariance, presets, surface columns |
+| `src/PRo3D.Core/EllipseStatistics.fs` | the surface statistics inside an ellipse, and `EllipseStatisticsColumns`, their export columns |
 | `src/PRo3D.Core/Drawing/EllipseAnnotation.fs` | `EllipticAnnotations.Measures` — the stored ellipse shape and its azimuth, used by drawing and the SBMT import |
 | `src/Tests/EllipseExportTest.fs` | stored ellipse shape, *Boulders* columns and values, the type filter, colour by category |
 

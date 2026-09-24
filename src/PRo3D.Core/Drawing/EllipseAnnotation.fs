@@ -102,7 +102,8 @@ module EllipticAnnotations =
 
         /// A result from a centre and two perpendicular semi-axes (world space, metres),
         /// in any order: the longer one becomes the major axis. `up` and `north` are the
-        /// local frame at `center`.
+        /// local frame at `center`. A circle (axes equal to a millionth) has no long axis,
+        /// so no azimuth either.
         let ofAxes (up : V3d) (north : V3d) (center : V3d) (axis0 : V3d) (axis1 : V3d) : EllipticAnnotationResult =
             let major, minor =
                 if axis1.Length > axis0.Length then axis1, axis0 else axis0, axis1
@@ -112,7 +113,9 @@ module EllipticAnnotations =
                 center                   = center
                 semiMajorAxis            = major
                 semiMinorAxis            = minor
-                majorAxisAzimuth         = axialAzimuth up north major
+                majorAxisAzimuth         =
+                    if major.Length - minor.Length <= 1e-6 * major.Length then Double.NaN
+                    else axialAzimuth up north major
             }
 
         /// The result for an ellipse constructed on its fitted plane.

@@ -90,7 +90,7 @@ How to read it:
 | `groupPath` | — | Group the ellipse sits in, nested groups separated by `/`, e.g. `Dimorphos/boulders/north`. |
 | `semiMajorAxis` | m | Half the ellipse's long axis. |
 | `semiMinorAxis` | m | Half the ellipse's short axis. |
-| `majorAxisAzimuth` | deg | Direction of the long axis, clockwise from local north at the ellipse centre, 0–180. Empty for an ellipse whose long axis points straight up (no horizontal direction). |
+| `majorAxisAzimuth` | deg | Direction of the long axis, clockwise from local north at the ellipse centre, 0–180. Empty for a circle (no long axis) and for an ellipse whose long axis points straight up (no horizontal direction). |
 | `x, y, z` | m | Ellipse centre. |
 | `lat, lon, alt, body, latLonAltSource` | | Of the centre; see *Geographic columns*. |
 
@@ -123,20 +123,84 @@ Where each row comes from:
 
 The trailing digits (2.9999999999361315 for 3 m) are the round trip through the fitted plane, written at full double precision like every number in the export. Round them in the tool you read the file with.
 
-### Boulders: surface statistics inside the ellipse (planned)
+### Boulders: surface statistics inside the ellipse
 
-Not in the export yet. The statistics library is being written separately and is not merged; these columns follow it (issue #644, PR D). They will be added after the columns above, from `EllipseStatistics`. Every statistic integrates the OPC's per-vertex layers over the mesh triangles inside the ellipse (clipped at the rim), weighted by surface area.
+After the columns above, every *Boulders* row carries statistics of the surface **inside** the ellipse (`EllipseStatistics`, see [EllipseStatistics.md](EllipseStatistics.md)). They integrate the OPC's per-vertex layers over the mesh triangles inside the ellipse, clipped at the rim and weighted by surface area.
 
 | Column | Unit | Meaning |
 | --- | --- | --- |
 | `surfaceArea` | m² | True mesh area inside the ellipse: a boulder's flanks count by their real size. |
-| `footprintArea` | m² | π · `semiMajorAxis` · `semiMinorAxis`, the ellipse's own area. |
+| `footprintArea` | m² | π · `semiMajorAxis` · `semiMinorAxis`, the ellipse's own area. `surfaceArea / footprintArea` ≥ 1 is a roughness measure. |
 | `vertexCount` | — | Distinct OPC vertices inside the ellipse: how many measurements the statistics rest on. |
-| `surface_<layer>_mean` | layer's unit | Area-weighted mean of the layer over the inside, e.g. `surface_Slope_mean`. Vector layers: one value per channel, `x;y;z`. |
+| `surface_<layer>_area` | m² | The part of `surfaceArea` where the layer has values. Smaller than `surfaceArea` where the layer has gaps, so a partly covered boulder shows in the numbers. |
+| `surface_<layer>_mean` | layer's unit | Area-weighted mean over the inside, e.g. `surface_Slope_mean`. Multi-channel layers: one value per channel, `x;y;z`. |
 | `surface_<layer>_std` | layer's unit | Area-weighted standard deviation. |
 | `surface_<layer>_min`, `surface_<layer>_max` | layer's unit | Extremes over the inside. |
 
-All empty for an ellipse off every surface. A layer with holes (no value at some vertices) is averaged only over the area where it has values.
+There is one set of five columns per per-vertex layer of the OPC, in alphabetical order; textures are not read. `LonLatRad` is left out: the row's own `lat`, `lon` and `alt` give the position, and a mean longitude is wrong for an ellipse across the 0/360° meridian.
+
+Which surface is integrated:
+
+- **Drawn ellipses:** only the surface named in `surfaceName`, the one the ellipse was drawn on, **whether it is currently visible or not**. Other surfaces overlapping the same spot do not count. Surfaces are matched by name, so two loaded surfaces with the same name would both count.
+- **Inside** means within the elliptic cylinder through the ellipse, up to one semi-major axis above and below the ellipse's plane: a boulder as high as it is wide is taken in, the far side of a small body is not.
+- **Imported ellipses** (SBMT, empty `surfaceName`) get `footprintArea` only; the other statistics cells stay empty for now.
+- An ellipse drawn on a surface that is **not loaded** gets empty statistics too, and the export window says which surfaces were missing.
+
+Cost: tens of ellipses take milliseconds. A catalog of 4,800 boulders on the Dimorphos OPC takes about 3 s on an 18-core machine.
+
+#### Example
+
+One boulder on the Dimorphos OPC (`HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth`), a 4 m × 2.5 m ellipse, exported with the *Boulders (ellipses)* preset. This is one row of the exporter's actual output, shown vertically (`column = value`); the `DRACO_2`, `Magnitude` and `Potential` layers are left out here for length:
+
+```text
+key                  = 6fb72c82-75e4-4526-9067-efb8ccfeab64
+text                 = B-drawn
+surfaceName          = Dimorphos
+groupPath            =
+semiMajorAxis        = 4
+semiMinorAxis        = 2.5000000000000004
+majorAxisAzimuth     = 90
+x, y, z              = -79.57764912670397, -33.157698865315496, 8.647869725308858
+lat, lon, alt        = 5.728322923295338, -157.37992335996321, 86.64191182886991
+body                 = Dimorphos
+latLonAltSource      = spice_reclat
+surfaceArea          = 32.35510856272484
+footprintArea        = 31.41592653589794
+vertexCount          = 502
+surface_DRACO_1_area = 32.35510856272484
+surface_DRACO_1_mean = 212.34986566501397;212.34986566501397;212.34986566501397
+surface_DRACO_1_std  = 16.296851381644778;16.296851381644778;16.296851381644778
+surface_DRACO_1_min  = 156;156;156
+surface_DRACO_1_max  = 251.69935462891655;251.69935462891655;251.69935462891655
+surface_Elevation_area = 32.35510856272484
+surface_Elevation_mean = 103.1973746161071
+surface_Elevation_std  = 1.3954836837695053
+surface_Elevation_min  = 100.18873291831798
+surface_Elevation_max  = 105.91154216430638
+surface_Gravity_area = 32.35510856272484
+surface_Gravity_mean = 3.663793904324056E-05;1.816978780768838E-05;-7.4443307910942955E-06
+surface_Gravity_std  = 2.703974341430514E-07;9.54720698201544E-07;1.080866394303633E-06
+surface_Gravity_min  = 3.6159848089373235E-05;1.6382044993118538E-05;-9.676138271517114E-06
+surface_Gravity_max  = 3.722269492636348E-05;2.0034603363789166E-05;-5.259019320349042E-06
+surface_Normal_area  = 32.35510856272484
+surface_Normal_mean  = -0.8255718906880123;-0.49616386234028576;0.24323639011379763
+surface_Normal_std   = 0.029396381784865602;0.04366943341889763;0.042124248675882624
+surface_Normal_min   = -0.884804693545063;-0.5821338295936584;0.13692576022017128
+surface_Normal_max   = -0.766028216861157;-0.4207836452484297;0.35578876455860964
+surface_Slope_area   = 32.35510856272484
+surface_Slope_mean   = 7.824717870971677
+surface_Slope_std    = 2.6216979026213503
+surface_Slope_min    = 4.126854041673854
+surface_Slope_max    = 14.483165206510783
+```
+
+How to read it:
+
+- `surfaceArea` (32.4 m²) is 3 % above `footprintArea` (31.4 m²): gently rough ground, which `surface_Slope_mean` of 7.8° (4.1–14.5°) agrees with.
+- The statistics rest on 502 mesh vertices, and every layer covers the whole inside (each `_area` equals `surfaceArea`).
+- `DRACO_1` is a camera image stored as three identical grey channels, so each of its cells repeats one value three times. The export writes the layer as the OPC stores it.
+- `Gravity` and `Normal` are vectors (body-fixed x;y;z); their mean is taken per channel, so the mean normal is not unit length.
+- `alt` is 86.6 m from the body centre (`spice_reclat`); `Elevation` is the OPC's own elevation layer, a different quantity.
 
 ---
 

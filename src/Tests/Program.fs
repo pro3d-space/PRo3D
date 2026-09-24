@@ -120,6 +120,7 @@ let profileTests (parameters : TestUtils.TestParameters) : Test =
         ProfileAttributeExtractionTest.tests(parameters)
         EllipseStatisticsTest.tests parameters
         PRo3D.Tests.SlowProfileExportTest.tests parameters
+        PRo3D.Tests.BoulderStatisticsExportTest.tests parameters
     ]
 
 

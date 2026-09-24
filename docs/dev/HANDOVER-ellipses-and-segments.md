@@ -4,6 +4,8 @@
 
 **Status, later on 2026-09-24:** PR B is implemented on this branch (code, tests, docs). Where it departs from the steps below, the plan's section *Corrections found while building PR B* says why; read it before PR C or D. Next: open PR B, then PR C.
 
+**Status, evening of 2026-09-24:** session `boulders` took over the statistics from `sampling` (which stood down; its worktree `pro3d-ellipse-stats` is left untouched and can be removed). Branch `features/644_ellipse-stats-export`, on top of PR B: first commit = the `EllipseStatistics` library as `sampling` wrote it (encoding repaired; it can be cut out as PR A), then the speed-up (4,800 ellipses: 100 s → ~3 s) and the export wiring (PR D). Decisions: statistics always on for per-annotation ellipse rows, no switch; each ellipse integrates only the surface it was drawn on, hidden or not; imported ellipses (no surface) get `footprintArea` only, a later phase; per-layer coverage `surface_<layer>_area` added; `LonLatRad` left out; circles get no azimuth.
+
 ## Where you work
 
 | | |

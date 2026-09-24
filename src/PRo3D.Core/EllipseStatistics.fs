@@ -3,6 +3,7 @@ namespace PRo3D.Core.Surface
 open System
 open System.IO
 open System.Collections.Generic
+open System.Threading
 
 open Aardvark.Base
 open Aardvark.Data.Opc
@@ -241,20 +242,27 @@ module EllipseIntegration =
             let mutable k = 0
             while k < ClipSides && clipped.Count >= 3 do
                 let normal = clipNormals.[k]
-                scratch.Clear(); scratchWeights.Clear()
                 let count = clipped.Count
-                for i in 0 .. count - 1 do
-                    let j = (i + 1) % count
-                    let di = Vec.dot clipped.[i] normal - clipInradius
-                    let dj = Vec.dot clipped.[j] normal - clipInradius
-                    if di <= 0.0 then
-                        scratch.Add clipped.[i]; scratchWeights.Add clippedWeights.[i]
-                    if (di <= 0.0) <> (dj <= 0.0) then
-                        let t = di / (di - dj)
-                        scratch.Add (clipped.[i] + (clipped.[j] - clipped.[i]) * t)
-                        scratchWeights.Add (clippedWeights.[i] + (clippedWeights.[j] - clippedWeights.[i]) * t)
-                clipped.Clear(); clippedWeights.Clear()
-                clipped.AddRange scratch; clippedWeights.AddRange scratchWeights
+                // most edges of the 128-gon miss a small piece entirely; leave it as is
+                let mutable crosses = false
+                let mutable i = 0
+                while not crosses && i < count do
+                    if Vec.dot clipped.[i] normal - clipInradius > 0.0 then crosses <- true
+                    i <- i + 1
+                if crosses then
+                    scratch.Clear(); scratchWeights.Clear()
+                    for i in 0 .. count - 1 do
+                        let j = (i + 1) % count
+                        let di = Vec.dot clipped.[i] normal - clipInradius
+                        let dj = Vec.dot clipped.[j] normal - clipInradius
+                        if di <= 0.0 then
+                            scratch.Add clipped.[i]; scratchWeights.Add clippedWeights.[i]
+                        if (di <= 0.0) <> (dj <= 0.0) then
+                            let t = di / (di - dj)
+                            scratch.Add (clipped.[i] + (clipped.[j] - clipped.[i]) * t)
+                            scratchWeights.Add (clippedWeights.[i] + (clippedWeights.[j] - clippedWeights.[i]) * t)
+                    clipped.Clear(); clippedWeights.Clear()
+                    clipped.AddRange scratch; clippedWeights.AddRange scratchWeights
                 k <- k + 1
 
         member x.Frame = frame
@@ -332,6 +340,11 @@ module EllipseStatistics =
     /// many times the ellipse's size.
     let defaultDepth (ellipse : SurfaceEllipse) = ellipse.semiMajor.Length
 
+    /// Side length, in quads, of the blocks a patch is cut into so an ellipse only
+    /// visits the part of the grid it can reach.
+    [<Literal>]
+    let private BlockSize = 32
+
     /// Vertices are told apart across patches by their position to the millimetre, so a
     /// vertex on a border two patches share counts once.
     let private vertexKey (p : V3d) =
@@ -354,47 +367,86 @@ module EllipseStatistics =
             positions.Data |> Array.map (fun p ->
                 if p.AnyNaN then V3d.NaN else toWorld.TransformPos(p.ToV3d()))
 
-        // candidate quads per ellipse, and the rows they span across all ellipses
-        let mutable firstRow = Int32.MaxValue
-        let mutable lastRow = -1
-        let local = Array.zeroCreate<V3d> world.Length
+        // The patch is cut once into blocks of quads with world-space bounds, so each
+        // ellipse visits only the blocks it can reach instead of the whole grid. A
+        // catalog of thousands of small ellipses on a few large patches otherwise
+        // transforms every vertex once per ellipse.
+        let quadsX = w - 1
+        let quadsY = h - 1
+        let blocksX = (quadsX + BlockSize - 1) / BlockSize
+        let blocksY = (quadsY + BlockSize - 1) / BlockSize
+        let blockBounds = Array.create (max 0 (blocksX * blocksY)) Box3d.Invalid
+        for by in 0 .. blocksY - 1 do
+            for bx in 0 .. blocksX - 1 do
+                let mutable box = Box3d.Invalid
+                // the vertices of the block's quads, including its far edge
+                for y in by * BlockSize .. min ((by + 1) * BlockSize) quadsY do
+                    for x in bx * BlockSize .. min ((bx + 1) * BlockSize) quadsX do
+                        let p = world.[y * w + x]
+                        if not p.AnyNaN then box <- box.ExtendedBy p
+                blockBounds.[by * blocksX + bx] <- box
+
+        // candidate quads per ellipse, and the rows each ellipse spans. Ellipses are
+        // independent - each writes only its own accumulator, set and lists - so they
+        // run in parallel; the patch data they share is only read.
         let candidates = Array.init accumulators.Length (fun _ -> List<int>())
+        let firstRows = Array.create accumulators.Length Int32.MaxValue
+        let lastRows = Array.create accumulators.Length -1
         // a quad whose corners all lie beyond one side of the clip polygon's box
         let r = EllipseIntegration.ClipRadius
 
-        for e in 0 .. accumulators.Length - 1 do
+        Tasks.Parallel.For(0, accumulators.Length, fun e ->
             let acc, vertices = accumulators.[e]
             let frame = acc.Frame
-            for i in 0 .. world.Length - 1 do
-                let p = world.[i]
-                if p.AnyNaN then local.[i] <- V3d.NaN
-                else
-                    let l = frame.ToLocal p
-                    local.[i] <- l
-                    if l.X * l.X + l.Y * l.Y <= 1.0 && abs l.Z <= frame.depth then
-                        vertices.Add (vertexKey p) |> ignore
-
+            let reach = frame.Bounds
             let quads = candidates.[e]
-            for y in 0 .. h - 2 do
-                for x in 0 .. w - 2 do
-                    let a = y * w + x
-                    let b = a + w
-                    let la = local.[a]
-                    let lb = local.[b]
-                    let lc = local.[a + 1]
-                    let ld = local.[b + 1]
-                    if not (la.AnyNaN || lb.AnyNaN || lc.AnyNaN || ld.AnyNaN) then
-                        let outside =
-                            (la.X > r && lb.X > r && lc.X > r && ld.X > r) ||
-                            (la.X < -r && lb.X < -r && lc.X < -r && ld.X < -r) ||
-                            (la.Y > r && lb.Y > r && lc.Y > r && ld.Y > r) ||
-                            (la.Y < -r && lb.Y < -r && lc.Y < -r && ld.Y < -r) ||
-                            (la.Z > frame.depth && lb.Z > frame.depth && lc.Z > frame.depth && ld.Z > frame.depth) ||
-                            (la.Z < -frame.depth && lb.Z < -frame.depth && lc.Z < -frame.depth && ld.Z < -frame.depth)
-                        if not outside then
-                            quads.Add a
-                            firstRow <- min firstRow y
-                            lastRow <- max lastRow (y + 1)
+            for by in 0 .. blocksY - 1 do
+                for bx in 0 .. blocksX - 1 do
+                    let box = blockBounds.[by * blocksX + bx]
+                    if not box.IsInvalid && box.Intersects reach then
+                        let y0 = by * BlockSize
+                        let x0 = bx * BlockSize
+                        let y1 = min ((by + 1) * BlockSize) quadsY
+                        let x1 = min ((bx + 1) * BlockSize) quadsX
+
+                        // vertices of the block; a vertex on a block edge is seen by both
+                        // blocks, which the set absorbs
+                        for y in y0 .. y1 do
+                            for x in x0 .. x1 do
+                                let p = world.[y * w + x]
+                                if not p.AnyNaN then
+                                    let l = frame.ToLocal p
+                                    if l.X * l.X + l.Y * l.Y <= 1.0 && abs l.Z <= frame.depth then
+                                        vertices.Add (vertexKey p) |> ignore
+
+                        for y in y0 .. y1 - 1 do
+                            for x in x0 .. x1 - 1 do
+                                let a = y * w + x
+                                let b = a + w
+                                let pa = world.[a]
+                                let pb = world.[b]
+                                let pc = world.[a + 1]
+                                let pd = world.[b + 1]
+                                if not (pa.AnyNaN || pb.AnyNaN || pc.AnyNaN || pd.AnyNaN) then
+                                    let la = frame.ToLocal pa
+                                    let lb = frame.ToLocal pb
+                                    let lc = frame.ToLocal pc
+                                    let ld = frame.ToLocal pd
+                                    let outside =
+                                        (la.X > r && lb.X > r && lc.X > r && ld.X > r) ||
+                                        (la.X < -r && lb.X < -r && lc.X < -r && ld.X < -r) ||
+                                        (la.Y > r && lb.Y > r && lc.Y > r && ld.Y > r) ||
+                                        (la.Y < -r && lb.Y < -r && lc.Y < -r && ld.Y < -r) ||
+                                        (la.Z > frame.depth && lb.Z > frame.depth && lc.Z > frame.depth && ld.Z > frame.depth) ||
+                                        (la.Z < -frame.depth && lb.Z < -frame.depth && lc.Z < -frame.depth && ld.Z < -frame.depth)
+                                    if not outside then
+                                        quads.Add a
+                                        firstRows.[e] <- min firstRows.[e] y
+                                        lastRows.[e] <- max lastRows.[e] (y + 1)
+        ) |> ignore
+
+        let firstRow = firstRows |> Array.fold min Int32.MaxValue
+        let lastRow = lastRows |> Array.fold max -1
 
         if lastRow >= 0 then
             let rows =
@@ -407,10 +459,8 @@ module EllipseStatistics =
                     |> Array.filter (fun l -> wanted l.name)
                     |> Array.choose (fun l -> VertexAttributes.tryReadRows l size firstRow lastRow)
 
-            let values = rows |> Array.map (fun r -> EllipseIntegration.CornerValues(r.name, r.components))
-            let corner = rows |> Array.map (fun r -> Array.zeroCreate<float> r.components)
-
-            let fill (i0 : int) (i1 : int) (i2 : int) =
+            // the corner values of one triangle, per layer; scratch space, one set per ellipse
+            let fill (values : EllipseIntegration.CornerValues[]) (corner : float[][]) (i0 : int) (i1 : int) (i2 : int) =
                 for k in 0 .. rows.Length - 1 do
                     let r = rows.[k]
                     let v = values.[k]
@@ -423,9 +473,12 @@ module EllipseStatistics =
                         else false
                     v.Valid <- read 0 i0 && read 1 i1 && read 2 i2
 
-            for e in 0 .. accumulators.Length - 1 do
+            Tasks.Parallel.For(0, accumulators.Length, fun e ->
                 let acc, _ = accumulators.[e]
                 let frame = acc.Frame
+                let values = rows |> Array.map (fun r -> EllipseIntegration.CornerValues(r.name, r.components))
+                let corner = rows |> Array.map (fun r -> Array.zeroCreate<float> r.components)
+                let fill = fill values corner
                 for a in candidates.[e] do
                     let b = a + w
                     let c = a + 1
@@ -439,6 +492,7 @@ module EllipseStatistics =
                     acc.AddTriangle(world.[a], world.[b], world.[c], la, lb, lc, values)
                     fill c b d
                     acc.AddTriangle(world.[c], world.[b], world.[d], lc, lb, ld, values)
+            ) |> ignore
 
     /// Integrates the given patches over each ellipse. The result has one entry per
     /// ellipse, None for an ellipse without area; an ellipse off every patch gets
@@ -516,3 +570,49 @@ module EllipseStatistics =
             | _ -> ()
 
         computeOnPatches wanted depth ellipses patches
+
+/// The ellipse statistics as columns of a per-annotation export record: the *Boulders*
+/// CSV (docs/AnnotationExport-CSV.md).
+module EllipseStatisticsColumns =
+
+    open PRo3D.Base.Annotation
+
+    [<Literal>]
+    let SurfaceArea = "surfaceArea"
+    [<Literal>]
+    let FootprintArea = "footprintArea"
+    [<Literal>]
+    let VertexCount = "vertexCount"
+
+    /// The ellipse stored with an annotation at construction, if it is an ellipse and
+    /// has one (older files do not).
+    let tryEllipse (a : Annotation) : Option<SurfaceEllipse> =
+        match a.geometry, a.ellipticResults with
+        | (Geometry.AxisEllipse | Geometry.Axis4PEllipse | Geometry.Ellipse), Some e
+            when not (e.center.AnyNaN || e.semiMajorAxis.AnyNaN || e.semiMinorAxis.AnyNaN) ->
+            Some { center = e.center; semiMajor = e.semiMajorAxis; semiMinor = e.semiMinorAxis }
+        | _ -> None
+
+    /// `surface_<layer>_<statistic>`, next to the per-point `surface_<layer>` columns.
+    let layerColumn (layer : string) (statistic : string) =
+        AnnotationExport.surfaceColumnName (sprintf "%s_%s" layer statistic)
+
+    /// The columns of one ellipse. `None` statistics (no surface to integrate) still
+    /// give the footprint, which only needs the ellipse; the other cells stay empty.
+    let columnsOf (ellipse : SurfaceEllipse) (statistics : Option<EllipseStatistics>) : list<string * ExportValue> =
+        let footprint = Constant.Pi * ellipse.semiMajor.Length * ellipse.semiMinor.Length
+        match statistics with
+        | None ->
+            [ SurfaceArea, VMissing; FootprintArea, ExportValue.ofFloat footprint; VertexCount, VMissing ]
+        | Some s ->
+            [ yield SurfaceArea,   ExportValue.ofFloat s.surfaceArea
+              yield FootprintArea, ExportValue.ofFloat s.footprintArea
+              yield VertexCount,   VInt s.vertexCount
+              for layer in s.layers do
+                  let channels (f : ChannelStatistics -> float) =
+                      ExportValue.ofChannels (layer.channels |> Array.map f)
+                  yield layerColumn layer.name "area", ExportValue.ofFloat layer.area
+                  yield layerColumn layer.name "mean", channels (fun c -> c.mean)
+                  yield layerColumn layer.name "std",  channels (fun c -> c.std)
+                  yield layerColumn layer.name "min",  channels (fun c -> c.min)
+                  yield layerColumn layer.name "max",  channels (fun c -> c.max) ]

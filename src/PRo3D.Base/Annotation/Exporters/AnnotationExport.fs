@@ -11,6 +11,9 @@ module AnnotationExport =
 
     // ------------------------------------------------------- coordinates ---
 
+    /// No columns of the caller's own; see `buildRecordsWith`.
+    let noColumns : AnnotationColumns = fun _ -> []
+
     let private wrap360 (longitude : float) =
         let l = longitude % 360.0
         if l < 0.0 then l + 360.0 else l
@@ -329,6 +332,7 @@ module AnnotationExport =
     let private perAnnotationRecord
         (settings : AnnotationExportSettings)
         (sampler  : Option<SurfacePropertySampler>)
+        (columns  : AnnotationColumns)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
@@ -363,7 +367,7 @@ module AnnotationExport =
               if wantsGeographic settings.coordinates then
                   yield! geographicFields planet (resolveGeographic planet settings sample centre) ]
 
-        { fields   = annotationFieldPairs settings groupPath up a @ coordinates
+        { fields   = annotationFieldPairs settings groupPath up a @ coordinates @ columns a
           geometry =
             if settings.format = ExportFormat.GeoJson then
                 annotationGeometry settings planet a points
@@ -466,9 +470,13 @@ module AnnotationExport =
     /// consume. `sampler` adds the surface-property columns; `None` leaves them
     /// out, and it is ignored for per-annotation granularity, which has no point
     /// to sample at.
-    let buildRecords
+    ///
+    /// `columns` adds columns of its own to each per-annotation record, after the
+    /// coordinates (the viewer's ellipse statistics); per-point records ignore it.
+    let buildRecordsWith
         (settings : AnnotationExportSettings)
         (sampler  : Option<SurfacePropertySampler>)
+        (columns  : AnnotationColumns)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
@@ -480,14 +488,20 @@ module AnnotationExport =
             let resolved = resolvePoints settings.useSampledPoints a
             match settings.granularity with
             | ExportGranularity.PerAnnotation ->
-                [ perAnnotationRecord settings sampler groupPath planet up a (resolved |> List.map (fun r -> r.position)) ]
+                [ perAnnotationRecord settings sampler columns groupPath planet up a (resolved |> List.map (fun r -> r.position)) ]
             | _ ->
                 perPointRecords settings sampler groupPath planet up a resolved)
 
-    /// Writes the export. `Attitude` keeps its own fixed-schema writer.
-    let write
+    /// `buildRecordsWith` without columns of its own.
+    let buildRecords settings sampler groupPath planet up annotations =
+        buildRecordsWith settings sampler noColumns groupPath planet up annotations
+
+    /// Writes the export. `Attitude` keeps its own fixed-schema writer. `columns`
+    /// as in `buildRecordsWith`.
+    let writeWith
         (settings : AnnotationExportSettings)
         (sampler  : Option<SurfacePropertySampler>)
+        (columns  : AnnotationColumns)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
@@ -503,7 +517,7 @@ module AnnotationExport =
             // by the caller that owns the drawing model — never here
             Log.warn "[AnnotationExport] the continuous export is not written through this path"
         | format ->
-            let records = buildRecords settings sampler groupPath planet up annotations
+            let records = buildRecordsWith settings sampler columns groupPath planet up annotations
             match format with
             | ExportFormat.GeoJson ->
                 let body =
@@ -511,3 +525,7 @@ module AnnotationExport =
                 ExportWriters.writeGeoJson path body records
             | _ ->
                 ExportWriters.writeCsv path (schemaFor settings records) records
+
+    /// `writeWith` without columns of its own.
+    let write settings sampler groupPath planet up path annotations =
+        writeWith settings sampler noColumns groupPath planet up path annotations

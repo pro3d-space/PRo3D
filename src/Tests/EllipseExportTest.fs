@@ -102,6 +102,12 @@ let private azimuthTests =
             Expect.floatClose Accuracy.high azimuth 90.0 "steep, but pointing east"
         }
 
+        test "a circle has no long axis, so no azimuth" {
+            let e = EllipticAnnotations.Measures.ofAxes up north V3d.Zero (V3d(3.0, 0.0, 0.0)) (V3d(0.0, 3.0 - 1e-12, 0.0))
+            Expect.isTrue (Double.IsNaN e.majorAxisAzimuth) "no direction to report"
+            Expect.floatClose Accuracy.high e.semiMajorAxis.Length 3.0 "the axes are still stored"
+        }
+
         test "a vertical axis has no azimuth" {
             Expect.isTrue (Double.IsNaN (EllipticAnnotations.Measures.axialAzimuth up north (V3d(0.0, 0.0, 2.0))))
                 "straight up has no horizontal direction"
@@ -266,6 +272,54 @@ let private exportTests =
         }
     ]
 
+let private statisticsTests =
+    testList "statistics columns" [
+        test "without statistics only the footprint is filled" {
+            let e : PRo3D.Core.Surface.SurfaceEllipse = { center = V3d.Zero; semiMajor = V3d(3.0, 0.0, 0.0); semiMinor = V3d(0.0, 2.0, 0.0) }
+            let columns = PRo3D.Core.Surface.EllipseStatisticsColumns.columnsOf e None
+            Expect.equal (columns |> List.map fst) [ "surfaceArea"; "footprintArea"; "vertexCount" ] "the three fixed columns"
+            Expect.equal (columns |> List.tryFind (fst >> (=) "surfaceArea") |> Option.map snd) (Some VMissing) "no surface area"
+            match columns |> List.tryFind (fst >> (=) "footprintArea") with
+            | Some (_, VNum v) -> Expect.floatClose Accuracy.high v (Constant.Pi * 6.0) "pi a b"
+            | other -> failtestf "footprint expected, got %A" other
+        }
+
+        test "each layer gives coverage, mean, std, min and max; vectors stay in one cell" {
+            let e : PRo3D.Core.Surface.SurfaceEllipse = { center = V3d.Zero; semiMajor = V3d(3.0, 0.0, 0.0); semiMinor = V3d(0.0, 2.0, 0.0) }
+            let channel m : PRo3D.Core.Surface.ChannelStatistics = { mean = m; std = 1.0; min = m - 2.0; max = m + 2.0 }
+            let statistics : PRo3D.Core.Surface.EllipseStatistics =
+                { surfaceArea = 20.0; footprintArea = Constant.Pi * 6.0; vertexCount = 42
+                  layers = [ { name = "Normal"; area = 19.0; channels = [| channel 0.1; channel 0.2; channel 0.9 |] }
+                             { name = "Slope";  area = 20.0; channels = [| channel 12.0 |] } ] }
+            let columns = PRo3D.Core.Surface.EllipseStatisticsColumns.columnsOf e (Some statistics)
+            Expect.equal (columns |> List.map fst)
+                [ "surfaceArea"; "footprintArea"; "vertexCount"
+                  "surface_Normal_area"; "surface_Normal_mean"; "surface_Normal_std"; "surface_Normal_min"; "surface_Normal_max"
+                  "surface_Slope_area"; "surface_Slope_mean"; "surface_Slope_std"; "surface_Slope_min"; "surface_Slope_max" ]
+                "docs/AnnotationExport-CSV.md, Boulders statistics"
+            let value name = columns |> List.tryFind (fst >> (=) name) |> Option.map snd
+            Expect.equal (value "vertexCount") (Some (VInt 42)) "vertex count"
+            Expect.equal (value "surface_Normal_mean") (Some (VNums [| 0.1; 0.2; 0.9 |])) "a vector layer is one x;y;z cell"
+            Expect.equal (value "surface_Slope_mean") (Some (VNum 12.0)) "a scalar layer is a number"
+        }
+
+        test "columns of the caller follow the coordinates, and only on per-annotation rows" {
+            let extra (a : Annotation) = [ "surfaceArea", VNum 7.0 ]
+            let settings =
+                { AnnotationExportSettings.applyPreset ExportPreset.Boulders AnnotationExportSettings.initial with
+                    coordinates = CoordinateMode.Cartesian }
+            match AnnotationExport.buildRecordsWith settings None extra HashMap.empty Planet.None up [ boulder () ] with
+            | [ row ] ->
+                Expect.equal (row.fields |> List.map fst |> List.skip (row.fields.Length - 4)) [ "x"; "y"; "z"; "surfaceArea" ] "after the coordinates"
+                Expect.equal (AnnotationExport.schemaFor settings [ row ] |> List.tryLast) (Some "surfaceArea") "and in the header"
+            | rows -> failtestf "expected one row, got %d" rows.Length
+
+            let perPoint = { settings with granularity = ExportGranularity.PerPoint }
+            let rows = AnnotationExport.buildRecordsWith perPoint None extra HashMap.empty Planet.None up [ boulder () ]
+            Expect.isTrue (rows |> List.forall (fun r -> r.fields |> List.forall (fst >> (<>) "surfaceArea"))) "not on point rows"
+        }
+    ]
+
 let private colorTests =
     testList "colour by category" [
         test "the ellipse attributes read the stored shape, and nothing else has them" {
@@ -292,4 +346,5 @@ let tests () =
         persistenceTests
         exportTests
         colorTests
+        statisticsTests
     ]

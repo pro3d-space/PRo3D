@@ -8,10 +8,9 @@ elevation, …), weighted by **surface area**.
 Code: `src/PRo3D.Core/EllipseStatistics.fs` (`EllipseStatistics.compute`).
 Tests: `src/Tests/EllipseStatisticsTest.fs`.
 
-> Status: the computation is done and tested, but it has no UI or export columns yet.
-> It will feed the *Boulders* CSV preset once ellipses store their metric geometry
-> (centre and semi-axis vectors); see `docs/dev/AnnotationExport-boulders-fractures.md`,
-> proposal 3.
+It feeds the *Boulders* CSV export: every ellipse with a stored shape gets these values as
+columns, integrated over the surface it was drawn on. The columns, which surface is used and
+an example row are in [AnnotationExport-CSV.md](AnnotationExport-CSV.md#boulders-surface-statistics-inside-the-ellipse).
 
 ## What is measured
 
@@ -72,4 +71,9 @@ force. That check shoots a 0.1 m grid of rays through the ellipse, weights each 
 agree within 0.2 % and means within 0.1 %. Synthetic meshes cover the rest against
 closed-form answers: flat, tilted, kinked, holey, and triangles larger than the ellipse.
 
-Integrating the three ellipses over the whole Dimorphos OPC takes about 0.4 s.
+Integrating the three ellipses over the whole Dimorphos OPC takes about 0.4 s; a catalog of
+4,800 boulder-sized ellipses (0.5–5 m) takes about 3 s on an 18-core machine (100 s before
+the three measures below). Each patch is cut once into blocks of 32 × 32 quads with
+world-space bounds, so an ellipse only visits the blocks it can reach; a rim triangle is
+clipped only against the polygon edges that actually cut it; and the ellipses of a patch are
+integrated in parallel, since each one writes only its own sums.

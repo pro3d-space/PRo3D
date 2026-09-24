@@ -193,6 +193,60 @@ module AnnotationExportViewer =
           withoutLonLatRad = fun () -> withoutLonLatRad
           total            = fun () -> total }
 
+    /// Some ellipses name a surface that is not loaded, so they could not be integrated.
+    let private missingSurfaceMessage (ellipses : int) (names : list<string>) =
+        sprintf
+            "The file was written, but %d ellipse(s) were drawn on surfaces that are not loaded (%s), so their surface statistics are empty. Load those surfaces and export again."
+            ellipses (names |> String.concat ", ")
+
+    /// Surface statistics inside every ellipse with a stored shape, as the columns of
+    /// its per-annotation record (`EllipseStatisticsColumns`). Each ellipse integrates
+    /// only the surface it was drawn on, whether that is visible or not: the ellipse was
+    /// measured on it, and hiding a surface for viewing must not blank the numbers.
+    /// Ellipses without a surface (SBMT imports) get the footprint only.
+    ///
+    /// Also returns the names of surfaces that ellipses were drawn on but that are not
+    /// loaded, with the number of ellipses affected.
+    /// Every per-vertex layer except LonLatRad: the row already has the centre's
+    /// lat/lon/alt, and a mean longitude is wrong for an ellipse across the 0/360 seam.
+    let private statisticsLayer (name : string) =
+        not (String.Equals(name, ProfileAttributeExtraction.LonLatRadLayer, StringComparison.OrdinalIgnoreCase))
+
+    let private ellipseStatistics
+        (refSys      : ReferenceSystem)
+        (surfaces    : SurfaceSamplingContext)
+        (annotations : list<Annotation>) =
+
+        let loaded =
+            surfaces.surfaces.surfaces.flat
+            |> HashMap.toList
+            |> List.map (fun (_, leaf) -> (Leaf.toSurface leaf).name)
+            |> HashSet.ofList
+
+        let byStatistics =
+            annotations
+            |> List.choose (fun a -> EllipseStatisticsColumns.tryEllipse a |> Option.map (fun e -> a, e))
+            |> List.groupBy (fun (a, _) -> a.surfaceName)
+            |> List.map (fun (name, group) ->
+                if String.IsNullOrEmpty name || not (loaded |> HashSet.contains name) then
+                    name, group |> List.map (fun (a, e) -> a.key, EllipseStatisticsColumns.columnsOf e None)
+                else
+                    let results =
+                        EllipseStatistics.compute
+                            surfaces.surfaces refSys surfaces.observedSystem surfaces.observerSystem
+                            (fun _ leaf _ -> (Leaf.toSurface leaf).name = name)
+                            statisticsLayer EllipseStatistics.defaultDepth
+                            (group |> List.map snd |> List.toArray)
+                    name, group |> List.mapi (fun i (a, e) ->
+                        a.key, EllipseStatisticsColumns.columnsOf e (results |> Array.tryItem i |> Option.flatten)))
+
+        let columns = byStatistics |> List.collect snd |> HashMap.ofList
+        let missing =
+            byStatistics
+            |> List.filter (fun (name, _) -> not (String.IsNullOrEmpty name) && not (loaded |> HashSet.contains name))
+            |> List.map (fun (name, group) -> name, group.Length)
+        columns, missing
+
     /// Performs the export described by `settings`. `path` comes from the save
     /// dialog.
     ///
@@ -260,9 +314,19 @@ module AnnotationExportViewer =
                         Some (surfaceSampler refSys surfaces wantsProperties)
                     else None
 
+                // Per-annotation rows of ellipses carry the statistics inside them (the
+                // Boulders preset); per-point rows and the fixed schemas do not.
+                let statistics, missingSurfaces =
+                    if settings.granularity = ExportGranularity.PerAnnotation
+                       && not (AnnotationExportSettings.hasFixedSchema settings.format) then
+                        ellipseStatistics refSys surfaces annotations
+                    else HashMap.empty, []
+                let columns (a : Annotation) =
+                    statistics |> HashMap.tryFind a.key |> Option.defaultValue []
+
                 try
-                    AnnotationExport.write
-                        settings (sampler |> Option.map fst) groupPath refSys.planet up path annotations
+                    AnnotationExport.writeWith
+                        settings (sampler |> Option.map fst) columns groupPath refSys.planet up path annotations
 
                     // written successfully, but possibly without values the
                     // settings asked for
@@ -284,7 +348,11 @@ module AnnotationExportViewer =
                               Log.warn "[AnnotationExport] %d of %d points fell back to SPICE lat/lon/alt"
                                        (tally.withoutLonLatRad ()) (tally.total ())
                               yield partialAaraMessage (tally.withoutLonLatRad ()) (tally.total ())
-                      | None -> () ]
+                      | None -> ()
+
+                      if not missingSurfaces.IsEmpty then
+                          Log.warn "[AnnotationExport] ellipses on surfaces that are not loaded: %A" missingSurfaces
+                          yield missingSurfaceMessage (missingSurfaces |> List.sumBy snd) (missingSurfaces |> List.map fst) ]
                     |> function
                        | []       -> None
                        | messages -> Some (messages |> String.concat " ")
