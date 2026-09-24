@@ -221,7 +221,7 @@ every one of them skips rather than fails. Paths are resolved relative to that r
 | Dimorphos DRACO1 OPC | `Dimorphos_DRACO1/Dimorphos_DRACO1` | grid mapping, aara header, kd-tree intersection |
 | test annotation | `Dimorphos_DRACO1/testAnnotatation.pro3d.ann` | end-to-end profile extraction |
 | HERA Dimorphos AARA export | `HERA/Dimorphos` | per-vertex layers, texture fallback, attribute coverage |
-| slow profile export scene | `cases/slowProfileExport.pro3d` | `SlowProfileExportTest`: the real annotation export (Profile preset + surface properties) must finish within 60 s, grow memory by < 2 GB, and — with the KdTrees loaded — allocate < 250 MB. Needs a GL context; the scene references its OPC by absolute path |
+| slow profile export scene | `cases/slowProfileExport.pro3d` | `SlowProfileExportTest`: the real annotation export (Profile preset + surface properties) must finish within 60 s and — with the KdTrees loaded — allocate < 250 MB on its own thread (process-wide counters would include tests running in parallel). Needs a GL context; the scene references its OPC by absolute path |
 
 ```
 set PRO3D_TEST_DATA=C:\Users\<you>\Desktop\pro3d\PRo3D.Resources.TestData
