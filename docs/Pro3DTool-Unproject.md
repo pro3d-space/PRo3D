@@ -121,16 +121,18 @@ and it does not fail the run. `no-image`, `no-pointing` and `bad-input` do.
 Where the OPC ships per-vertex `*.aara` layers (see [VertexAttributes.md](./VertexAttributes.md))
 they are interpolated at the hit point and added as columns: `Slope`, `Potential`, `Elevation`,
 `Magnitude`, and the vector layers `Normal`, `Gravity` and `LonLatRad` split into `_x` `_y` `_z`.
-Not every export has them — the HERA `AARA_Textures` products do, others do not — and the run
+Not every export has them — the Dimorphos OPC (`HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos`) does, others do not — and the run
 says so once when none are found.
 
 Only the per-vertex layers are read, never the texture fallback: that decodes an image per layer
 per sample, which is fine for a cursor readout and not for a list of points.
 
 Attribute columns are the layer's **raw stored values**, not converted. That matters for
-`LonLatRad`, which on the HERA exports is in **gradians**: `LonLatRad_x` is longitude x 10/9
-(0..400) and `LonLatRad_y` is (latitude + 90) x 10/9 (0..200, counted from the south pole); only
-`LonLatRad_z`, the radius, is in metres. For degrees use the `lat_deg`/`lon_deg`/`alt_m` columns.
+`LonLatRad`: on the current Dimorphos OPC `LonLatRad_x`/`LonLatRad_y` are longitude and latitude
+in degrees, but older HERA exports stored **gradians** (longitude x 10/9, 0..400, and
+(latitude + 90) x 10/9, 0..200); the OPC's `.opcx` range says which. `LonLatRad_z`, the radius,
+is metres either way. For degrees regardless of the export, use the `lat_deg`/`lon_deg`/`alt_m`
+columns.
 
 ### Coordinates
 

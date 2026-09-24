@@ -16,7 +16,7 @@ const artifacts = path.join(__dirname, "..", "artifacts");
 /// describe the exact render camera.
 export const testData = process.env.PRO3D_TEST_DATA ?? "";
 export const fixture = {
-    opc: path.join(testData, "HERA", "Dimorphos_opc", "Dimorphos"),
+    opc: path.join(testData, "HERA", "Dimorphos_opc", "Dimorphos_DRACO1_DRACO2_Earth", "Dimorphos"),
     frames: path.join(testData, "HERA", "Dimorphos_opc", "AFC_2027-03-21"),
     /// a scene set up for projection; its paths are the generating machine's, so it
     /// is a template -- see sceneFor

@@ -100,12 +100,21 @@ module Render =
     let surfaceName   = "1087_004779_MSLMST_0011"
     let opcName       = "1087_004779_MSLMST_0011_000_000"
 
-    /// The large, binary fixtures live in the PRo3D.Resources.TestData submodule
-    /// mounted at src/Tests/resources, kept out of the main repo at ~254 MB.
+    /// The large, binary fixtures live in PRo3D.Resources.TestData, kept out of the
+    /// main repo; it is also mounted as a submodule at src/Tests/resources.
     let resourcesDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "resources")
 
-    /// Absent unless the clone used --recurse-submodules; see `available` / `skipReason`.
-    let opcSurfaceDir = Path.Combine(resourcesDir, surfaceName)
+    /// The MSL Stimson OPC: from PRO3D_TEST_DATA (`MSL/`), else from the submodule
+    /// (`MSL/` since the test-data restructure, the top level before it). The first
+    /// candidate is kept when none exists, so `skipReason` names where it was looked for.
+    let opcSurfaceDir =
+        let candidates =
+            [ yield! TestUtils.Roots.mslOpc None |> Option.toList
+              Path.Combine(resourcesDir, "MSL", surfaceName)
+              Path.Combine(resourcesDir, surfaceName) ]
+        candidates
+        |> List.tryFind Directory.Exists
+        |> Option.defaultValue (Path.Combine(resourcesDir, "MSL", surfaceName))
 
     /// The OPC scene graph — and with it every surface bounding box — cannot be
     /// built without a GL runtime: Sg.createSgSurfaces fails with "GL runner was
@@ -138,7 +147,7 @@ module Render =
 
     let skipReason () =
         if not (Directory.Exists opcSurfaceDir) then
-            Some (sprintf "no OPC test data at %s — run: git submodule update --init src/Tests/resources"
+            Some (sprintf "no OPC test data at %s — set PRO3D_TEST_DATA, or run: git submodule update --init src/Tests/resources"
                           (Path.GetFullPath opcSurfaceDir))
         elif context.Value |> Option.isNone then
             Some "no OpenGL runtime in this environment"

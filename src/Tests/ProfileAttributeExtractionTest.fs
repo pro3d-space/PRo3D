@@ -42,28 +42,21 @@ module Data =
           testDataSource ]
         |> List.tryPick existingDir
 
-    /// Any OPC hierarchy is enough for the geometry-level tests. The Dimorphos OPC every
-    /// test uses (DRACO_1/DRACO_2/Earth layers plus per-vertex attributes) comes first; the
-    /// older exports remain as fallbacks for checkouts that predate it.
+    /// The Dimorphos OPC every test uses: DRACO_1/DRACO_2/Earth texture layers plus
+    /// per-vertex attributes (see TestUtils.Roots.dimorphosOpc).
     let opcBasePath (root : string) =
-        [ Path.Combine(root, "HERA", "Dimorphos_opc", "Dimorphos_DRACO1_DRACO2_Earth", "Dimorphos")
-          Path.Combine(root, "Dimorphos_DRACO1", "Dimorphos_DRACO1")
-          Path.Combine(root, "HERA", "Dimorphos") ]
-        |> List.tryPick existingDir
+        TestUtils.Roots.dimorphosOpc (Some root)
 
+    /// A ~450 point draped profile across Dimorphos: the annotation of the
+    /// slow-profile-export case.
     let annotationPath (root : string) =
-        let path = Path.Combine(root, "Dimorphos_DRACO1", "testAnnotatation.pro3d.ann")
+        let path = Path.Combine(root, "cases", "slowProfileExport.pro3d.ann")
         if File.Exists path then Some path else None
 
-    /// Directory holding OPC hierarchies that ship per-vertex attribute layers
-    /// (`*.aara` files listed in each patch's `<Attributes>`). PRO3D_AARA_OPC
-    /// overrides the location for an export kept outside the test-data checkout.
+    /// OPC hierarchies that ship per-vertex attribute layers (`*.aara` files listed in
+    /// each patch's `<Attributes>`): the same Dimorphos OPC.
     let aaraOpcBasePath (root : string) =
-        [ Environment.GetEnvironmentVariable "PRO3D_AARA_OPC"
-          Path.Combine(root, "HERA", "Dimorphos_opc", "Dimorphos_DRACO1_DRACO2_Earth", "Dimorphos")
-          Path.Combine(root, "HERA", "Dimorphos")
-          Path.Combine(root, "AARA_Textures", "Dimorphos") ]
-        |> List.tryPick existingDir
+        opcBasePath root
 
 /// Raised as a skip when the test-data checkout is missing entirely.
 let private noTestData =
@@ -144,7 +137,7 @@ let tests (parameters : TestUtils.TestParameters) =
     testList "ProfileAttributeExtraction" [
 
         test "buildTriangleToGridMapping produces valid mapping" {
-            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
             Expect.isGreaterThan hierarchies.Length 0 "should have at least one hierarchy"
@@ -183,7 +176,7 @@ let tests (parameters : TestUtils.TestParameters) =
         }
 
         test "aara header round trip" {
-            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
             let h = hierarchies.[0]
@@ -201,7 +194,7 @@ let tests (parameters : TestUtils.TestParameters) =
         }
 
         testCase "full kdtree intersection and attribute extraction" <| fun () ->
-            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
             let patchInfoLookup = buildPatchInfoLookup hierarchies
@@ -261,7 +254,7 @@ let tests (parameters : TestUtils.TestParameters) =
 
         testCase "per-vertex layers are physically consistent" <| fun () ->
             // Only OPCs exported with per-vertex attribute layers can be checked here.
-            let aaraBasePath = require "OPC with per-vertex attribute layers (HERA/Dimorphos)" aaraOpcBasePath'
+            let aaraBasePath = require "Dimorphos OPC with per-vertex attribute layers (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" aaraOpcBasePath'
 
             let hierarchies = loadHierarchies aaraBasePath
             let patchInfoLookup = buildPatchInfoLookup hierarchies
@@ -351,7 +344,7 @@ let tests (parameters : TestUtils.TestParameters) =
             // The attribute textures store each layer normalised into its *.opcx
             // ChannelsDefinedRange, so the fallback has to map samples back onto that range
             // before they can be compared with the per-vertex values.
-            let aaraBasePath = require "OPC with per-vertex attribute layers (HERA/Dimorphos)" aaraOpcBasePath'
+            let aaraBasePath = require "Dimorphos OPC with per-vertex attribute layers (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" aaraOpcBasePath'
 
             match Directory.EnumerateFiles(aaraBasePath, "*.opcx") |> Seq.tryHead with
             | None -> skiptest "no *.opcx next to the OPC"
@@ -458,7 +451,7 @@ let tests (parameters : TestUtils.TestParameters) =
             //     of the seven attribute textures.
             // Both are fixed; this pins the outcome. Whatever a patch declares has to reach
             // the CSV, from either source, with all of its components.
-            let aaraBasePath = require "OPC with per-vertex attribute layers (HERA/Dimorphos)" aaraOpcBasePath'
+            let aaraBasePath = require "Dimorphos OPC with per-vertex attribute layers (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" aaraOpcBasePath'
 
             let rangeOf =
                 match Directory.EnumerateFiles(aaraBasePath, "*.opcx") |> Seq.tryHead with
@@ -614,8 +607,8 @@ let tests (parameters : TestUtils.TestParameters) =
             Log.line "[Test] %d patches, attributes: %A" checkedPatches (allNames |> Set.toList)
 
         testCase "end-to-end profile extraction from annotation file" <| fun () ->
-            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
-            let annotationPath = require "Dimorphos_DRACO1/testAnnotatation.pro3d.ann" annotationPath'
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
+            let annotationPath = require "cases/slowProfileExport.pro3d.ann" annotationPath'
 
             let sw = System.Diagnostics.Stopwatch()
             let mb () = float (GC.GetTotalMemory(false)) / (1024.0 * 1024.0)
@@ -734,9 +727,13 @@ let tests (parameters : TestUtils.TestParameters) =
                             let layers = VertexAttributes.getLayers patchDir patchInfo
                             let fromVertices = VertexAttributes.sample layers gridSize gridIndices weights
                             let covered = fromVertices |> List.map (fun a -> a.name) |> Set.ofList
+                            // Only *.opcx `Map` layers are attributes (they have a range);
+                            // a colour texture such as Earth would otherwise be decoded in
+                            // full at every one of the ~450 points, as #809 did in the export
+                            let skip (name : string) = covered.Contains name || Option.isNone (rangeOf name)
                             let fromTextures =
                                 match uv with
-                                | Some uv -> ProfileAttributeExtraction.extractAttributesAtUV uv patchInfo opcPaths rangeOf covered.Contains
+                                | Some uv -> ProfileAttributeExtraction.extractAttributesAtUV uv patchInfo opcPaths rangeOf skip
                                 | None    -> []
                             stepSw.Stop(); tExtract <- tExtract + stepSw.Elapsed.TotalMilliseconds
 

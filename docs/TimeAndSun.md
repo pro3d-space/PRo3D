@@ -18,7 +18,7 @@ body — only the time changed.
 [PRo3D.Resources.TestData](https://github.com/pro3d-space/PRo3D.Resources.TestData):
 
 ```
-HERA/Dimorphos_opc/Dimorphos/
+HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/
 ```
 
 Load a SPICE kernel covering the epochs you want — GIS tab → *Settings* → *Path to
