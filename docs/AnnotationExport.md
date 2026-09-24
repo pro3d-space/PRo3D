@@ -34,6 +34,8 @@ Preset         Custom / GIS-QGIS / Annotation table / Profile / Boulders (ellips
 Scope          All / Visible only / Selected only
 Annotation     all / ellipses only
   types
+Ellipse        ☐ statistics inside each ellipse (per-annotation exports; reads the OPC)
+  statistics
 ─────────────────────────────────────────────────────────────
 Granularity    one record per annotation | one record per point |
                one record per segment (CSV only)
@@ -341,7 +343,7 @@ exports used the sampled points, the CSV, QGIS and Attitude exports used the con
 
 33 attributes read straight off the annotation model, in four groups: *Identity*,
 *Measurements*, *Ellipse*, *Dip and strike*. Column names match the old CSV export's names
-(`wayLength`, `dipAzimuth`, `manualDip`, …) so existing downstream scripts keep working.
+(`wayLength`, `dipAzimuth`, `manualDip`, …) so existing downstream scripts keep working, except for the retired `majorDiameter` / `minorDiameter` (see below).
 
 The **planar-fit error measures** (`errorAvg`, `errorMin`, `errorMax`, `errorStd`,
 `sumOfSquares`, `minAngularError`, `maxAngularError`) are deliberately **not** offered here.

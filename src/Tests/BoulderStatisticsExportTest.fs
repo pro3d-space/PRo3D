@@ -140,14 +140,27 @@ let tests (parameters : TestUtils.TestParameters) =
                 Expect.isTrue (number r "surface_Slope_min" <= slope && slope <= number r "surface_Slope_max")
                     (sprintf "%s: slope mean within its range" text)
 
-            for text in [ "B-imported"; "B-elsewhere" ] do
+            for text in [ "B-drawn"; "B-drawn-2" ] do
+                Expect.equal ((row text) |> Map.tryFind "statisticsNote") (Some "") (sprintf "%s: complete, no note" text)
+
+            for text, note in [ "B-imported", "no surface"; "B-elsewhere", "surface not loaded is not loaded" ] do
                 let r = row text
                 Expect.isTrue (Double.IsNaN (number r "surfaceArea")) (sprintf "%s: no surface, no statistics" text)
                 Expect.isTrue (Double.IsNaN (number r "surface_Slope_mean")) (sprintf "%s: no layer statistics" text)
                 Expect.floatClose Accuracy.medium (number r "footprintArea") (Constant.Pi * 2.0) (sprintf "%s keeps its footprint" text)
+                Expect.stringContains (r |> Map.tryFind "statisticsNote" |> Option.defaultValue "") note (sprintf "%s says why" text)
 
             match message with
-            | Some m -> Expect.stringContains m "not loaded" "the export says which ellipses lack statistics"
+            | Some m -> Expect.stringContains m "statisticsNote" "the export points to the rows that lack statistics"
             | None -> failtest "an ellipse on a surface that is not loaded must be reported"
+
+            // every other preset leaves the statistics out, however many ellipses there are
+            let tablePath = Path.Combine(TestUtils.outputDir parameters "BoulderStatisticsExport", "table.csv")
+            let table = AnnotationExportSettings.initial |> AnnotationExportSettings.applyPreset ExportPreset.AnnotationTable
+            AnnotationExportViewer.export { table with scope = ExportScope.All } tablePath drawing loaded.scene.referenceSystem context
+            |> Option.iter (Log.line "[BoulderStatisticsExport] table export reported: %s")
+            let tableHeader = File.ReadAllLines tablePath |> Array.tryHead |> Option.defaultValue ""
+            for column in [ "surfaceArea"; "footprintArea"; "statisticsNote"; "surface_Slope_mean" ] do
+                Expect.isFalse (tableHeader.Split ',' |> Array.contains column) (sprintf "the Annotation table has no %s" column)
         }
     ]

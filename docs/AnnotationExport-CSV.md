@@ -94,10 +94,10 @@ How to read it:
 | `x, y, z` | m | Ellipse centre. |
 | `lat, lon, alt, body, latLonAltSource` | | Of the centre; see *Geographic columns*. |
 
-Where the numbers come from: the ellipse is fitted on a plane through the clicked points (drawn ellipses) or taken from the catalog (SBMT imports), and stored with the annotation when it is created. Axes are measured on that plane, not along the draped outline; the azimuth uses the local up and north at the centre, and on a body without a geographic frame the reference system's own up and north. The values never change afterwards.
+Where the numbers come from: the ellipse is fitted on a plane through the clicked points (drawn ellipses) or taken from the catalog (SBMT imports), and stored with the annotation when it is created. Axes are measured on that plane, not along the draped outline; the azimuth uses the local up and north at the centre, and on a body without a geographic frame the reference system's own up and north. The values never change afterwards. They are saved with the annotation under their own key, `ellipseShape`; `ellipseResults` keeps the schema every release reads, so scenes saved by this version still open in older ones (which ignore the shape).
 
 - **Three-point ellipse** (*AxisEllipse*): the first two clicks are the ends of one axis, the third sets the other. Whichever turns out longer is `semiMajorAxis`, so the long axis is not necessarily the one clicked first.
-- **Four-point ellipse** (*Axis4PEllipse*): two half-ellipses on either side of the clicked axis, each with its own width. It is reported as the symmetric ellipse of the same extent: `semiMinorAxis` is half the full width across the clicked axis (the mean of the two half-widths), and the centre sits in the middle of that width, so it can lie off the clicked axis.
+- **Four-point ellipse** (*Axis4PEllipse*, no longer offered for drawing; older annotations can still hold one): two half-ellipses beside the clicked axis, each with its own width. It is reported as the symmetric ellipse of the same extent: `semiMinorAxis` is half the full width across the clicked axis, and the centre sits in the middle of that width, so it can lie off the clicked axis. Its surface statistics cover that symmetric ellipse, not the drawn outline: with very unequal widths the tips of the clicked axis fall outside it.
 - An ellipse saved before these values existed exports empty cells, and its row falls back to the outline's bounding-box centre.
 
 ### Example
@@ -125,26 +125,27 @@ The trailing digits (2.9999999999361315 for 3 m) are the round trip through the 
 
 ### Boulders: surface statistics inside the ellipse
 
-After the columns above, every *Boulders* row carries statistics of the surface **inside** the ellipse (`EllipseStatistics`, see [EllipseStatistics.md](EllipseStatistics.md)). They integrate the OPC's per-vertex layers over the mesh triangles inside the ellipse, clipped at the rim and weighted by surface area.
+With **Ellipse statistics** ticked in the export window (the *Boulders* preset ticks it, every other preset clears it), every per-annotation row of an ellipse carries statistics of the surface **inside** the ellipse (`EllipseStatistics`, see [EllipseStatistics.md](EllipseStatistics.md)). They integrate the OPC's per-vertex layers over the mesh triangles inside the ellipse, clipped at the rim and weighted by surface area.
 
 | Column | Unit | Meaning |
 | --- | --- | --- |
 | `surfaceArea` | m² | True mesh area inside the ellipse: a boulder's flanks count by their real size. |
 | `footprintArea` | m² | π · `semiMajorAxis` · `semiMinorAxis`, the ellipse's own area. `surfaceArea / footprintArea` ≥ 1 is a roughness measure. |
 | `vertexCount` | — | Distinct OPC vertices inside the ellipse: how many measurements the statistics rest on. |
+| `statisticsNote` | — | Empty when the statistics are complete. Otherwise why they are missing or partial: `no surface: an imported ellipse is not bound to one`, `surface <name> is not loaded`, `surface <name>: the surface has no OPC patches to integrate (a mesh, or not built yet)`, `patch <name> could not be read (<error>); its part is missing` (the values then cover the other patches only). |
 | `surface_<layer>_area` | m² | The part of `surfaceArea` where the layer has values. Smaller than `surfaceArea` where the layer has gaps, so a partly covered boulder shows in the numbers. |
 | `surface_<layer>_mean` | layer's unit | Area-weighted mean over the inside, e.g. `surface_Slope_mean`. Multi-channel layers: one value per channel, `x;y;z`. |
 | `surface_<layer>_std` | layer's unit | Area-weighted standard deviation. |
 | `surface_<layer>_min`, `surface_<layer>_max` | layer's unit | Extremes over the inside. |
 
-There is one set of five columns per per-vertex layer of the OPC, in alphabetical order; textures are not read. `LonLatRad` is left out: the row's own `lat`, `lon` and `alt` give the position, and a mean longitude is wrong for an ellipse across the 0/360° meridian.
+There is one set of five columns per per-vertex layer of the OPC; textures are not read. Within a row the layers are in alphabetical order; across the file, a layer's columns appear where it is first seen. `LonLatRad` is left out: the row's own `lat`, `lon` and `alt` give the position, and a mean longitude is wrong for an ellipse across the 0/360° meridian.
 
 Which surface is integrated:
 
-- **Drawn ellipses:** only the surface named in `surfaceName`, the one the ellipse was drawn on, **whether it is currently visible or not**. Other surfaces overlapping the same spot do not count. Surfaces are matched by name, so two loaded surfaces with the same name would both count.
+- **Drawn ellipses:** only the surface named in `surfaceName`, the one the ellipse was drawn on, **whether it is currently visible or not**. Other surfaces overlapping the same spot do not count. Surfaces are matched by name, so two loaded surfaces with the same name would both count, and a surface renamed after drawing counts as not loaded ([#820](https://github.com/pro3d-space/PRo3D/issues/820)).
 - **Inside** means within the elliptic cylinder through the ellipse, up to one semi-major axis above and below the ellipse's plane: a boulder as high as it is wide is taken in, the far side of a small body is not.
 - **Imported ellipses** (SBMT, empty `surfaceName`) get `footprintArea` only; the other statistics cells stay empty for now.
-- An ellipse drawn on a surface that is **not loaded** gets empty statistics too, and the export window says which surfaces were missing.
+- An ellipse drawn on a surface that is **not loaded**, or on a mesh (only OPC surfaces can be integrated), gets empty statistics too. `statisticsNote` says why, and the export window warns.
 
 Cost: tens of ellipses take milliseconds. A catalog of 4,800 boulders on the Dimorphos OPC takes about 3 s on an 18-core machine.
 
@@ -167,6 +168,7 @@ latLonAltSource      = spice_reclat
 surfaceArea          = 32.35510856272484
 footprintArea        = 31.41592653589794
 vertexCount          = 502
+statisticsNote       =
 surface_DRACO_1_area = 32.35510856272484
 surface_DRACO_1_mean = 212.34986566501397;212.34986566501397;212.34986566501397
 surface_DRACO_1_std  = 16.296851381644778;16.296851381644778;16.296851381644778
@@ -230,6 +232,8 @@ A segment is the stretch between two clicked points. A line with 4 clicked point
 Where the segments come from: a line drawn with *Sky* or *Viewpoint* projection stores each segment with its draped points, and `segmentLength` is the length along those points (the same value as the *Profile* rows' `segmentLength`). A line drawn with *Linear* projection stores no segments; its segments are then clicked point *i* to *i + 1*, and `segmentLength` equals `segmentChord`. The start and end columns are the clicked points.
 
 `segmentAzimuth` is axial, like the ellipse's long-axis azimuth: a lineament has no head, so a segment drawn the other way round gives the same value.
+
+The closing edge of a polygon drawn with *Sky* or *Viewpoint* projection is stored from the first click to the last, so its row runs backwards ([#821](https://github.com/pro3d-space/PRo3D/issues/821)); its lengths and axial azimuth are unaffected.
 
 For a total-length-only table, keep one row per `key`: `key, text, wayLength`.
 

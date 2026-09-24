@@ -112,6 +112,10 @@ type AnnotationExportSettings = {
     /// only. Costly (a ray cast plus a texture lookup per point), which is why
     /// it is off by default and no preset switches it on.
     sampleSurfaceProperties : bool
+    /// integrate the surface inside every ellipse and add the statistics columns
+    /// (EllipseStatistics) to its per-annotation row. Reads the OPC meshes, so it
+    /// is off by default; only the Boulders preset switches it on.
+    ellipseStatistics : bool
     annotationFields  : list<AnnotationField>
     pointFields       : list<PointField>
 }
@@ -177,6 +181,7 @@ module AnnotationExportSettings =
         latLonAltSource   = LatLonAltSource.Spice
         useSampledPoints  = true
         sampleSurfaceProperties = false
+        ellipseStatistics = false
         annotationFields  =
             [ AnnotationField.Key; AnnotationField.Text; AnnotationField.GroupName
               AnnotationField.GroupPath; AnnotationField.SurfaceName
@@ -208,7 +213,8 @@ module AnnotationExportSettings =
                 { settings with
                     signedLongitude = true
                     latLonAltSource = LatLonAltSource.Spice
-                    typeFilter      = ExportTypeFilter.All }
+                    typeFilter      = ExportTypeFilter.All
+                    ellipseStatistics = false }
 
         match preset with
         | ExportPreset.QgisFeatures ->
@@ -259,6 +265,7 @@ module AnnotationExportSettings =
                 granularity      = ExportGranularity.PerAnnotation
                 scope            = ExportScope.All
                 typeFilter       = ExportTypeFilter.EllipsesOnly
+                ellipseStatistics = true
                 coordinates      = CoordinateMode.Both
                 longitude        = LongitudeConvention.Native
                 // in enum order, which is the order the export window writes them in

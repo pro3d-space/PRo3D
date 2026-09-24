@@ -166,30 +166,54 @@ let private persistenceTests =
             Expect.isTrue back.geographicalEllipse.IsNone "no lon/lat ellipse appears"
         }
 
-        test "a result written before the metric fields loads, with empty values" {
-            // what the dormant geographic construction wrote: lon/lat only
-            let old : EllipticAnnotationResult =
-                """{ "version": 0, "center": "[10, 20]", "major": "[0.1, 0]", "minor": "[0, 0.05]" }"""
-                |> Json.parse
-                |> Json.deserialize
-            Expect.isTrue old.geographicalEllipse.IsSome "the lon/lat ellipse is kept for GeoJSON"
-            Expect.isTrue old.center.AnyNaN "no metric centre"
-            Expect.isTrue (Double.IsNaN old.semiMajorAxis.Length) "no semi-major"
-            Expect.isTrue (Double.IsNaN old.majorAxisAzimuth) "no azimuth"
+        // Older releases read "ellipseResults" with a reader that requires center, major
+        // and minor, and fail to load the whole scene when they are missing. This build
+        // must never write anything under that key that such a reader rejects; the new
+        // metric shape goes under "ellipseShape", which older releases skip.
+        test "older releases can still read every ellipse this build saves" {
+            let text (a : Annotation) = a |> Json.serialize |> Json.formatWith JsonFormattingOptions.Compact
+            let geographical = Ellipse2d(V2d(10.0, 20.0), V2d(0.1, 0.0), V2d(0.0, 0.05))
+            let planeFitted = boulder ()
+            let withBoth =
+                { planeFitted with
+                    ellipticResults =
+                        planeFitted.ellipticResults
+                        |> Option.map (fun e -> { e with geographicalEllipse = Some geographical }) }
 
-            // ... and exports empty cells, never NaN, never a wrong number
-            let a = { boulder () with ellipticResults = Some old }
+            let planeText = text planeFitted
+            Expect.isFalse (planeText.Contains "\"ellipseResults\"") "a plane-fitted ellipse writes no ellipseResults at all, as before"
+            Expect.isTrue (planeText.Contains "\"ellipseShape\"") "its metric shape goes under the new key"
+
+            // where there is a lon/lat ellipse, "ellipseResults" is exactly the old schema:
+            // GeographicalEllipseJson is the reader every release uses, unchanged
+            let bothText = text withBoth
+            Expect.isTrue (bothText.Contains "\"ellipseResults\"") "the lon/lat ellipse is still written"
+            let reread : Annotation = bothText |> Json.parse |> Json.deserialize
+            match reread.ellipticResults with
+            | Some e ->
+                Expect.equal e.geographicalEllipse (Some geographical) "the old reader gets its ellipse back"
+                Expect.isFalse e.center.AnyNaN "and the new key its shape"
+            | None -> failtest "both parts must load"
+        }
+
+        test "a file from before the metric shape loads, and exports empty cells" {
+            // an annotation as an older release saves it: lon/lat ellipse only
+            let geographical =
+                { geographicalEllipse = Ellipse2d(V2d(10.0, 20.0), V2d(0.1, 0.0), V2d(0.0, 0.05)); geographicalEllipseAssym = None }
+            let old = { boulder () with ellipticResults = EllipticAnnotationResult.ofJson (Some geographical) None }
+            let reloaded = roundTrip old
+            let e = stored (Some reloaded)
+            Expect.isTrue e.geographicalEllipse.IsSome "the lon/lat ellipse is kept for GeoJSON"
+            Expect.isTrue e.center.AnyNaN "no metric centre"
+            Expect.isTrue (Double.IsNaN e.majorAxisAzimuth) "no azimuth"
+
             let settings =
                 AnnotationExportSettings.initial |> AnnotationExportSettings.applyPreset ExportPreset.Boulders
-            match AnnotationExport.buildRecords settings None HashMap.empty Planet.None up [ a ] with
+            match AnnotationExport.buildRecords settings None HashMap.empty Planet.None up [ reloaded ] with
             | [ row ] ->
                 for column in [ "semiMajorAxis"; "semiMinorAxis"; "majorAxisAzimuth" ] do
                     Expect.equal (cell column row) (Some VMissing) (sprintf "%s is empty" column)
             | rows -> failtestf "expected one row, got %d" rows.Length
-
-            // a result with no stored vectors saves without them, and reloads the same way
-            let resaved = stored (Some (roundTrip a))
-            Expect.isTrue resaved.center.AnyNaN "still no metric centre after a save"
         }
     ]
 
@@ -256,9 +280,13 @@ let private exportTests =
             Expect.equal boulders.granularity ExportGranularity.PerAnnotation "Boulders: one row per ellipse"
             Expect.equal boulders.format ExportFormat.Csv "Boulders: CSV"
 
+            Expect.isTrue boulders.ellipseStatistics "Boulders: statistics inside the ellipses"
+            Expect.isFalse AnnotationExportSettings.initial.ellipseStatistics "off by default"
+
             for preset in ExportPreset.all |> List.filter (fun p -> p <> ExportPreset.Custom && p <> ExportPreset.Boulders) do
                 let applied = boulders |> AnnotationExportSettings.applyPreset preset
                 Expect.equal applied.typeFilter ExportTypeFilter.All (sprintf "%A resets the type filter" preset)
+                Expect.isFalse applied.ellipseStatistics (sprintf "%A writes no ellipse statistics" preset)
 
             let custom = boulders |> AnnotationExportSettings.applyPreset ExportPreset.Custom
             Expect.equal custom.typeFilter ExportTypeFilter.EllipsesOnly "Custom changes nothing"
@@ -276,8 +304,9 @@ let private statisticsTests =
     testList "statistics columns" [
         test "without statistics only the footprint is filled" {
             let e : PRo3D.Core.Surface.SurfaceEllipse = { center = V3d.Zero; semiMajor = V3d(3.0, 0.0, 0.0); semiMinor = V3d(0.0, 2.0, 0.0) }
-            let columns = PRo3D.Core.Surface.EllipseStatisticsColumns.columnsOf e None
-            Expect.equal (columns |> List.map fst) [ "surfaceArea"; "footprintArea"; "vertexCount" ] "the three fixed columns"
+            let columns = PRo3D.Core.Surface.EllipseStatisticsColumns.columnsOf e (Result.Error "surface X is not loaded")
+            Expect.equal (columns |> List.map fst) [ "surfaceArea"; "footprintArea"; "vertexCount"; "statisticsNote" ] "the fixed columns"
+            Expect.equal (columns |> List.tryFind (fst >> (=) "statisticsNote") |> Option.map snd) (Some (VText "surface X is not loaded")) "says why"
             Expect.equal (columns |> List.tryFind (fst >> (=) "surfaceArea") |> Option.map snd) (Some VMissing) "no surface area"
             match columns |> List.tryFind (fst >> (=) "footprintArea") with
             | Some (_, VNum v) -> Expect.floatClose Accuracy.high v (Constant.Pi * 6.0) "pi a b"
@@ -290,10 +319,11 @@ let private statisticsTests =
             let statistics : PRo3D.Core.Surface.EllipseStatistics =
                 { surfaceArea = 20.0; footprintArea = Constant.Pi * 6.0; vertexCount = 42
                   layers = [ { name = "Normal"; area = 19.0; channels = [| channel 0.1; channel 0.2; channel 0.9 |] }
-                             { name = "Slope";  area = 20.0; channels = [| channel 12.0 |] } ] }
-            let columns = PRo3D.Core.Surface.EllipseStatisticsColumns.columnsOf e (Some statistics)
+                             { name = "Slope";  area = 20.0; channels = [| channel 12.0 |] } ]
+                  notes = [] }
+            let columns = PRo3D.Core.Surface.EllipseStatisticsColumns.columnsOf e (Result.Ok statistics)
             Expect.equal (columns |> List.map fst)
-                [ "surfaceArea"; "footprintArea"; "vertexCount"
+                [ "surfaceArea"; "footprintArea"; "vertexCount"; "statisticsNote"
                   "surface_Normal_area"; "surface_Normal_mean"; "surface_Normal_std"; "surface_Normal_min"; "surface_Normal_max"
                   "surface_Slope_area"; "surface_Slope_mean"; "surface_Slope_std"; "surface_Slope_min"; "surface_Slope_max" ]
                 "docs/AnnotationExport-CSV.md, Boulders statistics"
@@ -301,6 +331,11 @@ let private statisticsTests =
             Expect.equal (value "vertexCount") (Some (VInt 42)) "vertex count"
             Expect.equal (value "surface_Normal_mean") (Some (VNums [| 0.1; 0.2; 0.9 |])) "a vector layer is one x;y;z cell"
             Expect.equal (value "surface_Slope_mean") (Some (VNum 12.0)) "a scalar layer is a number"
+            Expect.equal (value "statisticsNote") (Some VMissing) "complete: no note"
+            let partial = PRo3D.Core.Surface.EllipseStatisticsColumns.columnsOf e (Result.Ok { statistics with notes = [ "patch 0_1_2 could not be read (x); its part is missing" ] })
+            Expect.equal (partial |> List.tryFind (fst >> (=) "surfaceArea") |> Option.map snd) (Some (VNum 20.0)) "partial values are kept"
+            Expect.equal (partial |> List.tryFind (fst >> (=) "statisticsNote") |> Option.map snd)
+                (Some (VText "patch 0_1_2 could not be read (x); its part is missing")) "and say what is missing"
         }
 
         test "columns of the caller follow the coordinates, and only on per-annotation rows" {

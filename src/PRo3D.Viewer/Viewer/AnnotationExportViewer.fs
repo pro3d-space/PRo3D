@@ -193,11 +193,11 @@ module AnnotationExportViewer =
           withoutLonLatRad = fun () -> withoutLonLatRad
           total            = fun () -> total }
 
-    /// Some ellipses name a surface that is not loaded, so they could not be integrated.
-    let private missingSurfaceMessage (ellipses : int) (names : list<string>) =
+    /// Some ellipses have no or only partial statistics; the rows say why.
+    let private incompleteStatisticsMessage (ellipses : int) =
         sprintf
-            "The file was written, but %d ellipse(s) were drawn on surfaces that are not loaded (%s), so their surface statistics are empty. Load those surfaces and export again."
-            ellipses (names |> String.concat ", ")
+            "The file was written, but %d ellipse(s) have no or incomplete surface statistics (a surface that is not loaded, a mesh, an unreadable patch). The statisticsNote column says why for each row."
+            ellipses
 
     /// Surface statistics inside every ellipse with a stored shape, as the columns of
     /// its per-annotation record (`EllipseStatisticsColumns`). Each ellipse integrates
@@ -205,8 +205,7 @@ module AnnotationExportViewer =
     /// measured on it, and hiding a surface for viewing must not blank the numbers.
     /// Ellipses without a surface (SBMT imports) get the footprint only.
     ///
-    /// Also returns the names of surfaces that ellipses were drawn on but that are not
-    /// loaded, with the number of ellipses affected.
+    /// Also returns how many ellipses have no or only partial statistics.
     /// Every per-vertex layer except LonLatRad: the row already has the centre's
     /// lat/lon/alt, and a mean longitude is wrong for an ellipse across the 0/360 seam.
     let private statisticsLayer (name : string) =
@@ -223,29 +222,43 @@ module AnnotationExportViewer =
             |> List.map (fun (_, leaf) -> (Leaf.toSurface leaf).name)
             |> HashSet.ofList
 
-        let byStatistics =
+        let perEllipse =
             annotations
             |> List.choose (fun a -> EllipseStatisticsColumns.tryEllipse a |> Option.map (fun e -> a, e))
             |> List.groupBy (fun (a, _) -> a.surfaceName)
-            |> List.map (fun (name, group) ->
-                if String.IsNullOrEmpty name || not (loaded |> HashSet.contains name) then
-                    name, group |> List.map (fun (a, e) -> a.key, EllipseStatisticsColumns.columnsOf e None)
+            |> List.collect (fun (name, group) ->
+                let all (why : string) = group |> List.map (fun (a, e) -> a, e, Result.Error why)
+                if String.IsNullOrEmpty name then
+                    all "no surface: an imported ellipse is not bound to one"
+                elif not (loaded |> HashSet.contains name) then
+                    all (sprintf "surface %s is not loaded" name)
                 else
-                    let results =
-                        EllipseStatistics.compute
+                    match EllipseStatistics.compute
                             surfaces.surfaces refSys surfaces.observedSystem surfaces.observerSystem
                             (fun _ leaf _ -> (Leaf.toSurface leaf).name = name)
                             statisticsLayer EllipseStatistics.defaultDepth
-                            (group |> List.map snd |> List.toArray)
-                    name, group |> List.mapi (fun i (a, e) ->
-                        a.key, EllipseStatisticsColumns.columnsOf e (results |> Array.tryItem i |> Option.flatten)))
+                            (group |> List.map snd |> List.toArray) with
+                    | Result.Error why -> all (sprintf "surface %s: %s" name why)
+                    | Result.Ok results ->
+                        group |> List.mapi (fun i (a, e) ->
+                            match results |> Array.tryItem i |> Option.flatten with
+                            | Some s -> a, e, Result.Ok s
+                            | None   -> a, e, Result.Error "the ellipse has no area"))
 
-        let columns = byStatistics |> List.collect snd |> HashMap.ofList
-        let missing =
-            byStatistics
-            |> List.filter (fun (name, _) -> not (String.IsNullOrEmpty name) && not (loaded |> HashSet.contains name))
-            |> List.map (fun (name, group) -> name, group.Length)
-        columns, missing
+        let columns =
+            perEllipse
+            |> List.map (fun (a, e, result) -> a.key, EllipseStatisticsColumns.columnsOf e result)
+            |> HashMap.ofList
+        // imported ellipses are expected to have none (a later phase), so they are not
+        // worth a warning; everything else is
+        let incomplete =
+            perEllipse
+            |> List.filter (fun (a, _, result) ->
+                match result with
+                | Result.Ok s    -> not s.notes.IsEmpty
+                | Result.Error _ -> not (String.IsNullOrEmpty a.surfaceName))
+            |> List.length
+        columns, incomplete
 
     /// Performs the export described by `settings`. `path` comes from the save
     /// dialog.
@@ -318,11 +331,12 @@ module AnnotationExportViewer =
 
                 // Per-annotation rows of ellipses carry the statistics inside them (the
                 // Boulders preset); per-point rows and the fixed schemas do not.
-                let statistics, missingSurfaces =
-                    if settings.granularity = ExportGranularity.PerAnnotation
+                let statistics, incompleteStatistics =
+                    if settings.ellipseStatistics
+                       && settings.granularity = ExportGranularity.PerAnnotation
                        && not (AnnotationExportSettings.hasFixedSchema settings.format) then
                         ellipseStatistics refSys surfaces annotations
-                    else HashMap.empty, []
+                    else HashMap.empty, 0
                 let columns (a : Annotation) =
                     statistics |> HashMap.tryFind a.key |> Option.defaultValue []
 
@@ -354,9 +368,9 @@ module AnnotationExportViewer =
                               yield partialAaraMessage (tally.withoutLonLatRad ()) (tally.total ())
                       | None -> ()
 
-                      if not missingSurfaces.IsEmpty then
-                          Log.warn "[AnnotationExport] ellipses on surfaces that are not loaded: %A" missingSurfaces
-                          yield missingSurfaceMessage (missingSurfaces |> List.sumBy snd) (missingSurfaces |> List.map fst) ]
+                      if incompleteStatistics > 0 then
+                          Log.warn "[AnnotationExport] %d ellipses with no or incomplete statistics" incompleteStatistics
+                          yield incompleteStatisticsMessage incompleteStatistics ]
                     |> function
                        | []       -> None
                        | messages -> Some (messages |> String.concat " ")

@@ -59,6 +59,9 @@ type EllipseStatistics =
         /// statistics rest on. Interpolating between them adds no information.
         vertexCount   : int
         layers        : list<LayerStatistics>
+        /// why the numbers are incomplete, e.g. a patch that could not be read; empty
+        /// when every patch the ellipse touches was integrated
+        notes         : list<string>
     }
 
 /// One OPC patch, placed in the world, as `EllipseStatistics.computeOnPatches` reads it.
@@ -187,12 +190,17 @@ module EllipseIntegration =
         let scratch = List<V2d>(16)
         let scratchWeights = List<V3d>(16)
         let mutable surfaceArea = 0.0
+        let notes = List<string>()
+        let mismatched = System.Collections.Generic.HashSet<string>()
 
         let sumsOf (name : string) (components : int) =
             match layers.TryGetValue name with
             | true, s when s.Components = components -> Some s
             | true, _ ->
-                Log.warn "[EllipseStatistics] %s changes its channel count between patches - skipping those" name
+                // once per layer, not once per triangle
+                if mismatched.Add name then
+                    Log.warn "[EllipseStatistics] %s changes its channel count between patches - skipping those" name
+                    notes.Add (sprintf "layer %s changes its channel count between patches; the patches that differ are left out" name)
                 None
             | _ ->
                 let s = LayerSums(components)
@@ -267,6 +275,9 @@ module EllipseIntegration =
 
         member x.Frame = frame
 
+        /// Records why this ellipse's statistics are incomplete.
+        member x.AddNote (note : string) = notes.Add note
+
         /// Integrates one mesh triangle. `w*` are the corners in world space (for the
         /// area), `l*` the same corners in the frame's local coordinates.
         member x.AddTriangle (w0 : V3d, w1 : V3d, w2 : V3d, l0 : V3d, l1 : V3d, l2 : V3d, values : CornerValues[]) =
@@ -328,6 +339,7 @@ module EllipseIntegration =
                 footprintArea = frame.FootprintArea
                 vertexCount   = vertexCount
                 layers        = layerStatistics
+                notes         = List.ofSeq notes
             }
 
 /// Statistics of the loaded OPC surfaces inside ellipses. Reads the patch geometry and
@@ -520,7 +532,12 @@ module EllipseStatistics =
             let touched = bounded |> Array.choose (fun (b, acc) -> if worldBox.Intersects b then Some acc else None)
             if touched.Length > 0 then
                 try integratePatch wanted patch touched
-                with e -> Log.warn "[EllipseStatistics] %s: %s" patch.kd.objectSetPath e.Message
+                with e ->
+                    // the ellipses keep what the other patches gave, and say what is missing
+                    Log.warn "[EllipseStatistics] %s: %s" patch.kd.objectSetPath e.Message
+                    let patchName = Path.GetFileName(Path.GetDirectoryName patch.kd.objectSetPath)
+                    for acc, _ in touched do
+                        acc.AddNote (sprintf "patch %s could not be read (%s); its part is missing" patchName e.Message)
 
         accumulators |> Array.map (Option.map (fun (acc, vertices) -> acc.Result vertices.Count))
 
@@ -533,6 +550,9 @@ module EllipseStatistics =
     ///
     /// Where several surfaces overlap inside an ellipse, all of them are integrated;
     /// pick the one the ellipse was drawn on with `filterSurface` to avoid that.
+    ///
+    /// `Error` when the surfaces that pass the filter have no OPC patch to integrate
+    /// (a mesh, a surface not built yet): the statistics are then unknown, not zero.
     let compute
         (surfacesModel  : SurfaceModel)
         (refSys         : ReferenceSystem)
@@ -542,7 +562,7 @@ module EllipseStatistics =
         (wanted         : string -> bool)
         (depth          : SurfaceEllipse -> float)
         (ellipses       : SurfaceEllipse[])
-        : Option<EllipseStatistics>[] =
+        : Result<Option<EllipseStatistics>[], string> =
 
         let patches = List<EllipsePatch>()
         for (id, leaf) in surfacesModel.surfaces.flat do
@@ -569,7 +589,10 @@ module EllipseStatistics =
                 | _ -> ()
             | _ -> ()
 
-        computeOnPatches wanted depth ellipses patches
+        if patches.Count = 0 then
+            Result.Error "the surface has no OPC patches to integrate (a mesh, or not built yet)"
+        else
+            Result.Ok (computeOnPatches wanted depth ellipses patches)
 
 /// The ellipse statistics as columns of a per-annotation export record: the *Boulders*
 /// CSV (docs/AnnotationExport-CSV.md).
@@ -583,6 +606,9 @@ module EllipseStatisticsColumns =
     let FootprintArea = "footprintArea"
     [<Literal>]
     let VertexCount = "vertexCount"
+    /// empty when the statistics are complete; otherwise why they are missing or partial
+    [<Literal>]
+    let StatisticsNote = "statisticsNote"
 
     /// The ellipse stored with an annotation at construction, if it is an ellipse and
     /// has one (older files do not).
@@ -597,17 +623,26 @@ module EllipseStatisticsColumns =
     let layerColumn (layer : string) (statistic : string) =
         AnnotationExport.surfaceColumnName (sprintf "%s_%s" layer statistic)
 
-    /// The columns of one ellipse. `None` statistics (no surface to integrate) still
-    /// give the footprint, which only needs the ellipse; the other cells stay empty.
-    let columnsOf (ellipse : SurfaceEllipse) (statistics : Option<EllipseStatistics>) : list<string * ExportValue> =
+    let private noteValue (notes : list<string>) =
+        match notes with
+        | [] -> VMissing
+        | _  -> VText (notes |> String.concat "; ")
+
+    /// The columns of one ellipse. `Error` (nothing to integrate) still gives the
+    /// footprint, which only needs the ellipse; the other cells stay empty and
+    /// `statisticsNote` says why. Partial statistics keep their values and say what is
+    /// missing there too.
+    let columnsOf (ellipse : SurfaceEllipse) (statistics : Result<EllipseStatistics, string>) : list<string * ExportValue> =
         let footprint = Constant.Pi * ellipse.semiMajor.Length * ellipse.semiMinor.Length
         match statistics with
-        | None ->
-            [ SurfaceArea, VMissing; FootprintArea, ExportValue.ofFloat footprint; VertexCount, VMissing ]
-        | Some s ->
+        | Result.Error why ->
+            [ SurfaceArea, VMissing; FootprintArea, ExportValue.ofFloat footprint; VertexCount, VMissing
+              StatisticsNote, noteValue [ why ] ]
+        | Result.Ok s ->
             [ yield SurfaceArea,   ExportValue.ofFloat s.surfaceArea
               yield FootprintArea, ExportValue.ofFloat s.footprintArea
               yield VertexCount,   VInt s.vertexCount
+              yield StatisticsNote, noteValue s.notes
               for layer in s.layers do
                   let channels (f : ChannelStatistics -> float) =
                       ExportValue.ofChannels (layer.channels |> Array.map f)

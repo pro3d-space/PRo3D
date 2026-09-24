@@ -80,6 +80,7 @@ module AnnotationExportApp =
         | SetLatLonAltSource source  -> custom { model with latLonAltSource = source }
         | ToggleSampledPoints        -> custom { model with useSampledPoints = not model.useSampledPoints }
         | ToggleSurfaceProperties    -> custom { model with sampleSurfaceProperties = not model.sampleSurfaceProperties }
+        | ToggleEllipseStatistics    -> custom { model with ellipseStatistics = not model.ellipseStatistics }
 
         // Key is always exported (see AnnotationExportModel.toSettings), so its
         // checkbox is inert rather than lying about the output.
@@ -356,6 +357,11 @@ module AnnotationExportApp =
                                 // lat/lon at all. Hidden rather than disabled; the
                                 // stored choice is left alone so it comes back when
                                 // the export is geographic again.
+                                // per-annotation rows only: one set of statistics per ellipse
+                                if granularity = ExportGranularity.PerAnnotation then
+                                    yield Html.row "Ellipse statistics:" [
+                                        checkBox "surface area and layer statistics inside each ellipse (reads the OPC, slower)"
+                                            model.ellipseStatistics ToggleEllipseStatistics ]
                                 if AnnotationExport.wantsGeographic coordinates
                                    && granularity <> ExportGranularity.PerSegment then
                                     yield Html.row "Lat/Lon/Alt Source:" [

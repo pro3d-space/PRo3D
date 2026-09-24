@@ -565,10 +565,10 @@ module AnnotationExport =
             | _ ->
                 perPointRecords settings sampler groupPath planet up a (resolvePoints settings.useSampledPoints a))
 
-    /// `buildRecordsWith` without columns of its own, and with north derived from
-    /// `up` (only per-segment rows use it; the viewer passes the reference system's).
+    /// `buildRecordsWith` without columns of its own and without a north: per-segment
+    /// rows then have an empty `segmentAzimuth` rather than one against a guessed north.
     let buildRecords settings sampler groupPath planet (up : V3d) annotations =
-        buildRecordsWith settings sampler noColumns groupPath planet up (CooTransformation.getNorthVector up) annotations
+        buildRecordsWith settings sampler noColumns groupPath planet up V3d.NaN annotations
 
     /// Writes the export. `Attitude` keeps its own fixed-schema writer. `columns`
     /// as in `buildRecordsWith`.
@@ -603,4 +603,4 @@ module AnnotationExport =
 
     /// `writeWith` without columns of its own.
     let write settings sampler groupPath planet (up : V3d) path annotations =
-        writeWith settings sampler noColumns groupPath planet up (CooTransformation.getNorthVector up) path annotations
+        writeWith settings sampler noColumns groupPath planet up V3d.NaN path annotations

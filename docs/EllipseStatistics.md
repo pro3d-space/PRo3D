@@ -59,7 +59,13 @@ for `surfaceArea` but not for that layer. That is why a layer's `area` can be sm
 
 - Where several surfaces overlap inside an ellipse, all of them are integrated. The
   caller picks the surface the ellipse was drawn on with the surface filter.
-- Only OPC surfaces are integrated, not meshes (they have no position grid).
+- Only OPC surfaces are integrated, not meshes (they have no position grid). `compute` returns
+  `Error` when the filtered surfaces have no OPC patch at all, so the caller writes "unknown",
+  not zero.
+- A patch that cannot be read is skipped; every ellipse it touches keeps the rest and carries a
+  note (`EllipseStatistics.notes`, exported as `statisticsNote`).
+- A four-point ellipse is integrated as the symmetric ellipse stored for it, not its drawn
+  outline (see AnnotationExport-CSV.md).
 - Overhangs inside the slab are counted, all layers of them. Usually that is the point,
   since a boulder's flanks belong to it.
 
