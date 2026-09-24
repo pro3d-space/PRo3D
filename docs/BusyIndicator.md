@@ -42,6 +42,25 @@ therefore shows nothing — adding it is one line in `ViewerApp.busyLabel`
 `plans/stallFeedback.md` is the full inventory of what actually stalls and why; this table
 is its shortlist.
 
+### Work that does not freeze the window
+
+One reported operation is *not* on the update thread: the **hover preview pick**. It runs on
+a background worker, so the window stays responsive — but the first hover over a cold patch
+loads its KdTree and triangle set, and until that returns the 3D cursor and the *Under
+Cursor* read-out are still showing the **previous** hit. That is worse than a freeze in one
+respect: a freeze is self-evident, whereas a stale cursor looks like a current answer in the
+wrong place. The pill reading `picking` is what says the position on screen has not caught
+up yet.
+
+The two kinds live in **separate slots** — `Busy.scope` for the update thread,
+`Busy.scopeBackground` for workers — and the update thread wins when both are set. With one
+shared slot a short background pick could clear the cell while a long update was still
+blocking, hiding exactly the case the indicator exists for.
+
+The label is not the cure: the cold patch load is slow partly because of the
+evict-everything cache in `ProfileAttributeExtraction` and the whole-grid `List.ofArray` in
+`Surface.fs`, both written up in `plans/stallFeedback.md`.
+
 ## Turning it off
 
 | Flag | Effect |
