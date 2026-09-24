@@ -397,6 +397,7 @@ let run (o : SunAnglesOptions) : int =
         with e ->
             // Per-image isolation: a batch that dies on image 3 of 400 is useless.
             Log.error "[%s] unhandled: %s" name e.Message
+            Log.line "[%s] details for a bug report: %s" name (string e)
             failures <- failures + 1
         Log.stop()
 
