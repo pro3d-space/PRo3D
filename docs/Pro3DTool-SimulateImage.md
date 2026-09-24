@@ -15,15 +15,18 @@ pro3d-tool simulate-image --opc <body-opc> --mbi <image-or-sidecar> [options]
 ```
 
 The second form renders through the camera an existing image's `.mbi.json`
-sidecar describes, instead of a look-at camera at `--time`. Together with
+sidecar describes, instead of the planned pointing at `--time`. Together with
 `--write-mbi` (below) that turns the verb into a way to *check* the projection
 chain rather than only to picture it.
 
 ## What goes into the image
 
-- **Geometry from SPICE.** The spacecraft position comes from the SPK at `--time`; the
-  camera looks at the body centre with the instrument's frustum (AFC: 5.5°, 1020×1020).
-  The sun direction comes from the same kernels. No CK is needed.
+- **Geometry from SPICE.** The spacecraft position comes from the SPK at `--time`, and the
+  instrument's orientation — where it points **and its roll** — from the attitude the kernels
+  give its frame (the CK; with `hera_plan.tm`, the *planned* attitude). The frustum is the
+  instrument's (AFC: 5.5°, 1020×1020). The sun direction comes from the same kernels. The
+  planned attitude need not put the rendered body in the middle of the frame, or in it at
+  all — see [Pointing, aiming and roll](#pointing-aiming-and-roll).
 - **Lommel-Seeliger photometry.** `I/F = albedo · 2μ₀/(μ₀+μ)` with a 5 % Lambert
   admixture — the photometric behaviour measured for Dimorphos ([Li et al. 2024,
   PSJ](https://doi.org/10.3847/PSJ/ad2b60): near-lunar scattering, minimal multiple
@@ -60,6 +63,7 @@ Output is one 8-bit greyscale PNG at the instrument's native size.
 | `--write-mbi` | also write `<out>.mbi.json` and `<out>.json`, so the render can be imported into the viewer and projected back |
 | `--out <file>` | output PNG (default `./simulated.png`); with `--product` the extension is dropped and the rest is the file stem |
 | `--instrument <frame>` | SPICE instrument frame (default `HERA_AFC-1`) |
+| `--aim <body>` | turn the instrument onto the centre of a SPICE body instead of its planned pointing, keeping the planned roll. **The frame is then not the planned observation** — read [Aiming](#aiming-a-deliberate-departure-from-the-plan) first |
 | `--product` | write the instrument's delivered product layout — a [spectral cube](#spectral-cubes-hyperscout-and-aspect) for `HERA_HSH` and `MILANI_ASPECT_NIR1` — instead of a PNG; no effect for AFC |
 | `--observer <name>` | spacecraft carrying the instrument (default: the one `--instrument` flies on — `MILANI` for ASPECT, `HERA` otherwise) |
 | `--body <name>` | SPICE body of the OPC (default `DIMORPHOS`) |
@@ -188,49 +192,99 @@ not project.
 
 ## Spectral cubes: HyperScout and ASPECT
 
-With `--product` and `--instrument HERA_HSH` or `--instrument MILANI_ASPECT_NIR1`, the render is written the way
-the delivered products are laid out, so that the viewer and
-[`sample-layers`](./Pro3DTool-SampleLayers.md) read a simulated observation exactly like a real
-one:
+With `--product`, `HERA_HSH` and `MILANI_ASPECT_NIR1` are written in their delivered layout, so
+the viewer and [`sample-layers`](./Pro3DTool-SampleLayers.md) read them like real data:
 
 | Instrument | Size | Files |
 |---|---|---|
-| `HERA_HSH` (HyperScout 1B) | 409×217 | `<stem>_Stacked.tif` — one float TIFF, 25 planes (661–952 nm), with its `.tif.json` listing the `wavelengths` |
-| `MILANI_ASPECT_NIR1` (ASPECT 2B) | 640×512 | `<stem>_Vis_0.tif` … `<stem>_NIR2_12.tif` — 37 single-band float TIFFs (675–1575 nm), each with a `.tif.json` carrying its `mbi_frame` label and wavelength |
+| `HERA_HSH` (HyperScout 1B) | 409×217 | `<stem>_Stacked.tif`: one float TIFF, 25 planes (661–952 nm); its `.tif.json` lists the `wavelengths` |
+| `MILANI_ASPECT_NIR1` (ASPECT 2B) | 640×512 | `<stem>_Vis_0.tif` … `<stem>_NIR2_12.tif`: 37 float TIFFs (675–1575 nm), each `.tif.json` with label and wavelength |
 
-plus one `<stem>.mbi.json` that declares every band file with its label and wavelength. A cube
-cannot be read back without its sidecar, so it is always written — `--write-mbi` is implied.
-Without `--product` these instruments render a PNG like AFC, now at their product size
-(409×217, 640×512) rather than the old 1024×1024 fallback.
+plus a `<stem>.mbi.json` listing every band file (`--write-mbi` is implied). Without `--product`
+both render a PNG like AFC, at their product size instead of the old 1024×1024 fallback.
 
-**The band values are made up.** The render's linear I/F is multiplied per band by a smooth
-synthetic reflectance curve (a red slope with a shallow 1 µm absorption, normalised at 550 nm —
-`syntheticReflectance` in `SimulateImage.fs`). It is not a measured spectrum: it exists so that
-the bands of a cube differ, and a band read from the wrong file or plane shows up as a wrong
-value instead of hiding behind identical copies. Values are float I/F, not tone-mapped, and
-`--gain` does not apply; sky is `0`, the NoData value of the delivered cubes.
+**The band values are made up**: rendered I/F times a synthetic reflectance curve (red slope,
+shallow 1 µm band, 1 at 550 nm; `syntheticReflectance`). It only makes the bands differ, so a
+band read from the wrong file or plane shows up. Values are float I/F, not tone-mapped
+(`--gain` does not apply); sky is `0`, the delivered cubes' NoData.
 
-ASPECT renders all 37 bands through the NIR1 frustum, as the delivered 2B cube is co-registered
-at 640×512 for every channel. That frustum (6.7°×5.4°, from the IK) is 0.7% narrower in aspect
-than 640×512, which the verb reports as a stretch warning; the sidecar and every consumer use
-the same frustum, so the cube is self-consistent.
+All 37 ASPECT bands use the NIR1 frustum, as the delivered 2B cube is co-registered at 640×512.
+Its 6.7°×5.4° field is 0.7% narrower than 640:512, hence a stretch warning; sidecar and
+consumers use the same frustum, so the cube is self-consistent.
 
-A series over several epochs is one run per epoch:
+A series is one run per epoch. The multi-instrument test set
+(`scripts/make-sample-layers-test-data.py`), aimed at Dimorphos:
 
 ```
 for %t in (14 17 20 23) do (
-  pro3d-tool simulate-image --opc Dimorphos --time 2027-03-21T%t:00:00Z --instrument HERA_AFC-1 --write-mbi --gain 4.5 --out AFC\AFC1_SIM_20270321_%t0000.png
-  pro3d-tool simulate-image --opc Dimorphos --time 2027-03-21T%t:00:00Z --instrument HERA_HSH           --product --out HSH\HSH_SIM_20270321_%t0000.tif
-  pro3d-tool simulate-image --opc Dimorphos --time 2027-03-21T%t:00:00Z --instrument MILANI_ASPECT_NIR1 --product --out ASPECT\ASP_SIM_20270321_%t0000.tif
+  pro3d-tool simulate-image --opc Dimorphos --time 2027-03-21T%t:00:00Z --aim DIMORPHOS --instrument HERA_AFC-1 --write-mbi --gain 4.5 --out AFC\AFC1_SIM_20270321_%t0000.png
+  pro3d-tool simulate-image --opc Dimorphos --time 2027-03-21T%t:00:00Z --aim DIMORPHOS --instrument HERA_HSH           --product --out HSH\HSH_SIM_20270321_%t0000.tif
+  pro3d-tool simulate-image --opc Dimorphos --time 2027-03-21T%t:00:00Z --aim DIMORPHOS --instrument MILANI_ASPECT_NIR1 --product --out ASPECT\ASP_SIM_20270321_%t0000.tif
 )
 ```
 
+## Pointing, aiming and roll
+
+### Planned pointing (the default)
+
+Without `--aim`, the camera is what the kernels say at `--time`: spacecraft position and
+instrument attitude, with `hera_plan.tm` the *planned* one. A plan serves its own purpose, not
+the body you render. On 2027-03-21:
+
+| Instrument | Spacecraft | Boresight off Dimorphos | Half field of view | Result |
+|---|---|---|---|---|
+| AFC-1 | Hera | 0.15° (mounting offset) | 2.8° | centred |
+| HyperScout | Hera | 0.72° | 7.6° × 4.0° | near centre |
+| ASPECT | Milani | 2.1–3.1° | 3.35° × 2.7° | **at or over the edge**; cut off at 14:00 |
+
+Planned pointing is the honest default. Check the full frame: a crop hides a clipped body.
+
+### Aiming: a deliberate departure from the plan
+
+`--aim <body>` turns the planned boresight onto a body's centre by the smallest rotation, applied
+to the whole instrument, so the planned roll is kept (ASPECT at 14:00: turned 3.1°, roll
+unchanged to 0.1°).
+
+> **⚠ An aimed frame is not the planned observation.** It matches no attitude in the kernels:
+> do not compare it with a real image of that epoch or base pointing studies on it. Position,
+> epoch, sun, roll and the sidecar (the camera actually used) stay exact, so projection and
+> `sample-layers` are unaffected. Aimed frames are marked: a `WARNING: [camera] AIMED …` log
+> line, and `PRO3DAIM = <body>` in the `.mbi.json`, which consumers must check. `--aim` is
+> ignored, with a warning, for `--mbi`/`--project`.
+
+> **⚠ Aiming at a body that is not rendered shows empty space.** Only the `--opc` body is drawn:
+> `--aim DIDYMOS` on the Dimorphos OPC centres the frame on nothing and pushes Dimorphos aside
+> (AFC-1 at 14:00: clipped at x 942–1019 of 1020). The verb warns; to image Didymos, render its OPC.
+
+### Roll differs per instrument
+
+Image "up" follows spacecraft attitude and instrument mounting. Dimorphos' north (body +Z) from
+image up, clockwise, measured on the test set:
+
+| Epoch (UTC) | AFC-1 (Hera) | HyperScout (Hera) | ASPECT (Milani) |
+|---|---|---|---|
+| 14:00 | 38.9° | 38.8° | 4.1° |
+| 17:00 | 42.6° | 42.5° | 2.7° |
+| 20:00 | 16.8° | 16.7° | 2.6° |
+| 23:00 | −3.8° | −3.9° | 4.8° |
+
+- **Same spacecraft, same roll**: AFC-1 and HyperScout agree to 0.1°; AFC-2 (17.0° at 20:00)
+  too, as its different axis convention only undoes its physical mounting.
+- **Other spacecraft, other roll and side**: Milani's roll is 9–40° from Hera's, and it sees
+  Dimorphos from 55° away, i.e. a different side.
+- **Roll drifts**: 46° over these 9 hours on Hera.
+
+This is what the instruments see, not an error, and why [`sample-layers`](./Pro3DTool-SampleLayers.md)
+combines images by surface point through each image's own camera. Only the fallback look-at
+camera (no attitude in the kernels) invents a roll (up = body +Z), and warns.
+
 ## Caveats
 
-- **Pointing is look-at, not CK.** The boresight is aimed at the body centre and the roll
-  around it follows an up-vector convention. Real AFC pointing (and its jitter) would come
-  from a CK; the frame edge and rotation of a real image will differ. `--mbi` sidesteps
-  this where a real observation exists: it takes the measured attitude from the sidecar.
+- **Pointing is the plan, not the observation.** The attitude comes from the kernels loaded,
+  with `hera_plan.tm` the *planned* one: no jitter, no re-planning, and not necessarily
+  centred on the rendered body (see [Pointing, aiming and roll](#pointing-aiming-and-roll)).
+  `--aim` departs from it on purpose. `--mbi` sidesteps both where a real observation exists:
+  it takes the measured attitude from the sidecar.
 - **De-shading is approximate.** The baked illumination is divided out with a Lambert
   term of a *fitted* light direction, while the true baked radiance is Lommel-Seeliger
   under an unknown acquisition geometry (and the mosaic blends several frames). Residual

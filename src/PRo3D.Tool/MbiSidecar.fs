@@ -115,6 +115,10 @@ type Context =
         /// metakernel file the render used, named so a reader can reload the same one
         kernel     : string
         size       : V2i
+        /// the body the instrument was turned onto instead of its planned pointing
+        /// (`simulate-image --aim`); written as PRO3DAIM so that an aimed frame cannot
+        /// pass for the planned observation
+        aimedAt    : Option<string>
     }
 
 /// Sun and Earth position in km, J2000, relative to the target body.
@@ -202,6 +206,8 @@ let writeObservation (ctx : Context) (sidecarPath : string) (bands : list<BandFi
             h.["SC_QUAT1"] <- header (num obs.scQuat.V.X) "Spacecraft quaternion x (spacecraft -> J2000)"
             h.["SC_QUAT2"] <- header (num obs.scQuat.V.Y) "Spacecraft quaternion y (spacecraft -> J2000)"
             h.["SC_QUAT3"] <- header (num obs.scQuat.V.Z) "Spacecraft quaternion z (spacecraft -> J2000)"
+            ctx.aimedAt |> Option.iter (fun target ->
+                h.["PRO3DAIM"] <- header (str target) "AIMED at this body, not the planned pointing: not a planned observation")
 
             let headers = JsonArray()
             headers.Add h

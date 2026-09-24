@@ -101,6 +101,9 @@ type SimulateImageOptions =
         [<Option("write-mbi", HelpText = "Also write <out>.mbi.json and <out>.json describing the camera used, so the render can be imported into the PRo3D viewer and projected back onto the same body")>]
         writeMbi : bool
 
+        [<Option("aim", HelpText = "Turn the instrument onto the centre of this SPICE body (e.g. DIMORPHOS, DIDYMOS) instead of the planned pointing, keeping the planned roll. THE FRAME IS THEN NOT THE PLANNED OBSERVATION: the sidecar records it as PRO3DAIM. See the docs before using it")>]
+        aim : string
+
         [<Option("product", HelpText = "Write the instrument's delivered product layout instead of a PNG, with its .mbi.json: for HERA_HSH one <out>_Stacked.tif of 25 float bands (HyperScout 1B), for MILANI_ASPECT_NIR1 37 float <out>_<band>.tif (ASPECT 2B). The band values are the render's I/F times a made-up spectrum. No effect for AFC")>]
         product : bool
 

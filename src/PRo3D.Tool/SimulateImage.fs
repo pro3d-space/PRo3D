@@ -462,8 +462,16 @@ let private viewTrafoOfBasis (right : V3d) (up : V3d) (forward : V3d) (location 
 /// `distanceOverride` > 0 moves the camera to that range along the direction SPICE puts
 /// the spacecraft -- the viewpoint stays real, only the standoff changes. Useful when the
 /// body would otherwise be a handful of pixels, and for validation renders.
+///
+/// `aim` turns the instrument onto the centre of that SPICE body (`body` itself or another
+/// one, e.g. DIDYMOS while rendering the Dimorphos OPC). The planned attitude does not
+/// necessarily point the instrument at the body being rendered: Milani's puts Dimorphos
+/// 3 deg off ASPECT's boresight, at the edge of its 6.7 x 5.4 deg field. The aim is the
+/// SMALLEST rotation taking the planned boresight onto the target, applied to the whole
+/// instrument basis -- so the roll around the boresight stays the planned one (to within
+/// the size of the correction) instead of being replaced by an up-vector convention.
 let cameraAt (observer : string) (frame : string) (body : string) (instrument : string)
-             (distanceOverride : float) (time : DateTime) : Result<SimCamera, string> =
+             (aim : Option<string>) (distanceOverride : float) (time : DateTime) : Result<SimCamera, string> =
     match CooTransformation.getRelState observer "SUN" body time frame with
     | None ->
         Result.Error (sprintf "no ephemeris for %s relative to %s in %s at %s (kernel coverage?)"
@@ -476,6 +484,28 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
         if not (Double.IsFinite distance) || distance <= 0.0 then
             Result.Error (sprintf "SPICE returned a degenerate position for %s (|r| = %f)" observer distance)
         else
+
+        // Where the aim point is, in the render frame: the body's own centre is the origin.
+        let aimPoint =
+            match aim with
+            | None -> Ok None
+            | Some target when String.Equals(target, body, StringComparison.OrdinalIgnoreCase) -> Ok (Some V3d.Zero)
+            | Some target ->
+                match CooTransformation.getRelState target "SUN" body time frame with
+                | Some t ->
+                    // Only the --opc body is drawn. Aimed at another one, the centre of the
+                    // frame is that body's empty place, and the rendered body is pushed
+                    // towards the edge or out: at 6.7 km, AFC-1 aimed at Didymos shows
+                    // Dimorphos clipped at the frame edge and nothing in the middle.
+                    Log.warn "[camera] --aim %s is not the rendered body %s: %s is NOT drawn, the frame centre is empty and %s sits %.0f m off the boresight"
+                        target body target body t.pos.Length
+                    Ok (Some t.pos)
+                | None -> Result.Error (sprintf "--aim: no ephemeris for %s relative to %s at %s" target body (time.ToString "o"))
+
+        match aimPoint with
+        | Result.Error e -> Result.Error e
+        | Ok aimPoint ->
+
         let near, far = InstrumentProjection.nearFarForDistance distance
         match Map.tryFind instrument (InstrumentProjection.instruments near far) with
         | None ->
@@ -501,7 +531,23 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
                       Map.tryFind instrument InstrumentProjection.specialTrafos with
                 | Some instrumentToBody, Some mounting ->
                     let m = instrumentToBody.Forward.UpperLeftM33()
-                    Some (viewTrafoOfBasis -m.C0 -m.C1 m.C2 pos * mounting)
+                    // Every mounting keeps the camera's Z, so the boresight is the
+                    // instrument's +Z (C2) whatever the image-axis convention.
+                    let aimRotation =
+                        match aimPoint with
+                        | None -> M33d.Identity
+                        | Some p ->
+                            let target = (p - pos).Normalized
+                            let r = Rot3d.RotateInto(m.C2.Normalized, target)
+                            // A warning, not a line: from here on the frame is NOT the
+                            // planned observation, and nothing downstream can tell unless
+                            // it is said -- see the sidecar's PRO3DAIM keyword.
+                            Log.warn "[camera] AIMED %s at %s: the planned boresight was turned by %.3f deg -- this frame is not the planned observation"
+                                instrument (defaultArg aim body)
+                                (acos (clamp -1.0 1.0 (Vec.dot m.C2.Normalized target)) * Constant.DegreesPerRadian)
+                            M33d.Rotation r
+                    let x, y, z = aimRotation * m.C0, aimRotation * m.C1, aimRotation * m.C2
+                    Some (viewTrafoOfBasis -x -y z pos * mounting)
                 | missing ->
                     // No attitude (or no known mounting) at this epoch: fall back, and say
                     // so -- the roll is then an arbitrary convention again and the frame
@@ -513,9 +559,10 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
                     | _ ->
                         Log.warn "[camera] no mounting trafo known for %s -- falling back to a look-at camera; the ROLL around the boresight is then arbitrary"
                             instrument
-                    let boresight = (-pos).Normalized
+                    let lookAt = aimPoint |> Option.defaultValue V3d.Zero
+                    let boresight = (lookAt - pos).Normalized
                     let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
-                    Some (CameraView.lookAt pos V3d.Zero up |> CameraView.viewTrafo)
+                    Some (CameraView.lookAt pos lookAt up |> CameraView.viewTrafo)
             Ok {
                 view = view |> Option.defaultValue Trafo3d.Identity
                 proj = Frustum.projTrafo frustum
@@ -563,11 +610,11 @@ let private toneMapToPng (img : PixImage<float32>) (explicitGain : float) : Resu
     Ok (out, gain)
 
 // ---------------------------------------------------------------------------------
-// Camera from an existing observation. `cameraAt` above points the instrument at the body
-// centre with an arbitrary roll -- fine for making a picture, useless for comparing with a
-// real frame. Taking the camera from an image's own mbi sidecar instead runs the render
-// through the viewer's projection path, so the result is directly comparable with that
-// image and any disagreement is the projection's, not the camera's.
+// Camera from an existing observation. `cameraAt` above takes the planned attitude at a
+// time -- a plan, not what an instrument actually did. Taking the camera from an image's
+// own mbi sidecar instead runs the render through the viewer's projection path, so the
+// result is directly comparable with that image and any disagreement is the projection's,
+// not the camera's.
 
 /// An observation resolved from an existing image's mbi sidecar.
 ///
@@ -697,11 +744,15 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     let camera =
         match observation with
         | Some obs ->
+            if not (String.IsNullOrWhiteSpace o.aim) then
+                Log.warn "[camera] --aim is ignored with --mbi/--project: the camera is the observation's own"
             if o.distance > 0.0 then
                 Log.warn "[camera] --distance is ignored with --mbi: the standoff is the observation's own"
             Log.line "[camera] from %s (%s at %s)" (Path.GetFileName cameraSource) instrument (obs.time.ToString "o")
             Ok obs.camera
-        | None -> cameraAt observer frame body instrument o.distance time
+        | None ->
+            let aim = if String.IsNullOrWhiteSpace o.aim then None else Some (o.aim.ToUpperInvariant())
+            cameraAt observer frame body instrument aim o.distance time
 
     match camera with
     | Result.Error e -> Result.Error e
@@ -913,6 +964,10 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 time = time
                 kernel = kernel
                 size = size
+                // only the look-at path aims; --mbi/--project take the observation's own camera
+                aimedAt =
+                    if Option.isSome observation || String.IsNullOrWhiteSpace o.aim then None
+                    else Some (o.aim.ToUpperInvariant())
             }
 
         let verifySidecar (imagePath : string) =

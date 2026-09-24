@@ -123,6 +123,7 @@ let private roundTripTest =
                     time = time
                     kernel = HeraSpiceTests.spiceFileName
                     size = V2i(1020, 1020)
+                    aimedAt = None
                 }
 
             match MbiSidecar.write ctx imagePath view with
