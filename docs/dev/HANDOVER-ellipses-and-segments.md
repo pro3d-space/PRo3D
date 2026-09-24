@@ -1,6 +1,8 @@
 # Handover: ellipses and segments in the CSV export (#644)
 
-2026-09-24. Start here with a fresh context. The goal is to get **ellipse (boulder) and segment (fracture) CSV output** landed. Read this page, then [PLAN-export-ellipses-and-segments.md](PLAN-export-ellipses-and-segments.md) (design and decisions) and [CSV-export-fields.md](CSV-export-fields.md) (the exact target columns). [AnnotationExport-boulders-fractures.md](AnnotationExport-boulders-fractures.md) is background only.
+2026-09-24. Start here with a fresh context. The goal is to get **ellipse (boulder) and segment (fracture) CSV output** landed. Read this page, then [PLAN-export-ellipses-and-segments.md](PLAN-export-ellipses-and-segments.md) (design and decisions) and [AnnotationExport-CSV.md](../AnnotationExport-CSV.md) (the exact target columns). [AnnotationExport-boulders-fractures.md](AnnotationExport-boulders-fractures.md) is background only.
+
+**Status, later on 2026-09-24:** PR B is implemented on this branch (code, tests, docs). Where it departs from the steps below, the plan's section *Corrections found while building PR B* says why; read it before PR C or D. Next: open PR B, then PR C.
 
 ## Where you work
 
@@ -39,7 +41,7 @@
 - **No refitting / no migration**: there is no legacy data; a file without the new fields exports empty ellipse columns.
 - Boulder row coordinates = the stored ellipse centre, not the outline's bounding-box centre.
 - Principle: **minimal change, safety first**. Nothing beyond the two presets.
-- Columns and naming: exactly as in CSV-export-fields.md (camelCase, metres, empty cell = no value, vectors as `x;y;z`).
+- Columns and naming: exactly as in [AnnotationExport-CSV.md](../AnnotationExport-CSV.md) (camelCase, metres, empty cell = no value, vectors as `x;y;z`).
 
 ## The work, as PRs (all under #644)
 
@@ -53,7 +55,7 @@
 
 ### PR B, concretely
 
-1. **Model** `src/PRo3D.Base/Annotation/Annotation-Model.fs:443` `EllipticAnnotationResult` (field on `Annotation` at `:542`): add `center : V3d`, `semiMajorAxis : V3d`, `semiMinorAxis : V3d` (body-fixed world space, the same space as the annotation's points, metres) and `majorAxisAzimuth : float` (NaN when the axis is near-vertical). Write them in `ToJson`, read them in `readV0` with `Json.tryRead` + default (no version bump; CLAUDE.md rule). Keep `geographicalEllipse` for the GeoJSON writer (`src/PRo3D.Base/Annotation/Exporters/GeoJSON.Export.fs:89`). The record is a `[<ModelType>]` input: run `adapt.cmd` after changing it; never edit `*.g.fs`.
+1. **Model** `src/PRo3D.Base/Annotation/Annotation-Model.fs:443` `EllipticAnnotationResult` (field on `Annotation` at `:542`): add `center : V3d`, `semiMajorAxis : V3d`, `semiMinorAxis : V3d` (body-fixed world space, the same space as the annotation's points, metres) and `majorAxisAzimuth : float` (NaN when the axis is near-vertical). Write them in `ToJson`, read them in `readV0` with `Json.tryRead` + default (no version bump; CLAUDE.md rule). Keep `geographicalEllipse` for the GeoJSON writer (`src/PRo3D.Base/Annotation/Exporters/GeoJSON.Export.fs:89`). (Correction: the record is not a model type itself, only a field of `Annotation`; the metric fields use new JSON keys because `center`/`major`/`minor` are taken by the lon/lat ellipse.)
 2. **Fill it on drawing**: `Drawing-App.fs:219` branch: map `ellipseOnPlane.Center/Axis0/Axis1` to world with `constructionPlane.GetPlaneToWorld()`, compute the azimuth (step 4), store. Up/north are parameters of `getFinishedAnnotation` (`:179`) and `finishAndAppend` (`:244`); on a body re-derive them at the ellipse centre with `ReferenceSystem.upVector` (`src/PRo3D.Core/ReferenceSystem.fs:74`) and `northVector` (`:88`).
 3. **Fill it on SBMT import**: `SbmtImporter.fs:180` `parseEllipseLine` already has `center`, `semiMajor`, `semiMinor`, `east`, `north`; store them in its record (`ellipticResults = None` at `:251`). The record at `:131` is for points and stays `None`.
 4. **Azimuth helper** (one function in `PRo3D.Core`, used by both): `h = m − (m·u)u`, `e = n × u`, `azimuth = atan2(h·e, h·n)` in degrees, folded into [0, 180); NaN when `|h| < 1e-9·|m|`.
@@ -88,7 +90,7 @@ EllipseStatistics.compute surfacesModel refSys observedSystem observerSystem fil
     -> Option<EllipseStatistics>[]
 ```
 
-PR B's stored `center` / `semiMajorAxis` / `semiMinorAxis` map 1:1 onto `SurfaceEllipse`; neither type changes. **`sampling` owns PR D** (the statistics columns, second table in CSV-export-fields.md) after A and B are on develop. Message it via `SendMessage` to `sampling` when B lands.
+PR B's stored `center` / `semiMajorAxis` / `semiMinorAxis` map 1:1 onto `SurfaceEllipse`; neither type changes. **`sampling` owns PR D** (the statistics columns, second table in [AnnotationExport-CSV.md](../AnnotationExport-CSV.md)) after A and B are on develop. Message it via `SendMessage` to `sampling` when B lands.
 
 ## Build and test
 

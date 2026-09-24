@@ -248,7 +248,9 @@ module SbmtImporter =
             thickness        = Annotation.Initial.thickness
             results          = None
             dnsResults       = None
-            ellipticResults  = None
+            // the catalog's own ellipse, measured in the tangent frame built above;
+            // majorAxisAzimuth = (90 - regularAngle) mod 180
+            ellipticResults  = Some (Drawing.EllipticAnnotations.Measures.ofAxes radialUp north center semiMajor semiMinor)
             modelTrafo       = Trafo3d.Identity
             visible          = true
             showDns          = false

@@ -69,6 +69,15 @@ module AnnotationExportViewer =
         | _ ->
             "There are no annotations to export."
 
+    /// The scope had annotations, but the type filter left none of them.
+    let private emptyTypeFilterMessage (filter : ExportTypeFilter) =
+        match filter with
+        | ExportTypeFilter.EllipsesOnly ->
+            "No ellipses in scope, so there is nothing to export. Set Annotation types to \
+             all, or choose a different scope."
+        | _ ->
+            "There are no annotations to export."
+
     /// The file was written, but without a geographic frame every geographic
     /// value in it is empty. Worth saying out loud: the export looks successful
     /// and the emptiness only shows up once the file is opened elsewhere.
@@ -203,11 +212,15 @@ module AnnotationExportViewer =
             // the save dialog was cancelled; nothing went wrong
             None
         else
-            let annotations = annotationsInScope settings.scope drawing.annotations
+            let inScope = annotationsInScope settings.scope drawing.annotations
+            let annotations = inScope |> List.filter (ExportTypeFilter.admits settings.typeFilter)
 
-            if List.isEmpty annotations then
+            if List.isEmpty inScope then
                 Log.warn "[AnnotationExport] nothing to export for scope %A" settings.scope
                 Some (emptyScopeMessage settings.scope)
+            elif List.isEmpty annotations then
+                Log.warn "[AnnotationExport] nothing to export for type filter %A" settings.typeFilter
+                Some (emptyTypeFilterMessage settings.typeFilter)
             else
                 let up = refSys.up.value.Normalized
                 // full path, not just the immediate parent: keeps nested groups

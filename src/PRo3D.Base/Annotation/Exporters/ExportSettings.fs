@@ -30,6 +30,14 @@ type ExportScope =
     | Visible  = 1
     | Selected = 2
 
+/// Which annotation geometries an export includes, applied after the scope.
+/// A visible setting in the window, so a preset that narrows it never hides
+/// annotations silently.
+type ExportTypeFilter =
+    | All          = 0
+    /// `AxisEllipse`, `Axis4PEllipse` and `Ellipse`
+    | EllipsesOnly = 1
+
 type CoordinateMode =
     | Cartesian  = 0
     | Geographic = 1
@@ -72,6 +80,8 @@ type ExportPreset =
     | Profile           = 3
     | AttitudePlanes    = 4
     | ContinuousGeoJson = 5
+    /// one row per ellipse: semi-axes, long-axis azimuth, centre
+    | Boulders          = 6
 
 /// Immutable snapshot handed to the record builder and the writers. Contains no
 /// adaptive types and no reference to the surface model, so it can live in
@@ -80,6 +90,8 @@ type AnnotationExportSettings = {
     format            : ExportFormat
     granularity       : ExportGranularity
     scope             : ExportScope
+    /// applied after `scope`; see `ExportTypeFilter.admits`
+    typeFilter        : ExportTypeFilter
     coordinates       : CoordinateMode
     longitude         : LongitudeConvention
     /// write longitudes as (-180, 180] instead of [0, 360)
@@ -103,7 +115,8 @@ module ExportPreset =
 
     let all =
         [ ExportPreset.Custom; ExportPreset.QgisFeatures; ExportPreset.AnnotationTable
-          ExportPreset.Profile; ExportPreset.AttitudePlanes; ExportPreset.ContinuousGeoJson ]
+          ExportPreset.Profile; ExportPreset.Boulders; ExportPreset.AttitudePlanes
+          ExportPreset.ContinuousGeoJson ]
 
     let label (preset : ExportPreset) =
         match preset with
@@ -113,7 +126,28 @@ module ExportPreset =
         | ExportPreset.Profile           -> "Profile"
         | ExportPreset.AttitudePlanes    -> "Attitude planes"
         | ExportPreset.ContinuousGeoJson -> "Continuous GeoJSON"
+        | ExportPreset.Boulders          -> "Boulders (ellipses)"
         | _                              -> string preset
+
+module ExportTypeFilter =
+
+    let all = [ ExportTypeFilter.All; ExportTypeFilter.EllipsesOnly ]
+
+    let label (filter : ExportTypeFilter) =
+        match filter with
+        | ExportTypeFilter.EllipsesOnly -> "ellipses only"
+        | _                             -> "all"
+
+    let isEllipse (g : Geometry) =
+        match g with
+        | Geometry.AxisEllipse | Geometry.Axis4PEllipse | Geometry.Ellipse -> true
+        | _ -> false
+
+    /// Whether an annotation passes the filter.
+    let admits (filter : ExportTypeFilter) (a : Annotation) =
+        match filter with
+        | ExportTypeFilter.EllipsesOnly -> isEllipse a.geometry
+        | _                             -> true
 
 module AnnotationExportSettings =
 
@@ -130,6 +164,7 @@ module AnnotationExportSettings =
         format            = ExportFormat.Csv
         granularity       = ExportGranularity.PerAnnotation
         scope             = ExportScope.Visible
+        typeFilter        = ExportTypeFilter.All
         coordinates       = CoordinateMode.Both
         longitude         = LongitudeConvention.Flipped
         signedLongitude   = true
@@ -158,13 +193,16 @@ module AnnotationExportSettings =
         //   which is the less accurate of the two wherever a kernel is available.
         //   Selecting `File (.aara)` is a deliberate manual choice, and the
         //   export window warns when it is made.
+        // - every annotation type: only *Boulders* narrows the filter, so moving
+        //   on to any other preset must not leave it narrowed by surprise.
         let settings =
             match preset with
             | ExportPreset.Custom -> settings
             | _                   ->
                 { settings with
                     signedLongitude = true
-                    latLonAltSource = LatLonAltSource.Spice }
+                    latLonAltSource = LatLonAltSource.Spice
+                    typeFilter      = ExportTypeFilter.All }
 
         match preset with
         | ExportPreset.QgisFeatures ->
@@ -207,6 +245,21 @@ module AnnotationExportSettings =
                 useSampledPoints = true
                 annotationFields = [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName ]
                 pointFields      = AnnotationFields.allPointFields }
+        | ExportPreset.Boulders ->
+            // One row per ellipse. The row's coordinates are the stored ellipse
+            // centre; the body's own longitudes, like the GIS preset.
+            { settings with
+                format           = ExportFormat.Csv
+                granularity      = ExportGranularity.PerAnnotation
+                scope            = ExportScope.All
+                typeFilter       = ExportTypeFilter.EllipsesOnly
+                coordinates      = CoordinateMode.Both
+                longitude        = LongitudeConvention.Native
+                // in enum order, which is the order the export window writes them in
+                annotationFields =
+                    [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
+                      AnnotationField.GroupPath; AnnotationField.SemiMajorAxis
+                      AnnotationField.SemiMinorAxis; AnnotationField.MajorAxisAzimuth ] }
         | ExportPreset.AttitudePlanes ->
             { settings with format = ExportFormat.Attitude }
         | ExportPreset.ContinuousGeoJson ->

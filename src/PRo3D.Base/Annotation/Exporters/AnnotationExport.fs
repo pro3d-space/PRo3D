@@ -337,10 +337,13 @@ module AnnotationExport =
 
         // A single record cannot carry the whole polyline, so the position is
         // the bounding-box centre — the same choice the CSV export always made.
+        // An ellipse with a stored shape uses that shape's centre instead: the
+        // outline's box is skewed by the terrain it is draped on.
         let centre =
-            match points with
-            | [] -> V3d.NaN
-            | _  -> Box3d(points).Center
+            match a.ellipticResults, points with
+            | Some e, _ when not e.center.AnyNaN -> e.center
+            | _, [] -> V3d.NaN
+            | _, _  -> Box3d(points).Center
 
         // The centre is computed, not picked: for anything but a straight line
         // it floats above the terrain, so the ray cast can miss even where the

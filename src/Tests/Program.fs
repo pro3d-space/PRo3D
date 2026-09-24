@@ -40,6 +40,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // kernel-independent tests (use only the default SPICE kernels)
         GeoJsonRework.Tests.tests()
         AnnotationExportTest.tests()
+        EllipseExportTest.tests()
         ColorByCategoryPersistence.Tests.tests()
         ColorByCategoryColor.Tests.tests()
         SpiceTests.tests()

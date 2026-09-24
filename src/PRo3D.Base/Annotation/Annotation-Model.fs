@@ -440,34 +440,63 @@ with
         }
 
 
-type EllipticAnnotationResult = 
+/// An ellipse annotation's shape, fixed when it is constructed (drawn or imported).
+///
+/// The metric part (`center`, `semiMajorAxis`, `semiMinorAxis`) lives in the same
+/// body-fixed world space as the annotation's points, in metres. `majorAxisAzimuth` is
+/// measured at construction, like dip and strike, so readers need no reference system.
+/// A result read from a file written before these fields existed carries NaN in them.
+type EllipticAnnotationResult =
     {
-        geographicalEllipse      : Ellipse2d
+        /// lon/lat (degrees) ellipse of the dormant geographic construction; only the
+        /// GeoJSON writer reads it. `None` for ellipses fitted on a plane or imported.
+        geographicalEllipse      : Option<Ellipse2d>
         geographicalEllipseAssym : Option<Ellipse2d>
+        /// m, body-fixed
+        center                   : V3d
+        /// m, vector along the long axis; never shorter than `semiMinorAxis`
+        semiMajorAxis            : V3d
+        /// m, vector along the short axis, perpendicular to `semiMajorAxis`
+        semiMinorAxis            : V3d
+        /// deg, clockwise from local north at `center`, axial [0, 180). NaN when the long
+        /// axis is (near) vertical and so has no horizontal direction.
+        majorAxisAzimuth         : float
     }
     with
         static let version = 0
 
         static member private readV0 =
-            json {      
-                let! center             = Json.read "center"     
-                let! major              = Json.read "major"
-                let! minor              = Json.read "minor"
+            json {
+                // "center", "major" and "minor" hold the geographical (lon/lat) ellipse;
+                // the metric one has keys of its own so the two never get confused
+                let! center             = Json.tryRead "center"
+                let! major              = Json.tryRead "major"
+                let! minor              = Json.tryRead "minor"
 
                 let! center2            = Json.tryRead "centerAssim"
                 let! major2             = Json.tryRead "majorAssim"
                 let! minor2             = Json.tryRead "minorAssim"
 
-                let assymEllipse = 
-                    match center2, major2, minor2 with
-                    | Some c, Some ma, Some mi -> 
-                        Some(Ellipse2d(V2d.Parse(c), V2d.Parse(ma), V2d.Parse(mi)))
-                    | _ -> 
-                        None
-            
+                let! worldCenter        = Json.tryRead "worldCenter"
+                let! semiMajorAxis      = Json.tryRead "semiMajorAxis"
+                let! semiMinorAxis      = Json.tryRead "semiMinorAxis"
+                let! majorAxisAzimuth   = Json.readFloat "majorAxisAzimuth"
+
+                let ellipse (c : Option<string>) (ma : Option<string>) (mi : Option<string>) =
+                    match c, ma, mi with
+                    | Some c, Some ma, Some mi -> Some (Ellipse2d(V2d.Parse(c), V2d.Parse(ma), V2d.Parse(mi)))
+                    | _ -> None
+
+                let vector (v : Option<string>) =
+                    v |> Option.map V3d.Parse |> Option.defaultValue V3d.NaN
+
                 return {
-                    geographicalEllipse      = Ellipse2d(V2d.Parse(center), V2d.Parse(major), V2d.Parse(minor))
-                    geographicalEllipseAssym = assymEllipse
+                    geographicalEllipse      = ellipse center major minor
+                    geographicalEllipseAssym = ellipse center2 major2 minor2
+                    center                   = vector worldCenter
+                    semiMajorAxis            = vector semiMajorAxis
+                    semiMinorAxis            = vector semiMinorAxis
+                    majorAxisAzimuth         = majorAxisAzimuth
                 }
             }
 
@@ -482,16 +511,28 @@ type EllipticAnnotationResult =
         static member ToJson (x : EllipticAnnotationResult) =
             json {
                 do! Json.write   "version"  version
-                do! Json.write   "center"   (string x.geographicalEllipse.Center)
-                do! Json.write   "major"    (string x.geographicalEllipse.Axis0)
-                do! Json.write   "minor"    (string x.geographicalEllipse.Axis1)
-                
-                if x.geographicalEllipseAssym.IsSome then
-                    do! Json.write "centerAssim" (string x.geographicalEllipseAssym.Value.Center)
-                    do! Json.write "majorAssim"  (string x.geographicalEllipseAssym.Value.Axis0)
-                    do! Json.write "minorAssim"  (string x.geographicalEllipseAssym.Value.Axis1)
-    
+                match x.geographicalEllipse with
+                | Some e ->
+                    do! Json.write "center" (string e.Center)
+                    do! Json.write "major"  (string e.Axis0)
+                    do! Json.write "minor"  (string e.Axis1)
+                | None -> ()
 
+                match x.geographicalEllipseAssym with
+                | Some e ->
+                    do! Json.write "centerAssim" (string e.Center)
+                    do! Json.write "majorAssim"  (string e.Axis0)
+                    do! Json.write "minorAssim"  (string e.Axis1)
+                | None -> ()
+
+                // NaN vectors (a result read from an older file) are left out, so they
+                // read back as NaN again rather than as an unparsable string
+                let vector (name : string) (v : V3d) =
+                    json { if not v.AnyNaN then do! Json.write name (string v) }
+                do! vector          "worldCenter"      x.center
+                do! vector          "semiMajorAxis"    x.semiMajorAxis
+                do! vector          "semiMinorAxis"    x.semiMinorAxis
+                do! Json.writeFloat "majorAxisAzimuth" x.majorAxisAzimuth
             }
     
 

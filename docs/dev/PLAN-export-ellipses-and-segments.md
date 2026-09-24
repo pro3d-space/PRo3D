@@ -23,7 +23,7 @@ Five PRs, each small enough to review in one sitting, each merged before the nex
 | A | `features/644_ellipse-surface-stats` | sampling | `EllipseStatistics` library, its tests, `docs/EllipseStatistics.md`. No export or UI change. | — |
 | B | `features/644_boulders-fractures-export` | boulders | Step 1 (store the metric ellipse on drawing and SBMT import) + step 2 (`semiMajorAxis`, `semiMinorAxis`, `majorAxisAzimuth` columns; diameters retired; colour-by-category attributes) + the ellipses-only type filter + *Boulders* preset. Field reference moves to `docs/AnnotationExport-CSV.md`. | — |
 | C | `features/644_fracture-segments` | boulders | Step 3: *one record per segment* (CSV only) + *Fractures* preset. | B (shared preset/window code) |
-| D | `features/644_ellipse-stats-export` | sampling | Statistics columns on *Boulders* (see CSV-export-fields.md, second stage). | A, B |
+| D | `features/644_ellipse-stats-export` | sampling | Statistics columns on *Boulders* (see [AnnotationExport-CSV.md](../AnnotationExport-CSV.md), second stage). | A, B |
 | E | `bugs/644_ground-distance-small-bodies` | anyone | `groundDistance` 0 on Dimorphos/Didymos: flatten onto the mean radius for spherical-convention bodies. | — |
 
 A, B and E can be built in parallel; they share no files. C and D wait for their dependencies to be on `develop`, then branch from it fresh.
@@ -38,7 +38,7 @@ A, B and E can be built in parallel; they share no files. C and D wait for their
 
 ### Playwright
 
-After B and C are on `develop`, one spec in `tests-ui/`: draw an ellipse and a two-segment line on the Dimorphos OPC, export with *Boulders* and *Fractures*, check both CSV headers against CSV-export-fields.md and the ellipse's `semiMajorAxis` against the drawn size. Plus the window checks listed under *Testing*.
+After B and C are on `develop`, one spec in `tests-ui/`: draw an ellipse and a two-segment line on the Dimorphos OPC, export with *Boulders* and *Fractures*, check both CSV headers against [AnnotationExport-CSV.md](../AnnotationExport-CSV.md) and the ellipse's `semiMajorAxis` against the drawn size. Plus the window checks listed under *Testing*.
 
 ## Presets: two, not one
 
@@ -49,7 +49,7 @@ A CSV export has one granularity, so one row shape. Boulders need a row per elli
 | *Boulders* | CSV | one record per annotation | All | `key, text, groupPath, surfaceName, semiMajorAxis, semiMinorAxis, majorAxisAzimuth`, centre `x, y, z, lat, lon, alt, body, latLonAltSource` |
 | *Fractures* | CSV | one record per segment (new) | All | `key, text, groupPath, surfaceName, wayLength, segmentIndex`, `start…`/`end…` coordinates, `body, latLonAltSource, segmentLength, segmentChord, segmentAzimuth` |
 
-Field-by-field meaning of every column, including *Profile*'s: [CSV-export-fields.md](CSV-export-fields.md).
+Field-by-field meaning of every column, including *Profile*'s: [AnnotationExport-CSV.md](../AnnotationExport-CSV.md).
 
 Rejected alternative: one *Mapping* preset that writes two files, `<name>.boulders.csv` and `<name>.fractures.csv`. It saves one click but is the only export that writes two files from one dialog. Revisit if users ask.
 
@@ -162,7 +162,7 @@ Almost everything is testable without the viewer, in `src/Tests` (Expecto):
 
 | What | How | Level |
 | --- | --- | --- |
-| Column names and order per preset | `AnnotationExport.schemaOf (applyPreset …)` equals the lists in CSV-export-fields.md | unit |
+| Column names and order per preset | `AnnotationExport.schemaOf (applyPreset …)` equals the lists in [AnnotationExport-CSV.md](../AnnotationExport-CSV.md) | unit |
 | Boulder values | synthetic annotation with a known `EllipticAnnotationResult` → `buildRecords` → semi-axes, azimuth, centre | unit |
 | Azimuth helper | known vectors at known lat/lon, incl. the 0/180 fold and a vertical axis → empty | unit |
 | Ellipse stored on drawing | the drawing finish function with a stub `sampleSurface` that projects onto a plane (no GL, no OPC) | unit |
@@ -188,7 +188,7 @@ Playwright (`tests-ui/`) only where the behaviour lives in the window:
 Session `sampling`, worktree `pro3d-ellipse-stats`, branch `features/644_ellipse-surface-stats` (issue #644). It integrates the mesh triangles inside an ellipse: per layer and channel mean/std/min/max, plus surface area, footprint area and vertex count. It touches no file of this plan (only `EllipseStatistics.fs` (new), `VertexAttributes.fs`, `Surface.fs`, `ProfileAttributeExtraction.fs` helpers).
 
 - **Interface:** its input `SurfaceEllipse = { center; semiMajor; semiMinor }` (world space, metres) maps 1:1 onto step 1's stored `center`, `semiMajorAxis`, `semiMinorAxis`. Same space as the annotation's points, no conversion.
-- **Hook-up:** `sampling` adds the statistics columns to *Boulders* after step 2 is on `develop`, following [CSV-export-fields.md](CSV-export-fields.md).
+- **Hook-up:** `sampling` adds the statistics columns to *Boulders* after step 2 is on `develop`, following [AnnotationExport-CSV.md](../AnnotationExport-CSV.md).
 
 ## Decisions (2026-09-24)
 
@@ -203,3 +203,18 @@ Session `sampling`, worktree `pro3d-ellipse-stats`, branch `features/644_ellipse
 - Segment rows: **fixed columns** — endpoints, `segmentChord`, `segmentAzimuth` included; no selectable segment fields.
 - Per segment is **CSV only**; the GeoJSON writer stays untouched.
 - Principle: **minimal change, safety first**. Anything not needed for the two presets stays out.
+
+## Corrections found while building PR B (2026-09-24)
+
+The plan above was checked against the code before B was written. Where it was wrong or silent, B does the following, and C/D should assume it:
+
+- **JSON keys.** `EllipticAnnotationResult` already writes `center` / `major` / `minor`, holding the *lon/lat* ellipse. The metric fields use their own keys: `worldCenter`, `semiMajorAxis`, `semiMinorAxis`, `majorAxisAzimuth`. Reusing `center` would have clashed.
+- **`geographicalEllipse` is now `Option<Ellipse2d>`.** Plane-fitted and imported ellipses have no lon/lat ellipse, and the old reader required one. The JSON stays the same whenever it is present.
+- **The lon/lat ellipse is not filled on drawing.** The plan said to store `createGeographicalEllipse`'s result too. That would newly emit `EllipseProperties` in lon/lat degrees in the GeoJSON export, a change nobody asked for and in the unit this plan calls wrong. GeoJSON output stays as it was; the dead `createGeographicalEllipse` call on the drawing path is gone.
+- **Axis0 is not necessarily the major axis.** `constructEllipseOrtho2d` takes the axis from the first two clicks and a *signed* minor from the third, so the third click can give the longer axis. The stored result sorts by length.
+- **Four-point ellipses were not specified.** Stored as the symmetric ellipse of the same extent: semi-minor = half the full width across the clicked axis, centre in the middle of that width (it can lie off the clicked axis). Documented in AnnotationExport-CSV.md.
+- **Local frame.** Drawing receives the reference system's `northO` (north with the user's offset). Flat frames (`None`, `JPL`, `ENU`) keep it, which matches `bearing` and dip/strike. On a body, up and north are re-derived at the ellipse centre (`EllipticAnnotations.Measures.localFrame`, the same rule as `updateCoordSystemAt`), so the north offset does not apply there.
+- **Colour by category already has an axial hue wheel** (`cyclicPeriod`, 180° for strike and bearing). `majorAxisAzimuth` uses it; the plan's "existing ramps for now" was not needed.
+- **Column order follows the enum, not the preset list.** `AnnotationExportModel.toSettings` re-sorts the fields by enum value, so the window writes `key, text, surfaceName, groupPath, …` whatever order the preset lists. *Boulders* is listed in that order, so the preset and the window agree. **For C:** *Fractures* comes out as `key, text, surfaceName, wayLength, groupPath`, then the segment columns; AnnotationExport-CSV.md already says so.
+- **`EllipticAnnotationResult` is not a model type**, only a field of one; changing it needs no Adaptify run (the new `typeFilter` on the export window model does).
+- `Geometry.Axis4PEllipse` and `Ellipse` still throw in the *legacy* GeoJSON writer (`GeoJSON.Export.fs`); the new exporter degrades them to rings. Not touched here.

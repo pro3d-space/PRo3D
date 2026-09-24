@@ -68,6 +68,7 @@ module AnnotationExportApp =
             custom { model with format = format; coordinates = coordinates }
         | SetGranularity granularity -> custom { model with granularity = granularity }
         | SetScope scope             -> custom { model with scope = scope }
+        | SetTypeFilter filter       -> custom { model with typeFilter = filter }
         | SetCoordinates coordinates -> custom { model with coordinates = coordinates }
         | SetLongitude longitude     -> custom { model with longitude = longitude }
         | ToggleSignedLongitude      -> custom { model with signedLongitude = not model.signedLongitude }
@@ -296,6 +297,8 @@ module AnnotationExportApp =
                         dropDown
                             [ ExportScope.All; ExportScope.Visible; ExportScope.Selected ]
                             AnnotationExportSettings.scopeLabel model.scope SetScope ]
+                    Html.row "Annotation types:" [
+                        dropDown ExportTypeFilter.all ExportTypeFilter.label model.typeFilter SetTypeFilter ]
                 ]
             ]
 

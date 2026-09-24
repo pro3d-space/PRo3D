@@ -1,6 +1,8 @@
 # CSV export: field reference
 
-What every column of the annotation CSV export means, for the three presets users work with: **Profiles** (available now), and **Boulders** and **Fractures** (planned for issue #644, see [PLAN-export-ellipses-and-segments.md](PLAN-export-ellipses-and-segments.md)). When those ship, this page moves to `docs/AnnotationExport-CSV.md` as the user reference.
+What every column of the annotation CSV export means, for the three presets users work with: **Profiles** and **Boulders** (available), and **Fractures** (planned, issue #644, see [dev/PLAN-export-ellipses-and-segments.md](dev/PLAN-export-ellipses-and-segments.md)). The export window itself is described in [AnnotationExport.md](AnnotationExport.md).
+
+Columns come in a fixed order: the annotation columns in the order of the window's attribute list, then the coordinates.
 
 ## Conventions for every file
 
@@ -56,21 +58,27 @@ To plot a profile: `distance` (or, once fixed, `groundDistance`) on the horizont
 
 ## Boulders
 
-**Preset *Boulders*** · one row per ellipse · annotation types: *ellipses only* · scope: all · longitude: *Native* · planned.
+**Preset *Boulders (ellipses)*** · one row per ellipse · annotation types: *ellipses only* · scope: all · longitude: *Native*.
 
 | Column | Unit | Meaning |
 | --- | --- | --- |
 | `key` | — | Annotation id (GUID). |
 | `text` | — | Annotation label, e.g. a boulder id. |
+| `surfaceName` | — | Surface the ellipse was drawn on or imported to. Empty for SBMT imports. |
 | `groupPath` | — | Group the ellipse sits in, nested groups separated by `/`, e.g. `Dimorphos/boulders/north`. |
-| `surfaceName` | — | Surface the ellipse was drawn on or imported to. |
 | `semiMajorAxis` | m | Half the ellipse's long axis. |
 | `semiMinorAxis` | m | Half the ellipse's short axis. |
 | `majorAxisAzimuth` | deg | Direction of the long axis, clockwise from local north at the ellipse centre, 0–180. Empty for an ellipse whose long axis points straight up (no horizontal direction). |
 | `x, y, z` | m | Ellipse centre. |
 | `lat, lon, alt, body, latLonAltSource` | | Of the centre; see *Geographic columns*. |
 
-### Boulders: surface statistics inside the ellipse (second stage)
+Where the numbers come from: the ellipse is fitted on a plane through the clicked points (drawn ellipses) or taken from the catalog (SBMT imports), and stored with the annotation when it is created. Axes are measured on that plane, not along the draped outline; the azimuth uses the local up and north at the centre, and on a body without a geographic frame the reference system's own up and north. The values never change afterwards.
+
+- **Three-point ellipse** (*AxisEllipse*): the first two clicks are the ends of one axis, the third sets the other. Whichever turns out longer is `semiMajorAxis`, so the long axis is not necessarily the one clicked first.
+- **Four-point ellipse** (*Axis4PEllipse*): two half-ellipses on either side of the clicked axis, each with its own width. It is reported as the symmetric ellipse of the same extent: `semiMinorAxis` is half the full width across the clicked axis (the mean of the two half-widths), and the centre sits in the middle of that width, so it can lie off the clicked axis.
+- An ellipse saved before these values existed exports empty cells, and its row falls back to the outline's bounding-box centre.
+
+### Boulders: surface statistics inside the ellipse (planned)
 
 Added after the columns above, from `EllipseStatistics` (issue #644, PR D). Every statistic integrates the OPC's per-vertex layers over the mesh triangles inside the ellipse (clipped at the rim), weighted by surface area.
 
@@ -85,8 +93,6 @@ Added after the columns above, from `EllipseStatistics` (issue #644, PR D). Ever
 
 All empty for an ellipse off every surface. A layer with holes (no value at some vertices) is averaged only over the area where it has values.
 
-Where the numbers come from: the ellipse is fitted on a plane through the clicked points (drawn ellipses) or taken from the catalog (SBMT imports), and stored with the annotation when it is created. Axes are measured on that plane, not along the draped outline.
-
 ---
 
 ## Fractures
@@ -99,9 +105,9 @@ A segment is the stretch between two clicked points. A line with 4 clicked point
 | --- | --- | --- |
 | `key` | — | Annotation id (GUID); the same on every row of one line. |
 | `text` | — | Annotation label. |
-| `groupPath` | — | Group path, `/`-separated. |
 | `surfaceName` | — | Surface the line was drawn on. |
 | `wayLength` | m | Total draped length of the **whole line**, repeated on each of its rows. Equals the sum of its rows' `segmentLength`. |
+| `groupPath` | — | Group path, `/`-separated. |
 | `segmentIndex` | — | Segment number within the line, from 0, in drawing order. |
 | `startX, startY, startZ` | m | Segment start point. |
 | `startLat, startLon, startAlt` | | Segment start point, geographic; see *Geographic columns*. |

@@ -16,6 +16,7 @@ type AnnotationExportAction =
     | SetFormat              of ExportFormat
     | SetGranularity         of ExportGranularity
     | SetScope               of ExportScope
+    | SetTypeFilter          of ExportTypeFilter
     | SetCoordinates         of CoordinateMode
     | SetLongitude           of LongitudeConvention
     | ToggleSignedLongitude
@@ -53,6 +54,7 @@ type AnnotationExportModel = {
     format            : ExportFormat
     granularity       : ExportGranularity
     scope             : ExportScope
+    typeFilter        : ExportTypeFilter
     coordinates       : CoordinateMode
     longitude         : LongitudeConvention
     signedLongitude   : bool
@@ -78,6 +80,7 @@ module AnnotationExportModel =
         format            = s.format
         granularity       = s.granularity
         scope             = s.scope
+        typeFilter        = s.typeFilter
         coordinates       = s.coordinates
         longitude         = s.longitude
         signedLongitude   = s.signedLongitude
@@ -96,6 +99,7 @@ module AnnotationExportModel =
         format            = m.format
         granularity       = m.granularity
         scope             = m.scope
+        typeFilter        = m.typeFilter
         coordinates       = m.coordinates
         longitude         = m.longitude
         signedLongitude   = m.signedLongitude
