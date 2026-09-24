@@ -197,19 +197,6 @@ so each epoch sees a partly different face; the maximum, 9, is 3 epochs × 3 ins
 
 ![how many images see each vertex](./images/sample-layers-coverage.png)
 
-## Accuracy
-
-On the test set, whose sidecars hold the exact render cameras:
-
-| What | Result |
-|---|---|
-| every band lands in the right column | each ASPECT/HyperScout band, divided by the spectrum it was simulated with, agrees across all bands to 5·10⁻⁸ |
-| pixel values match the illumination geometry | correlation 0.88–0.97 with the Lommel-Seeliger term `cos i / (cos i + cos e)` from the output angles; the rest is simulated surface roughness and cast shadows |
-| instruments agree with each other | AFC and HyperScout at the same epoch, per point: correlation 0.92–0.99 |
-| points land on the body, not beside it | no well-lit point (incidence < 60°, emission < 70°) samples an empty (sky) pixel; zeros occur only near the limb |
-| image coordinates lead back to the point | 299 of 300 sampled rows fed to [`unproject`](./Pro3DTool-Unproject.md) return their vertex (median 0.6 mm, p99 4.5 cm); the 300th is seen exactly edge-on at the limb |
-| results are reproducible | two runs give byte-identical output |
-
 ## Test data
 
 `PRo3D.Resources.TestData/HERA/Dimorphos_opc/SampleLayers_2027-03-21/`: Dimorphos by all three
