@@ -41,6 +41,11 @@ def main():
     ap.add_argument("--crop", type=int, default=0,
                     help="centre-crop to this square before encoding; 0 (default) keeps "
                          "the full frame")
+    ap.add_argument("--scale", type=int, default=0,
+                    help="resize each frame to this square before encoding, after --crop. "
+                         "0 (default) keeps the rendered size. Downscaling an oversampled "
+                         "render is how you get a clean small video: 4080 -> 1020 averages "
+                         "16 render pixels per output pixel, which no 1020 render can match")
     a = ap.parse_args()
 
     from PIL import Image
@@ -53,8 +58,26 @@ def main():
         print("no frames in %s" % folder)
         return 2
 
+    # Crop and scale HERE rather than after the read. A 750-frame 4080 series is 12.5 GB
+    # held whole, and the only reason to hold a 4080 frame at all is to shrink it.
+    def load(name):
+        im = Image.open(os.path.join(folder, name)).convert("L")
+        if a.crop:
+            c = min(a.crop, im.height, im.width)
+            x0, y0 = (im.width - c) // 2, (im.height - c) // 2
+            im = im.crop((x0, y0, x0 + c, y0 + c))
+        if a.scale and (im.width, im.height) != (a.scale, a.scale):
+            # BOX is exact area averaging, which is what an integer reduction wants --
+            # 4080 -> 1020 is then a true 4x4 supersample rather than a resample with a
+            # kernel that rings. LANCZOS only where the ratio is not a whole number.
+            exact = im.width % a.scale == 0 and im.height % a.scale == 0
+            im = im.resize((a.scale, a.scale), Image.BOX if exact else Image.LANCZOS)
+        return np.asarray(im)
+
     print("reading %d frames ..." % len(files))
-    frames = [np.asarray(Image.open(os.path.join(folder, f)).convert("L")) for f in files]
+    frames = [load(f) for f in files]
+    if a.scale:
+        print("scaled to %dx%d" % frames[0].shape[::-1])
 
     # brightness over the body, which is what says whether a frame is in the umbra
     means = []
@@ -71,12 +94,6 @@ def main():
                 if not dark[i] or (i % a.dark_speedup) == 0]
         print("totality: %d of %d frames below %.0f %% of unshadowed, kept every %dth -> %d frames"
               % (int(dark.sum()), len(frames), 100 * a.dark_level, a.dark_speedup, len(keep)))
-
-    if a.crop:
-        h, w = frames[0].shape
-        c = min(a.crop, h, w)
-        y0, x0 = (h - c) // 2, (w - c) // 2
-        frames = [f[y0:y0 + c, x0:x0 + c] for f in frames]
 
     out = a.out or os.path.join(a.series, "%s.mp4" % a.variant)
     h, w = frames[0].shape
