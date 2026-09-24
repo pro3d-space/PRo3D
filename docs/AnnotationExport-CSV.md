@@ -35,7 +35,7 @@ Columns come in a fixed order: the annotation columns in the order of the window
 
 **Preset *Profile*** · one row per sampled point along each selected line · longitude: *Flipped* (default) · available now.
 
-A profile is the line followed across the surface point by point. Each segment (the stretch between two clicked points) is draped onto the terrain as sample points ~0.2 m apart on Dimorphos, and every sample is one row.
+A profile is the line followed across the surface point by point, one row per point. The points are not made by the export: they are the ones the line was **drawn** with. While drawing with *Sky* or *Viewpoint* projection, each segment (the stretch between two clicked points) is walked along its straight chord in steps of the **sampling distance** set in the drawing tools (amount and unit, default 1 m), and every step is cast onto the surface (*Sky*: straight down along the local up; *Viewpoint*: from the camera). The hits are stored with the annotation; steps that miss the surface are dropped. The export writes these stored points when *Include sampled segment points* is on (the *Profile* preset turns it on). A line drawn with *Linear* projection has no draped points, only its clicked ones. So the row spacing is the sampling distance chosen when the line was drawn, a little more where the terrain is steep; to get a denser profile, redraw the line with a smaller sampling distance.
 
 | Column | Unit | Meaning |
 | --- | --- | --- |
