@@ -80,6 +80,7 @@
     <Compile Include="Features\Section18_KeyboardShortcuts.fs" />
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
     <Compile Include="Features\Section20_BooleanOperations.fs" />
+    <Compile Include="Features\DoubleClickFinishTests.fs" />
     <Compile Include="Features\Section21_OutcropTraces.fs" />
     <Compile Include="Features\WindowLayoutTests.fs" />
     <Compile Include="Features\FootprintSceneFixture.fs" />

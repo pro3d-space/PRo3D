@@ -686,6 +686,43 @@ module ViewerApp =
             Log.warn "[Viewer] fly-to needs: %s" (String.concat "; " missing)
             None
 
+    /// Vertical raycast onto the active surfaces, so vertices a boolean op invents land on the
+    /// terrain - the same sky ray as AddPointAdv reprojection.
+    let private surfaceProjector (m : Model) : V3d -> Option<V3d> =
+        let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+        let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+        let onlyActive (_ : Guid) (l : Leaf) (_ : SgSurface) = l.active
+        let planet = m.scene.referenceSystem.planet
+
+        fun (p : V3d) ->
+            let up = CooTransformation.getUpVector p planet
+            let reprojectionDistance =
+                match planet with
+                | Planet.Mars -> 1000000.0
+                | _ -> 100.0
+            let ray = FastRay3d(p + (up * reprojectionDistance), -up)
+            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray onlyActive Picking.cache Config.diagnosticTimings with
+            | Some hitInfo, c -> Picking.cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
+            | None, c -> Picking.cache <- c; None
+
+    /// How far apart, in CSS pixels, the two clicks of a double-click may land. The OS only
+    /// reports a double-click within a few pixels (Windows: a 4x4 rectangle).
+    let doubleClickTolerancePx = 6.0
+
+    /// Whether two world points land on the same spot of the main view - the two clicks of a
+    /// double-click. Projected on the CPU in double precision. An unknown viewport size
+    /// never matches, so a real point is never dropped on a guess.
+    let coincideOnScreen (m : Model) (viewportPx : V2i) : V3d -> V3d -> bool =
+        if viewportPx.X < 2 || viewportPx.Y < 2 then
+            fun _ _ -> false
+        else
+            let frustum  = m.overlayFrustum |> Option.defaultValue m.frustum
+            let viewProj = CameraView.viewTrafo m.navigation.camera.view * Frustum.projTrafo frustum
+            let toPixel (p : V3d) =
+                let ndc = viewProj.Forward.TransformPosProj p
+                V2d(ndc.X * 0.5 * float viewportPx.X, ndc.Y * 0.5 * float viewportPx.Y)
+            fun a b -> Vec.distance (toPixel a) (toPixel b) <= doubleClickTolerancePx
+
     let updateViewer
         (runtime   : IRuntime)
         (signature : IFramebufferSignature)
@@ -825,6 +862,29 @@ module ViewerApp =
                 DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing (DrawingAction.GroupsMessage msg)
 
             { m with drawing = drawing } |> stash
+        | DoubleClickFinish viewportPx, _ ->
+            // Gated like a click: the tool must be armed (Ctrl, or not Ctrl in Direct Tool Mode),
+            // and the user can switch double-click off (Preferences, per computer). Everything
+            // else about the gesture - which geometries, the duplicate point - is DrawingApp's
+            // business.
+            let coincide = coincideOnScreen m viewportPx
+            let action =
+                match m.interaction with
+                | Interactions.DrawAnnotation -> Some (Drawing.FinishOnDoubleClick (Some coincide))
+                | Interactions.CutAnnotation  -> Some (Drawing.ApplyCutStrokeOnDoubleClick (Some coincide, Some (surfaceProjector m)))
+                | _ -> None
+            let enabled = not m.userPreferences.disableDoubleClickFinish
+            Log.line "[Drawing] double-click (viewport %A, interaction %A, armed %b, enabled %b)"
+                viewportPx m.interaction (toolArmed m) enabled
+            match action with
+            | Some action when enabled && toolArmed m ->
+                let view =
+                    match m.viewerMode with
+                    | ViewerMode.Standard -> m.navigation.camera.view
+                    | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing action
+                { m with drawing = drawing } |> stash
+            | _ -> m
         | ToggleDirectToolMode, _ ->
             // No draw/pick bookkeeping to do: `toolArmed` reads directToolMode directly at
             // every gate, so flipping it is the whole of the toggle.
@@ -869,29 +929,16 @@ module ViewerApp =
                 | None -> m
                 
             | Drawing.UnionSelectedAnnotations None
-            | Drawing.ApplyCutStroke None ->
+            | Drawing.ApplyCutStroke None
+            | Drawing.ApplyCutStrokeOnDoubleClick (_, None) ->
                 // enrich the payload-less message with the terrain raycast, so vertices the
-                // boolean op invents land on the surface - same sky ray as AddPointAdv
-                // reprojection
-                let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
-                let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
-                let onlyActive (_ : Guid) (l : Leaf) (_ : SgSurface) = l.active
-                let planet = m.scene.referenceSystem.planet
-
-                let projectToSurface (p : V3d) =
-                    let up = CooTransformation.getUpVector p planet
-                    let reprojectionDistance =
-                        match planet with
-                        | Planet.Mars -> 1000000.0
-                        | _ -> 100.0
-                    let ray = FastRay3d(p + (up * reprojectionDistance), -up)
-                    match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray onlyActive Picking.cache Config.diagnosticTimings with
-                    | Some hitInfo, c -> Picking.cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
-                    | None, c -> Picking.cache <- c; None
+                // boolean op invents land on the surface
+                let projectToSurface = surfaceProjector m
 
                 let enriched =
                     match msg with
                     | Drawing.ApplyCutStroke None -> Drawing.ApplyCutStroke (Some projectToSurface)
+                    | Drawing.ApplyCutStrokeOnDoubleClick (coincide, None) -> Drawing.ApplyCutStrokeOnDoubleClick (coincide, Some projectToSurface)
                     | _ -> Drawing.UnionSelectedAnnotations (Some projectToSurface)
 
                 let view =
@@ -2555,6 +2602,20 @@ module ViewerApp =
                 Aardvark.UI.Events.onKeyDown' (fun k ->
                     let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
                     [KeyDown k; DrawingMessage drawingAction]
+                )
+                // the size lets the update tell the double-click's two clicks apart on screen
+                onEvent "ondblclick" ["event.currentTarget.clientWidth"; "event.currentTarget.clientHeight"] (
+                    fun p ->
+                        // The browser sends the sizes as bare integers ("1600"); Pickler.json
+                        // rejects those, and a throwing callback drops the message silently.
+                        // An unreadable size is 0, which coincideOnScreen treats as unknown.
+                        let px (s : string) =
+                            match System.Int32.TryParse(s.Trim('"'), Globalization.NumberStyles.Integer, Globalization.CultureInfo.InvariantCulture) with
+                            | true, v -> v
+                            | _ -> 0
+                        match p with
+                        | w :: h :: _ -> DoubleClickFinish (V2i(px w, px h))
+                        | _ -> DoubleClickFinish V2i.Zero
                 )
                 onKeyUp   (KeyUp)        
                 clazz "mainrendercontrol"
