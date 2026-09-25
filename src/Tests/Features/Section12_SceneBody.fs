@@ -144,6 +144,39 @@ let tests =
             Expect.equal m.navigation.camera.view.Location bookmark.cameraView.Location "no camera source: the bookmark's camera stands"
         }
 
+        test "TC-12.5 the mission time slider re-aims the camera from the camera source, unless off" {
+            let kernel = IO.Path.Combine(HeraSpiceTests.mkDir, "hera_plan.tm")
+            if not (IO.File.Exists kernel) then
+                skiptest (sprintf "HERA planning kernel not found at %s" kernel)
+            HeraSpiceTests.ensureKernelAt [ kernel ]
+            let m, update = Head.make ()
+            let m = update m (Head.setPlanet Planet.Dimorphos)
+            let m = update m (ViewerAction.GisAppMessage (GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTarget (Some (EntitySpiceName "HERA")))))
+            let row =
+                m.scene.gisApp.missionTimesEntries
+                |> Option.bind (fun entries ->
+                    entries |> FSharp.Data.Adaptive.IndexList.toSeqIndexed |> Seq.tryFind (fun (_, e) -> e.name = "Didymos Orbital Insertion"))
+            match row with
+            | None -> failtest "no Didymos mission time entry"
+            | Some (idx, entry) ->
+                let slide v = ViewerAction.GisAppMessage (GisAppAction.SetTime (entry, idx, v))
+                let a = update m (slide 0.2)
+                let b = update a (slide 0.8)
+                Expect.isGreaterThan (Vec.distance a.navigation.camera.view.Location b.navigation.camera.view.Location) 1e-3
+                    "sliding the time moves the camera with the camera source body"
+                let expected = GisApp.lookAtObserver b.scene.gisApp |> Option.map (fun c -> c.Location)
+                Expect.equal (Some b.navigation.camera.view.Location) expected "the camera looks from HERA at Dimorphos"
+
+                let off = update b (ViewerAction.GisAppMessage GisAppAction.ToggleCameraFollowsSource)
+                let c = update off (slide 0.3)
+                Expect.notEqual c.scene.gisApp.defaultObservationInfo.time.date b.scene.gisApp.defaultObservationInfo.time.date "the time still moves"
+                Expect.equal c.navigation.camera.view.Location b.navigation.camera.view.Location "off: the camera stays"
+
+                let r = update c (ViewerAction.GisAppMessage (GisAppAction.ObservationInfoMessage ObservationInfoAction.Reset))
+                let expected = GisApp.lookAtObserver r.scene.gisApp |> Option.map (fun c -> c.Location)
+                Expect.equal (Some r.navigation.camera.view.Location) expected "Re-use settings above re-aims even when off"
+        }
+
         test "TC-12.5 a camera source equal to the observed body does not move the camera" {
             let m, update = Head.make ()
             let m = update m (Head.setPlanet Planet.Dimorphos)

@@ -72,6 +72,10 @@ current slider position.
 If the rows are missing and a **Load Data** button sits there instead, you have loaded a
 saved scene: scenes store no mission times, so the list starts empty. Click it once.
 
+With a camera source body set (e.g. HERA) the camera follows it while you drag, looking at
+the observed body; switch off **Settings → Camera follows camera source body** to keep your
+own camera instead (see [GisView.md](GisView.md#when-the-camera-moves)).
+
 Then drag the slider. For Dimorphos use *Didymos Orbital Insertion*, and drag **slowly**:
 the row spans four days and the body turns about every 11 h, so the whole slider is some
 nine full rotations.

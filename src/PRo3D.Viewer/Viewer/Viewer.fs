@@ -2360,8 +2360,7 @@ module ViewerApp =
                 | _ -> m, gisApp
 
             let m =
-                match msg with
-                | Gis.GisAppAction.ObservationInfoMessage msg ->
+                if Gis.GisApp.reaimsCamera gisApp msg then
                     match Gis.GisApp.lookAtObserver gisApp with
                     | Some newCamera -> 
                         //let p = 
@@ -2383,7 +2382,7 @@ module ViewerApp =
                         //let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = p }}}}
                         { m with navigation = { m.navigation with camera = { m.navigation.camera with view = newCamera } }}
                     | _ -> m
-                | _ -> m
+                else m
 
             let animations = 
                 match msg with
