@@ -864,18 +864,20 @@ module ViewerApp =
             { m with drawing = drawing } |> stash
         | DoubleClickFinish viewportPx, _ ->
             // Gated like a click: the tool must be armed (Ctrl, or not Ctrl in Direct Tool Mode),
-            // and the user can switch double-click off in the config. Everything else about the
-            // gesture - which geometries, the duplicate point - is DrawingApp's business.
+            // and the user can switch double-click off (Preferences, per computer). Everything
+            // else about the gesture - which geometries, the duplicate point - is DrawingApp's
+            // business.
             let coincide = coincideOnScreen m viewportPx
             let action =
                 match m.interaction with
                 | Interactions.DrawAnnotation -> Some (Drawing.FinishOnDoubleClick (Some coincide))
                 | Interactions.CutAnnotation  -> Some (Drawing.ApplyCutStrokeOnDoubleClick (Some coincide, Some (surfaceProjector m)))
                 | _ -> None
+            let enabled = not m.userPreferences.disableDoubleClickFinish
             Log.line "[Drawing] double-click (viewport %A, interaction %A, armed %b, enabled %b)"
-                viewportPx m.interaction (toolArmed m) m.scene.config.doubleClickFinishes
+                viewportPx m.interaction (toolArmed m) enabled
             match action with
-            | Some action when m.scene.config.doubleClickFinishes && toolArmed m ->
+            | Some action when enabled && toolArmed m ->
                 let view =
                     match m.viewerMode with
                     | ViewerMode.Standard -> m.navigation.camera.view

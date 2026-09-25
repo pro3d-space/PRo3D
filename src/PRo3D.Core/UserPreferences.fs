@@ -19,6 +19,10 @@ type UserPreferences = {
     mapInvertForward : bool
     /// MapView WASD: swap strafe (A <-> D).
     mapInvertStrafe  : bool
+    /// Double-click does NOT end a drawing / apply a cut (docs/DoubleClickFinish.md).
+    /// Negated on purpose: Newtonsoft fills a field missing from an older file with
+    /// `false`, and that has to mean "double-click on", the default.
+    disableDoubleClickFinish : bool
 }
 
 module UserPreferences =
@@ -26,6 +30,7 @@ module UserPreferences =
     let initial : UserPreferences = {
         mapInvertForward = false
         mapInvertStrafe  = false
+        disableDoubleClickFinish = false
     }
 
     let private fileName = "userPreferences.json"

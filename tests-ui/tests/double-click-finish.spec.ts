@@ -32,6 +32,11 @@ let context: BrowserContext;
 let render: Page;
 let main: Page;
 
+// The switch is a per-computer preference (%APPDATA%/Pro3D/userPreferences.json), so this
+// spec changes the real file: keep it as it was and put it back afterwards.
+const prefsFile = path.join(process.env.APPDATA ?? "", "Pro3D", "userPreferences.json");
+let prefsBackup: string | null = null;
+
 // ---------------------------------------------------------------------------------------------
 // helpers
 
@@ -194,6 +199,30 @@ async function setCheckbox(page: Page, label: string, on: boolean) {
         .toBe("ok");
 }
 
+/** sets the main menu's Preferences toggle labelled `label` to `on` (per computer) */
+async function setPreference(label: string, on: boolean) {
+    await expect
+        .poll(
+            () =>
+                main.evaluate(
+                    ({ label, on }) => {
+                        const item = Array.from(document.querySelectorAll("div.ui.item")).find(
+                            (e) => (e.textContent ?? "").trim() === label
+                        ) as HTMLElement | undefined;
+                        const box = item?.querySelector("i.square.outline.icon");
+                        if (!item || !box) return `no preference ${label}`;
+                        if (box.classList.contains("check") === on) return "ok";
+                        item.click();
+                        return "clicked";
+                    },
+                    { label, on }
+                ),
+            { timeout: 30_000 }
+        )
+        .toBe("ok");
+    await settle();
+}
+
 /** draws in the classic scheme: the tool is armed while Ctrl is held */
 async function withCtrl(f: () => Promise<void>) {
     const p = await at(0, 0);
@@ -227,6 +256,7 @@ const A = [-0.04, -0.03], B = [0.04, -0.03], C = [0.0, 0.04];
 test.beforeAll(async ({ browser }) => {
     test.skip(!fs.existsSync(fixture.sceneTemplate), "set PRO3D_TEST_DATA");
     fs.mkdirSync(artifacts, { recursive: true });
+    prefsBackup = fs.existsSync(prefsFile) ? fs.readFileSync(prefsFile, "utf-8") : null;
     // set up in the GIS view only, so loading gives the scene a body (Dimorphos): DnS
     // needs a reference body (docs/SceneBody.md)
     scene = deriveScene(
@@ -268,6 +298,8 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(async () => {
     await context?.close();
     await app?.stop();
+    if (prefsBackup !== null) fs.writeFileSync(prefsFile, prefsBackup);
+    else if (fs.existsSync(prefsFile)) fs.unlinkSync(prefsFile);
 });
 
 test("Enter still finishes a polyline (baseline: the picks hit the surface)", async () => {
@@ -424,12 +456,12 @@ test("double-click on the tool strip does not finish", async () => {
     expect(n[0].points.length, "Enter finishes what was drawn").toBe(2);
 });
 
-test("switched off in the config, double-click only places points", async () => {
-    const config = await context.newPage();
-    await config.goto(app.url + "?page=config");
-    await config.waitForLoadState("domcontentloaded");
-    await setCheckbox(config, "Double-click finishes:", false);
+test("switched off in Preferences, double-click only places points", async () => {
+    const label = "Double-click finishes annotation / cut";
+    await setPreference(label, false);
     try {
+        // per computer: written to userPreferences.json, not to the scene
+        expect(JSON.parse(fs.readFileSync(prefsFile, "utf-8")).disableDoubleClickFinish).toBe(true);
         await choose("Polyline");
         const before = await saved();
         await withCtrl(async () => {
@@ -442,9 +474,10 @@ test("switched off in the config, double-click only places points", async () => 
         const n = added(before, await saved());
         expect(n.length).toBe(1);
         expect(n[0].points.length, "a, b, c - the repeated ray adds nothing, and nothing finished early").toBe(3);
+        const sceneJson = JSON.parse(fs.readFileSync(scene, "utf-8"));
+        expect(JSON.stringify(sceneJson), "nothing about it in the scene").not.toContain("oubleClick");
     } finally {
-        await setCheckbox(config, "Double-click finishes:", true);
-        await config.close();
+        await setPreference(label, true);
     }
 });
 

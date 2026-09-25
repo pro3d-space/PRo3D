@@ -15,6 +15,9 @@ open PRo3D.Core
 open PRo3D.Core.Drawing
 open PRo3D.Tests
 
+/// UserPreferences as older releases define it - no double-click field
+type PreferencesBefore824 = { mapInvertForward : bool; mapInvertStrafe : bool }
+
 let private rsys = Draw.refSystemFlat
 let private run  = Draw.run rsys
 
@@ -156,6 +159,23 @@ let tests =
             let after = run m (DrawingAction.ApplyCutStrokeOnDoubleClick (Some sameSpot, Some Draw.identityHit))
             Expect.equal (Draw.annotations after |> List.length) 1 "the square is untouched"
             Expect.equal (after.cutStroke |> Option.map (fun s -> s.points.Count)) (Some 1) "the real stroke point stays"
+        }
+
+        // --- the preference (per computer, userPreferences.json) --------------------------------
+
+        test "a preferences file from before the switch reads as double-click on" {
+            let old = """{ "mapInvertForward": false, "mapInvertStrafe": true }"""
+            let prefs = Newtonsoft.Json.JsonConvert.DeserializeObject<PRo3D.UserPreferences>(old)
+            Expect.isFalse prefs.disableDoubleClickFinish "a missing field must mean on, the default"
+            Expect.isTrue prefs.mapInvertStrafe "the existing settings survive"
+        }
+
+        test "older releases still read a preferences file that has the switch" {
+            let json = Newtonsoft.Json.JsonConvert.SerializeObject { PRo3D.UserPreferences.initial with disableDoubleClickFinish = true; mapInvertForward = true }
+            let old = Newtonsoft.Json.JsonConvert.DeserializeObject<PreferencesBefore824>(json)
+            Expect.isTrue old.mapInvertForward "the fields an older release knows are read as before"
+            let back = Newtonsoft.Json.JsonConvert.DeserializeObject<PRo3D.UserPreferences>(json)
+            Expect.isTrue back.disableDoubleClickFinish "and the switch round-trips"
         }
 
         // --- the helpers on their own -------------------------------------------------------

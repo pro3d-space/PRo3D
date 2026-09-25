@@ -15,9 +15,13 @@ and it only acts in the main view.
 **Too few points:** a Polyline needs 2, a Polygon or Dip & Strike 3. A double-click
 before that just places its point and drawing continues.
 
-**Switch it off:** *Config → Double-click finishes*. Saved with the scene under the new
-key `doubleClickFinishes` (default on); older releases ignore the key. With it off, the
-hint line only offers ENTER.
+**Switch it off:** main menu → *Preferences* → *Drawing* → *Double-click finishes
+annotation / cut*. It is a per-computer preference, like the MapView WASD inverts:
+stored in `%APPDATA%/Pro3D/userPreferences.json` as `disableDoubleClickFinish`, never in
+a scene, so loading someone else's scene does not change it. The field is negated on
+purpose - Newtonsoft fills a field missing from an older file with `false`, which then
+reads as "on", the default; older releases ignore the extra field. With it off, the hint
+line only offers ENTER.
 
 ## How it works
 
@@ -31,7 +35,7 @@ next to the first. Finishing therefore drops that near-duplicate first:
    control's size in CSS pixels. The browser sends the sizes as bare integers; they are
    parsed with `Int32.TryParse`, because `Pickler.json` rejects them and an event
    callback that throws drops its message without a trace.
-2. `ViewerApp.updateViewer` checks the config toggle, `toolArmed` and the interaction,
+2. `ViewerApp.updateViewer` checks the preference, `toolArmed` and the interaction,
    then builds the "same spot" test `coincideOnScreen`: two world points coincide when
    they project within `doubleClickTolerancePx` (6 px) of each other in the main view.
    The projection runs on the CPU in double precision. An unknown size (< 2 px) never

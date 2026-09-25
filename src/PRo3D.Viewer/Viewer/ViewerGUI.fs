@@ -838,6 +838,13 @@ module Gui =
                                             (fun p -> p.mapInvertStrafe)
                                             (fun b p -> { p with mapInvertStrafe = b })
                                             m
+                                        div [clazz "header"; style "padding: 6px 10px; color: black; font-weight: bold"] [
+                                            text "Drawing"
+                                        ]
+                                        prefToggle "Double-click finishes annotation / cut"
+                                            (fun p -> not p.disableDoubleClickFinish)
+                                            (fun b p -> { p with disableDoubleClickFinish = not b })
+                                            m
                                     ]
                                 ]
                             ]
@@ -979,7 +986,7 @@ module Gui =
                 sprintf "%s+click" ctrl
 
         /// How the hint lines name the gesture that ends a drawing or applies a cut; double-click
-        /// can be switched off in the config (docs/DoubleClickFinish.md).
+        /// can be switched off under Preferences (docs/DoubleClickFinish.md).
         let private finishGesture (doubleClickFinishes : bool) =
             if doubleClickFinishes then "double-click or ENTER" else "ENTER"
 
@@ -1134,10 +1141,10 @@ module Gui =
                     Incremental.text (
                         adaptive {
                             let! directToolMode      = m.directToolMode
-                            let! doubleClickFinishes = m.scene.config.doubleClickFinishes
+                            let! prefs               = m.userPreferences
                             let! interaction         = m.interaction
                             let! vertexGrab          = m.drawing.vertexGrab
-                            return interactionTextWithState directToolMode doubleClickFinishes interaction (Option.isSome vertexGrab)
+                            return interactionTextWithState directToolMode (not prefs.disableDoubleClickFinish) interaction (Option.isSome vertexGrab)
                         })
                 ]
 

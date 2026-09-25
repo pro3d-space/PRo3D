@@ -32,7 +32,6 @@ module ConfigProperties =
 
         | ToggleShowPreviewIntersectionCursor
         | SetPreviewIntersectionCursorWorldSize of Numeric.Action
-        | ToggleDoubleClickFinishes
         
 
     let update (model : ViewConfigModel) (act : Action) =
@@ -67,7 +66,6 @@ module ConfigProperties =
 
         | ToggleShowPreviewIntersectionCursor -> { model with showPreviewIntersection = not model.showPreviewIntersection }
         | SetPreviewIntersectionCursorWorldSize a ->  { model with previewIntersectionWorldSize = Numeric.update model.previewIntersectionWorldSize a }
-        | ToggleDoubleClickFinishes -> { model with doubleClickFinishes = not model.doubleClickFinishes }
 
         | Nop -> model
         | _ -> 
@@ -100,9 +98,6 @@ module ConfigProperties =
                 let showPreviewIntersection = GuiEx.iconCheckBox model.showPreviewIntersection ToggleShowPreviewIntersectionCursor
                 Html.row "Show Preview Cursor: "       [UI.wrapToolTip DataPosition.Bottom "Shows 3D pointer at surface intersection point" showPreviewIntersection]
                 Html.row "Preview Cursor Size:"        [Numeric.view' [InputBox] model.previewIntersectionWorldSize  |> UI.map SetPreviewIntersectionCursorWorldSize ]   
-
-                let doubleClickFinishes = GuiEx.iconCheckBox model.doubleClickFinishes ToggleDoubleClickFinishes
-                Html.row "Double-click finishes: "     [UI.wrapToolTip DataPosition.Bottom "Double-click ends a polyline, polygon or dip & strike, and applies a cut - like Enter" doubleClickFinishes]
             ]
         )
 
