@@ -90,6 +90,9 @@ type ViewConfigModel = {
     // preview intersection (3D Cursor)
     showPreviewIntersection : bool
     previewIntersectionWorldSize : NumericInput
+
+    // double-click ends open-ended annotations and applies the cut stroke (docs/DoubleClickFinish.md)
+    doubleClickFinishes     : bool
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -190,6 +193,7 @@ module ViewConfigModel =
         showExplorationPointGui = true
         showLeafLabels = false
         showPreviewIntersection = true
+        doubleClickFinishes     = true
         previewIntersectionWorldSize = previewIntersectionWorldSize
     }
        
@@ -226,6 +230,7 @@ module ViewConfigModel =
                     showExplorationPointGui = true
                     showLeafLabels        = false
                     showPreviewIntersection = true
+                    doubleClickFinishes     = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
@@ -263,6 +268,7 @@ module ViewConfigModel =
                     showExplorationPointGui = true
                     showLeafLabels        = false
                     showPreviewIntersection = true
+                    doubleClickFinishes     = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
@@ -302,6 +308,7 @@ module ViewConfigModel =
                     showExplorationPointGui = true
                     showLeafLabels        = false
                     showPreviewIntersection = true
+                    doubleClickFinishes     = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
@@ -339,6 +346,7 @@ module ViewConfigModel =
                     showExplorationPointGui = true
                     showLeafLabels        = false
                     showPreviewIntersection = true
+                    doubleClickFinishes     = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
                 }
             }
@@ -362,6 +370,7 @@ module ViewConfigModel =
                 
                 let! previewIntersectionWorldSize'  = Json.tryRead "previewIntersectionWorldSize"
                 let! (showPreviewIntersection' : Option<bool>) = Json.tryRead "showPreviewIntersection"           
+                let! (doubleClickFinishes' : Option<bool>)     = Json.tryRead "doubleClickFinishes"
         
                 return {            
                     version                 = current
@@ -381,6 +390,7 @@ module ViewConfigModel =
                     showExplorationPointGui = if showExplorationPointGui.IsSome then showExplorationPointGui.Value else true
                     showLeafLabels          = false
                     showPreviewIntersection = Option.defaultValue true showPreviewIntersection'
+                    doubleClickFinishes     = Option.defaultValue true doubleClickFinishes'
                     previewIntersectionWorldSize = { previewIntersectionWorldSize with value = Option.defaultValue previewIntersectionWorldSize.value previewIntersectionWorldSize' }
                 }
             }
@@ -417,4 +427,5 @@ type ViewConfigModel with
             do! Json.write "showExplorationPointGui" x.showExplorationPointGui
             do! Json.write "previewIntersectionWorldSize" x.previewIntersectionWorldSize.value
             do! Json.write "showPreviewIntersection" x.showPreviewIntersection
+            do! Json.write "doubleClickFinishes" x.doubleClickFinishes
         }

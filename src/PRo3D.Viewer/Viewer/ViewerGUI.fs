@@ -978,14 +978,20 @@ module Gui =
                 let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
                 sprintf "%s+click" ctrl
 
-        let interactionText (directToolMode : bool) (i : Interactions) =
+        /// How the hint lines name the gesture that ends a drawing or applies a cut; double-click
+        /// can be switched off in the config (docs/DoubleClickFinish.md).
+        let private finishGesture (doubleClickFinishes : bool) =
+            if doubleClickFinishes then "double-click or ENTER" else "ENTER"
+
+        let interactionText (directToolMode : bool) (doubleClickFinishes : bool) (i : Interactions) =
             let click = clickGesture directToolMode
+            let finish = finishGesture doubleClickFinishes
             match i with
             | Interactions.PickExploreCenter     -> sprintf "%s to place arcball center" click
             | Interactions.PlaceCoordinateSystem -> sprintf "%s to place coordinate cross" click
-            | Interactions.DrawAnnotation        -> sprintf "%s to pick point on surface" click
+            | Interactions.DrawAnnotation        -> sprintf "%s to pick point on surface, %s to finish" click finish
             | Interactions.PickAnnotation        -> sprintf "%s on annotation to select" click
-            | Interactions.CutAnnotation         -> sprintf "%s to draw separating polyline" click
+            | Interactions.CutAnnotation         -> sprintf "%s to draw separating polyline, %s to cut" click finish
             | Interactions.PickSurface           -> sprintf "%s on surface to select" click
             | Interactions.PlaceRover            -> sprintf "%s to (1) place rover and (2) pick lookat" click
             | Interactions.TrafoControls         -> "not implemented"
@@ -1000,12 +1006,12 @@ module Gui =
         /// As interactionText, but also reflects whether a control point is currently in hand.
         /// Click-to-grab has no drag affordance to feel out, so the hint line is most of what makes
         /// the gesture discoverable.
-        let interactionTextWithState (directToolMode : bool) (i : Interactions) (grabbed : bool) =
+        let interactionTextWithState (directToolMode : bool) (doubleClickFinishes : bool) (i : Interactions) (grabbed : bool) =
             let click = clickGesture directToolMode
             match i with
             | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click
             | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it" click
-            | _ -> interactionText directToolMode i
+            | _ -> interactionText directToolMode doubleClickFinishes i
 
         let interactionTooltip (i : Interactions) : string =
             match i with 
@@ -1126,10 +1132,13 @@ module Gui =
             let hint =
                 div [clazz "item topmenu"; style "font-style:italic"] [
                     Incremental.text (
-                        AVal.map3 interactionTextWithState
-                            m.directToolMode
-                            m.interaction
-                            (m.drawing.vertexGrab |> AVal.map Option.isSome))
+                        adaptive {
+                            let! directToolMode      = m.directToolMode
+                            let! doubleClickFinishes = m.scene.config.doubleClickFinishes
+                            let! interaction         = m.interaction
+                            let! vertexGrab          = m.drawing.vertexGrab
+                            return interactionTextWithState directToolMode doubleClickFinishes interaction (Option.isSome vertexGrab)
+                        })
                 ]
 
             // The row itself is untinted. To wash it in a toned down version of the active

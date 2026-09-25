@@ -107,6 +107,14 @@ type DrawingAction =
 /// UnionSelectedAnnotations: keyboard/UI send None, the viewer re-dispatches with the surface
 /// raycast. A refused cut keeps the stroke so it can be corrected.
 | ApplyCutStroke         of Option<V3d -> Option<V3d>>
+/// Double-click ends an open-ended annotation (Polyline, Polygon, DnS) like Finish. The browser
+/// delivers click, click, dblclick, so the second click has already added a point on top of the
+/// first; the payload says whether two points coincide on screen and that point is dropped.
+/// The UI sends None, the viewer re-dispatches with the screen-space test (docs/DoubleClickFinish.md).
+| FinishOnDoubleClick    of Option<V3d -> V3d -> bool>
+/// ApplyCutStroke by double-click: drops the second click's coincident stroke point first.
+/// Enrichment as FinishOnDoubleClick plus ApplyCutStroke's surface raycast.
+| ApplyCutStrokeOnDoubleClick of Option<V3d -> V3d -> bool> * Option<V3d -> Option<V3d>>
 | DnsColorLegendMessage  of FalseColorLegendApp.Action
 | ColorByCategoryMessage of ColorByCategoryAction
 | ExportAsAnnotations    of string
