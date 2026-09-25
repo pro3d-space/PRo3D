@@ -161,18 +161,13 @@ module DrawingApp =
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
         | Projection.Viewpoint | Projection.Sky ->
-            let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList [firstP;lastP] }
-
-            if PRo3D.Config.useAsyncIntersections then
-                { a with segments = IndexList.add newSegment a.segments }
-            else
-                let dir = newSegment.endPoint - newSegment.startPoint
-                let points = [ 
-                        for s in 0 .. PRo3D.Config.sampleCount do
-                            yield newSegment.startPoint + dir * (float s / float PRo3D.Config.sampleCount) // world space
-                    ]
-                let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
-                { a with segments = IndexList.add newSegment a.segments }
+            let dir = lastP - firstP
+            let points = [
+                    for s in 0 .. PRo3D.Config.sampleCount do
+                        yield firstP + dir * (float s / float PRo3D.Config.sampleCount) // world space
+                ]
+            let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
+            { a with segments = IndexList.add newSegment a.segments }
         | _ -> 
             { a with points = a.points |> IndexList.add firstP }
     
@@ -264,43 +259,34 @@ module DrawingApp =
             | None -> 
                 model.annotations
         
-        { model with  working = None; pendingIntersections = ThreadPool.empty; annotations = groups }
-    
+        { model with  working = None; annotations = groups }
+
     //adds new point to working state, if certain conditions are met the annotation finishes itself
-    // returns current segment for async computations outside
     let addPoint up north planet (referenceSystem : Option<SpiceReferenceSystem>) (samplePoint : V3d -> Option<V3d>) (p : V3d) view model surfaceName bc bookmarkId =
       
-        let working, newSegment = 
+        let working =
             match model.working with
-            | Some w ->     
+            | Some w ->
                 let annotation = { w with points = w.points |> IndexList.add p }
                 Log.line "working contains %d points" annotation.points.Count
-                
+
                 // do not generate segments for ellipses as they are sampled when the ellipse is fully constructed (after having the ellipse we know its outline).
                 let allowSegmentGeneration = w.geometry <> Geometry.Ellipse && w.geometry <> Geometry.AxisEllipse && w.geometry <> Geometry.Axis4PEllipse
 
-                //fetch current drawing segment (projected, polyline or polygon)
-                let result = 
-                    match w.projection with
-                    | Projection.Viewpoint | Projection.Sky when allowSegmentGeneration ->
-                        match IndexList.tryAt (IndexList.count w.points-1) w.points with
-                        | None -> 
-                            annotation, None
-                        | Some a ->
-                            let segmentIndex = IndexList.count annotation.segments
-
-                            if PRo3D.Config.useAsyncIntersections then
-                                let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList [a;p] }
-                                { annotation with segments = IndexList.add newSegment annotation.segments }, Some (newSegment,segmentIndex)
-                            else
-                                let newSegment = resampleSegment model.samplingDistance samplePoint a p
-                                { annotation with segments = IndexList.add newSegment annotation.segments }, None
-                    | Projection.Linear ->
-                        annotation, None
-                    | Projection.Sky when ((w.geometry = Geometry.AxisEllipse) || (w.geometry = Geometry.Axis4PEllipse)) ->
-                        annotation, None
-                    | _ -> failwith "case does not exist"            
-                result 
+                //sample the current drawing segment (projected, polyline or polygon) onto the surface
+                match w.projection with
+                | Projection.Viewpoint | Projection.Sky when allowSegmentGeneration ->
+                    match IndexList.tryAt (IndexList.count w.points-1) w.points with
+                    | None ->
+                        annotation
+                    | Some a ->
+                        let newSegment = resampleSegment model.samplingDistance samplePoint a p
+                        { annotation with segments = IndexList.add newSegment annotation.segments }
+                | Projection.Linear ->
+                    annotation
+                | Projection.Sky when ((w.geometry = Geometry.AxisEllipse) || (w.geometry = Geometry.Axis4PEllipse)) ->
+                    annotation
+                | _ -> failwith "case does not exist"
             | None ->  //no working state, start new working annotation
                 // use the active group's default color for newly created annotations
                 let groupColor =
@@ -316,7 +302,7 @@ module DrawingApp =
                              // fillColor is left as make set it: the active group's default colour
                              showFill = model.fillNewAnnotations
                              fillAlpha = model.defaultFillAlpha
-                }, None
+                }
       
         //let text = 
         //      match model.geometry with
@@ -328,63 +314,18 @@ module DrawingApp =
         match (working.geometry, (working.points |> IndexList.count)) with
         | Geometry.Point, 1 -> 
             Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
-            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model
         | Geometry.TT, 2 | Geometry.Line, 2 -> 
-            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model
         | Geometry.Ellipse, 3 -> 
-            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model
         | Geometry.AxisEllipse, 3 -> 
-            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model
         | Geometry.Axis4PEllipse, 4 ->  
-            finishAndAppend up north planet referenceSystem (Some samplePoint) view model, None
+            finishAndAppend up north planet referenceSystem (Some samplePoint) view model
         | _ -> 
-            model, newSegment 
+            model
 
-    let addNewSegment samplePoint model (newSegment : Segment, segmentIndex : int) =
-        let dir = newSegment.endPoint - newSegment.startPoint
-        let id = Guid.NewGuid() |> string
-
-        let computation = 
-            proclist {
-                let mutable r = []
-                let result = MVar.empty()
-                let task = 
-                    async {
-                        do! Async.SwitchToNewThread()
-                        let r = 
-                            [ for s in 0 .. PRo3D.Config.sampleCount do
-                                let p = newSegment.startPoint + dir * (float s / float PRo3D.Config.sampleCount) // world space
-                                match samplePoint p with
-                                    | None -> ()
-                                    | Some projectedPoint -> // projected point in world space
-                                        r <- r @ [projectedPoint]
-                                        MVar.put result (Choice1Of2 r)
-                                        yield projectedPoint
-                            ]
-                        MVar.put result (Choice2Of2 ())
-                    } |> Async.Start
-                
-                let rec doIt () =
-                    proclist {
-                         let! r = Proc.Await (MVar.takeAsync result)
-                         match r with
-                            | Choice1Of2 r -> 
-                                printfn "mked it: %A" r
-                                let segment = { newSegment with points = IndexList.ofList r}
-                                yield SetSegment(segmentIndex,segment)
-                                yield! doIt()
-                            | Choice2Of2 _ -> ()
-                    }
-                
-                yield! doIt()
-            } 
-        
-        let pool = 
-            if model.pendingIntersections.store.ContainsKey id then 
-                ThreadPool.remove id model.pendingIntersections
-            else 
-                model.pendingIntersections
-        { model with pendingIntersections = ThreadPool.add id computation pool }
         
     let pickler = MBrace.FsPickler.Json.JsonSerializer(indent=true)
 
@@ -566,11 +507,7 @@ module DrawingApp =
                 let groupPath  = model.annotations.activeGroup.path
                 let flatBefore = model.annotations.flat
 
-                let model', newSegment = addPoint up north planet referenceFrame projectSurface point view model name webSocket bookmarkId
-                let model' =
-                    match newSegment with
-                    | None         -> model'
-                    | Some segment -> addNewSegment projectSurface model' segment
+                let model' = addPoint up north planet referenceFrame projectSurface point view model name webSocket bookmarkId
 
                 // For geometries that auto-finish after N points (Line, Point, Ellipse, …),
                 // addPoint calls finishAndAppend internally. Detect that by checking whether
@@ -593,11 +530,6 @@ module DrawingApp =
                                                     segments = w.segments |> IndexList.removeAt (w.segments.Count - 1)}}
                 | Some _ -> { model with working = None }
                 | None -> model
-            | SetSegment(segmentIndex,segment) ->
-                match model.working with
-                | None -> model
-                | Some w ->                         
-                    { model with working = Some { w with segments = IndexList.setAt segmentIndex segment w.segments } }
             | Finish -> 
                 finish bigConfig smallConfig model view
             | Exit -> 
@@ -1007,8 +939,6 @@ module DrawingApp =
         | false -> 
             newModel
                                     
-    let threads (m : DrawingModel) = m.pendingIntersections
-    
     let tryToAnnotation : AdaptiveLeafCase -> Option<AdaptiveAnnotation> = 
         function
         | AdaptiveAnnotations ann -> Some ann
