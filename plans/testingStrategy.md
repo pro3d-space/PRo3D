@@ -80,8 +80,9 @@ List.fold update seed messages
 
 Everything else in this document is about the two things that spoil that simplicity.
 
-**Spoiler 1 — `threads`.** Messages can arrive later, asynchronously. PRo3D uses this for
-surface-sampling (`pendingIntersections : ThreadPool<DrawingAction>`). A recording must capture
+**Spoiler 1 — `threads`.** Messages can arrive later, asynchronously (animations, camera
+controllers, snapshot and feedback workers, background preview picking). Drawing does not: its
+segments are sampled onto the surface synchronously, inside the pick. A recording must capture
 thread-produced messages too, otherwise replay diverges. Recording at the `update` funnel gets
 this for free, since those messages also pass through `update`.
 
@@ -230,9 +231,6 @@ Reserve full-viewer replay for cases that genuinely need it.
   any golden comparison fails immediately. Either inject an id source or normalise ids before
   comparison. This is the single most likely thing to sink a naive implementation.
 - **`DateTime.Now`** in bookmarks / sequenced bookmarks.
-- **Async intersections** (`PRo3D.Config.useAsyncIntersections`) — nondeterministic message
-  ordering. Force the synchronous path in tests; the existing harness sidesteps it by supplying
-  picked points directly.
 - **Process-global SPICE kernel state** — already documented in `src/Tests/Program.fs`, and it
   is why the geographic-chart test self-skips in the full suite but passes standalone.
 

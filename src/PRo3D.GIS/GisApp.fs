@@ -285,8 +285,8 @@ module GisApp =
         | GisAppAction.SetSpiceKernel path ->
             let m = loadSpiceKernel false path m
             viewer, m
-        | GisAppAction.ToggleCameraInObserver ->
-            viewer, {m with cameraInObserver = not m.cameraInObserver}
+        | GisAppAction.ToggleCameraFollowsSource ->
+            viewer, {m with cameraFollowsSource = not m.cameraFollowsSource}
         | GisAppAction.ToggleDrawMarkers -> 
             viewer, {m with showMarkers = not m.showMarkers }
         | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.FlyToImage imageId) ->
@@ -858,8 +858,8 @@ module GisApp =
                         Html.row "Path to Spice Kernel" 
                                  [kernelPathTextBox;kernelStatusIcon]
                         Html.row "Show Markers" [GuiEx.iconCheckBox m.showMarkers ToggleDrawMarkers]
-                        Html.row "Animation Camera in Observer"
-                                 [GuiEx.iconCheckBox m.cameraInObserver ToggleCameraInObserver]
+                        Html.row "Camera follows camera source body"
+                                 [GuiEx.iconCheckBox m.cameraFollowsSource ToggleCameraFollowsSource]
                     ]
                 )
             ]
@@ -1212,6 +1212,25 @@ module GisApp =
     let lookAtObserver (m : GisApp) =
         lookAtObserver' m.defaultObservationInfo
 
+    /// Whether `msg`, applied to give `m`, re-aims the camera from the camera source body
+    /// (lookAtObserver). Choosing bodies or frame and "Re-use settings above" always do;
+    /// a time change - calendar or mission time table - only while cameraFollowsSource is
+    /// on. Fly-to and Load Spice and Time move the time too but frame the camera themselves.
+    let reaimsCamera (m : GisApp) (msg : GisAppAction) =
+        match msg with
+        | GisAppAction.ObservationInfoMessage (ObservationInfoAction.Reset
+                                              | ObservationInfoAction.SetTarget _
+                                              | ObservationInfoAction.SetObserver _
+                                              | ObservationInfoAction.SetReferenceFrame _) ->
+            true
+        | GisAppAction.ObservationInfoMessage (ObservationInfoAction.CalendarMessage _
+                                              | ObservationInfoAction.SetTime _)
+        | GisAppAction.SetTime _
+        | GisAppAction.SetMissionTimesRowAndSetDate _ ->
+            m.cameraFollowsSource
+        | _ ->
+            false
+
     let viewGisEntities (cam : aval<Camera>) (m : AdaptiveGisApp) =
         let observer = m.defaultObservationInfo.observer 
         let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
@@ -1260,7 +1279,7 @@ module GisApp =
                 defaultObservationInfo  = ObservationInfo.initial
                 spiceKernel             = spiceKernel |> Option.map CooTransformation.SPICEKernel.ofPath  
                 spiceKernelLoadSuccess  = true
-                cameraInObserver        = false
+                cameraFollowsSource     = true
                 projectedImageList      = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
                 showMarkers             = false
                 selectedMissionTimeRow  = None

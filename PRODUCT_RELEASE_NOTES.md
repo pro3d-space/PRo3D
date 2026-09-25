@@ -1,3 +1,11 @@
+## 6.3.5
+The GIS camera follows its camera source body through mission time.
+
+- GIS: **the Mission Time slider and row click now move the camera** from the camera source body (e.g. HERA) to the observed body, like the Time field already did; before, only the time, the sun and the bodies moved. A new setting, *GIS → Settings → Camera follows camera source body* (on by default, saved with the scene), switches this off to scrub time under your own camera. Choosing bodies or frame and *Re-use settings above* always re-aim; *Fly to* an image and *Load Spice and Time* keep their own camera (#826, docs/GisView.md)
+- GIS: nothing moves when the kernel has no data for the camera source at that time (the log says `[SPICE] failed to transform body`), e.g. HERA at the default 2025 time, or a camera source that is fixed in the observed body's frame, such as Didymos seen in `DIMORPHOS_FIXED`
+- Snapshots: bookmark replay re-aims at each bookmark's time whatever that setting says
+- Scenes saved with 6.3.5 still open in earlier versions: the setting is stored under a new key they skip
+
 ## 6.3.4
 Boulders and fractures as tables: ellipse axes and orientation, the surface inside each ellipse, and one row per fracture segment.
 

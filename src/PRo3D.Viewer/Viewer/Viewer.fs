@@ -2360,8 +2360,7 @@ module ViewerApp =
                 | _ -> m, gisApp
 
             let m =
-                match msg with
-                | Gis.GisAppAction.ObservationInfoMessage msg ->
+                if Gis.GisApp.reaimsCamera gisApp msg then
                     match Gis.GisApp.lookAtObserver gisApp with
                     | Some newCamera -> 
                         //let p = 
@@ -2383,7 +2382,7 @@ module ViewerApp =
                         //let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = p }}}}
                         { m with navigation = { m.navigation with camera = { m.navigation.camera with view = newCamera } }}
                     | _ -> m
-                | _ -> m
+                else m
 
             let animations = 
                 match msg with
@@ -3016,9 +3015,6 @@ module ViewerApp =
     let threadPool (m: Model) =
         let unionMany xs = List.fold ThreadPool.union ThreadPool.empty xs
 
-        let drawing =
-            DrawingApp.threads m.drawing |> ThreadPool.map DrawingMessage
-       
         let animation = 
             AnimationApp.ThreadPool.threads m.animations |> ThreadPool.map AnimationMessage
 
@@ -3039,7 +3035,7 @@ module ViewerApp =
 
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; sBookmarks; m.backgroundPicking]
+        unionMany [animation; nav; m.scene.feedbackThreads; sBookmarks; m.backgroundPicking]
             |> ThreadPool.map ViewerMessage
             |> ThreadPool.union (
                 Animation.Animator.threads m.animator 

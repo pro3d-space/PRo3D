@@ -115,6 +115,52 @@ let tests =
             Expect.isFalse restoredOld.projectedImageList.windingCorrection "old scenes: off"
         }
 
+        test "TC-12.3 camera follows camera source survives save/load and defaults to on" {
+            let m = GisApp.initial None
+            Expect.isTrue m.cameraFollowsSource "a new scene follows"
+            let off = { m with cameraFollowsSource = false }
+            let serialized = off |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            let restored : GisApp = serialized |> Json.parse |> Json.deserialize
+            Expect.isFalse restored.cameraFollowsSource "off survives save/load"
+
+            // a scene from before the field existed loads with it on
+            // the keys are written sorted, so this one comes first: take its trailing comma
+            let old = Text.RegularExpressions.Regex.Replace(serialized, "\"cameraFollowsSource\"\\s*:\\s*(true|false)\\s*,?", "")
+            Expect.isFalse (old.Contains "cameraFollowsSource") "the field is gone from the old scene"
+            let restoredOld : GisApp = old |> Json.parse |> Json.deserialize
+            Expect.isTrue restoredOld.cameraFollowsSource "old scenes: on"
+        }
+
+        test "TC-12.2 which messages re-aim the camera from the camera source body" {
+            let on = GisApp.initial None
+            let off = { on with cameraFollowsSource = false }
+            let entry = GisApp.getMissionTimeEntriesData () |> List.tryHead
+            match entry with
+            | None -> failtest "no mission time entries"
+            | Some entry ->
+                let timeChanges = [
+                    GisAppAction.SetTime (entry, FSharp.Data.Adaptive.Index.zero, 0.5)
+                    GisAppAction.SetMissionTimesRowAndSetDate (entry, FSharp.Data.Adaptive.Index.zero)
+                    GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime DateTime.UtcNow)
+                ]
+                for msg in timeChanges do
+                    Expect.isTrue  (GisApp.reaimsCamera on msg)  (sprintf "%A follows while on" msg)
+                    Expect.isFalse (GisApp.reaimsCamera off msg) (sprintf "%A leaves the camera while off" msg)
+                let settings = [
+                    ObservationInfoAction.Reset
+                    ObservationInfoAction.SetTarget (Some (EntitySpiceName "HERA"))
+                    ObservationInfoAction.SetObserver (Some (EntitySpiceName "DIMORPHOS"))
+                    ObservationInfoAction.SetReferenceFrame (Some (FrameSpiceName "DIMORPHOS_FIXED"))
+                ]
+                for msg in settings do
+                    Expect.isTrue (GisApp.reaimsCamera off (GisAppAction.ObservationInfoMessage msg)) (sprintf "%A always re-aims" msg)
+                // fly-to moves the time too, but frames the image itself
+                let flyTo = GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage (Guid.NewGuid()))
+                Expect.isFalse (GisApp.reaimsCamera on flyTo) "fly-to keeps its own camera"
+                let loadSpiceAndTime = GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.LoadSpiceAndTime "x")
+                Expect.isFalse (GisApp.reaimsCamera on loadSpiceAndTime) "Load Spice and Time keeps the camera"
+        }
+
         // TC-12.4 Scene body (#758) — the global planet and the GIS observation are one
         // setting. A body PRo3D knows, observed in its own fixed frame, is what lets the
         // planet-based features (MapView, lat/lon, up/north) read world coordinates.
