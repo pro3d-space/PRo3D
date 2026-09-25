@@ -79,7 +79,6 @@ type DrawingAction =
 | Clear
 | LegacySaveVersioned
 | LegacyLoadVersioned
-| SetSegment             of int * Segment
 // vertex editing (Interactions.EditAnnotation)
 | GrabVertex             of Guid * int
 | MoveVertex             of Guid * int * V3d * (V3d -> Option<V3d>)
@@ -164,8 +163,6 @@ type DrawingModel = {
     annotations: GroupsModel 
     exportPath : Option<string>
 
-    pendingIntersections : ThreadPool<DrawingAction>    
-
     [<TreatAsValue>]
     undoStack : list<AnnotationsDelta>
 
@@ -229,8 +226,6 @@ module DrawingModel =
 
         exportPath  = Some @"."
         
-        pendingIntersections = ThreadPool.empty
-
         undoStack = []
         redoStack = []
         
