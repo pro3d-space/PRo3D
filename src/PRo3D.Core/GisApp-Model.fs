@@ -131,7 +131,9 @@ type GisApp =
         gisSurfaces            : HashMap<SurfaceId, GisSurface>
         spiceKernel            : Option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
-        cameraInObserver       : bool
+        /// Time changes (calendar, mission time table) re-aim the camera from the camera
+        /// source body. Off: only the time moves; the view stays where the user put it.
+        cameraFollowsSource    : bool
         projectedImageList     : ProjectedImageListModel
         showMarkers            : bool // whether line + text markers are displayed (for known planets)
 
@@ -162,7 +164,8 @@ module GisAppJson =
                 | None -> List.empty
             let! (spiceKernel : option<string>) = Json.tryRead "spiceKernel"
 
-            let! cameraInObserver = Json.tryRead "cameraInObserver"
+            // additive, default on; the unused "cameraInObserver" before it was never written
+            let! cameraFollowsSource = Json.tryRead "cameraFollowsSource"
 
             let! showMarkers = Json.tryRead "showMarkers"
 
@@ -183,7 +186,7 @@ module GisAppJson =
                 newFrame               = None
                 gisSurfaces            = HashMap.ofList gisSurfaces
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
-                cameraInObserver       = Option.defaultValue false cameraInObserver
+                cameraFollowsSource    = Option.defaultValue true cameraFollowsSource
                 spiceKernelLoadSuccess = false
                 projectedImageList        =
                     { ProjectedImageListModel.initial with
@@ -206,6 +209,7 @@ type GisApp with
             do! Json.write "gisSurfaces"             (x.gisSurfaces |> HashMap.toList |> List.map snd)
             do! Json.write "spiceKernel"             (Option.map CooTransformation.SPICEKernel.toPath x.spiceKernel)
             do! Json.write "showMarkers"             x.showMarkers
+            do! Json.write "cameraFollowsSource"     x.cameraFollowsSource
             // The sun/lighting mode must survive save/load: PRo3D.Snapshots.exe restores
             // the scene through this codec, so an unserialized mode would silently reset
             // to Off in every batch render.
@@ -260,7 +264,7 @@ type GisAppAction =
     | EntityMessage             of (EntitySpiceName * EntityAction)
     | FrameMessage              of (FrameSpiceName * ReferenceFrameAction)
     | SetSpiceKernel            of string
-    | ToggleCameraInObserver    
+    | ToggleCameraFollowsSource
     | NewEntity
     | NewFrame
     | ProjectedImageListMessage of ProjectedImageListMessage
