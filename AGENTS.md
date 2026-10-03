@@ -82,7 +82,6 @@ src/
 ├── PRo3D.Snapshots/       # Headless batch rendering tool (camera/animation snapshots)
 ├── PRo3D.Composition/     # Host glue: navigation, picking, pick routing, surface loading, toolbars,
 │                          #   process init - written against Core sub-models (no model types)
-├── PRo3D.Lite/            # Lightweight orbit-camera viewer variant
 ├── PRo3D.GIS/             # Geospatial tooling (image projection, SPICE-backed entities/frames)
 ├── PRo3D.MapProjection/   # Equirectangular / polar map panel for small bodies; also a standalone exe
 ├── PRo3D.CorrelationPanels/ # Geologic correlation visualization
