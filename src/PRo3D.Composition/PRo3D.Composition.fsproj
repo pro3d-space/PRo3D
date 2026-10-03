@@ -29,6 +29,18 @@
     <Compile Include="Navigation.fs" />
     <Compile Include="NavigationGizmo.fs" />
     <Compile Include="ViewconfigApp.fs" />
+    <Compile Include="HostConfigs.fs" />
+    <Compile Include="ProcessInit.fs" />
+    <Compile Include="SurfaceLoading.fs" />
+    <Compile Include="AnnotationFiles.fs" />
+    <Compile Include="SurfacePicking.fs" />
+    <Compile Include="PickRouting.fs" />
+    <Compile Include="ReferenceSystemSync.fs" />
+    <Compile Include="NavigationView.fs" />
+    <Compile Include="SurfaceShaders.fs" />
+    <Compile Include="SurfaceView.fs" />
+    <Compile Include="Toolbars.fs" />
+    <Compile Include="CameraOverlay.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

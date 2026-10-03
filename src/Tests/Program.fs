@@ -63,6 +63,8 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         AnnotationRegionOpsTests.tests()
         AdaptiveNestingTests.tests()
         VertexEditingTests.tests()
+        // host glue shared by the Viewer and PRo3D.Lite
+        PRo3D.Tests.CompositionTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
@@ -258,7 +260,7 @@ let main args =
             let ins = e.Inputs |> Map.toList |> List.map fst |> List.sort
             printfn "[inputs] %-34s %s" name (String.concat ", " ins)
             printfn "[inputs] %-34s LocalNormal present: %b" "" (ins |> List.contains "LocalNormal")
-        let trafo = FShade.Effect.ofFunction PRo3D.ViewerUtils.Shader.stableTrafo
+        let trafo = FShade.Effect.ofFunction PRo3D.Shader.stableTrafo
         let sun   = FShade.Effect.ofFunction PRo3D.SPICE.Shaders.solarShadingLS
         let gen   = FShade.Effect.ofFunction PRo3D.Core.ImageProjection.Shaders.generateNormal
         let noFN  = FShade.Effect.ofFunction PRo3D.Core.ImageProjection.Shaders.noFaceNormal

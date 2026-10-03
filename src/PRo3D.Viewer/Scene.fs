@@ -72,74 +72,21 @@ module SceneLoader =
     let expandRelativePaths (m:Scene) =               
         match m.scenePath with
         | Some p ->         
-            let p' = Path.Combine((Path.GetDirectoryName p), "Surfaces")
-            let flat' = 
-                (m.surfacesModel.surfaces.flat |> Leaf.toSurfaces)
-                |> HashMap.map(fun _ x ->                            
-                    if x.relativePaths then
-                        let p'' = Path.Combine(p', x.name)
-                        { x with opcPaths = Files.expandNamesToPaths p'' x.opcNames }
-                    else x
-                )
-                |> HashMap.map(fun _ x -> Leaf.Surfaces x)
-            
-            let sm = { m.surfacesModel.surfaces with flat = flat' }                
+            let surfacesModel = PRo3D.Composition.SurfaceLoading.expandRelativePaths p m.surfacesModel
             let sequencedBookmarks = 
                 let basePath = PRo3D.Core.BookmarkUtils.basePathFromScenePath p
                 BookmarkUtils.updatePaths basePath m.sequencedBookmarks
-            { m with surfacesModel      = { m.surfacesModel with surfaces = sm }
+            { m with surfacesModel      = surfacesModel
                      sequencedBookmarks = sequencedBookmarks
             }
         | None -> m        
 
-    let private readLine (filePath:string) =
-      use sr = new System.IO.StreamReader (filePath)
-      sr.ReadLine ()       
+    // Surface import lives in PRo3D.Composition.SurfaceLoading (shared with PRo3D.Lite).
+    let addLegacyTrafos surfaces = PRo3D.Composition.SurfaceLoading.addLegacyTrafos surfaces
 
-    let addLegacyTrafos surfaces = 
-        surfaces 
-        |> IndexList.map(fun s -> s,Path.ChangeExtension(s.importPath, ".trafo"))
-        |> IndexList.map(fun(s,p) ->                     
-           match (Serialization.fileExists p) with
-           | Some path->
-               let t = readLine path
-               Log.line "[TRAFO] Importing trafo: %s" (t.ToString ())
-               { s with preTransform = Trafo3d.Parse(t) }
-           | None -> s
-        )
+    let getOPCxPath (surfacePath : string) = PRo3D.Composition.SurfaceLoading.getOPCxPath surfacePath
 
-    let getOPCxPath (surfacePath : string) = 
-        let name = Path.GetFileName surfacePath
-        Path.ChangeExtension(Path.Combine(surfacePath, name), ".opcx")
-
-    let addSurfaceAttributes surfaces = 
-        surfaces 
-        |> IndexList.map(fun s -> s, s.importPath |> getOPCxPath)
-        |> IndexList.map(fun(s,p) -> 
-           let loadOpcX (path : string) =
-               let layers = SurfaceUtils.SurfaceAttributes.read path
-               let textures = layers |> SurfaceProperties.getTextures
-
-               // *.opc.json sidecar: DEM reference model and, for OPCs derived from a
-               // SPICE DSK, the DSKBRIEF summary of the source *.bds shape model.
-               // Not persisted into the scene - logged so the provenance is visible.
-               OpcMetadata.tryReadForOpcx path
-               |> Option.iter (OpcMetadata.log s.name)
-
-               { s with
-                   scalarLayers  = layers |> SurfaceProperties.getScalarsHmap //SurfaceProperties.getScalars
-                   textureLayers = textures
-                   primaryTexture = textures |> IndexList.tryFirst
-                   opcxPath = Some path
-               }
-           match Serialization.fileExists p with
-           | Some path->        
-               loadOpcX path
-           | None ->
-               match Directory.EnumerateFiles(s.importPath, "*.opcx") |> Seq.toList with
-               | [singleOpcX] -> loadOpcX singleOpcX
-               | _ -> s
-        )
+    let addSurfaceAttributes surfaces = PRo3D.Composition.SurfaceLoading.addSurfaceAttributes surfaces
 
     let addGeologicSurfaces (m:Model) = 
         m.scene.geologicSurfacesModel.geologicSurfaces
@@ -154,47 +101,9 @@ module SceneLoader =
 
     /// appends surfaces to existing surfaces
     let import' (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (model : Model) =
-            
-        //handle semantic surfaces
-        let surfaces = 
-            surfaces 
-            |> addLegacyTrafos
-            |> addSurfaceAttributes
-            |> IndexList.map( fun x -> { x with colorCorrection = Init.initColorCorrection}) 
-            |> IndexList.map( fun x -> { x with radiometry = Init.initRadiometry})
-              
-        let existingSurfaces = 
-            model.scene.surfacesModel.surfaces.flat
-            |> Leaf.toSurfaces
-            |> HashMap.toList 
-            |> List.map snd 
-            |> IndexList.ofList
-
-        let sChildren = 
-            surfaces 
-            |> IndexList.map Leaf.Surfaces
-
-        let m = 
-            model.scene.surfacesModel.surfaces
-            |> GroupsApp.addLeaves model.scene.surfacesModel.surfaces.activeGroup.path sChildren 
-            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.surfaces_)) model
-        
-        let surfaceMap = 
-            (m.scene.surfacesModel.surfaces.flat |> Leaf.toSurfaces)
-
-        let allSurfaces = existingSurfaces |> IndexList.append surfaces //????
-        //handle sg surfaces
-        let m = 
-            allSurfaces
-            |> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOPC)
-            |> Sg.createSgSurfaces runtime signature
-            |> HashMap.union m.scene.surfacesModel.sgSurfaces
-            |> Files.expandLazyKdTreePaths m.scene.scenePath surfaceMap
-            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m                                               
-         
-        m.scene.surfacesModel 
-        |> SurfaceModel.triggerSgGrouping 
-        |> (flip <| Optic.set _surfaceModelLens) m
+        model.scene.surfacesModel
+        |> PRo3D.Composition.SurfaceLoading.importSurfaces runtime signature model.scene.scenePath surfaces
+        |> (flip <| Optic.set _surfaceModelLens) model
 
     let importObj (loaderType : MeshLoaderType) (surfaces : IndexList<Surface>) (m : Model) =
       
@@ -247,35 +156,7 @@ module SceneLoader =
         (signature : IFramebufferSignature) 
         (scenePath : option<string>) 
         (model     : SurfaceModel) : SurfaceModel =
-
-        let surfaces = model.surfaces.flat |> Leaf.toSurfaces 
-
-        let surfacesList =
-            surfaces
-            |> HashMap.toList 
-            |> List.map snd 
-            |> IndexList.ofList
-
-        let opcSurfs = 
-            surfacesList 
-            |> IndexList.filter ( fun x -> x.surfaceType = SurfaceType.SurfaceOPC)
-
-        let sgSurfaces = 
-            Sg.createSgSurfaces runtime signature opcSurfs |> Files.expandLazyKdTreePaths scenePath surfaces        
-
-        // TODO hs: should how to handle multiple loaders here?
-        let objSurfs = 
-            surfacesList 
-            |> IndexList.filter ( fun x -> x.surfaceType = SurfaceType.Mesh)
-
-        let sgSurfaceObj = 
-            SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront objSurfs //|> Files.expandLazyKdTreePaths scenePath surfaces      
-            
-        let sgs = sgSurfaces |> HashMap.union sgSurfaceObj
-
-        model           
-        |> SurfaceModel.withSgSurfaces sgs
-        |> SurfaceModel.triggerSgGrouping    
+        PRo3D.Composition.SurfaceLoading.prepareSurfaceModel runtime signature scenePath model
 
     let addScaleBarSegments (m:Model) = 
         m.scene.scaleBars.scaleBars

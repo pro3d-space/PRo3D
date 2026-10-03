@@ -188,16 +188,9 @@ let main argv =
         Log.line "render control config: %A" (Config.data_samples, Config.backgroundColor, Config.useMapping)
     
 
-        Aardvark.Rendering.GL.RuntimeConfig.SuppressSparseBuffers <- true
-        //app.ShaderCachePath <- None
-
-        PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- true
-        Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some
-
-        Serialization.init()
-    
-        Serialization.registry.RegisterFactory (fun _ -> KdTrees.level0KdTreePickler)
-        Serialization.registry.RegisterFactory (fun _ -> Init.incorePickler)
+        // sparse buffers off, packed annotation rendering, OPC load runner (shared with PRo3D.Lite)
+        PRo3D.Composition.ProcessInit.initRuntime runtime true
+        PRo3D.Composition.ProcessInit.initSerialization ()
     
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
         let titlestr = 

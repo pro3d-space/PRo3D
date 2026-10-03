@@ -334,10 +334,10 @@ module Navigation =
             amap {
                 let! state = model.navigationMode 
                 match state with
-                | NavigationMode.FreeFly -> yield! FreeFlyController.extractAttributes model.camera FreeFlyAction
                 | NavigationMode.ArcBall -> yield! ArcBallController.extractAttributes model.camera ArcBallAction
                 | NavigationMode.MapView -> yield! MapViewController.extractAttributes model.camera MapViewControllerAction
-                | _ -> failwith "Invalid NavigationMode"
+                // FreeFly, and any unknown (persisted) mode value
+                | _ -> yield! FreeFlyController.extractAttributes model.camera FreeFlyAction
             } |> AttributeMap.ofAMap
 
         let geometryTooltip (nMode : NavigationMode) : string =

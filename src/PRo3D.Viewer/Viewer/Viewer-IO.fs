@@ -64,7 +64,7 @@ module ViewerIO =
         let create(scenepath : string) =
             {
                 scene               = scenepath          
-                annotations         = scenepath |> Serialization.changeExtension ".pro3d.ann"
+                annotations         = scenepath |> PRo3D.Composition.AnnotationFiles.sidecarOf
                 correlations        = scenepath |> Serialization.changeExtension ".pro3d.corr"
                 bookmarksFolder     = Path.combine 
                                         [
@@ -81,11 +81,9 @@ module ViewerIO =
         
         
     let tryLoadAnnotations (scenePath : string) : option<Annotations> =
-        try        
-            (DrawingUtilities.IO.loadAnnotationsFromFile scenePath) |> Some
-        with e ->        
-            Log.error "[ViewerIO] couldn't load %A" e
-            None
+        match PRo3D.Composition.AnnotationFiles.tryLoad scenePath with
+        | Ok annotations -> Some annotations
+        | Result.Error _ -> None
     
     //let colorBySemantic 
     //    (semantics : HashMap<SemanticTypes.CorrelationSemanticId, SemanticTypes.CorrelationSemantic>) 
@@ -124,12 +122,7 @@ module ViewerIO =
     let replaceAnnotations (m : Model) (annotations : Annotations) =
          {   
             m with                    
-                drawing = {
-                    m.drawing with
-                        annotations     = annotations.annotations
-                        dnsColorLegend  = annotations.dnsColorLegend
-                        colorByCategory = annotations.colorByCategory
-                }
+                drawing = PRo3D.Composition.AnnotationFiles.applyTo m.drawing annotations
          }  
 
     let loadAnnotations (m : Model) = 

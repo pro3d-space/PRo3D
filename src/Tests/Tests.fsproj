@@ -83,6 +83,7 @@
     <Compile Include="Features\Section21_OutcropTraces.fs" />
     <Compile Include="Features\WindowLayoutTests.fs" />
     <Compile Include="Features\FootprintSceneFixture.fs" />
+    <Compile Include="CompositionTests.fs" />
     <Compile Include="Pro3DToolTests.fs" />
     <Compile Include="MbiSidecarTest.fs" />
     <Compile Include="Features\SnapshotSunLightingTest.fs" />
