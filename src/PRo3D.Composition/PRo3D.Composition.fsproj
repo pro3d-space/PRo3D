@@ -39,6 +39,7 @@
     <Compile Include="NavigationView.fs" />
     <Compile Include="SurfaceShaders.fs" />
     <Compile Include="SurfaceView.fs" />
+    <Compile Include="LiteScene.fs" />
     <Compile Include="Toolbars.fs" />
     <Compile Include="CameraOverlay.fs" />
     <None Include="paket.references" />
