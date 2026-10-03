@@ -65,6 +65,8 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         VertexEditingTests.tests()
         // host glue shared by the Viewer and PRo3D.Lite
         PRo3D.Tests.CompositionTests.tests()
+        // PRo3D Lite, the minimal viewer built on it
+        PRo3D.Tests.LiteTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()

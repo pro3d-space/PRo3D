@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Host glue: how a host (PRo3D.Viewer) wires the PRo3D.Core sub-apps
+    Host glue shared by PRo3D.Viewer and PRo3D.Lite: how a host wires the PRo3D.Core sub-apps
     together (navigation, picking, pick routing, surface loading, process setup).
     No [<ModelType>] here, so the project never needs Adaptify. See ai/ARCHITECTURE.md.
   -->

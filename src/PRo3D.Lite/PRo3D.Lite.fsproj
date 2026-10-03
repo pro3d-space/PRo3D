@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PRo3D Lite: the minimal PRo3D - OPC surfaces, free-fly/orbit navigation, annotations -
+    composed from the PRo3D.Core sub-apps and the PRo3D.Composition host glue the full viewer
+    uses too. See docs/PRo3DLite.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>preview</LangVersion> <!-- https://github.com/dotnet/fsharp/issues/17501 -->
+    <GenerateLenses>True</GenerateLenses>
+    <NoWarn>$(NoWarn);FS3390</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Lite-Model.fs" />
+    <Compile Include="Lite-Model.g.fs" />
+    <Compile Include="LiteApp.fs" />
+    <Compile Include="LiteGui.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="paket.references" />
+    <EmbeddedResource Include="..\PRo3D.Viewer\resources\semui-overrides.css" Link="resources\semui-overrides.css" />
+    <!-- the Viewer's toolbar font -->
+    <EmbeddedResource Include="..\PRo3D.Viewer\resources\fonts.css" Link="resources\fonts.css" />
+    <EmbeddedResource Include="..\..\data\fonts\Roboto Mono\RobotoMono-Regular.ttf" Link="resources\RobotoMono-Regular.ttf" />
+    <!-- kdTreeRebuildOptions for the surface list's "rebuild kdTree" confirmation -->
+    <EmbeddedResource Include="..\PRo3D.Viewer\resources\utilities.js" Link="resources\utilities.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+    <ProjectReference Include="..\PRo3D.Composition\PRo3D.Composition.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

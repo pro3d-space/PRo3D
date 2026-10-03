@@ -84,6 +84,7 @@
     <Compile Include="Features\WindowLayoutTests.fs" />
     <Compile Include="Features\FootprintSceneFixture.fs" />
     <Compile Include="CompositionTests.fs" />
+    <Compile Include="LiteTests.fs" />
     <Compile Include="Pro3DToolTests.fs" />
     <Compile Include="MbiSidecarTest.fs" />
     <Compile Include="Features\SnapshotSunLightingTest.fs" />
@@ -107,6 +108,8 @@
     <ProjectReference Include="..\PRo3D.Tool\PRo3D.Tool.fsproj" />
     <!-- Scene, SceneLoader and ViewerIO live in the viewer: needed by the TC-1 scene lifecycle tests -->
     <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />
+    <!-- LiteTests drive PRo3D Lite's update loop -->
+    <ProjectReference Include="..\PRo3D.Lite\PRo3D.Lite.fsproj" />
     <!-- Scene transitively exposes JR.InstrumentPlatforms types (view plans / rovers);
          typing a Scene in the tests needs the assembly on the compile path (FS0074 in
          Release, which Debug happens not to hit) -->
