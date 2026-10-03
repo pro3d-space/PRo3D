@@ -48,7 +48,7 @@ as "active". It sits directly below **Cut annotation** in the green group.
 The strip lists every `Interactions` case that is *not* in `Interactions.hideSet`
 ([Model.fs](../src/PRo3D.Core/Model.fs)). The two are not derived from one another, so
 when un-hiding an interaction, add it to a group in `Gui.ToolStrip.view`
-([ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs)) as well — otherwise it is
+([ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs)) and its colour group in `ToolColors.ofInteraction` as well — otherwise it is
 unreachable from the UI, and if something else selects it (an F-key, say) no tool icon
 appears active.
 
@@ -67,11 +67,17 @@ with a small plus badge in the top-left corner.
 
 ## Where the code lives
 
+The strip, the colours, the tool names/hints and the second toolbar row live in
+PRo3D.Composition; a host passes its own tool list.
+
 | Piece | Location |
 |---|---|
-| Group colours + which group a tool is in | `Gui.ToolColors` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |
-| Strip markup, groups, icons | `Gui.ToolStrip` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |
-| Selected-tool label (`interactionName`) + hint row | `Gui.TopMenu.secondaryToolbarRow`, same file |
+| Group colours + which group a tool is in | `ToolColors` in [Toolbars.fs](../src/PRo3D.Composition/Toolbars.fs) |
+| Strip markup (`ToolStrip.view`, entries `Tool` / `Command` / `Divider`) | `ToolStrip` in [Toolbars.fs](../src/PRo3D.Composition/Toolbars.fs) |
+| The Viewer's tool list | `Gui.ToolStrip.view` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |
+| Selected-tool label (`interactionName`), hints, tooltips | `ToolText` in [Toolbars.fs](../src/PRo3D.Composition/Toolbars.fs) |
+| Second toolbar row | `ToolBar.secondaryRow`; the tool settings it shows are the host's (`Gui.TopMenu.dynamicTopMenu`) |
+| Hamburger menu frame | `ToolBar.mainMenu` / `ToolBar.subMenu` |
 | Mounted as a render-view overlay | `Gui.Pages.pageRouting`, the `"render"` branch |
 | Layout, chips, dividers | `.pro3d-toolstrip` in [semui-overrides.css](../src/PRo3D.Viewer/resources/semui-overrides.css) |
 

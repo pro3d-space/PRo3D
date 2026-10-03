@@ -13,8 +13,8 @@ rather than repeated:
 | File | Role |
 |------|------|
 | [`src/PRo3D.Base/Navigation-Model.fs`](../src/PRo3D.Base/Navigation-Model.fs) | `NavigationMode`, `NavigationModel` |
-| [`src/PRo3D.Viewer/Navigation.fs`](../src/PRo3D.Viewer/Navigation.fs) | the dispatcher: one `update` for all three modes |
-| [`src/PRo3D.Viewer/MapViewCameraController.fs`](../src/PRo3D.Viewer/MapViewCameraController.fs) | PRo3D's own MapView controller |
+| [`src/PRo3D.Composition/Navigation.fs`](../src/PRo3D.Composition/Navigation.fs) | the dispatcher: one `update` for all three modes |
+| [`src/PRo3D.Composition/MapViewCameraController.fs`](../src/PRo3D.Composition/MapViewCameraController.fs) | PRo3D's own MapView controller |
 | [`src/PRo3D.Core/ReferenceSystem.fs`](../src/PRo3D.Core/ReferenceSystem.fs) | derives up / north / northO from a position and a planet |
 | [`src/PRo3D.Base/CooTransformation.fs`](../src/PRo3D.Base/CooTransformation.fs) | `Planet`, `getUpVector`, `tryGetBodyRadius` |
 | [`src/PRo3D.Core/Sg.fs`](../src/PRo3D.Core/Sg.fs) | the in-scene reference cross |
@@ -72,7 +72,7 @@ giving a **right-handed (east, north, up)** triad. Confirmed in
 [`Sg.fs:171`](../src/PRo3D.Core/Sg.fs#L171),
 [`TransformationApp.fs:114`](../src/PRo3D.Core/TransformationApp.fs#L114),
 [`TransformationApp.fs:328`](../src/PRo3D.Core/TransformationApp.fs#L328) and
-[`MapViewCameraController.fs:114-117`](../src/PRo3D.Viewer/MapViewCameraController.fs#L114-L117),
+[`MapViewCameraController.fs:114-117`](../src/PRo3D.Composition/MapViewCameraController.fs#L114-L117),
 and asserted by TC-2.5
 ([`Section02_ViewerActionsNavigation.fs:383-391`](../src/Tests/Features/Section02_ViewerActionsNavigation.fs#L383-L391)):
 `east × north = up`.
@@ -159,7 +159,7 @@ not.** Two conventions are live in the codebase at the same time:
 | [`TransformationApp.getLocalRefSys`](../src/PRo3D.Core/TransformationApp.fs#L322-L329) | north | east | up | **left** |
 | [`Sg.view` → `xyzSystem`](../src/PRo3D.Core/Sg.fs#L216-L253) — the in-scene cross with "X"/"Y"/"Z" labels | north | east | up | **left** |
 | [`ScaleBarsApp.viewScaleCoordinateFrame`](../src/PRo3D.Core/ScaleBarsApp.fs#L721) (red/green/blue through the basis above) | north | east | up | **left** |
-| [`NavigationGizmo.labelOf`](../src/PRo3D.Viewer/NavigationGizmo.fs) — only where axis letters are shown (`None` / `JPL`) | north | east | up | **left** |
+| [`NavigationGizmo.labelOf`](../src/PRo3D.Composition/NavigationGizmo.fs) — only where axis letters are shown (`None` / `JPL`) | north | east | up | **left** |
 
 So the convention in force is **X = North, Y = East, Z = Up** — a left-handed frame
 (`X × Y = −Z`) — held by every consumer that attaches letters to directions at all.
@@ -171,7 +171,7 @@ never attaches a letter to anything.** It returns an `(east, north, up)` record 
 `north` as the camera's sky vector; nothing downstream reads an X, Y or Z out of it. The
 `// NED: X north, Y east, Z down` and `// ENU: X east, Y north, Z up` comments on its
 non-planetary branches
-([`MapViewCameraController.fs:104-108`](../src/PRo3D.Viewer/MapViewCameraController.fs#L104-L108))
+([`MapViewCameraController.fs:104-108`](../src/PRo3D.Composition/MapViewCameraController.fs#L104-L108))
 only record which *global* axis plays each role for those fixed frames — they are not a
 labelling convention, and they are not in tension with the table above.
 
@@ -219,7 +219,7 @@ differs.
   `Trafo3d.FromOrthoNormalBasis(north, east, up)`, i.e. North(X)/East(Y)/Up(Z).
   The comment at [`:167`](../src/PRo3D.Core/TransformationApp.fs#L167)
   ("translation along north, east, up directions") is the correct one.
-- [`NavigationGizmo.fs:51-52`](../src/PRo3D.Viewer/NavigationGizmo.fs#L51-L52) and
+- [`NavigationGizmo.fs:51-52`](../src/PRo3D.Composition/NavigationGizmo.fs#L51-L52) and
   [`NavigationGizmo.md:12-14`](NavigationGizmo.md) claim the gizmo uses "the same
   basis used by the in-scene reference cross". It does not — it swaps X and Y.
 
@@ -263,26 +263,26 @@ There is no per-mode camera state. The mode only decides **which controller's
 `update` runs** — the camera pose carries across a mode switch unchanged unless
 the switch explicitly rewrites it.
 
-[`Navigation.update`](../src/PRo3D.Viewer/Navigation.fs#L85-L220) is the single
+[`Navigation.update`](../src/PRo3D.Composition/Navigation.fs#L85-L220) is the single
 dispatcher:
 
 | Mode | Behaviour | Where |
 |---|---|---|
-| **FreeFly** | delegates to `FreeFlyController.update`, then overwrites `freeFlyConfig` from the scene's `navigationSensitivity` | [`Navigation.fs:110-126`](../src/PRo3D.Viewer/Navigation.fs#L110-L126) |
-| **ArcBall** | remaps ctrl+right-drag to left-drag, delegates to `ArcBallController.update`, then forces `orbitCenter = exploreCenter` | [`Navigation.fs:87-108`](../src/PRo3D.Viewer/Navigation.fs#L87-L108) |
-| **MapView** | PRo3D's own controller; see [MapView.md](MapView.md) | [`Navigation.fs:127-185`](../src/PRo3D.Viewer/Navigation.fs#L127-L185) |
+| **FreeFly** | delegates to `FreeFlyController.update`, then overwrites `freeFlyConfig` from the scene's `navigationSensitivity` | [`Navigation.fs:110-126`](../src/PRo3D.Composition/Navigation.fs#L110-L126) |
+| **ArcBall** | remaps ctrl+right-drag to left-drag, delegates to `ArcBallController.update`, then forces `orbitCenter = exploreCenter` | [`Navigation.fs:87-108`](../src/PRo3D.Composition/Navigation.fs#L87-L108) |
+| **MapView** | PRo3D's own controller; see [MapView.md](MapView.md) | [`Navigation.fs:127-185`](../src/PRo3D.Composition/Navigation.fs#L127-L185) |
 
 ### MapView re-purposes shared fields
 
 While in MapView, three `CameraControllerState` fields carry non-standard meanings
-([`Navigation.fs:141-150`](../src/PRo3D.Viewer/Navigation.fs#L141-L150)):
+([`Navigation.fs:141-150`](../src/PRo3D.Composition/Navigation.fs#L141-L150)):
 `targetPhiTheta` = window size, `panFactor` = horizontal FOV, `rotationFactor` =
 body radius. A camera state that has been through MapView must not be handed
 straight to FreeFly. See [MapView.md](MapView.md#interaction-with-the-other-modes).
 
 ### Switching modes
 
-[`SetNavigationMode`](../src/PRo3D.Viewer/Navigation.fs#L187-L220):
+[`SetNavigationMode`](../src/PRo3D.Composition/Navigation.fs#L187-L220):
 
 - → **ArcBall**: picks an orbit centre with a centre-of-screen ray; falls back to
   FreeFly if nothing is hit. `updatePerFrame = false`.
@@ -292,7 +292,7 @@ straight to FreeFly. See [MapView.md](MapView.md#interaction-with-the-other-mode
   `updatePerFrame = true`, and deliberately leaves `exploreCenter` alone.
 
 ArcBall is also entered **implicitly** when the user picks an explore centre
-([`Navigation.fs:87-93`](../src/PRo3D.Viewer/Navigation.fs#L87-L93)).
+([`Navigation.fs:87-93`](../src/PRo3D.Composition/Navigation.fs#L87-L93)).
 
 ### Persistence
 
@@ -365,7 +365,7 @@ reference system — it holds no state. Full description in
 
 - It draws six labelled circles by projecting the axis directions onto the camera
   plane with three dot products against `CameraView.Right / Up / Forward`
-  ([`NavigationGizmo.fs:96-111`](../src/PRo3D.Viewer/NavigationGizmo.fs#L96-L111)).
+  ([`NavigationGizmo.fs:96-111`](../src/PRo3D.Composition/NavigationGizmo.fs#L96-L111)).
   That projection is correct; the axis→direction assignment above it is what
   disagrees with the rest of the codebase.
 - Clicking a circle animates the camera to look along that axis onto the centre of
@@ -373,7 +373,7 @@ reference system — it holds no state. Full description in
   ([`Viewer.fs:649-680`](../src/PRo3D.Viewer/Viewer/Viewer.fs#L649-L680)). Both the
   drawing and the snap go through the same `axisDir`, so they are at least
   consistent with each other.
-- `gizmoCameraUp` ([`NavigationGizmo.fs:74-79`](../src/PRo3D.Viewer/NavigationGizmo.fs#L74-L79))
+- `gizmoCameraUp` ([`NavigationGizmo.fs:74-79`](../src/PRo3D.Composition/NavigationGizmo.fs#L74-L79))
   currently returns *north* as the screen-up for the top/bottom (±Z) view, and the
   reference up otherwise.
 - Clicking an **edge** (the full diameter line) **locks that axis**:
@@ -406,7 +406,7 @@ from an oversight.
    code, none yet confirmed against a symptom: it derives its own frame from `planet`
    and position and so ignores `noffset`/`northO` and any manual `SetUp`/`SetNorth`
    (there is a commented-out attempt at this in
-   [`Navigation.fs:137-140`](../src/PRo3D.Viewer/Navigation.fs#L137-L140)); it re-aims
+   [`Navigation.fs:137-140`](../src/PRo3D.Composition/Navigation.fs#L137-L140)); it re-aims
    the camera in place on entry rather than moving it, so arriving from a ground-level
    FreeFly pose gives a nadir view from a couple of metres up; and it re-purposes
    `targetPhiTheta` / `panFactor` / `rotationFactor` while active. Open question 9 folds
@@ -602,7 +602,7 @@ from an oversight.
 9. ~~**`Planet.None`'s north disagrees between two subsystems.**~~ **FIXED.**
    [`ReferenceSystem.updateCoordSystemAt`](../src/PRo3D.Core/ReferenceSystem.fs#L88-L92)
    groups `None` with `JPL` and gives north `+X`;
-   [`MapViewController.mapFrame`](../src/PRo3D.Viewer/MapViewCameraController.fs)
+   [`MapViewController.mapFrame`](../src/PRo3D.Composition/MapViewCameraController.fs)
    shared one branch between `ENU` and `None` and gave it `+Y`. Since MapView uses
    `north` as the camera's **sky**, that was a 90° roll away from the cross, the gizmo
    and the transformation basis. [MapView.md](MapView.md) asserted the two matched.

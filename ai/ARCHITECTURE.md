@@ -132,6 +132,39 @@ The dispatch chain in `src/PRo3D.Viewer/Viewer/Viewer.fs`:
 
 ---
 
+## Host Glue: PRo3D.Composition
+
+`src/PRo3D.Composition` (references Base and Core, no `[<ModelType>]`, so no Adaptify) holds
+how a *host* wires the Core sub-apps together. It is written against the sub-models, not the
+Viewer's root `Model`, so another host can compose the same pieces; a change here reaches every
+host. The Viewer keeps thin wrappers with the old names (`ViewerApp.navConf`, `SceneLoader.import'`,
+`ViewerApp.matchPickingInteraction`, ...) that delegate.
+
+| Module | What |
+|---|---|
+| `Navigation`, `MapViewCameraController`, `NavigationGizmo`, `NavigationModel.initial`, `Config`, `ConfigProperties`/`CameraProperties`/`FrustumProperties` (`ViewconfigApp.fs`) | moved from the Viewer unchanged, namespaces kept (`PRo3D`, `PRo3D.Navigation2`, `PRo3D.Viewer`, `PRo3D.Core`) |
+| `HostConfigs` | the lens configs for Navigation/Drawing/ReferenceSystem over `ViewConfigModel`/`ReferenceSystem`; `initialNavigation` |
+| `ProcessInit` | `initRuntime` (sparse buffers off, OPC load runner, packed annotations), `initSerialization` (KdTree picklers) |
+| `SurfaceLoading` | OPC discovery, import into a `SurfaceModel`, scene-graph preparation, relative paths |
+| `AnnotationFiles` | `.pro3d.ann` sidecar path, load (as `Result`), save |
+| `SurfacePicking` | `KdTreeCache` (one per host instance), click ray → `PickResult` (hit + segment re-projection `hitF`), sky/viewpoint rays |
+| `PickRouting` | `routePick`: what a surface pick does in the shared interactions (draw, cut, vertex drop, select surface, orbit centre, coordinate cross) → `PickOutcome`; the host adds undo/feedback and handles its own interactions on `Unhandled` |
+| `ReferenceSystemSync` | what a reference-system/planet change does to surfaces (local frames) and annotations (measurements recomputed) — the non-GIS half of `SceneBodySync` |
+| `NavigationView` | controller attributes + threads, total over `NavigationMode` |
+| `Shader` (`SurfaceShaders.fs`), `SurfaceView` | the surface vertex/stable-trafo/filter shaders, pick events, the plain OPC surface graph, generic render commands |
+| `ToolColors`, `ToolText`, `ToolStrip`, `ToolBar` (`Toolbars.fs`) | the icon tool strip, tool names/hints, second toolbar row and hamburger-menu frame (docs/ToolStrip.md); each host passes its own tool list |
+| `CameraOverlay` | the camera readout on the top left of the 3D view (frame, bearing, pitch, position, lat/lon/alt) |
+
+Rule of thumb: code that needs only Core types and is about *wiring* belongs here; code that
+needs the Viewer's root `Model` stays in the Viewer. Anything here must keep the Viewer's
+behaviour — the characterisation tests in `src/Tests/CompositionTests.fs` pin it.
+
+A host must touch PRo3D.Core before `Aardvark.Init()` (e.g. set `PRo3D.Config.configPath`):
+`Aardvark.Init` registers the scene-graph `[<Rule>]`s of the assemblies loaded at that
+moment, and OPC rendering needs Core's.
+
+---
+
 ## App Startup & Hosting
 
 The app record is assembled and started in `ViewerApp.start` (`src/PRo3D.Viewer/Viewer/Viewer.fs:2634`):
