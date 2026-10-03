@@ -135,9 +135,9 @@ The dispatch chain in `src/PRo3D.Viewer/Viewer/Viewer.fs`:
 ## Host Glue: PRo3D.Composition
 
 `src/PRo3D.Composition` (references Base and Core, no `[<ModelType>]`, so no Adaptify) holds
-how a *host* wires the Core sub-apps together. It is written against the sub-models, not the
-Viewer's root `Model`, so another host can compose the same pieces; a change here reaches every
-host. The Viewer keeps thin wrappers with the old names (`ViewerApp.navConf`, `SceneLoader.import'`,
+how a *host* wires the Core sub-apps together. PRo3D.Viewer and PRo3D.Lite
+([docs/PRo3DLite.md](../docs/PRo3DLite.md)) both call it, so a change there reaches both.
+The Viewer keeps thin wrappers with the old names (`ViewerApp.navConf`, `SceneLoader.import'`,
 `ViewerApp.matchPickingInteraction`, ...) that delegate.
 
 | Module | What |
@@ -154,6 +154,7 @@ host. The Viewer keeps thin wrappers with the old names (`ViewerApp.navConf`, `S
 | `Shader` (`SurfaceShaders.fs`), `SurfaceView` | the surface vertex/stable-trafo/filter shaders, pick events, the plain OPC surface graph, generic render commands |
 | `ToolColors`, `ToolText`, `ToolStrip`, `ToolBar` (`Toolbars.fs`) | the icon tool strip, tool names/hints, second toolbar row and hamburger-menu frame (docs/ToolStrip.md); each host passes its own tool list |
 | `CameraOverlay` | the camera readout on the top left of the 3D view (frame, bearing, pitch, position, lat/lon/alt) |
+| `LiteScene` | `SceneCore`: the core keys of a `.pro3d` (camera, surfaces, config, reference system) read/written with the full codecs; unknown keys pass through |
 
 Rule of thumb: code that needs only Core types and is about *wiring* belongs here; code that
 needs the Viewer's root `Model` stays in the Viewer. Anything here must keep the Viewer's

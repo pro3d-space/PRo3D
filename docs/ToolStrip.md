@@ -67,19 +67,20 @@ with a small plus badge in the top-left corner.
 
 ## Where the code lives
 
-The strip, the colours, the tool names/hints and the second toolbar row live in
-PRo3D.Composition; a host passes its own tool list.
+The strip, the colours, the tool names/hints and the second toolbar row are shared by PRo3D and
+[PRo3D Lite](PRo3DLite.md): each host passes its own tool list.
 
 | Piece | Location |
 |---|---|
 | Group colours + which group a tool is in | `ToolColors` in [Toolbars.fs](../src/PRo3D.Composition/Toolbars.fs) |
 | Strip markup (`ToolStrip.view`, entries `Tool` / `Command` / `Divider`) | `ToolStrip` in [Toolbars.fs](../src/PRo3D.Composition/Toolbars.fs) |
 | The Viewer's tool list | `Gui.ToolStrip.view` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |
+| Lite's tool list | `LiteApp.tools` (dividers inserted where the colour group changes, `LiteGui.toolStrip`) |
 | Selected-tool label (`interactionName`), hints, tooltips | `ToolText` in [Toolbars.fs](../src/PRo3D.Composition/Toolbars.fs) |
-| Second toolbar row | `ToolBar.secondaryRow`; the tool settings it shows are the host's (`Gui.TopMenu.dynamicTopMenu`) |
+| Second toolbar row | `ToolBar.secondaryRow`; the tool settings it shows are the host's (`Gui.TopMenu.dynamicTopMenu`, `LiteGui.toolSettings`) |
 | Hamburger menu frame | `ToolBar.mainMenu` / `ToolBar.subMenu` |
-| Mounted as a render-view overlay | `Gui.Pages.pageRouting`, the `"render"` branch |
-| Layout, chips, dividers | `.pro3d-toolstrip` in [semui-overrides.css](../src/PRo3D.Viewer/resources/semui-overrides.css) |
+| Mounted as a render-view overlay | `Gui.Pages.pageRouting`, the `"render"` branch; `LiteGui.view`, page `render` |
+| Layout, chips, dividers | `.pro3d-toolstrip` in [semui-overrides.css](../src/PRo3D.Viewer/resources/semui-overrides.css) (Lite embeds the same file) |
 
 The strip stops mouse events from reaching the render body underneath — that body
 starts a camera drag on mousedown and opens the context menu on right click.
