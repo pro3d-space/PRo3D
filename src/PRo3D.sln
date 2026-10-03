@@ -53,6 +53,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PRo3D.GeometryLab", "PRo3D.
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PRo3D.MapProjection", "PRo3D.MapProjection\PRo3D.MapProjection.fsproj", "{F3428485-CB36-4223-9991-A5847A459205}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PRo3D.Composition", "PRo3D.Composition\PRo3D.Composition.fsproj", "{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -255,6 +257,18 @@ Global
 		{F3428485-CB36-4223-9991-A5847A459205}.Release|x64.Build.0 = Release|Any CPU
 		{F3428485-CB36-4223-9991-A5847A459205}.Release|x86.ActiveCfg = Release|Any CPU
 		{F3428485-CB36-4223-9991-A5847A459205}.Release|x86.Build.0 = Release|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Debug|x64.Build.0 = Debug|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Debug|x86.Build.0 = Debug|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Release|x64.ActiveCfg = Release|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Release|x64.Build.0 = Release|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Release|x86.ActiveCfg = Release|Any CPU
+		{6C7B946C-C0AE-4AF9-A0C8-E65524EDA26F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
