@@ -40,14 +40,14 @@ module Tests =
             }
 
             // Chiron writes numbers as decimals; these used to throw and abort the save
-            test "a NumericInput holding NaN saves and loads as NaN" {
-                let t = { Init.transformations with yaw = { Init.transformations.yaw with value = nan } }
-                Expect.isTrue (Double.IsNaN (roundTrip t).yaw.value) "NaN round-trips"
-            }
+            for label, v in [ "NaN", nan; "+Infinity", infinity; "-Infinity", -infinity ] do
+                test (sprintf "a NumericInput holding %s saves and loads as NaN" label) {
+                    let t = { Init.transformations with yaw = { Init.transformations.yaw with value = v } }
+                    Expect.isTrue (Double.IsNaN (roundTrip t).yaw.value) "an undefined value stays undefined"
+                }
 
-            for label, v, expected in [ "+Infinity", infinity, Json.maxWritableFloat
-                                        "-Infinity", -infinity, -Json.maxWritableFloat
-                                        "Double.MaxValue", Double.MaxValue, Json.maxWritableFloat
+            for label, v, expected in [ "Double.MaxValue", Double.MaxValue, Json.maxWritableFloat
+                                        "-Double.MaxValue", -Double.MaxValue, -Json.maxWritableFloat
                                         "1e29", 1e29, Json.maxWritableFloat ] do
                 test (sprintf "a NumericInput holding %s saves as a finite bound" label) {
                     let t = { Init.transformations with yaw = { Init.transformations.yaw with value = v; max = v } }

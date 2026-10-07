@@ -22,15 +22,17 @@ module Json =
     let maxWritableFloat = 7.9e28
 
     /// Chiron throws on NaN, +-Infinity and magnitudes above ~7.9e28 (e.g. Double.MaxValue),
-    /// which takes the whole save down. NaN is written as null (`readFloat` reads it as NaN);
-    /// larger magnitudes and infinities saturate to +-maxWritableFloat, so a "no bound" stays a
-    /// finite bound that older releases can still clamp against (NaN would poison the clamp).
-    let writeFloat name (floatValue : double)  = 
+    /// which takes the whole save down. NaN and +-Infinity are written as null, which
+    /// `readFloat` - also in older releases - reads as NaN: an undefined measurement stays
+    /// undefined instead of turning into a huge real number. Finite magnitudes above the
+    /// limit saturate to +-maxWritableFloat. Bounds should be plain finite numbers: a NaN
+    /// bound poisons Numeric's clamp in older releases.
+    let writeFloat name (floatValue : double) =
       json {
-        if Double.IsNaN floatValue then
-          do! Json.writeNone name
-        else
+        if Double.IsFinite floatValue then
           do! Json.write name (clamp -maxWritableFloat maxWritableFloat floatValue)
+        else
+          do! Json.writeNone name
       }
     
     let readFloat name : Json<double> = 
