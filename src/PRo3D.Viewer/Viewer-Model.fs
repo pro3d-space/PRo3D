@@ -149,7 +149,9 @@ type ViewerAction =
 
 | NewScene
 | KeyDown                         of key : Aardvark.Application.Keys
-| KeyUp                           of key : Aardvark.Application.Keys      
+| KeyUp                           of key : Aardvark.Application.Keys
+/// double-click on the main render control, with its size in CSS pixels (docs/DoubleClickFinish.md)
+| DoubleClickFinish               of viewportPx : V2i
 | ResizeMainControl               of V2i * string
 | ResizeInstrumentControl         of V2i * string
 | SetKind                         of TrafoKind

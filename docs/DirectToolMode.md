@@ -43,6 +43,7 @@ There is **no stored arm state**. `toolArmed` together with the active
 | what fires | gated by |
 |---|---|
 | place a point (`AddPointAdv`), cut-stroke point, coordinate cross, rover, … | `surfacePicking` (interaction ≠ Pick*) **&&** `toolArmed` **&&** left button — `ViewerUtils`, feeds `matchPickingInteraction` |
+| finish an annotation / apply a cut by double-click (`DoubleClickFinish`) | `toolArmed` **&&** interaction ∈ {`DrawAnnotation`, `CutAnnotation`} **&&** not `UserPreferences.disableDoubleClickFinish` — `ViewerApp.updateViewer`, see [DoubleClickFinish.md](DoubleClickFinish.md) |
 | select an annotation / grab or drop a control point | `allowAnnotationPicking` = `toolArmed` **&&** interaction ∈ {`PickAnnotation`, `EditAnnotation`, `DrawLog`} — gates the annotation pick target |
 | draw the control-point handles | `allowVertexEditing` = interaction is `EditAnnotation` (no `toolArmed`, so handles stay visible while you reach for Ctrl) |
 

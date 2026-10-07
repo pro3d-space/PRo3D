@@ -36,8 +36,9 @@ a live dry-run: **green** when it would cut, **red** when it would not (a cuttin
 both *ends* outside the annotation — interior points may dip inside, so the cut can follow a
 terrain feature instead of a straight chord). Keys, matching annotation drawing:
 
-- **Enter** applies the cut: the annotation is replaced by one polygon per piece, metadata
-  copied to each, measurements recomputed. One undo step restores the original.
+- **Enter** or a **double-click** ([DoubleClickFinish.md](DoubleClickFinish.md)) applies the
+  cut: the annotation is replaced by one polygon per piece, metadata copied to each,
+  measurements recomputed. One undo step restores the original.
 - **Backspace** removes the last stroke point; **Escape** discards the stroke.
 - A refused cut (red stroke applied anyway, or no selection) logs the reason and keeps the
   stroke so it can be corrected.

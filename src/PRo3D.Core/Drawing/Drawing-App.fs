@@ -429,6 +429,8 @@ module DrawingApp =
         | GrabVertex _          -> false
         | ArmVertexGrab         -> false
         | CancelVertexEdit      -> false
+        // re-dispatches ApplyCutStroke, which does the export
+        | ApplyCutStrokeOnDoubleClick _ -> false
         | ExportAsAnnotations _ -> false
         | LegacySaveVersioned   -> false
         | _ -> true
@@ -475,8 +477,33 @@ module DrawingApp =
         | Some leaf -> result |> pushUndo (LeafAdded(leaf, groupPath))
         | None      -> result
 
+    /// The fewest points an open-ended geometry needs before a double-click may finish it. None for
+    /// the geometries addPoint finishes by itself after a fixed count; a double-click leaves those alone.
+    let doubleClickMinPoints (geometry : Geometry) : Option<int> =
+        match geometry with
+        | Geometry.Polyline -> Some 2
+        | Geometry.Polygon  -> Some 3
+        | Geometry.DnS      -> Some 3
+        | _                 -> None
 
-    let rec update<'a> 
+    /// Drops the last point when it coincides with the one before it - the point the second click
+    /// of a double-click added on top of the first - together with the segment ending there.
+    let dropCoincidentLastPoint (coincide : V3d -> V3d -> bool) (a : Annotation) : Annotation =
+        let n = IndexList.count a.points
+        if n < 2 then a
+        else
+            match IndexList.tryAt (n - 2) a.points, IndexList.tryAt (n - 1) a.points with
+            | Some previous, Some last when coincide previous last ->
+                // projected annotations carry one segment per consecutive pair, Linear ones none
+                let segmentCount = IndexList.count a.segments
+                let segments =
+                    if segmentCount > 0 && segmentCount >= n - 1 then a.segments |> IndexList.removeAt (segmentCount - 1)
+                    else a.segments
+                { a with points = a.points |> IndexList.removeAt (n - 1); segments = segments }
+            | _ -> a
+
+
+    let rec update<'a>
         (bigConfig       : 'a) 
         (smallConfig     : SmallConfig<'a> ) 
         (referenceSystem : Option<SpiceReferenceSystem>)
@@ -530,9 +557,25 @@ module DrawingApp =
                                                     segments = w.segments |> IndexList.removeAt (w.segments.Count - 1)}}
                 | Some _ -> { model with working = None }
                 | None -> model
-            | Finish -> 
+            | Finish ->
                 finish bigConfig smallConfig model view
-            | Exit -> 
+            | FinishOnDoubleClick coincide ->
+                match model.working with
+                | Some w ->
+                    match doubleClickMinPoints w.geometry with
+                    | Some minPoints ->
+                        let w = w |> dropCoincidentLastPoint (coincide |> Option.defaultValue (fun _ _ -> false))
+                        let model = { model with working = Some w }
+                        // too few points to be the shape yet: keep drawing
+                        if IndexList.count w.points >= minPoints then finish bigConfig smallConfig model view
+                        else model
+                    | None -> model
+                | None -> model
+            | ApplyCutStrokeOnDoubleClick (coincide, projectToSurface) ->
+                let coincide = coincide |> Option.defaultValue (fun _ _ -> false)
+                let model = { model with cutStroke = model.cutStroke |> Option.map (dropCoincidentLastPoint coincide) }
+                update bigConfig smallConfig referenceSystem webSocket view shiftFlag model (ApplyCutStroke projectToSurface)
+            | Exit ->
                 { model with hoverPosition = None }
             | SetSemantic mode ->
                 let model =

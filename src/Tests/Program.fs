@@ -27,6 +27,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section18_KeyboardShortcuts.tests
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
         PRo3D.Tests.Section20_BooleanOperations.tests
+        PRo3D.Tests.DoubleClickFinishTests.tests
         PRo3D.Tests.Section21_OutcropTraces.tests
     ]
 
