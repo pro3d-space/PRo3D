@@ -404,7 +404,7 @@ let occluded (occluders : Occluders) (ray : FastRay3d) (tmax : float) =
         let mutable t1 = tmax
         if ray.Intersects(bb, &t0, &t1) then
             let mutable hit = ObjectRayHit.MaxRange
-            if kdi.Intersect(ray, null, keepEveryHit, 0.0, tmax, &hit) then blocked <- true
+            if PRo3D.Core.KdIntersection.intersect kdi ray null keepEveryHit 0.0 tmax &hit then blocked <- true
         k <- k + 1
     blocked
 

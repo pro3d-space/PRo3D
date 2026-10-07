@@ -175,7 +175,7 @@ module DebugKdTreesX =
                     //b |> getTriangle triangles |> isNotOversized hitObject.triangleSize.value |> not // = tooBig       
                     false
             
-            if kdi.Intersect(ray, null, Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter), 0.0, Double.MaxValue, &hit) then              
+            if PRo3D.Core.KdIntersection.intersect kdi ray null (Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter)) 0.0 Double.MaxValue &hit then              
                 let info = hit.GetIntersectionRayHitInfo()
                 Some (hit, hitObject),c
             else            
