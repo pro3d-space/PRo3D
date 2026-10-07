@@ -994,7 +994,7 @@ module Gui =
             | Interactions.PlaceSceneObject      -> sprintf "%s to place scene object" click
             | Interactions.PickPivotPoint        -> sprintf "%s to place pivot point" click
             | Interactions.PickSurfaceRefSys     -> sprintf "%s to place additional reference system for selected surface" click
-            | Interactions.SelectArea            -> sprintf "%s to place a comparison area, +/- to resize, ENTER to finish" click
+            | Interactions.SelectArea            -> sprintf "%s to place a comparison area, +/- to resize, ENTER to finish, T to flip the surfaces" click
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
 

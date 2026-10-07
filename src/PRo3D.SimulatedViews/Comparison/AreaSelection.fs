@@ -50,13 +50,13 @@ module AreaSelection =
                               (surfaceName2  : string) =
         let surfaceId1 = ComparisonUtils.findSurfaceByName surfaceModel surfaceName1
         let surfaceId2 = ComparisonUtils.findSurfaceByName surfaceModel surfaceName2
-        match surfaceId1, surfaceId2 with
-        | Some surfaceId1, Some surfaceId2 ->
-            let surface1 = surfaceModel.surfaces.flat |> HashMap.find surfaceId1 |> Leaf.toSurface
-            let sgSurface1 = surfaceModel.sgSurfaces |> HashMap.find surfaceId1
-            let surface2 = surfaceModel.surfaces.flat |> HashMap.find surfaceId2 |> Leaf.toSurface
-            let sgSurface2 = surfaceModel.sgSurfaces |> HashMap.find surfaceId2
-  
+        // a surface without a scene graph (files missing, still loading) does not resolve
+        let resolve (id : System.Guid) =
+            match HashMap.tryFind id surfaceModel.surfaces.flat, HashMap.tryFind id surfaceModel.sgSurfaces with
+            | Some (Leaf.Surfaces s), Some sg -> Some (s, sg)
+            | _ -> None
+        match surfaceId1 |> Option.bind resolve, surfaceId2 |> Option.bind resolve with
+        | Some (surface1, sgSurface1), Some (surface2, sgSurface2) ->
             Some (AreaComparison.calculateStatistics surface1 sgSurface1
                                                      surface2 sgSurface2
                                                      surfaceModel

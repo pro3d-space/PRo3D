@@ -1898,12 +1898,13 @@ module ViewerApp =
                     updateComparison (Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeBigger) m
                 | _ -> m
 
-            // T flips between the two compared surfaces (one visible at a time), only once
-            // both are picked in the Comparison panel
+            // T flips between the two compared surfaces (one visible at a time). Only with the
+            // comparison area tool: the surfaces are saved with the scene, and in any other mode
+            // T would silently hide (and make unpickable) one of them.
             let m =
                 let cmp = m.scene.comparisonApp
-                match k, m.ctrlFlag with
-                | Aardvark.Application.Keys.T, false when cmp.surface1.IsSome && cmp.surface2.IsSome ->
+                match m.interaction, k, m.ctrlFlag with
+                | Interactions.SelectArea, Aardvark.Application.Keys.T, false when cmp.surface1.IsSome && cmp.surface2.IsSome ->
                     updateComparison Comparison.ComparisonAction.ToggleVisible m
                 | _ -> m
 

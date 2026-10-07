@@ -8,7 +8,7 @@ Open it with the **Surface Comparison** dashboard mode; it adds the **Comparison
 ## Workflow
 
 1. In the Comparison panel pick **Surface1** and **Surface2** (they need distinct names).
-   **T** in the 3D view then flips between them, one visible at a time.
+   With the **Comparison area** tool active, **T** flips between them, one visible at a time.
 2. Select the **Comparison area** tool (crop icon in the tool strip) and click the terrain
    (Ctrl+click unless [Direct Tool Mode](DirectToolMode.md) is on) to place an area. The new
    area is shown as a sphere with the **Default Area Radius**.
