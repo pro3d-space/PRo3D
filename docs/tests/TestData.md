@@ -29,13 +29,14 @@ other's data.
 
 One top-level directory per fixture:
 
-- **`1087_004779_MSLMST_0011`** — an MSL Mastcam OPC surface: the `.opcx` surface descriptor
+- **`MSL/1087_004779_MSLMST_0011`** — an MSL Mastcam OPC surface: the `.opcx` surface descriptor
   plus one OPC directory (`1087_004779_MSLMST_0011_000_000`) with `Images/` textures,
   `Patches/` geometry and `patchhierarchy.xml`, and pre-built `.aakd` kd-trees so that
   picking works without running [`opc-tool`](../OpcTool.md) first. This is the surface the
   feature tests import, and the only one `TestHelpers.fs` currently references.
-- **`Dimorphos_DRACO1`** — the shape model `TriangleSetTests` exercises.
-- **`HERA`** — OPC update products (BDS metadata, AARA textures) for `OpcSidecarTests`.
+- **`HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos`** — the Dimorphos OPC every
+  Dimorphos test uses: DRACO_1/DRACO_2/Earth textures, per-vertex attribute layers and kd-trees
+  (`TriangleSetTests`, `OpcSidecarTests`, profile extraction, unproject, map projection).
 
 The OPC fixture is imported exactly as a user would import a folder, via
 `ViewerAction.ImportSurface`, so the surface directory must stay importable as-is: keep each

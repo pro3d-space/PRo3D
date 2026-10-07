@@ -10,7 +10,7 @@ open Aardvark.Application.Slim
 open FSharp.Data.Adaptive
 
 open Aardvark.GeoSpatial.Opc
-open Aardvark.GeoSpatial.Opc.Load   // IRuntime.CreateLoadRunner
+open Aardvark.GeoSpatial.Opc.Load   // OPC load runners (Sg.loadRunnerFor)
 
 open Aardvark.PixImage.LibTiff
 
@@ -253,7 +253,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
 
     let target = FloatTarget.create runtime size
     try
-        let runner = runtime.CreateLoadRunner 1
+        let runner = PRo3D.Core.Surface.Sg.loadRunnerFor runtime
         let cfg =
             { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
                 // Blocking loads: with async loading the readback captures whatever subset
@@ -397,6 +397,7 @@ let run (o : SunAnglesOptions) : int =
         with e ->
             // Per-image isolation: a batch that dies on image 3 of 400 is useless.
             Log.error "[%s] unhandled: %s" name e.Message
+            Log.line "[%s] details for a bug report: %s" name (string e)
             failures <- failures + 1
         Log.stop()
 

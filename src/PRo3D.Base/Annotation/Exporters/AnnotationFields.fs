@@ -39,9 +39,9 @@ type AnnotationField =
     | HorizontalDelta   = 21
     | Thickness         = 22
     | ManualDipAngle    = 23
-    // ellipse
-    | MajorDiameter     = 24
-    | MinorDiameter     = 25
+    // 24-25 were majorDiameter / minorDiameter. They read the lon/lat ellipse
+    // (degrees, not metres) and were empty for every ellipse drawn on a plane;
+    // the semi-axes at 39-40 replace them. Retired like 30-36.
     // dip & strike
     | DipAngle          = 26
     | DipAzimuth        = 27
@@ -59,6 +59,13 @@ type AnnotationField =
     /// #RRGGBB, for GIS tools that can bind a symbol colour to a field.
     /// `Color` stays in Aardvark's own format so it reimports exactly.
     | ColorHex          = 38
+    // ellipse, read from the EllipticAnnotationResult stored at construction
+    /// m, half the long axis
+    | SemiMajorAxis     = 39
+    /// m, half the short axis
+    | SemiMinorAxis     = 40
+    /// deg, long axis clockwise from local north at the centre, axial 0-180
+    | MajorAxisAzimuth  = 41
 
 /// Per-point attributes, available when the export granularity is "one record
 /// per point". Which of `Cartesian` / `Geographic` actually produce columns is
@@ -110,7 +117,8 @@ module AnnotationFields =
         | AnnotationField.Semantic | AnnotationField.Projection | AnnotationField.Color
         | AnnotationField.ColorHex | AnnotationField.Visible
         | AnnotationField.PointCount -> Identity
-        | AnnotationField.MajorDiameter | AnnotationField.MinorDiameter -> Ellipse
+        | AnnotationField.SemiMajorAxis | AnnotationField.SemiMinorAxis
+        | AnnotationField.MajorAxisAzimuth -> Ellipse
         | AnnotationField.DipAngle | AnnotationField.DipAzimuth
         | AnnotationField.StrikeAzimuth | AnnotationField.Rake -> DipAndStrike
         | _ -> Measurements
@@ -146,8 +154,9 @@ module AnnotationFields =
         | AnnotationField.HorizontalDelta   -> "horizontalDelta"
         | AnnotationField.Thickness         -> "thickness"
         | AnnotationField.ManualDipAngle    -> "manualDip"
-        | AnnotationField.MajorDiameter     -> "majorDiameter"
-        | AnnotationField.MinorDiameter     -> "minorDiameter"
+        | AnnotationField.SemiMajorAxis     -> "semiMajorAxis"
+        | AnnotationField.SemiMinorAxis     -> "semiMinorAxis"
+        | AnnotationField.MajorAxisAzimuth  -> "majorAxisAzimuth"
         | AnnotationField.DipAngle          -> "dipAngle"
         | AnnotationField.DipAzimuth        -> "dipAzimuth"
         | AnnotationField.StrikeAzimuth     -> "strikeAzimuth"
@@ -183,8 +192,9 @@ module AnnotationFields =
         | AnnotationField.HorizontalDelta   -> "Horizontal delta (m)"
         | AnnotationField.Thickness         -> "Line thickness"
         | AnnotationField.ManualDipAngle    -> "Manual dip angle (deg)"
-        | AnnotationField.MajorDiameter     -> "Major diameter (m)"
-        | AnnotationField.MinorDiameter     -> "Minor diameter (m)"
+        | AnnotationField.SemiMajorAxis     -> "Semi-major axis (m)"
+        | AnnotationField.SemiMinorAxis     -> "Semi-minor axis (m)"
+        | AnnotationField.MajorAxisAzimuth  -> "Long-axis azimuth (deg, 0-180)"
         | AnnotationField.DipAngle          -> "Dip angle (deg)"
         | AnnotationField.DipAzimuth        -> "Dip azimuth (deg)"
         | AnnotationField.StrikeAzimuth     -> "Strike azimuth (deg)"
@@ -235,14 +245,16 @@ module AnnotationFields =
                 | None         -> VMissing
             | _ -> VMissing
 
-    /// Semi-axes are stored as vectors, so a diameter is twice their length.
+    /// The semi-axes are stored as vectors; their lengths are the values. A result
+    /// read from an older file holds NaN there, which `ofFloat` turns into an empty cell.
     let private ellipseValue (field : AnnotationField) (a : Annotation) =
         match a.ellipticResults with
         | None -> VMissing
         | Some e ->
             match field with
-            | AnnotationField.MajorDiameter -> ExportValue.ofFloat (2.0 * e.geographicalEllipse.Axis0.Length)
-            | AnnotationField.MinorDiameter -> ExportValue.ofFloat (2.0 * e.geographicalEllipse.Axis1.Length)
+            | AnnotationField.SemiMajorAxis    -> ExportValue.ofFloat e.semiMajorAxis.Length
+            | AnnotationField.SemiMinorAxis    -> ExportValue.ofFloat e.semiMinorAxis.Length
+            | AnnotationField.MajorAxisAzimuth -> ExportValue.ofFloat e.majorAxisAzimuth
             | _ -> VMissing
 
     /// Separator between the group names of `GroupPath`. Forward slash reads as
@@ -300,8 +312,8 @@ module AnnotationFields =
         | AnnotationField.HorizontalDelta ->
             ExportValue.ofFloat (Calculations.horizontalDelta (a.points |> IndexList.toList) up)
 
-        | AnnotationField.MajorDiameter
-        | AnnotationField.MinorDiameter -> ellipseValue field a
+        | AnnotationField.SemiMajorAxis | AnnotationField.SemiMinorAxis
+        | AnnotationField.MajorAxisAzimuth -> ellipseValue field a
 
         | AnnotationField.DipAngle | AnnotationField.DipAzimuth
         | AnnotationField.StrikeAzimuth | AnnotationField.Rake -> dnsValue up field a

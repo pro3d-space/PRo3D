@@ -48,6 +48,18 @@ At the top of the GIS tab there is a section entitled "Current Observation Setti
 * Camera source Body: the entity the camera looks from. When set, the camera is placed at its position and looks at the observed body.
 * Time: The point of time at which we want to observe. The loaded spice kernel needs to have data for the bodies involved at the selected point in time!
 * Reference Frame: the frame the scene is expressed in. For a body PRo3D knows (Mars, Earth, Moon, Phobos, Deimos, Didymos, Dimorphos) this is the body's fixed frame (e.g. `DIMORPHOS_FIXED`) and is set automatically — that is what lets map view and the planet-based measurements work. A scene saved in another frame (e.g. `J2000`) keeps it and shows a note with a button to switch.
+* Re-use settings above: puts the camera back at the camera source body, looking at the observed body — e.g. after you navigated away.
+
+#### When the camera moves
+
+With a camera source body set, the camera is re-aimed (placed at the camera source, looking at the observed body) when
+
+* you choose the observed body, the camera source body or the reference frame, or click *Re-use settings above* — always;
+* the time changes, from the *Time* field or the **Mission Time** table (row click, slider) — only while **Settings → Camera follows camera source body** is on. It is on by default and saved with the scene; switch it off to scrub time (the sun, the bodies' placement) under a camera you placed yourself.
+
+*Fly to* an image and *Load Spice and Time* also set the time but never re-aim: they keep their own camera.
+
+Nothing moves when the camera source equals the observed body, or when the kernel has no data for the camera source at that time (the log then says `[SPICE] failed to transform body`). HERA, for example, is only near Didymos/Dimorphos from late 2026 on — at the default 2025 time the camera stays put.
 
 ### Surfaces
 

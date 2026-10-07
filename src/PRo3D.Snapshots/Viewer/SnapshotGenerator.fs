@@ -159,9 +159,10 @@ module SnapshotGenerator =
                     // A GIS bookmark's SPICE observation info drives the sun direction
                     // (LightingMode) of its frames. Interactive playback applies it
                     // through ViewerLenses._bookmark; batch rendering bypasses the lens,
-                    // so replay it here as the same ObservationInfoMessages -- whose
-                    // handler also swings the camera to the SPICE look-at when the info
-                    // is complete, matching interactive semantics. Ordered AFTER
+                    // so replay it here as the same ObservationInfoMessages. The closing
+                    // Reset swings the camera to the SPICE look-at at the bookmark's time
+                    // when the info is complete, matching interactive semantics whether or
+                    // not the scene's camera follows time changes. Ordered AFTER
                     // SetCamera so that override wins; with incomplete info the handler
                     // leaves the camera alone and the bookmark's own view stands.
                     //
@@ -178,6 +179,7 @@ module SnapshotGenerator =
                             [
                                 PRo3D.Core.Gis.ObservationInfoAction.SetTarget info.target
                                 PRo3D.Core.Gis.ObservationInfoAction.SetTime info.time.date
+                                PRo3D.Core.Gis.ObservationInfoAction.Reset
                             ]
                             |> List.map (PRo3D.Core.Gis.GisAppAction.ObservationInfoMessage >> ViewerAction.GisAppMessage)
                         | None -> []

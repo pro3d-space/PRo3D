@@ -175,7 +175,7 @@ module DebugKdTreesX =
                     //b |> getTriangle triangles |> isNotOversized hitObject.triangleSize.value |> not // = tooBig       
                     false
             
-            if kdi.Intersect(ray, null, Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter), 0.0, Double.MaxValue, &hit) then              
+            if PRo3D.Core.KdIntersection.intersect kdi ray null (Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter)) 0.0 Double.MaxValue &hit then              
                 let info = hit.GetIntersectionRayHitInfo()
                 Some (hit, hitObject),c
             else            
@@ -198,6 +198,30 @@ type KdTreeHitInfo = {
 }
 
 module SurfaceIntersection =
+
+    /// OPC space (the space of the KdTree boxes and of `LazyKdTree.affine`'s output) to
+    /// world space, for one surface. The forward direction is the one
+    /// `doKdTreeIntersection` places its boxes with, so a query that walks the patch
+    /// grids directly puts the surface where picking finds it.
+    let surfaceTrafo
+        (surf           : Surface)
+        (refSys         : ReferenceSystem)
+        (observedSystem : Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>) =
+
+        let observedSystem, observerSystem =
+            match observedSystem, observerSystem with
+            | Some observed, Some observer -> Some observed, Some observer
+            | _ -> None, None
+
+        let fullTrafo = TransformationApp.fullTrafo' surf.transformation refSys observedSystem observerSystem
+
+        if surf.transformation.flipZ then
+            surf.preTransform * fullTrafo * Trafo3d.Scale(1.0, 1.0, -1.0)
+        else if surf.transformation.isSketchFab then
+            Sg.switchYZTrafo
+        else
+            surf.preTransform * fullTrafo
 
     let doKdTreeIntersection
         (m             : SurfaceModel)

@@ -145,6 +145,15 @@ Two approximations are baked in here:
 - **Pole singularity**: when `C` is parallel to `+Z` the east direction is
   undefined, and the code falls back to a basis derived from the world X axis.
 
+The catalog's own ellipse is stored with the annotation (`ellipticResults`):
+centre `C`, semi-major `majorDir * a`, semi-minor `minorDir * b` (the longer of
+the two becomes the major axis should a catalog carry `flattening > 1`), and the
+long axis's azimuth clockwise from `north`, folded into 0–180:
+`majorAxisAzimuth = (90 − regularAngle) mod 180`, since SBMT measures from east
+toward north. The *Boulders* CSV export and colour by category read these
+values; nothing is re-measured from the sampled boundary. See
+[AnnotationExport-CSV.md](AnnotationExport-CSV.md#boulders).
+
 `dnsResults` and `results` are deliberately **not** computed per annotation
 during import. The per-row dip-and-strike regression and SVD dominate import
 time on large catalogs, points have no meaningful dip and strike, and an
@@ -199,21 +208,22 @@ annotation on the same feature, distance preservation under a frame rotation,
 and bulk import performance plus drawing-model integrity on the ~4,800-ellipse
 Dimorphos catalog.
 
-Fixtures live under `imports/` in a
+All SBMT fixtures are **private**: they are never read from the public
 [PRo3D.Resources.TestData](https://github.com/pro3d-space/PRo3D.Resources.TestData)
-checkout, resolved the way the rest of the data-backed suite resolves it:
-`PRO3D_TEST_DATA` first, the suite-wide `--testdatasource` second.
+checkout. They are looked for under the private roots, in order:
+`PRO3D_TEST_DATA_PRIVATE`, then the legacy `PRO3D_PRIVATE_TESTDATA` (defaulting to
+`C:\pro3ddata` when unset).
 
 | Fixture | Contents |
 |---|---|
-| `imports/basicSBMT-dimorphos-v4/sbmtimport.points.txt` | 3-point SBMT v4 export of Dimorphos |
-| `imports/basicSBMT-dimorphos-v4/sbmtimport.ellipses.txt` | ellipse export of the same body |
-| `imports/basicSBMT-dimorphos-v4/sbmtimport.circles.txt` | circle export — not yet exercised |
-| `imports/basicSBMT-dimorphos-v4/sbmtimport.paths.xml` | path export — the importer does not read lines yet |
-| `imports/basicSBMT-dimorphos-v4/sbmtimport.polygons.xml` | polygon export — likewise |
+| `<private root>/imports/basicSBMT-dimorphos-v4/sbmtimport.points.txt` | 3-point SBMT v4 export of Dimorphos |
+| `<private root>/imports/basicSBMT-dimorphos-v4/sbmtimport.ellipses.txt` | ellipse export of the same body |
+| `<private root>/imports/basicSBMT-dimorphos-v4/sbmtimport.circles.txt` | circle export — not yet exercised |
+| `<private root>/imports/basicSBMT-dimorphos-v4/sbmtimport.paths.xml` | path export — the importer does not read lines yet |
+| `<private root>/imports/basicSBMT-dimorphos-v4/sbmtimport.polygons.xml` | polygon export — likewise |
 
-Two fixtures are too large or not redistributable and are therefore **not** in
-the checkout:
+The catalogs sit in `<private root>/shapemodels/testdata`, or in the directory
+`PRO3D_SBMT_TESTDATA` names:
 
 | Fixture | Contents |
 |---|---|
@@ -221,19 +231,10 @@ the checkout:
 | `anno.json` | PRo3D-native cartesian GeoJSON with a manually picked point on the same feature |
 | `Dimo_Bould_Glob_7_Maurizio` | ~4,800 ellipses on Dimorphos |
 
-They are searched under `<root>/imports` first, so dropping them into the
-checkout is enough. Otherwise they are looked for at
-`<PRO3D_PRIVATE_TESTDATA>/shapemodels/testdata` — the root for fixtures that
-cannot be committed, defaulting to `C:\pro3ddata` when the variable is unset.
-`PRO3D_SBMT_TESTDATA` names that one directory directly if it sits elsewhere.
-
 ```
-set PRO3D_TEST_DATA=C:\path\to\PRo3D.Resources.TestData
+set PRO3D_TEST_DATA_PRIVATE=C:\path\to\private-test-data
 dotnet run --project src\Tests -- --filter "all.all tests.sbmtImport"
 ```
 
-With the checkout alone: 22 pass, 4 skip. With the external catalogs as well:
-26 pass, 0 skip. With neither: 20 pass, 6 skip.
-
-`run-tests.cmd` (Windows) and `run-tests.sh` work too; they pass
-`--testdatasource` for you.
+With the basic export and the catalogs: 26 pass, 0 skip. With the basic export
+only: 22 pass, 4 skip. With no private data: 20 pass, 6 skip.

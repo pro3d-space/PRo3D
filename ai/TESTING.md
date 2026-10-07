@@ -165,3 +165,60 @@ before believing any content-level correlation.
 
 Tests are machine-local (GPU + local datasets, `PRO3D_*` env vars); they are
 not run in CI, which makes running them locally the only line of defense.
+
+### Screenshot probes: four rules, each learned the hard way
+
+The documentation probes share `tests-ui/src/probe-lib.ts`. Everything below is
+enforced there rather than restated per probe, because every one of these bugs
+lived in a hand-tuned copy of a helper that had drifted from its siblings.
+
+**1. The clear colour is a constant, never inferred.** `#222222` (34). "Body"
+means *not the clear colour*, never *bright*: terrain a mosaic never observed
+renders **pure black (0)**, and that is a body pixel. Sampling the background
+from a corner breaks the moment the black region reaches that corner; taking the
+most common value breaks when most of the body is unobserved, because black then
+*is* the mode. Both then report the body as absent. That is how a correctly
+rendering scene once read as "`bodyPixels=9501`, essentially an empty frame" and
+sent a session hunting a rendering bug that never existed — the real fault was a
+camera 136 m from a body that needs ~199 m to fit the field of view.
+`assertBackground` fails loudly when a frame is not against the assumed colour.
+
+**2. A readiness gate must not be brightness-based.** `litFraction` can never be
+satisfied by a body that is mostly unobserved, so the probe waits out its whole
+timeout on a frame that was correct all along. Ask instead whether anything
+differs from the clear colour (`drawingSurface`). `streamLive` samples corners
+and has the same blind spot.
+
+**3. `settled()` throws on timeout.** It used to fall through to
+`page.screenshot()`, so a probe that never saw the body published a loading
+splash into `docs/images/` under a confident caption. A figure that cannot be
+produced is an error, not a default.
+
+**4. Two scene fields silently decide whether you can aim the camera at all.**
+
+- **`gisApp.defaultObservationInfo.target`** — the GIS *Camera source Body*.
+  While it is set, the camera is **placed at that entity** and aimed at the
+  observed body, and the scene's own `cameraView` is ignored entirely.
+  `PRo3D.Resources.TestData`'s `ProjectionTest.pro3d` ships with it set to HERA,
+  ~8 km out, which leaves the body a few hundred pixels across and makes every
+  attempt to place the camera look like it was ignored — because it was. This is
+  the likeliest reason an earlier session concluded the camera could not be set
+  and fell back to scraping coordinates out of the HUD. Clear it with
+  `withFreeCamera`.
+- **`gisApp.defaultObservationInfo.referenceFrame`** — in an inertial frame such
+  as `J2000` the body does not turn with the scene, so nothing that depends on
+  its rotation is visible. Measured: the lit area creeps from 32.5% to 33.6%
+  across a four-day mission-time row, i.e. visually nothing. Use
+  `withBodyFixedFrame`, which is what picking the body under *Reference System*
+  does in the GUI.
+
+Framing is arithmetic, so check it before blaming the harness: a body of radius
+*r* seen from *d* subtends `2·asin(r/d)`, against the fov the scene's `focal`
+implies (`focal 10.25` → 60°). `probe-bookmarks.ts` prints distance, subtended
+angle and coverage for every bookmark of a scene in one run.
+
+Reproduce a viewpoint from a saved `[Sky, Location, Forward, Up, Right]` written
+verbatim into `cameraView`; never rebuild one as "position, looking at the
+origin", which discards the orientation and reframes the shot. Scaling `Location`
+to dolly in or out is safe only for a radial view, so `pullBack` asserts that
+rather than assuming it.

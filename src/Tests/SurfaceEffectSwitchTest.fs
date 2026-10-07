@@ -120,16 +120,19 @@ let tests () =
         for asyncLoading in [ false; true ] do
         for winding in [ false; true ] do
         test (sprintf "a projection added at runtime appears (async loading %b, winding correction %b)" asyncLoading winding) {
-            // the tests-ui scene: the Dimorphos OPC with SPICE set up (tests-ui writes it)
-            let scene = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "tests-ui", "artifacts", "testdata-scene.pro3d")
-            let images =
-                SurfaceEffectHarness.testDataDir ()
-                |> Option.map (fun d -> Path.Combine(d, "HERA", "Dimorphos_opc", "AFC_2027-03-21"))
-            match File.Exists scene, images, Render.context.Value with
-            | false, _, _ -> skiptest (sprintf "no tests-ui scene at %s (run a tests-ui spec once)" scene)
-            | _, None, _ -> skiptest "PRO3D_TEST_DATA is not set"
+            // the projection scene template of the test data, re-pointed at this machine's
+            // Dimorphos OPC and kernels -- what tests-ui's sceneFor writes, without a tests-ui run
+            let images = TestUtils.Roots.testDataDir None [ "HERA"; "Dimorphos_opc"; "AFC_2027-03-21" ]
+            match images, TestUtils.Roots.dimorphosOpc None, Render.context.Value with
+            | None, _, _ -> skiptest "no AFC_2027-03-21 frames: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout"
+            | _, None, _ -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)"
             | _, _, None -> skiptest "no OpenGL runtime in this environment"
-            | true, Some imageDir, Some (runtime, signature) ->
+            | Some imageDir, Some opc, Some (runtime, signature) ->
+
+            let scene =
+                TestUtils.Scenes.fromTemplate
+                    (Path.Combine(imageDir, "ProjectionTest.pro3d")) opc
+                    (Path.Combine(Path.GetTempPath(), "pro3d-tests", "surface-effect-switch.pro3d"))
 
             Startup.init ()
             PRo3D.Core.Surface.Sg.useAsyncLoading <- asyncLoading

@@ -148,10 +148,11 @@ module private Data =
         |> Option.map (fun r -> Path.Combine(r, "HERA", "Instrument Data"))
         |> Option.filter Directory.Exists
 
-    /// An OPC carrying per-vertex `*.aara` layers. Same variable the profile extraction tests
-    /// use, e.g. the HERA AARA_Textures export's Dimorphos folder.
+    /// An OPC carrying per-vertex `*.aara` layers: PRO3D_AARA_OPC, else the test data's
+    /// Dimorphos OPC, which ships LonLatRad among its per-vertex layers.
     let aaraOpc () =
-        firstExisting [ Environment.GetEnvironmentVariable "PRO3D_AARA_OPC" ]
+        firstExisting [ Environment.GetEnvironmentVariable "PRO3D_AARA_OPC"
+                        defaultArg (TestUtils.Roots.dimorphosOpc None) null ]
 
     /// SPICE kernel root, resolved as pro3d-tool resolves it: either a clone of the ESA hera
     /// kernel repository or its `kernels` subdirectory.
@@ -169,6 +170,40 @@ module private Data =
 
 /// Difference between two angles in degrees, the short way round the circle. The layer's
 /// longitude is interpolated across the 0/360 seam and can read past 360.
+/// How an OPC's `LonLatRad` layer encodes its first two channels. Older HERA exports store
+/// gradians -- longitude x 10/9 and (latitude + 90) x 10/9 -- newer ones plain degrees. The
+/// `.opcx` declares each channel's range, so the latitude channel's upper bound tells them
+/// apart: 90 for degrees, 200 for gradians.
+type private LonLatRadUnit =
+    | Degrees
+    | Gradians
+
+/// The unit declared in the `.opcx` next to `opc`, or None without a usable declaration.
+let private lonLatRadUnit (opc : string) =
+    Directory.EnumerateFiles(opc, "*.opcx")
+    |> Seq.tryHead
+    |> Option.bind (fun opcx ->
+        let doc = System.Xml.XmlDocument()
+        doc.Load opcx
+        doc.SelectNodes "/Aardvark/SurfaceAttributes/AttributeLayers/AttributeLayer"
+        |> Seq.cast<System.Xml.XmlNode>
+        |> Seq.tryFind (fun n ->
+            let text (name : string) = n.SelectSingleNode name |> Option.ofObj |> Option.map (fun x -> x.InnerText)
+            text "Type" = Some "Map" && text "Label" = Some "LonLatRad")
+        |> Option.bind (fun n -> n.SelectSingleNode "ChannelsDefinedRange" |> Option.ofObj)
+        |> Option.bind (fun range ->
+            // [[lonMin, lonMax], [latMin, latMax], [radMin, radMax]]
+            let numbers =
+                range.InnerText.Split([| '['; ']'; ',' |], StringSplitOptions.RemoveEmptyEntries)
+                |> Array.choose (fun t ->
+                    match Double.TryParse(t.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture) with
+                    | true, v -> Some v
+                    | _ -> None)
+            match numbers |> Array.tryItem 3 with
+            | Some latMax when latMax <= 90.0 + 1e-6 -> Some Degrees
+            | Some latMax when latMax <= 200.0 + 1e-6 -> Some Gradians
+            | _ -> None))
+
 let private angleDelta (a : float) (b : float) =
     abs (((a - b) % 360.0 + 540.0) % 360.0 - 180.0)
 
@@ -185,8 +220,8 @@ let private crossCheck =
         // attribute sampling, the coordinate conversion -- breaks the agreement. A mirrored
         // pixel convention shows up as tens of degrees.
         //
-        // Units: the layer stores gradians, longitude x 10/9 and (latitude + 90) x 10/9, with
-        // only the radius in metres. See docs/VertexAttributes.md.
+        // Units: the radius is in metres; longitude and latitude are degrees or, on older
+        // HERA exports, gradians -- the OPC's .opcx says which (lonLatRadUnit).
         test "lat/lon/alt agree with the OPC's own per-vertex LonLatRad layer" {
             // --skip-hera must stay deterministic: this test swaps the active SPICE kernel, so it
             // has to honour the flag even where the kernels happen to be present.
@@ -195,7 +230,7 @@ let private crossCheck =
 
             match Data.instrumentImages (), Data.aaraOpc (), Data.kernelRoot () with
             | None, _, _ -> skiptest "no instrument images: clone PRo3D.Resources.TestData and set PRO3D_TEST_DATA"
-            | _, None, _ -> skiptest "no OPC with per-vertex layers: set PRO3D_AARA_OPC"
+            | _, None, _ -> skiptest "no OPC with per-vertex layers: set PRO3D_TEST_DATA (or PRO3D_AARA_OPC)"
             | _, _, None -> skiptest "no SPICE kernels: set PRO3D_SPICE_KERNELS"
             | Some imageFolder, Some opc, Some kernelRoot ->
 
@@ -227,6 +262,17 @@ let private crossCheck =
             if FSharp.Data.Adaptive.HashMap.isEmpty kdTrees then
                 skiptest (sprintf "no kd-trees under %s -- build them with `pro3d-tool kdtree`" opc)
 
+            let unit =
+                match lonLatRadUnit opc with
+                | Some u -> u
+                | None -> skiptest (sprintf "no LonLatRad range declared in the .opcx under %s" opc)
+
+            // (longitude, latitude) in degrees from the layer's first two channels
+            let toLonLat (llr : float[]) =
+                match unit with
+                | Degrees  -> llr.[0], llr.[1]
+                | Gradians -> llr.[0] * 0.9, llr.[1] * 0.9 - 90.0
+
             let patchInfos = HeadlessPicking.buildPatchInfos hierarchies
             let convention = InstrumentObservation.PixelConvention.Image
 
@@ -250,9 +296,9 @@ let private crossCheck =
                               CooTransformation.tryGetLatLonAlt Planet.Dimorphos hit.position with
                         | Some (_, llr), Some coo when llr.Length >= 3 ->
                             hits <- hits + 1
-                            let toDegrees = 9.0 / 10.0
-                            worstLon <- max worstLon (angleDelta (llr.[0] * toDegrees) coo.longitude)
-                            worstLat <- max worstLat (abs (llr.[1] * toDegrees - 90.0 - coo.latitude))
+                            let lon, lat = toLonLat llr
+                            worstLon <- max worstLon (angleDelta lon coo.longitude)
+                            worstLat <- max worstLat (abs (lat - coo.latitude))
                             worstRadius <- max worstRadius (abs (llr.[2] - coo.altitude))
                         | _ -> ()
 

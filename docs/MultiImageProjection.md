@@ -39,7 +39,7 @@ The walkthrough below uses the Dimorphos OPC that ships with
 [PRo3D.Resources.TestData](https://github.com/pro3d-space/PRo3D.Resources.TestData):
 
 ```
-HERA/Dimorphos_opc/Dimorphos/
+HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/
 ```
 
 ## 2. Import a folder of images

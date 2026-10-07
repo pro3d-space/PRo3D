@@ -319,7 +319,30 @@ module Gui =
             ]                              
         ]
     
-    let textOverlaysUserFeedback (m : AdaptiveScene)  = 
+    /// Busy indicator: a small pill that fades in while an update has been blocking longer
+    /// than `Config.busyIndicatorMilliseconds`.
+    ///
+    /// Everything about it is client side, and has to be: during the stall it reports on,
+    /// the server holds `app.lock` and cannot touch this DOM at all, so a model-driven
+    /// indicator could only ever say "that was slow" afterwards. The boot script polls
+    /// `/busy` and animates with CSS. Do not "simplify" this into an adaptive value.
+    /// See docs/BusyIndicator.md.
+    ///
+    /// A function, not a value: the threshold has to be read when the page is built, after
+    /// `Program.fs` has applied `-nobusy` / `-busyms`, not whenever this module happens to
+    /// be initialised.
+    let busyOverlay () : DomNode<'msg> =
+        onBoot (sprintf "startBusyIndicator('__ID__', %d);" Config.busyIndicatorMilliseconds) (
+            // Hidden and inert *inline*, not via the class. `startBusyIndicator` returns
+            // before it injects its stylesheet when the indicator is off (-nobusy), and
+            // an unstyled div would then sit visible in the page's normal flow and could
+            // take a click. The script only ever overrides `display`.
+            div [ clazz "pro3d-busy"; style "display:none; pointer-events:none" ] [
+                div [ clazz "pro3d-busy-spinner" ] []
+                div [ clazz "pro3d-busy-text" ] []
+            ])
+
+    let textOverlaysUserFeedback (m : AdaptiveScene)  =
         div [js "oncontextmenu" "event.preventDefault();"] [ 
             let style' = "color: white; font-family: Roboto Mono; font-size:16;"
             
@@ -971,6 +994,7 @@ module Gui =
             | Interactions.PlaceSceneObject      -> sprintf "%s to place scene object" click
             | Interactions.PickPivotPoint        -> sprintf "%s to place pivot point" click
             | Interactions.PickSurfaceRefSys     -> sprintf "%s to place additional reference system for selected surface" click
+            | Interactions.SelectArea            -> sprintf "%s to place a comparison area, +/- to resize, ENTER to finish" click
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
 
@@ -994,7 +1018,7 @@ module Gui =
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
             | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Clicking an annotation selects it."
             | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
-            | Interactions.SelectArea            -> ""
+            | Interactions.SelectArea            -> "Place areas for the Comparison panel (Surface Comparison dashboard). Pick both surfaces there, then press Update Measurements to colour each area by the distance between them."
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
@@ -1010,7 +1034,7 @@ module Gui =
             | Interactions.CutAnnotation         -> "Cut Annotation"
             | Interactions.EditAnnotation        -> "Edit Annotation"
             | Interactions.PickSurface           -> "Select Surface"
-            | Interactions.SelectArea            -> "Select Area"
+            | Interactions.SelectArea            -> "Comparison Area"
             | Interactions.PlaceRover            -> "Place Rover"
             | Interactions.PickDistancePoint     -> "Place Distance Point"
             | Interactions.PlaceSceneObject      -> "Place Scene Object"
@@ -1243,7 +1267,7 @@ module Gui =
 
                     // --- selection --------------------------------------------------------
                     tool "mouse pointer" "Select surface" Interactions.PickSurface
-                    tool "crop"  "Select area - drag a rectangle to multi-select" Interactions.SelectArea
+                    tool "crop"  "Comparison area - place an area for Surface Comparison" Interactions.SelectArea
 
                     divider
 
@@ -2281,6 +2305,8 @@ module Gui =
                             |> UI.map ViewerMessage
                             LayoutApp.UI.dialogs m.layout
                             |> UI.map (LayoutMessage >> ViewerMessage)
+                            // Outermost page, so this one pill covers every docked panel.
+                            busyOverlay ()
                         ]
                     )
                 )

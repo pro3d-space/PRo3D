@@ -19,7 +19,7 @@ annotation property panels this one is **global**, not per selection.
 | *enable* | turns the override on; off restores each annotation's own color |
 | *attribute type* | *annotation measurement* (an attribute of the annotation itself, below) or *surface attribute* (a scalar layer of the surface under it — see [below](#color-by-a-surface-scalar-layer)) |
 | *attribute* | which attribute drives the color — the measurement dropdown, or the surface scalar-layer dropdown when *attribute type* is *surface attribute* |
-| *no value* | color for annotations that have no value for the attribute (a polyline asked for a diameter, an annotation with no planar fit asked for dip, uncomputed results, a point that missed the surface) |
+| *no value* | color for annotations that have no value for the attribute (a polyline asked for a semi-axis, an annotation with no planar fit asked for dip, uncomputed results, a point that missed the surface) |
 
 Every entry of the *attribute* dropdown carries a tooltip (`ColorByCategory.tooltip`) saying
 what the value is measured from and which annotations actually have one — without it the panel
@@ -34,8 +34,8 @@ The rest of the panel depends on the kind of attribute:
 | Kind | Attributes | Panel | Legend |
 | --- | --- | --- | --- |
 | **categorical** (discrete) | Annotation type, Semantic, Surface | one color picker per category, *reset colors* | **none** |
-| **cyclic** | Bearing, Dip azimuth, Strike azimuth | *show legend* and *interval* | hue wheel strip over one period, banded into sectors |
-| **numeric** (continuous) | Slope, Length, Way length, Height, Height delta, Avg altitude, Area, Line thickness, Dip angle | the standard false-color ramp properties (*show legend*, min, max, interval, colors, invert) plus *fit range to data* | false-color bar |
+| **cyclic** | Bearing, Dip azimuth, Strike azimuth, Long-axis azimuth | *show legend* and *interval* | hue wheel strip over one period, banded into sectors |
+| **numeric** (continuous) | Slope, Length, Way length, Height, Height delta, Avg altitude, Area, Line thickness, Dip angle, Semi-major axis, Semi-minor axis | the standard false-color ramp properties (*show legend*, min, max, interval, colors, invert) plus *fit range to data* | false-color bar |
 
 Categorical attributes deliberately have no on-screen legend: the panel already lists every
 category next to its color, and there is no *show legend* toggle to switch one off with.
@@ -49,7 +49,11 @@ user clicked when drawing each annotation, rather than by anything measured on t
 - The *attribute* dropdown lists the distinct scalar-layer **labels** across every loaded
   surface's `.opcx` (`Surface.scalarLayers`). A layer only appears if that file lists it. The
   label is matched against the per-vertex `.aara` name **case-insensitively**; multi-channel
-  layers use channel 0.
+  layers use channel 0. Only that one per-vertex layer is read per point; a layer that exists
+  only as an attribute texture is not sampled and comes out *no value*. (The sampler used to
+  read every layer and decode the attribute textures at each control point, which took
+  minutes and ~10 GB on an imported SBMT catalog; it now takes ~100 s and ~1.3 GB there,
+  most of that ray casting over ~288k points.)
 - Each point is sampled by casting a ray straight down and reading whichever visible surface it
   hits (`ProfileAttributeExtraction.sampleAt`) — not pinned to the annotation's origin surface.
   A point that misses, or whose surface has no such layer, is *no value*.
@@ -101,6 +105,14 @@ and the coloring then changed *by itself* the first time the reference system wa
 recalculation drops the results of every other geometry, so those annotations silently fell
 back to the no-value color.
 
+## Ellipse attributes
+
+*Semi-major axis*, *Semi-minor axis* (m) and *Long-axis azimuth* (deg, clockwise from local
+north at the centre, 0–180) read the shape stored with an ellipse when it was drawn or
+imported from SBMT (`annotation.ellipticResults`), the same values the *Boulders* CSV export
+writes ([AnnotationExport-CSV.md](AnnotationExport-CSV.md#boulders)). Every other geometry, and
+an ellipse whose long axis is vertical (no azimuth), gets the no-value color.
+
 ## Directional vs. axial cyclic attributes
 
 Azimuths wrap, so a linear two-color ramp would put 359° and 1° — one degree apart on the
@@ -112,6 +124,7 @@ the period meet. `ColorByCategory.cyclicPeriod` says how long that period is:
 | Dip azimuth | **360°** | *Directional* — it says which way the plane dips, so 45° and 225° really are opposite |
 | Strike azimuth | **180°** | *Axial* — a strike line has no preferred end. `strikeAzimuth` is always `dipAzimuth ± 90`, so two planes sharing a strike line but dipping opposite ways read 180° apart and must still come out the same color |
 | Bearing | **180°** | *Axial* — it is the azimuth of the chord from the annotation's first to its last point, so redrawing a polyline backwards flips it by 180° without changing its orientation |
+| Long-axis azimuth | **180°** | *Axial* — an ellipse's long axis has no head; the stored value is already 0–180 |
 
 Only the **coloring** folds. The annotation Properties panel and the CSV / Attitude exporters
 keep reporting the raw 0–360° value, so "Bearing: 200°" on one annotation and "20°" on another

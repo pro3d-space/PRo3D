@@ -8,21 +8,18 @@ open Aardvark.Data.Opc
 open PRo3DCompability
 open PRo3D.Core.Surface
 
-/// The real-world cases below read one patch of the Dimorphos OPC. It comes from a
-/// PRo3D.Resources.TestData checkout (PRO3D_TEST_DATA), and failing that from the
-/// private pile (PRO3D_PRIVATE_TESTDATA) where the path used to be hardcoded.
+/// The real-world cases below read one patch of the Dimorphos OPC from a
+/// PRo3D.Resources.TestData checkout (PRO3D_TEST_DATA).
 let private noOpcData =
-    "OPC test data not available: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout, or PRO3D_PRIVATE_TESTDATA to the private fixture root"
+    "OPC test data not available: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)"
 
 let private dimorphosPatch (patch : string) =
     let below (root : string) =
-        Path.Combine(root, "Dimorphos_DRACO1", "Dimorphos_DRACO1",
-                     "g_01960mm_spc_dtm_dimo_0000n00000_v003_0_0", "Patches", patch,
+        Path.Combine(root, "g_01960mm_spc_dtm_dimo_0000n00000_v003_0_0", "Patches", patch,
                      "XYZ_Local.aara")
-    [ TestUtils.Roots.testData None
-      TestUtils.Roots.privateDir [ "testdata" ] ]
-    |> List.choose (Option.map below)
-    |> List.tryFind File.Exists
+    TestUtils.Roots.dimorphosOpc None
+    |> Option.map below
+    |> Option.filter File.Exists
 
 let private triangleCount (ts : TriangleSet) = ts.Position3dList.Count / 3
 

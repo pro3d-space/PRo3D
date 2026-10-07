@@ -128,8 +128,8 @@ module ViewerApp =
     /// `.aara` grid) — the same primitive the annotation export and the 3D cursor use, and the
     /// same shared `Picking.cache`. Runs on the UI thread: O(total control points) ray casts, and
     /// the first hit on a cold patch pulls its ~4 MB position grid, so it is manual (a button) and
-    /// not automatic. `withTextureFallback = true` chases layers that have no per-vertex data
-    /// into the attribute textures (an image decode per layer per patch, cold).
+    /// not automatic. Only the chosen per-vertex layer is read; a layer that exists only as an
+    /// attribute texture is not sampled and shows as "no value".
     ///
     /// The sampled values depend only on the control points, the surfaces and the planet — never
     /// on the camera. `sampleAt` derives its own body-local up per point for exactly that reason,
@@ -142,6 +142,7 @@ module ViewerApp =
             let observerSystem     = Gis.GisApp.getObserverSystem m.scene.gisApp
             let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
             let mutable cache = PRo3D.Picking.cache
+            let wanted (name : string) = String.Equals(name, layer, StringComparison.OrdinalIgnoreCase)
 
             let annos = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toList
 
@@ -153,7 +154,7 @@ module ViewerApp =
                         pts |> Array.map (fun p ->
                             let hit, c =
                                 ProfileAttributeExtraction.sampleAt
-                                    surfaces refSys observedSystem observerSystem true cache p
+                                    surfaces refSys observedSystem observerSystem wanted cache p
                             cache <- c
                             match hit with
                             | Some h ->
@@ -310,6 +311,22 @@ module ViewerApp =
 
         (newRenderBox, viewBox)
 
+    /// Surface comparison (PRo3D.SimulatedViews/Comparison). It may also change surfaces:
+    /// computing statistics makes the two compared surfaces visible and active.
+    let private updateComparison (msg : Comparison.ComparisonAction) (m : Model) =
+        let bookmarks =
+            m.scene.bookmarks.flat
+            |> HashMap.choose (fun _ x -> match x with Leaf.Bookmarks b -> Some b | _ -> None)
+        let comparisonApp, surfacesModel =
+            ComparisonApp.update
+                m.scene.comparisonApp
+                m.scene.surfacesModel
+                m.scene.referenceSystem
+                (m.drawing.annotations.flat |> Leaf.toAnnotations)
+                bookmarks
+                msg
+        { m with scene = { m.scene with surfacesModel = surfacesModel; comparisonApp = comparisonApp } }
+
     let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
         | Interactions.DrawAnnotation, _ -> 
@@ -445,6 +462,8 @@ module ViewerApp =
                     (HeightValidatorAction.PlaceValidator p)
 
             { m with heighValidation = heightVal }
+        | Interactions.SelectArea, ViewerMode.Standard ->
+            updateComparison (Comparison.ComparisonAction.AddSelectionArea p) m
         | Interactions.PlaceScaleBar, _ ->
             let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
             let scm = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem
@@ -1543,13 +1562,20 @@ module ViewerApp =
                             let ct = Async.DefaultCancellationToken
                             while not ct.IsCancellationRequested do
                                 let! (m, sceneHit, name) = Async.AwaitTask <| m.pickPreviewRequested.WaitAsync()
-                                let pick = Picking.pickRayInfo m sceneHit.globalRay.Ray (Some name)
-                                // per-vertex attribute layers only - the texture fallback
-                                // decodes one image per layer and cannot run per mouse move
-                                let attributes =
-                                    pick
-                                    |> Option.bind (fun (hitInfo, _) ->
-                                        ProfileAttributeExtraction.extractAttributesFromHit TextureFallback.Disabled hitInfo sceneHit.globalRay.Ray
+                                // Reported as background work: this does not block the UI,
+                                // but the first hover over a cold patch loads its KdTree and
+                                // triangle set, and until that returns the 3D cursor and the
+                                // Under Cursor read-out are showing the *previous* hit. That
+                                // lag is what the indicator names. See docs/BusyIndicator.md.
+                                let pick, attributes =
+                                    Busy.scopeBackground "picking" (fun () ->
+                                        let pick = Picking.pickRayInfo m sceneHit.globalRay.Ray (Some name)
+                                        let attributes =
+                                            pick
+                                            |> Option.bind (fun (hitInfo, _) ->
+                                                ProfileAttributeExtraction.extractAttributesFromHit hitInfo sceneHit.globalRay.Ray
+                                            )
+                                        pick, attributes
                                     )
                                 let hit = pick |> Option.map (fun (hitInfo, hitPosOnRay) -> hitInfo.hit, hitPosOnRay)
                                 let previewIntersection = PreviewPickSurfaceFinished(p, name, hit, attributes)
@@ -1859,6 +1885,26 @@ module ViewerApp =
                 | true, Aardvark.Application.Keys.Y ->
                     let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Redo
                     { m with drawing = drawing }
+                | _ -> m
+
+            // comparison areas: resize the area just placed, Enter to finish
+            let m =
+                match m.interaction, k with
+                | Interactions.SelectArea, Aardvark.Application.Keys.Enter ->
+                    updateComparison Comparison.ComparisonAction.StopEditingArea m
+                | Interactions.SelectArea, Aardvark.Application.Keys.OemMinus ->
+                    updateComparison (Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeSmaller) m
+                | Interactions.SelectArea, Aardvark.Application.Keys.OemPlus ->
+                    updateComparison (Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeBigger) m
+                | _ -> m
+
+            // T flips between the two compared surfaces (one visible at a time), only once
+            // both are picked in the Comparison panel
+            let m =
+                let cmp = m.scene.comparisonApp
+                match k, m.ctrlFlag with
+                | Aardvark.Application.Keys.T, false when cmp.surface1.IsSome && cmp.surface2.IsSome ->
+                    updateComparison Comparison.ComparisonAction.ToggleVisible m
                 | _ -> m
 
             let sensitivity = m.scene.config.navigationSensitivity.value
@@ -2198,6 +2244,8 @@ module ViewerApp =
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
         //    m 
+        | ComparisonMessage msg,_ ->
+            updateComparison msg m
         | ScaleBarsDrawingMessage msg,_->    
             let scDrawing = ScaleBarsDrawing.update m.scaleBarsDrawing msg
             { m with scaleBarsDrawing = scDrawing }
@@ -2352,8 +2400,7 @@ module ViewerApp =
                 | _ -> m, gisApp
 
             let m =
-                match msg with
-                | Gis.GisAppAction.ObservationInfoMessage msg ->
+                if Gis.GisApp.reaimsCamera gisApp msg then
                     match Gis.GisApp.lookAtObserver gisApp with
                     | Some newCamera -> 
                         //let p = 
@@ -2375,7 +2422,7 @@ module ViewerApp =
                         //let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = p }}}}
                         { m with navigation = { m.navigation with camera = { m.navigation.camera with view = newCamera } }}
                     | _ -> m
-                | _ -> m
+                else m
 
             let animations = 
                 match msg with
@@ -2415,14 +2462,46 @@ module ViewerApp =
             m
                    
    //let mutable lastMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
-    let updateInternal 
-        (runtime   : IRuntime) 
-        (signature : IFramebufferSignature) 
-        (sendQueue : BlockingCollection<string>) 
-        (mailbox   : MessagingMailbox) 
-        (m         : Model) 
+    /// The operations worth telling the user about while they block the UI - the stalls
+    /// inventoried in plans/stallFeedback.md. `None` for everything else, so an ordinary
+    /// message never touches the busy cell at all.
+    ///
+    /// `NavigationMessage` is in here for the camera-mode switch, which picks the centre ray
+    /// against every active surface synchronously (`Navigation.pickOrbitCenter`). It also
+    /// fires on every mouse move, which is harmless: the indicator only shows past
+    /// `Config.busyIndicatorMilliseconds`, so ordinary navigation never lights it up.
+    let busyLabel (msg : ViewerAnimationAction) : Option<string> =
+        match msg with
+        | ViewerMessage m ->
+            match m with
+            // fully qualified: several of these names also exist on SurfaceAppAction,
+            // which is opened here and would otherwise win
+            | ViewerAction.NavigationMessage _               -> Some "camera"
+            | ViewerAction.PickSurface _
+            | ViewerAction.PreviewPickSurfaceFinished _      -> Some "picking"
+            | ViewerAction.ImportSurface _
+            | ViewerAction.DiscoverAndImportOpcs _
+            | ViewerAction.ImportDiscoveredSurfacesThreads _ -> Some "importing surfaces"
+            | ViewerAction.LoadScene _
+            | ViewerAction.OpenScene _
+            | ViewerAction.SaveScene _
+            | ViewerAction.SaveAs _                          -> Some "scene file"
+            | ViewerAction.AnnotationExportMessage _         -> Some "exporting annotations"
+            | ViewerAction.DrawingMessage
+                (DrawingAction.ColorByCategoryMessage
+                    ColorByCategoryAction.ResampleSurface)   -> Some "sampling surface"
+            | _                                              -> None
+        | _ -> None
+
+    let updateInternal
+        (runtime   : IRuntime)
+        (signature : IFramebufferSignature)
+        (sendQueue : BlockingCollection<string>)
+        (mailbox   : MessagingMailbox)
+        (m         : Model)
         (msg       : ViewerAnimationAction) =
 
+        Busy.scopeOpt (busyLabel msg) (fun () ->
         match msg with
         | ViewerMessage msg ->
             updateViewer runtime signature sendQueue mailbox m msg
@@ -2435,11 +2514,12 @@ module ViewerApp =
             //    ()
             //| _ -> 
             //    ()
-            Animation.Animator.update msg m   
+            Animation.Animator.update msg m
 
-        | ProvenanceMessage msg -> 
+        | ProvenanceMessage msg ->
             ProvenanceApp.update msg m
-            
+        )
+
     let updateWithProvenanceTracking 
         (runtime   : IRuntime) 
         (enableProvenance : bool)
@@ -2817,8 +2897,16 @@ module ViewerApp =
             
         let curtainSg = ViewerUtils.createCurtainSg view m
 
+        // surface comparison: area spheres while placing, per-vertex differences once computed
+        let comparisonSg =
+            [
+                Comparison.AreaSelection.sgAllAreas m.scene.comparisonApp.areas
+                Comparison.AreaComparison.sgAllDifferences m.scene.comparisonApp.areas
+            ] |> Sg.ofList
+
         let depthTested =
             [
+                comparisonSg
                 scaleBars;
                 annotationSg
                 traverses
@@ -2975,9 +3063,6 @@ module ViewerApp =
     let threadPool (m: Model) =
         let unionMany xs = List.fold ThreadPool.union ThreadPool.empty xs
 
-        let drawing =
-            DrawingApp.threads m.drawing |> ThreadPool.map DrawingMessage
-       
         let animation = 
             AnimationApp.ThreadPool.threads m.animations |> ThreadPool.map AnimationMessage
 
@@ -2998,7 +3083,9 @@ module ViewerApp =
 
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; sBookmarks; m.backgroundPicking]
+        let comparison = ComparisonApp.threads m.scene.comparisonApp |> ThreadPool.map ComparisonMessage
+
+        unionMany [animation; nav; m.scene.feedbackThreads; sBookmarks; comparison; m.backgroundPicking]
             |> ThreadPool.map ViewerMessage
             |> ThreadPool.union (
                 Animation.Animator.threads m.animator 

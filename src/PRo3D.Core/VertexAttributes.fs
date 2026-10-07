@@ -73,6 +73,41 @@ type VertexAttributeLayer =
         payload : AaraPayload
     }
 
+/// A band of rows of one attribute layer, decoded to doubles and addressed by *position*
+/// grid index. For callers that need many vertices of one patch at once, where reading
+/// element by element (as `VertexAttributes.sample` does for a single pick) would seek
+/// once per vertex.
+type VertexAttributeRows =
+    {
+        name              : string
+        components        : int
+        positionsGridSize : V2i
+        /// size of the layer's own grid, centred in the position grid
+        attributeSize     : V2i
+        /// first attribute grid row held in `values`
+        firstRow          : int
+        rowCount          : int
+        /// `rowCount * attributeSize.X * components` values, row-major, channels interleaved
+        values            : float[]
+    }
+
+    /// Copies the vertex's channels into `target`. False when the vertex lies in the
+    /// skirt, outside the rows read, or carries a NaN in any channel.
+    member x.TryGet (positionIndex : int, target : float[]) =
+        let offX = (x.positionsGridSize.X - x.attributeSize.X) / 2
+        let offY = (x.positionsGridSize.Y - x.attributeSize.Y) / 2
+        let ax = (positionIndex % x.positionsGridSize.X) - offX
+        let ay = (positionIndex / x.positionsGridSize.X) - offY - x.firstRow
+        if ax < 0 || ay < 0 || ax >= x.attributeSize.X || ay >= x.rowCount then false
+        else
+            let o = (ay * x.attributeSize.X + ax) * x.components
+            let mutable ok = true
+            for c in 0 .. x.components - 1 do
+                let v = x.values.[o + c]
+                if Double.IsNaN v then ok <- false
+                target.[c] <- v
+            ok
+
 /// Reads OPC per-vertex attribute layers - the `*.aara` files listed in a patch's
 /// `<Attributes>` element - and samples them at a picked surface point. This is the
 /// fast path for attribute extraction; the alternative is decoding the patch's
@@ -337,6 +372,63 @@ module VertexAttributes =
         else
             let w = [| weights.X; weights.Y; weights.Z |]
             sampleLayer positionsGridSize gridIndices w layer
+
+    /// Reads the rows of `layer` that position grid rows `firstPositionRow ..
+    /// lastPositionRow` map onto, in one read. None when the layer cannot be centred in
+    /// the position grid (see `isCentrable`), when the rows lie entirely in the skirt, or
+    /// on a short read.
+    let tryReadRows (layer : VertexAttributeLayer) (positionsGridSize : V2i) (firstPositionRow : int) (lastPositionRow : int) =
+        let header = layer.header
+        if not (isCentrable positionsGridSize header.size) then
+            Log.warn "[VertexAttributes] %s: %dx%d attribute grid cannot be centred in a %dx%d position grid - skipping"
+                layer.name header.size.X header.size.Y positionsGridSize.X positionsGridSize.Y
+            None
+        else
+            let offY = (positionsGridSize.Y - header.size.Y) / 2
+            let firstRow = max 0 (firstPositionRow - offY)
+            let lastRow = min (header.size.Y - 1) (lastPositionRow - offY)
+            if lastRow < firstRow then None
+            else
+                let rowCount = lastRow - firstRow + 1
+                let elementCount = rowCount * header.size.X
+                let byteCount = elementCount * header.ElementSize
+                let byteOffset = int64 firstRow * int64 header.size.X * int64 header.ElementSize
+
+                let bytes =
+                    match layer.payload with
+                    | AaraPayload.InMemory payload ->
+                        if byteOffset + int64 byteCount > int64 payload.Length then None
+                        else Some (payload, int byteOffset)
+                    | AaraPayload.OnDisk path ->
+                        use stream = Prinziple.openRead path
+                        stream.Seek(header.dataOffset + byteOffset, SeekOrigin.Begin) |> ignore
+                        let buffer = Array.zeroCreate<byte> byteCount
+                        let mutable read = 0
+                        let mutable eof = false
+                        while not eof && read < byteCount do
+                            let n = stream.Read(buffer, read, byteCount - read)
+                            if n <= 0 then eof <- true else read <- read + n
+                        if read = byteCount then Some (buffer, 0) else None
+
+                match bytes with
+                | None ->
+                    Log.warn "[VertexAttributes] short read of rows %d..%d in %s" firstRow lastRow layer.path
+                    None
+                | Some (buffer, start) ->
+                    let values = Array.zeroCreate<float> (elementCount * header.components)
+                    let element = Array.zeroCreate<float> header.components
+                    for i in 0 .. elementCount - 1 do
+                        decodeElement header buffer (start + i * header.ElementSize) element
+                        Array.blit element 0 values (i * header.components) header.components
+                    Some {
+                        name              = layer.name
+                        components        = header.components
+                        positionsGridSize = positionsGridSize
+                        attributeSize     = header.size
+                        firstRow          = firstRow
+                        rowCount          = rowCount
+                        values            = values
+                    }
 
     /// Drops all cached layers so ZIP payloads and stale headers do not outlive their scene.
     let clearCache () =

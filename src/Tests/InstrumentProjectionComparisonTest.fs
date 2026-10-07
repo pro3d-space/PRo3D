@@ -1,4 +1,4 @@
-module InstrumentProjectionComparisonTest
+﻿module InstrumentProjectionComparisonTest
 
 open System
 open System.IO
@@ -36,8 +36,8 @@ let private parseMbi (fixture : string) : InstrumentMetadata.Tiff_Mbi_Json.Mbi =
     if not (File.Exists fixture) then
         skiptest (sprintf "missing fixture: %s" fixture)
     let content = File.ReadAllText fixture
-    // load the exact kernel this fixture's own SPICE_MK field names (falls back to
-    // the hera_ops.tm baseline if that kernel isn't found -- see HeraSpiceTests.fs)
+    // load the exact kernel this fixture's own SPICE_MK field names; a missing pinned
+    // kernel fails the test with setup instructions (see HeraSpiceTests.fs)
     HeraSpiceTests.loadKernelForMbiContent content
     match InstrumentMetadata.Tiff_Mbi_Json.tryParseJson content with
     | Result.Error e -> failtestf "expected the MBI metadata to parse, but got error: %A" e

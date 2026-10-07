@@ -440,7 +440,11 @@ with
         }
 
 
-type EllipticAnnotationResult = 
+/// The lon/lat ellipse exactly as every PRo3D release writes and reads it under the
+/// annotation's `"ellipseResults"` key. The schema must never change: releases before
+/// #644 require `center`, `major` and `minor` and fail to load the whole scene
+/// otherwise. Only ever written when there is a lon/lat ellipse to write.
+type GeographicalEllipseJson =
     {
         geographicalEllipse      : Ellipse2d
         geographicalEllipseAssym : Option<Ellipse2d>
@@ -449,8 +453,8 @@ type EllipticAnnotationResult =
         static let version = 0
 
         static member private readV0 =
-            json {      
-                let! center             = Json.read "center"     
+            json {
+                let! center             = Json.read "center"
                 let! major              = Json.read "major"
                 let! minor              = Json.read "minor"
 
@@ -458,42 +462,139 @@ type EllipticAnnotationResult =
                 let! major2             = Json.tryRead "majorAssim"
                 let! minor2             = Json.tryRead "minorAssim"
 
-                let assymEllipse = 
+                let assymEllipse =
                     match center2, major2, minor2 with
-                    | Some c, Some ma, Some mi -> 
+                    | Some c, Some ma, Some mi ->
                         Some(Ellipse2d(V2d.Parse(c), V2d.Parse(ma), V2d.Parse(mi)))
-                    | _ -> 
+                    | _ ->
                         None
-            
+
                 return {
                     geographicalEllipse      = Ellipse2d(V2d.Parse(center), V2d.Parse(major), V2d.Parse(minor))
                     geographicalEllipseAssym = assymEllipse
                 }
             }
 
-        static member FromJson(_: EllipticAnnotationResult) =
+        static member FromJson(_: GeographicalEllipseJson) =
             json {
                 let! v = Json.read "version"
-                match v with 
-                | 0 -> return! EllipticAnnotationResult.readV0
+                match v with
+                | 0 -> return! GeographicalEllipseJson.readV0
                 | _ -> return! v |> sprintf "don't know version %A  of AnnotationResults" |> Json.error
             }
-    
-        static member ToJson (x : EllipticAnnotationResult) =
+
+        static member ToJson (x : GeographicalEllipseJson) =
             json {
                 do! Json.write   "version"  version
                 do! Json.write   "center"   (string x.geographicalEllipse.Center)
                 do! Json.write   "major"    (string x.geographicalEllipse.Axis0)
                 do! Json.write   "minor"    (string x.geographicalEllipse.Axis1)
-                
+
                 if x.geographicalEllipseAssym.IsSome then
                     do! Json.write "centerAssim" (string x.geographicalEllipseAssym.Value.Center)
                     do! Json.write "majorAssim"  (string x.geographicalEllipseAssym.Value.Axis0)
                     do! Json.write "minorAssim"  (string x.geographicalEllipseAssym.Value.Axis1)
-    
-
             }
-    
+
+/// The metric ellipse under the annotation's `"ellipseShape"` key, new with #644. A new
+/// key rather than new fields in `"ellipseResults"`, so that older releases, which do
+/// not know it, simply skip it and still load the scene.
+type EllipseShapeJson =
+    {
+        center           : V3d
+        semiMajorAxis    : V3d
+        semiMinorAxis    : V3d
+        majorAxisAzimuth : float
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {
+                let! center           = Json.read "center"
+                let! semiMajorAxis    = Json.read "semiMajorAxis"
+                let! semiMinorAxis    = Json.read "semiMinorAxis"
+                let! majorAxisAzimuth = Json.readFloat "majorAxisAzimuth"
+                return {
+                    center           = V3d.Parse center
+                    semiMajorAxis    = V3d.Parse semiMajorAxis
+                    semiMinorAxis    = V3d.Parse semiMinorAxis
+                    majorAxisAzimuth = majorAxisAzimuth
+                }
+            }
+
+        static member FromJson(_: EllipseShapeJson) =
+            json {
+                let! v = Json.read "version"
+                match v with
+                | 0 -> return! EllipseShapeJson.readV0
+                | _ -> return! v |> sprintf "don't know version %A of EllipseShape" |> Json.error
+            }
+
+        static member ToJson (x : EllipseShapeJson) =
+            json {
+                do! Json.write      "version"          version
+                do! Json.write      "center"           (string x.center)
+                do! Json.write      "semiMajorAxis"    (string x.semiMajorAxis)
+                do! Json.write      "semiMinorAxis"    (string x.semiMinorAxis)
+                do! Json.writeFloat "majorAxisAzimuth" x.majorAxisAzimuth
+            }
+
+/// An ellipse annotation's shape, fixed when it is constructed (drawn or imported).
+///
+/// The metric part (`center`, `semiMajorAxis`, `semiMinorAxis`) lives in the same
+/// body-fixed world space as the annotation's points, in metres. `majorAxisAzimuth` is
+/// measured at construction, like dip and strike, so readers need no reference system.
+/// A result read from a file written before these fields existed carries NaN in them.
+///
+/// In memory one record; on disk two keys of the annotation, see `ofJson` / `toJson`.
+type EllipticAnnotationResult =
+    {
+        /// lon/lat (degrees) ellipse of the dormant geographic construction; only the
+        /// GeoJSON writer reads it. `None` for ellipses fitted on a plane or imported.
+        geographicalEllipse      : Option<Ellipse2d>
+        geographicalEllipseAssym : Option<Ellipse2d>
+        /// m, body-fixed
+        center                   : V3d
+        /// m, vector along the long axis; never shorter than `semiMinorAxis`
+        semiMajorAxis            : V3d
+        /// m, vector along the short axis, perpendicular to `semiMajorAxis`
+        semiMinorAxis            : V3d
+        /// deg, clockwise from local north at `center`, axial [0, 180). NaN when the long
+        /// axis is (near) vertical or the ellipse is a circle.
+        majorAxisAzimuth         : float
+    }
+
+module EllipticAnnotationResult =
+
+    /// The in-memory result from the annotation's `"ellipseResults"` and `"ellipseShape"`
+    /// keys; `None` when neither is there.
+    let ofJson (geographical : Option<GeographicalEllipseJson>) (shape : Option<EllipseShapeJson>) =
+        match geographical, shape with
+        | None, None -> None
+        | _ ->
+            Some {
+                geographicalEllipse      = geographical |> Option.map (fun g -> g.geographicalEllipse)
+                geographicalEllipseAssym = geographical |> Option.bind (fun g -> g.geographicalEllipseAssym)
+                center                   = shape |> Option.map (fun s -> s.center) |> Option.defaultValue V3d.NaN
+                semiMajorAxis            = shape |> Option.map (fun s -> s.semiMajorAxis) |> Option.defaultValue V3d.NaN
+                semiMinorAxis            = shape |> Option.map (fun s -> s.semiMinorAxis) |> Option.defaultValue V3d.NaN
+                majorAxisAzimuth         = shape |> Option.map (fun s -> s.majorAxisAzimuth) |> Option.defaultValue Double.NaN
+            }
+
+    /// What goes under `"ellipseResults"` (the unchanged lon/lat schema, only when there
+    /// is one) and under `"ellipseShape"` (only when the metric shape is known).
+    let toJson (e : EllipticAnnotationResult) =
+        let geographical =
+            e.geographicalEllipse |> Option.map (fun g ->
+                { geographicalEllipse = g; geographicalEllipseAssym = e.geographicalEllipseAssym })
+        let shape =
+            if e.center.AnyNaN || e.semiMajorAxis.AnyNaN || e.semiMinorAxis.AnyNaN then None
+            else
+                Some { center = e.center; semiMajorAxis = e.semiMajorAxis
+                       semiMinorAxis = e.semiMinorAxis; majorAxisAzimuth = e.majorAxisAzimuth }
+        geographical, shape
+
 
 module AnnotationResults =    
     
@@ -969,7 +1070,9 @@ with
             let! manualDipAngle = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAngle"
             let! manualDipAzimuth = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAzimuth"
 
-            let! ellipseProperties = Json.tryRead "ellipseResults"
+            let! geographicalEllipse = Json.tryRead "ellipseResults"
+            let! ellipseShape = Json.tryRead "ellipseShape"
+            let ellipseProperties = EllipticAnnotationResult.ofJson geographicalEllipse ellipseShape
 
             let! crossSectionClipping = Json.tryRead "crossSectionClipping"
             let! crossSectionRefPoint = Json.tryRead "crossSectionRefPoint"
@@ -1071,10 +1174,17 @@ with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAngle" (x.manualDipAngle)
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAzimuth" (x.manualDipAzimuth)    
             
-            match x.ellipticResults with
+            // "ellipseResults" keeps the schema every release reads; the metric shape goes
+            // under its own key, which older releases skip (see GeographicalEllipseJson)
+            match x.ellipticResults |> Option.map EllipticAnnotationResult.toJson with
             | None -> ()
-            | Some e ->
-                do! Json.write "ellipseResults" x.ellipticResults
+            | Some (geographical, shape) ->
+                match geographical with
+                | Some g -> do! Json.write "ellipseResults" g
+                | None -> ()
+                match shape with
+                | Some sh -> do! Json.write "ellipseShape" sh
+                | None -> ()
 
             do! Json.write "crossSectionClipping" x.crossSectionClipping
             match x.crossSectionRefPoint with

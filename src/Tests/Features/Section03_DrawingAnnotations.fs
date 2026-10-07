@@ -100,11 +100,10 @@ let private drawingE2ETests =
         // TC-3.6 Draw AxisEllipse
         //
         // What is checked is the *drawing* outcome: the axis points are turned into a
-        // sampled ellipse outline. `ellipticResults` — the geographical (lat/lon) ellipse
-        // used by the GeoJSON export — is deliberately not asserted: getFinishedAnnotation
-        // currently takes the plane-based branch (`let geo = false`), which computes the
-        // geographical ellipse and then discards it, setting `ellipticResults = None`
-        // (Drawing-App.fs). The geographical branch above it does populate the field.
+        // sampled ellipse outline, and the ellipse fitted on the plane through the clicks
+        // is stored in `ellipticResults` in metres (centre, semi-axes, long-axis azimuth),
+        // which the Boulders export reads (#644). The azimuth itself is covered on a flat
+        // frame in EllipseExportTest.
 
         test "TC-3.6 three clicks in AxisEllipse mode fit an ellipse" {
             // points near the Mars surface so the geographical projection is valid
@@ -115,6 +114,12 @@ let private drawingE2ETests =
             Expect.equal ann.geometry Geometry.AxisEllipse "geometry should be AxisEllipse"
             Expect.equal ann.projection Projection.Sky "ellipses default to the Sky projection"
             Expect.isGreaterThan (ann.points |> IndexList.count) 3 "the ellipse outline is sampled into many points"
+            match ann.ellipticResults with
+            | None -> failtest "the fitted ellipse should be stored with the annotation"
+            | Some e ->
+                Expect.isLessThan (e.center - c).Length 1e-6 "centre between the two axis clicks"
+                Expect.floatClose Accuracy.medium e.semiMajorAxis.Length 60.0 "semi-major, m"
+                Expect.floatClose Accuracy.medium e.semiMinorAxis.Length 35.0 "semi-minor, m"
         }
 
         // TC-3.7 Draw Axis4PEllipse

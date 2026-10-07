@@ -17,15 +17,15 @@ open PRo3D.Core.Drawing
 // Fixture data
 // ---------------------------------------------------------------------------
 //
-// Import fixtures live under `imports/` in a PRo3D.Resources.TestData checkout,
-// resolved the same way every other data-backed list resolves it: PRO3D_TEST_DATA
-// first, the suite-wide --testdatasource second. See docs/SbmtImport.md.
+// SBMT fixtures are private: they are never read from the public
+// PRo3D.Resources.TestData checkout, only from the private roots
+// (TestUtils.Roots.privateRoots: PRO3D_TEST_DATA_PRIVATE, then the legacy
+// PRO3D_PRIVATE_TESTDATA). See docs/SbmtImport.md.
 //
-//   imports/basicSBMT-dimorphos-v4/   a complete SBMT v4 export of Dimorphos,
-//                                     one file per structure kind. Committed, so
-//                                     the tests using it run for everyone.
+//   <private root>/imports/basicSBMT-dimorphos-v4/   a complete SBMT v4 export of
+//                                     Dimorphos, one file per structure kind.
 //
-// Two fixtures are not in the checkout and are looked for at an external root:
+//   <private root>/shapemodels/testdata/ (or the directory named by PRO3D_SBMT_TESTDATA):
 //
 //   pointOnPike.points.txt + anno.json    the same "Pike" feature of the Dimorphos
 //     shape model, once as an SBMT point export (centerXYZ in km, SHM frame) and
@@ -34,11 +34,8 @@ open PRo3D.Core.Drawing
 //     precision on a ~170 m asteroid.
 //
 //   Dimo_Bould_Glob_7_Maurizio            a ~4,800-ellipse boulder catalog, used for
-//     the bulk import and drawing-model timings. Too large to redistribute.
+//     the bulk import and drawing-model timings.
 //
-// Both are searched under <root>/imports first, so dropping them into the checkout
-// is enough; otherwise <PRO3D_PRIVATE_TESTDATA>/shapemodels/testdata (or the exact
-// directory named by PRO3D_SBMT_TESTDATA) still finds them where they are.
 // Every test that needs a missing fixture skips.
 
 module private Data =
@@ -46,36 +43,32 @@ module private Data =
     let private existingFile (path : string) =
         if File.Exists path then Some path else None
 
-    /// Root of a PRo3D.Resources.TestData checkout.
-    let root = TestUtils.Roots.testData
-
-    /// Where the non-redistributable catalogs live when they are not in the
-    /// checkout: <PRO3D_PRIVATE_TESTDATA>/shapemodels/testdata, or the exact
-    /// directory named by PRO3D_SBMT_TESTDATA.
+    /// Where the catalogs live: the directory named by PRO3D_SBMT_TESTDATA, else
+    /// <private root>/shapemodels/testdata.
     let private externalRoot =
         TestUtils.Roots.firstExisting [
             Environment.GetEnvironmentVariable "PRO3D_SBMT_TESTDATA"
             TestUtils.Roots.privateDir [ "shapemodels"; "testdata" ] |> Option.defaultValue ""
         ]
 
-    /// One file of the committed SBMT v4 sample export, e.g. "points" or "ellipses".
-    let basicSbmt (root : Option<string>) (kind : string) =
-        root
-        |> Option.map (fun r ->
-            Path.Combine(r, "imports", "basicSBMT-dimorphos-v4", sprintf "sbmtimport.%s.txt" kind))
-        |> Option.bind existingFile
+    /// One file of the SBMT v4 sample export, e.g. "points" or "ellipses", under
+    /// <private root>/imports.
+    let basicSbmt (kind : string) =
+        TestUtils.Roots.privateRoots ()
+        |> List.tryPick (fun r ->
+            Path.Combine(r, "imports", "basicSBMT-dimorphos-v4", sprintf "sbmtimport.%s.txt" kind)
+            |> existingFile)
 
-    /// A fixture kept outside the checkout: <root>/imports first, external root second.
-    let external' (root : Option<string>) (fileName : string) =
-        [ root         |> Option.map (fun r -> Path.Combine(r, "imports", fileName))
-          externalRoot |> Option.map (fun r -> Path.Combine(r, fileName)) ]
-        |> List.choose id
-        |> List.tryPick existingFile
+    /// A catalog fixture, from the external root.
+    let external' (fileName : string) =
+        externalRoot
+        |> Option.map (fun r -> Path.Combine(r, fileName))
+        |> Option.bind existingFile
 
     /// Skip message naming the variable that fixes it.
     let missing (what : string) =
         sprintf "missing fixture: %s (set PRO3D_TEST_DATA to a PRo3D.Resources.TestData \
-                 checkout, PRO3D_PRIVATE_TESTDATA for the external catalogs)" what
+                 checkout, PRO3D_TEST_DATA_PRIVATE for the private fixtures)" what
 // ---------------------------------------------------------------------------
 // Synthetic SBMT files
 // ---------------------------------------------------------------------------
@@ -346,6 +339,34 @@ let private ellipseTests =
                 (sprintf "major axis %A should be parallel to north %A" dir north)
         }
 
+        // The catalog's ellipse is stored with the annotation, so the export and
+        // colour by category read it instead of re-measuring the sampled outline.
+        test "the catalog ellipse is stored in metres, with its azimuth from north" {
+            for angle, expectedAzimuth in [ 0.0, 90.0; 30.0, 60.0; 90.0, 0.0; 135.0, 135.0; -20.0, 110.0 ] do
+                let a = parseOne diameterKm 0.5 angle
+                match a.ellipticResults with
+                | None -> failtest "an imported ellipse must carry its stored shape"
+                | Some e ->
+                    Expect.isLessThan (e.center - centerM).Length 1e-9 "centre"
+                    Expect.floatClose Accuracy.high e.semiMajorAxis.Length semiMajor "semi-major = diameter / 2"
+                    Expect.floatClose Accuracy.high e.semiMinorAxis.Length (semiMajor * 0.5)
+                        "semi-minor = semi-major * flattening"
+                    // SBMT measures from east toward north, the export clockwise from north
+                    Expect.floatClose Accuracy.high e.majorAxisAzimuth expectedAzimuth
+                        (sprintf "regularAngle %g -> azimuth (90 - angle) mod 180" angle)
+        }
+
+        test "a flattening above 1 still stores the longer axis as the major one" {
+            let a = parseOne diameterKm 2.0 0.0
+            match a.ellipticResults with
+            | None -> failtest "an imported ellipse must carry its stored shape"
+            | Some e ->
+                Expect.floatClose Accuracy.high e.semiMajorAxis.Length (semiMajor * 2.0) "major is the long one"
+                Expect.floatClose Accuracy.high e.semiMinorAxis.Length semiMajor "minor is the short one"
+                // the long axis now runs along north
+                Expect.floatClose Accuracy.high e.majorAxisAzimuth 0.0 "azimuth of the long axis"
+        }
+
         test "flattening 1 degenerates to a circle" {
             let a = parseOne diameterKm 1.0 37.0
             let radii =
@@ -453,16 +474,14 @@ let private groupingTests =
 // ---------------------------------------------------------------------------
 
 let private fixtureTests (parameters : TestUtils.TestParameters) =
-    let root = Data.root parameters.testDataSource
 
-    // The committed SBMT v4 sample export - available wherever the checkout is.
-    let basicPointsFile  = Data.basicSbmt root "points"   |> Option.defaultValue ""
-    let basicEllipseFile = Data.basicSbmt root "ellipses" |> Option.defaultValue ""
+    // Private fixtures only; never read from the public test-data checkout.
+    let basicPointsFile  = Data.basicSbmt "points"   |> Option.defaultValue ""
+    let basicEllipseFile = Data.basicSbmt "ellipses" |> Option.defaultValue ""
 
-    // Not redistributable; resolved under <root>/imports or the external root.
-    let sbmtPointsFile     = Data.external' root "pointOnPike.points.txt"     |> Option.defaultValue ""
-    let annoFile           = Data.external' root "anno.json"                  |> Option.defaultValue ""
-    let sbmtBigEllipseFile = Data.external' root "Dimo_Bould_Glob_7_Maurizio" |> Option.defaultValue ""
+    let sbmtPointsFile     = Data.external' "pointOnPike.points.txt"     |> Option.defaultValue ""
+    let annoFile           = Data.external' "anno.json"                  |> Option.defaultValue ""
+    let sbmtBigEllipseFile = Data.external' "Dimo_Bould_Glob_7_Maurizio" |> Option.defaultValue ""
 
     testList "fixtures" [
         test "SBMT-imported Pike point aligns with PRo3D-native annotation within 10m (identity trafo)" {
@@ -567,6 +586,44 @@ let private fixtureTests (parameters : TestUtils.TestParameters) =
                 |> Array.map (fun p -> abs (Vec.dot (p - p0) n))
                 |> Array.max
             Expect.isLessThan maxOffPlane 1e-6 "ellipse boundary must be planar"
+        }
+
+        // Every row of a real catalog: the stored shape repeats the row's own
+        // diameter, flattening and angle.
+        test "SBMT ellipse import stores each catalog row's axes and azimuth" {
+            if not (File.Exists basicEllipseFile) then
+                skiptest (Data.missing "imports/basicSBMT-dimorphos-v4/sbmtimport.ellipses.txt")
+
+            let rows =
+                File.ReadAllLines basicEllipseFile
+                |> Array.filter (fun l -> let t = l.Trim() in t.Length > 0 && not (t.StartsWith "#"))
+                |> Array.map (fun l -> l.Split('\t'))
+                |> Array.filter (fun parts -> parts.Length >= 18)
+
+            let annotations =
+                SbmtImporter.startImporter Trafo3d.Identity "DIMORPHOS_SHM" basicEllipseFile
+                |> IndexList.toArray
+
+            Expect.equal annotations.Length rows.Length "one annotation per data row"
+            Expect.isGreaterThan rows.Length 0 "the fixture has ellipse rows"
+
+            for parts, a in Array.zip rows annotations do
+                let number (i : int) = Double.Parse(parts.[i], CultureInfo.InvariantCulture)
+                let semiMajor = number 12 * 1000.0 * 0.5
+                let semiMinor = semiMajor * number 13
+                let azimuth =
+                    let v = (90.0 - number 14) % 180.0
+                    if v < 0.0 then v + 180.0 else v
+                match a.ellipticResults with
+                | None -> failtest "an imported ellipse must carry its stored shape"
+                | Some e ->
+                    Expect.floatClose Accuracy.medium e.semiMajorAxis.Length (max semiMajor semiMinor) "semi-major"
+                    Expect.floatClose Accuracy.medium e.semiMinorAxis.Length (min semiMajor semiMinor) "semi-minor"
+                    if semiMinor < semiMajor then
+                        // the (90 - angle) mod 180 fold can land on either side of 0/180
+                        let difference = abs (e.majorAxisAzimuth - azimuth)
+                        Expect.isLessThan (min difference (180.0 - difference)) 1e-6
+                            (sprintf "azimuth of %s" a.text)
         }
 
         // Performance / drawing-model integration test. Runs the FULL import

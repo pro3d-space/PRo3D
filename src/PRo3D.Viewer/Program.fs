@@ -232,6 +232,19 @@ let main argv =
 
         UI.enabletoolTips <- (argv |> Array.contains "-notooltips" |> not)
 
+        // Escape hatch for the busy indicator: -nobusy turns off both the overlay and the
+        // polling that feeds it, -busyms <n> moves the threshold (0 is the same as -nobusy).
+        // See docs/BusyIndicator.md.
+        if argv |> Array.contains "-nobusy" then
+            Config.busyIndicatorMilliseconds <- 0
+        else
+            match argv |> Array.tryFindIndex (fun a -> a = "-busyms") with
+            | Some i ->
+                match Array.tryItem (i + 1) argv |> Option.bind (fun v -> Int32.TryParse v |> function true, n -> Some n | _ -> None) with
+                | Some n when n >= 0 -> Config.busyIndicatorMilliseconds <- n
+                | _ -> Log.warn "[StartupArgs] -busyms needs a non-negative number, ignoring"
+            | None -> ()
+
         // main app
         //use form = new Form(Width = 1280, Height = 800)
         let cts = new CancellationTokenSource()
@@ -382,6 +395,14 @@ let main argv =
                 GoldenLayout.toWebPart http
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
+
+                // What the update thread is doing right now, for the busy indicator. Top
+                // level rather than under /api, which is only mounted with -remoteApi. The
+                // handler reads one ref cell: no adaptive value, no app.lock, nothing that
+                // can block - which is the whole reason it still answers while the update
+                // thread is wedged. See docs/BusyIndicator.md.
+                http.route "/busy" >=> http.mimeType "application/json" >=> http.request (fun _ ->
+                    http.ok (Busy.toJson ()))
 
                 http.route "/crash.txt" >=> http.mimeType "text/plain" >=> http.sendFile logFilePath
 

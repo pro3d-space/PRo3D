@@ -212,7 +212,7 @@ module MultiBandReader =
             Result.Ok { width = width; height = height; bands = samplesPerPixel; buffers = Float32Bands bands; format = Float32 }
         | _ ->
             Result.Error $"Unsupported SAMPLEFORMAT={sampleFormat} BITSPERSAMPLE={bitsPerSample}"
-/// Writing single-band float32 TIFFs.
+/// Writing float32 TIFFs, one band or many.
 ///
 /// Plain TIFF, deliberately with no georeferencing tags: the rasters this produces live
 /// in an instrument's image frame, which has no map projection to encode. GDAL, QGIS and
@@ -223,19 +223,22 @@ module MultiBandReader =
 /// silently indistinguishable from real data.
 module Float32Writer =
 
-    /// Write `data` (row-major, length width*height) as a single-band float32 TIFF.
+    /// Write `bands` (each row-major, length width*height) as one float32 TIFF with one
+    /// sample per band -- the layout of a HyperScout `_Stacked.tif`.
     ///
     /// Rows are written top-down (ORIENTATION_TOPLEFT). Callers holding a framebuffer
     /// readback must flip it themselves if their origin is bottom-left -- doing it here
     /// would hide the convention mismatch rather than resolve it.
-    let write (path : string) (width : int) (height : int) (data : float32[]) : Result<unit, string> =
+    let private writeBandsWith (compression : Compression) (path : string) (width : int) (height : int) (bands : float32[][]) : Result<unit, string> =
         if width <= 0 || height <= 0 then
             Result.Error $"invalid dimensions {width}x{height}"
-        elif isNull (box data) then
-            Result.Error "data is null"
-        elif data.Length <> width * height then
-            Result.Error $"data length {data.Length} does not match {width}x{height} = {width * height}"
+        elif isNull (box bands) || bands.Length = 0 then
+            Result.Error "no bands to write"
         else
+        match bands |> Array.tryFindIndex (fun b -> isNull (box b) || b.Length <> width * height) with
+        | Some i ->
+            Result.Error $"band {i} does not hold {width}x{height} = {width * height} values"
+        | None ->
 
         try
             use tif = Tiff.Open(path, "w")
@@ -245,28 +248,45 @@ module Float32Writer =
 
             tif.SetField(TiffTag.IMAGEWIDTH, width) |> ignore
             tif.SetField(TiffTag.IMAGELENGTH, height) |> ignore
-            tif.SetField(TiffTag.SAMPLESPERPIXEL, 1) |> ignore
+            tif.SetField(TiffTag.SAMPLESPERPIXEL, bands.Length) |> ignore
             tif.SetField(TiffTag.BITSPERSAMPLE, 32) |> ignore
             tif.SetField(TiffTag.SAMPLEFORMAT, SampleFormat.IEEEFP) |> ignore
             tif.SetField(TiffTag.ORIENTATION, Orientation.TOPLEFT) |> ignore
-            // SEPARATE rather than the more usual CONTIG. For a single band the two are
-            // equivalent, and MultiBandReader above only accepts SEPARATE -- so writing it
-            // keeps these rasters readable by PRo3D itself, not just by external tools.
+            // SEPARATE rather than the more usual CONTIG: MultiBandReader above only
+            // accepts SEPARATE, and it is what the HERA exports use -- so writing it keeps
+            // these rasters readable by PRo3D itself, not just by external tools.
             tif.SetField(TiffTag.PLANARCONFIG, PlanarConfig.SEPARATE) |> ignore
             tif.SetField(TiffTag.PHOTOMETRIC, Photometric.MINISBLACK) |> ignore
-            tif.SetField(TiffTag.COMPRESSION, Compression.NONE) |> ignore
+            tif.SetField(TiffTag.COMPRESSION, compression) |> ignore
             tif.SetField(TiffTag.ROWSPERSTRIP, tif.DefaultStripSize(0)) |> ignore
 
             let rowBytes = width * 4
             let scanline = Array.zeroCreate<byte> rowBytes
-            let mutable failedRow = -1
+            let mutable failed = None
 
-            for row = 0 to height - 1 do
-                if failedRow < 0 then
-                    Buffer.BlockCopy(data, row * rowBytes, scanline, 0, rowBytes)
-                    if not (tif.WriteScanline(scanline, row)) then failedRow <- row
+            // SEPARATE stores plane after plane, so the band is the outer loop
+            for band = 0 to bands.Length - 1 do
+                for row = 0 to height - 1 do
+                    if failed.IsNone then
+                        Buffer.BlockCopy(bands.[band], row * rowBytes, scanline, 0, rowBytes)
+                        if not (tif.WriteScanline(scanline, row, int16 band)) then failed <- Some (band, row)
 
-            if failedRow >= 0 then Result.Error $"WriteScanline failed at row {failedRow}"
-            else Result.Ok ()
+            match failed with
+            | Some (band, row) -> Result.Error $"WriteScanline failed at band {band}, row {row}"
+            | None -> Result.Ok ()
         with e ->
             Result.Error $"writing '{path}' failed: {e.Message}"
+
+    /// Uncompressed, the layout of a delivered HERA product.
+    let writeBands (path : string) (width : int) (height : int) (bands : float32[][]) : Result<unit, string> =
+        writeBandsWith Compression.NONE path width height bands
+
+    /// Deflate-compressed. Readers built on LibTiff (MultiBandReader, GDAL) decompress
+    /// transparently; worth it for simulated frames, which are mostly zero-valued sky.
+    let writeBandsCompressed (path : string) (width : int) (height : int) (bands : float32[][]) : Result<unit, string> =
+        writeBandsWith Compression.ADOBE_DEFLATE path width height bands
+
+    /// Write `data` (row-major, length width*height) as a single-band float32 TIFF.
+    let write (path : string) (width : int) (height : int) (data : float32[]) : Result<unit, string> =
+        if isNull (box data) then Result.Error "data is null"
+        else writeBands path width height [| data |]

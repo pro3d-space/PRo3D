@@ -55,13 +55,21 @@ type Transformations = {
 
 module Transformations =
     module Initial =
+        // Effectively no upper bound: surfaces get scaled by orders of magnitude (model units
+        // vs. metres). A plain finite number, so it saves as-is and older releases clamp
+        // against it normally.
         let scaling = {
             value  = 1.000
             min    = 0.001
-            max    = 50.000
+            max    = 1.0e15
             step   = 0.001
             format = "{0:0.000}"
         }
+
+        /// Scenes persist the whole NumericInput, bounds included, so a scene saved with
+        /// the old cap of 50 would keep it. Keep the stored value, take today's bounds.
+        let withScalingBounds (stored : NumericInput) =
+            { scaling with value = stored.value }
 
         let yaw = {
             value   = 0.000
@@ -347,7 +355,7 @@ module Transformations =
                 pivotChanged         = false
                 flipZ                = flipZ
                 isSketchFab          = isSketchFab
-                scaling              = scaling
+                scaling              = Initial.withScalingBounds scaling
                 trafoChanged         = false
                 usePivot             = false
                 pivotMode            = PivotMode.NoPivot
@@ -404,7 +412,7 @@ module Transformations =
                 pivotChanged         = false
                 flipZ                = flipZ
                 isSketchFab          = isSketchFab
-                scaling              = scaling
+                scaling              = Initial.withScalingBounds scaling
                 trafoChanged         = false
                 usePivot             = usePivot
                 pivotMode            = match pivotMode with 

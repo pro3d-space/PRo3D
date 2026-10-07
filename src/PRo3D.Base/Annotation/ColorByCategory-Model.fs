@@ -37,6 +37,10 @@ type ColorCategoryAttribute =
     | DipAngle          = 12
     | DipAzimuth        = 13
     | StrikeAzimuth     = 14
+    // numeric, from EllipticAnnotationResult (ellipses only)
+    | SemiMajorAxis     = 15
+    | SemiMinorAxis     = 16
+    | MajorAxisAzimuth  = 17
 
 /// Whether the annotation set is colored by one of its own measurements or by a scalar
 /// attribute (AARA layer) of the surface, sampled at the clicked points. Persisted as `int`.

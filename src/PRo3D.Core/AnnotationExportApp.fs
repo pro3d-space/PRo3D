@@ -65,15 +65,22 @@ module AnnotationExportApp =
                 if AnnotationExportSettings.coordinateModesFor format |> List.contains model.coordinates
                 then model.coordinates
                 else CoordinateMode.Geographic
-            custom { model with format = format; coordinates = coordinates }
+            // the same for the granularity: per segment is CSV only
+            let granularity =
+                if AnnotationExportSettings.granularitiesFor format |> List.contains model.granularity
+                then model.granularity
+                else ExportGranularity.PerAnnotation
+            custom { model with format = format; coordinates = coordinates; granularity = granularity }
         | SetGranularity granularity -> custom { model with granularity = granularity }
         | SetScope scope             -> custom { model with scope = scope }
+        | SetTypeFilter filter       -> custom { model with typeFilter = filter }
         | SetCoordinates coordinates -> custom { model with coordinates = coordinates }
         | SetLongitude longitude     -> custom { model with longitude = longitude }
         | ToggleSignedLongitude      -> custom { model with signedLongitude = not model.signedLongitude }
         | SetLatLonAltSource source  -> custom { model with latLonAltSource = source }
         | ToggleSampledPoints        -> custom { model with useSampledPoints = not model.useSampledPoints }
         | ToggleSurfaceProperties    -> custom { model with sampleSurfaceProperties = not model.sampleSurfaceProperties }
+        | ToggleEllipseStatistics    -> custom { model with ellipseStatistics = not model.ellipseStatistics }
 
         // Key is always exported (see AnnotationExportModel.toSettings), so its
         // checkbox is inert rather than lying about the output.
@@ -204,6 +211,8 @@ module AnnotationExportApp =
                     yield text "One Point feature per vertex. Note that a GIS evaluates labels and symbology per feature, so this is how per-point values become individually styleable."
                 | _, ExportGranularity.PerAnnotation ->
                     yield text "One row per annotation. The coordinate columns hold the bounding-box centre; the individual vertices are not in the file - switch to \"one record per point\" to export every vertex."
+                | _, ExportGranularity.PerSegment ->
+                    yield text "One row per segment - the stretch between two clicked points - of every line and polygon, with fixed columns: start and end point, length along the surface, straight length and direction. Ellipses give no rows. Lat/lon/alt come from SPICE."
                 | _ ->
                     yield text "One row per point of every exported annotation. Annotation attributes are repeated on each of its rows."
             })
@@ -296,6 +305,8 @@ module AnnotationExportApp =
                         dropDown
                             [ ExportScope.All; ExportScope.Visible; ExportScope.Selected ]
                             AnnotationExportSettings.scopeLabel model.scope SetScope ]
+                    Html.row "Annotation types:" [
+                        dropDown ExportTypeFilter.all ExportTypeFilter.label model.typeFilter SetTypeFilter ]
                 ]
             ]
 
@@ -323,7 +334,7 @@ module AnnotationExportApp =
                             Html.table [
                                 yield Html.row "Granularity:" [
                                     dropDown
-                                        [ ExportGranularity.PerAnnotation; ExportGranularity.PerPoint ]
+                                        (AnnotationExportSettings.granularitiesFor format)
                                         AnnotationExportSettings.granularityLabel model.granularity SetGranularity ]
                                 yield Html.row "Coordinates:" [
                                     dropDown
@@ -336,14 +347,23 @@ module AnnotationExportApp =
                                 yield Html.row "Longitude range:" [
                                     checkBox "write as -180...180 instead of 0...360"
                                         model.signedLongitude ToggleSignedLongitude ]
-                                yield Html.row "Sampled points:" [
-                                    checkBox "include the surface-following points between the picked ones"
-                                        model.useSampledPoints ToggleSampledPoints ]
+                                // per-segment rows are made from the segments, so neither
+                                // the sampled points nor a per-vertex source apply to them
+                                if granularity <> ExportGranularity.PerSegment then
+                                    yield Html.row "Sampled points:" [
+                                        checkBox "include the surface-following points between the picked ones"
+                                            model.useSampledPoints ToggleSampledPoints ]
                                 // Irrelevant to a cartesian export, which writes no
                                 // lat/lon at all. Hidden rather than disabled; the
                                 // stored choice is left alone so it comes back when
                                 // the export is geographic again.
-                                if AnnotationExport.wantsGeographic coordinates then
+                                // per-annotation rows only: one set of statistics per ellipse
+                                if granularity = ExportGranularity.PerAnnotation then
+                                    yield Html.row "Ellipse statistics:" [
+                                        checkBox "surface area and layer statistics inside each ellipse (reads the OPC, slower)"
+                                            model.ellipseStatistics ToggleEllipseStatistics ]
+                                if AnnotationExport.wantsGeographic coordinates
+                                   && granularity <> ExportGranularity.PerSegment then
                                     yield Html.row "Lat/Lon/Alt Source:" [
                                         dropDown
                                             AnnotationExportSettings.allLatLonAltSources
