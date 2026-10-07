@@ -1,5 +1,5 @@
 import { expect, Page, BrowserContext } from "@playwright/test";
-import { Pro3d, derivedScene } from "./pro3d";
+import { Pro3d, derivedScene, launchPro3d, surfaceShadersReady } from "./pro3d";
 import { diffPng, litFraction, streamLive } from "./image";
 import * as fs from "fs";
 
@@ -114,6 +114,29 @@ export async function settled(
     }
     save(name, prev);
     return prev;
+}
+
+/**
+ * Launches PRo3D on `scene`, opens its render page and waits until the surface is up; the
+ * settled frame goes to `save` as `shot`. Close `context` and stop `app` when done.
+ */
+export async function openDrawingViewer(
+    browser: any,
+    scene: string,
+    shot: string,
+    save: (name: string, png: Buffer) => void
+): Promise<{ app: Pro3d; context: BrowserContext; render: Page }> {
+    const app = await launchPro3d(scene);
+    const context: BrowserContext = await browser.newContext();
+    context.on("weberror", (e: any) => console.log("[page error]", e.error()));
+    const render = await context.newPage();
+    await render.goto(app.url + "?page=render");
+    await render.waitForSelector("img.rendercontrol", { timeout: 60_000 });
+    // the OPC surface effect links before anything can be drawn; on a cold shader
+    // cache this is minutes of silence rather than a failure (ai/TESTING.md)
+    await surfaceShadersReady(render);
+    await settled(render, shot, save);
+    return { app, context, render };
 }
 
 /**

@@ -10,10 +10,9 @@ There is no *multi-attribute profile* menu command. It is a combination of three
 in one window, and this page walks the whole thing through on the HERA Dimorphos dataset.
 For the reference description of every control, see [Annotation Export](AnnotationExport.md).
 
-The screenshots and the excerpt at the bottom come from a real run against the HERA
-Dimorphos OPC. The Playwright spec that performs exactly these steps and regenerates them
-(`tests-ui/tests/annotation-profile-export.spec.ts`, run with `PRO3D_DOC_SHOTS=1`) lands
-separately in PR #771.
+The screenshots and the excerpt at the bottom are produced by
+`tests-ui/tests/annotation-profile-export.spec.ts`, which performs exactly these steps
+against the real viewer; regenerate them with `PRO3D_DOC_SHOTS=1`.
 
 ---
 
@@ -127,6 +126,7 @@ This affects every spherical-convention body. On the planetographic ones — Mar
 Moon, Phobos, Deimos, Didymos — `groundDistance` measures a real horizontal run, and the
 difference from `distance` is the vertical climb.
 
+Tracked in [#830](https://github.com/pro3d-space/PRo3D/issues/830).
 `annotation-profile-export.spec.ts` asserts this zero as the current behaviour, so fixing
 it will trip the test and bring you back to this page.
 
