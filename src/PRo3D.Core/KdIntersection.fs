@@ -13,7 +13,7 @@ open Aardvark.Geometry
 /// cannot be picked at all. det also scales with |direction|, so the query runs with a
 /// lengthened direction and the hit parameter is scaled back. Callers keep seeing `t` along
 /// their own ray. Remove once aardvark.base compares det against a relative bound:
-/// https://github.com/aardvark-platform/aardvark.base/issues/169
+/// https://github.com/aardvark-platform/aardvark.base/issues/169 (removal: pro3d-space/PRo3D#828)
 /// See docs/KdTrees.md.
 module KdIntersection =
 

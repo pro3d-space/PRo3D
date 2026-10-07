@@ -77,4 +77,5 @@ through `PRo3D.Core.KdIntersection.intersect`. It lengthens the direction by 1e6
 the hit parameter back, so callers still get `t` along their own ray. Hittable edges then go
 down to ~3.2e-7 file units. Use it instead of calling `KdIntersectionTree.Intersect` directly.
 Remove it once aardvark.base compares `det` against a bound relative to the triangle size
-([aardvark.base#169](https://github.com/aardvark-platform/aardvark.base/issues/169)).
+([aardvark.base#169](https://github.com/aardvark-platform/aardvark.base/issues/169); removal is tracked in
+[#828](https://github.com/pro3d-space/PRo3D/issues/828)).
