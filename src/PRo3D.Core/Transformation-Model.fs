@@ -55,11 +55,13 @@ type Transformations = {
 
 module Transformations =
     module Initial =
-        // No upper bound: surfaces get scaled by orders of magnitude (model units vs. metres).
+        // Effectively no upper bound: surfaces get scaled by orders of magnitude (model units
+        // vs. metres). A plain finite number, so it saves as-is and older releases clamp
+        // against it normally.
         let scaling = {
             value  = 1.000
             min    = 0.001
-            max    = System.Double.MaxValue
+            max    = 1.0e15
             step   = 0.001
             format = "{0:0.000}"
         }
