@@ -55,19 +55,17 @@ type Transformations = {
 
 module Transformations =
     module Initial =
-        // Effectively unbounded: surfaces get scaled by orders of magnitude (model units
-        // vs. metres), so the cap only gets in the way. Not Double.MaxValue - the input
-        // box renders the bound as an HTML attribute.
+        // No upper bound: surfaces get scaled by orders of magnitude (model units vs. metres).
         let scaling = {
             value  = 1.000
             min    = 0.001
-            max    = 1.0e12
+            max    = System.Double.MaxValue
             step   = 0.001
             format = "{0:0.000}"
         }
 
-        /// Scenes persist the whole NumericInput, bounds included, so a scene saved
-        /// with the old 50x cap would keep it. Keep the stored value, take today's bounds.
+        /// Scenes persist the whole NumericInput, bounds included, so a scene saved with
+        /// the old cap of 50 would keep it. Keep the stored value, take today's bounds.
         let withScalingBounds (stored : NumericInput) =
             { scaling with value = stored.value }
 

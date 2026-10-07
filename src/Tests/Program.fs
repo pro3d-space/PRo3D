@@ -42,6 +42,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         AnnotationExportTest.tests()
         EllipseExportTest.tests()
         ColorByCategoryPersistence.Tests.tests()
+        TransformationScaling.Tests.tests()
         ColorByCategoryColor.Tests.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
