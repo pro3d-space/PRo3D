@@ -413,7 +413,7 @@ module Sg =
                         |> Seq.choose (fun (h,kd,bb) ->
                             let mutable hit = ObjectRayHit.MaxRange
                             let intersecBox = Helper.intersectBox' kd.KdIntersectionTree.BoundingBox3d r
-                            if kd.KdIntersectionTree.Intersect(r, 0.0, Double.MaxValue, &hit) then
+                            if PRo3D.Core.KdIntersection.intersect kd.KdIntersectionTree r null null 0.0 Double.MaxValue &hit then
                                 Some hit
                             else
                                 None

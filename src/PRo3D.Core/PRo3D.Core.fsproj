@@ -22,6 +22,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="KdTrees.fs" />
+    <Compile Include="KdIntersection.fs" />
     <Compile Include="AardvarkUIReworks.fs" />
     <EmbeddedResource Include="resources/groupmappings" />
     <Compile Include="Config.fs" />

@@ -105,7 +105,7 @@ module HeadlessPicking =
                     let kdi = kdTree.KdIntersectionTree
                     let mutable hit = ObjectRayHit.MaxRange
                     try
-                        if kdi.Intersect(ray, null, noHitFilter, 0.0, Double.MaxValue, &hit) then
+                        if PRo3D.Core.KdIntersection.intersect kdi ray null noHitFilter 0.0 Double.MaxValue &hit then
                             if hit.RayHit.T < bestT then
                                 bestT <- hit.RayHit.T
                                 best <-

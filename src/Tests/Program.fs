@@ -42,6 +42,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         AnnotationExportTest.tests()
         EllipseExportTest.tests()
         ColorByCategoryPersistence.Tests.tests()
+        TransformationScaling.Tests.tests()
         ColorByCategoryColor.Tests.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
@@ -109,6 +110,10 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // window layouts: pure, file-system (temp dirs) and headless viewer cases; relies on
         // the Startup.init that featureTests performs while this list is built
         PRo3D.Tests.WindowLayoutTests.tests()
+
+        // surface comparison: the model case always runs; the DART shape-model cases download
+        // their OBJs on first use and self-skip offline or without a GL context
+        PRo3D.Tests.SurfaceComparisonTest.tests parameters
 
         // Sections whose OPC-backed lists self-skip when the test-data submodule
         // (src/Tests/resources) or a GL context is unavailable.

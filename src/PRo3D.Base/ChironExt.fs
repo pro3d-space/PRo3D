@@ -17,12 +17,20 @@ type Ext = Ext
 module Json = 
 
 
+    /// Largest magnitude Chiron can write: it stores every number as a decimal (max ~7.92e28).
+    [<Literal>]
+    let maxWritableFloat = 7.9e28
+
+    /// Chiron throws on NaN, +-Infinity and magnitudes above ~7.9e28 (e.g. Double.MaxValue),
+    /// which takes the whole save down. NaN is written as null (`readFloat` reads it as NaN);
+    /// larger magnitudes and infinities saturate to +-maxWritableFloat, so a "no bound" stays a
+    /// finite bound that older releases can still clamp against (NaN would poison the clamp).
     let writeFloat name (floatValue : double)  = 
       json {
-        if floatValue.IsNaN() then      
+        if Double.IsNaN floatValue then
           do! Json.writeNone name
         else
-          do! Json.write name floatValue
+          do! Json.write name (clamp -maxWritableFloat maxWritableFloat floatValue)
       }
     
     let readFloat name : Json<double> = 

@@ -311,6 +311,22 @@ module ViewerApp =
 
         (newRenderBox, viewBox)
 
+    /// Surface comparison (PRo3D.SimulatedViews/Comparison). It may also change surfaces:
+    /// computing statistics makes the two compared surfaces visible and active.
+    let private updateComparison (msg : Comparison.ComparisonAction) (m : Model) =
+        let bookmarks =
+            m.scene.bookmarks.flat
+            |> HashMap.choose (fun _ x -> match x with Leaf.Bookmarks b -> Some b | _ -> None)
+        let comparisonApp, surfacesModel =
+            ComparisonApp.update
+                m.scene.comparisonApp
+                m.scene.surfacesModel
+                m.scene.referenceSystem
+                (m.drawing.annotations.flat |> Leaf.toAnnotations)
+                bookmarks
+                msg
+        { m with scene = { m.scene with surfacesModel = surfacesModel; comparisonApp = comparisonApp } }
+
     let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
         | Interactions.DrawAnnotation, _ -> 
@@ -446,6 +462,8 @@ module ViewerApp =
                     (HeightValidatorAction.PlaceValidator p)
 
             { m with heighValidation = heightVal }
+        | Interactions.SelectArea, ViewerMode.Standard ->
+            updateComparison (Comparison.ComparisonAction.AddSelectionArea p) m
         | Interactions.PlaceScaleBar, _ ->
             let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
             let scm = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem
@@ -1869,6 +1887,26 @@ module ViewerApp =
                     { m with drawing = drawing }
                 | _ -> m
 
+            // comparison areas: resize the area just placed, Enter to finish
+            let m =
+                match m.interaction, k with
+                | Interactions.SelectArea, Aardvark.Application.Keys.Enter ->
+                    updateComparison Comparison.ComparisonAction.StopEditingArea m
+                | Interactions.SelectArea, Aardvark.Application.Keys.OemMinus ->
+                    updateComparison (Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeSmaller) m
+                | Interactions.SelectArea, Aardvark.Application.Keys.OemPlus ->
+                    updateComparison (Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeBigger) m
+                | _ -> m
+
+            // T flips between the two compared surfaces (one visible at a time), only once
+            // both are picked in the Comparison panel
+            let m =
+                let cmp = m.scene.comparisonApp
+                match k, m.ctrlFlag with
+                | Aardvark.Application.Keys.T, false when cmp.surface1.IsSome && cmp.surface2.IsSome ->
+                    updateComparison Comparison.ComparisonAction.ToggleVisible m
+                | _ -> m
+
             let sensitivity = m.scene.config.navigationSensitivity.value
           
             let configAction = 
@@ -2206,6 +2244,8 @@ module ViewerApp =
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
         //    m 
+        | ComparisonMessage msg,_ ->
+            updateComparison msg m
         | ScaleBarsDrawingMessage msg,_->    
             let scDrawing = ScaleBarsDrawing.update m.scaleBarsDrawing msg
             { m with scaleBarsDrawing = scDrawing }
@@ -2857,8 +2897,16 @@ module ViewerApp =
             
         let curtainSg = ViewerUtils.createCurtainSg view m
 
+        // surface comparison: area spheres while placing, per-vertex differences once computed
+        let comparisonSg =
+            [
+                Comparison.AreaSelection.sgAllAreas m.scene.comparisonApp.areas
+                Comparison.AreaComparison.sgAllDifferences m.scene.comparisonApp.areas
+            ] |> Sg.ofList
+
         let depthTested =
             [
+                comparisonSg
                 scaleBars;
                 annotationSg
                 traverses
@@ -3035,7 +3083,9 @@ module ViewerApp =
 
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
-        unionMany [animation; nav; m.scene.feedbackThreads; sBookmarks; m.backgroundPicking]
+        let comparison = ComparisonApp.threads m.scene.comparisonApp |> ThreadPool.map ComparisonMessage
+
+        unionMany [animation; nav; m.scene.feedbackThreads; sBookmarks; comparison; m.backgroundPicking]
             |> ThreadPool.map ViewerMessage
             |> ThreadPool.union (
                 Animation.Animator.threads m.animator 

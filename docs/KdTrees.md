@@ -63,3 +63,19 @@ There are some dead-ends, of this approach, which happens concerned with .cache 
 ## Partially currupt/deleted kd trees
 
 Generally by using the `validateKdTrees` flag all sub-kdtrees would be verified and rebuilt if needed. For WSYWYG however this validation/repair does not take place automatically. Another reason for not repairing broken OPC directories is that it disables a fast path when cache files are broken. Generally we could change this. Relevant parts are [here](https://github.com/aardvark-platform/OpcViewer/blob/fb94d0c74f9759a3ab07a71dcccac82f8186e776/src/OPCViewer.Base/KdTrees.fs#L297).
+
+## Small triangles: ray direction scaling
+
+Aardvark.Base's ray-triangle test (`Ray3d.HitsTriangle`) rejects a hit when
+`det = edge01 · (direction × edge02)` is within an absolute ±1e-7. With a unit ray, `det` is
+about edge², so triangles with edges below ~3.2e-4 *file units* are never hit, whatever the
+angle. A shape model in kilometres with facets finer than ~30 cm (e.g. the 5 cm DART Dimorphos
+patch) could not be picked at all.
+
+`det` also scales with the length of the ray direction, so every kd-tree query in PRo3D goes
+through `PRo3D.Core.KdIntersection.intersect`. It lengthens the direction by 1e6 and scales
+the hit parameter back, so callers still get `t` along their own ray. Hittable edges then go
+down to ~3.2e-7 file units. Use it instead of calling `KdIntersectionTree.Intersect` directly.
+Remove it once aardvark.base compares `det` against a bound relative to the triangle size
+([aardvark.base#169](https://github.com/aardvark-platform/aardvark.base/issues/169); removal is tracked in
+[#828](https://github.com/pro3d-space/PRo3D/issues/828)).

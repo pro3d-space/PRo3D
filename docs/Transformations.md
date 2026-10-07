@@ -36,6 +36,7 @@ To transform a surface, it must first be selected. Then the user has to select i
 - **ReferenceSystem:** Described above.
 - **Translation(m):** The translation occurs along the axes of the selected reference system (as described above). The translation can be entered in the input fields of the respective axes.
 - **Scale:** The scaling center ist the pivot position.
+  The factor ranges from 0.001 to 10^15, effectively unlimited. Scenes saved with the old upper limit of 50 get the new range when loaded; their stored factor is kept.
 - **Yaw(Z,deg):** Rotation around yaw or z-axis. The rotation center is the pivot position. Rotation unit is degrees.
 - **Pitch(Y,deg):** Rotation around pitch or y-axis. The rotation center is the pivot position. Rotation unit is degrees.
 - **Roll(X,deg):** Rotation around roll or x-axis. The rotation center is the pivot position. Rotation unit is degrees.

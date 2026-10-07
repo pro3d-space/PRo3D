@@ -23,6 +23,7 @@
     <Compile Include="AnnotationExportTest.fs" />
     <Compile Include="EllipseExportTest.fs" />
     <Compile Include="ColorByCategoryPersistenceTest.fs" />
+    <Compile Include="TransformationScalingTest.fs" />
     <Compile Include="ColorByCategoryColorTest.fs" />
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
@@ -93,6 +94,7 @@
     <Compile Include="MapProjectionRenderTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />
     <Compile Include="BoulderStatisticsExportTest.fs" />
+    <Compile Include="SurfaceComparisonTest.fs" />
     <Compile Include="SurfaceEffectBenchmark.fs" />
     <Compile Include="MapProjectionBenchmark.fs" />
     <Compile Include="Program.fs" />
