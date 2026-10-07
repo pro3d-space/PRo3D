@@ -994,6 +994,7 @@ module Gui =
             | Interactions.PlaceSceneObject      -> sprintf "%s to place scene object" click
             | Interactions.PickPivotPoint        -> sprintf "%s to place pivot point" click
             | Interactions.PickSurfaceRefSys     -> sprintf "%s to place additional reference system for selected surface" click
+            | Interactions.SelectArea            -> sprintf "%s to place a comparison area, +/- to resize, ENTER to finish" click
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
 
@@ -1017,7 +1018,7 @@ module Gui =
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
             | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Clicking an annotation selects it."
             | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
-            | Interactions.SelectArea            -> ""
+            | Interactions.SelectArea            -> "Place areas for the Comparison panel (Surface Comparison dashboard). Pick both surfaces there, then press Update Measurements to colour each area by the distance between them."
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
@@ -1033,7 +1034,7 @@ module Gui =
             | Interactions.CutAnnotation         -> "Cut Annotation"
             | Interactions.EditAnnotation        -> "Edit Annotation"
             | Interactions.PickSurface           -> "Select Surface"
-            | Interactions.SelectArea            -> "Select Area"
+            | Interactions.SelectArea            -> "Comparison Area"
             | Interactions.PlaceRover            -> "Place Rover"
             | Interactions.PickDistancePoint     -> "Place Distance Point"
             | Interactions.PlaceSceneObject      -> "Place Scene Object"
@@ -1266,7 +1267,7 @@ module Gui =
 
                     // --- selection --------------------------------------------------------
                     tool "mouse pointer" "Select surface" Interactions.PickSurface
-                    tool "crop"  "Select area - drag a rectangle to multi-select" Interactions.SelectArea
+                    tool "crop"  "Comparison area - place an area for Surface Comparison" Interactions.SelectArea
 
                     divider
 

@@ -110,6 +110,10 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // the Startup.init that featureTests performs while this list is built
         PRo3D.Tests.WindowLayoutTests.tests()
 
+        // surface comparison: the model case always runs; the DART shape-model cases download
+        // their OBJs on first use and self-skip offline or without a GL context
+        PRo3D.Tests.SurfaceComparisonTest.tests parameters
+
         // Sections whose OPC-backed lists self-skip when the test-data submodule
         // (src/Tests/resources) or a GL context is unavailable.
         featureTests ()

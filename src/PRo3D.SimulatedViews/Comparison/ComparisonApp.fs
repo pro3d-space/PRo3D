@@ -115,19 +115,24 @@ module ComparisonApp =
                              (refSystem    : ReferenceSystem) = 
         Log.line "[Comparison] Calculating area statistics..."
         let surfaceModel = setSurfacesVisibleAndActive m.surface1 m.surface2 surfaceModel
+        // An area whose statistics cannot be computed (a surface name that does not
+        // resolve) is kept as it was - dropping it left `selectedArea` dangling.
         let m = 
             match m.surface1, m.surface2 with
             | Some s1, Some s2 ->
-                let areas =   
-                  m.areas
-                    |> HashMap.map (fun g x -> updateAreaStatistic surfaceModel refSystem
-                                                                   m.pointSizeFactor.value
-                                                                   m.surfaceGeometryType
-                                                                   x s1 s2)
-                    |> HashMap.filter (fun g x -> x.IsSome)
-                    |> HashMap.map (fun g x -> x.Value)
-                areas
-            | _,_ -> HashMap.empty
+                m.areas
+                |> HashMap.map (fun g x ->
+                    match updateAreaStatistic surfaceModel refSystem
+                                              m.pointSizeFactor.value
+                                              m.surfaceGeometryType
+                                              x s1 s2 with
+                    | Some updated -> updated
+                    | None ->
+                        Log.warn "[Comparison] could not resolve surfaces %s / %s for %s" s1 s2 x.label
+                        x)
+            | _,_ ->
+                Log.warn "[Comparison] select two surfaces before updating area statistics"
+                m.areas
         Log.line "[Comparison] Finished calculating area statistics."
         m
 
@@ -591,13 +596,13 @@ module ComparisonApp =
             let selectedAreaView =
                 alist {
                     let! guid = m.selectedArea
-                    if guid.IsSome then
-                        let area = AMap.find guid.Value m.areas
-                        //let menu = (area |> AVal.map createAreaMenu)
-                        //let! menu = menu
-                        //yield menu
-                        let! domNode =  (area |> AVal.map AreaSelection.view)
-                        yield domNode
+                    match guid with
+                    | Some guid ->
+                        let! area = AMap.tryFind guid m.areas
+                        match area with
+                        | Some area -> yield AreaSelection.view area
+                        | None -> ()
+                    | None -> ()
                 }
 
 
