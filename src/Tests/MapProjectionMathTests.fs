@@ -249,6 +249,19 @@ let tests () =
             Expect.isLessThan (dragged.center - followed).Length 1e-9 "and continues from where it was"
         }
 
+        test "Zoom to data and Reset view stop following" {
+            // both set the centre; left following, the cursor would keep the centre and the button
+            // would only change the zoom
+            let m = { MapProjectionApp.initial with follow = true; center = V2d(1.1, 0.4); zoom = 8.0 }
+            let reset = MapProjectionApp.update m ResetView
+            Expect.isFalse reset.follow "Reset view stops following"
+            Expect.equal reset.center V2d.Zero "and shows the whole map"
+            let box = Box2d(V2d(-0.2, 0.1), V2d(-0.1, 0.15))
+            let fitted = MapProjectionApp.update m (FitTo box)
+            Expect.isFalse fitted.follow "Zoom to data stops following"
+            Expect.isLessThan (fitted.center - box.Center).Length 1e-9 "and centres on the data"
+        }
+
         test "the wheel keeps following, and zooms about the pointer when it is off" {
             let size = V2d(1000.0, 500.0)
             let pointer = V2d(900.0, 120.0)

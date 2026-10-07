@@ -55,17 +55,21 @@ in a 360-degree map.
 Three things follow from where that hit point comes from:
 
 - **It updates only while picking** -- Ctrl held, or Direct Tool Mode with a tool armed -- because
-  that is when PRo3D runs the preview pick. While you fly the camera around, the map holds the
-  centre it last followed to; it does not jump home. The panel reads that pick, it does not cause
-  one, so nothing about picking changes for anyone who never opens the map.
-- **Taking over keeps the view.** Switching the toggle off, or grabbing the map with the mouse,
-  adopts the centre the map is showing and stops following, so nothing jumps.
+  that is when PRo3D runs the preview pick. The cursor is the **last picked point**: PRo3D keeps it
+  after Ctrl is released and when a pick misses, so while you fly the camera around the map stays
+  on it, and switching *Follow cursor* on goes to wherever you last picked, however long ago. The
+  panel reads that pick, it does not cause one, so nothing about picking changes for anyone who
+  never opens the map.
+- **Taking over keeps the view.** Switching the toggle off, or grabbing the map with the left mouse
+  button, adopts the centre the map is showing and stops following, so nothing jumps. *Zoom to
+  data* and *Reset view* stop following too, and then go where they always go.
 - **The wheel keeps following** and only changes the zoom: while the centre belongs to the cursor,
   zooming about the pointer would fight it.
 
-The cursor is drawn as a green marker whenever there is a hit, whether or not the map is following,
-next to the orange camera marker. On a planet both markers are usually the only things you can see
-until you zoom in (see *Planets* above).
+The last picked point is drawn as a green marker, whether or not the map is following, next to
+the orange camera marker. Like PRo3D's own preview-pick marker in the 3D view, it stays where the
+last pick hit; before the first pick there is no marker. On a planet both markers are usually the
+only things you can see until you zoom in (see *Planets* above).
 
 Cost: re-centring is one frame per pick and independent of how many surfaces the scene has --
 measured at 4, 24 and 43 Jezero surfaces, the map delivered one frame per centre change with a
