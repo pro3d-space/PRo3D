@@ -140,6 +140,49 @@ is the shape to copy.
   also owns an inner one's titles and the inner panel never opens. Only
   initialise the outermost; overriding the selectors with child combinators does
   not work.
+- **Never `locator.click()` on the 3D view — it hangs forever.** The render
+  control's parent (`div.mainrendercontrol.aardvark`) intercepts pointer events,
+  so Playwright's actionability check never settles, and `click()` has *no*
+  default timeout: it retries until the spec times out, its call log saying
+  "element is visible, enabled and stable" each time. Use raw `page.mouse`
+  (`drawing.ts:pick`).
+- **Ctrl+click needs a beat after the mouse move.** PRo3D reads the modifier from
+  *key* events on the focused element, not `MouseEvent.ctrlKey`, and the render
+  control focuses itself on `mouseenter`. Pressing Control in the same tick as the
+  move sends the keydown to whatever had focus before (typically the other page),
+  so the click is taken as navigation: no pick, no annotation, no error anywhere.
+- **Neither `litFraction` nor `streamLive` rejects the loading splash.**
+  `litFraction` measures the centre of the frame, which is where the bright
+  AARDVARK banner sits; `streamLive` expects the splash to be black in the corners,
+  but the render div's own background is `#222222`, above its threshold, so it
+  reports "live" as soon as the DOM exists. An unloaded view scores as lit and
+  stable. Gate on the splash colour too (`drawing.ts:settled`, `splashFraction`).
+- **Don't pace picking with fixed sleeps.** The first pick on a patch loads its
+  KdTree from disk (~4.5 s each), later ones hit the cache in milliseconds. PRo3D
+  ignores input while it intersects, so a click sent too early is silently
+  dropped and the annotation never completes. Wait for the log to go quiet
+  (`drawing.ts:awaitIdle`).
+- **Address tool-strip buttons by `title`, not by icon.** `wrapToolTip` puts the
+  tooltip on the button div itself, and icons repeat (`mouse pointer` is both
+  *Select annotation* and *Select surface*). This needs tooltips on: a viewer
+  started with `-notooltips` has no `title` at all (`drawing.ts:clickTool`).
+- **Playwright's text engine cannot see `<option>` text.** `filter({ has:
+  'option:text-is("Sky")' })` matches nothing. Find the select's index in an
+  `evaluate`, then drive it with `selectOption`, which sends the real events
+  (`drawing.ts:selectByOption`).
+- **The shared test scene carries the HERA AFC *instrument* camera.**
+  `fixture.sceneTemplate` is `AFC_2027-03-21/ProjectionTest.pro3d`, and `sceneFor`
+  only re-points its paths, so every spec inherits `focal = 122.563`, i.e. an
+  hfov of 5.53° instead of PRo3D's 60°. Only `focal` counts: `Scene.applyScene`
+  recomputes the frustum from it, ignoring the stored frustum. Unless you test
+  projection, set `focal = 10.25` and move the camera in (`drawing.ts:drawingScene`).
+  It matters beyond framing: a selected annotation's outline spheres are scaled
+  without the field of view (`Utilities.drawSpheresFast`, issue #770), so at 5.53°
+  they are drawn ~10x too large.
+- **When a measurement disagrees with what the app does in front of you, instrument
+  the app instead of theorising.** That ~10x outline cost hours from the outside,
+  and every conclusion was wrong, including "it is the harness". Three `Log.line`
+  calls on the actual scale computation settled it in two runs.
 
 ### Do not let the metric reward the bug
 

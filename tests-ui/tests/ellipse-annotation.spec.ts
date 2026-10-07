@@ -1,10 +1,11 @@
 import { test, expect, BrowserContext, Page } from "@playwright/test";
-import { launchPro3d, fixture, surfaceShadersReady, Pro3d } from "../src/pro3d";
+import { fixture, Pro3d } from "../src/pro3d";
 import { overlayPlanet } from "../src/viewer";
 import {
     awaitIdle,
     clickTool,
     drawingScene,
+    openDrawingViewer,
     pick,
     selectByOption,
     settled,
@@ -204,25 +205,12 @@ async function selectedOf(main: Page, option: string): Promise<string> {
     }, option);
 }
 
-/** Opens the render page on `scene` and waits until the surface is up. */
-async function openViewer(browser: any, scene: string, shot: string) {
-    const app = await launchPro3d(scene);
-    const context: BrowserContext = await browser.newContext();
-    context.on("weberror", (e: any) => console.log("[page error]", e.error()));
-    const render = await context.newPage();
-    await render.goto(app.url + "?page=render");
-    await render.waitForSelector("img.rendercontrol", { timeout: 60_000 });
-    await surfaceShadersReady(render);
-    await settled(render, shot, save);
-    return { app, context, render };
-}
-
 test("an AxisEllipse drawn on a body is an ellipse on the terrain", async ({ browser }) => {
     test.skip(!fs.existsSync(fixture.sceneTemplate), "set PRO3D_TEST_DATA");
 
     // Dimorphos as the scene body: the precondition for the whole tool, see the other case
     const scene = drawingScene(artifacts, "ellipse");
-    const { app, context, render } = await openViewer(browser, scene, "1-loaded.png");
+    const { app, context, render } = await openDrawingViewer(browser, scene, "1-loaded.png", save);
     try {
         await expect
             .poll(() => overlayPlanet(render), { timeout: 180_000, intervals: [5000] })
@@ -339,7 +327,7 @@ test("the ellipse tools are greyed out while the scene has no reference body", a
     const scene = drawingScene(artifacts, "ellipse-no-body", (d) => {
         d.gisApp.defaultObservationInfo.referenceFrame = { FrameSpiceName: "J2000" };
     });
-    const { app, context, render } = await openViewer(browser, scene, "4-no-body-loaded.png");
+    const { app, context, render } = await openDrawingViewer(browser, scene, "4-no-body-loaded.png", save);
     try {
         await expect.poll(() => overlayPlanet(render), { timeout: 180_000, intervals: [5000] })
             .toBe("None xyz");
