@@ -398,14 +398,6 @@ module AnnotationExport =
         let annotationPairs = annotationFieldPairs settings groupPath up a
         let hasPointField f = settings.pointFields |> List.contains f
 
-        /// Project a point onto the reference surface, dropping its height. The
-        /// old profile export did this before measuring, which is what made its
-        /// distance column the horizontal run rather than the slanted path.
-        let flatten (p : V3d) =
-            CooTransformation.tryGetLatLonAlt planet p
-            |> Option.bind (fun coo ->
-                CooTransformation.tryGetXYZFromLatLonAlt { coo with altitude = 0.0 } planet)
-
         let mutable cumulative = 0.0
         let mutable previous = None
 
@@ -413,6 +405,8 @@ module AnnotationExport =
         // geographic frame, or a failed native call) leaves the ground total
         // untouched and reports missing, rather than aborting the export as the
         // old profile handler did.
+        // The steps are measured with the height removed, which is what makes this the
+        // horizontal run rather than the slanted path (CooTransformation.tryGroundStep).
         let mutable groundCumulative = 0.0
         let mutable previousGround = None
 
@@ -426,13 +420,13 @@ module AnnotationExport =
             previous <- Some point.position
 
             let ground =
-                match flatten point.position with
+                // the first point steps from itself: 0 where the body has a frame
+                let from = previousGround |> Option.defaultValue point.position
+                match CooTransformation.tryGroundStep planet from point.position with
                 | None -> VMissing
-                | Some flattened ->
-                    match previousGround with
-                    | Some p -> groundCumulative <- groundCumulative + Vec.distance p flattened
-                    | None   -> ()
-                    previousGround <- Some flattened
+                | Some d ->
+                    groundCumulative <- groundCumulative + d
+                    previousGround <- Some point.position
                     VNum groundCumulative
 
             // One re-pick per point, serving both the geographic coordinates and

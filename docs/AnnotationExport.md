@@ -400,11 +400,20 @@ Only shown for *one record per point*.
 
 #### The two distances
 
-Every point is flattened onto the reference surface (altitude 0) before
-`groundDistance` is measured, so it is the horizontal run — the x-axis of a topographic
-profile. `distance` measures between the actual 3D points and therefore includes the
-vertical climb. On a line running 100 m horizontally while climbing 30 m, `groundDistance`
-ends at 100 and `distance` at about 104.4.
+`groundDistance` is measured with the height removed, so it is the horizontal run — the
+x-axis of a topographic profile. `distance` measures between the actual 3D points and
+therefore includes the vertical climb. On a line running 100 m horizontally while climbing
+30 m, `groundDistance` ends at 100 and `distance` at about 104.4.
+
+How the height is removed depends on the body's coordinate convention
+(`CooTransformation.tryGroundStep`):
+
+- **Planetographic** (Mars, Earth, Moon, Phobos, Deimos, Didymos): every point is flattened
+  onto the reference surface (altitude 0) and consecutive flattened points are measured.
+- **Spherical** (Dimorphos): altitude is the distance from the body centre, so altitude 0
+  would be the centre itself. Each step is measured instead on the sphere through it, of
+  radius √(r₁·r₂) — the horizontal run at the profile's own height. That works in any unit
+  and anywhere on a lumpy body, and is never longer than the 3D step.
 
 **The old *selected as profile* export's `distance` column was the ground distance**, and
 its `elevation` column is now `alt`. The *Profile* preset ticks both, so it reproduces the

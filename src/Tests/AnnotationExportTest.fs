@@ -393,6 +393,73 @@ let tests () =
                 | None -> failtest "no rows"
         }
 
+        // #830: on a Spherical-convention body altitude is the radial distance, so flattening
+        // to altitude 0 put every point on the body centre and groundDistance stayed 0.
+        // tryGroundStep measures each step on the sphere through it instead. All pure F#
+        // (the Spherical convention needs no SPICE), so these always run.
+        testList "ground distance on a Spherical-convention body (#830)" [
+            let at (r : float) (lat : float) (lon : float) =
+                let la, lo = lat * Constant.RadiansPerDegree, lon * Constant.RadiansPerDegree
+                V3d(r * cos la * cos lo, r * cos la * sin lo, r * sin la)
+            let step p q =
+                match CooTransformation.tryGroundStep Planet.Dimorphos p q with
+                | Some d -> d
+                | None -> failtest "Dimorphos has a geographic frame"
+
+            test "a level step is the chord on its own sphere" {
+                let r, dLon = 80.0, 5.0
+                let expected = 2.0 * r * sin (0.5 * dLon * Constant.RadiansPerDegree)
+                Expect.floatClose Accuracy.high (step (at r 0.0 20.0) (at r 0.0 (20.0 + dLon))) expected
+                    "two points at the same height: their straight distance"
+            }
+
+            test "a purely vertical step has no horizontal length" {
+                Expect.floatClose Accuracy.high (step (at 70.0 12.0 34.0) (at 75.0 12.0 34.0)) 0.0
+                    "only the height changes"
+            }
+
+            test "it does not depend on the unit" {
+                let p, q = at 80.0 1.0 2.0, at 83.0 1.5 2.7
+                Expect.floatClose Accuracy.high (step (p * 0.001) (q * 0.001)) (0.001 * step p q)
+                    "the same shape in kilometres measures 1/1000 of it in metres"
+            }
+
+            test "a step is never longer with the height removed" {
+                let rnd = System.Random(830)
+                for _ in 1 .. 200 do
+                    let p = at (60.0 + 30.0 * rnd.NextDouble()) (rnd.NextDouble() * 180.0 - 90.0) (rnd.NextDouble() * 360.0)
+                    let q = at (60.0 + 30.0 * rnd.NextDouble()) (rnd.NextDouble() * 180.0 - 90.0) (rnd.NextDouble() * 360.0)
+                    Expect.isLessThanOrEqual (step p q) (Vec.distance p q + 1e-9) "ground step <= 3D step"
+            }
+
+            test "no frame, no ground step" {
+                Expect.isNone (CooTransformation.tryGroundStep Planet.None V3d.Zero V3d.XAxis)
+                    "Planet.None has no height to remove"
+            }
+
+            test "a climbing line on Dimorphos exports a ground distance between 0 and distance" {
+                // 2 deg of longitude at the equator, climbing 3 m: a ~2.8 m run, 3D ~4.1 m
+                let points = [ for i in 0 .. 10 -> at (80.0 + 0.3 * float i) 0.0 (0.2 * float i) ]
+                let settings =
+                    csvSettings ExportGranularity.PerPoint []
+                        [ PointField.CumulativeDistance; PointField.GroundDistance ]
+                let rows = recordsOn Planet.Dimorphos settings (unsegmentedAnnotation points)
+                match rows |> List.tryLast with
+                | Some last ->
+                    match number "distance" last, number "groundDistance" last with
+                    | Some slanted, Some ground ->
+                        Expect.isGreaterThan ground 0.0 "the horizontal run accumulates (was 0, #830)"
+                        Expect.isLessThan ground slanted "the climb makes the 3D path longer"
+                        let expected = Seq.sum (Seq.pairwise points |> Seq.map (fun (p, q) -> step p q))
+                        Expect.floatClose Accuracy.high ground expected "the sum of the ground steps"
+                    | _ -> failtest "distance or groundDistance missing on the last row"
+                | None -> failtest "no rows"
+                let grounds = rows |> List.choose (number "groundDistance")
+                Expect.equal grounds.Length rows.Length "every row has a groundDistance"
+                Expect.isTrue (grounds |> List.pairwise |> List.forall (fun (a, b) -> b >= a)) "groundDistance is monotonic"
+            }
+        ]
+
         test "a geographic export without a frame is detected, not refused" {
             // Planet.None/JPL/ENU have no lat/lon: the file is still written, but
             // every geographic value in it is empty, which the window warns about

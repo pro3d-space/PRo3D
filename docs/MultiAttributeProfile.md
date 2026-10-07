@@ -69,13 +69,13 @@ Press **Export…** and choose a file.
 ## 3. What comes out
 
 One header row, then one row per sampled point, in the order the annotation runs. For the
-Dimorphos line above: **44 rows, 27 columns.**
+Dimorphos line above: **44 rows, 26 columns.**
 
 ```csv
-key,text,surfaceName,pointIndex,segmentIndex,x,y,z,lat,lon,alt,body,latLonAltSource,stepLength,segmentLength,distance,groundDistance,surface_DRACO_1,surface_DRACO_2,surface_Earth,surface_Elevation,surface_Gravity,surface_LonLatRad,surface_Magnitude,surface_Normal,surface_Potential,surface_Slope
-2a6a5cb6…,,Dimorphos,0,0,-17.86673793028778,-83.17453539188264,8.064056598761464,5.414950318728199,102.12348507179354,85.4532191947919,Dimorphos,spice_reclat,0,43.38934354414176,0,0,157.96401345288248,155.21539467936208;155.21539467936208;155.21539467936208,0.00392156862745098;0.37254901960784315;0.6,62.971735173434816,8.794816374747565E-06;4.441696625325292E-05;-7.098137259917534E-06,257.87650697733926;5.414937103912553;85.45338172285355,4.5847124014892136E-05,-0.3470082115851766;-0.8844589321447753;0.2752987988112416,-0.0030084808771983686,13.786625029890022
-2a6a5cb6…,,Dimorphos,1,0,-16.963069905911592,-83.63249126391267,8.112347803657125,5.430458860470855,101.46568665380471,85.72018153578988,Dimorphos,spice_reclat,1.0142344499557387,43.38934354414176,1.0142344499557387,0,174.88669041037033,176.41363975150682;176.41363975150682;176.41363975150682,0.00392156862745098;0.37254901960784315;0.6,62.67786205413004,8.334434013093306E-06;4.44882343295229E-05;-6.99067052039317E-06,258.534295085002;5.430451137958959;85.72032311675297,4.581414467630833E-05,-0.3297068615419235;-0.8955739519503707;0.2456696414044665,-0.0030240257145326766,12.60507874090586
-2a6a5cb6…,,Dimorphos,2,0,-16.01470911299567,-83.91583556914533,8.143737714305146,5.445328409204593,100.80455051589888,85.81759045324624,Dimorphos,spice_reclat,0.9902815333723957,43.38934354414176,2.0045159833281345,0,211.30923702864794,211.13944617644577;211.13944617644577;211.13944617644577,0.00392156862745098;0.37254901960784315;0.6,62.18989492465736,7.790576081251199E-06;4.4597331585857994E-05;-6.9919025941747054E-06,259.1954417980158;5.445327680502811;85.81772472765563,4.582797199340736E-05,-0.23379989165803897;-0.9131304815661341;0.23711076760287453,-0.00304556615429828,12.643903232664744
+key,text,surfaceName,pointIndex,segmentIndex,x,y,z,lat,lon,alt,body,latLonAltSource,stepLength,segmentLength,distance,groundDistance,surface_DRACO_1,surface_DRACO_2,surface_Elevation,surface_Gravity,surface_LonLatRad,surface_Magnitude,surface_Normal,surface_Potential,surface_Slope
+04d25247…,,Dimorphos,0,0,-17.86673793028778,-83.17453539188264,8.064056598761464,5.414950318728199,102.12348507179354,85.4532191947919,Dimorphos,spice_reclat,0,43.38934354414173,0,0,177.30812350011504;177.30812350011504;177.30812350011504,180.58026045311252;180.58026045311252;180.58026045311252,62.971735173434816,8.794816374747562E-06;4.441696625325292E-05;-7.09813725991753E-06,257.87650697733926;5.414937103912552;85.45338172285355,4.5847124014892136E-05,-0.3470082115851765;-0.8844589321447756;0.2752987988112412,-0.0030084808771983686,13.786625029890011
+04d25247…,,Dimorphos,1,0,-16.96306990591158,-83.63249126391263,8.112347803657121,5.430458860470855,101.46568665380471,85.72018153578983,Dimorphos,spice_reclat,1.0142344499557285,43.38934354414173,1.0142344499557285,0.9784695334888547,187.6462645601079;187.6462645601079;187.6462645601079,187.02891535006745;187.02891535006745;187.02891535006745,62.67786205413003,8.334434013093306E-06;4.448823432952289E-05;-6.990670520393172E-06,258.53429508500193;5.4304511379589595;85.72032311675297,4.5814144676308326E-05,-0.3297068615419236;-0.8955739519503706;0.2456696414044667,-0.0030240257145326766,12.60507874090586
+04d25247…,,Dimorphos,2,0,-16.014709112995675,-83.91583556914534,8.143737714305148,5.445328409204594,100.80455051589888,85.81759045324625,Dimorphos,spice_reclat,0.9902815333723984,43.38934354414173,2.004515983328127,1.963948614006731,206.86055382355423;206.86055382355423;206.86055382355423,204.8591038782363;204.8591038782363;204.8591038782363,62.18989492465737,7.790576081251202E-06;4.4597331585857994E-05;-6.9919025941747054E-06,259.1954417980158;5.445327680502812;85.81772472765563,4.5827971993407365E-05,-0.23379989165803947;-0.913130481566134;0.23711076760287456,-0.0030455661542982803,12.643903232664744
 ```
 
 *(`key` shortened for width. The real file carries the full GUID on every row, and it is a
@@ -94,13 +94,14 @@ fresh one per annotation, so re-running this will not reproduce that column.)*
 | `stepLength` | distance to the previous point (~1 m here — the sampling amount) |
 | `segmentLength` | total length of the segment, repeated on each of its rows (43.39 m) |
 | `distance` | running length from the first point, through 3D space — **the x-axis of the profile** |
-| `groundDistance` | running length with the height removed. **0 on Dimorphos — see the warning below** |
+| `groundDistance` | running length with the height removed — see [the note below](#grounddistance-on-a-small-body) |
 | `surface_<layer>` | one per OPC layer sampled under the point, alphabetically |
 
-The ten `surface_` columns are the whole point: `surface_Elevation`, `surface_Gravity`,
+The nine `surface_` columns are the whole point: `surface_Elevation`, `surface_Gravity`,
 `surface_Slope`, `surface_Potential`, `surface_Magnitude`, `surface_LonLatRad`,
-`surface_Normal`, `surface_DRACO_1`, `surface_DRACO_2` and `surface_Earth` — every layer
-this OPC ships, sampled at each point of the line.
+`surface_Normal`, `surface_DRACO_1` and `surface_DRACO_2` — every per-vertex layer this OPC
+ships, sampled at each point of the line. Its `Earth` layer exists only as a texture, and
+point samples read per-vertex layers only, so it has no column.
 
 Multi-channel layers stay in **one** cell, semicolon-separated. In this dataset
 `surface_DRACO_2`, `surface_Gravity`, `surface_LonLatRad` and
@@ -108,27 +109,15 @@ Multi-channel layers stay in **one** cell, semicolon-separated. In this dataset
 `surface_Magnitude`, `surface_Potential` and `surface_Slope` are single values. Splitting
 them would make the column count depend on which layer a point landed on.
 
-### ⚠ `groundDistance` is 0 on Dimorphos
+### `groundDistance` on a small body
 
-Every row reads `groundDistance = 0`, and that is wrong rather than merely absent — a
-plausible-looking number that silently collapses the x-axis if you plot against it. **Use
-`distance` on this body.**
-
-The cause is a mismatch of what `alt` means. Removing the height works by setting the
-altitude to 0 and transforming back to cartesian. That is right for a **planetographic**
-body, where altitude is a height above the spheroid. Dimorphos is tri-axial with no PCK
-rotation pole, so PRo3D gives it the **spherical** convention, where altitude is the
-*radial distance from the body centre* — and altitude 0 is therefore the body centre
-itself. Every point flattens onto the same spot, consecutive flattened points coincide, and
-nothing accumulates.
-
-This affects every spherical-convention body. On the planetographic ones — Mars, Earth,
-Moon, Phobos, Deimos, Didymos — `groundDistance` measures a real horizontal run, and the
-difference from `distance` is the vertical climb.
-
-Tracked in [#830](https://github.com/pro3d-space/PRo3D/issues/830).
-`annotation-profile-export.spec.ts` asserts this zero as the current behaviour, so fixing
-it will trip the test and bring you back to this page.
+On Dimorphos `alt` is the distance from the body centre rather than a height above a
+reference surface, so the height cannot be removed by setting it to 0 — that is the body
+centre. Each step is measured instead on the sphere through it, at the profile's own height.
+`groundDistance` is therefore the horizontal run where the line actually lies, and never
+longer than `distance`. Up to 6.3.5 it was 0 on every row of such a body
+([#830](https://github.com/pro3d-space/PRo3D/issues/830)). The definition per convention is
+in [Annotation Export](AnnotationExport.md#the-two-distances).
 
 ## Plotting it
 
