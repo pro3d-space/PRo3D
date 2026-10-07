@@ -247,15 +247,16 @@ test("a sky-projected line exports as a multi-attribute profile CSV", async ({ b
         expect(cell(rows[0], "latLonAltSource"), "lat/lon came from SPICE").toBe("spice_reclat");
         expect(cell(rows[0], "body")).toBe("Dimorphos");
 
-        // distance runs through 3D space and must advance along the line
+        // distance runs through 3D space, groundDistance has the height removed, so the
+        // former is never shorter -- and both must advance along the line. On Dimorphos
+        // groundDistance used to be 0 throughout (#830): altitude is the radial distance
+        // there, and flattening to altitude 0 put every point on the body centre.
         const last = rows[rows.length - 1];
-        expect(Number(cell(last, "distance")), "the profile has a length").toBeGreaterThan(0);
-
-        // KNOWN DEFECT #830, asserted as it behaves today so that the fix trips this line:
-        // groundDistance is 0 on every row of a Spherical-convention body, because
-        // AnnotationExport.flatten sets altitude = 0, which on such a body is the body centre.
-        // Once fixed, assert 0 < groundDistance <= distance instead.
-        expect(Number(cell(last, "groundDistance")), "groundDistance on Dimorphos (#830)").toBe(0);
+        const d = Number(cell(last, "distance"));
+        const g = Number(cell(last, "groundDistance"));
+        expect(d, "the profile has a length").toBeGreaterThan(0);
+        expect(g, "the horizontal run accumulates (#830)").toBeGreaterThan(0);
+        expect(g, "the height removed, the run is no longer than the 3D path").toBeLessThanOrEqual(d);
 
         // a stub of the real file, for the documentation's excerpt
         fs.writeFileSync(

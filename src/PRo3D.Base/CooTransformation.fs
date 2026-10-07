@@ -484,6 +484,35 @@ module CooTransformation =
         let sc = { latitude = coordinate.X; longitude = coordinate.Y; altitude = coordinate.Z; radian = 0.0 }
         tryGetXYZFromLatLonAlt sc planet
 
+    /// Horizontal length of the step from `p` to `q`: their distance with the height
+    /// difference removed, the increment of an export's `groundDistance`.
+    ///
+    /// - Planetographic / Ellipsoidal: both points flattened onto the reference surface
+    ///   (altitude 0), then their straight distance.
+    /// - Spherical: altitude is the radial distance from the body centre, so altitude 0
+    ///   would be the centre itself (#830). The step is measured on the sphere through the
+    ///   step instead, of radius sqrt(|p|·|q|): 2·sqrt(|p||q|)·sin(θ/2), θ the angle
+    ///   between them seen from the centre. That is unit-agnostic (a mean radius would tie it
+    ///   to metres), right anywhere on a lumpy body, and never longer than |p − q|.
+    /// - NonPlanetary: None, there is no height to remove.
+    let tryGroundStep (planet : Planet) (p : V3d) (q : V3d) : double option =
+        match getConvention planet with
+        | NonPlanetary -> None
+        | Spherical _ ->
+            let rp = p.Length
+            let rq = q.Length
+            if rp = 0.0 || rq = 0.0 then None
+            // |p̂ − q̂| = 2·sin(θ/2), without acos losing small angles
+            else Some (sqrt (rp * rq) * (p / rp - q / rq).Length)
+        | Ellipsoidal _
+        | Planetographic ->
+            let flatten v =
+                tryGetLatLonAlt planet v
+                |> Option.bind (fun sc -> tryGetXYZFromLatLonAlt { sc with altitude = 0.0 } planet)
+            match flatten p, flatten q with
+            | Some fp, Some fq -> Some (Vec.distance fp fq)
+            | _ -> None
+
     let tryGetHeight (p : V3d) (up : V3d) (planet : Planet) : double option =
         match planet with
         | Planet.None | Planet.JPL | Planet.ENU -> Some (p * up).Length
