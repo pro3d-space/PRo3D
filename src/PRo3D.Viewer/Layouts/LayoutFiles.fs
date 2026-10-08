@@ -25,6 +25,7 @@ module LayoutPanels =
         { id = render;               title = "Main View" }
         { id = "instrumentview";     title = "Instrument View" }
         { id = "mapprojection";      title = "Map Projection" }
+        { id = "imageinspector";     title = "Image Inspector" }
         { id = "surfaces";           title = "Surfaces" }
         { id = "annotations";        title = "Annotations" }
         { id = "scalebars";          title = "ScaleBars" }

@@ -1083,6 +1083,14 @@ module ViewerApp =
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
+        | ImageInspectorHover None, _ ->
+            { m with imageHover = None }
+        | ImageInspectorHover (Some ndc), _ ->
+            match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
+            | Result.Error _ -> { m with imageHover = None }
+            | Ok ctx ->
+                let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
+                { m with imageHover = Some (ImageInspector.hover pick ctx ndc) }
         | MapProjectionMessage msg,_ ->
             { m with mapProjection = PRo3D.MapProjection.MapProjectionApp.update m.mapProjection msg }
         | AnnotationExportMessage msg,_ ->
@@ -2764,6 +2772,7 @@ module ViewerApp =
             scaleBarTexts
             priorityTraverses
             distancePointsText
+            ImageInspector.hoverSg m.imageHover view
         ] |> Sg.ofList
                                  
     /// While a control point is grabbed, shows where it would land: straight lines from the live

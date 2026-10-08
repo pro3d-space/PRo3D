@@ -202,6 +202,9 @@ type ViewerAction =
 | CrossSectionMessage            of CrossSectionAction
 | AnnotationExportMessage        of AnnotationExportAction
 | MapProjectionMessage           of PRo3D.MapProjection.MapProjectionAction
+/// Pointer over the Image Inspector panel, in the selected image's normalised device
+/// coordinates (= the projector's NDC); None when it leaves. See docs/dev/shadowEstimation.md.
+| ImageInspectorHover            of Option<V2d>
 | SBookmarksToPoseDefinition
 | SetUserPreferences             of UserPreferences
 | Nop
@@ -558,6 +561,20 @@ type MultiSelectionBox =
 
 type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
 
+/// The Image Inspector's hovered pixel, unprojected through the selected image's camera and
+/// intersected with the surfaces. Render space. Transient: never persisted.
+type ImageHover =
+    {
+        /// projector NDC of the hovered point, [-1,1]^2
+        ndc       : V2d
+        /// image pixel (0-based, origin top-left), when the image size is known
+        pixel     : Option<V2d>
+        /// unit direction of the camera ray, render space
+        direction : V3d
+        /// surface hit of that ray; None = the ray passed the surfaces
+        hit       : Option<V3d>
+    }
+
 /// Per-vertex attribute values under the 3D cursor, shown in the "Cursor" panel.
 /// Refreshed by the background preview pick, so it only exists while the preview
 /// cursor is enabled and the mouse is over a surface in picking mode.
@@ -681,6 +698,8 @@ type Model = {
 
     surfaceIntersection : Option<SurfaceIntersection>
     cursorAttributes    : Option<CursorAttributes>
+    /// Image Inspector hover (2D -> 3D), see ImageInspector
+    imageHover          : Option<ImageHover>
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
 

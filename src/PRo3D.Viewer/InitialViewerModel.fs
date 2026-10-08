@@ -179,6 +179,7 @@ module Viewer =
             provenanceModel = ProvenanceModel.invalid
             surfaceIntersection   = None
             cursorAttributes      = None
+            imageHover            = None
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()
