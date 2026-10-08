@@ -43,16 +43,9 @@
     <Compile Include="Traverse\WayPointsTraverse.fs" />
     <Compile Include="Traverse\RIMFAXTraverse.fs" />
     <Compile Include="Traverse\RoverTraverse.fs" />
-    <Compile Include="Config.fs" />
     <Compile Include="Models\Model.fs" />
 	<Compile Include="Models\Model.g.fs" />
-    <Compile Include="Models\Lenses.fs" />
     <Compile Include="Utilities.fs" />
-    <Compile Include="MapViewCameraController.fs" />
-    <Compile Include="Navigation-Model.fs" />
-    <Compile Include="Navigation.fs" />
-    <Compile Include="NavigationGizmo.fs" />
-    <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
     <Compile Include="DashboardModes.fs" />
     <Compile Include="Layouts\LegacyDockConfig.fs" />
@@ -156,6 +149,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+    <ProjectReference Include="..\PRo3D.Composition\PRo3D.Composition.fsproj" />
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
     <ProjectReference Include="..\PRo3D.MapProjection\PRo3D.MapProjection.fsproj" />
     <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />

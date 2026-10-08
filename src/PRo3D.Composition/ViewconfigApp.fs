@@ -74,6 +74,21 @@ module ConfigProperties =
         
            
 
+    /// How far one Page Up / Page Down moves the navigation sensitivity.
+    let sensitivityStep = 0.5
+
+    /// Page Up / Page Down step the navigation sensitivity; other keys do nothing here.
+    let actionForKey (model : ViewConfigModel) (k : Aardvark.Application.Keys) : Option<Action> =
+        let set v = SetNavigationSensitivity (Numeric.Action.SetValue v) |> Some
+        match k with
+        | Aardvark.Application.Keys.PageUp   -> set (model.navigationSensitivity.value + sensitivityStep)
+        | Aardvark.Application.Keys.PageDown -> set (model.navigationSensitivity.value - sensitivityStep)
+        | _ -> None
+
+    /// The frustum with the configured near and far plane, keeping field of view and aspect.
+    let withClipPlanes (model : ViewConfigModel) (frustum : Frustum) =
+        Frustum.perspective (Frustum.horizontalFieldOfViewInDegrees frustum) model.nearPlane.value model.farPlane.value (Frustum.aspect frustum)
+
     let view (model : AdaptiveViewConfigModel) =    
         require GuiEx.semui (
             Html.table [      

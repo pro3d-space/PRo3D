@@ -20,8 +20,8 @@ wrong axis. The GIS view says so and switches the frame on request.
 
 | File | Role |
 |------|------|
-| [`src/PRo3D.Viewer/MapViewCameraController.fs`](../src/PRo3D.Viewer/MapViewCameraController.fs) | The controller: map frame, camera constraint, pan/zoom integration |
-| [`src/PRo3D.Viewer/Navigation.fs`](../src/PRo3D.Viewer/Navigation.fs) | Dispatch, per-message configuration, mode switching |
+| [`src/PRo3D.Composition/MapViewCameraController.fs`](../src/PRo3D.Composition/MapViewCameraController.fs) | The controller: map frame, camera constraint, pan/zoom integration |
+| [`src/PRo3D.Composition/Navigation.fs`](../src/PRo3D.Composition/Navigation.fs) | Dispatch, per-message configuration, mode switching |
 | [`src/PRo3D.Base/CooTransformation.fs`](../src/PRo3D.Base/CooTransformation.fs) | `getUpVector`, `tryGetBodyRadius` |
 
 ## Controls

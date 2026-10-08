@@ -175,45 +175,11 @@ module ViewerApp =
               entries = entries }
 
 
-    let mrefConfig : MInnerConfig<AdaptiveViewConfigModel> =
-        {
-            getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
-            getArrowThickness = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
-            getNearDistance   = fun (x:AdaptiveViewConfigModel) -> x.nearPlane.value
-            getHorizontalFieldOfView = fun (x:AdaptiveViewConfigModel) -> 
-                                            x.frustumModel.frustum 
-                                            |> AVal.map Frustum.horizontalFieldOfViewInDegrees
-        }
-    
-    let drawingConfig : DrawingApp.SmallConfig<ReferenceSystem> =
-        { 
-            up     = (ReferenceSystem.up_     >-> V3dInput.value_) |> Aether.toBase
-            north  = (ReferenceSystem.northO_ |> Aether.toBase) //  |. V3dInput.Lens.value)
-            planet = (ReferenceSystem.planet_ |> Aether.toBase)
-        }
-
-    let mdrawingConfig : DrawingApp.MSmallConfig<AdaptiveViewConfigModel> =
-        {            
-            getNearPlane        = fun x -> x.nearPlane.value
-            getHfov             = fun (x:AdaptiveViewConfigModel) -> x.frustumModel.frustum 
-                                                                     |> AVal.map Frustum.horizontalFieldOfViewInDegrees //((AVal.init 60.0) :> aval<float>)
-            getArrowThickness   = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
-            getArrowLength      = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
-            getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
-            getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
-            getPickingTolerance = fun (x:AdaptiveViewConfigModel) -> x.pickingTolerance.value
-        }
-
-    let navConf : Navigation.smallConfig<ViewConfigModel, ReferenceSystem> =
-        {
-            navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
-            up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
-            north                 = ReferenceSystem.north_ >-> V3dInput.value_ |> Aether.toBase
-            northO                = ReferenceSystem.northO_ |> Aether.toBase
-            frustum               = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_ |> Aether.toBase
-            windowSize            = ViewConfigModel.frustumModel_ >-> FrustumModel.windowSize_ |> Aether.toBase
-            planet                = (ReferenceSystem.planet_ |> Aether.toBase)
-        }
+    // The lens configs live in PRo3D.Composition so PRo3D.Lite shares them.
+    let mrefConfig     = PRo3D.Composition.HostConfigs.mrefConfig
+    let drawingConfig  = PRo3D.Composition.HostConfigs.drawingConfig
+    let mdrawingConfig = PRo3D.Composition.HostConfigs.mdrawingConfig
+    let navConf        = PRo3D.Composition.HostConfigs.navConf
 
     /// Which mouse buttons the camera listens to right now. In Direct Tool Mode the
     /// left button belongs to the active tool, so `Navigation.update` drops its
@@ -230,7 +196,8 @@ module ViewerApp =
     /// `DrawingModel` no longer carries draw/pick flags. See docs/DirectToolMode.md.
     let toolArmed (m : Model) : bool = m.ctrlFlag <> m.directToolMode
 
-    let mutable cache = HashMap.Empty
+    /// the KdTrees loaded for surface picking (lazily grown by every intersection)
+    let kdCache = PRo3D.Composition.SurfacePicking.KdTreeCache()
 
     let updateSceneWithNewSurface (m: Model) =
         let sgSurfaces = 
@@ -311,183 +278,159 @@ module ViewerApp =
 
         (newRenderBox, viewBox)
 
-    let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
-        match m.interaction, m.viewerMode with
-        | Interactions.DrawAnnotation, _ -> 
-            let m = 
-                match surf.surfaceType with
-                | SurfaceType.Mesh -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
-                | _ -> m
-            
-            let view = 
-                match m.viewerMode with 
-                | ViewerMode.Standard -> m.navigation.camera.view
-                | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
-
-            let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
-            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
-            //Log.stop()
-            { m with drawing = drawing } |> stash
-        | Interactions.CutAnnotation, _ ->
-            // the cut stroke is a plain picked polyline: no segment sampling, so the hit
-            // function is not needed - straight preview lines suffice and the boolean op
-            // works on the control points alone
-            let view =
-                match m.viewerMode with
-                | ViewerMode.Standard -> m.navigation.camera.view
-                | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
-
-            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing (DrawingAction.AddCutStrokePoint p)
-            { m with drawing = drawing } |> stash
-        | Interactions.EditAnnotation, _ ->
-            // Grabbing a handle is emitted by the annotation scene graph itself, which is the only
-            // place that knows *which* control point is under the cursor. Dropping lands here,
-            // because a vertex is normally dropped away from the annotation, on bare surface.
-            match m.drawing.vertexGrab with
-            | Some grab when grab.movedSinceGrab ->
-                let view =
+    /// Routes a surface pick (the hit point, its surface and the re-projection function) to
+    /// the active interaction. Public so tests can drive it without a renderer.
+    let matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
+        let ctx : PRo3D.Composition.PickRouting.PickContext =
+            {
+                interaction  = m.interaction
+                standardMode = (m.viewerMode = ViewerMode.Standard)
+                view         =
                     match m.viewerMode with
                     | ViewerMode.Standard -> m.navigation.camera.view
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+                shiftFlag    = m.shiftFlag
+                mouseScheme  = mouseScheme m
+                sendQueue    = bc
+                point        = p
+                surface      = surf
+                hitF         = hitFunction
+                observed     = referenceSystem
+            }
+        let inputs : PRo3D.Composition.PickRouting.PickInputs =
+            {
+                drawing    = m.drawing
+                surfaces   = m.scene.surfacesModel
+                refSystem  = m.scene.referenceSystem
+                navigation = m.navigation
+                config     = m.scene.config
+                userPrefs  = m.userPreferences
+                scenePath  = m.scene.scenePath
+            }
 
-                let msg = DrawingAction.MoveVertex(grab.annotation, grab.pointIndex, p, hitFunction)
-                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
-
-                // surfaceName is only ever advisory and nothing re-validates it, so a vertex may
-                // legitimately end up on a different surface than the annotation was drawn on -
-                // but silently is not the way to do it
-                let movedAcrossSurfaces =
-                    match m.drawing.annotations.flat.TryFind grab.annotation with
-                    | Some (Leaf.Annotations a) -> a.surfaceName <> surf.name
-                    | _ -> false
-
-                let m = { m with drawing = drawing } |> stash
-                if movedAcrossSurfaces then
-                    // same 3 s transient top-right overlay "Importing OPCs..." and "scene saved" use
-                    m |> logScreen 3000 (sprintf "vertex moved onto surface \"%s\"" surf.name)
-                else
-                    m
-            | _ ->
-                // Either nothing is grabbed, or this is the very click that grabbed and the cursor
-                // has not moved yet. Both mean "not a drop".
-                m
-        | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->
-            let m = updateUpNorthForPosition p m
-            
-            //update camera upvector
-            SceneLoader.updateCameraUp m
-        | Interactions.PickExploreCenter, ViewerMode.Standard ->
-            let c   = m.scene.config
-            let ref = m.scene.referenceSystem
-            let navigation', feedback = 
-                Navigation.update c ref navConf m.userPreferences true None m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p)) (mouseScheme m)
-            { m with navigation = navigation' }
-            |> logScreenOption 10000 feedback
-        | Interactions.PlaceRover, ViewerMode.Standard ->
-            let ref = m.scene.referenceSystem 
-
-            let addPointMsg = ViewPlanApp.Action.AddPoint(p, ref, cache, (Optic.get _surfacesModel m))
-
-            let outerModel, viewPlans = 
-                ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath ref m
-
-            let m' = 
-                { m with 
-                    scene = { m.scene with viewPlans = viewPlans}  // CHECK-merge
-                    footPrint = outerModel.footPrint 
-                }
-            match m.scene.viewPlans.working with
-            | [] -> m'
-            | _  -> { m' with tabMenu = TabMenu.Viewplanner }
-        | Interactions.PlaceSurface, ViewerMode.Standard -> 
-            let action = (SurfaceAppAction.PlaceSurface(p)) 
-            let surfaceModel =
-                SurfaceApp.update 
-                    m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+        // the interactions every host shares live in PRo3D.Composition.PickRouting; the viewer
+        // adds undo (stash), on-screen feedback and the camera re-up after a coordinate change
+        match PRo3D.Composition.PickRouting.routePick ctx inputs with
+        | PRo3D.Composition.PickRouting.DrawingChanged (drawing, feedback) ->
+            // same 3 s transient top-right overlay "Importing OPCs..." and "scene saved" use
+            { m with drawing = drawing } |> stash |> logScreenOption 3000 feedback
+        | PRo3D.Composition.PickRouting.SurfacesChanged surfaceModel ->
             { m with scene = { m.scene with surfacesModel = surfaceModel } }
-        | Interactions.PickSurface, ViewerMode.Standard -> 
-            let action = SurfaceAppAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf(list.Empty, surf.guid, ""))
-            let surfaceModel' = 
-                SurfaceApp.update
-                   m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
-            { m with scene = { m.scene with surfacesModel = surfaceModel' } }
-        //| Interactions.PickMinervaFilter, ViewerMode.Standard ->
-        //    let action = PRo3D.Minerva.QueryAction.SetFilterLocation p |> PRo3D.Minerva.MinervaAction.QueryMessage
-        //    let minerva = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel action
-        //    { m with minervaModel = minerva }
-        //| Interactions.PickLinking, ViewerMode.Standard ->
-        //    Log.startTimed "Pick Linking - filter"
-        //    let filtered = m.minervaModel.session.filteredFeatures |> IndexList.map (fun f -> f.id) |> IndexList.toList |> HashSet.ofList
-        //    Log.stop()
+        | PRo3D.Composition.PickRouting.RefSystemChanged refSystem ->
+            { m with scene = { m.scene with referenceSystem = refSystem } }
+            //update camera upvector
+            |> SceneLoader.updateCameraUp
+        | PRo3D.Composition.PickRouting.NavigationChanged (navigation, feedback) ->
+            { m with navigation = navigation }
+            |> logScreenOption 10000 feedback
+        | PRo3D.Composition.PickRouting.Unchanged -> m
+        | PRo3D.Composition.PickRouting.Unhandled ->
+            match m.interaction, m.viewerMode with
+            | Interactions.PlaceRover, ViewerMode.Standard ->
+                let ref = m.scene.referenceSystem 
 
-        //    Log.startTimed "Pick Linking - checkPoint"
-        //    let linkingAction, minervaAction = LinkingApp.checkPoint p filtered m.linkingModel
-        //    Log.stop()
+                let addPointMsg = ViewPlanApp.Action.AddPoint(p, ref, kdCache.Trees, (Optic.get _surfacesModel m))
 
-        //    Log.startTimed "Pick Linking - update minerva"
-        //    let minerva' = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel minervaAction
-        //    Log.stop()
+                let outerModel, viewPlans = 
+                    ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath ref m
 
-        //    Log.startTimed "Pick Linking - update linking"
-        //    let linking' = LinkingApp.update m.linkingModel linkingAction
-        //    Log.stop()
-
-        //    { m with linkingModel = linking'; minervaModel = minerva' }
-        | Interactions.TrueThickness, ViewerMode.Standard -> m
-        //    let msg = PlaneExtrude.App.Action.PointsMsg(Utils.Picking.Action.AddPoint p)
-        //    let pe = PlaneExtrude.App.update m.scene.referenceSystem m.scaleTools.planeExtrude msg
-        //    { m with scaleTools = { m.scaleTools with planeExtrude = pe  } }
-        | Interactions.PlaceValidator, ViewerMode.Standard -> 
-            let heightVal = 
-                HeightValidatorApp.update 
-                    m.heighValidation 
-                    m.scene.referenceSystem.up.value 
-                    m.scene.referenceSystem.north.value
-                    (HeightValidatorAction.PlaceValidator p)
-
-            { m with heighValidation = heightVal }
-        | Interactions.PlaceScaleBar, _ ->
-            let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
-            let scm = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem
-            { m with scene = { m.scene with scaleBars = scm } }
-        | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
-            //let action = (SceneObjectAction.PlaceSceneObject(p))
-            let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedTranslation(p)))
-            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
-            { m with scene = { m.scene with sceneObjectsModel = sobjs } }
-        | Interactions.PickPivotPoint, ViewerMode.Standard -> 
-            match m.pivotType with
-            | PickPivot.SurfacePivot     -> 
-                let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                let m' = 
+                    { m with 
+                        scene = { m.scene with viewPlans = viewPlans}  // CHECK-merge
+                        footPrint = outerModel.footPrint 
+                    }
+                match m.scene.viewPlans.working with
+                | [] -> m'
+                | _  -> { m' with tabMenu = TabMenu.Viewplanner }
+            | Interactions.PlaceSurface, ViewerMode.Standard -> 
+                let action = (SurfaceAppAction.PlaceSurface(p)) 
                 let surfaceModel =
-                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                    SurfaceApp.update 
+                        m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
                 { m with scene = { m.scene with surfacesModel = surfaceModel } }
-            //| PickPivot.ScaleBarPivot    -> 
-            //    let action = (ScaleBarsAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
-            //    let scaleBars' =
-            //        ScaleBarsApp.update m.scene.scaleBars action 
-            //    { m with scene = { m.scene with scaleBars = scaleBars' } }
-            | PickPivot.SceneObjectPivot -> 
-                let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
-                let so' =
-                    SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
-                { m with scene = { m.scene with sceneObjectsModel = so' } }
-            | _ -> m
-        | Interactions.PickSurfaceRefSys, ViewerMode.Standard -> 
-            match m.pivotType with
-            | PickPivot.SurfacePivot     -> 
-                let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedReferenceSystem p )) 
-                let surfaceModel =
-                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
-                { m with scene = { m.scene with surfacesModel = surfaceModel } }
-            | PickPivot.SceneObjectPivot -> m
-                //todo
-            | _ -> m
-        | Interactions.PickDistancePoint, _ ->
-            let msg = ViewPlanApp.Action.AddDistancePoint(p)
-            let outerModel, viewPlans = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
-            { m with scene = { m.scene with viewPlans = viewPlans } }
-        | _ -> m       
+            | Interactions.PickSurface, ViewerMode.Standard -> 
+                let action = SurfaceAppAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf(list.Empty, surf.guid, ""))
+                let surfaceModel' = 
+                    SurfaceApp.update
+                       m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                { m with scene = { m.scene with surfacesModel = surfaceModel' } }
+            //| Interactions.PickMinervaFilter, ViewerMode.Standard ->
+            //    let action = PRo3D.Minerva.QueryAction.SetFilterLocation p |> PRo3D.Minerva.MinervaAction.QueryMessage
+            //    let minerva = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel action
+            //    { m with minervaModel = minerva }
+            //| Interactions.PickLinking, ViewerMode.Standard ->
+            //    Log.startTimed "Pick Linking - filter"
+            //    let filtered = m.minervaModel.session.filteredFeatures |> IndexList.map (fun f -> f.id) |> IndexList.toList |> HashSet.ofList
+            //    Log.stop()
+
+            //    Log.startTimed "Pick Linking - checkPoint"
+            //    let linkingAction, minervaAction = LinkingApp.checkPoint p filtered m.linkingModel
+            //    Log.stop()
+
+            //    Log.startTimed "Pick Linking - update minerva"
+            //    let minerva' = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel minervaAction
+            //    Log.stop()
+
+            //    Log.startTimed "Pick Linking - update linking"
+            //    let linking' = LinkingApp.update m.linkingModel linkingAction
+            //    Log.stop()
+
+            //    { m with linkingModel = linking'; minervaModel = minerva' }
+            | Interactions.TrueThickness, ViewerMode.Standard -> m
+            //    let msg = PlaneExtrude.App.Action.PointsMsg(Utils.Picking.Action.AddPoint p)
+            //    let pe = PlaneExtrude.App.update m.scene.referenceSystem m.scaleTools.planeExtrude msg
+            //    { m with scaleTools = { m.scaleTools with planeExtrude = pe  } }
+            | Interactions.PlaceValidator, ViewerMode.Standard -> 
+                let heightVal = 
+                    HeightValidatorApp.update 
+                        m.heighValidation 
+                        m.scene.referenceSystem.up.value 
+                        m.scene.referenceSystem.north.value
+                        (HeightValidatorAction.PlaceValidator p)
+
+                { m with heighValidation = heightVal }
+            | Interactions.PlaceScaleBar, _ ->
+                let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
+                let scm = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem
+                { m with scene = { m.scene with scaleBars = scm } }
+            | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
+                //let action = (SceneObjectAction.PlaceSceneObject(p))
+                let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedTranslation(p)))
+                let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
+                { m with scene = { m.scene with sceneObjectsModel = sobjs } }
+            | Interactions.PickPivotPoint, ViewerMode.Standard -> 
+                match m.pivotType with
+                | PickPivot.SurfacePivot     -> 
+                    let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                    let surfaceModel =
+                        SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                    { m with scene = { m.scene with surfacesModel = surfaceModel } }
+                //| PickPivot.ScaleBarPivot    -> 
+                //    let action = (ScaleBarsAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                //    let scaleBars' =
+                //        ScaleBarsApp.update m.scene.scaleBars action 
+                //    { m with scene = { m.scene with scaleBars = scaleBars' } }
+                | PickPivot.SceneObjectPivot -> 
+                    let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                    let so' =
+                        SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
+                    { m with scene = { m.scene with sceneObjectsModel = so' } }
+                | _ -> m
+            | Interactions.PickSurfaceRefSys, ViewerMode.Standard -> 
+                match m.pivotType with
+                | PickPivot.SurfacePivot     -> 
+                    let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedReferenceSystem p )) 
+                    let surfaceModel =
+                        SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                    { m with scene = { m.scene with surfacesModel = surfaceModel } }
+                | PickPivot.SceneObjectPivot -> m
+                    //todo
+                | _ -> m
+            | Interactions.PickDistancePoint, _ ->
+                let msg = ViewPlanApp.Action.AddDistancePoint(p)
+                let outerModel, viewPlans = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
+                { m with scene = { m.scene with viewPlans = viewPlans } }
+            | _ -> m       
 
     let mutable lastHash = -1    
     let mutable rememberCam = FreeFlyController.initial.view
@@ -1656,81 +1599,29 @@ module ViewerApp =
                     else          
                         Log.startTimed "[PickSurface] try intersect kdtree of %s" name       
                          
-                        let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
-                        let onlyVisible (id : Guid) (l : Leaf) (s : SgSurface) = l.visible
-                        let visibleAndActive (id : Guid) (l : Leaf) (s : SgSurface) = l.visible && l.active
-
                         let surfaceFilter = 
                             match m.interaction with
-                            | Interactions.PickSurface -> visibleAndActive
-                            | _ -> onlyActive
+                            | Interactions.PickSurface -> PRo3D.Composition.SurfacePicking.visibleAndActive
+                            | _ -> PRo3D.Composition.SurfacePicking.onlyActive
 
-                        let hitF (surfaceId : SurfaceId) (camLocation : V3d) (p : V3d) = 
-                            let sky (planet : Planet) =
-                                let up = CooTransformation.getUpVector p planet
-                                let reprojectionDistance =
-                                    match planet with
-                                    | Planet.Mars -> 1000000.0
-                                    | _ -> 100.0
-                                // Sky projection casts DOWN from above the sample point onto
-                                // the surface -- origin p + up*d, direction -up. This used to
-                                // be p - up*d, +up (from below, upward), which only appeared to
-                                // work while getUpVector returned garbage for small bodies; once
-                                // that was fixed the ray unambiguously searched upward (issue
-                                // #628). Matches the preview-pick sky rays above (p + up*5000, -up).
-                                FastRay3d(p + (up * reprojectionDistance), -up)
+                        let observation : PRo3D.Composition.SurfacePicking.Observation =
+                            { observed = observedSystem; observer = observerSystem }
 
-                            let ray =
-                                match m.drawing.projection with
-                                | Projection.Viewpoint -> 
-                                    let dir = (p-camLocation).Normalized
-                                    FastRay3d(camLocation, dir)  
-                                | Projection.Sky -> 
-                                    match PRo3D.Core.Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp surfaceId with
-                                    | None -> 
-                                        sky m.scene.referenceSystem.planet
-                                    | Some ob -> 
-                                        let (EntitySpiceName n) = ob.body
-                                        match CooTransformation.planetFromString n with
-                                        | None -> 
-                                            sky m.scene.referenceSystem.planet
-                                        | Some p -> 
-                                            sky p
-                                | _ -> Log.error "projection started without proj mode"; FastRay3d()
-                   
-                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache Config.diagnosticTimings with
-                            | Some hitInfo, c ->
-                                cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
-                            | None, c ->
-                                cache <- c; None
-                                   
+                        // Sky re-projection casts onto the body the surface is observed on (GIS), else the scene's
+                        let planetOf (surfaceId : SurfaceId) =
+                            match Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp surfaceId with
+                            | None -> m.scene.referenceSystem.planet
+                            | Some ob ->
+                                let (EntitySpiceName n) = ob.body
+                                CooTransformation.planetFromString n |> Option.defaultValue m.scene.referenceSystem.planet
+
                         let result = 
-                            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache Config.diagnosticTimings with
-                            | Some hitInfo, c ->
-                                cache <- c
-                                let surf = hitInfo.surface
-                                let hit = r.GetPointOnRay(hitInfo.hit.RayHit.T)
-
-                                Log.line "[PickSurface] surface hit at %A" hit
-
-                                let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location
-                                let hitF = hitF surf.guid cameraLocation
-
+                            match PRo3D.Composition.SurfacePicking.pickSurface kdCache (Optic.get _surfacesModel m) m.scene.referenceSystem observation surfaceFilter m.drawing.projection planetOf m.navigation.camera.view.Location fray with
+                            | Some pick ->
+                                Log.line "[PickSurface] surface hit at %A" pick.hit
                                 lastHash <- rayHash
-
-                                let observedSystem = observedSystem surf.guid
-                                let spiceTrafo = 
-                                    match observedSystem, observerSystem with
-                                    | Some observedSystem, Some observerSystem -> 
-                                        CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time
-                                        |> Option.map (fun t -> t.Trafo) 
-                                        |> Option.defaultValue Trafo3d.Identity
-                                    | _ -> Trafo3d.Identity
-
-                                let toLocal (v : V3d) = spiceTrafo.Backward.TransformPos(v)
-
-                                matchPickingInteraction sendQueue hit observedSystem (hitF >> Option.map toLocal) surf m                                    
-                            | None, _ -> 
+                                matchPickingInteraction sendQueue pick.hit pick.observed pick.hitF pick.surface m
+                            | None -> 
                                 Log.error "[PickSurface] no hit of %s" name
                                 m
 
@@ -1869,15 +1760,11 @@ module ViewerApp =
                     { m with drawing = drawing }
                 | _ -> m
 
-            let sensitivity = m.scene.config.navigationSensitivity.value
-          
-            let configAction = 
-                match k with 
-                | Aardvark.Application.Keys.PageUp   -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity + 0.5))
-                | Aardvark.Application.Keys.PageDown -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity - 0.5))
-                | _ -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity))
-
-            let c' = ConfigProperties.update m.scene.config configAction
+            // Page Up / Page Down step the navigation sensitivity (shared with PRo3D.Lite)
+            let c' =
+                match ConfigProperties.actionForKey m.scene.config k with
+                | Some configAction -> ConfigProperties.update m.scene.config configAction
+                | None -> m.scene.config
 
             let kind = 
                 match k with
@@ -1949,11 +1836,7 @@ module ViewerApp =
     
             match a with                   
             | ConfigProperties.Action.SetNearPlane _ | ConfigProperties.Action.SetFarPlane _ ->
-                let fov = m.frustum |> Frustum.horizontalFieldOfViewInDegrees
-                let asp = m.frustum |> Frustum.aspect
-                let f' = Frustum.perspective fov c'.nearPlane.value c'.farPlane.value asp                    
-
-                { m with frustum = f' }
+                { m with frustum = ConfigProperties.withClipPlanes c' m.frustum }
             | _ -> m
         | SetMode d,_ -> 
             { m with trafoMode = d }
@@ -2507,37 +2390,20 @@ module ViewerApp =
     let renderControlAttributes (id : string) (m: AdaptiveModel) = 
 
         let renderControlAtts (model: AdaptiveNavigationModel) =
-            amap {
-                let! state = model.navigationMode
-                let! directToolMode = m.directToolMode
-                let! ctrlFlag = m.ctrlFlag
+            // The camera is live whenever *some* mouse button still drives it. In
+            // Direct Tool Mode that is middle (pan), right (orbit) and the wheel,
+            // even while the tool owns the left button - `Navigation.update` drops
+            // the left-button presses rather than unsubscribing the controller, so
+            // you can zoom and pan without letting go of the tool.
+            // The default mode is unchanged: holding Ctrl to use a tool stops the
+            // camera dead, which is what keeps a navigation drag from re-firing a
+            // pick (see docs/story-picking-during-navigation.md).
+            let cameraLive =
+                (m.directToolMode, m.ctrlFlag)
+                ||> AVal.map2 (fun directToolMode ctrlFlag -> directToolMode || not ctrlFlag)
 
-                // The camera is live whenever *some* mouse button still drives it. In
-                // Direct Tool Mode that is middle (pan), right (orbit) and the wheel,
-                // even while the tool owns the left button - `Navigation.update` drops
-                // the left-button presses rather than unsubscribing the controller, so
-                // you can zoom and pan without letting go of the tool.
-                // The default mode is unchanged: holding Ctrl to use a tool stops the
-                // camera dead, which is what keeps a navigation drag from re-firing a
-                // pick (see docs/story-picking-during-navigation.md).
-                let cameraLive = directToolMode || not ctrlFlag
-
-                match state, cameraLive with
-                | NavigationMode.FreeFly, true ->
-                    yield! FreeFlyController.extractAttributes model.camera Navigation.Action.FreeFlyAction
-                | NavigationMode.ArcBall, true ->                         
-                    yield! ArcBallController.extractAttributes model.camera Navigation.Action.ArcBallAction
-                | NavigationMode.MapView, true -> 
-                    yield! MapViewController.extractAttributes model.camera Navigation.Action.MapViewControllerAction
-                | NavigationMode.FreeFly, false                
-                | NavigationMode.ArcBall, false 
-                | NavigationMode.MapView, false ->
-                    yield! AMap.empty
-                
-                | _ -> 
-                    failwith "Invalid NavigationMode"
-            } 
-            |> AttributeMap.ofAMap |> AttributeMap.mapAttributes (AttributeValue.map NavigationMessage)   
+            PRo3D.Composition.NavigationView.controllerAttributes cameraLive model
+            |> AttributeMap.mapAttributes (AttributeValue.map NavigationMessage)
         
         AttributeMap.unionMany [
             renderControlAtts m.navigation
@@ -3019,17 +2885,7 @@ module ViewerApp =
             AnimationApp.ThreadPool.threads m.animations |> ThreadPool.map AnimationMessage
 
         let nav =
-            match m.navigation.navigationMode with
-            | NavigationMode.FreeFly -> 
-                FreeFlyController.threads m.navigation.camera
-                |> ThreadPool.map Navigation.FreeFlyAction |> ThreadPool.map NavigationMessage
-            | NavigationMode.ArcBall ->
-                ArcBallController.threads m.navigation.camera
-                |> ThreadPool.map Navigation.ArcBallAction |> ThreadPool.map NavigationMessage
-            | NavigationMode.MapView ->
-                MapViewController.threads m.navigation.camera
-                |> ThreadPool.map Navigation.MapViewControllerAction |> ThreadPool.map NavigationMessage
-            | _ -> failwith "invalid nav mode"
+            PRo3D.Composition.NavigationView.threads m.navigation |> ThreadPool.map NavigationMessage
          
       //  let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
 

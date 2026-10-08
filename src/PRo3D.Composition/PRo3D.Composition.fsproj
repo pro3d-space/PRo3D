@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Host glue: how a host (PRo3D.Viewer) wires the PRo3D.Core sub-apps
+    together (navigation, picking, pick routing, surface loading, process setup).
+    No [<ModelType>] here, so the project never needs Adaptify. See ai/ARCHITECTURE.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>preview</LangVersion> <!-- https://github.com/dotnet/fsharp/issues/17501 -->
+  </PropertyGroup>
+  <PropertyGroup>
+    <InPublish>False</InPublish>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+    <NoWarn>0686</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release\</OutputPath>
+    <NoWarn>0686</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Config.fs" />
+    <Compile Include="LenseConfigs.fs" />
+    <Compile Include="MapViewCameraController.fs" />
+    <Compile Include="Navigation-Model.fs" />
+    <Compile Include="Navigation.fs" />
+    <Compile Include="NavigationGizmo.fs" />
+    <Compile Include="ViewconfigApp.fs" />
+    <Compile Include="HostConfigs.fs" />
+    <Compile Include="ProcessInit.fs" />
+    <Compile Include="SurfaceLoading.fs" />
+    <Compile Include="AnnotationFiles.fs" />
+    <Compile Include="SurfacePicking.fs" />
+    <Compile Include="PickRouting.fs" />
+    <Compile Include="ReferenceSystemSync.fs" />
+    <Compile Include="NavigationView.fs" />
+    <Compile Include="SurfaceShaders.fs" />
+    <Compile Include="SurfaceView.fs" />
+    <Compile Include="Toolbars.fs" />
+    <Compile Include="CameraOverlay.fs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

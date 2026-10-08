@@ -31,14 +31,7 @@ open PRo3D.ImageMapping
 
 module Gui =            
     
-    let pitchAndBearing (r:AdaptiveReferenceSystem) (view:aval<CameraView>) =
-        adaptive {
-          let! up    = r.up.value
-          let! north = r.northO//r.north.value   
-          let! v     = view
-        
-          return (Calculations.pitch up v.Forward, Calculations.bearing up north v.Forward)
-        }
+    let pitchAndBearing (r:AdaptiveReferenceSystem) (view:aval<CameraView>) = PRo3D.Composition.CameraOverlay.pitchAndBearing r view
 
     let falseColorAttributes =
         [        
@@ -179,122 +172,9 @@ module Gui =
 
         Svg.svg canvasAttributes [ selectionRectangle ]
 
-    let textOverlays (m : AdaptiveReferenceSystem) (cv : aval<CameraView>) = 
-        div [js "oncontextmenu" "event.preventDefault();"] [ 
-            let planet = 
-                m.planet 
-                |> AVal.map(fun x -> 
-                    match x with
-                    | Planet.Mars  -> "Mars (IAU ellipsoid)"
-                    | Planet.Earth -> "Earth (ellipsoid)"
-                    | Planet.JPL   -> "JPL Rover Frame"
-                    | Planet.None  -> "None xyz"          
-                    | Planet.ENU   -> "ENU"
-                    | Planet.Moon  -> "Moon"
-                    | Planet.Deimos -> "Deimos"
-                    | Planet.Phobos -> "Phobos"
-                    | Planet.Dimorphos -> "Dimorphos"
-                    | Planet.Didymos -> "Didymos"
-                    | _ -> "[TextOverlays] missing text representation for selected planet."
-                )  
-            
-            let pnb = pitchAndBearing m cv
+    // the camera readout overlay is shared with PRo3D.Lite (PRo3D.Composition.CameraOverlay)
+    let textOverlays (m : AdaptiveReferenceSystem) (cv : aval<CameraView>) = PRo3D.Composition.CameraOverlay.view m cv
 
-            // Bearing/pitch suppressed on small bodies. The current math
-            // (AnnotationHelpers.bearing/pitch + ReferenceSystem.northVector)
-            // assumes world +Z is the body's north pole and computes pitch
-            // against a global plane through origin -- both wrong for small
-            // irregular bodies like Dimorphos (north pole is -Z in SHM, and
-            // the camera sits a body-radius away from origin). Better to show
-            // nothing than nonsense. See TODOS.md "small-body bearing/pitch
-            // overlay" before re-enabling.
-            let pitch =
-                AVal.map2 (fun (p,_) planet ->
-                    if CooTransformation.isSmallBody planet then "n/a"
-                    else sprintf "%s deg" ((p : float).ToString("0.00"))) pnb m.planet
-            let bearing =
-                AVal.map2 (fun (_,b) planet ->
-                    if CooTransformation.isSmallBody planet then "n/a"
-                    else sprintf "%s deg" ((b : float).ToString("0.00"))) pnb m.planet
-            
-            let position = cv |> AVal.map(fun x -> x.Location.ToString("0.00"))
-            
-            let spericalc =
-                AVal.map2 (fun (a : CameraView) b ->
-                    CooTransformation.tryGetLatLonAlt b a.Location
-                ) cv m.planet
-
-            let altitude =
-                AVal.map2 (fun (a : CameraView) b ->
-                    CooTransformation.tryGetAltitude a.Location a.Up b) cv m.planet
-
-            let formatCoo (project : CooTransformation.SphericalCoo -> string) =
-                spericalc |> AVal.map (function
-                    | Some sc -> project sc
-                    | None    -> "conversion failed (set planet)")
-
-            let lon = formatCoo (fun x -> sprintf "%s deg" ((360.0 - x.longitude).ToString()))
-            let lat = formatCoo (fun x -> sprintf "%s deg" (x.latitude.ToString()))
-
-            let alt2 =
-                altitude |> AVal.map (function
-                    | Some v -> sprintf "%s m" (v.ToString("0.00"))
-                    | None   -> "conversion failed (set planet)")
-
-            let conventionLabel =
-                m.planet |> AVal.map (fun p ->
-                    match CooTransformation.getConvention p with
-                    | CooTransformation.Planetographic    -> "planetographic"
-                    | CooTransformation.Spherical r       -> sprintf "spherical r=%.1fm" r
-                    | CooTransformation.Ellipsoidal _     -> "ellipsoidal"
-                    | CooTransformation.NonPlanetary      -> "n/a")
-                                                   
-            let style' = "color: white; font-family: Roboto Mono"
-            
-            yield div [
-                clazz "ui"; 
-                style "position: absolute; top: 15px; left: 15px; float:left; pointer-events:None" 
-                ] [                
-                yield table [] [
-                    tr [] [
-                        td [style style'] [Incremental.text planet]
-                    ]
-                    tr [] [
-                        td [style style'] [text "Bearing: "]
-                        td [style style'] [Incremental.text bearing]
-                    ]
-                    tr [] [
-                        td [style style'] [text "Pitch: "]
-                        td [style style'] [Incremental.text pitch]
-                    ]
-                    tr [] [
-                        td [style style'] [text "Position: "]
-                        td [style style'] [Incremental.text position]
-                    ]
-                    tr [] [
-                        td [style style'] [text "Latitude: "]
-                        td [style style'] [Incremental.text lat]
-                    ]
-                    tr [] [
-                        td [style style'] [text "Longitude: "]
-                        td [style style'] [Incremental.text lon]
-                    ]
-                    //tr[][
-                    //    td[style style'][text "Altitude: "]
-                    //    td[style style'][Incremental.text alt]
-                    //]
-                    tr [] [
-                        td [style style'] [text "Altitude: "]
-                        td [style style'] [Incremental.text alt2]
-                    ]
-                    tr [] [
-                        td [style style'] [text "Convention: "]
-                        td [style style'] [Incremental.text conventionLabel]
-                    ]
-                ]
-            ]
-        ]
-    
     let textOverlaysInstrumentView (m : AdaptiveViewPlanModel)  = 
         let instrument =
             adaptive {
@@ -368,45 +248,8 @@ module Gui =
     /// colours (Gui.ToolStrip) and the selected-tool label on the secondary toolbar
     /// row - the label is tinted with the active tool's colour so the row visibly
     /// belongs to whichever icon is lit in the strip.
-    module ToolColors =
-        // Held as (r, g, b) rather than a hex string so the same definition yields both
-        // the solid chip colour and a toned down translucent wash of it.
-        let navigation = (0x4a, 0xa3, 0xff)   // blue
-        let annotation = (0x3f, 0xb9, 0x50)   // green
-        let selection  = (0xe3, 0xb3, 0x41)   // amber
-        let placement  = (0xb0, 0x83, 0xf0)   // violet
-        let reference  = (0x4f, 0xd1, 0xc5)   // teal
-        /// interactions that are hidden from the UI and so belong to no group
-        let neutral    = (0xcc, 0xcc, 0xcc)
-
-        let hex ((r, g, b) : int * int * int) = sprintf "#%02x%02x%02x" r g b
-
-        /// Translucent version of a group colour. `alpha` is a CSS literal passed through
-        /// verbatim - formatting a float here would emit a decimal comma under a German
-        /// locale and silently void the declaration.
-        let rgba (alpha : string) ((r, g, b) : int * int * int) =
-            sprintf "rgba(%d, %d, %d, %s)" r g b alpha
-
-        /// Group an interaction belongs to, expressed as its colour. This is also what
-        /// defines the grouping drawn in the tool strip, so an interaction added to a
-        /// group here must be added to the matching block of `ToolStrip.view` too.
-        let ofInteraction (i : Interactions) =
-            match i with
-            | Interactions.DrawAnnotation
-            | Interactions.PickAnnotation
-            | Interactions.CutAnnotation
-            | Interactions.EditAnnotation           -> annotation
-            | Interactions.PickSurface
-            | Interactions.SelectArea               -> selection
-            | Interactions.PlaceRover
-            | Interactions.PickDistancePoint
-            | Interactions.PlaceSceneObject
-            | Interactions.PlaceScaleBar
-            | Interactions.PickPivotPoint           -> placement
-            | Interactions.PlaceCoordinateSystem
-            | Interactions.PickSurfaceRefSys
-            | Interactions.PickExploreCenter        -> reference
-            | _                                     -> neutral
+    /// Shared with PRo3D.Lite (PRo3D.Composition/Toolbars.fs).
+    module ToolColors = PRo3D.Composition.ToolColors
 
     module TopMenu =                       
 
@@ -698,14 +541,8 @@ module Gui =
                 ]
                     
 
-            div [clazz "menu-bar"] [
-                // menu
-                div [ clazz "ui top menu"; style "z-index: 10000; padding:0px; margin:0px"] [
-                    onBoot "$('#__ID__').dropdown('on', 'hover');" (
-                        div [ clazz "ui dropdown item"; style "padding:0px 5px"] [
-                            i [clazz "large sidebar icon"; style "margin:0px 2px"] []
-                            
-                            div [ clazz "ui menu"] [
+            // the hamburger menu frame is shared with PRo3D.Lite (ToolBar.mainMenu)
+            PRo3D.Composition.ToolBar.mainMenu [
             
                                 //import surfaces
                                 div [ clazz "ui dropdown item"; style "width: 150px"] importSurface
@@ -840,10 +677,6 @@ module Gui =
                                             m
                                     ]
                                 ]
-                            ]
-                        ]
-                    )
-                ]
             ]
         
         /// The Transformations model of the single selected surface, or None when nothing
@@ -969,80 +802,11 @@ module Gui =
                 }        
         )
             
-        /// How the hint lines below name the gesture that runs the active tool. Direct
-        /// Tool Mode puts the tool on a plain left click, so the modifier must drop out
-        /// of the text or every hint reads wrong.
-        let private clickGesture (directToolMode : bool) =
-            if directToolMode then "Click"
-            else
-                let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
-                sprintf "%s+click" ctrl
-
-        let interactionText (directToolMode : bool) (i : Interactions) =
-            let click = clickGesture directToolMode
-            match i with
-            | Interactions.PickExploreCenter     -> sprintf "%s to place arcball center" click
-            | Interactions.PlaceCoordinateSystem -> sprintf "%s to place coordinate cross" click
-            | Interactions.DrawAnnotation        -> sprintf "%s to pick point on surface" click
-            | Interactions.PickAnnotation        -> sprintf "%s on annotation to select" click
-            | Interactions.CutAnnotation         -> sprintf "%s to draw separating polyline" click
-            | Interactions.PickSurface           -> sprintf "%s on surface to select" click
-            | Interactions.PlaceRover            -> sprintf "%s to (1) place rover and (2) pick lookat" click
-            | Interactions.TrafoControls         -> "not implemented"
-            | Interactions.PlaceSurface          -> "not implemented"
-            | Interactions.PlaceScaleBar         -> sprintf "%s to place scale bar" click
-            | Interactions.PlaceSceneObject      -> sprintf "%s to place scene object" click
-            | Interactions.PickPivotPoint        -> sprintf "%s to place pivot point" click
-            | Interactions.PickSurfaceRefSys     -> sprintf "%s to place additional reference system for selected surface" click
-            //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
-            | _ -> ""
-
-        /// As interactionText, but also reflects whether a control point is currently in hand.
-        /// Click-to-grab has no drag affordance to feel out, so the hint line is most of what makes
-        /// the gesture discoverable.
-        let interactionTextWithState (directToolMode : bool) (i : Interactions) (grabbed : bool) =
-            let click = clickGesture directToolMode
-            match i with
-            | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click
-            | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it" click
-            | _ -> interactionText directToolMode i
-
-        let interactionTooltip (i : Interactions) : string =
-            match i with 
-            | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
-            | Interactions.PlaceCoordinateSystem -> "Pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
-            | Interactions.PickSurfaceRefSys     -> "Pick a point on the selected surface to give it its own reference system, and choose a unit of measurement to adapt the size of its cross."
-            | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
-            | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
-            | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
-            | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Clicking an annotation selects it."
-            | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
-            | Interactions.SelectArea            -> ""
-            | Interactions.PlaceScaleBar         -> ""
-            | Interactions.PlaceSceneObject      -> ""
-            | Interactions.PickPivotPoint        -> ""
-            | _ -> ""
-
-        /// Display name of the selected tool, shown as the secondary-toolbar chip. Covers
-        /// exactly the interactions reachable from the tool strip (`Gui.ToolStrip.view`);
-        /// hidden interactions fall back to the generic label.
-        let interactionName (i : Interactions) : string =
-            match i with
-            | Interactions.DrawAnnotation        -> "Draw Annotation"
-            | Interactions.PickAnnotation        -> "Select Annotation"
-            | Interactions.CutAnnotation         -> "Cut Annotation"
-            | Interactions.EditAnnotation        -> "Edit Annotation"
-            | Interactions.PickSurface           -> "Select Surface"
-            | Interactions.SelectArea            -> "Select Area"
-            | Interactions.PlaceRover            -> "Place Rover"
-            | Interactions.PickDistancePoint     -> "Place Distance Point"
-            | Interactions.PlaceSceneObject      -> "Place Scene Object"
-            | Interactions.PlaceScaleBar         -> "Place Scalebar"
-            | Interactions.PickPivotPoint        -> "Pick Pivot Point"
-            | Interactions.PlaceCoordinateSystem -> "Place Coordinate System"
-            | Interactions.PickSurfaceRefSys     -> "Place Surface Reference System"
-            | Interactions.PickExploreCenter     -> "Pick Explore Center"
-            | _                                  -> "Tool Settings"
+        // tool names, hints and tooltips are shared with PRo3D.Lite (ToolText)
+        let interactionText          = PRo3D.Composition.ToolText.interactionText
+        let interactionTextWithState = PRo3D.Composition.ToolText.interactionTextWithState
+        let interactionTooltip       = PRo3D.Composition.ToolText.interactionTooltip
+        let interactionName          = PRo3D.Composition.ToolText.interactionName
 
         let directToolModeTooltip =
             "Direct Tool Mode: the active tool runs on the left mouse button, no Ctrl needed. \
@@ -1093,54 +857,9 @@ module Gui =
             | _ -> false
 
         let secondaryToolbarRow (m : AdaptiveModel) =
-            // When the row carries no controls we drop the semantic-ui `item` class so
-            // its trailing vertical divider (`:before`) is not left as a
-            // stray tick; the row keeps its height via `.pro3d-topbar .ui.menu`.
-            let itemAttribs =
-                amap {
-                    let! interaction = m.interaction
-                    if hasSecondaryTools interaction
-                    then yield clazz "item topmenu"
-                    else yield clazz "topmenu pro3d-toolbar-empty"
-                } |> AttributeMap.ofAMap
-
-            // Row label: a white-on-colour chip in the active tool's group colour, showing
-            // the selected tool's name, so the row reads as belonging to whichever icon is
-            // lit in the tool strip.
-            let label =
-                let attribs =
-                    amap {
-                        let! interaction = m.interaction
-                        yield clazz "pro3d-toolsettings-chip"
-                        yield style (sprintf "background:%s"
-                                             (ToolColors.hex (ToolColors.ofInteraction interaction)))
-                    } |> AttributeMap.ofAMap
-                div [clazz "item topmenu pro3d-toolsettings-label"] [
-                    Incremental.div attribs (AList.ofList [
-                        Incremental.text (m.interaction |> AVal.map interactionName) ])
-                ]
-
-            // Ctrl-click hint for the selected tool, flowing straight on after that tool's
-            // settings. It is prose about the tool the strip has selected, so it belongs
-            // with the tool's settings rather than on the main row.
-            let hint =
-                div [clazz "item topmenu"; style "font-style:italic"] [
-                    Incremental.text (
-                        AVal.map3 interactionTextWithState
-                            m.directToolMode
-                            m.interaction
-                            (m.drawing.vertexGrab |> AVal.map Option.isSome))
-                ]
-
-            // The row itself is untinted. To wash it in a toned down version of the active
-            // tool's colour instead, make these attributes incremental and add
-            //   background: ToolColors.rgba "0.16" (ToolColors.ofInteraction interaction)
-            // (`ToolColors.rgba` is kept around for exactly that).
-            div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0"] [
-                label
-                Incremental.div itemAttribs (AList.ofAValSingle (dynamicTopMenu m))
-                hint
-            ]
+            PRo3D.Composition.ToolBar.secondaryRow
+                m.interaction m.directToolMode (m.drawing.vertexGrab |> AVal.map Option.isSome)
+                hasSecondaryTools (dynamicTopMenu m)
 
         let getTopMenu (m:AdaptiveModel) =
             div [clazz "pro3d-topbar"] [
@@ -1168,98 +887,25 @@ module Gui =
     /// that interaction becomes unreachable and (if selected via F-key) shows no active icon.
     module ToolStrip =
 
-        /// One strip button. `isEnabled` is only ever false for MapView without a reference
-        /// body; a disabled button dispatches nothing so the model cannot enter that state.
-        let private button
-            (color     : string)
-            (icon      : string)
-            (isActive  : aval<bool>)
-            (isEnabled : aval<bool>)
-            (tooltip   : string)
-            (action    : 'msg) =
-
-            let attribs =
-                amap {
-                    let! active  = isActive
-                    let! enabled = isEnabled
-                    // active and disabled are independent: MapView can be the current mode
-                    // while the scene has no reference body, and it must still read as the
-                    // one active navigation icon - just greyed out.
-                    let cls =
-                        (if active then "pro3d-tool active" else "pro3d-tool")
-                        + (if enabled then "" else " disabled")
-                    yield clazz cls
-                    yield style (sprintf "--tool-color:%s" color)
-                    if enabled then
-                        yield onClick (fun _ -> action)
-                } |> AttributeMap.ofAMap
-
-            Incremental.div attribs (AList.ofList [ i [clazz (icon + " icon")] [] ])
-            |> UI.wrapToolTip DataPosition.Left tooltip
-
-        let private navButton (icon : string) (tooltip : string) (mode : NavigationMode)
-                              (current : aval<NavigationMode>) (isEnabled : aval<bool>) =
-            button (ToolColors.hex ToolColors.navigation) icon
-                   (current |> AVal.map (fun x -> x = mode))
-                   isEnabled
-                   tooltip
-                   (NavigationMessage (Navigation.Action.SetNavigationMode mode))
-
-        /// The colour is looked up rather than passed in, so `ToolColors.ofInteraction`
-        /// stays the one place that says which group a tool belongs to.
-        let private toolButton (icon : string) (tooltip : string)
-                               (interaction : Interactions) (current : aval<Interactions>) =
-            button (ToolColors.hex (ToolColors.ofInteraction interaction)) icon
-                   (current |> AVal.map (fun x -> x = interaction))
-                   (AVal.constant true)
-                   tooltip
-                   (SetInteraction interaction)
-
-        /// A one-shot command button - it fires an action on the current selection rather
-        /// than switching the interaction mode, so it never reads as "active".
-        let private actionButton (color : string) (icon : string) (tooltip : string) (action : ViewerAction) =
-            button color icon (AVal.constant false) (AVal.constant true) tooltip action
-
-        let private divider = div [clazz "pro3d-tool-divider"] []
-
         let view (m : AdaptiveModel) : DomNode<ViewerAction> =
-            let navMode     = m.navigation.navigationMode
-            let interaction = m.interaction
-
-            // MapView orients to the planet centre with up = north, so it needs a reference
-            // body. Same rule the old dropdown applied via `dropDownDisabled`.
-            let mapViewEnabled =
-                m.scene.referenceSystem.planet |> AVal.map (fun p -> p <> Planet.None)
-
-            let tool icon tooltip i = toolButton icon tooltip i interaction
-
-            // Clicks must not reach the render body underneath: it starts a camera drag /
-            // selection rectangle on mousedown and opens the context menu on right click.
-            // Navigation and tools sit in two separate panels with a small gap, so the
-            // blue navigation group reads as distinct from the interaction tools. Both
-            // panels share the button width and padding, so the icon columns line up.
-            onBoot "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });" (
-                div [clazz "pro3d-toolstrip"] [
-                  // --- navigation panel --------------------------------------------------
-                  div [clazz "pro3d-toolstrip-group"] [
-                    navButton "rocket" "Free fly - move the camera freely"
-                              NavigationMode.FreeFly navMode (AVal.constant true)
-                    // trailing ◎ echoes the bullseye "Pick ArcBall orbit centre" tool
-                    navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point  ◎"
-                              NavigationMode.ArcBall navMode (AVal.constant true)
-                    navButton "map" "Map view - top down, up is north, speed scales with altitude (needs a planet)"
-                              NavigationMode.MapView navMode mapViewEnabled
-                  ]
-
-                  // --- tool panel ------------------------------------------------------
-                  div [clazz "pro3d-toolstrip-group"] [
+            let tool icon tooltip i = PRo3D.Composition.ToolStrip.Tool (icon, tooltip, i)
+            let divider = PRo3D.Composition.ToolStrip.Divider
+            PRo3D.Composition.ToolStrip.view {
+                navigationMode    = m.navigation.navigationMode
+                // MapView orients to the planet centre with up = north, so it needs a body
+                mapViewEnabled    = m.scene.referenceSystem.planet |> AVal.map (fun p -> p <> Planet.None)
+                setNavigationMode = fun mode -> NavigationMessage (Navigation.Action.SetNavigationMode mode)
+                interaction       = m.interaction
+                setInteraction    = SetInteraction
+                tools = [
                     // --- annotations ------------------------------------------------------
                     tool "pencil"        "Draw annotation" Interactions.DrawAnnotation
                     tool "mouse pointer" "Select annotation" Interactions.PickAnnotation
                     tool "cut"           "Cut annotation - draw a stroke that cuts the selected annotation" Interactions.CutAnnotation
-                    actionButton (ToolColors.hex ToolColors.annotation) "pro3d-union"
-                                 "Union selected annotations (2 or more)"
-                                 (ViewerAction.DrawingMessage (DrawingAction.UnionSelectedAnnotations None))
+                    PRo3D.Composition.ToolStrip.Command (
+                        ToolColors.hex ToolColors.annotation, "pro3d-union",
+                        "Union selected annotations (2 or more)",
+                        ViewerAction.DrawingMessage (DrawingAction.UnionSelectedAnnotations None))
                     tool "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
 
                     divider
@@ -1283,9 +929,8 @@ module Gui =
                     tool "pro3d-coordinate-cross" "Place coordinate cross" Interactions.PlaceCoordinateSystem
                     tool "pro3d-surface-ref-sys" "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
                     tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' to set the pivot point to the body center" Interactions.PickExploreCenter
-                  ]
                 ]
-            )
+            }
 
     module Annotations =
       

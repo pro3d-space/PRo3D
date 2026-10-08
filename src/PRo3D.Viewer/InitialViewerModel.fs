@@ -51,12 +51,7 @@ module Viewer =
         }
         messageLoop MailboxState.empty
 
-    let navInit = 
-        let init = NavigationModel.initial
-        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.sensitivity_) 3.0 init
-        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.panFactor_) 0.0008 init
-        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.zoomFactor_) 0.0008 init
-        init        
+    let navInit = PRo3D.Composition.HostConfigs.initialNavigation
 
     let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }   
 

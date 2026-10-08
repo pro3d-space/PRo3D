@@ -194,22 +194,13 @@ module ViewerUtils =
             |> Sg.uniform "MinMax"         (AVal.constant(3000.0)) //(AVal.constant(V2d(0.0,1.0)))
             |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
-    let getLodParameters 
-        (surf:aval<AdaptiveSurface>) 
-        (refsys:AdaptiveReferenceSystem) 
-        (observedSystem : aval<Option<SpiceReferenceSystem>>) 
+    let getLodParameters
+        (surf:aval<AdaptiveSurface>)
+        (refsys:AdaptiveReferenceSystem)
+        (observedSystem : aval<Option<SpiceReferenceSystem>>)
         (observerSystem : aval<Option<ObserverSystem>>)
         (frustum : aval<Frustum>) =
-        adaptive {
-            let! s = surf
-            let! frustum = frustum 
-            let sizes = V2i(1024,768)
-            let! quality = s.quality.value
-            //let! trafo = AVal.map2(fun a b -> a * b) s.preTransform s.transformation.trafo //combine pre and current transform
-            let! trafo =  TransformationApp.fullTrafo s.transformation refsys observedSystem observerSystem //SurfaceTransformations.fullTrafo surf refsys
-            
-            return { frustum = frustum; size = sizes; factor = quality; trafo = trafo }
-        }
+        PRo3D.Composition.SurfaceView.lodParameters surf refsys observedSystem observerSystem frustum
     
     let getLodParameters' (surf:Surface) (frustum : Frustum) =
         let sizes = V2i(1024,768)
@@ -219,23 +210,7 @@ module ViewerUtils =
         { frustum = frustum; size = sizes; factor = Math.Pow(Math.E, quality); trafo = trafo }
             
     let attributeParameters (surf:aval<AdaptiveSurface>) =
-         adaptive {
-            let! s = surf
-            let! scalar = s.selectedScalar
-            let! scalar' = 
-                match scalar with
-                | AdaptiveSome m -> m.label |> AVal.map Some
-                | AdaptiveNone -> AVal.constant None //scalar |> Option.map(fun x -> x.index) //option<aval<int>>
-            
-            let! texture = s.primaryTexture 
-            let attr : AttributeParameters = 
-                {
-                    selectedTexture = texture |> Option.map (fun x -> { texture = TextureReference.LegacyId x.index; channel = ChannelReference.NoChannelSelection })
-                    selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
-                }
-
-            return attr
-        }
+        PRo3D.Composition.SurfaceView.attributeParameters surf
 
     type Vertex = {
         [<Position>]        pos     : V4f
@@ -556,37 +531,21 @@ module ViewerUtils =
 
 
 
-                    |> Sg.withEvents [
-                        if Config.previewIntersections  then
-                            yield SceneEventKind.Move, (
-                                fun sceneHit ->
-                                    let surfacePicking = surfacePicking |> AVal.force
-                                    let surfacePickingActivated = toolArmed m |> AVal.force
-                                    // only show the preview cursor while in picking mode (ctrl held,
-                                    // modulo Direct Tool Mode) - no preview while navigating the camera
-                                    if previewPickingEnabled.GetValue() && surfacePicking && surfacePickingActivated then
-                                        let name  = surf.name |> AVal.force
-                                        true, Seq.ofList [PreviewPickSurface (sceneHit, name, true)]
-                                    else
-                                        true, Seq.empty
-                            )
-                        yield SceneEventKind.Click, (
-                           fun sceneHit -> 
-                                let name  = surf.name |> AVal.force
-                                let surfacePicking = surfacePicking |> AVal.force
-                                let surfacePickingActivated = toolArmed m |> AVal.force
-                                // Tools are on the left button only. In Direct Tool Mode the right
-                                // button orbits the camera, and a right-drag ending on a surface
-                                // would otherwise place a point where the drag happened to stop.
-                                // This is the master gate feeding `matchPickingInteraction`, so it
-                                // covers every place/pick interaction at once.
-                                let leftButton = (sceneHit.event.evtButtons = Aardvark.Application.MouseButtons.Left)
-                                if surfacePicking && surfacePickingActivated && leftButton then
-                                    true, Seq.ofList [PickSurface (sceneHit, name, true)]
-                                else 
-                                    true, Seq.ofList []
-                            )
-                       ]  
+                    // The click is the master gate feeding `matchPickingInteraction` (left button
+                    // only, see SurfaceView.pickEvents); the hover only shows the preview cursor
+                    // while in picking mode (ctrl held, modulo Direct Tool Mode).
+                    |> Sg.withEvents (
+                        PRo3D.Composition.SurfaceView.pickEvents
+                            {
+                                enabled = fun () -> AVal.force surfacePicking && AVal.force (toolArmed m)
+                                preview =
+                                    if Config.previewIntersections then Some (fun () -> previewPickingEnabled.GetValue())
+                                    else None
+                                click   = fun sceneHit name -> PickSurface (sceneHit, name, true)
+                                move    = fun sceneHit name -> PreviewPickSurface (sceneHit, name, true)
+                            }
+                            surf.name
+                    )
                     // handle surface visibility
                     |> Sg.onOff (surf.isVisible) // on off variant
                     //|> structuralOnOff  (surf |> AVal.bind(fun x -> x.isVisible)) // structural variant
@@ -624,57 +583,7 @@ module ViewerUtils =
         (refsys          : AdaptiveReferenceSystem)
         (observedSystem : aval<Option<SpiceReferenceSystem>>) 
         (observerSystem : aval<Option<ObserverSystem>>)=
-
-        adaptive {
-            match! AMap.tryFind surface.surface surfacesMap with
-            | Some (AdaptiveSurfaces surf) -> 
-
-                let createSg (sg : ISg) =
-                        sg 
-                        |> Sg.noEvents 
-                        |> Sg.cullMode(surf.cullMode)
-                        |> Sg.fillMode(surf.fillMode)
-            
-                let triangleFilter = surf.triangleSize.value
-
-                let trafo =
-                        adaptive {
-                            let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys observedSystem observerSystem
-                            let! preTransform = surf.preTransform
-                            let! flipZ = surf.transformation.flipZ
-                            let! sketchFab = surf.transformation.isSketchFab
-                            if flipZ then 
-                                return Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
-                            else if sketchFab then
-                                // TODO https://github.com/pro3d-space/PRo3D/issues/117
-                                // i'm not sure whether swithcYZTrafo is the right one here. Firstly, i think we should change the naming (also in the UI).
-                                // Secondly, do we need this as a third option: 
-                                //return Trafo3d.FromOrthoNormalBasis(V3d.IOO,-V3d.OIO,-V3d.OOI)
-                                // this was here before:
-                                return Sg.switchYZTrafo
-                            else
-                                return (fullTrafo * preTransform)
-                                //return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
-                        }
-            
-                let test =             
-                  surface.sceneGraph
-                    |> AVal.map createSg
-                    |> Sg.dynamic
-                    |> Sg.trafo trafo 
-                    |> Sg.uniform "MaxTriangleSize"   triangleFilter 
-                    |> Sg.onOff (surf.isVisible)
-                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys  observedSystem observerSystem frustum )
-                    |> Sg.noEvents 
-                    |> Sg.effect [
-                        Shader.TriangleFilter.triangleFilter     |> toEffect
-                        Shader.stableTrafo  |> toEffect 
-                        Shader.OPCFilter.improvedDiffuseTexture |> toEffect
-                    ]
-                return test
-            | _ -> 
-                return Sg.empty
-        } |> Sg.dynamic
+        PRo3D.Composition.SurfaceView.simpleSurfaceSg surface surfacesMap frustum refsys observedSystem observerSystem
 
     let getObserverSystem (m : AdaptiveModel) =
         Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
@@ -762,129 +671,7 @@ module ViewerUtils =
     //    let far = m.scene.config.farPlane.value
     //    (Navigation.UI.frustum near far)
 
-    module Shader =
-
-        open FShade
-
-        type Vertex = {
-            [<Position>]        pos     : V4f
-            [<Color>]           c       : V4f
-            [<TexCoord>]        tc      : V2f
-
-            [<Semantic("ViewSpacePos")>]
-            vp : V4f
-
-            [<Semantic("FootPrintProj")>]
-            tc0     : V4f
-
-            [<Normal>] 
-            n : V3f
-
-            [<SourceVertexIndex>]  sourceVertexIndex : int
-        }
-
-        let fixAlpha (v : Vertex) =
-            fragment {
-               return V4f(v.c.X, v.c.Y,v.c.Z, 1.0f)
-            }
-
-        type UniformScope with
-            // size filter stuff
-            member x.MaxTriangleSize : float = x?MaxTriangleSize
-            member x.FilterTriangleEnabled : bool = x?FilterTriangleEnabled
-
-            // filter for distance to home position
-            member x.FilterByDistance : bool = x?FilterByDistance
-            member x.FilterDistance : float32 = x?FilterDistance
-            member x.HomePositionViewSpace : V3f = x?HomePositionViewSpace
-
-
-        // performs all checks in view space
-        let triangleSizeFilter (input : Triangle<Vertex>) =
-            triangle {
-                let p0 = input.P0.vp.XYZ
-                let p1 = input.P1.vp.XYZ
-                let p2 = input.P2.vp.XYZ
-
-                // TriangleSize
-                let maxSize = uniform?MaxTriangleSize
-
-                let a = (p1 - p0)
-                let b = (p2 - p1)
-                let c = (p0 - p2)
-
-                let alpha = a.Length < maxSize
-                let beta  = b.Length < maxSize
-                let gamma = c.Length < maxSize
-
-                let filterDistanceActive : bool = uniform.FilterByDistance
-                let disabled = not uniform.FilterTriangleEnabled
-                let smallTriangle = alpha && beta && gamma
-                // if disabled, let all trianlges pass
-                let validTriangle = disabled || smallTriangle
-
-                if filterDistanceActive then
-                    let filterRange : float32 = uniform.FilterDistance
-                    let homePositionVSp : V3f = uniform.HomePositionViewSpace
-
-                    let inRange =
-                        (Vec.distance homePositionVSp p0) < filterRange &&
-                        (Vec.distance homePositionVSp p1) < filterRange &&
-                        (Vec.distance homePositionVSp p2) < filterRange
-
-                    if validTriangle && inRange then
-                        yield { input.P0 with sourceVertexIndex = 0 } 
-                        yield { input.P1 with sourceVertexIndex = 1 } 
-                        yield { input.P2 with sourceVertexIndex = 2 } 
-                else
-                    if validTriangle then
-                        yield { input.P0 with sourceVertexIndex = 0 } 
-                        yield { input.P1 with sourceVertexIndex = 1 } 
-                        yield { input.P2 with sourceVertexIndex = 2 } 
-            }
-         
-
-        let stableTrafo (v : Vertex) =
-            vertex {
-                let p = uniform.ModelViewProjTrafo * v.pos
-
-                return
-                    { v with
-                        pos = p
-                        c = v.c
-                        vp = uniform.ModelViewTrafo * v.pos
-                    }
-            }
-
-        type UniformScope with
-            member x.HasNormals : bool = x?HasNormals
-
-        let private diffuseSampler =
-            sampler2d {
-                texture uniform.DiffuseColorTexture
-                filter Filter.Anisotropic
-                maxAnisotropy 16
-                addressU WrapMode.Wrap
-                addressV WrapMode.Wrap
-            }
-       
-        let textureOrLightingIfPossible (v : Vertex) =
-            fragment {
-                if uniform.HasDiffuseColorTexture then
-                    let texColor = diffuseSampler.Sample(v.tc,-1.0f) // TODO: to why is -1 being used here as lod offset?
-                    return texColor
-                else
-                    if uniform.HasNormals then 
-                        let ambient = 0.2f
-                        let lView = V3f.OOO - v.vp.XYZ |> Vec.normalize
-                        let nView = uniform.ModelViewTrafo.TransformDir(v.n) |> Vec.normalize
-                        let diffuse = Vec.dot nView lView |> abs
-                        return V4f(v.c.XYZ * diffuse + ambient * V3f.III, 1.0f)
-                    else
-                        return v.c
-            }
-
-       
+    // `module Shader` (surface vertex, stableTrafo, filters) lives in PRo3D.Composition/SurfaceShaders.fs
 
     module CrossSectionShader =
         open FShade
@@ -1917,29 +1704,17 @@ module ViewerUtils =
         curtainSgOpt |> Sg.dynamic
 
     let renderCommands
-        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
+        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>)
         (overlayed      : ISg<ViewerAction>)
         (depthTested    : ISg<ViewerAction>)
         (view           : aval<CameraView>)
-        (allowFootprint : bool) 
-        (allowDepthview : bool) 
-        (runtime        : IRuntime) 
+        (allowFootprint : bool)
+        (allowDepthview : bool)
+        (runtime        : IRuntime)
         (m              : AdaptiveModel)  =
 
         let grouped = createGroupedSgs runtime sgGrouped view allowFootprint allowDepthview m
-
-        alist {
-            for sg in grouped do
-                yield RenderCommand<_>.ClearDepth 1.0
-                yield RenderCommand<_>.ClearDepth 1.0
-                yield RenderCommand<_>.Render sg
-
-            yield RenderCommand<_>.Render depthTested
-            yield RenderCommand<_>.ClearDepth 1.0
-
-            yield RenderCommand<_>.Render overlayed
-
-        }
+        PRo3D.Composition.SurfaceView.renderCommands grouped overlayed depthTested
 
         //alist {
         //    for set in grouped do

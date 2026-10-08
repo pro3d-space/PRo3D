@@ -93,12 +93,12 @@ is no gimbal lock at the moment it is applied.
 
 | File | Role |
 |------|------|
-| [`src/PRo3D.Viewer/NavigationGizmo.fs`](../src/PRo3D.Viewer/NavigationGizmo.fs) | `GizmoAxis` (named by direction: `North`/`South`/`East`/`West`/`Up`/`Down`), `labelOf`, the SVG overlay `view` (circles for the snap, transparent edge hit-lines + yellow highlight for the lock), and the `resolveAxisWorldDir` / `gizmoCameraUp` / `navAxisOf` helpers |
+| [`src/PRo3D.Composition/NavigationGizmo.fs`](../src/PRo3D.Composition/NavigationGizmo.fs) | `GizmoAxis` (named by direction: `North`/`South`/`East`/`West`/`Up`/`Down`), `labelOf`, the SVG overlay `view` (circles for the snap, transparent edge hit-lines + yellow highlight for the lock), and the `resolveAxisWorldDir` / `gizmoCameraUp` / `navAxisOf` helpers |
 | [`src/PRo3D.Core/NavigationConstraint.fs`](../src/PRo3D.Core/NavigationConstraint.fs) | frame helpers shared with the gizmo (`frameOf` / `axisWorldDirection`) and `constrainRotationToAxis` — the swing-twist post-filter the axis lock applies |
 | [`src/PRo3D.Base/Navigation-Model.fs`](../src/PRo3D.Base/Navigation-Model.fs) | `NavigationAxis` (`NorthSouth`/`EastWest`/`UpDown`) and `NavigationModel.lockedAxis : Option<NavigationAxis>` (transient) |
 | [`src/PRo3D.Viewer/Viewer-Model.fs`](../src/PRo3D.Viewer/Viewer-Model.fs) | `ViewerAction.OrientCameraToGizmoAxis of NavigationGizmo.GizmoAxis`, `ViewerAction.ToggleNavigationAxisLock of NavigationAxis` |
 | [`src/PRo3D.Viewer/Viewer/Viewer.fs`](../src/PRo3D.Viewer/Viewer/Viewer.fs) | `updateViewer` handlers: snap (bounding box → framing distance → `CameraView.lookAt` via `_view` + `_animationView`, also clears the lock); `ToggleNavigationAxisLock` toggles `lockedAxis` when the mode allows the axis |
-| [`src/PRo3D.Viewer/Navigation.fs`](../src/PRo3D.Viewer/Navigation.fs) | `Navigation.update` applies `constrainRotationToAxis` in the ArcBall and MapView branches while `lockedAxis` is set; `SetNavigationMode` clears it |
+| [`src/PRo3D.Composition/Navigation.fs`](../src/PRo3D.Composition/Navigation.fs) | `Navigation.update` applies `constrainRotationToAxis` in the ArcBall and MapView branches while `lockedAxis` is set; `SetNavigationMode` clears it |
 | [`src/PRo3D.Viewer/Viewer/ViewerGUI.fs`](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) | yields the gizmo into the `"render"` page's overlay `alist` next to the [tool strip](ToolStrip.md); builds `axisEnabled`, `edgeLockEnabled` (ArcBall any / MapView vertical / FreeFly none) and the `hint` tooltip text |
 
 Design notes:

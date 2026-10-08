@@ -23,70 +23,16 @@ open PRo3D.Viewer
 /// (Named apart from PRo3D.Base.Gis.SceneBody, the pure body/frame table this builds on.)
 module SceneBodySync =
 
-    /// A planet change moves every surface's local reference system (it is built from the
-    /// planet's up/north at the surface) and can leave the drawing tool on a geometry that
-    /// needs a reference body.
-    let private applyPlanetToSurfacesAndDrawing (planet : Planet) (m : Model) =
-        let flat =
-            m.scene.surfacesModel.surfaces.flat
-            |> HashMap.map (fun k v ->
-                match v, HashMap.tryFind k m.scene.surfacesModel.sgSurfaces with
-                | Leaf.Surfaces s, Some sgSurface ->
-                    let bbCenter = sgSurface.globalBB.Center
-                    Leaf.Surfaces {
-                        s with transformation =
-                                    TransformationApp.update s.transformation TransformationApp.Action.UpdatePlanetInLocalRefSys m.scene.referenceSystem bbCenter
-                    }
-                | _ -> v)
-        let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = flat }}}}
-        // the annotation toolbar greys out geometries that need a real reference body
-        // (DnS/TT/ellipses) while Planet.None is selected; drop an active one back to
-        // Line so the drawing tool never sits on a disabled - and for ellipses crashing
-        // - geometry. Line allows every projection, so projection is left untouched.
-        if planet = Planet.None && Geometry.needsReferenceBody m.drawing.geometry then
-            { m with drawing = { m.drawing with geometry = Geometry.Line } }
-        else
-            m
-
-    /// Every derived annotation value depends on the reference system - bearing, slope, dip
-    /// and strike, altitudes - and a Color by Category ramp fitted to the old numbers no
-    /// longer matches them, nor does its legend. Refit, exactly as switching the attribute
-    /// does. fitRange leaves categorical and cyclic attributes alone (a hue wheel has no
-    /// bounds to fit), and a switched-off panel is not touched at all.
-    let private recalculateAnnotations (m : Model) =
-        let refSystem = m.scene.referenceSystem
-        Log.startTimed "[SceneBodySync] recalculating angular values in annos"
-        let flat =
-            m.drawing.annotations.flat
-            |> HashMap.map (fun _ v ->
-                match v with
-                | Leaf.Annotations a ->
-                    let results = Calculations.calculateAnnotationResults a refSystem.up.value refSystem.northO refSystem.planet
-                    let dnsResults = DipAndStrike.reCalculateDipAndStrikeResults refSystem.up.value refSystem.northO a
-                    Leaf.Annotations { a with results = Some results; dnsResults = dnsResults }
-                | _ -> v)
-        Log.stop()
-
-        let colorByCategory =
-            if m.drawing.colorByCategory.enabled then
-                let annotations = flat |> HashMap.toValueList |> List.choose (function Leaf.Annotations a -> Some a | _ -> None)
-                ColorByCategory.update annotations m.drawing.colorByCategory ColorByCategoryAction.FitRangeToData
-            else
-                m.drawing.colorByCategory
-
-        { m with drawing = { m.drawing with annotations = { m.drawing.annotations with flat = flat }; colorByCategory = colorByCategory } }
-
-    /// A reference-system action and everything that follows from it. The camera is the
-    /// caller's: whether its sky moved is a comparison across this call.
+    /// A reference-system action and everything that follows from it for surfaces and
+    /// annotations (PRo3D.Composition.ReferenceSystemSync, shared with PRo3D.Lite). The camera
+    /// is the caller's: whether its sky moved is a comparison across this call.
     let applyReferenceSystemAction (a : ReferenceSystemAction) (m : Model) =
-        let refSystem, _ =
-            ReferenceSystemApp.update m.scene.config LenseConfigs.referenceSystemConfig m.scene.referenceSystem a
-        let m = { m with scene = { m.scene with referenceSystem = refSystem } }
-        let m =
-            match a with
-            | ReferenceSystemAction.SetPlanet planet -> applyPlanetToSurfacesAndDrawing planet m
-            | _ -> m
-        recalculateAnnotations m
+        let refSystem, surfaces, drawing =
+            PRo3D.Composition.ReferenceSystemSync.apply
+                m.scene.config a m.scene.referenceSystem m.scene.surfacesModel m.drawing
+        { m with
+            scene   = { m.scene with referenceSystem = refSystem; surfacesModel = surfaces }
+            drawing = drawing }
 
     /// The planet only; the GIS observation is the caller's.
     let private setPlanetOnly (planet : Planet) (m : Model) =
