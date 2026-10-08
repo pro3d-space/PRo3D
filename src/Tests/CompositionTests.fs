@@ -235,9 +235,70 @@ let pickRouting =
         }
     ]
 
+let liteScene =
+    let coreOf (s : Scene) : SceneCore =
+        {
+            cameraView      = s.cameraView
+            navigationMode  = s.navigationMode
+            exploreCenter   = s.exploreCenter
+            surfaceModel    = s.surfacesModel
+            config          = s.config
+            referenceSystem = s.referenceSystem
+        }
+
+    let parseScene (doc : Chiron.Json) : Scene =
+        doc |> Chiron.Formatting.Json.format |> Chiron.Parsing.Json.parse |> Chiron.Mapping.Json.deserialize
+
+    let fullSceneJson (s : Scene) : Chiron.Json = Chiron.Mapping.Json.serialize s
+
+    let coreKeys = set [ "cameraView"; "navigationMode"; "exploreCenter"; "surfaceModel"; "config"; "referenceSystem"; "scenePath" ]
+
+    testList "LiteScene" [
+
+        test "a scene created from scratch opens in the full viewer" {
+            let initial = (viewerModel ()).scene
+            let core =
+                { coreOf initial with
+                    exploreCenter = V3d(1.0, 2.0, 3.0)
+                    cameraView    = CameraView.lookAt (V3d(10.0, 0.0, 5.0)) V3d.Zero V3d.OOI }
+            let doc = LiteScene.toJson None (Some "x.pro3d") core
+            let scene = parseScene doc
+            Expect.equal scene.version 3 "current version"
+            Expect.equal scene.exploreCenter core.exploreCenter "explore centre"
+            Expect.equal scene.cameraView.Location core.cameraView.Location "camera"
+            Expect.equal scene.referenceSystem.planet core.referenceSystem.planet "planet"
+            Expect.equal (scene.bookmarks.flat |> HashMap.count) 0 "bookmarks default"
+        }
+
+        test "opening and saving a full scene keeps every other key" {
+            let full = fullSceneJson (viewerModel ()).scene
+            match LiteScene.ofJson (Chiron.Formatting.Json.format full) with
+            | Ok (core, extras) ->
+                let moved = { core with exploreCenter = V3d(7.0, 8.0, 9.0) }
+                let saved = LiteScene.toJson (Some extras) (Some "x.pro3d") moved
+                match full, saved with
+                | Chiron.Json.Object before, Chiron.Json.Object after ->
+                    Expect.equal (after |> Map.toList |> List.map fst |> set) (before |> Map.toList |> List.map fst |> set) "same keys"
+                    for KeyValue(k, v) in before do
+                        if not (coreKeys.Contains k) then
+                            Expect.equal (Map.tryFind k after) (Some v) (sprintf "key %s untouched" k)
+                    let scene = parseScene saved
+                    Expect.equal scene.exploreCenter moved.exploreCenter "the edit is saved"
+                | _ -> failtest "scenes are JSON objects"
+            | Result.Error e -> failtestf "could not read a full scene: %s" e
+        }
+
+        test "a file that is not a scene is an Error" {
+            Expect.isError (LiteScene.ofJson "[1,2,3]") "array"
+            Expect.isError (LiteScene.ofJson "{ \"version\": 3 }") "no core keys"
+            Expect.isError (LiteScene.ofJson "{ broken") "malformed"
+        }
+    ]
+
 let tests () =
     testList "composition" [
         annotationFiles
         surfacePicking
         pickRouting
+        liteScene
     ]

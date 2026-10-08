@@ -1,26 +1,25 @@
-﻿FSharp.Core
-
 Aardvark.Base
-FSharp.Data.Adaptive
+Aardvark.Base.Incremental
 Aardvark.Base.FSharp
 
 Aardvark.Rendering
-Aardvark.Base.Incremental
-Aardvark.Rendering.Vulkan
 Aardvark.Application.Slim.GL
 Aardvark.SceneGraph
-Aardvark.SceneGraph.Assimp
+Aardvark.Data.Opc
 Aardvark.Rendering.Text
+Aardvark.Geometry
+Aardvark.Geometry.Intersection
+
+Aardvark.UI.Primitives
 Aardvark.UI.Giraffe
 
 Adaptify.Core
 
+FSharp.Core
 FsPickler
-FsPickler.Json
 
 Aardvark.GeoSpatial.Opc
 OPCViewer.Base
-Uncodium.Eigensystems
-Newtonsoft.Json
+Chiron
 
 Aardium

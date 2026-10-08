@@ -221,8 +221,7 @@ module SunShadowMap =
             |> Sg.compile runtime signature
             |> RenderTask.renderToColorAndDepthWithClear (AVal.constant shadowMapSize) clearValues
 
-        // keep the adaptive render target alive across frames (see PackedRendering /
-        // PRo3D.Lite for the idiom)
+        // keep the adaptive render target alive across frames (see PackedRendering for the idiom)
         depth.Acquire()
         camera, depth
 

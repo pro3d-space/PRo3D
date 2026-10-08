@@ -414,24 +414,28 @@ module Scene =
         }
 
     // added viewPlans
-    let read3 = 
-        json {            
+    //
+    // Only the camera, surfaces, view config and reference system are required. Everything
+    // else defaults when absent, so a scene written by PRo3D.Lite (which writes only that
+    // core, see docs/PRo3DLite.md) opens here too. Optional reads need no version bump.
+    let read3 =
+        json {
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
             let! navigationMode  = Json.read "navigationMode"
-            let! exploreCenter   = Json.read "exploreCenter" 
-            
-            let! interactionMode = Json.read "interactionMode"
+            let! exploreCenter   = Json.read "exploreCenter"
+
+            let! interactionMode = Json.tryRead "interactionMode"
             let! surfaceModel    = Json.read "surfaceModel"
             let! config          = Json.read "config"
-            let! scenePath       = Json.read "scenePath"
+            let! scenePath       = Json.tryRead "scenePath"
             let! referenceSystem = Json.read "referenceSystem"
-            let! bookmarks       = Json.read "bookmarks"
-            let! viewPlans       = Json.read "viewPlans"
+            let! bookmarks       = Json.tryRead "bookmarks"
+            let! viewPlans       = Json.tryRead "viewPlans"
             let! dockConfig      = Json.tryRead<string> "dockConfig"
             let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
-            let! scaleBars       = Json.read "scaleBars" 
-            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
-            let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
+            let! scaleBars       = Json.tryRead "scaleBars"
+            let! sceneObjectsModel      = Json.tryRead "sceneObjectsModel"
+            let! geologicSurfacesModel  = Json.tryRead "geologicSurfacesModel"
             let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
@@ -449,26 +453,26 @@ module Scene =
                     cameraView              = cameraView
                     navigationMode          = navigationMode |> enum<NavigationMode>
                     exploreCenter           = exploreCenter  |> V3d.Parse
-            
-                    interaction             = interactionMode |> enum<InteractionMode>
+
+                    interaction             = interactionMode |> Option.map enum<InteractionMode> |> Option.defaultValue InteractionMode.PickOrbitCenter
                     surfacesModel           = surfaceModel
                     config                  = config
-                    scenePath               = scenePath
+                    scenePath               = scenePath |> Option.flatten
                     referenceSystem         = referenceSystem
-                    bookmarks               = bookmarks
+                    bookmarks               = bookmarks |> Option.defaultValue GroupsModel.initial
 
-                    viewPlans               = viewPlans
+                    viewPlans               = viewPlans |> Option.defaultValue ViewPlanModel.initial
                     legacyDockConfig        = dockConfig
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
-                    scaleBars               = scaleBars
-                    sceneObjectsModel       = sceneObjectsModel
-                    geologicSurfacesModel   = geologicSurfacesModel
+                    scaleBars               = scaleBars |> Option.defaultValue ScaleBarsModel.initial
+                    sceneObjectsModel       = sceneObjectsModel |> Option.defaultValue SceneObjectsModel.initial
+                    geologicSurfacesModel   = geologicSurfacesModel |> Option.defaultValue GeologicSurfacesModel.initial
 
                     traverses               = traverse |> Option.defaultValue(TraverseModel.initial)
-                    sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
-                    comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
+                    sequencedBookmarks      = sequencedBookmarks |> Option.defaultValue SequencedBookmarks.initial
+                    comparisonApp           = comparisonApp |> Option.defaultValue ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
                     gisApp                  = gisApp
