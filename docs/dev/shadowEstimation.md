@@ -163,6 +163,35 @@ phase 61.5° vs. our 61.0°): the sun direction is consistent.
 - UI bug found on the way: a newline inside a text/attribute value froze the whole panel's
   incremental update. Never put `\n` into DOM text or attributes.
 
+### What was actually wrong -- and what was not
+
+The first Didymos results looked broken (depths of 1.4 m and 0.04 m where the mesh showed ~9 m,
+mesh offsets of 5-14 m). The geometry -- projection, sun, triangulation -- was right throughout;
+the SPICE check above proves it. What made it look wrong, in order of weight:
+
+1. **Radial up near the terminator.** The sun sat 0-1° above the radial horizon, so any shadow
+   length converts into almost no depth. The surface tilts ~26° from radial there; above the
+   local horizon the sun is 5-6°. Local up (now the default) is the change that matters for
+   the numbers.
+2. **A UI bug hid the results.** A newline in the read-out froze the panel's incremental update;
+   the second click had succeeded ("trapped at the second click").
+3. **Click placement at grazing light.** 3 px off an edge moved the depth by up to 3 m, and the
+   rim is not an edge but an ~8 px brightness ramp whose casting point is its dark end. Edge
+   snapping fixes it.
+4. **A misleading check of ours.** The green "predicted tip" (first mesh hit of the sun ray from
+   the rim) lands up to 50 m away at grazing light even with ideal clicks. It made reasonable
+   clicks look wrong and started the search for a deeper error. Dropped.
+5. **A wrong trace: "the simulated images are wrong".** A pixel-wise comparison of
+   simulate-image's cast shadows with mesh + sun disagreed on 59 % of the shadow pixels, and
+   rotating the sun by ~13° "fixed" it. The disagreeing pixels were almost all one patch of
+   shadow-map **acne** on a grazing slope, not the crater; the rotation fit was explaining the
+   acne. The crater's shadow matches SPICE. Lesson: look at *where* a disagreement is before
+   fitting a cause to its count.
+
+The acne is real, and known: #805 swept `--shadow-bias` and found 0.002 (still the default on
+develop) acne-prone and 0.006 right. Test frames for this tool should be rendered with
+`--shadow-bias 0.006` until the rebuild of #805 lands.
+
 Kinds: crater (anchor = rim, triangulate the tip away from the sun) and boulder (anchor = shadow
 tip on the ground, triangulate the top towards the sun). Up: local = plane by Newell's method
 through mesh hits of a 24 px ring around the anchor pixel; radial = from the body centre;

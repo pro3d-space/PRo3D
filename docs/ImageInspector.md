@@ -95,6 +95,19 @@ Caveats: a crater's depth is to the shadow tip, not necessarily the floor's deep
 shadow that does not reach the centre underestimates bowl-shaped craters. The sun is treated as
 a point; at low sun the edge of the shadow blurs.
 
+## Pitfalls
+
+- **Grazing light magnifies click errors.** With the sun a few degrees up, one pixel along the
+  shadow is ~10x that in depth. Zoom in, keep **Snap** on, and watch the *mesh offset*: well
+  below a pixel means the clicks sit on the shadow's edges.
+- **Near the terminator, radial up gives depths near zero.** The sun is then almost on the
+  radial horizon; use **Up: local** or **Up: plane**.
+- **A crater rim is a ramp, not an edge.** The brightness fades over several pixels as the
+  crest turns away from the sun; the point that casts the shadow is where it has become dark.
+  Snap takes care of this; without it, click at the dark end.
+- **Simulated test frames** (`pro3d-tool simulate-image`) show shadow-map acne on grazing slopes
+  with the default `--shadow-bias 0.002`; render them with `--shadow-bias 0.006`.
+
 ## What it proves — and what not
 
 The image is drawn exactly the way the projection samples it, so the marker always lands on the
