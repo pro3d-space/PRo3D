@@ -74,7 +74,7 @@ Prove that pixel ↔ world is right before measuring anything.
   image's camera and intersects the surfaces; a constant-screen-size marker sits at the hit, with
   a short segment of the camera ray leading to it. Marker changes colour / hides on a miss.
 - **Hover in 3D → crosshair in 2D** (reverse direction), so both directions are checked live.
-- Hover state is transient (not persisted); hover updates are throttled (one per frame); the
+- Hover state is transient (not persisted); hover picks run on a background worker, latest wins; the
   marker is built in local space and placed with `Sg.trafo` (precision).
 
 What it proves and what not: the marker always lands on the texture pixel being hovered, because
@@ -99,14 +99,17 @@ The ray segment also previews the measurement geometry: camera ray and sun ray m
   `fullTrafo' * preTransform` takes body-fixed → render space; the projection surface is chosen as
   in `flyToImageCamera`.
 - 2D → 3D: `ImageInspectorHover ndc` → ray → `Picking.pickRay` → `Model.imageHover` (transient)
-  → `ImageInspector.hoverSg` in the depth-cleared overlay pass. Client throttles moves to ~30/s.
+  → `ImageInspector.hoverSg`. Every move is sent; `ImageInspector.HoverWorker` picks off the UI
+  thread, latest wins, and posts `HoverResult` back through the mailbox; stale results (the
+  pointer moved on or left) are dropped by request number. A client-side throttle tried
+  earlier lost the final move and was removed.
 - 3D → 2D: `m.surfaceIntersection` (the existing preview pick) projected into the image → cyan
   crosshair.
 
 - Zoom/pan: transient `Model.imageView` (centre + scale over projector NDC) drives the panel's
   ortho camera; pointer positions arrive as panel NDC and go through `ImageView.toImage`.
 
-Open in the spike: nearest-neighbour sampling when zoomed in; picking on the UI thread (move to the background pick thread);
+Open in the spike: nearest-neighbour sampling when zoomed in; measurement clicks still pick on the UI thread;
 the projection-surface choice duplicates `flyToImageCamera` (extract one helper); the existing
 "Selected Image" preview renders png/jpg white (`createInstrumentScene`), the inspector does not.
 
@@ -122,8 +125,48 @@ the projection-surface choice duplicates `flyToImageCamera` (extract one helper)
 - State `Model.shadowMeasure` is transient; **Create scale bar** emits an ordinary
   `ScaleVisualization` (Sky_planet, Pivot.Left, metres) — persisted the old way, so older releases
   show it.
-- Not yet: plane fit for up, persistence of the measurement itself, `docs/ShadowMeasurement.md`
-  split-out, bowl correction, uncertainty from the solar disc.
+- Not yet: persistence of the measurement itself, bowl correction, uncertainty from the solar
+  disc.
+
+### First real test: Didymos (2026-10-09)
+
+Scene `workshop3/didyShadow.pro3d`, frame `AFC1_COP_20270205_170000` (rendered by
+`simulate-image` from the same OPC, `Didymos_SK_OPC__texture/Didymos_ASPECT_texture`,
+`DIDYMOS_FIXED`). Re-rendering it with today's tool reproduces it (r = 0.91, same shadows,
+phase 61.5° vs. our 61.0°): the sun direction is consistent.
+
+- The crater sits next to the terminator. With **radial** up the sun is 0–1° above the horizon
+  and depths came out near zero (1.4 m, 0.04 m) against ~9 m of mesh relief. The local surface
+  there tilts **25.8°** from radial; above the **local** horizon the sun is 5.9° and the depth
+  6.0 m (±0.19 m/px), with the triangulated tip 0.77 m from the mesh — below a pixel.
+  → "up" is the dominant error on small bodies; local up is now the default, radial a toggle.
+- **Verified with SPICE alone.** PRo3D's own pixel rays, intersected with the Didymos DSK
+  (`dskxv`, same shape model as the OPC) and lit/shadowed by `illumf` (its own sun, DSK ray-cast):
+  DSK intercepts match PRo3D's kd-tree hits to 1.4 cm (median); PRo3D's kd-tree + sun occlusion
+  agrees with `illumf` on 99.4 % of 2422 pixels. Replaying the measurement with ideal clicks
+  (rim = last lit, tip = last shadowed pixel per column, 77 columns): mesh offset median 0.22 m
+  at 1.56 m pixels. The chain is right.
+- **simulate-image's crater shadow agrees with SPICE.** It has shadow-map acne on a grazing slope
+  (extra shadow pixels a median 28 px away from any SPICE shadow) -- a renderer artefact, not the
+  crater. A first "13° sun rotation" fit was explaining that acne and was wrong.
+- The ray checks (green: the sun ray from the rim to the mesh; white: the first terrain towards
+  the sun from the tip) were dropped: at grazing sun the ray barely clears the terrain and the
+  first hit lands up to 50 m away even with ideal clicks. The **mesh offset** is the robust check
+  (ideal clicks 0.0-0.2 px, off-edge clicks 0.9-1.2 px; warning above 0.5 px).
+- **Click placement dominates at grazing light.** Clicks 3 px off the edges moved the depth from
+  4.4 m to 3.3-6.3 m. The rim is a gradual brightness ramp (~8 px) as the rounded crest turns
+  away; its casting point is the ramp's dark end, not its middle. **Edge snapping** along the sun
+  line (rim: where the ramp reaches the dark level; shadow end: halfway across the sharp cast
+  edge) brought the same clicks to 4.1-4.6 m.
+- In planned Hera frames the sun line is always vertical: the attitude keeps the sun in the
+  spacecraft x-z plane (sun y-component <= 0.0012 in every sidecar checked).
+- UI bug found on the way: a newline inside a text/attribute value froze the whole panel's
+  incremental update. Never put `\n` into DOM text or attributes.
+
+Kinds: crater (anchor = rim, triangulate the tip away from the sun) and boulder (anchor = shadow
+tip on the ground, triangulate the top towards the sun). Up: local = plane by Newell's method
+through mesh hits of a 24 px ring around the anchor pixel; radial = from the body centre;
+plane = Newell's method through the anchor and >= 2 further clicked points, in angular order.
 
 ## Milestone 2 — measurement
 

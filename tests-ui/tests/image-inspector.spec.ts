@@ -83,13 +83,38 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     const sourceName = firstImage(config.imageDir);
     const source = fs.readFileSync(path.join(config.imageDir, sourceName));
 
+    // look from the image's own viewpoint: the 3D markers are depth-tested real geometry, so
+    // they are only visible where the instrument looked
+    const flown = await gis.evaluate((n) => {
+        const all = Array.from(document.querySelectorAll("*")).filter((e) => (e.textContent ?? "").trim() === n);
+        const deepest = all.filter((e) => !Array.from(e.children).some((c) => all.includes(c)));
+        let el: Element | null = deepest[0] ?? null;
+        while (el) {
+            const icon = el.nextElementSibling?.querySelector("i.location.icon");
+            if (icon) { (icon as HTMLElement).click(); return "clicked"; }
+            el = el.parentElement;
+        }
+        return "no fly-to icon in the row";
+    }, sourceName);
+    expect(flown).toBe("clicked");
+    await render.waitForTimeout(9000); // the animation runs 3.5 s
+
     // --- the panel --------------------------------------------------------------
     const inspector = await context.newPage();
+    // a script error in the panel's page stops it sending events: surface it
+    inspector.on("pageerror", (e) => console.log(`[inspector pageerror] ${e.message}
+${e.stack ?? ""}`));
+    inspector.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") console.log(`[inspector console.${m.type()}] ${m.text()}`); });
     await inspector.setViewportSize({ width: 900, height: 900 });
     await inspector.goto(app.url + "?page=imageinspector");
-    await expect(inspector.locator("text=/^hover: yellow/")).toBeVisible({ timeout: 120_000 });
+    await expect(inspector.locator("text=/^wheel zooms/")).toBeVisible({ timeout: 120_000 });
     const control = inspector.locator("img.rendercontrol");
     await expect(control).toBeVisible({ timeout: 60_000 });
+
+    // The panel must be the foreground page: Chromium delivers mouse moves aligned to
+    // animation frames, and a background page with nothing to redraw (e.g. right after a
+    // reset) may not get one -- the move then never reaches the page, with no error anywhere.
+    await inspector.bringToFront();
 
     // 1. orientation: the panel reproduces the source frame
     const panelShot = await stable(inspector, () => control.screenshot(), "inspector-panel.png");
@@ -104,8 +129,8 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     const box = (await control.boundingBox())!;
     const [fx, fy] = brightCentroid(source);
     await inspector.mouse.move(box.x + fx * box.width, box.y + fy * box.height);
-    await expect(inspector.locator("text=/-> surface hit/")).toBeVisible({ timeout: 60_000 });
-    const pixelAt = async () => (await inspector.locator("text=/-> surface hit/").first().innerText()).match(/pixel \(([\d.]+), ([\d.]+)\)/)!.slice(1).map(Number);
+    await expect(inspector.locator("text=/on the surface$/")).toBeVisible({ timeout: 60_000 });
+    const pixelAt = async () => (await inspector.locator("text=/on the surface$/").first().innerText()).match(/pixel ([\d.]+), ([\d.]+)/)!.slice(1).map(Number);
     const before = await pixelAt();
     await render.waitForTimeout(1500);
     const renderHover = await render.screenshot();
@@ -120,7 +145,7 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     await inspector.mouse.move(box.x + fx * box.width + 1, box.y + fy * box.height);
     await inspector.waitForTimeout(200); // past the client's 33 ms move throttle
     await inspector.mouse.move(box.x + fx * box.width, box.y + fy * box.height);
-    await expect(inspector.locator("text=/-> surface hit/")).toBeVisible({ timeout: 30_000 });
+    await expect(inspector.locator("text=/on the surface$/")).toBeVisible({ timeout: 30_000 });
     const after = await pixelAt();
     console.log(`pixel before zoom ${before}, after ${after}`);
     expect(Math.hypot(after[0] - before[0], after[1] - before[1]), "zoom must keep the pixel under the pointer").toBeLessThan(1.0);
@@ -144,11 +169,11 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     await expect(inspector.locator("text=/zoom 4.0x/")).toHaveCount(0, { timeout: 30_000 });
 
     await inspector.mouse.move(box.x + 0.02 * box.width, box.y + 0.02 * box.height);
-    await expect(inspector.locator("text=/-> no surface hit/")).toBeVisible({ timeout: 30_000 });
+    await expect(inspector.locator("text=/off the surface$/")).toBeVisible({ timeout: 30_000 });
 
     // leaving the panel clears the hover
     await inspector.mouse.move(box.x + box.width + 50, box.y + box.height + 50);
-    await expect(inspector.locator("text=/^hover: yellow/")).toBeVisible({ timeout: 30_000 });
+    await expect(inspector.locator("text=/^wheel zooms/")).toBeVisible({ timeout: 30_000 });
 
     // 3. Ctrl-hover in 3D -> cyan crosshair in the panel
     const vp = render.viewportSize()!;
@@ -175,7 +200,7 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     await inspector.locator("button", { hasText: "Measure shadow" }).click();
     await expect(inspector.locator("text=/click the crater rim/")).toBeVisible({ timeout: 30_000 });
     await inspector.mouse.click(box.x + fx * box.width, box.y + fy * box.height);
-    await expect(inspector.locator("text=/click the shadow tip/")).toBeVisible({ timeout: 30_000 });
+    await expect(inspector.locator("text=/click the end of the shadow/")).toBeVisible({ timeout: 30_000 });
     // the dashed sun line, in percent of the panel
     const sunLine = inspector.locator("svg line");
     await expect(sunLine).toHaveCount(1, { timeout: 30_000 });
@@ -184,7 +209,7 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     // 3 % of the panel along the line, plus a little off it: the click must snap
     const tx = x1 + (x2 - x1) / len * 3 + 0.3, ty = y1 + (y2 - y1) / len * 3 + 0.3;
     await inspector.mouse.click(box.x + tx / 100 * box.width, box.y + ty / 100 * box.height);
-    const result = inspector.locator("text=/^(depth |measure: (?!click))/");
+    const result = inspector.locator("text=/start over$/");
     await expect(result).toBeVisible({ timeout: 30_000 });
     const resultText = await result.innerText();
     console.log(`measurement: ${resultText}`);
@@ -193,9 +218,44 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     await render.waitForTimeout(1500);
     await render.screenshot({ path: path.join(artifacts, "inspector-measure-3d.png") });
 
-    expect(resultText, "the read-out names the phase angle").toMatch(/phase [\d.]+°/);
+    // the details are in the result box
+    await expect(inspector.locator("text=/^Depth [0-9.]+ m$/")).toBeVisible({ timeout: 10_000 });
+    await expect(inspector.locator("text=/^phase$/")).toBeVisible({ timeout: 10_000 });
     await inspector.locator("button", { hasText: "Create scale bar" }).click();
+
+    // Up: plane -- the result waits for two more plane points, then comes back
+    await inspector.bringToFront();
+    await inspector.locator("button", { hasText: "Up: local" }).click();
+    await inspector.locator("button", { hasText: "Up: radial" }).click();
+    await expect(inspector.locator("text=/click 2 more points/")).toBeVisible({ timeout: 30_000 });
+    await inspector.mouse.click(box.x + (fx - 0.04) * box.width, box.y + fy * box.height);
+    await expect(inspector.locator("text=/click 1 more point /")).toBeVisible({ timeout: 30_000 });
+    await inspector.mouse.click(box.x + (fx + 0.04) * box.width, box.y + (fy - 0.02) * box.height);
+    await expect(inspector.locator("text=/^Depth [0-9.]+ m$/")).toBeVisible({ timeout: 30_000 });
+    await expect(inspector.locator("text=/plane, 3 pts/")).toBeVisible({ timeout: 10_000 });
+    await inspector.locator("button", { hasText: "Up: plane" }).click();   // back to local
     const bars = await context.newPage();
     await bars.goto(app.url + "?page=scalebars");
-    await expect(bars.locator("text=/Sky_planet/").first()).toBeVisible({ timeout: 30_000 });
+    // one bar at each end, along the camera's sky
+    // (list entries only: the selected bar's name also appears in its properties)
+    await expect(bars.locator(".item .header", { hasText: "Sky_cam" })).toHaveCount(2, { timeout: 30_000 });
+
+    // 5. boulder height: anchor on the ground, the top triangulated towards the sun
+    await inspector.bringToFront();
+    await inspector.locator("button", { hasText: "Crater depth" }).click();
+    await expect(inspector.locator("text=/boulder's shadow, on the ground/")).toBeVisible({ timeout: 30_000 });
+    await inspector.mouse.click(box.x + fx * box.width, box.y + fy * box.height);
+    await expect(inspector.locator("text=/boulder's top edge/")).toBeVisible({ timeout: 30_000 });
+    const line2 = inspector.locator("svg line");
+    await expect(line2).toHaveCount(1, { timeout: 30_000 });
+    const [bx1, by1, bx2, by2] = await Promise.all(["x1", "y1", "x2", "y2"].map(async (a) => Number(await line2.getAttribute(a))));
+    const blen = Math.hypot(bx2 - bx1, by2 - by1);
+    await inspector.mouse.click(box.x + (bx1 + (bx2 - bx1) / blen * 3) / 100 * box.width, box.y + (by1 + (by2 - by1) / blen * 3) / 100 * box.height);
+    const height = inspector.locator("text=/start over$/");
+    await expect(height).toBeVisible({ timeout: 30_000 });
+    const heightText = await height.innerText();
+    console.log(`boulder: ${heightText}`);
+    expect(heightText, "boulder result").toMatch(/^height [\d.]+ m/);
+    await render.waitForTimeout(1500);
+    await render.screenshot({ path: path.join(artifacts, "inspector-boulder-3d.png") });
 });

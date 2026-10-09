@@ -1094,38 +1094,81 @@ module ViewerApp =
             let view = ImageInspector.updateView m.imageView msg
             match msg with
             | ImageInspectorAction.Hover None ->
+                ImageInspector.HoverWorker.cancel ()
                 { m with imageView = view; imageHover = None }
             | ImageInspectorAction.Hover (Some panel) when view.dragFrom.IsNone ->
                 match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
                 | Result.Error _ -> { m with imageView = view; imageHover = None }
                 | Ok ctx ->
+                    // picked on the hover worker against this model snapshot; the result comes
+                    // back as HoverResult through the mailbox
                     let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
                     let ndc = ImageView.toImage view panel
-                    { m with imageView = view; imageHover = Some (ImageInspector.hover pick ctx ndc) }
+                    ImageInspector.HoverWorker.request
+                        (fun () -> ImageInspector.hover pick ctx ndc)
+                        (fun (id, h) -> mailbox.Post(MailboxAction.ViewerAction (ImageInspectorMessage (ImageInspectorAction.HoverResult(id, h)))))
+                    { m with imageView = view }
+            | ImageInspectorAction.HoverResult (id, h) ->
+                if id = ImageInspector.HoverWorker.latest () then { m with imageHover = Some h } else m
             | ImageInspectorAction.ToggleMeasure ->
                 { m with shadowMeasure = { m.shadowMeasure with active = not m.shadowMeasure.active } }
+            | ImageInspectorAction.ToggleShadowKind ->
+                let kind = if m.shadowMeasure.kind = ShadowKind.Height then ShadowKind.Depth else ShadowKind.Height
+                // the clicks mean something else now: start over
+                { m with shadowMeasure = { ShadowMeasure.initial with active = m.shadowMeasure.active; kind = kind; upMode = m.shadowMeasure.upMode; snap = m.shadowMeasure.snap } }
+            | ImageInspectorAction.ToggleShadowUp ->
+                let s = m.shadowMeasure
+                let next =
+                    match s.upMode with
+                    | ShadowUp.Local -> ShadowUp.Radial
+                    | ShadowUp.Radial -> ShadowUp.Plane
+                    | _ -> ShadowUp.Local
+                let s = { s with upMode = next }
+                match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
+                | Ok ctx ->
+                    let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
+                    { m with shadowMeasure = ImageInspector.remeasure pick ctx s }
+                | Result.Error _ -> { m with shadowMeasure = s }
+            | ImageInspectorAction.ToggleSnap ->
+                { m with shadowMeasure = { m.shadowMeasure with snap = not m.shadowMeasure.snap } }
             | ImageInspectorAction.ClearMeasure ->
-                { m with shadowMeasure = { ShadowMeasure.initial with active = m.shadowMeasure.active } }
+                { m with shadowMeasure = { ShadowMeasure.initial with active = m.shadowMeasure.active; kind = m.shadowMeasure.kind; upMode = m.shadowMeasure.upMode; snap = m.shadowMeasure.snap } }
+            | ImageInspectorAction.Click _ when m.shadowMeasure.active && m.imageView.dragMoved ->
+                Log.line "[ImageInspector] click ignored: it ended a drag"
+                { m with imageView = view }
             | ImageInspectorAction.Click panel when m.shadowMeasure.active && not m.imageView.dragMoved ->
                 match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
                 | Result.Error e -> { m with shadowMeasure = { m.shadowMeasure with result = Some (Result.Error e) } }
                 | Ok ctx ->
                     let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
                     let ndc = ImageView.toImage view panel
-                    { m with imageView = view; shadowMeasure = ImageInspector.click pick ctx m.shadowMeasure ndc }
+                    let sw = System.Diagnostics.Stopwatch.StartNew()
+                    let s = ImageInspector.click pick ctx m.shadowMeasure ndc
+                    Log.line "[ImageInspector] click %A: anchor %b, second %b, %A (%d ms)"
+                        ndc s.anchor.IsSome s.second.IsSome (s.result |> Option.map (Result.map (fun r -> r.value))) sw.ElapsedMilliseconds
+                    { m with imageView = view; shadowMeasure = s }
             | ImageInspectorAction.CreateScaleBar ->
                 match m.shadowMeasure.result with
                 | Some (Ok r) ->
-                    // stands at the tip, points up (Sky_planet = the planet's up there, which
-                    // for a small body in its body-fixed frame is the radial up used here)
-                    let drawing =
-                        { m.scaleBarsDrawing with
-                            orientation = PRo3D.Core.Orientation.Sky_planet
-                            alignment = PRo3D.Core.Pivot.Left
-                            unit = PRo3D.Core.Unit.m
-                            length = { m.scaleBarsDrawing.length with value = Math.Round(r.depth, 2) } }
-                    let msg = ScaleBarsAction.AddScaleBar(r.tip, drawing, m.navigation.camera.view)
-                    { m with scene = { m.scene with scaleBars = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem } }
+                    match m.shadowMeasure.anchor with
+                    | Some (_, anchor) ->
+                        // One bar at each end, both spanning the measured interval along the
+                        // camera's sky: the lower end's bar points up to the upper end's height,
+                        // the upper end's bar (pivot right = it ends at its position) reaches down.
+                        let upper, lower = if Vec.distance anchor r.bottom < 1e-9 then r.point, anchor else anchor, r.point
+                        let bar (position : V3d) (alignment : PRo3D.Core.Pivot) =
+                            let drawing =
+                                { m.scaleBarsDrawing with
+                                    orientation = PRo3D.Core.Orientation.Sky_cam
+                                    alignment = alignment
+                                    unit = PRo3D.Core.Unit.m
+                                    length = { m.scaleBarsDrawing.length with value = Math.Round(r.value, 2) } }
+                            ScaleBarsAction.AddScaleBar(position, drawing, m.navigation.camera.view)
+                        let scaleBars =
+                            [ bar lower PRo3D.Core.Pivot.Left; bar upper PRo3D.Core.Pivot.Right ]
+                            |> List.fold (fun sb msg -> ScaleBarsApp.update sb msg m.scene.referenceSystem) m.scene.scaleBars
+                        { m with scene = { m.scene with scaleBars = scaleBars } }
+                    | None -> m
                 | _ -> m
             | _ ->
                 { m with imageView = view }
@@ -2810,8 +2853,6 @@ module ViewerApp =
             scaleBarTexts
             priorityTraverses
             distancePointsText
-            ImageInspector.hoverSg m.imageHover view
-            ImageInspector.measureSg m.shadowMeasure view
         ] |> Sg.ofList
                                  
     /// While a control point is grabbed, shows where it would land: straight lines from the live
@@ -2963,6 +3004,9 @@ module ViewerApp =
                 surfaceIntersection
                 vertexEdit
                 curtainSg
+                // Image Inspector markers: real geometry, depth-tested against the terrain
+                ImageInspector.hoverSg m.imageHover view
+                ImageInspector.measureSg m.shadowMeasure view
             ] |> Sg.ofList
 
         let heightValidationDiscs =

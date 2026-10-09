@@ -82,11 +82,30 @@ type PickPivot =
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
+/// The Image Inspector's hovered pixel, unprojected through the selected image's camera and
+/// intersected with the surfaces. Render space. Transient: never persisted.
+type ImageHover =
+    {
+        /// projector NDC of the hovered point, [-1,1]^2
+        ndc       : V2d
+        /// image pixel (0-based, origin top-left), when the image size is known
+        pixel     : Option<V2d>
+        /// unit direction of the camera ray, render space (the instrument's viewing axis there)
+        direction : V3d
+        /// the instrument frame at that pixel: image right and image up, render space
+        right     : V3d
+        imageUp   : V3d
+        /// surface hit of that ray; None = the ray passed the surfaces
+        hit       : Option<V3d>
+    }
+
 /// Image Inspector panel events. Positions are *panel* NDC ([-1,1]^2 over the visible
 /// extent, y up); ImageInspector.update maps them through the zoom to projector NDC.
 type ImageInspectorAction =
     /// pointer over the panel; None when it leaves
     | Hover     of Option<V2d>
+    /// a hover picked on the background thread; `request` tells stale results apart
+    | HoverResult of request : int * ImageHover
     /// wheel: zoom by 2^steps about the given panel position
     | Zoom      of steps : float * at : V2d
     | DragStart of V2d
@@ -96,6 +115,11 @@ type ImageInspectorAction =
     /// click without drag: in measure mode, sets the rim, then the shadow tip
     | Click     of V2d
     | ToggleMeasure
+    /// crater depth <-> boulder height
+    | ToggleShadowKind
+    /// local surface -> radial -> plane through clicked points
+    | ToggleShadowUp
+    | ToggleSnap
     | ClearMeasure
     /// a scale bar standing at the shadow tip, as tall as the measured depth
     | CreateScaleBar
@@ -578,20 +602,6 @@ type MultiSelectionBox =
 
 type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
 
-/// The Image Inspector's hovered pixel, unprojected through the selected image's camera and
-/// intersected with the surfaces. Render space. Transient: never persisted.
-type ImageHover =
-    {
-        /// projector NDC of the hovered point, [-1,1]^2
-        ndc       : V2d
-        /// image pixel (0-based, origin top-left), when the image size is known
-        pixel     : Option<V2d>
-        /// unit direction of the camera ray, render space
-        direction : V3d
-        /// surface hit of that ray; None = the ray passed the surfaces
-        hit       : Option<V3d>
-    }
-
 /// The Image Inspector's zoom/pan: the panel shows projector NDC
 /// [center - 1/scale, center + 1/scale]. Transient, like the hover.
 type ImageView =
@@ -604,39 +614,82 @@ type ImageView =
         dragMoved : bool
     }
 
+/// What a shadow measures. Either way, one end comes from the mesh -- the end on terrain a
+/// coarse mesh gets right -- and the other is triangulated along the sun ray.
+type ShadowKind =
+    /// crater: the rim (mesh) casts the shadow; its tip is triangulated away from the sun.
+    /// Depth below the rim.
+    | Depth  = 0
+    /// boulder: the shadow tip lies on the ground (mesh); the top that casts it is
+    /// triangulated towards the sun. Height above the ground.
+    | Height = 1
+
+/// What "up" a shadow measurement uses. On a small body the radial direction can be tilted
+/// far from the local surface, and the sun's elevation -- hence depth or height -- depends on it.
+type ShadowUp =
+    /// the local surface: a plane fitted through mesh hits of pixels around the first click
+    | Local  = 0
+    /// radial from the body centre
+    | Radial = 1
+    /// a plane through the first click and further clicked points (crater rim, or the ground
+    /// around a boulder)
+    | Plane  = 2
+
 /// A shadow measurement's outcome, render space. See docs/dev/shadowEstimation.md.
 type ShadowResult =
     {
-        /// triangulated shadow tip: camera ray through the tip pixel meets the sun ray
-        /// grazing the rim -- independent of the mesh at the tip
-        tip          : V3d
-        /// where the tip pixel's camera ray meets the mesh, for comparison
-        meshTip      : Option<V3d>
-        /// local vertical used (radial from the body centre)
+        /// the triangulated end: camera ray through its pixel meets the sun ray through the
+        /// anchor -- independent of the mesh there
+        point        : V3d
+        /// where that pixel's camera ray meets the mesh, for comparison
+        meshPoint    : Option<V3d>
+        /// the lower end: the shadow tip (crater) or the ground point (boulder)
+        bottom       : V3d
+        /// local frame: up (see ShadowUp) and the horizontal sun azimuth
         up           : V3d
-        depth        : float
+        sunAzimuth   : V3d
+        /// depth (crater) or height (boulder), positive
+        value        : float
         /// horizontal shadow length
         length       : float
         sunElevation : float
-        /// angle between sun and camera at the rim, degrees; near 0 the rays are parallel
+        /// the sun's elevation above the radial horizon, and the angle between the up used
+        /// and radial, degrees
+        radialElevation : float
+        tilt         : float
+        /// ground size of one image pixel at the second point, metres
+        gsd          : Option<float>
+        /// angle between sun and camera, degrees; near 0 the rays are parallel
         phase        : float
-        /// depth change when the tip moves one pixel along the sun line
-        depthPerPixel : Option<float>
+        /// change of `value` when the triangulated end moves one pixel along the sun line
+        perPixel     : Option<float>
     }
 
 /// Shadow measurement state (milestone 2 spike). Transient: never persisted.
 type ShadowMeasure =
     {
         active : bool
-        /// rim pixel (projector NDC) and its mesh hit, render space
-        rim    : Option<V2d * V3d>
-        /// tip pixel, snapped onto the sun line (projector NDC)
-        tip    : Option<V2d>
+        kind   : ShadowKind
+        upMode : ShadowUp
+        /// move clicks along the sun line onto the nearest shadow edge in the image
+        snap   : bool
+        /// first click: pixel (projector NDC) and its mesh hit -- crater rim or boulder
+        /// shadow tip on the ground
+        anchor : Option<V2d * V3d>
+        /// second click, snapped onto the sun line (projector NDC)
+        second : Option<V2d>
+        /// how far edge snapping moved the two clicks, image pixels
+        anchorSnap : Option<float>
+        secondSnap : Option<float>
+        /// further clicks defining the reference plane (ShadowUp.Plane): pixel and mesh hit
+        planePoints : list<V2d * V3d>
         result : Option<Result<ShadowResult, string>>
     }
 
 module ShadowMeasure =
-    let initial = { active = false; rim = None; tip = None; result = None }
+    let initial =
+        { active = false; kind = ShadowKind.Depth; upMode = ShadowUp.Local; snap = true
+          anchor = None; second = None; anchorSnap = None; secondSnap = None; planePoints = []; result = None }
 
 module ImageView =
     let initial = { center = V2d.Zero; scale = 1.0; dragFrom = None; dragMoved = false }
