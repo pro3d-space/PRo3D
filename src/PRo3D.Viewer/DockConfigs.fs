@@ -108,6 +108,7 @@ module DockConfigs =
                         element { id "instrumentview"; title "Instrument View" }
                         element { id "gis";            title "GIS View" }
                         element { id "mapprojection";  title "Map Projection" }
+                        element { id "imageinspector"; title "Image Inspector" }
                     }
                     stack {
                         weight 5

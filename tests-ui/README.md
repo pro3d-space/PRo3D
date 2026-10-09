@@ -55,6 +55,7 @@ Current specs:
 |---|---|
 | `projection-e2e` | **the projection is correct**: generates a frame of the OPC with its sidecar, projects it through the UI, and requires the render to reproduce it (details below) |
 | `projection-smoke` | import → stack → the projection visibly lands on the surface |
+| `image-inspector` | the Image Inspector panel (docs/ImageInspector.md): its render reproduces the selected frame with the identity beating every mirror/rotation (panel and projection agree); hovering an on-body pixel reports a surface hit and draws the 3D marker, a space corner reports none; Ctrl-hovering the 3D view puts the cyan crosshair into the panel |
 | `stack-ui` | add/toggle/reorder/remove through the GIS tab |
 | `hover-flyto` | hover preview + footprint, exact reversion, fly-to camera move |
 | `looking-at-dimorphos` | fly-to lands looking at the body, at the size the sidecar's range predicts |
